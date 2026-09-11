@@ -46,7 +46,7 @@ services:
     image: shenxn/protonmail-bridge:3.9.1-1
     container_name: proton-bridge
     restart: unless-stopped
-    ports: ["10.1.20.40:25:25/tcp"]
+    ports: ["10.1.20.20:25:25/tcp"]
     volumes:
       - /opt/kdk-lab/apps/proton-bridge:/root
 

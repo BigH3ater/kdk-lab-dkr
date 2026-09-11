@@ -12,7 +12,7 @@ PR as any change that adds or moves an address.
 |---|---|---|---|---|
 | kdk-hyp-01 | 10.1.1.100 | 10 | bare metal (R720) | — |
 | kdk-nas-01 | 10.1.3.5 (storage 100.100.100.2) | 1 | bare metal (R730xd) | — |
-| kdk-dkr-01 | 10.1.20.40 (storage 100.100.100.50) | 20 | VM on kdk-hyp-01 | 300 |
+| kdk-dkr-01 | 10.1.20.20 (storage 100.100.100.50) | 20 | VM on kdk-hyp-01 | 300 |
 | kdk-dkr-dmz-01 | 192.168.191.20 (storage 100.100.100.51) | 191 | VM on kdk-nas-01 | — |
 | kdk-dkr-02 (Pi, HA) | 10.1.30.21 | 30 | bare metal Pi 5 | — |
 | kdk-dkr-03 (Pi, HomeKit) | 10.1.30.22 | 30 | bare metal Pi 5 | — |
@@ -25,7 +25,7 @@ PR as any change that adds or moves an address.
 
 | Record | Answer | Serves |
 |---|---|---|
-| *.kmkdp.com | 10.1.20.40 | everything on internal Traefik (kdk-dkr-01) |
+| *.kmkdp.com | 10.1.20.20 | everything on internal Traefik (kdk-dkr-01) |
 | sso, seerr, jellyfin, immich, users .kmkdp.com | 192.168.191.20 | DMZ Traefik (kdk-dkr-dmz-01) |
 | homeassistant, zigbee, nodered, dockge, scrypted, homebridge .kmkdp.com | 10.1.30.21 | Pi Traefik (kdk-dkr-02) |
 

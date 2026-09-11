@@ -6,7 +6,7 @@ this repo on each host and runs the stacks in `stacks/`. Komodo at
 
 | Host | Where | Runs |
 |---|---|---|
-| kdk-dkr-01 (10.1.20.40) | VM 300 on kdk-hyp-01, GTX 1050 Ti | komodo, op-connect, proxy, docs, media, apps, backup |
+| kdk-dkr-01 (10.1.20.20) | VM 300 on kdk-hyp-01, GTX 1050 Ti | komodo, op-connect, proxy, docs, media, apps, backup |
 | kdk-dkr-dmz-01 (192.168.191.20) | VM on kdk-nas-01, Arc A380 | dmz-proxy, identity, dmz-apps, jellyfin, immich |
 | kdk-dkr-02 (10.1.30.21) | Pi 5 | home-assistant stack (adopted) |
 | kdk-dkr-03 (10.1.30.22) | Pi 5 | scrypted-homebridge stack (adopted) |

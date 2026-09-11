@@ -18,7 +18,7 @@ sudo qm set $VMID \
   --cores 12 --memory 49152 --cpu host --machine q35 \
   --net0 virtio,bridge=vmbr0,tag=20 \
   --net1 virtio,bridge=vmbr1,mtu=9000 \
-  --ipconfig0 ip=10.1.20.40/24,gw=10.1.20.1 \
+  --ipconfig0 ip=10.1.20.20/27,gw=10.1.20.1 \
   --ipconfig1 ip=100.100.100.50/24 \
   --nameserver 10.1.1.53 --searchdomain kmkdp.com \
   --hostpci0 0000:42:00,pcie=1 \
