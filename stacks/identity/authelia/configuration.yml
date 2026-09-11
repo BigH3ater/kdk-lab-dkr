@@ -1,0 +1,573 @@
+---
+# yaml-language-server: $schema=https://www.authelia.com/schemas/v4.39/json-schema/configuration.json
+theme: 'light'
+default_2fa_method: ''
+server:
+  address: 'tcp://0.0.0.0:9091/'
+  asset_path: ''
+  headers:
+    csp_template: ""
+  buffers:
+    read: 4096
+    write: 4096
+  timeouts:
+    read: '6 seconds'
+    write: '6 seconds'
+    idle: '30 seconds'
+  endpoints:
+    enable_pprof: false
+    enable_expvars: false
+    authz:
+      auth-request:
+        implementation: 'AuthRequest'
+      ext-authz:
+        implementation: 'ExtAuthz'
+      forward-auth:
+        implementation: 'ForwardAuth'
+    rate_limits:
+      reset_password_start:
+        enable: true
+      reset_password_finish:
+        enable: true
+      second_factor_totp:
+        enable: true
+      second_factor_duo:
+        enable: true
+      session_elevation_start:
+        enable: true
+      session_elevation_finish:
+        enable: true
+      openid_connect_token:
+        enable: true
+      openid_connect_pushed_authorization_request:
+        enable: true
+log:
+  level: 'info'
+  format: 'json'
+  file_path: ''
+  keep_stdout: true
+telemetry:
+  metrics:
+    enabled: false
+identity_validation:
+  elevated_session:
+    code_lifespan: '5 minutes'
+    elevation_lifespan: '10 minutes'
+    characters: 8
+    require_second_factor: false
+    skip_second_factor: false
+  reset_password:
+    jwt_lifespan: '5 minutes'
+    jwt_algorithm: 'HS256'
+totp:
+  disable: false
+  issuer: 'Authelia'
+  skew: 1
+  secret_size: 32
+  algorithm: 'SHA1'
+  digits: 6
+  period: 30
+  allowed_algorithms:
+    - 'SHA1'
+  allowed_digits:
+    - 6
+  allowed_periods:
+    - 30
+webauthn:
+  disable: false
+  enable_passkey_login: true
+  display_name: 'Authelia'
+  attestation_conveyance_preference: 'indirect'
+  timeout: '60 seconds'
+  filtering:
+    permitted_aaguids: []
+    prohibited_aaguids: []
+    prohibit_backup_eligibility: false
+  selection_criteria:
+    attachment: ''
+    discoverability: 'preferred'
+    user_verification: 'required'
+  metadata:
+    enabled: false
+    cache_policy: 'strict'
+    validate_trust_anchor: true
+    validate_entry: true
+    validate_entry_permit_zero_aaguid: false
+    validate_status: true
+    validate_status_permitted: []
+    validate_status_prohibited: []
+ntp:
+  address: 'udp://time.cloudflare.com:123'
+  version: 4
+  max_desync: '3 seconds'
+  disable_startup_check: false
+  disable_failure: false
+authentication_backend:
+  password_reset:
+    disable: false
+    custom_url: ''
+  password_change:
+    disable: false
+  refresh_interval: '5 minutes'
+  ldap:
+    implementation: 'lldap'
+    address: 'ldap://lldap:3890'
+    timeout: '5 seconds'
+    start_tls: false
+    pooling:
+      enable: false
+      count: 5
+      retries: 2
+      timeout: '10 seconds'
+    base_dn: 'dc=kmkdp,dc=com'
+    additional_users_dn: 'ou=people'
+    users_filter: '(&({username_attribute}={input})(objectClass=person))'
+    additional_groups_dn: 'ou=groups'
+    groups_filter: '(member={dn})'
+    group_search_mode: 'filter'
+    permit_referrals: false
+    permit_unauthenticated_bind: false
+    user: 'uid=admin,ou=people,dc=kmkdp,dc=com'
+    attributes:
+      distinguished_name: ''
+      username: 'uid'
+      display_name: 'displayName'
+      family_name: ''
+      given_name: ''
+      middle_name: ''
+      nickname: ''
+      gender: ''
+      birthdate: ''
+      website: ''
+      profile: ''
+      picture: ''
+      zoneinfo: ''
+      locale: ''
+      phone_number: ''
+      phone_extension: ''
+      street_address: ''
+      locality: ''
+      region: ''
+      postal_code: ''
+      country: ''
+      mail:  'mail'
+      member_of:  'memberOf'
+      group_name:  ''
+password_policy:
+  standard:
+    enabled: false
+    min_length: 8
+    max_length: 0
+    require_uppercase: false
+    require_lowercase: false
+    require_number: false
+    require_special: false
+  zxcvbn:
+    enabled: true
+    min_score: 0
+session:
+  name: 'authelia_session'
+  same_site: 'lax'
+  inactivity: '5 minutes'
+  expiration: '1 hour'
+  remember_me: '1 month'
+  cookies:
+    - domain: 'kmkdp.com'
+      authelia_url: 'https://sso.kmkdp.com'
+  redis:
+    host: 'redis'
+    port: 6379
+    database_index: 0
+    maximum_active_connections: 8
+    minimum_idle_connections: 0
+regulation:
+  modes:
+  - 'user'
+  max_retries: 3
+  find_time: '2 minutes'
+  ban_time: '5 minutes'
+storage:
+  postgres:
+    address: 'tcp://authelia-postgres:5432'
+    servers: []
+    timeout: '5 seconds'
+    database: 'authelia'
+    schema: 'public'
+    username: 'authelia'
+notifier:
+  disable_startup_check: true
+  smtp:
+    address: 'submission://smtp.protonmail.ch:587'
+    timeout: '5 seconds'
+    username: 'noreply@kmkdp.com'
+    sender: 'noreply@kmkdp.com'
+    identifier: 'kmkdp.com'
+    subject: '[Authelia] {title}'
+    startup_check_address: 'test@authelia.com'
+    disable_html_emails: false
+    disable_require_tls: false
+    disable_starttls: false
+    tls:
+      server_name: ''
+      skip_verify: false
+      minimum_version: 'TLS1.2'
+      maximum_version: 'TLS1.3'
+identity_providers:
+  oidc:
+    lifespans:
+      access_token: '1 hour'
+      refresh_token: '1 hour and 30 minutes'
+      id_token: '1 hour'
+      authorize_code: '1 minute'
+      device_code: '10 minutes'
+    enforce_pkce: 'public_clients_only'
+    enable_pkce_plain_challenge: false
+    enable_client_debug_messages: false
+    enable_jwt_access_token_stateless_introspection: false
+    minimum_parameter_entropy: 8
+    discovery_signed_response_alg: ''
+    discovery_signed_response_key_id: ''
+    require_pushed_authorization_requests: false
+    authorization_policies:
+      immich_access:
+        default_policy: 'deny'
+        rules:
+        - policy: 'two_factor'
+          subject:
+            - ['group:immich-users']
+      netbox_access:
+        default_policy: 'deny'
+        rules:
+        - policy: 'two_factor'
+          subject:
+            - ['group:netbox-users']
+    jwks:
+      - algorithm: 'RS256'
+        use: 'sig'
+        key_id: 'main'
+        key: {{ secret "/secrets/authelia-app-secrets/oidc_issuer_private_key" | mindent 10 "|" | msquote }}
+    cors:
+      allowed_origins_from_client_redirect_uris: false
+    clients:
+      - client_id: 'netbox'
+        client_name: 'NetBox'
+        client_secret: '{{ secret "/secrets/authelia-app-secrets/netbox_client_secret" }}'
+        public: false
+        redirect_uris:
+          - 'https://netbox.kmkdp.com/oauth/complete/oidc/'
+        scopes:
+          - 'openid'
+          - 'email'
+          - 'profile'
+          - 'groups'
+        grant_types:
+          - 'authorization_code'
+        response_types:
+          - 'code'
+        authorization_policy: 'netbox_access'
+        consent_mode: 'auto'
+        require_pushed_authorization_requests: false
+        require_pkce: false
+        pkce_challenge_method: ''
+        authorization_signed_response_alg: 'RS256'
+        authorization_signed_response_key_id: ''
+        authorization_encrypted_response_key_id: ''
+        authorization_encrypted_response_alg: ''
+        authorization_encrypted_response_enc: ''
+        id_token_signed_response_alg: 'RS256'
+        id_token_signed_response_key_id: ''
+        id_token_encrypted_response_key_id: ''
+        id_token_encrypted_response_alg: ''
+        id_token_encrypted_response_enc: ''
+        access_token_signed_response_alg: 'none'
+        access_token_signed_response_key_id: ''
+        access_token_encrypted_response_key_id: ''
+        access_token_encrypted_response_alg: ''
+        access_token_encrypted_response_enc: ''
+        userinfo_signed_response_alg: 'none'
+        userinfo_signed_response_key_id: ''
+        userinfo_encrypted_response_key_id: ''
+        userinfo_encrypted_response_alg: ''
+        userinfo_encrypted_response_enc: ''
+        introspection_signed_response_alg: 'none'
+        introspection_signed_response_key_id: ''
+        introspection_encrypted_response_key_id: ''
+        introspection_encrypted_response_alg: ''
+        introspection_encrypted_response_enc: ''
+        introspection_endpoint_auth_method: 'client_secret_basic'
+        introspection_endpoint_auth_signing_alg: 'RS256'
+        request_object_signing_alg: ''
+        request_object_encryption_alg: 'none'
+        request_object_encryption_enc: ''
+        token_endpoint_auth_method: 'client_secret_post'
+        token_endpoint_auth_signing_alg: ''
+        revocation_endpoint_auth_method: 'client_secret_basic'
+        revocation_endpoint_auth_signing_alg: 'RS256'
+        pushed_authorization_request_endpoint_auth_method: 'client_secret_basic'
+        pushed_authorization_request_endpoint_auth_signing_alg: 'RS256'
+      - client_id: 'tailscale'
+        client_name: 'Tailscale'
+        client_secret: '{{ secret "/secrets/authelia-app-secrets/tailscale_client_secret" }}'
+        public: false
+        redirect_uris:
+          - 'https://login.tailscale.com/a/oauth_response'
+        scopes:
+          - 'openid'
+          - 'email'
+          - 'profile'
+        grant_types:
+          - 'authorization_code'
+        response_types:
+          - 'code'
+        authorization_policy: 'two_factor'
+        consent_mode: 'auto'
+        require_pushed_authorization_requests: false
+        require_pkce: false
+        pkce_challenge_method: ''
+        authorization_signed_response_alg: 'RS256'
+        authorization_signed_response_key_id: ''
+        authorization_encrypted_response_key_id: ''
+        authorization_encrypted_response_alg: ''
+        authorization_encrypted_response_enc: ''
+        id_token_signed_response_alg: 'RS256'
+        id_token_signed_response_key_id: ''
+        id_token_encrypted_response_key_id: ''
+        id_token_encrypted_response_alg: ''
+        id_token_encrypted_response_enc: ''
+        access_token_signed_response_alg: 'none'
+        access_token_signed_response_key_id: ''
+        access_token_encrypted_response_key_id: ''
+        access_token_encrypted_response_alg: ''
+        access_token_encrypted_response_enc: ''
+        userinfo_signed_response_alg: 'none'
+        userinfo_signed_response_key_id: ''
+        userinfo_encrypted_response_key_id: ''
+        userinfo_encrypted_response_alg: ''
+        userinfo_encrypted_response_enc: ''
+        introspection_signed_response_alg: 'none'
+        introspection_signed_response_key_id: ''
+        introspection_encrypted_response_key_id: ''
+        introspection_encrypted_response_alg: ''
+        introspection_encrypted_response_enc: ''
+        introspection_endpoint_auth_method: 'client_secret_basic'
+        introspection_endpoint_auth_signing_alg: 'RS256'
+        request_object_signing_alg: ''
+        request_object_encryption_alg: 'none'
+        request_object_encryption_enc: ''
+        token_endpoint_auth_method: 'client_secret_post'
+        token_endpoint_auth_signing_alg: ''
+        revocation_endpoint_auth_method: 'client_secret_basic'
+        revocation_endpoint_auth_signing_alg: 'RS256'
+        pushed_authorization_request_endpoint_auth_method: 'client_secret_basic'
+        pushed_authorization_request_endpoint_auth_signing_alg: 'RS256'
+      - client_id: 'cloudflare-access'
+        client_name: 'Cloudflare Access'
+        client_secret: '{{ secret "/secrets/authelia-app-secrets/cloudflare_access_client_secret" }}'
+        public: false
+        redirect_uris:
+          - 'https://kmkdp.cloudflareaccess.com/cdn-cgi/access/callback'
+        scopes:
+          - 'openid'
+          - 'email'
+          - 'profile'
+        grant_types:
+          - 'authorization_code'
+        response_types:
+          - 'code'
+        authorization_policy: 'two_factor'
+        consent_mode: 'auto'
+        require_pushed_authorization_requests: false
+        require_pkce: false
+        pkce_challenge_method: ''
+        authorization_signed_response_alg: 'RS256'
+        authorization_signed_response_key_id: ''
+        authorization_encrypted_response_key_id: ''
+        authorization_encrypted_response_alg: ''
+        authorization_encrypted_response_enc: ''
+        id_token_signed_response_alg: 'RS256'
+        id_token_signed_response_key_id: ''
+        id_token_encrypted_response_key_id: ''
+        id_token_encrypted_response_alg: ''
+        id_token_encrypted_response_enc: ''
+        access_token_signed_response_alg: 'none'
+        access_token_signed_response_key_id: ''
+        access_token_encrypted_response_key_id: ''
+        access_token_encrypted_response_alg: ''
+        access_token_encrypted_response_enc: ''
+        userinfo_signed_response_alg: 'none'
+        userinfo_signed_response_key_id: ''
+        userinfo_encrypted_response_key_id: ''
+        userinfo_encrypted_response_alg: ''
+        userinfo_encrypted_response_enc: ''
+        introspection_signed_response_alg: 'none'
+        introspection_signed_response_key_id: ''
+        introspection_encrypted_response_key_id: ''
+        introspection_encrypted_response_alg: ''
+        introspection_encrypted_response_enc: ''
+        introspection_endpoint_auth_method: 'client_secret_basic'
+        introspection_endpoint_auth_signing_alg: 'RS256'
+        request_object_signing_alg: ''
+        request_object_encryption_alg: 'none'
+        request_object_encryption_enc: ''
+        token_endpoint_auth_method: 'client_secret_post'
+        token_endpoint_auth_signing_alg: ''
+        revocation_endpoint_auth_method: 'client_secret_basic'
+        revocation_endpoint_auth_signing_alg: 'RS256'
+        pushed_authorization_request_endpoint_auth_method: 'client_secret_basic'
+        pushed_authorization_request_endpoint_auth_signing_alg: 'RS256'
+      - client_id: 'grafana'
+        client_name: 'Grafana'
+        client_secret: '{{ secret "/secrets/authelia-app-secrets/grafana_client_secret" }}'
+        public: false
+        redirect_uris:
+          - 'https://grafana.kmkdp.com/login/generic_oauth'
+        scopes:
+          - 'openid'
+          - 'email'
+          - 'profile'
+          - 'groups'
+        grant_types:
+          - 'authorization_code'
+        response_types:
+          - 'code'
+        authorization_policy: 'two_factor'
+        consent_mode: 'auto'
+        require_pushed_authorization_requests: false
+        require_pkce: false
+        pkce_challenge_method: ''
+        authorization_signed_response_alg: 'RS256'
+        authorization_signed_response_key_id: ''
+        authorization_encrypted_response_key_id: ''
+        authorization_encrypted_response_alg: ''
+        authorization_encrypted_response_enc: ''
+        id_token_signed_response_alg: 'RS256'
+        id_token_signed_response_key_id: ''
+        id_token_encrypted_response_key_id: ''
+        id_token_encrypted_response_alg: ''
+        id_token_encrypted_response_enc: ''
+        access_token_signed_response_alg: 'none'
+        access_token_signed_response_key_id: ''
+        access_token_encrypted_response_key_id: ''
+        access_token_encrypted_response_alg: ''
+        access_token_encrypted_response_enc: ''
+        userinfo_signed_response_alg: 'none'
+        userinfo_signed_response_key_id: ''
+        userinfo_encrypted_response_key_id: ''
+        userinfo_encrypted_response_alg: ''
+        userinfo_encrypted_response_enc: ''
+        introspection_signed_response_alg: 'none'
+        introspection_signed_response_key_id: ''
+        introspection_encrypted_response_key_id: ''
+        introspection_encrypted_response_alg: ''
+        introspection_encrypted_response_enc: ''
+        introspection_endpoint_auth_method: 'client_secret_basic'
+        introspection_endpoint_auth_signing_alg: 'RS256'
+        request_object_signing_alg: ''
+        request_object_encryption_alg: 'none'
+        request_object_encryption_enc: ''
+        token_endpoint_auth_method: 'client_secret_basic'
+        token_endpoint_auth_signing_alg: ''
+        revocation_endpoint_auth_method: 'client_secret_basic'
+        revocation_endpoint_auth_signing_alg: 'RS256'
+        pushed_authorization_request_endpoint_auth_method: 'client_secret_basic'
+        pushed_authorization_request_endpoint_auth_signing_alg: 'RS256'
+      - client_id: 'immich'
+        client_name: 'Immich'
+        client_secret: '{{ secret "/secrets/authelia-app-secrets/immich_client_secret" }}'
+        public: false
+        redirect_uris:
+          - 'https://immich.kmkdp.com/auth/login'
+          - 'https://immich.kmkdp.com/user-settings'
+          - 'app.immich:///oauth-callback'
+        scopes:
+          - 'openid'
+          - 'email'
+          - 'profile'
+        grant_types:
+          - 'authorization_code'
+        response_types:
+          - 'code'
+        authorization_policy: 'immich_access'
+        consent_mode: 'auto'
+        require_pushed_authorization_requests: false
+        require_pkce: false
+        pkce_challenge_method: ''
+        authorization_signed_response_alg: 'RS256'
+        authorization_signed_response_key_id: ''
+        authorization_encrypted_response_key_id: ''
+        authorization_encrypted_response_alg: ''
+        authorization_encrypted_response_enc: ''
+        id_token_signed_response_alg: 'RS256'
+        id_token_signed_response_key_id: ''
+        id_token_encrypted_response_key_id: ''
+        id_token_encrypted_response_alg: ''
+        id_token_encrypted_response_enc: ''
+        access_token_signed_response_alg: 'none'
+        access_token_signed_response_key_id: ''
+        access_token_encrypted_response_key_id: ''
+        access_token_encrypted_response_alg: ''
+        access_token_encrypted_response_enc: ''
+        userinfo_signed_response_alg: 'none'
+        userinfo_signed_response_key_id: ''
+        userinfo_encrypted_response_key_id: ''
+        userinfo_encrypted_response_alg: ''
+        userinfo_encrypted_response_enc: ''
+        introspection_signed_response_alg: 'none'
+        introspection_signed_response_key_id: ''
+        introspection_encrypted_response_key_id: ''
+        introspection_encrypted_response_alg: ''
+        introspection_encrypted_response_enc: ''
+        introspection_endpoint_auth_method: 'client_secret_basic'
+        introspection_endpoint_auth_signing_alg: 'RS256'
+        request_object_signing_alg: ''
+        request_object_encryption_alg: 'none'
+        request_object_encryption_enc: ''
+        token_endpoint_auth_method: 'client_secret_post'
+        token_endpoint_auth_signing_alg: ''
+        revocation_endpoint_auth_method: 'client_secret_basic'
+        revocation_endpoint_auth_signing_alg: 'RS256'
+        pushed_authorization_request_endpoint_auth_method: 'client_secret_basic'
+        pushed_authorization_request_endpoint_auth_signing_alg: 'RS256'
+access_control:
+  default_policy: 'deny'
+  rules:
+    - policy: bypass
+      domain:
+        - 'sso.kmkdp.com'
+    - policy: two_factor
+      domain:
+        - 'home.kmkdp.com'
+      subject:
+        - ['group:dashboard-users']
+    - policy: two_factor
+      domain:
+        - 'grafana-embed.kmkdp.com'
+      subject:
+        - ['group:dashboard-users']
+    - policy: two_factor
+      domain:
+        - 'learn-k3s.kmkdp.com'
+      subject:
+        - ['group:internal-users']
+    - policy: two_factor
+      domain:
+        - 'swagger.kmkdp.com'
+      subject:
+        - ['group:internal-users']
+    - policy: two_factor
+      domain:
+        - 'users.kmkdp.com'
+      subject:
+        - ['group:internal-users']
+    - policy: two_factor
+      domain:        
+        - 'sonarr.kmkdp.com'
+        - 'radarr.kmkdp.com'
+        - 'sabnzbd.kmkdp.com'
+        - 'prowlarr.kmkdp.com'
+        - 'bazarr.kmkdp.com'
+        - 'tdarr.kmkdp.com'
+        - 'chaptarr.kmkdp.com'
+      subject:
+        - ['group:internal-users']
+...
