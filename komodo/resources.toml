@@ -19,19 +19,19 @@ enabled = true
 name = "kdk-dkr-02"
 [server.config]
 address = "https://10.1.30.21:8120"
-enabled = false   # enabled at Pi adoption
+enabled = true
 
 [[server]]
 name = "kdk-dkr-03"
 [server.config]
 address = "https://10.1.30.22:8120"
-enabled = false
+enabled = true
 
 [[server]]
 name = "kdk-mon-01"
 [server.config]
 address = "https://10.1.20.30:8120"
-enabled = false
+enabled = true
 
 # ---- kdk-dkr-01 stacks ----
 [[stack]]
@@ -171,3 +171,31 @@ enabled = true
 executions = [
   { execution.type = "DeployStack", execution.params.stack = "backup-dmz", enabled = true },
 ]
+
+# ---- adopted stacks (files already on the Pi hosts; adopt, don't redeploy) ----
+[[stack]]
+name = "home-assistant"
+deploy = false
+[stack.config]
+server = "kdk-dkr-02"
+files_on_host = true
+run_directory = "/opt/kdk-lab/home-assistant"
+file_paths = ["docker-compose.yml"]
+
+[[stack]]
+name = "scrypted-homebridge"
+deploy = false
+[stack.config]
+server = "kdk-dkr-03"
+files_on_host = true
+run_directory = "/opt/kdk-lab/scrypted-homebridge"
+file_paths = ["docker-compose.yml"]
+
+[[stack]]
+name = "monitoring-ext"
+deploy = false
+[stack.config]
+server = "kdk-mon-01"
+files_on_host = true
+run_directory = "/opt/kdk-lab/monitoring"
+file_paths = ["docker-compose.yml"]
