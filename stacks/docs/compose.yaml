@@ -5,9 +5,7 @@ name: docs
 services:
   builder:
     image: node:24-bookworm-slim
-    restart: "no"
-    labels:
-      komodo.skip:
+    restart: unless-stopped
     entrypoint: ["/bin/sh", "-c"]
     command:
       - |
@@ -21,6 +19,7 @@ services:
         [ -d /site/current ] && mv /site/current /site/current.old || true
         mv /site/new /site/current
         rm -rf /site/current.old
+        echo BUILD-DONE; sleep infinity
     volumes:
       - ../../docs:/content:ro
       - site:/site
