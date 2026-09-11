@@ -28,7 +28,6 @@ services:
     labels:
       traefik.enable: "true"
       traefik.http.routers.docs.rule: "Host(`docs.kmkdp.com`)"
-      traefik.http.routers.docs.middlewares: "forwardauth@file"
       traefik.http.services.docs.loadbalancer.server.port: "80"
     volumes:
       - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro

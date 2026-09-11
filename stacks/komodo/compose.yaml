@@ -25,7 +25,7 @@ services:
       FERRETDB_POSTGRESQL_URL: postgres://${KOMODO_DB_USERNAME}:${KOMODO_DB_PASSWORD}@postgres:5432/postgres
     networks: [default]
   core:
-    image: ghcr.io/moghtech/komodo-core:latest
+    image: ghcr.io/moghtech/komodo-core:2.3.3
     labels:
       komodo.skip:
       traefik.enable: "true"
