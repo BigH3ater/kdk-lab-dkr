@@ -46,7 +46,7 @@ webhook_enabled = true
 
 [[stack]]
 name = "op-connect"
-deploy = true
+deploy = false
 [stack.config]
 server = "kdk-dkr-01"
 repo = "BigH3ater/kdk-lab-dkr"
@@ -65,7 +65,7 @@ webhook_enabled = true
 
 [[stack]]
 name = "media"
-deploy = true
+deploy = false
 after = ["proxy"]
 [stack.config]
 server = "kdk-dkr-01"
