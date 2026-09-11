@@ -196,6 +196,16 @@ name = "monitoring-ext"
 deploy = false
 [stack.config]
 server = "kdk-mon-01"
+project_name = "monitoring"
 files_on_host = true
 run_directory = "/opt/kdk-lab/monitoring"
 file_paths = ["docker-compose.yml"]
+
+[[stack]]
+name = "komodo"
+deploy = false
+[stack.config]
+server = "kdk-dkr-01"
+repo = "BigH3ater/kdk-lab-dkr"
+run_directory = "stacks/komodo"
+pre_deploy.command = "sh -c '. /etc/komodo/op.env && op inject -f -i .env.tpl -o .env'"
