@@ -59,6 +59,8 @@ services:
       - "8881:8881"
     volumes:
       - /opt/kdk-lab/apps/roborock:/data
+      - /opt/kdk-lab/apps/roborock/config.toml:/app/config.toml:ro
+      - /opt/kdk-lab/apps/roborock/tls:/tls:ro
 networks:
   default: {}
   proxy:
