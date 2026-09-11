@@ -16,7 +16,7 @@ services:
       - /mnt/backup/dkr:/dest
 
   offsite:
-    image: rclone/rclone:1.68
+    image: rclone/rclone:1.75
     restart: "no"
     # Proton Drive needs a one-time interactive (CAPTCHA) login before this
     # can run headless. Until then it is gated behind the "offsite" profile so
