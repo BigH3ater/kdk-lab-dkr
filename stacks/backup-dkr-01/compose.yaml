@@ -18,6 +18,10 @@ services:
   offsite:
     image: rclone/rclone:1.68
     restart: "no"
+    # Proton Drive needs a one-time interactive (CAPTCHA) login before this
+    # can run headless. Until then it is gated behind the "offsite" profile so
+    # the nightly stack stays clean. Enable with: COMPOSE_PROFILES=offsite.
+    profiles: ["offsite"]
     depends_on:
       rsync: { condition: service_completed_successfully }
     command: >
