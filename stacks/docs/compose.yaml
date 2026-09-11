@@ -6,6 +6,8 @@ services:
   builder:
     image: node:24-bookworm-slim
     restart: "no"
+    labels:
+      komodo.skip:
     entrypoint: ["/bin/sh", "-c"]
     command:
       - |
