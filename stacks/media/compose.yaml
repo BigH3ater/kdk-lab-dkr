@@ -125,6 +125,7 @@ services:
       serverPort: "8266"
       webUIPort: "8265"
       internalNode: "false"
+      DEE_WRAPPER_TOKEN: ${DEE_WRAPPER_TOKEN:-}
       inContainer: "true"
     ports:
       - "8266:8266"   # node RPC (external nodes: RGB-Nebula 4090)
@@ -153,6 +154,7 @@ services:
       serverIP: tdarr
       serverPort: "8266"
       inContainer: "true"
+      DEE_WRAPPER_TOKEN: ${DEE_WRAPPER_TOKEN:-}
       NVIDIA_VISIBLE_DEVICES: all
       NVIDIA_DRIVER_CAPABILITIES: all
     volumes:
