@@ -25,7 +25,7 @@ services:
     depends_on:
       rsync: { condition: service_completed_successfully }
     command: >
-      sync /data/kdk-dkr-01 proton:kdk-lab-backup/kdk-dkr-01
+      sync /data/kdk-dkr-01 proton-crypt:kdk-dkr-01
       --config /config/rclone.conf --transfers 4 --log-level NOTICE
     volumes:
       - /mnt/backup/dkr:/data:ro
