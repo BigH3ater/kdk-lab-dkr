@@ -1,0 +1,71 @@
+# SSO on the DMZ node: Authelia + LLDAP + Postgres + Redis in one stack.
+# LDAP is plain :3890 on the stack-internal network only (was LDAPS in k3s).
+# The Authelia storage encryption key and the Postgres DB are PAIRED --
+# migrated together from the k3s cluster; never replace one without the other.
+name: identity
+services:
+  lldap:
+    image: lldap/lldap:v0.6.3-alpine
+    container_name: lldap
+    restart: unless-stopped
+    environment:
+      TZ: America/Chicago
+      LLDAP_LDAP_BASE_DN: dc=kmkdp,dc=com
+      LLDAP_LDAP_USER_EMAIL: admin@kmkdp.com
+      LLDAP_LDAP_USER_PASS: "${LLDAP_ADMIN_PASSWORD}"
+      LLDAP_JWT_SECRET: "${LLDAP_JWT_SECRET}"
+      LLDAP_KEY_SEED: "${LLDAP_KEY_SEED}"
+    volumes:
+      - /opt/kdk-lab/identity/lldap:/data
+    networks: [default, proxy-dmz]
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.lldap.rule: "Host(`users.kmkdp.com`)"
+      traefik.http.services.lldap.loadbalancer.server.port: "17170"
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: authelia-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: authelia
+      POSTGRES_USER: authelia
+      POSTGRES_PASSWORD: "${AUTHELIA_POSTGRES_PASSWORD}"
+    volumes:
+      - /opt/kdk-lab/identity/postgres:/var/lib/postgresql/data
+    networks: [default]
+
+  redis:
+    image: redis:8-alpine
+    container_name: authelia-redis
+    restart: unless-stopped
+    networks: [default]
+
+  authelia:
+    image: ghcr.io/authelia/authelia:4.39.20
+    container_name: authelia
+    restart: unless-stopped
+    depends_on: [lldap, postgres, redis]
+    environment:
+      TZ: America/Chicago
+      X_AUTHELIA_CONFIG_FILTERS: template
+      AUTHELIA_JWT_SECRET: "${AUTHELIA_JWT_SECRET}"
+      AUTHELIA_SESSION_SECRET: "${AUTHELIA_SESSION_SECRET}"
+      AUTHELIA_STORAGE_ENCRYPTION_KEY: "${AUTHELIA_STORAGE_ENCRYPTION_KEY}"
+      AUTHELIA_STORAGE_POSTGRES_PASSWORD: "${AUTHELIA_POSTGRES_PASSWORD}"
+      AUTHELIA_AUTHENTICATION_BACKEND_LDAP_PASSWORD: "${LLDAP_ADMIN_PASSWORD}"
+      AUTHELIA_NOTIFIER_SMTP_PASSWORD: "${AUTHELIA_SMTP_PASSWORD}"
+      AUTHELIA_IDENTITY_PROVIDERS_OIDC_HMAC_SECRET: "${OIDC_HMAC_SECRET}"
+    volumes:
+      - ./authelia:/config:ro
+      - /opt/kdk-lab/identity/authelia-secrets:/secrets:ro
+    networks: [default, proxy-dmz]
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.authelia.rule: "Host(`sso.kmkdp.com`)"
+      traefik.http.services.authelia.loadbalancer.server.port: "9091"
+
+networks:
+  default: {}
+  proxy-dmz:
+    external: true

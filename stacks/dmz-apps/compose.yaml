@@ -1,0 +1,18 @@
+name: dmz-apps
+services:
+  seerr:
+    image: ghcr.io/seerr-team/seerr:v3.4.1
+    container_name: seerr
+    restart: unless-stopped
+    environment:
+      TZ: America/Chicago
+    volumes:
+      - /mnt/appdata/jellyseerr:/app/config
+    networks: [proxy-dmz]
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.seerr.rule: "Host(`seerr.kmkdp.com`)"
+      traefik.http.services.seerr.loadbalancer.server.port: "5055"
+networks:
+  proxy-dmz:
+    external: true

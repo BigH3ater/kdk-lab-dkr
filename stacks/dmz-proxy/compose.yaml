@@ -1,0 +1,47 @@
+# DMZ Traefik + cloudflared on kdk-dkr-dmz-01. The tunnel is dashboard-managed
+# (operator) and simply forwards to this Traefik; Traefik host-routes.
+name: dmz-proxy
+services:
+  traefik:
+    image: traefik:v3.7
+    container_name: traefik
+    restart: unless-stopped
+    security_opt: ["no-new-privileges:true"]
+    command:
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--providers.docker.network=proxy-dmz"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.web.http.redirections.entrypoint.to=websecure"
+      - "--entrypoints.web.http.redirections.entrypoint.scheme=https"
+      - "--entrypoints.websecure.address=:443"
+      - "--entrypoints.websecure.http.tls.certresolver=cf"
+      - "--entrypoints.websecure.http.tls.domains[0].main=kmkdp.com"
+      - "--entrypoints.websecure.http.tls.domains[0].sans=*.kmkdp.com"
+      - "--certificatesresolvers.cf.acme.dnschallenge=true"
+      - "--certificatesresolvers.cf.acme.dnschallenge.provider=cloudflare"
+      - "--certificatesresolvers.cf.acme.email=admin@kmkdp.com"
+      - "--certificatesresolvers.cf.acme.storage=/letsencrypt/acme.json"
+      - "--log.level=INFO"
+    environment:
+      CF_DNS_API_TOKEN: "${CLOUDFLARE_DNS_API_TOKEN}"
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /opt/kdk-lab/dmz-proxy/letsencrypt:/letsencrypt
+    networks: [proxy-dmz]
+
+  cloudflared:
+    image: cloudflare/cloudflared:2025.8.1
+    container_name: cloudflared
+    restart: unless-stopped
+    user: "65532"
+    command: ["tunnel", "--no-autoupdate", "--protocol", "http2", "run"]
+    environment:
+      TUNNEL_TOKEN: "${CLOUDFLARE_TUNNEL_TOKEN}"
+    networks: [proxy-dmz]
+networks:
+  proxy-dmz:
+    name: proxy-dmz

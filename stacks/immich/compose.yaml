@@ -1,0 +1,57 @@
+# Immich on the DMZ node -- fresh deploy (the k3s instance was unused).
+# Segmented: server/ml/db/cache on an internal network; only the server also
+# joins proxy-dmz for immich.kmkdp.com. Library on tankz3/appdata/immich (NFS).
+name: immich
+services:
+  immich-server:
+    image: ghcr.io/immich-app/immich-server:v3.0.0
+    container_name: immich-server
+    restart: unless-stopped
+    environment:
+      TZ: America/Chicago
+      DB_HOSTNAME: immich-postgres
+      DB_USERNAME: immich
+      DB_PASSWORD: "${IMMICH_DB_PASSWORD}"
+      DB_DATABASE_NAME: immich
+      REDIS_HOSTNAME: immich-valkey
+    volumes:
+      - /mnt/appdata/immich:/data
+    depends_on: [immich-postgres, immich-valkey]
+    networks: [internal, proxy-dmz]
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.immich.rule: "Host(`immich.kmkdp.com`)"
+      traefik.http.services.immich.loadbalancer.server.port: "2283"
+
+  immich-machine-learning:
+    image: ghcr.io/immich-app/immich-machine-learning:v3.0.0
+    container_name: immich-ml
+    restart: unless-stopped
+    volumes:
+      - /opt/kdk-lab/immich/model-cache:/cache
+    networks: [internal]
+
+  immich-valkey:
+    image: docker.io/valkey/valkey:9@sha256:70739f85ad2ee01a726a965584a0f94895f01b0c60b3cc8b0aeef11eaa6888cf
+    container_name: immich-valkey
+    restart: unless-stopped
+    networks: [internal]
+
+  immich-postgres:
+    image: ghcr.io/immich-app/postgres:14-vectorchord0.4.3-pgvectors0.2.0@sha256:bcf63357191b76a916ae5eb93464d65c07511da41e3bf7a8416db519b40b1c23
+    container_name: immich-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: immich
+      POSTGRES_PASSWORD: "${IMMICH_DB_PASSWORD}"
+      POSTGRES_DB: immich
+      POSTGRES_INITDB_ARGS: "--data-checksums"
+    volumes:
+      - /opt/kdk-lab/immich/postgres:/var/lib/postgresql/data
+    networks: [internal]
+
+networks:
+  internal:
+    internal: false   # ML needs egress to Hugging Face; no inbound published
+  proxy-dmz:
+    external: true

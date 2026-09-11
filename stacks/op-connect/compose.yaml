@@ -1,0 +1,22 @@
+# 1Password Connect. Bound to the VLAN-20 address only; bearer-token API.
+# The only secret is the credentials file, operator-seeded at
+# /etc/kdk-lab/1password-credentials.json (chown 999:999, mode 0600).
+name: op-connect
+services:
+  connect-api:
+    image: 1password/connect-api:1.8.2
+    container_name: onepassword-connect-api
+    restart: unless-stopped
+    ports: ["10.1.20.40:8080:8080"]
+    volumes:
+      - /etc/kdk-lab/1password-credentials.json:/home/opuser/.op/1password-credentials.json:ro
+      - data:/home/opuser/.op/data
+  connect-sync:
+    image: 1password/connect-sync:1.8.2
+    container_name: onepassword-connect-sync
+    restart: unless-stopped
+    volumes:
+      - /etc/kdk-lab/1password-credentials.json:/home/opuser/.op/1password-credentials.json:ro
+      - data:/home/opuser/.op/data
+volumes:
+  data: {}

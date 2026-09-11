@@ -1,0 +1,42 @@
+# Quartz docs site. The builder runs ONCE per deploy (Komodo webhook redeploys
+# on push to main), building ../../docs from the repo clone into a shared
+# volume that nginx serves at docs.kmkdp.com.
+name: docs
+services:
+  builder:
+    image: node:24-bookworm-slim
+    restart: "no"
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        set -eu
+        apt-get update -qq && apt-get install -y -qq git >/dev/null
+        git clone --depth 1 --branch v4.5.2 https://github.com/jackyzha0/quartz /q
+        cd /q && npm ci --no-audit --no-fund
+        rm -rf content && cp -a /content content
+        npx quartz build -d content -o /site/new
+        rm -rf /site/current.old
+        [ -d /site/current ] && mv /site/current /site/current.old || true
+        mv /site/new /site/current
+        rm -rf /site/current.old
+    volumes:
+      - ../../docs:/content:ro
+      - site:/site
+  nginx:
+    image: nginx:1.29-alpine
+    restart: unless-stopped
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.docs.rule: "Host(`docs.kmkdp.com`)"
+      traefik.http.routers.docs.middlewares: "forwardauth@file"
+      traefik.http.services.docs.loadbalancer.server.port: "80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - site:/site:ro
+    networks: [default, proxy]
+volumes:
+  site: {}
+networks:
+  default: {}
+  proxy:
+    external: true

@@ -1,0 +1,44 @@
+# Nightly one-shots on kdk-dkr-dmz-01: pg dumps + app state -> tankz3/backup.
+name: backup-dmz
+services:
+  pgdump-authelia:
+    image: postgres:16-alpine
+    restart: "no"
+    environment:
+      PGPASSWORD: "${AUTHELIA_POSTGRES_PASSWORD}"
+    command: >
+      sh -c 'pg_dump -h authelia-postgres -U authelia authelia
+      | gzip > /dest/authelia-$$(date +%F).sql.gz
+      && ls -t /dest/authelia-*.sql.gz | tail -n +15 | xargs -r rm'
+    volumes:
+      - /mnt/backup/dkr/kdk-dkr-dmz-01/pgdump:/dest
+    networks: [identity_default]
+
+  pgdump-immich:
+    image: postgres:16-alpine
+    restart: "no"
+    environment:
+      PGPASSWORD: "${IMMICH_DB_PASSWORD}"
+    command: >
+      sh -c 'pg_dump -h immich-postgres -U immich immich
+      | gzip > /dest/immich-$$(date +%F).sql.gz
+      && ls -t /dest/immich-*.sql.gz | tail -n +15 | xargs -r rm'
+    volumes:
+      - /mnt/backup/dkr/kdk-dkr-dmz-01/pgdump:/dest
+    networks: [immich_internal]
+
+  rsync:
+    image: instrumentisto/rsync-ssh:alpine
+    restart: "no"
+    command: >
+      rsync -a --delete --exclude 'immich/postgres' --exclude 'identity/postgres'
+      --exclude 'dmz-proxy/letsencrypt' /src/ /dest/kdk-dkr-dmz-01/state/
+    volumes:
+      - /opt/kdk-lab:/src:ro
+      - /mnt/backup/dkr:/dest
+
+networks:
+  identity_default:
+    external: true
+  immich_internal:
+    external: true

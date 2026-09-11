@@ -1,0 +1,5 @@
+KOMODO_DB_USERNAME="{{ op://kdk-ops/komodo-db/username }}"
+KOMODO_DB_PASSWORD="{{ op://kdk-ops/komodo-db/password }}"
+KOMODO_PASSKEY="{{ op://kdk-ops/komodo-passkey/credential }}"
+KOMODO_JWT_SECRET="{{ op://kdk-ops/komodo-jwt-secret/credential }}"
+KOMODO_WEBHOOK_SECRET="{{ op://kdk-ops/komodo-webhook-secret/credential }}"

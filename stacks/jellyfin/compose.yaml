@@ -1,0 +1,30 @@
+# Jellyfin on the DMZ node with the Arc A380 (QSV). Same image line as k3s
+# (12.0 breaks the plugin ABI -- do not bump without a plugin plan, ADR 0027).
+# Config migrated byte-for-byte; library paths identical to k3s so item ids
+# stay attached. Public via the Cloudflare tunnel; own login + LDAP plugin.
+name: jellyfin
+services:
+  jellyfin:
+    image: lscr.io/linuxserver/jellyfin:10.11.11ubu2604-ls46
+    container_name: jellyfin
+    restart: unless-stopped
+    environment:
+      PUID: "1000"
+      PGID: "1000"
+      TZ: America/Chicago
+    devices:
+      - /dev/dri:/dev/dri
+    volumes:
+      - /opt/kdk-lab/jellyfin/config:/config
+      - /mnt/media/tv:/data/media/tv:ro
+      - /mnt/media/movies:/data/media/movies:ro
+    tmpfs:
+      - /transcodes:size=6g
+    networks: [proxy-dmz]
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.jellyfin.rule: "Host(`jellyfin.kmkdp.com`)"
+      traefik.http.services.jellyfin.loadbalancer.server.port: "8096"
+networks:
+  proxy-dmz:
+    external: true

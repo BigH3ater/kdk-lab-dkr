@@ -1,0 +1,28 @@
+# Nightly one-shots on kdk-dkr-01 (Komodo Procedure redeploys this stack on a
+# schedule; each run = one backup pass). App state -> tankz3/backup, then the
+# selected sets offsite to Proton Drive via rclone.
+name: backup-dkr-01
+services:
+  rsync:
+    image: instrumentisto/rsync-ssh:alpine
+    restart: "no"
+    command: >
+      rsync -a --delete
+      --exclude 'tdarr-temp' --exclude 'sabnzbd-incomplete'
+      --exclude 'komodo/postgres' --exclude 'proxy/letsencrypt'
+      /src/ /dest/kdk-dkr-01/
+    volumes:
+      - /opt/kdk-lab:/src:ro
+      - /mnt/backup/dkr:/dest
+
+  offsite:
+    image: rclone/rclone:1.68
+    restart: "no"
+    depends_on:
+      rsync: { condition: service_completed_successfully }
+    command: >
+      sync /data/kdk-dkr-01 proton:kdk-lab-backup/kdk-dkr-01
+      --config /config/rclone.conf --transfers 4 --log-level NOTICE
+    volumes:
+      - /mnt/backup/dkr:/data:ro
+      - /opt/kdk-lab/backup/rclone:/config

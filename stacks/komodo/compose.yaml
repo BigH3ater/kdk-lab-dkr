@@ -1,0 +1,53 @@
+# Komodo Core + FerretDB (official pattern). UI at komodo.kmkdp.com.
+name: komodo
+services:
+  postgres:
+    image: ghcr.io/ferretdb/postgres-documentdb:17
+    labels:
+      komodo.skip:
+    restart: unless-stopped
+    volumes:
+      - /opt/kdk-lab/komodo/postgres:/var/lib/postgresql/data
+    environment:
+      POSTGRES_USER: ${KOMODO_DB_USERNAME}
+      POSTGRES_PASSWORD: ${KOMODO_DB_PASSWORD}
+      POSTGRES_DB: postgres
+    networks: [default]
+  ferretdb:
+    image: ghcr.io/ferretdb/ferretdb:2
+    labels:
+      komodo.skip:
+    restart: unless-stopped
+    depends_on: [postgres]
+    volumes:
+      - /opt/kdk-lab/komodo/ferretdb:/state
+    environment:
+      FERRETDB_POSTGRESQL_URL: postgres://${KOMODO_DB_USERNAME}:${KOMODO_DB_PASSWORD}@postgres:5432/postgres
+    networks: [default]
+  core:
+    image: ghcr.io/moghtech/komodo-core:latest
+    labels:
+      komodo.skip:
+      traefik.enable: "true"
+      traefik.http.routers.komodo.rule: "Host(`komodo.kmkdp.com`)"
+      traefik.http.services.komodo.loadbalancer.server.port: "9120"
+    restart: unless-stopped
+    depends_on: [ferretdb]
+    environment:
+      KOMODO_HOST: https://komodo.kmkdp.com
+      KOMODO_TITLE: kdk-lab
+      KOMODO_DATABASE_URI: mongodb://${KOMODO_DB_USERNAME}:${KOMODO_DB_PASSWORD}@ferretdb:27017/komodo?authSource=admin
+      KOMODO_PASSKEY: ${KOMODO_PASSKEY}
+      KOMODO_JWT_SECRET: ${KOMODO_JWT_SECRET}
+      KOMODO_WEBHOOK_SECRET: ${KOMODO_WEBHOOK_SECRET}
+      KOMODO_LOCAL_AUTH: "true"
+      KOMODO_DISABLE_USER_REGISTRATION: "false"
+      KOMODO_ENABLE_NEW_USERS: "true"
+    volumes:
+      - /opt/kdk-lab/komodo/syncs:/syncs
+      - /opt/kdk-lab/komodo/backups:/backups
+    networks: [default, proxy]
+networks:
+  default: {}
+  proxy:
+    external: true

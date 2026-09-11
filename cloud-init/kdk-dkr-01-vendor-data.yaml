@@ -1,0 +1,79 @@
+#cloud-config
+# kdk-dkr-01 -- main compose host on kdk-hyp-01 (VM 300).
+# Template 9000 supplies user/ssh/dns; this vendor-data installs the runtime.
+hostname: kdk-dkr-01
+fqdn: kdk-dkr-01.kmkdp.com
+timezone: America/Chicago
+
+package_update: true
+packages:
+  - qemu-guest-agent
+  - nfs-common
+  - curl
+  - ca-certificates
+  - gnupg
+  - rsync
+
+write_files:
+  - path: /etc/apt/sources.list.d/nonfree.sources
+    content: |
+      Types: deb
+      URIs: http://deb.debian.org/debian
+      Suites: trixie trixie-updates
+      Components: main contrib non-free non-free-firmware
+  - path: /etc/systemd/system/mnt-media.mount
+    content: |
+      [Unit]
+      Description=tankz3/media over storage net
+      After=network-online.target
+      [Mount]
+      What=100.100.100.2:/mnt/tankz3/media
+      Where=/mnt/media
+      Type=nfs
+      Options=nfsvers=4.1,noatime,_netdev
+      [Install]
+      WantedBy=multi-user.target
+  - path: /etc/systemd/system/mnt-dee\x2dexchange.mount
+    content: |
+      [Unit]
+      Description=tankz3/dee-exchange over storage net
+      After=network-online.target
+      [Mount]
+      What=100.100.100.2:/mnt/tankz3/dee-exchange
+      Where=/mnt/dee-exchange
+      Type=nfs
+      Options=nfsvers=4.1,noatime,_netdev
+      [Install]
+      WantedBy=multi-user.target
+  - path: /etc/systemd/system/mnt-backup.mount
+    content: |
+      [Unit]
+      Description=tankz3/backup over storage net
+      After=network-online.target
+      [Mount]
+      What=100.100.100.2:/mnt/tankz3/backup
+      Where=/mnt/backup
+      Type=nfs
+      Options=nfsvers=4.1,noatime,_netdev
+      [Install]
+      WantedBy=multi-user.target
+
+runcmd:
+  - systemctl enable --now qemu-guest-agent
+  - mkdir -p /opt/kdk-lab /etc/komodo /mnt/media /mnt/dee-exchange /mnt/backup
+  # 1Password CLI repo
+  - curl -sS https://downloads.1password.com/linux/keys/1password.asc | gpg --dearmor -o /usr/share/keyrings/1password-archive-keyring.gpg
+  - echo "deb [arch=amd64 signed-by=/usr/share/keyrings/1password-archive-keyring.gpg] https://downloads.1password.com/linux/debian/amd64 stable main" > /etc/apt/sources.list.d/1password.list
+  # NVIDIA container toolkit repo
+  - curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
+  - echo "deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://nvidia.github.io/libnvidia-container/stable/deb/amd64 /" > /etc/apt/sources.list.d/nvidia-container-toolkit.list
+  - apt-get update
+  - DEBIAN_FRONTEND=noninteractive apt-get install -y 1password-cli linux-headers-amd64 nvidia-driver firmware-misc-nonfree
+  - curl -fsSL https://get.docker.com | sh
+  - DEBIAN_FRONTEND=noninteractive apt-get install -y nvidia-container-toolkit
+  - nvidia-ctk runtime configure --runtime=docker
+  - usermod -aG docker kdkadmin
+  - systemctl daemon-reload
+  - systemctl enable --now mnt-media.mount 'mnt-dee\x2dexchange.mount' mnt-backup.mount
+  - systemctl restart docker
+  - touch /var/lib/cloud/kdk-dkr-01-ready

@@ -1,0 +1,65 @@
+# Small internal apps on kdk-dkr-01.
+name: apps
+services:
+  ntp:
+    image: cturra/ntp:latest
+    container_name: ntp
+    restart: unless-stopped
+    ports: ["123:123/udp"]
+    environment:
+      NTP_SERVERS: "time.cloudflare.com,0.pool.ntp.org,1.pool.ntp.org"
+
+  adguardhome-sync:
+    image: ghcr.io/bakito/adguardhome-sync:v0.9.2
+    container_name: adguardhome-sync
+    restart: unless-stopped
+    command: run
+    environment:
+      ORIGIN_URL: "http://10.1.1.120"
+      ORIGIN_USERNAME: "${ADGUARD_USERNAME}"
+      ORIGIN_PASSWORD: "${ADGUARD_PASSWORD}"
+      REPLICA1_URL: "http://10.1.1.121"
+      REPLICA1_USERNAME: "${ADGUARD_USERNAME}"
+      REPLICA1_PASSWORD: "${ADGUARD_PASSWORD}"
+      REPLICA2_URL: "http://10.1.1.122"
+      REPLICA2_USERNAME: "${ADGUARD_USERNAME}"
+      REPLICA2_PASSWORD: "${ADGUARD_PASSWORD}"
+      CRON: "*/15 * * * *"
+      RUN_ON_START: "true"
+
+  rmfakecloud:
+    image: ddvk/rmfakecloud:0.0.31
+    container_name: rmfakecloud
+    restart: unless-stopped
+    environment:
+      JWT_SECRET_KEY: "${RMFAKECLOUD_JWT_SECRET}"
+      STORAGE_URL: "https://remarkable.kmkdp.com"
+    volumes:
+      - /opt/kdk-lab/apps/rmfakecloud:/data
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.rmfake.rule: "Host(`remarkable.kmkdp.com`)"
+      traefik.http.services.rmfake.loadbalancer.server.port: "3000"
+    networks: [default, proxy]
+
+  proton-bridge:
+    image: shenxn/protonmail-bridge:3.9.1-1
+    container_name: proton-bridge
+    restart: unless-stopped
+    ports: ["10.1.20.40:25:25/tcp"]
+    volumes:
+      - /opt/kdk-lab/apps/proton-bridge:/root
+
+  roborock:
+    image: ghcr.io/python-roborock/local_roborock_server:1.0.2
+    container_name: roborock
+    restart: unless-stopped
+    ports:
+      - "555:555"
+      - "8881:8881"
+    volumes:
+      - /opt/kdk-lab/apps/roborock:/data
+networks:
+  default: {}
+  proxy:
+    external: true

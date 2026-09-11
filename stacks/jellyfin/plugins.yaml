@@ -1,0 +1,8 @@
+# Plugin manifest (reference; state migrates with /config). ADR 0027.
+repositories:
+  - url: https://intro-skipper.org/manifest.json
+  - url: https://plugins.neptuneplayer.com/manifest.json
+plugins:
+  - { name: Intro Skipper, guid: c83d86bb-a1e0-4c35-a113-e2101cf4ee6b, version: 1.10.11.24 }
+  - { name: SkipMe.db, guid: b2a63e62-0ac5-4575-9ad2-2c7534ccb83d, version: 0.1.16.0 }
+  - { name: Neptune Suite (MDM/Indexers/Transcoder/Studio), guid: see-live-dashboard, version: 1.3.2.0 }

@@ -1,0 +1,4 @@
+.env
+*.pending
+node_modules/
+.DS_Store

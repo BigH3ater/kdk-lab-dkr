@@ -1,0 +1,44 @@
+# Internal Traefik on kdk-dkr-01. Wildcard *.kmkdp.com via Cloudflare DNS-01.
+# Other stacks join the external "proxy" network and declare traefik labels.
+name: proxy
+services:
+  traefik:
+    image: traefik:v3.7
+    container_name: traefik
+    restart: unless-stopped
+    security_opt: ["no-new-privileges:true"]
+    command:
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--providers.docker.network=proxy"
+      - "--providers.file.directory=/etc/traefik/dynamic"
+      - "--providers.file.watch=true"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.web.http.redirections.entrypoint.to=websecure"
+      - "--entrypoints.web.http.redirections.entrypoint.scheme=https"
+      - "--entrypoints.websecure.address=:443"
+      - "--entrypoints.websecure.http.tls.certresolver=cf"
+      - "--entrypoints.websecure.http.tls.domains[0].main=kmkdp.com"
+      - "--entrypoints.websecure.http.tls.domains[0].sans=*.kmkdp.com"
+      - "--certificatesresolvers.cf.acme.dnschallenge=true"
+      - "--certificatesresolvers.cf.acme.dnschallenge.provider=cloudflare"
+      - "--certificatesresolvers.cf.acme.email=admin@kmkdp.com"
+      - "--certificatesresolvers.cf.acme.storage=/letsencrypt/acme.json"
+      - "--api.dashboard=true"
+      - "--log.level=INFO"
+    environment:
+      CF_DNS_API_TOKEN: "${CLOUDFLARE_DNS_API_TOKEN}"
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /opt/kdk-lab/proxy/letsencrypt:/letsencrypt
+      - ./dynamic:/etc/traefik/dynamic:ro
+    networks: [proxy]
+    logging: &log
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+networks:
+  proxy:
+    name: proxy

@@ -1,0 +1,169 @@
+# Media acquisition + transcode on kdk-dkr-01. Volume layout mirrors k3s:
+# /config per app, /data/staging + /downloads = tankz3/media/staging,
+# /data/media/{tv,movies} = tankz3/media. arr auth is External (Authelia only).
+name: media
+x-common: &common
+  restart: unless-stopped
+  environment: &env
+    PUID: "1000"
+    PGID: "1000"
+    TZ: America/Chicago
+  networks: [default, proxy]
+  logging:
+    driver: json-file
+    options: { max-size: "10m", max-file: "3" }
+
+services:
+  prowlarr:
+    <<: *common
+    image: lscr.io/linuxserver/prowlarr:2.5.2.5491-ls157
+    environment:
+      <<: *env
+      PROWLARR__AUTH__METHOD: External
+      PROWLARR__AUTH__REQUIRED: Enabled
+    volumes:
+      - /opt/kdk-lab/media/prowlarr:/config
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.prowlarr.rule: "Host(`prowlarr.kmkdp.com`)"
+      traefik.http.routers.prowlarr.middlewares: "forwardauth@file"
+      traefik.http.services.prowlarr.loadbalancer.server.port: "9696"
+
+  sabnzbd:
+    <<: *common
+    image: lscr.io/linuxserver/sabnzbd:5.1.2-ls270
+    volumes:
+      - /opt/kdk-lab/media/sabnzbd:/config
+      - /mnt/media/staging:/downloads
+      - /opt/kdk-lab/media/sabnzbd-incomplete:/incomplete-downloads
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.sabnzbd.rule: "Host(`sabnzbd.kmkdp.com`)"
+      traefik.http.routers.sabnzbd.middlewares: "forwardauth@file"
+      traefik.http.services.sabnzbd.loadbalancer.server.port: "8080"
+
+  sonarr:
+    <<: *common
+    image: lscr.io/linuxserver/sonarr:4.0.19.2979-ls322
+    environment:
+      <<: *env
+      SONARR__AUTH__METHOD: External
+      SONARR__AUTH__REQUIRED: Enabled
+    volumes:
+      - /opt/kdk-lab/media/sonarr:/config
+      - /mnt/media/staging:/data/staging
+      - /mnt/media/staging:/downloads
+      - /mnt/media/tv:/data/media/tv
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.sonarr.rule: "Host(`sonarr.kmkdp.com`)"
+      traefik.http.routers.sonarr.middlewares: "forwardauth@file"
+      traefik.http.services.sonarr.loadbalancer.server.port: "8989"
+
+  radarr:
+    <<: *common
+    image: lscr.io/linuxserver/radarr:6.3.0.10514-ls314
+    environment:
+      <<: *env
+      RADARR__AUTH__METHOD: External
+      RADARR__AUTH__REQUIRED: Enabled
+    volumes:
+      - /opt/kdk-lab/media/radarr:/config
+      - /mnt/media/staging:/data/staging
+      - /mnt/media/staging:/downloads
+      - /mnt/media/movies:/data/media/movies
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.radarr.rule: "Host(`radarr.kmkdp.com`)"
+      traefik.http.routers.radarr.middlewares: "forwardauth@file"
+      traefik.http.services.radarr.loadbalancer.server.port: "7878"
+
+  bazarr:
+    <<: *common
+    image: lscr.io/linuxserver/bazarr:v1.6.0-ls361
+    volumes:
+      - /opt/kdk-lab/media/bazarr:/config
+      - /mnt/media/staging:/data/staging
+      - /mnt/media/tv:/data/media/tv
+      - /mnt/media/movies:/data/media/movies
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.bazarr.rule: "Host(`bazarr.kmkdp.com`)"
+      traefik.http.routers.bazarr.middlewares: "forwardauth@file"
+      traefik.http.services.bazarr.loadbalancer.server.port: "6767"
+
+  chaptarr:
+    <<: *common
+    image: chaptarr/chaptarr:0.9.936
+    environment:
+      <<: *env
+      CHAPTARR__AUTH__METHOD: External
+    volumes:
+      - /opt/kdk-lab/media/chaptarr:/config
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.chaptarr.rule: "Host(`chaptarr.kmkdp.com`)"
+      traefik.http.routers.chaptarr.middlewares: "forwardauth@file"
+      traefik.http.services.chaptarr.loadbalancer.server.port: "8789"
+
+  wizarr:
+    <<: *common
+    image: ghcr.io/wizarrrr/wizarr:v2026.7.1
+    volumes:
+      - /opt/kdk-lab/media/wizarr:/data/database
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.wizarr.rule: "Host(`wizarr.kmkdp.com`)"
+      traefik.http.services.wizarr.loadbalancer.server.port: "5690"
+
+  tdarr:
+    <<: *common
+    image: ghcr.io/haveagitgat/tdarr:2.86.01
+    environment:
+      <<: *env
+      serverIP: 0.0.0.0
+      serverPort: "8266"
+      webUIPort: "8265"
+      internalNode: "false"
+      inContainer: "true"
+    ports:
+      - "8266:8266"   # node RPC (external nodes: RGB-Nebula 4090)
+    volumes:
+      - /opt/kdk-lab/media/tdarr/server:/app/server
+      - /opt/kdk-lab/media/tdarr/configs:/app/configs
+      - /opt/kdk-lab/media/tdarr/logs:/app/logs
+      - /opt/kdk-lab/media/tdarr-temp:/temp
+      - /mnt/media:/data/media
+      - /mnt/media/staging:/data/staging
+      - /mnt/media/quarantine:/data/quarantine
+      - /mnt/dee-exchange:/data/dee-exchange
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.tdarr.rule: "Host(`tdarr.kmkdp.com`)"
+      traefik.http.routers.tdarr.middlewares: "forwardauth@file"
+      traefik.http.services.tdarr.loadbalancer.server.port: "8265"
+
+  tdarr-node:
+    <<: *common
+    image: ghcr.io/haveagitgat/tdarr_node:2.86.01
+    runtime: nvidia
+    environment:
+      <<: *env
+      nodeName: kdk-tdarr-nvenc-01
+      serverIP: tdarr
+      serverPort: "8266"
+      inContainer: "true"
+      NVIDIA_VISIBLE_DEVICES: all
+      NVIDIA_DRIVER_CAPABILITIES: all
+    volumes:
+      - /opt/kdk-lab/media/tdarr-temp:/temp
+      - /mnt/media:/data/media
+      - /mnt/media/staging:/data/staging
+      - /mnt/media/quarantine:/data/quarantine
+      - /mnt/dee-exchange:/data/dee-exchange
+    depends_on: [tdarr]
+
+networks:
+  default: {}
+  proxy:
+    external: true
