@@ -40,7 +40,6 @@ deploy = true
 [stack.config]
 server = "kdk-dkr-01"
 repo = "BigH3ater/kdk-lab-dkr"
-git_account = "BigH3ater"
 run_directory = "stacks/proxy"
 pre_deploy.command = "sh -c '. /etc/komodo/op.env && op inject -f -i .env.tpl -o .env'"
 webhook_enabled = true
@@ -51,7 +50,6 @@ deploy = true
 [stack.config]
 server = "kdk-dkr-01"
 repo = "BigH3ater/kdk-lab-dkr"
-git_account = "BigH3ater"
 run_directory = "stacks/op-connect"
 webhook_enabled = true
 
@@ -62,7 +60,6 @@ after = ["proxy"]
 [stack.config]
 server = "kdk-dkr-01"
 repo = "BigH3ater/kdk-lab-dkr"
-git_account = "BigH3ater"
 run_directory = "stacks/docs"
 webhook_enabled = true
 
@@ -73,7 +70,6 @@ after = ["proxy"]
 [stack.config]
 server = "kdk-dkr-01"
 repo = "BigH3ater/kdk-lab-dkr"
-git_account = "BigH3ater"
 run_directory = "stacks/media"
 webhook_enabled = true
 
@@ -84,7 +80,6 @@ after = ["proxy"]
 [stack.config]
 server = "kdk-dkr-01"
 repo = "BigH3ater/kdk-lab-dkr"
-git_account = "BigH3ater"
 run_directory = "stacks/apps"
 pre_deploy.command = "sh -c '. /etc/komodo/op.env && op inject -f -i .env.tpl -o .env'"
 webhook_enabled = true
@@ -95,7 +90,6 @@ deploy = false   # deployed nightly by the backup Procedure
 [stack.config]
 server = "kdk-dkr-01"
 repo = "BigH3ater/kdk-lab-dkr"
-git_account = "BigH3ater"
 run_directory = "stacks/backup-dkr-01"
 
 # ---- kdk-dkr-dmz-01 stacks ----
@@ -105,7 +99,6 @@ deploy = true
 [stack.config]
 server = "kdk-dkr-dmz-01"
 repo = "BigH3ater/kdk-lab-dkr"
-git_account = "BigH3ater"
 run_directory = "stacks/dmz-proxy"
 pre_deploy.command = "sh -c '. /etc/komodo/op.env && op inject -f -i .env.tpl -o .env'"
 webhook_enabled = true
@@ -117,7 +110,6 @@ after = ["dmz-proxy"]
 [stack.config]
 server = "kdk-dkr-dmz-01"
 repo = "BigH3ater/kdk-lab-dkr"
-git_account = "BigH3ater"
 run_directory = "stacks/identity"
 pre_deploy.command = "sh -c '. /etc/komodo/op.env && op inject -f -i .env.tpl -o .env'"
 webhook_enabled = true
@@ -129,7 +121,6 @@ after = ["dmz-proxy"]
 [stack.config]
 server = "kdk-dkr-dmz-01"
 repo = "BigH3ater/kdk-lab-dkr"
-git_account = "BigH3ater"
 run_directory = "stacks/dmz-apps"
 webhook_enabled = true
 
@@ -140,7 +131,6 @@ after = ["dmz-proxy"]
 [stack.config]
 server = "kdk-dkr-dmz-01"
 repo = "BigH3ater/kdk-lab-dkr"
-git_account = "BigH3ater"
 run_directory = "stacks/jellyfin"
 webhook_enabled = true
 
@@ -151,7 +141,6 @@ after = ["dmz-proxy"]
 [stack.config]
 server = "kdk-dkr-dmz-01"
 repo = "BigH3ater/kdk-lab-dkr"
-git_account = "BigH3ater"
 run_directory = "stacks/immich"
 pre_deploy.command = "sh -c '. /etc/komodo/op.env && op inject -f -i .env.tpl -o .env'"
 webhook_enabled = true
@@ -162,7 +151,6 @@ deploy = false
 [stack.config]
 server = "kdk-dkr-dmz-01"
 repo = "BigH3ater/kdk-lab-dkr"
-git_account = "BigH3ater"
 run_directory = "stacks/backup-dmz"
 pre_deploy.command = "sh -c '. /etc/komodo/op.env && op inject -f -i .env.tpl -o .env'"
 
