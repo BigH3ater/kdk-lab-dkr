@@ -44,3 +44,20 @@ services:
       - ./alloy/config.alloy:/etc/alloy/config.alloy:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
     logging: *log
+
+  # Container-state alerting: pages Pushover on a container crash (die with a
+  # non-graceful exit) or unhealthy health status. Uses the Docker API, so it
+  # works despite the containerd-snapshotter driver that breaks cAdvisor names.
+  docker-event-watch:
+    image: docker:28-cli
+    container_name: docker-event-watch
+    restart: unless-stopped
+    entrypoint: ["/bin/sh"]
+    command: ["/watch.sh"]
+    environment:
+      NODE_NAME: "${NODE_NAME:-unknown}"
+    volumes:
+      - ./docker-event-watch.sh:/watch.sh:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /etc/kdk/pushover.env:/pushover.env:ro
+    logging: *log

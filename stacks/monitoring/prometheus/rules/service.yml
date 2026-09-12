@@ -40,15 +40,10 @@ groups:
           summary: "{{ $labels.instance }} memory above 90%"
           description: "Available memory below 10% for 15m on {{ $labels.instance }}."
 
-  - name: containers
-    rules:
-      - alert: ContainerRestarting
-        expr: changes(container_start_time_seconds{name!=""}[15m]) > 3
-        for: 5m
-        labels: {severity: warning, source: external-monitor}
-        annotations:
-          summary: "Container {{ $labels.name }} on {{ $labels.host }} is restart-looping"
-          description: "{{ $labels.name }} restarted more than 3 times in 15m — likely crash-looping."
+  # Per-container crash/unhealthy alerting is handled by the Docker-events
+  # watcher in stacks/observability-agent (Docker API -> Pushover), because
+  # cAdvisor cannot resolve container names under the containerd-snapshotter
+  # storage driver on these hosts.
 
   - name: endpoints
     rules:
