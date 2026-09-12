@@ -84,7 +84,7 @@ This host **is** the observability. Prometheus jobs: `idrac`, `node-external`, `
 
 ## Architecture
 
-Containers: `prometheus-ext v3.7.3`, `grafana-ext 12.3.1`, `alertmanager-ext v0.28.1`, `blackbox-exporter v0.28.0`, `idrac-exporter 2.6.2`, `idrac-fan-control`. Alertmanager gossip `9094`, API `9093`; scrapers reach targets across the lab; the fan controller drives the hyp/nas BMCs over IPMI.
+Containers: `prometheus-ext v3.7.3`, `grafana-ext 12.3.1`, `alertmanager-ext v0.28.1`, `blackbox-exporter v0.28.0`, `idrac-exporter 2.6.2`, and two `tigerblue77` fan controllers (`fanctl-hyp` → R720 BMC, `fanctl-nas` → R730xd BMC), plus the `observability-agent` (cAdvisor + Alloy). Alertmanager gossip `9094`, API `9093`; scrapers reach targets across the lab; the fan controllers steer the BMCs over IPMI as `idracrw`. `fanctl-hyp` is **active** (R720 quieted to 15%); `fanctl-nas` is monitoring-only.
 
 ### Storage map
 
@@ -104,10 +104,11 @@ Containers: `prometheus-ext v3.7.3`, `grafana-ext 12.3.1`, `alertmanager-ext v0.
 |---|---|---|---|
 | `pushover-kdk-lab` (`user_key`, `api_token`) | the two 0600 token files | 🟡 external party | rewrite both files (owned `65534`), recreate `alertmanager-ext` |
 | `proton-bridge-smtp-incluster` | `proton-bridge-smtp-password` file | 🟡 external party | email path currently unused |
+| `kdk-lab-idrac-fanctl-admin` (kdk-ops, `idracrw`) | fan-controller `.env` (IPMI ADMINISTRATOR) | 🟡 admin creds | rotate on both BMCs + 1P, redeploy the fan controllers |
 
 ## Out-of-band changes
 
-Alertmanager switched from the ntfy webhook + in-cluster SMTP to Pushover (2026-09-12); ntfy and the cluster relay are retired. The `blackbox-http-app`/`blackbox-k3s-api` jobs still target the old cluster and `ntfy.kmkdp.com` — stale, pending the monitoring re-home.
+Alertmanager routes to Pushover (ntfy webhook + in-cluster SMTP relay retired). Prometheus scrape/rules refreshed 2026-09-12: cAdvisor + the VMs' node_exporter added, all migrated `*.kmkdp.com` probed (`blackbox-service`), dead k3s/ntfy targets removed. The custom `idrac-fan-control` image was replaced by two `tigerblue77` controllers; `fanctl-hyp` **enabled** (R720 fans ~2880 RPM at 15%, CPUs ~50°C), `fanctl-nas` monitoring-only. The stack is adopted (files-on-host) and mirrored in `stacks/monitoring/`; full git-link deferred (see its README).
 
 ## Provisioning
 

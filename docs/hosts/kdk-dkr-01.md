@@ -33,7 +33,8 @@ The internal Docker host: Komodo control plane, 1Password Connect, internal Trae
 | OS | Debian 13, kernel `6.12.107+deb13-amd64` (full kernel — required for the NVIDIA driver) |
 | Hardware | 12 vCPU / 47 GiB / 571 GB local-zfs · GTX 1050 Ti (hostpci) |
 | Managed by | cloud-init at build; Komodo periphery thereafter |
-| Blast radius | All internal services + new deploys lab-wide |
+| Runs | komodo, op-connect, proxy, docs, media, apps, backup-dkr-01, **loki** + Alloy syslog (:3100/:514), observability-agent, node-exporter |
+| Blast radius | All internal services + new deploys lab-wide; also lab log ingestion (Loki) |
 
 ## Access
 

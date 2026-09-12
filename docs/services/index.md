@@ -19,6 +19,7 @@ Stack definitions live in `stacks/` in the repo; Komodo deploys them from git. O
 | [Immich](immich.md) | kdk-dkr-dmz-01 | https://immich.kmkdp.com | immich |
 | [Seerr](seerr.md) | kdk-dkr-dmz-01 | https://seerr.kmkdp.com | dmz-apps |
 | [Backups](backups.md) | both VMs | — | backup-* |
+| [Observability](observability.md) | kdk-mon-01 + kdk-dkr-01 | http://10.1.20.30:3000 | monitoring, loki, observability-agent |
 
 Adopted stacks (files on the host, managed in Komodo): Home Assistant on [kdk-dkr-02](../hosts/kdk-dkr-02.md), Scrypted/Homebridge on [kdk-dkr-03](../hosts/kdk-dkr-03.md), monitoring on [kdk-mon-01](../hosts/kdk-mon-01.md).
 

@@ -27,11 +27,12 @@ to a repo stack (`repo`, `run_directory = stacks/monitoring`, `pre_deploy` op in
 
 Two `tigerblue77/dell_idrac_fan_controller` containers (`fanctl-hyp` → R720 BMC
 10.1.3.86, `fanctl-nas` → R730xd BMC 10.1.3.25), replacing the retired custom
-`ghcr.io/bigh3ater/kdk-lab-idrac-fan-control` image. They run in
-**`MONITORING_ONLY_MODE=true`** — they read temps and log the profile they *would*
-apply, but write nothing. Fans stay on BMC auto.
+`ghcr.io/bigh3ater/kdk-lab-idrac-fan-control` image. `fanctl-hyp` (R720) is **enabled** (`MONITORING_ONLY_MODE=false`) — it applies a
+static 20% profile below a 72°C CPU threshold and disables the third-party-PCIe
+fan boost; the R720 dropped from ~12000 to ~3000 RPM (20%, headroom to 72°C to avoid 100% slam spikes). `fanctl-nas` (R730xd)
+remains in `MONITORING_ONLY_MODE=true` (reads + logs, writes nothing).
 
-**To enable active (quiet) control:** set `MONITORING_ONLY_MODE: "false"` on a
-controller and redeploy — a reviewed one-line change. Watch idrac-exporter fan RPM
-in Grafana afterward. Thermal safety is alerted independently via `prometheus/rules/thermal.yml`
+**To enable/adjust the R730xd:** set `MONITORING_ONLY_MODE: "false"` on `fanctl-nas`
+(and/or tune `FAN_SPEED`) and redeploy — a reviewed one-line change. Watch
+idrac-exporter fan RPM in Grafana afterward. Thermal safety is alerted independently via `prometheus/rules/thermal.yml`
 (idrac-exporter metrics), so no controller self-metric is required.
