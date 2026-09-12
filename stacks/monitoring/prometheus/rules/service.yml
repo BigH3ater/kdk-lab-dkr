@@ -28,8 +28,12 @@ groups:
           summary: "{{ $labels.instance }} root filesystem below 10% free"
           description: "Less than 10% free on / for 30m on {{ $labels.instance }}."
 
+      # kdk-nas-01 (10.1.3.5) is excluded: its RAM is ZFS ARC, which is
+      # reclaimable and reported as "used" — 90%+ is normal, not pressure.
       - alert: HostMemoryHigh
-        expr: (1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) > 0.90
+        expr: >-
+          (1 - node_memory_MemAvailable_bytes{instance!="10.1.3.5:9100"}
+           / node_memory_MemTotal_bytes{instance!="10.1.3.5:9100"}) > 0.90
         for: 15m
         labels: {severity: warning, source: external-monitor}
         annotations:
