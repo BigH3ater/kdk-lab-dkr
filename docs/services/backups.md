@@ -1,47 +1,83 @@
 ---
 title: Backups
+host: kdk-dkr-01, kdk-dkr-dmz-01
+stack: backup-dkr-01, backup-dmz
+tier: infra
+status: live
+storage: yes
+secrets: [proton-mirror-crypt, authelia-postgres, immich-postgres]
+updated: 2026-09-12
+tags: [homelab/stack, tier/infra, status/live]
 ---
+
 # Backups
 
-| Layer | What | Where |
+Nightly app-state backups run as one-shot stacks that a Komodo Procedure redeploys on a schedule; local NAS is armed, encrypted offsite to Proton is built but gated.
+
+**Related:** [[kdk-dkr-01]] · [[kdk-dkr-dmz-01]] · [[komodo]]
+
+## At a glance
+
+| Field | Value |
+|---|---|
+| Purpose | pg dumps + `/opt/kdk-lab` rsync to the NAS, then selected sets offsite |
+| Status | 🟢 Local NAS live (nightly 03:00) · 🟡 offsite gated (Proton auth cooldown) |
+| Hosts | [[kdk-dkr-01]] (`backup-dkr-01`), [[kdk-dkr-dmz-01]] (`backup-dmz`) |
+| Deploy | Komodo Procedure `nightly-backups` redeploys both stacks (`deploy = false` otherwise) |
+| Destinations | `/mnt/backup/dkr/<host>` (NFS tankz3) → Proton Drive (crypt) |
+| Blast radius | No new restore points; existing backups intact |
+
+## Verify
+
+```bash
+ssh kdkadmin@10.1.20.20 'ls -t /mnt/backup/dkr/kdk-dkr-01 | head'                    # recent state
+ssh kdkadmin@10.1.20.20 'ls -t /mnt/backup/dkr/kdk-dkr-dmz-01/pgdump | head'         # dated .sql.gz
+```
+In Komodo, Procedure `nightly-backups` shows a recent successful run.
+
+## Troubleshooting
+
+| Problem | Cause | Command to validate |
 |---|---|---|
-| ZFS snapshots | vmpool (DMZ VM zvol), tankz3 (bulk + backup datasets) | TrueNAS tasks |
-| VM-level | vzdump of VM 300 to PBS (follow-up: PBS auth fix); TrueNAS zvol replication for the DMZ VM | Proxmox / TrueNAS |
-| App-level | nightly Komodo Procedure `nightly-backups`: pg dumps (authelia, immich) + rsync /opt/kdk-lab → tankz3/backup/dkr/<host> | `stacks/backup-*` |
-| Offsite | rclone → Proton Drive from the backup dataset (pending kdk-ops vault grant for the Connect token) | `stacks/backup-dkr-01` offsite service |
+| No new dumps | Procedure didn't run / stack failed | Komodo Procedure history; `docker logs <backup-container>` |
+| Offsite never runs | gated behind `offsite` profile | expected — Proton auth is in cooldown |
+| Offsite accumulates dead objects | crypt password changed without a purge | `rclone purge proton:kdk-lab-backup` before the first sync under a new password |
+| rclone can't read cached tokens | image newer than the login version | pin `rclone/rclone:1.75` (the version that did the interactive login) |
 
-Restore: untar/rsync back from /mnt/backup, psql < dump. Jellyfin/media tars from
-the migration remain under tankz3/backup/migrate until parity is confirmed.
+## Dependencies
 
-## Offsite encryption (Proton)
+| Direction | Thing | What breaks without it |
+|---|---|---|
+| Needs | `/mnt/backup` (NFS tankz3) | nowhere to write |
+| Needs | [[identity]] + [[immich]] Postgres | pg dumps |
+| Needs | Proton Drive (offsite only) | offsite tier |
 
-Offsite uploads go through an rclone `crypt` remote (`proton-crypt`, on kdk-dkr-01
-at `/opt/kdk-lab/backup/rclone/rclone.conf`) wrapping `proton:kdk-lab-backup`, so
-everything on Proton Drive is client-side encrypted. The crypt password is
-`op://kdk-ops/proton-mirror-crypt/password`; the Proton account login uses an
-`otp_secret_key` so rclone mints TOTP codes headless. Pin the rclone image to the
-version that performed the interactive login (currently 1.75) — older images
-cannot read its cached session tokens.
+## Observability
 
-> **Rotating the crypt password purges the target.** Objects encrypted under the
-> old password are undecryptable by the new remote and `sync` will never remove
-> them — they accumulate as dead cruft. On any crypt-password change you MUST
-> `rclone purge proton:kdk-lab-backup` (the whole encrypted tree) before the first
-> sync under the new password. Same applies to a Proton account change.
+No dashboard. Success is visible in the Komodo Procedure run history.
 
-## Offsite status (2026-09-11)
+## Architecture
 
-Encrypted offsite to Proton is **built and proven** — the crypt remote uploaded a
-batch of encrypted objects successfully. It is **currently gated** (compose
-`offsite` profile) because Proton throttled/soft-locked password auth after the
-many login attempts during setup, and rclone's cached session tokens expired.
-The nightly Procedure runs only the local NAS rsync until offsite is re-armed.
+Three layers: (1) ZFS snapshots — vmpool covers the DMZ VM zvol, tankz3 covers bulk + backup datasets; (2) VM-level — vzdump of VM 300 to PBS, TrueNAS zvol replication of the DMZ VM; (3) app-level — the two backup stacks. `backup-dmz` runs `pg_dump` for Authelia and Immich (keeps 15) then rsyncs state; `backup-dkr-01` rsyncs `/opt/kdk-lab` (excluding scratch/DBs), then the gated `offsite` service syncs to Proton.
 
-**To re-arm** (after Proton auth cools down, hours): do ONE clean interactive
-`rclone config` login for the `proton` remote on a stable host, copy the raw
-config (with fresh cached tokens) to `/opt/kdk-lab/backup/rclone/rclone.conf`,
-confirm `rclone lsd proton-crypt:` works, then remove `profiles: ["offsite"]`
-from `stacks/backup-dkr-01/compose.yaml`. Do NOT run repeated headless logins —
-Proton throttles them. If unattended offsite proves persistently fragile,
-prefer a provider with a stable API token (or the ZFS-replication/Garage tier)
-over Proton Drive for automation.
+## Configuration
+
+| Path / setting | What it is |
+|---|---|
+| `stacks/backup-dkr-01/compose.yaml` | rsync + gated rclone offsite |
+| `stacks/backup-dmz/compose.yaml` | Authelia + Immich pg dumps + rsync |
+| `/opt/kdk-lab/backup/rclone/rclone.conf` | `proton` + `proton-crypt` remotes |
+| Procedure `nightly-backups` | schedule `0 0 3 * * *` (03:00 daily) |
+
+Restore: rsync/untar back from `/mnt/backup`, `psql < dump`. Migration tars remain under `tankz3/backup/migrate` until parity is confirmed.
+
+## Secret Rotation
+
+| Secret (1P item) | Used for | Class | Rotate live? |
+|---|---|---|---|
+| `proton-mirror-crypt` (kdk-ops) | rclone crypt password | 🔴 purge-on-change | rotating it orphans every object — `rclone purge` the Proton target first |
+| `authelia-postgres`, `immich-postgres` | pg_dump auth | 🟢 self-service | rotate with the DB, then redeploy |
+
+## Offsite status (2026-09-12)
+
+Encrypted offsite to Proton is **built and proven** but **gated** (`offsite` profile) after Proton throttled password auth during setup. To re-arm: do one clean interactive `rclone config` login on a stable host, copy the fresh config to `/opt/kdk-lab/backup/rclone/rclone.conf`, confirm `rclone lsd proton-crypt:`, then remove `profiles: ["offsite"]`. Do not run repeated headless logins — Proton throttles them.
