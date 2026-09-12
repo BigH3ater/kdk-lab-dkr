@@ -18,7 +18,7 @@ tags: [homelab/host, role/monitor, status/live, tier/internal]
 
 # kdk-mon-01 — out-of-cluster monitor
 
-A Raspberry Pi 5 running the standalone monitoring stack so alerting survives a full outage of everything else: Prometheus, Grafana, Alertmanager (→ Pushover), blackbox + iDRAC exporters, and the iDRAC fan controller.
+A Raspberry Pi 5 running the standalone monitoring stack so alerting survives a full outage of everything else: Prometheus, Grafana, Alertmanager (→ Pushover), blackbox + iDRAC exporters, and the iDRAC fan controllers.
 
 **Related:** [[kdk-hyp-01]] · [[kdk-nas-01]] · [[komodo]]
 
@@ -58,7 +58,7 @@ ssh kdkadmin@10.1.20.30 'sudo docker exec alertmanager-ext amtool check-config /
 |---|---|---|
 | No alerts on the phone | Alertmanager → Pushover misconfig | validate creds: Pushover `users/validate.json` returns `status:1` |
 | Alert config won't load | bad `alertmanager.yml` | `amtool check-config` before recreating the container |
-| BMC fans loud / firmware curve | `idrac-fan-control` stopped | `docker restart idrac-fan-control`; it fails safe to the BMC |
+| BMC fans loud (on auto) | a `fanctl-*` controller stopped | `docker restart fanctl-hyp` / `fanctl-nas`; each fails safe to BMC auto |
 
 ## Dependencies
 
@@ -70,7 +70,7 @@ ssh kdkadmin@10.1.20.30 'sudo docker exec alertmanager-ext amtool check-config /
 
 ## Observability
 
-This host **is** the observability. Prometheus jobs: `idrac`, `node-external`, `blackbox-icmp/-dns/-http-app`, `prometheus-self`. Alert rules: `FanControl*` (BMC temps/reachability on hyp + nas), `SmartHome*` (endpoint probes). Alertmanager delivers to Pushover.
+This host **is** the observability. Prometheus jobs: `idrac`, `node-external`, `blackbox-icmp/-dns/-http-app`, `prometheus-self`. Alert rules: `thermal.yml` (idrac-exporter: CPU/inlet temps, fan health, fans-pinned), `service.yml` (host/container/endpoint/cert), `smart-home.yml`. Alertmanager delivers to Pushover.
 
 ## Standards compliance
 
@@ -84,7 +84,7 @@ This host **is** the observability. Prometheus jobs: `idrac`, `node-external`, `
 
 ## Architecture
 
-Containers: `prometheus-ext v3.7.3`, `grafana-ext 12.3.1`, `alertmanager-ext v0.28.1`, `blackbox-exporter v0.28.0`, `idrac-exporter 2.6.2`, and two `tigerblue77` fan controllers (`fanctl-hyp` → R720 BMC, `fanctl-nas` → R730xd BMC), plus the `observability-agent` (cAdvisor + Alloy). Alertmanager gossip `9094`, API `9093`; scrapers reach targets across the lab; the fan controllers steer the BMCs over IPMI as `idracrw`. both **active**: R720 ~3000 RPM (20%), R730xd ~4800 RPM (20%). An 8h drive-temp watchdog on kdk-nas-01 (`/root/kdk-temp-watch.sh`) pages Pushover if the hottest HDD exceeds 44/48°C.
+Containers: `prometheus-ext v3.7.3`, `grafana-ext 12.3.1`, `alertmanager-ext v0.28.1`, `blackbox-exporter v0.28.0`, `idrac-exporter 2.6.2`, and two `tigerblue77` fan controllers (`fanctl-hyp` → R720 BMC, `fanctl-nas` → R730xd BMC), plus the `observability-agent` (cAdvisor + Alloy). Alertmanager gossip `9094`, API `9093`; scrapers reach targets across the lab; the fan controllers steer the BMCs over IPMI as `idracrw`. Both **active**: R720 ~3000 RPM (20%), R730xd ~4800 RPM (20%). An 8h drive-temp watchdog on kdk-nas-01 (`/root/kdk-temp-watch.sh`) pages Pushover if the hottest HDD exceeds 44/48°C.
 
 ### Storage map
 

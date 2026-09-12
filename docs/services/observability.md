@@ -33,7 +33,7 @@ Metrics + alerting live on the independent monitor [[kdk-mon-01]]; logs live on 
 curl -s http://10.1.20.20:3100/ready                                  # ready (Loki)
 curl -s http://10.1.20.30:9090/api/v1/targets | grep -c '"up"'        # cadvisor/node/blackbox targets up
 curl -sG http://10.1.20.20:3100/loki/api/v1/label/host/values         # every host present
-ssh kdkadmin@10.1.20.30 'sudo docker logs --tail 3 fanctl-hyp'        # temps logged, "monitoring only"
+ssh kdkadmin@10.1.20.30 'sudo docker logs --tail 3 fanctl-hyp'        # temps logged, profile applied
 ```
 
 ## Troubleshooting
