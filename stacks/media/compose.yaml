@@ -62,7 +62,6 @@ services:
       traefik.http.routers.sonarr-api.priority: "100"
       traefik.http.routers.sonarr-api.service: "sonarr"
       traefik.http.services.sonarr.loadbalancer.server.port: "8989"
-      traefik.http.services.sonarr.loadbalancer.server.port: "8989"
 
   radarr:
     <<: *common
@@ -83,7 +82,6 @@ services:
       traefik.http.routers.radarr-api.rule: "Host(`radarr.kmkdp.com`) && PathPrefix(`/api`)"
       traefik.http.routers.radarr-api.priority: "100"
       traefik.http.routers.radarr-api.service: "radarr"
-      traefik.http.services.radarr.loadbalancer.server.port: "7878"
       traefik.http.services.radarr.loadbalancer.server.port: "7878"
 
   bazarr:
