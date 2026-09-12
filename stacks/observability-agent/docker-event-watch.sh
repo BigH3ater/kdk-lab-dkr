@@ -7,14 +7,14 @@
 set -u
 apk add --no-cache curl >/dev/null 2>&1 || true
 . /pushover.env
-log() { echo "$(date '+%F %T') $*"; }
+log() { echo "$(date '+%F %T') $*" >&2; }   # stderr = unbuffered, visible in docker logs
 notify() {
   log "PUSH[$3]: $1 -- $2"
   curl -s -o /dev/null --max-time 10 https://api.pushover.net/1/messages.json \
     --form-string token="$PUSHOVER_TOKEN" --form-string user="$PUSHOVER_USER" \
     --form-string title="$1" --form-string message="$2" --form-string priority="${3:-1}"
 }
-notify "kdk container watch online" "Docker-event watcher started on ${NODE_NAME}." 0
+notify "kdk container watch online" "Docker-event watcher started on ${NODE_NAME}." -1
 while true; do
   docker events --filter type=container --filter event=die --filter event=health_status \
     --format '{{.Actor.Attributes.name}}|{{.Action}}|{{.Actor.Attributes.exitCode}}' 2>/dev/null |
