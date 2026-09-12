@@ -28,3 +28,20 @@ cannot read its cached session tokens.
 > them — they accumulate as dead cruft. On any crypt-password change you MUST
 > `rclone purge proton:kdk-lab-backup` (the whole encrypted tree) before the first
 > sync under the new password. Same applies to a Proton account change.
+
+## Offsite status (2026-09-11)
+
+Encrypted offsite to Proton is **built and proven** — the crypt remote uploaded a
+batch of encrypted objects successfully. It is **currently gated** (compose
+`offsite` profile) because Proton throttled/soft-locked password auth after the
+many login attempts during setup, and rclone's cached session tokens expired.
+The nightly Procedure runs only the local NAS rsync until offsite is re-armed.
+
+**To re-arm** (after Proton auth cools down, hours): do ONE clean interactive
+`rclone config` login for the `proton` remote on a stable host, copy the raw
+config (with fresh cached tokens) to `/opt/kdk-lab/backup/rclone/rclone.conf`,
+confirm `rclone lsd proton-crypt:` works, then remove `profiles: ["offsite"]`
+from `stacks/backup-dkr-01/compose.yaml`. Do NOT run repeated headless logins —
+Proton throttles them. If unattended offsite proves persistently fragile,
+prefer a provider with a stable API token (or the ZFS-replication/Garage tier)
+over Proton Drive for automation.
