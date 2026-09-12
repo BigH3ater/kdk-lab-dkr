@@ -1,0 +1,46 @@
+# Per-host observability agent, deployed by Komodo to every compose host.
+#   - cadvisor : per-container CPU/mem/restart metrics (host :9280)
+#   - alloy    : ships local Docker container logs to Loki on kdk-dkr-01.
+# Host metrics (node_exporter) are a separate stack on the two VMs only; the
+# three Pis already run node_exporter as a package. Per-host env (LOKI_HOST,
+# NODE_NAME) is set in komodo/resources.toml.
+name: observability-agent
+services:
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.52.1
+    container_name: cadvisor
+    restart: unless-stopped
+    command:
+      - "--docker_only=true"
+      - "--housekeeping_interval=30s"
+      - "--store_container_labels=false"
+    privileged: true
+    devices:
+      - /dev/kmsg
+    ports:
+      - "9280:8080"     # 8080 is taken by 1P Connect on kdk-dkr-01; publish on 9280 everywhere
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    logging: &log
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+  alloy:
+    image: grafana/alloy:v1.10.0
+    container_name: alloy
+    restart: unless-stopped
+    command:
+      - "run"
+      - "--server.http.listen-addr=0.0.0.0:12345"
+      - "/etc/alloy/config.alloy"
+    environment:
+      LOKI_HOST: "${LOKI_HOST:-10.1.20.20}"
+      NODE_NAME: "${NODE_NAME:-unknown}"
+    volumes:
+      - ./alloy/config.alloy:/etc/alloy/config.alloy:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    logging: *log

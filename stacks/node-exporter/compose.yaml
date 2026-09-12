@@ -1,0 +1,19 @@
+# Host metrics for the two new VMs (kdk-dkr-01, kdk-dkr-dmz-01). The three Pis
+# already run node_exporter as a system package, so this stack is NOT deployed
+# there. Prometheus on kdk-mon-01 scrapes :9100 on every host uniformly.
+name: node-exporter
+services:
+  node-exporter:
+    image: prom/node-exporter:v1.9.1
+    container_name: node-exporter
+    restart: unless-stopped
+    command:
+      - "--path.rootfs=/host"
+      - "--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($|/)"
+    network_mode: host          # binds host :9100
+    pid: host
+    volumes:
+      - /:/host:ro,rslave
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }

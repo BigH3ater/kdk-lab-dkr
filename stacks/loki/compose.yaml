@@ -1,0 +1,36 @@
+# Loki logging stack on kdk-dkr-01. Storage on the vmpool NVMe array via the
+# /mnt/loki NFS mount (storage NIC). Loki has no auth: it is reachable only on
+# the internal VLAN-20 address and the storage net, never published publicly.
+# Alloy here is the syslog receiver (:514); per-host container-log shipping is
+# the separate observability-agent stack.
+name: loki
+services:
+  loki:
+    image: grafana/loki:3.5.5
+    container_name: loki
+    restart: unless-stopped
+    user: "10001:10001"
+    command: ["-config.file=/etc/loki/loki-config.yaml"]
+    ports:
+      - "3100:3100"      # HTTP: agents (dkr-01 local, storage net, VLAN 20/30) + Grafana on kdk-mon-01
+    volumes:
+      - ./loki-config.yaml:/etc/loki/loki-config.yaml:ro
+      - /mnt/loki:/loki
+    logging: &log
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+  syslog:
+    image: grafana/alloy:v1.10.0
+    container_name: loki-syslog
+    restart: unless-stopped
+    command:
+      - "run"
+      - "--server.http.listen-addr=0.0.0.0:12345"
+      - "/etc/alloy/syslog.alloy"
+    ports:
+      - "514:514/tcp"    # syslog.kmkdp.com -> 10.1.20.20:514 (Pi rsyslog forwarders)
+    volumes:
+      - ./alloy/syslog.alloy:/etc/alloy/syslog.alloy:ro
+    depends_on: [loki]
+    logging: *log

@@ -1,0 +1,36 @@
+// Syslog receiver on kdk-dkr-01. syslog.kmkdp.com already resolves to
+// 10.1.20.20, so the Pi rsyslog forwarders (`*.* @@syslog.kmkdp.com:514`, TCP)
+// land here. Parsed RFC3164 and pushed to the local Loki.
+
+loki.write "default" {
+  endpoint {
+    url = "http://loki:3100/loki/api/v1/push"
+  }
+}
+
+loki.relabel "syslog" {
+  forward_to = []
+  rule {
+    source_labels = ["__syslog_message_hostname"]
+    target_label  = "host"
+  }
+  rule {
+    source_labels = ["__syslog_message_app_name"]
+    target_label  = "app"
+  }
+  rule {
+    source_labels = ["__syslog_message_severity"]
+    target_label  = "level"
+  }
+}
+
+loki.source.syslog "in" {
+  listener {
+    address       = "0.0.0.0:514"
+    protocol      = "tcp"
+    syslog_format = "rfc3164"
+    labels        = { job = "syslog" }
+  }
+  relabel_rules = loki.relabel.syslog.rules
+  forward_to    = [loki.write.default.receiver]
+}

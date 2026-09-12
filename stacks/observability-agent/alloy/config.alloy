@@ -1,0 +1,40 @@
+// Per-host log shipper: discovers local Docker containers and forwards their
+// logs to Loki on kdk-dkr-01. LOKI_HOST and NODE_NAME are set per host by the
+// Komodo stack env (dkr-01 -> localhost/10.1.20.20, dmz-01 -> 100.100.100.50
+// over the storage net, Pis/mon -> 10.1.20.20).
+
+discovery.docker "containers" {
+  host = "unix:///var/run/docker.sock"
+}
+
+discovery.relabel "docker" {
+  targets = discovery.docker.containers.targets
+
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/(.*)"
+    target_label  = "container"
+  }
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_compose_project"]
+    target_label  = "stack"
+  }
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_compose_service"]
+    target_label  = "service"
+  }
+}
+
+loki.source.docker "containers" {
+  host       = "unix:///var/run/docker.sock"
+  targets    = discovery.relabel.docker.output
+  labels     = { job = "docker" }
+  forward_to = [loki.write.default.receiver]
+}
+
+loki.write "default" {
+  endpoint {
+    url = "http://" + sys.env("LOKI_HOST") + ":3100/loki/api/v1/push"
+  }
+  external_labels = { host = sys.env("NODE_NAME") }
+}
