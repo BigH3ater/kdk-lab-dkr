@@ -60,7 +60,7 @@ No dashboard. `sso.kmkdp.com` probed by [[kdk-mon-01]]; alerts → Pushover.
 
 ## Architecture
 
-`authelia:9091` and `lldap:17170` join `proxy-dmz` for ingress; `postgres:5432`, `redis:6379`, and LDAP `3890` (plain, was LDAPS in k3s) stay on the stack-internal network. Config is templated from `configuration.yml` + `configuration.webauthn.yml`.
+`authelia:9091` and `lldap:17170` join `proxy-dmz` for ingress; `postgres:5432`, `redis:6379` stay internal. LLDAP serves **LDAPS on 6360** (self-signed cert for `lldap`, `/opt/kdk-lab/identity/lldap-certs/`) — Jellyfin binds over LDAPS — plus plain `3890` which Authelia uses (`ldap://lldap:3890`). Config is templated from `configuration.yml` + `configuration.webauthn.yml`.
 
 ## Configuration
 
