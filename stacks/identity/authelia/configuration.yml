@@ -111,9 +111,11 @@ authentication_backend:
   refresh_interval: '5 minutes'
   ldap:
     implementation: 'lldap'
-    address: 'ldap://lldap:3890'
+    address: 'ldaps://lldap:6360'
     timeout: '5 seconds'
     start_tls: false
+    tls:
+      skip_verify: true   # self-signed cert for `lldap` (same-host container-to-container)
     pooling:
       enable: false
       count: 5
