@@ -1,0 +1,40 @@
+# Alert rules for the out-of-cluster monitor on kdk-mon-01.
+#
+# This file is why kdk-mon-01's Prometheus now has a rule_files entry at all --
+# it recorded metrics but never alerted, so the 2026-08-30 Home Assistant outage
+# was invisible from here. These fire into the local Alertmanager -> ntfy.
+groups:
+  - name: smart-home-availability
+    rules:
+      # The direct answer to the 2026-08-30 outage: a smart-home app endpoint
+      # stopped responding and nothing said so. 3m tolerates a container
+      # restart / brief reboot without paging.
+      - alert: SmartHomeEndpointDown
+        expr: probe_success{job="blackbox-http-app"} == 0
+        for: 3m
+        labels:
+          severity: critical
+          source: external-monitor
+        annotations:
+          summary: "Smart-home endpoint {{ $labels.instance }} is DOWN"
+          description: >-
+            The out-of-cluster blackbox probe of {{ $labels.instance }} from
+            kdk-mon-01 has failed for 3m. Home Assistant / Scrypted / Homebridge
+            run as Docker Compose on kdk-dkr-01 / kdk-dkr-02. Check
+            `docker compose ps` on the board; `docker compose up -d` converges
+            the stack (a boot-time systemd unit now does this automatically).
+
+      # A probe that never runs looks identical to "everything healthy". If the
+      # blackbox exporter itself cannot be scraped, the check above is blind.
+      - alert: SmartHomeProbeExporterDown
+        expr: up{job="blackbox-http-app"} == 0
+        for: 3m
+        labels:
+          severity: warning
+          source: external-monitor
+        annotations:
+          summary: "Smart-home probe exporter on kdk-mon-01 is unreachable"
+          description: >-
+            Prometheus cannot scrape the blackbox exporter for the smart-home
+            probe job. SmartHomeEndpointDown cannot fire while this is true --
+            the monitor is blind to Home Assistant / Scrypted until it recovers.

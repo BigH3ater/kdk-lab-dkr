@@ -1,0 +1,65 @@
+# Thermal + BMC alerts, keyed on idrac-exporter (Redfish) series — independent
+# of any fan controller. Replaces the old idrac-fan-control.yml, which alerted
+# on the retired custom controller's self-metrics.
+groups:
+  - name: thermal
+    rules:
+      # BMC/exporter unreachable — thermals are then unobserved.
+      - alert: IdracExporterDown
+        expr: up{job="idrac"} == 0
+        for: 5m
+        labels: {severity: warning, source: external-monitor}
+        annotations:
+          summary: "iDRAC metrics for {{ $labels.instance }} are unavailable"
+          description: >-
+            Prometheus cannot scrape the BMC via idrac-exporter for 5m; fan and
+            temperature alerting for this host is blind until it recovers.
+
+      - alert: HostCpuTempHigh
+        expr: idrac_sensors_temperature{name=~"CPU.*Temp"} > 82
+        for: 5m
+        labels: {severity: warning, source: external-monitor}
+        annotations:
+          summary: "{{ $labels.instance_name }} {{ $labels.name }} is {{ $value }}C"
+          description: "CPU temperature above 82C for 5m on {{ $labels.instance_name }} ({{ $labels.model }})."
+
+      - alert: HostCpuTempCritical
+        expr: idrac_sensors_temperature{name=~"CPU.*Temp"} > 92
+        for: 2m
+        labels: {severity: critical, source: external-monitor}
+        annotations:
+          summary: "{{ $labels.instance_name }} {{ $labels.name }} CRITICAL {{ $value }}C"
+          description: >-
+            CPU above 92C on {{ $labels.instance_name }}. If a fan controller is
+            managing this BMC, release fans to auto now:
+            `ipmitool -I lanplus -L ADMINISTRATOR -H <bmc> -U idracrw -E raw 0x30 0x30 0x01 0x00`.
+
+      - alert: HostInletTempHigh
+        expr: idrac_sensors_temperature{name=~".*Inlet.*"} > 30
+        for: 10m
+        labels: {severity: warning, source: external-monitor}
+        annotations:
+          summary: "{{ $labels.instance_name }} inlet {{ $value }}C"
+          description: "Inlet air above 30C for 10m — ambient/room cooling issue on {{ $labels.instance_name }}."
+
+      - alert: FanUnhealthy
+        expr: idrac_sensors_fan_health != 0
+        for: 5m
+        labels: {severity: warning, source: external-monitor}
+        annotations:
+          summary: "{{ $labels.instance_name }} {{ $labels.name }} reports not-OK"
+          description: "A chassis fan on {{ $labels.instance_name }} reports a non-OK health status."
+
+      # Fans stuck loud: either heavy load, or fan control is not active.
+      # EXPECTED to fire until the tigerblue77 controller is enabled (--apply),
+      # since both BMCs are on auto until then.
+      - alert: FansPinnedHigh
+        expr: max by (instance_name) (idrac_sensors_fan_speed) > 10000
+        for: 20m
+        labels: {severity: warning, source: external-monitor}
+        annotations:
+          summary: "{{ $labels.instance_name }} fans pinned high ({{ $value }} RPM)"
+          description: >-
+            Peak fan speed above 10000 RPM for 20m. Expected while the fan
+            controller is in monitoring-only mode; otherwise indicates sustained
+            load or that active fan control has stopped.

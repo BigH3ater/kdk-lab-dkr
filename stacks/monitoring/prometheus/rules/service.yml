@@ -1,0 +1,67 @@
+# Service + host alerts for the migrated Komodo/compose estate.
+groups:
+  - name: hosts
+    rules:
+      - alert: InstanceDown
+        expr: up{job="node-external"} == 0
+        for: 5m
+        labels: {severity: critical, source: external-monitor}
+        annotations:
+          summary: "Host exporter {{ $labels.instance }} is down"
+          description: "node_exporter on {{ $labels.instance }} has been unscrapable for 5m."
+
+      - alert: CadvisorDown
+        expr: up{job="cadvisor"} == 0
+        for: 5m
+        labels: {severity: warning, source: external-monitor}
+        annotations:
+          summary: "cAdvisor {{ $labels.instance }} is down"
+          description: "Container metrics for {{ $labels.instance }} are unavailable for 5m."
+
+      - alert: HostDiskSpaceLow
+        expr: >-
+          node_filesystem_avail_bytes{fstype!~"tmpfs|overlay|squashfs",mountpoint="/"}
+          / node_filesystem_size_bytes{mountpoint="/"} < 0.10
+        for: 30m
+        labels: {severity: warning, source: external-monitor}
+        annotations:
+          summary: "{{ $labels.instance }} root filesystem below 10% free"
+          description: "Less than 10% free on / for 30m on {{ $labels.instance }}."
+
+      - alert: HostMemoryHigh
+        expr: (1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) > 0.90
+        for: 15m
+        labels: {severity: warning, source: external-monitor}
+        annotations:
+          summary: "{{ $labels.instance }} memory above 90%"
+          description: "Available memory below 10% for 15m on {{ $labels.instance }}."
+
+  - name: containers
+    rules:
+      - alert: ContainerRestarting
+        expr: changes(container_start_time_seconds{name!=""}[15m]) > 3
+        for: 5m
+        labels: {severity: warning, source: external-monitor}
+        annotations:
+          summary: "Container {{ $labels.name }} on {{ $labels.host }} is restart-looping"
+          description: "{{ $labels.name }} restarted more than 3 times in 15m — likely crash-looping."
+
+  - name: endpoints
+    rules:
+      - alert: EndpointDown
+        expr: probe_success{job="blackbox-service"} == 0
+        for: 5m
+        labels: {severity: critical, source: external-monitor}
+        annotations:
+          summary: "Service {{ $labels.instance }} is DOWN"
+          description: >-
+            The HTTPS probe of {{ $labels.instance }} from kdk-mon-01 has failed
+            for 5m (a ForwardAuth 302 counts as up, so this is a real outage).
+
+      - alert: TLSCertExpiringSoon
+        expr: (probe_ssl_earliest_cert_expiry{job="blackbox-service"} - time()) < 14 * 86400
+        for: 1h
+        labels: {severity: warning, source: external-monitor}
+        annotations:
+          summary: "TLS cert for {{ $labels.instance }} expires in under 14 days"
+          description: "Traefik's ACME renewal for {{ $labels.instance }} may be failing — check the cf resolver."

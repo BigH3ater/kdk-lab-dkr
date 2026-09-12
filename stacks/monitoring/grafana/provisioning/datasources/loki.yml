@@ -1,0 +1,11 @@
+# Loki lives on kdk-dkr-01 (RAM + NVMe storage NIC), reached cross-host.
+apiVersion: 1
+datasources:
+  - name: Loki
+    uid: loki-dkr01
+    type: loki
+    access: proxy
+    url: http://10.1.20.20:3100
+    editable: false
+    jsonData:
+      maxLines: 1000

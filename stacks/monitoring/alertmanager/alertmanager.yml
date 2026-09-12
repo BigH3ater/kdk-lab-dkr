@@ -1,0 +1,35 @@
+# Out-of-cluster Alertmanager on kdk-mon-01.
+#
+# Alerting transport is Pushover (SaaS) -- cluster-independent by design, so a
+# full outage of the (now-retiring) k3s cluster does not silence alerts. The
+# previous ntfy webhook (ntfy.kmkdp.com) and the in-cluster SMTP relay
+# (smtp-relay.kmkdp.com -> the k3s proton-bridge) were BOTH cluster-dependent
+# and are retired with it. ntfy is gone entirely; email can be re-added later
+# if proton-bridge lands in the kdk-lab-dkr apps stack.
+#
+# Credentials come from 1Password item kdk-cluster/pushover-kdk-lab
+# (user_key, api_token), written 0600 as pushover-user-key / pushover-app-token
+# (owned by the container's nobody:65534 so the receiver can read them). Never
+# committed.
+
+route:
+  receiver: pushover
+  group_by: ["alertname"]
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+
+receivers:
+  - name: pushover
+    pushover_configs:
+      - user_key_file: /etc/alertmanager/pushover-user-key
+        token_file: /etc/alertmanager/pushover-app-token
+        send_resolved: true
+        priority: '{{ if eq .Status "firing" }}1{{ else }}0{{ end }}'
+        title: '[{{ .Status | toUpper }}] {{ .CommonLabels.alertname }} ({{ .Alerts | len }})'
+        message: >-
+          {{ range .Alerts }}{{ if .Annotations.summary }}{{ .Annotations.summary }}{{ else }}{{ .Labels.alertname }}{{ end }}
+          {{ if .Annotations.description }}{{ .Annotations.description }}{{ end }}
+          {{ end }}
+        url_title: 'Open Alertmanager'
+        html: false
