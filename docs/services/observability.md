@@ -22,7 +22,7 @@ Metrics + alerting live on the independent monitor [[kdk-mon-01]]; logs live on 
 |---|---|
 | Metrics/alerts | Prometheus + Alertmanager (→ Pushover) + Grafana on [[kdk-mon-01]] |
 | Logs | Loki 3.5.5 on [[kdk-dkr-01]], storage on `vmpool/loki` (NVMe) via NFS, 30-day retention |
-| Collection | per-host `observability-agent` (cAdvisor + Grafana Alloy); `node-exporter` on the two VMs |
+| Collection | per-host `observability-agent` (cAdvisor + Alloy + **docker-event-watch**); `node-exporter` on the two VMs |
 | Fan control | two `tigerblue77` containers on [[kdk-mon-01]]; `fanctl-hyp` **active** (R720 ~3000 RPM, 20%), `fanctl-nas` **active** (R730xd ~4800 RPM, 20%) |
 | Web UI | Grafana `http://10.1.20.30:3000` — Prometheus + Loki datasources; Explore for logs |
 | Blast radius | Loss of dashboards/log search; the mon-01 alerting path is independent of the rest |
@@ -44,6 +44,7 @@ ssh kdkadmin@10.1.20.30 'sudo docker logs --tail 3 fanctl-hyp'        # temps lo
 | "timestamp too old" in Alloy | one-time replay of pre-existing container logs | benign; new logs still ingest |
 | DMZ host metrics/logs absent | DMZ→internal path | node/cadvisor pulled over LAN→DMZ; Alloy pushes over the storage net |
 | `FansPinnedHigh` firing | that BMC on auto (loud) | expected only if a controller is monitoring-only/stopped |
+| No per-container Prometheus alert | cAdvisor can’t resolve names under the containerd-snapshotter driver | container crash/unhealthy alerting is the `docker-event-watch` service (Docker API → Pushover), not cAdvisor |
 
 ## Dependencies
 
@@ -59,7 +60,7 @@ This *is* the observability. Prometheus jobs: `idrac`, `node-external` (11), `ca
 
 ## Architecture
 
-`loki:3100` on kdk-dkr-01 (bound to the host; reachable on VLAN 20 and the storage net) with an Alloy syslog receiver on `:514` (`syslog.kmkdp.com` → 10.1.20.20). Each host runs cAdvisor (`:9280`) + Alloy (Docker log discovery → Loki). The two VMs add node-exporter (`:9100`); the Pis have it as a package. Fan controllers reach the R720/R730xd BMCs by IPMI as `idracrw`.
+`loki:3100` on kdk-dkr-01 (bound to the host; reachable on VLAN 20 and the storage net) with an Alloy syslog receiver on `:514` (`syslog.kmkdp.com` → 10.1.20.20). Each host runs cAdvisor (`:9280`) + Alloy (Docker log discovery → Loki). The two VMs add node-exporter (`:9100`); the Pis have it as a package. Fan controllers reach the R720/R730xd BMCs by IPMI as `idracrw`. Container-state alerting is per-host: `docker-event-watch` tails the Docker events API and pages Pushover on a container crash (die with a non-graceful exit) or unhealthy status; user-facing apps are also covered by `EndpointDown` (blackbox HTTPS probes of the 14 `*.kmkdp.com` services).
 
 ## Configuration
 
