@@ -160,16 +160,23 @@ pre_deploy.command = "sh -c '. /etc/komodo/op.env && op inject -f -i .env.tpl -o
 name = "nightly-backups"
 [procedure.config]
 schedule = "0 0 3 * * *"
+# DestroyStack before DeployStack so the one-shot backup containers are always
+# recreated fresh each run: `docker compose up -d` skips already-exited
+# one-shots, and stale external-network IDs (identity_default/immich_internal,
+# which change whenever identity/immich are redeployed) would make pg_dump fail
+# with "network not found". Destroy+deploy re-runs the dumps every night.
 [[procedure.config.stage]]
 name = "dkr-01"
 enabled = true
 executions = [
+  { execution.type = "DestroyStack", execution.params.stack = "backup-dkr-01", enabled = true },
   { execution.type = "DeployStack", execution.params.stack = "backup-dkr-01", enabled = true },
 ]
 [[procedure.config.stage]]
 name = "dmz"
 enabled = true
 executions = [
+  { execution.type = "DestroyStack", execution.params.stack = "backup-dmz", enabled = true },
   { execution.type = "DeployStack", execution.params.stack = "backup-dmz", enabled = true },
 ]
 
