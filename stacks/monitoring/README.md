@@ -27,10 +27,9 @@ to a repo stack (`repo`, `run_directory = stacks/monitoring`, `pre_deploy` op in
 
 Two `tigerblue77/dell_idrac_fan_controller` containers (`fanctl-hyp` → R720 BMC
 10.1.3.86, `fanctl-nas` → R730xd BMC 10.1.3.25), replacing the retired custom
-`ghcr.io/bigh3ater/kdk-lab-idrac-fan-control` image. `fanctl-hyp` (R720) is **enabled** (`MONITORING_ONLY_MODE=false`) — it applies a
+`ghcr.io/bigh3ater/kdk-lab-idrac-fan-control` image. Both controllers are **enabled**. `fanctl-hyp` (R720) (`MONITORING_ONLY_MODE=false`) — it applies a
 static 20% profile below a 72°C CPU threshold and disables the third-party-PCIe
-fan boost; the R720 dropped from ~12000 to ~3000 RPM (20%, headroom to 72°C to avoid 100% slam spikes). `fanctl-nas` (R730xd)
-remains in `MONITORING_ONLY_MODE=true` (reads + logs, writes nothing).
+fan boost; the R720 dropped from ~12000 to ~3000 RPM (20%, headroom to 72°C to avoid 100% slam spikes). `fanctl-nas` (R730xd) runs a static 20% profile (~8400 → ~4800 RPM); its NVMe are cooled by a dedicated riser fan and the SAS HDDs sit ~39°C.
 
 **To enable/adjust the R730xd:** set `MONITORING_ONLY_MODE: "false"` on `fanctl-nas`
 (and/or tune `FAN_SPEED`) and redeploy — a reviewed one-line change. Watch

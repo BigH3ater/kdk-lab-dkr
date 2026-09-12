@@ -23,7 +23,7 @@ Metrics + alerting live on the independent monitor [[kdk-mon-01]]; logs live on 
 | Metrics/alerts | Prometheus + Alertmanager (→ Pushover) + Grafana on [[kdk-mon-01]] |
 | Logs | Loki 3.5.5 on [[kdk-dkr-01]], storage on `vmpool/loki` (NVMe) via NFS, 30-day retention |
 | Collection | per-host `observability-agent` (cAdvisor + Grafana Alloy); `node-exporter` on the two VMs |
-| Fan control | two `tigerblue77` containers on [[kdk-mon-01]]; `fanctl-hyp` **active** (R720 ~2880 RPM at 15%), `fanctl-nas` monitoring-only |
+| Fan control | two `tigerblue77` containers on [[kdk-mon-01]]; `fanctl-hyp` **active** (R720 ~3000 RPM, 20%), `fanctl-nas` **active** (R730xd ~4800 RPM, 20%) |
 | Web UI | Grafana `http://10.1.20.30:3000` — Prometheus + Loki datasources; Explore for logs |
 | Blast radius | Loss of dashboards/log search; the mon-01 alerting path is independent of the rest |
 
@@ -43,7 +43,7 @@ ssh kdkadmin@10.1.20.30 'sudo docker logs --tail 3 fanctl-hyp'        # temps lo
 | Logs missing from a host | that host's Alloy down or wrong LOKI_HOST | `docker logs alloy` on the host; dmz-01 uses `100.100.100.50` |
 | "timestamp too old" in Alloy | one-time replay of pre-existing container logs | benign; new logs still ingest |
 | DMZ host metrics/logs absent | DMZ→internal path | node/cadvisor pulled over LAN→DMZ; Alloy pushes over the storage net |
-| `FansPinnedHigh` firing on kdk-hyp-01 | R720 on BMC auto (~12000 RPM) | expected until `fanctl-hyp` is enabled |
+| `FansPinnedHigh` firing | that BMC on auto (loud) | expected only if a controller is monitoring-only/stopped |
 
 ## Dependencies
 

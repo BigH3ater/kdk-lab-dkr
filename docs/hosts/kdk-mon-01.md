@@ -84,7 +84,7 @@ This host **is** the observability. Prometheus jobs: `idrac`, `node-external`, `
 
 ## Architecture
 
-Containers: `prometheus-ext v3.7.3`, `grafana-ext 12.3.1`, `alertmanager-ext v0.28.1`, `blackbox-exporter v0.28.0`, `idrac-exporter 2.6.2`, and two `tigerblue77` fan controllers (`fanctl-hyp` → R720 BMC, `fanctl-nas` → R730xd BMC), plus the `observability-agent` (cAdvisor + Alloy). Alertmanager gossip `9094`, API `9093`; scrapers reach targets across the lab; the fan controllers steer the BMCs over IPMI as `idracrw`. `fanctl-hyp` is **active** (R720 quieted to 15%); `fanctl-nas` is monitoring-only.
+Containers: `prometheus-ext v3.7.3`, `grafana-ext 12.3.1`, `alertmanager-ext v0.28.1`, `blackbox-exporter v0.28.0`, `idrac-exporter 2.6.2`, and two `tigerblue77` fan controllers (`fanctl-hyp` → R720 BMC, `fanctl-nas` → R730xd BMC), plus the `observability-agent` (cAdvisor + Alloy). Alertmanager gossip `9094`, API `9093`; scrapers reach targets across the lab; the fan controllers steer the BMCs over IPMI as `idracrw`. both **active**: R720 ~3000 RPM (20%), R730xd ~4800 RPM (20%). An 8h drive-temp watchdog on kdk-nas-01 (`/root/kdk-temp-watch.sh`) pages Pushover if the hottest HDD exceeds 44/48°C.
 
 ### Storage map
 
@@ -108,7 +108,7 @@ Containers: `prometheus-ext v3.7.3`, `grafana-ext 12.3.1`, `alertmanager-ext v0.
 
 ## Out-of-band changes
 
-Alertmanager routes to Pushover (ntfy webhook + in-cluster SMTP relay retired). Prometheus scrape/rules refreshed 2026-09-12: cAdvisor + the VMs' node_exporter added, all migrated `*.kmkdp.com` probed (`blackbox-service`), dead k3s/ntfy targets removed. The custom `idrac-fan-control` image was replaced by two `tigerblue77` controllers; `fanctl-hyp` **enabled** (R720 fans ~2880 RPM at 15%, CPUs ~50°C), `fanctl-nas` monitoring-only. The stack is adopted (files-on-host) and mirrored in `stacks/monitoring/`; full git-link deferred (see its README).
+Alertmanager routes to Pushover (ntfy webhook + in-cluster SMTP relay retired). Prometheus scrape/rules refreshed 2026-09-12: cAdvisor + the VMs' node_exporter added, all migrated `*.kmkdp.com` probed (`blackbox-service`), dead k3s/ntfy targets removed. The custom `idrac-fan-control` image was replaced by two `tigerblue77` controllers; both **enabled** — R720 ~3000 RPM (20%/72°C), R730xd ~4800 RPM (20%/65°C). NVMe cool on a dedicated riser fan; SAS HDDs steady ~39°C. An 8h temp watchdog on the NAS validates and pages Pushover on 44/48°C. The stack is adopted (files-on-host) and mirrored in `stacks/monitoring/`; full git-link deferred (see its README).
 
 ## Provisioning
 
