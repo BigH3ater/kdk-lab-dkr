@@ -164,6 +164,7 @@ name = "nightly-backups"
 # and the job fires erratically (observed running every minute 2026-09-13/14).
 schedule_format = "Cron"
 schedule = "0 0 3 * * *"
+schedule_timezone = "America/Chicago"
 # DestroyStack before DeployStack so the one-shot backup containers are always
 # recreated fresh each run: `docker compose up -d` skips already-exited
 # one-shots, and stale external-network IDs (identity_default/immich_internal,
@@ -182,6 +183,47 @@ enabled = true
 executions = [
   { execution.type = "DestroyStack", execution.params.stack = "backup-dmz", enabled = true },
   { execution.type = "DeployStack", execution.params.stack = "backup-dmz", enabled = true },
+]
+
+# Komodo's own DB dump (built-in execution). Feeds the local rsync/offsite set.
+[[procedure]]
+name = "Backup Core Database"
+[procedure.config]
+schedule_format = "English"
+schedule = "Every day at 01:00"
+schedule_timezone = "America/Chicago"
+[[procedure.config.stage]]
+name = "Stage 1"
+enabled = true
+executions = [{ execution.type = "BackupCoreDatabase", enabled = true }]
+
+# Nightly image auto-update (built-in execution).
+[[procedure]]
+name = "Global Auto Update"
+[procedure.config]
+schedule_format = "English"
+schedule = "Every day at 03:00"
+schedule_timezone = "America/Chicago"
+[[procedure.config.stage]]
+name = "Stage 1"
+enabled = true
+executions = [{ execution.type = "GlobalAutoUpdate", enabled = true }]
+
+# Rebuild the Quartz docs site every 6h: destroy+deploy forces the one-shot
+# builder to re-run (a plain `up -d` leaves the resident builder untouched).
+# The `site` volume persists across the cycle, so nginx keeps serving.
+[[procedure]]
+name = "publish-docs"
+[procedure.config]
+schedule_format = "Cron"
+schedule = "0 0 */6 * * *"
+schedule_timezone = "America/Chicago"
+[[procedure.config.stage]]
+name = "rebuild"
+enabled = true
+executions = [
+  { execution.type = "DestroyStack", execution.params.stack = "docs", enabled = true },
+  { execution.type = "DeployStack", execution.params.stack = "docs", enabled = true },
 ]
 
 # ---- observability: Loki logs + per-host agents ----
@@ -307,3 +349,16 @@ server = "kdk-dkr-01"
 repo = "BigH3ater/kdk-lab-dkr"
 run_directory = "stacks/komodo"
 pre_deploy.command = "sh -c '. /etc/komodo/op.env && op inject -f -i .env.tpl -o .env'"
+
+# ---- the ResourceSync itself (self-managed) ----
+# Declaring the sync here makes the repo authoritative. managed = true means
+# Komodo auto-applies resources.toml on repo changes (poll + on execute) and
+# enforces state (it will delete resources NOT declared above -- keep this file
+# complete). Flip to false for diff-only (manual RunSync) mode.
+[[resource_sync]]
+name = "kdk-lab-dkr"
+[resource_sync.config]
+repo = "BigH3ater/kdk-lab-dkr"
+branch = "main"
+resource_path = ["komodo/resources.toml"]
+managed = true
