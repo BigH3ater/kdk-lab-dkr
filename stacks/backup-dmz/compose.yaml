@@ -47,8 +47,8 @@ services:
           --exclude 'jellyfin/config/cache' \
           --exclude 'jellyfin/config/data/transcodes' \
           /src/ /dest/kdk-dkr-dmz-01/state/
-        rc=$?
-        [ $rc -eq 0 ] || [ $rc -eq 24 ] || exit $rc
+        rc=$$?
+        [ $$rc -eq 0 ] || [ $$rc -eq 24 ] || exit $$rc
         touch /dest/kdk-dkr-dmz-01/.last-backup
     volumes:
       - /opt/kdk-lab:/src:ro

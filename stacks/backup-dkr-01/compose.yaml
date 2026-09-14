@@ -17,9 +17,9 @@ services:
           --exclude 'komodo/postgres' --exclude 'proxy/letsencrypt' \
           --exclude 'stacks/' --exclude 'backup/' \
           /src/ /dest/kdk-dkr-01/
-        rc=$?
+        rc=$$?
         # 24 = "file vanished" (live SQLite/media) is benign, treat as success.
-        [ $rc -eq 0 ] || [ $rc -eq 24 ] || exit $rc
+        [ $$rc -eq 0 ] || [ $$rc -eq 24 ] || exit $$rc
         touch /dest/kdk-dkr-01/.last-backup
     volumes:
       - /opt/kdk-lab:/src:ro
