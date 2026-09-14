@@ -4,30 +4,35 @@
 # 1Password Connect in pre_deploy (op CLI + /etc/komodo/op.env on the host).
 
 [[server]]
+tags = ["kdk-lab"]
 name = "kdk-dkr-01"
 [server.config]
 address = "https://10.1.20.20:8120"
 enabled = true
 
 [[server]]
+tags = ["kdk-lab"]
 name = "kdk-dkr-dmz-01"
 [server.config]
 address = "https://192.168.191.20:8120"
 enabled = true
 
 [[server]]
+tags = ["kdk-lab"]
 name = "kdk-dkr-02"
 [server.config]
 address = "https://10.1.30.21:8120"
 enabled = true
 
 [[server]]
+tags = ["kdk-lab"]
 name = "kdk-dkr-03"
 [server.config]
 address = "https://10.1.30.22:8120"
 enabled = true
 
 [[server]]
+tags = ["kdk-lab"]
 name = "kdk-mon-01"
 [server.config]
 address = "https://10.1.20.30:8120"
@@ -35,6 +40,7 @@ enabled = true
 
 # ---- kdk-dkr-01 stacks ----
 [[stack]]
+tags = ["kdk-lab"]
 name = "proxy"
 deploy = true
 [stack.config]
@@ -45,6 +51,7 @@ pre_deploy.command = "sh -c '. /etc/komodo/op.env && op inject -f -i .env.tpl -o
 webhook_enabled = true
 
 [[stack]]
+tags = ["kdk-lab"]
 name = "op-connect"
 deploy = true
 [stack.config]
@@ -54,6 +61,7 @@ run_directory = "stacks/op-connect"
 webhook_enabled = true
 
 [[stack]]
+tags = ["kdk-lab"]
 name = "docs"
 deploy = true
 after = ["proxy"]
@@ -64,6 +72,7 @@ run_directory = "stacks/docs"
 webhook_enabled = true
 
 [[stack]]
+tags = ["kdk-lab"]
 name = "media"
 deploy = true
 after = ["proxy"]
@@ -75,6 +84,7 @@ pre_deploy.command = "sh -c '. /etc/komodo/op.env && op inject -f -i .env.tpl -o
 webhook_enabled = true
 
 [[stack]]
+tags = ["kdk-lab"]
 name = "apps"
 deploy = true
 after = ["proxy"]
@@ -86,6 +96,7 @@ pre_deploy.command = "sh -c '. /etc/komodo/op.env && op inject -f -i .env.tpl -o
 webhook_enabled = true
 
 [[stack]]
+tags = ["kdk-lab"]
 name = "backup-dkr-01"
 deploy = false   # deployed nightly by the backup Procedure
 [stack.config]
@@ -95,6 +106,7 @@ run_directory = "stacks/backup-dkr-01"
 
 # ---- kdk-dkr-dmz-01 stacks ----
 [[stack]]
+tags = ["kdk-lab"]
 name = "dmz-proxy"
 deploy = true
 [stack.config]
@@ -105,6 +117,7 @@ pre_deploy.command = "sh -c '. /etc/komodo/op.env && op inject -f -i .env.tpl -o
 webhook_enabled = true
 
 [[stack]]
+tags = ["kdk-lab"]
 name = "identity"
 deploy = true
 after = ["dmz-proxy"]
@@ -116,6 +129,7 @@ pre_deploy.command = "sh -c '. /etc/komodo/op.env && op inject -f -i .env.tpl -o
 webhook_enabled = true
 
 [[stack]]
+tags = ["kdk-lab"]
 name = "dmz-apps"
 deploy = true
 after = ["dmz-proxy"]
@@ -126,6 +140,7 @@ run_directory = "stacks/dmz-apps"
 webhook_enabled = true
 
 [[stack]]
+tags = ["kdk-lab"]
 name = "jellyfin"
 deploy = true
 after = ["dmz-proxy"]
@@ -136,6 +151,7 @@ run_directory = "stacks/jellyfin"
 webhook_enabled = true
 
 [[stack]]
+tags = ["kdk-lab"]
 name = "immich"
 deploy = true
 after = ["dmz-proxy"]
@@ -147,6 +163,7 @@ pre_deploy.command = "sh -c '. /etc/komodo/op.env && op inject -f -i .env.tpl -o
 webhook_enabled = true
 
 [[stack]]
+tags = ["kdk-lab"]
 name = "backup-dmz"
 deploy = false
 [stack.config]
@@ -157,6 +174,7 @@ pre_deploy.command = "sh -c '. /etc/komodo/op.env && op inject -f -i .env.tpl -o
 
 # ---- procedures ----
 [[procedure]]
+tags = ["kdk-lab"]
 name = "nightly-backups"
 [procedure.config]
 # schedule_format MUST be "Cron" to match the 6-field cron value below.
@@ -195,6 +213,7 @@ executions = [
 # builder to re-run (a plain `up -d` leaves the resident builder untouched).
 # The `site` volume persists across the cycle, so nginx keeps serving.
 [[procedure]]
+tags = ["kdk-lab"]
 name = "publish-docs"
 [procedure.config]
 schedule_format = "Cron"
@@ -210,6 +229,7 @@ executions = [
 
 # ---- observability: Loki logs + per-host agents ----
 [[stack]]
+tags = ["kdk-lab"]
 name = "loki"
 deploy = true
 [stack.config]
@@ -220,6 +240,7 @@ webhook_enabled = true
 
 # node_exporter on the two VMs only (the Pis run it as a package).
 [[stack]]
+tags = ["kdk-lab"]
 name = "node-exporter-dkr01"
 deploy = true
 [stack.config]
@@ -229,6 +250,7 @@ run_directory = "stacks/node-exporter"
 webhook_enabled = true
 
 [[stack]]
+tags = ["kdk-lab"]
 name = "node-exporter-dmz01"
 deploy = true
 [stack.config]
@@ -240,6 +262,7 @@ webhook_enabled = true
 # Per-host log shipper + cAdvisor. Same compose, one entry per host; LOKI_HOST
 # and NODE_NAME differ per host (dmz-01 reaches Loki over the storage net).
 [[stack]]
+tags = ["kdk-lab"]
 name = "observability-agent-dkr01"
 deploy = true
 after = ["loki"]
@@ -251,6 +274,7 @@ environment = "LOKI_HOST=10.1.20.20\nNODE_NAME=kdk-dkr-01"
 webhook_enabled = true
 
 [[stack]]
+tags = ["kdk-lab"]
 name = "observability-agent-dmz01"
 deploy = true
 after = ["loki"]
@@ -262,6 +286,7 @@ environment = "LOKI_HOST=100.100.100.50\nNODE_NAME=kdk-dkr-dmz-01"
 webhook_enabled = true
 
 [[stack]]
+tags = ["kdk-lab"]
 name = "observability-agent-mon01"
 deploy = true
 after = ["loki"]
@@ -273,6 +298,7 @@ environment = "LOKI_HOST=10.1.20.20\nNODE_NAME=kdk-mon-01"
 webhook_enabled = true
 
 [[stack]]
+tags = ["kdk-lab"]
 name = "observability-agent-dkr02"
 deploy = true
 after = ["loki"]
@@ -284,6 +310,7 @@ environment = "LOKI_HOST=10.1.20.20\nNODE_NAME=kdk-dkr-02"
 webhook_enabled = true
 
 [[stack]]
+tags = ["kdk-lab"]
 name = "observability-agent-dkr03"
 deploy = true
 after = ["loki"]
@@ -296,6 +323,7 @@ webhook_enabled = true
 
 # ---- adopted stacks (files already on the Pi hosts; adopt, don't redeploy) ----
 [[stack]]
+tags = ["kdk-lab"]
 name = "home-assistant"
 deploy = false
 [stack.config]
@@ -305,6 +333,7 @@ run_directory = "/opt/kdk-lab/home-assistant"
 file_paths = ["docker-compose.yml"]
 
 [[stack]]
+tags = ["kdk-lab"]
 name = "scrypted-homebridge"
 deploy = false
 [stack.config]
@@ -314,6 +343,7 @@ run_directory = "/opt/kdk-lab/scrypted-homebridge"
 file_paths = ["docker-compose.yml"]
 
 [[stack]]
+tags = ["kdk-lab"]
 name = "monitoring-ext"
 deploy = false
 [stack.config]
@@ -324,6 +354,7 @@ run_directory = "/opt/kdk-lab/monitoring"
 file_paths = ["docker-compose.yml"]
 
 [[stack]]
+tags = ["kdk-lab"]
 name = "komodo"
 deploy = false
 [stack.config]
