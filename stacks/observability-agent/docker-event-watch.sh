@@ -17,9 +17,19 @@ notify() {
 notify "kdk container watch online" "Docker-event watcher started on ${NODE_NAME}." -1
 while true; do
   docker events --filter type=container --filter event=die --filter event=health_status \
-    --format '{{.Actor.Attributes.name}}|{{.Action}}|{{.Actor.Attributes.exitCode}}' 2>/dev/null |
-  while IFS='|' read -r name action code; do
-    log "event name=$name action=$action code=$code"
+    --format '{{.Actor.Attributes.name}}|{{.Action}}|{{.Actor.Attributes.exitCode}}|{{index .Actor.Attributes "com.docker.compose.project"}}' 2>/dev/null |
+  while IFS='|' read -r name action code project; do
+    log "event name=$name action=$action code=$code project=$project"
+    # Only alert on containers that are part of a long-running compose SERVICE.
+    # Skip:
+    #   - ad-hoc `docker run` (no compose project) -- diagnostics, one-off tools;
+    #     these exit non-zero routinely and are not services.
+    #   - one-shot backup stacks (backup-*) -- they exit by design; backup-verify
+    #     is their dedicated alert and would otherwise double-page.
+    case "$project" in
+      "") log "  ignore: no compose project (ad-hoc container)"; continue ;;
+      backup-*) log "  ignore: one-shot backup stack ($project)"; continue ;;
+    esac
     case "$action" in
       die)
         # 0 = clean exit, 143 = SIGTERM (graceful stop / redeploy) -> ignore.
