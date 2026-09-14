@@ -16,3 +16,11 @@ services:
       - /mnt/backup/dkr:/dest
       - ./id_kdk:/key:ro
       - ./collect.sh:/collect.sh:ro
+  # Forces DeployStack to block until the pulls finish (up -d doesn't wait for a
+  # terminal one-shot); collect.sh always exits 0, so this always runs.
+  gate:
+    image: busybox:stable
+    restart: "no"
+    depends_on:
+      collect: { condition: service_completed_successfully }
+    command: ["true"]

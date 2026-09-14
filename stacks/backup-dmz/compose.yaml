@@ -1,6 +1,10 @@
 # Nightly one-shots on kdk-dkr-dmz-01: pg dumps + app state -> tankz3/backup.
 # Offsite is centralized in the backup-offsite stack on kdk-dkr-01 (this host's
 # tree lands on the shared NFS mount, so offsite ships it from there).
+# The `gate` service forces Komodo's DeployStack to block until the rsync (and
+# its pg_dump deps) finish -- up -d does not wait for terminal one-shots. All
+# workers exit 0 (best-effort); backup-verify checks the dumps + marker and is
+# the single Pushover alert source.
 name: backup-dmz
 services:
   pgdump-authelia:
@@ -11,7 +15,7 @@ services:
     command: >
       sh -c 'pg_dump -h authelia-postgres -U authelia authelia
       | gzip > /dest/authelia-$$(date +%F).sql.gz
-      && ls -t /dest/authelia-*.sql.gz | tail -n +15 | xargs -r rm'
+      && ls -t /dest/authelia-*.sql.gz | tail -n +15 | xargs -r rm; exit 0'
     volumes:
       - /mnt/backup/dkr/kdk-dkr-dmz-01/pgdump:/dest
     networks: [identity_default]
@@ -24,7 +28,7 @@ services:
     command: >
       sh -c 'pg_dump -h immich-postgres -U immich immich
       | gzip > /dest/immich-$$(date +%F).sql.gz
-      && ls -t /dest/immich-*.sql.gz | tail -n +15 | xargs -r rm'
+      && ls -t /dest/immich-*.sql.gz | tail -n +15 | xargs -r rm; exit 0'
     volumes:
       - /mnt/backup/dkr/kdk-dkr-dmz-01/pgdump:/dest
     networks: [immich_internal]
@@ -32,7 +36,6 @@ services:
   rsync:
     image: instrumentisto/rsync-ssh:alpine
     restart: "no"
-    # Wait for both dumps, then rsync app state and drop the freshness marker.
     depends_on:
       pgdump-authelia: { condition: service_completed_successfully }
       pgdump-immich: { condition: service_completed_successfully }
@@ -48,11 +51,18 @@ services:
           --exclude 'jellyfin/config/data/transcodes' \
           /src/ /dest/kdk-dkr-dmz-01/state/
         rc=$$?
-        [ $$rc -eq 0 ] || [ $$rc -eq 24 ] || exit $$rc
-        touch /dest/kdk-dkr-dmz-01/.last-backup
+        if [ $$rc -eq 0 ] || [ $$rc -eq 24 ]; then touch /dest/kdk-dkr-dmz-01/.last-backup; else echo "rsync failed rc=$$rc"; fi
+        exit 0
     volumes:
       - /opt/kdk-lab:/src:ro
       - /mnt/backup/dkr:/dest
+
+  gate:
+    image: busybox:stable
+    restart: "no"
+    depends_on:
+      rsync: { condition: service_completed_successfully }
+    command: ["true"]
 
 networks:
   identity_default:

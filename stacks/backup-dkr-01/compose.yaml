@@ -1,8 +1,16 @@
 # Nightly one-shot on kdk-dkr-01: stage this host's app state -> tankz3/backup
 # (the NFS backup tree). Offsite to Proton is a SEPARATE stack (backup-offsite)
-# that ships the whole tree once every host has staged. A .last-backup marker is
-# touched on success so backup-verify can prove this run actually ran (rsync -a
-# preserves source mtimes, so file mtime alone can't signal freshness).
+# that ships the whole tree once every host has staged.
+#
+# Two Komodo one-shot facts shape this:
+#  * `.last-backup` marker on success -- rsync -a preserves source mtimes, so
+#    file mtime can't signal "ran tonight"; a freshly-touched marker can.
+#  * the `gate` service: Komodo's DeployStack returns when `up -d` returns, and
+#    up -d does NOT wait for a terminal one-shot to finish. A trailing gate that
+#    depends on rsync (service_completed_successfully) forces up -d to block
+#    until rsync is done, so the procedure's NEXT stage only starts after this
+#    host is fully staged. rsync always exits 0 (best-effort); backup-verify is
+#    the single source of truth and pages Pushover if the marker is stale.
 name: backup-dkr-01
 services:
   rsync:
@@ -18,9 +26,15 @@ services:
           --exclude 'stacks/' --exclude 'backup/' \
           /src/ /dest/kdk-dkr-01/
         rc=$$?
-        # 24 = "file vanished" (live SQLite/media) is benign, treat as success.
-        [ $$rc -eq 0 ] || [ $$rc -eq 24 ] || exit $$rc
-        touch /dest/kdk-dkr-01/.last-backup
+        # 0 ok; 24 = "file vanished" (live SQLite/media) is benign.
+        if [ $$rc -eq 0 ] || [ $$rc -eq 24 ]; then touch /dest/kdk-dkr-01/.last-backup; else echo "rsync failed rc=$$rc"; fi
+        exit 0
     volumes:
       - /opt/kdk-lab:/src:ro
       - /mnt/backup/dkr:/dest
+  gate:
+    image: busybox:stable
+    restart: "no"
+    depends_on:
+      rsync: { condition: service_completed_successfully }
+    command: ["true"]

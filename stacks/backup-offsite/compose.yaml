@@ -13,3 +13,12 @@ services:
       - /mnt/backup/dkr:/data
       - /opt/kdk-lab/backup/rclone:/config
       - ./offsite.sh:/offsite.sh:ro
+  # CRITICAL: forces DeployStack to block until the Proton sync finishes, so the
+  # verify stage runs AFTER .offsite-status is written (offsite.sh always exits
+  # 0). Without this, verify runs while rclone is still uploading and false-fails.
+  gate:
+    image: busybox:stable
+    restart: "no"
+    depends_on:
+      offsite: { condition: service_completed_successfully }
+    command: ["true"]
