@@ -228,7 +228,11 @@ name = "nightly-backups"
 # With the default "English" format Komodo's parser can't read a cron string
 # and the job fires erratically (observed running every minute 2026-09-13/14).
 schedule_format = "Cron"
-schedule = "0 0 3 * * *"
+# 03:20, NOT 03:00 -- gitops-sync runs on every :00/:15/:30/:45 (0 */15) and a
+# concurrent RunSync holds the backup stacks' lock, so a :00 start fails with
+# "Resource is busy" (same collision that hit publish-docs). :20 avoids every
+# gitops-sync slot.
+schedule = "0 20 3 * * *"
 schedule_timezone = "America/Chicago"
 # DestroyStack before DeployStack so the one-shot backup containers are always
 # recreated fresh each run: `docker compose up -d` skips already-exited
