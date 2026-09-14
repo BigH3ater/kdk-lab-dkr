@@ -1,33 +1,26 @@
-# Nightly one-shots on kdk-dkr-01 (Komodo Procedure redeploys this stack on a
-# schedule; each run = one backup pass). App state -> tankz3/backup, then the
-# selected sets offsite to Proton Drive via rclone.
+# Nightly one-shot on kdk-dkr-01: stage this host's app state -> tankz3/backup
+# (the NFS backup tree). Offsite to Proton is a SEPARATE stack (backup-offsite)
+# that ships the whole tree once every host has staged. A .last-backup marker is
+# touched on success so backup-verify can prove this run actually ran (rsync -a
+# preserves source mtimes, so file mtime alone can't signal freshness).
 name: backup-dkr-01
 services:
   rsync:
     image: instrumentisto/rsync-ssh:alpine
     restart: "no"
-    command: >
-      rsync -a --delete
-      --exclude 'tdarr-temp' --exclude 'sabnzbd-incomplete'
-      --exclude 'komodo/postgres' --exclude 'proxy/letsencrypt'
-      /src/ /dest/kdk-dkr-01/
+    entrypoint: /bin/sh
+    command:
+      - -c
+      - |
+        rsync -a --delete \
+          --exclude 'tdarr-temp' --exclude 'sabnzbd-incomplete' \
+          --exclude 'komodo/postgres' --exclude 'proxy/letsencrypt' \
+          --exclude 'stacks/' --exclude 'backup/' \
+          /src/ /dest/kdk-dkr-01/
+        rc=$?
+        # 24 = "file vanished" (live SQLite/media) is benign, treat as success.
+        [ $rc -eq 0 ] || [ $rc -eq 24 ] || exit $rc
+        touch /dest/kdk-dkr-01/.last-backup
     volumes:
       - /opt/kdk-lab:/src:ro
       - /mnt/backup/dkr:/dest
-
-  offsite:
-    image: rclone/rclone:1.75
-    restart: "no"
-    # Proton Drive login is set up (password + cached session tokens live in
-    # rclone.conf), so this runs headless as part of every nightly pass.
-    # --protondrive-replace-existing-draft clears "draft exists" placeholders
-    # left by interrupted/concurrent uploads (else rclone errors on re-upload).
-    depends_on:
-      rsync: { condition: service_completed_successfully }
-    command: >
-      sync /data/kdk-dkr-01 proton-crypt:kdk-dkr-01
-      --config /config/rclone.conf --transfers 4 --log-level NOTICE
-      --protondrive-replace-existing-draft=true
-    volumes:
-      - /mnt/backup/dkr:/data:ro
-      - /opt/kdk-lab/backup/rclone:/config

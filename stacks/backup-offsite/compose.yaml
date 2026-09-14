@@ -1,0 +1,48 @@
+# Nightly one-shot on kdk-dkr-01: ship the whole backup tree (all hosts, staged
+# by backup-dkr-01 / backup-dmz / backup-collect) to Proton Drive, encrypted via
+# the rclone crypt remote. Runs AFTER the staging stages in the nightly
+# procedure. Proton must hold ONLY application state + the Proxmox cloud-init
+# template (VM 9000 vzdump under pve-templates/) -- everything regenerable or
+# redundant is excluded here:
+#   _archive/**              versioned deletions (see --backup-dir), never re-shipped
+#   **/stacks/**             Komodo repo clones (already on GitHub)
+#   **/backup/**             rclone.conf itself (Proton creds -- must not go to Proton)
+#   **/jellyfin/**/metadata  6.3G of re-fetchable artwork (real DB is data/data)
+#   **/MediaCover/**         radarr/sonarr poster cache (regenerable)
+#   **/sabnzbd/logs/**       logs
+# --backup-dir keeps a dated copy of anything deleted/overwritten (point-in-time
+# recovery vs a destructive mirror). --protondrive-replace-existing-draft clears
+# "draft exists" placeholders left by interrupted uploads. Writes .offsite-status
+# with the rclone exit code for backup-verify; always exits 0 so verify runs and
+# is the single source of the Pushover alert.
+name: backup-offsite
+services:
+  offsite:
+    image: rclone/rclone:1.75
+    restart: "no"
+    entrypoint: /bin/sh
+    command:
+      - -c
+      - |
+        rclone sync /data proton-crypt: \
+          --config /config/rclone.conf --transfers 4 --log-level NOTICE \
+          --protondrive-replace-existing-draft=true \
+          --backup-dir "proton-crypt:_archive/$(date +%F)" \
+          --exclude "_archive/**" \
+          --exclude ".offsite-status" \
+          --exclude "**/.last-backup" \
+          --exclude "**/stacks/**" \
+          --exclude "**/backup/**" \
+          --exclude "**/lost+found/**" \
+          --exclude "**/jellyfin/**/metadata/**" \
+          --exclude "**/jellyfin/**/cache/**" \
+          --exclude "**/jellyfin/**/transcodes/**" \
+          --exclude "**/MediaCover/**" \
+          --exclude "**/sabnzbd/logs/**"
+        rc=$?
+        echo "rc=$rc ts=$(date +%s) date=$(date -Iseconds)" > /data/.offsite-status
+        echo "offsite rclone exit=$rc"
+        exit 0
+    volumes:
+      - /mnt/backup/dkr:/data
+      - /opt/kdk-lab/backup/rclone:/config

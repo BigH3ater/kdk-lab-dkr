@@ -1,4 +1,6 @@
 # Nightly one-shots on kdk-dkr-dmz-01: pg dumps + app state -> tankz3/backup.
+# Offsite is centralized in the backup-offsite stack on kdk-dkr-01 (this host's
+# tree lands on the shared NFS mount, so offsite ships it from there).
 name: backup-dmz
 services:
   pgdump-authelia:
@@ -30,9 +32,24 @@ services:
   rsync:
     image: instrumentisto/rsync-ssh:alpine
     restart: "no"
-    command: >
-      rsync -a --delete --exclude 'immich/postgres' --exclude 'identity/postgres'
-      --exclude 'dmz-proxy/letsencrypt' /src/ /dest/kdk-dkr-dmz-01/state/
+    # Wait for both dumps, then rsync app state and drop the freshness marker.
+    depends_on:
+      pgdump-authelia: { condition: service_completed_successfully }
+      pgdump-immich: { condition: service_completed_successfully }
+    entrypoint: /bin/sh
+    command:
+      - -c
+      - |
+        rsync -a --delete \
+          --exclude 'immich/postgres' --exclude 'identity/postgres' \
+          --exclude 'dmz-proxy/letsencrypt' --exclude 'stacks/' \
+          --exclude 'jellyfin/config/data/metadata' \
+          --exclude 'jellyfin/config/cache' \
+          --exclude 'jellyfin/config/data/transcodes' \
+          /src/ /dest/kdk-dkr-dmz-01/state/
+        rc=$?
+        [ $rc -eq 0 ] || [ $rc -eq 24 ] || exit $rc
+        touch /dest/kdk-dkr-dmz-01/.last-backup
     volumes:
       - /opt/kdk-lab:/src:ro
       - /mnt/backup/dkr:/dest

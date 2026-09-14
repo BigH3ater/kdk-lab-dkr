@@ -2,3 +2,5 @@
 *.pending
 node_modules/
 .DS_Store
+# rendered SSH key for backup-collect (op read in pre_deploy; host clone only)
+id_kdk

@@ -111,11 +111,45 @@ webhook_enabled = true
 [[stack]]
 tags = ["kdk-lab"]
 name = "backup-dkr-01"
-deploy = false   # deployed nightly by the backup Procedure
+deploy = false   # deployed nightly by the nightly-backups Procedure
 [stack.config]
 server = "kdk-dkr-01"
 repo = "BigH3ater/kdk-lab-dkr"
 run_directory = "stacks/backup-dkr-01"
+
+# Pull app state from the three hosts NOT on the storage NFS net
+# (kdk-dkr-02/03, kdk-mon-01) into the shared backup tree. Renders the kdkadmin
+# SSH key from 1Password (op read -> ./id_kdk, 0600) in pre_deploy.
+[[stack]]
+tags = ["kdk-lab"]
+name = "backup-collect"
+deploy = false   # deployed nightly by the nightly-backups Procedure
+[stack.config]
+server = "kdk-dkr-01"
+repo = "BigH3ater/kdk-lab-dkr"
+run_directory = "stacks/backup-collect"
+pre_deploy.command = "sh -c '. /etc/komodo/op.env && op read \"op://kdk-ops/kdkadmin-ssh-key/private key?ssh-format=openssh\" > id_kdk && chmod 600 id_kdk'"
+
+# Ship the whole backup tree (all hosts) to Proton, encrypted. Runs after the
+# staging stages. Excludes regenerable caches, repo clones, and the rclone creds.
+[[stack]]
+tags = ["kdk-lab"]
+name = "backup-offsite"
+deploy = false   # deployed nightly by the nightly-backups Procedure
+[stack.config]
+server = "kdk-dkr-01"
+repo = "BigH3ater/kdk-lab-dkr"
+run_directory = "stacks/backup-offsite"
+
+# Validate the whole pass and page Pushover on any failure. Final nightly stage.
+[[stack]]
+tags = ["kdk-lab"]
+name = "backup-verify"
+deploy = false   # deployed nightly by the nightly-backups Procedure
+[stack.config]
+server = "kdk-dkr-01"
+repo = "BigH3ater/kdk-lab-dkr"
+run_directory = "stacks/backup-verify"
 
 # ---- kdk-dkr-dmz-01 stacks ----
 [[stack]]
@@ -201,19 +235,45 @@ schedule_timezone = "America/Chicago"
 # one-shots, and stale external-network IDs (identity_default/immich_internal,
 # which change whenever identity/immich are redeployed) would make pg_dump fail
 # with "network not found". Destroy+deploy re-runs the dumps every night.
+#
+# Stage order matters: all hosts must STAGE their data to the NFS tree before
+# OFFSITE ships it, and VERIFY runs last so it sees the whole pass. The staging
+# stages are best-effort (their containers exit 0 even on error); backup-verify
+# is the single source of truth and pages Pushover on any failure.
 [[procedure.config.stage]]
-name = "dkr-01"
+name = "stage-dkr-01"
 enabled = true
 executions = [
   { execution.type = "DestroyStack", execution.params.stack = "backup-dkr-01", enabled = true },
   { execution.type = "DeployStack", execution.params.stack = "backup-dkr-01", enabled = true },
 ]
 [[procedure.config.stage]]
-name = "dmz"
+name = "stage-dmz"
 enabled = true
 executions = [
   { execution.type = "DestroyStack", execution.params.stack = "backup-dmz", enabled = true },
   { execution.type = "DeployStack", execution.params.stack = "backup-dmz", enabled = true },
+]
+[[procedure.config.stage]]
+name = "stage-collect"
+enabled = true
+executions = [
+  { execution.type = "DestroyStack", execution.params.stack = "backup-collect", enabled = true },
+  { execution.type = "DeployStack", execution.params.stack = "backup-collect", enabled = true },
+]
+[[procedure.config.stage]]
+name = "offsite"
+enabled = true
+executions = [
+  { execution.type = "DestroyStack", execution.params.stack = "backup-offsite", enabled = true },
+  { execution.type = "DeployStack", execution.params.stack = "backup-offsite", enabled = true },
+]
+[[procedure.config.stage]]
+name = "verify"
+enabled = true
+executions = [
+  { execution.type = "DestroyStack", execution.params.stack = "backup-verify", enabled = true },
+  { execution.type = "DeployStack", execution.params.stack = "backup-verify", enabled = true },
 ]
 
 # ---- GitOps automation: procedure gitops-sync + action gitops-reconcile ----
