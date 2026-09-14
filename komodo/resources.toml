@@ -216,19 +216,21 @@ executions = [
   { execution.type = "DeployStack", execution.params.stack = "backup-dmz", enabled = true },
 ]
 
-# ---- actions ----
-# GitOps reconciler: Komodo Core is LAN-only, so GitHub push webhooks can't
-# reach it. This Action polls instead: refresh the sync (pulls the linked repo,
-# recomputes pending), and if the repo moved or resources drifted, RunSync
-# applies komodo/resources.toml. Runs on Core (Deno) every 15 minutes.
+# ---- GitOps automation: procedure gitops-sync + action gitops-reconcile ----
+# Komodo Core is LAN-only, so GitHub push webhooks can't reach it; this pair
+# polls instead, every 15 minutes.
+#
+# WHY a procedure wrapping an action, not RunSync inside the action: the sync
+# updates the action's own config, and Komodo refuses to update a resource
+# that is mid-run ("Action busy"). An action that awaits its own RunSync can
+# therefore never receive updates to itself (observed 2026-09-14). The
+# procedure's stage barrier guarantees the action has exited before RunSync
+# starts, so sync-applied edits to the action always land.
 [[action]]
 tags = ["kdk-lab"]
 name = "gitops-reconcile"
 [action.config]
-schedule_format = "Cron"
-schedule = "0 */15 * * * *"
-schedule_enabled = true
-schedule_timezone = "America/Chicago"
+schedule_enabled = false   # driven by the gitops-sync procedure
 failure_alert = true
 file_contents = '''
 const SYNC = "kdk-lab-dkr";
@@ -263,80 +265,35 @@ for (const [type, list] of KINDS) {
   }
 }
 
-// Pull the linked repo + recompute the sync's pending state.
+// Pull the linked repo + recompute the sync's pending state. The procedure's
+// next stage (RunSync) applies whatever this surfaces.
 await komodo.write("RefreshResourceSyncPending", { sync: SYNC });
-
 const s: any = await komodo.read("GetResourceSync", { sync: SYNC });
 const info = s.info ?? {};
-const last = info.last_sync_hash ?? "";
-const pendingHash = info.pending_hash ?? "";
-
-// Count pending updates defensively across the info shapes Komodo reports.
-const updates =
-  (info.resource_updates?.length ?? 0) +
-  (info.variable_updates?.length ?? 0) +
-  (info.user_group_updates?.length ?? 0) +
-  (typeof info.pending_deploy?.to_deploy === "number" ? info.pending_deploy.to_deploy : 0);
-
-const repoMoved = pendingHash !== "" && pendingHash !== last;
-
-if (!repoMoved && updates === 0) {
-  console.log(`in sync at ${last || "(no hash)"} -- nothing to do`);
-} else {
-  console.log(`reconciling: ${last || "(none)"} -> ${pendingHash || last} (${updates} pending updates)`);
-  // execute() returns the queued Update -- poll it to completion so failures
-  // actually fail this action (and alert) instead of reporting stale success.
-  let update: any = await komodo.execute("RunSync", { sync: SYNC });
-  const updateId = update?._id?.$oid ?? update?.id;
-  for (let i = 0; i < 90 && updateId && update?.status !== "Complete"; i++) {
-    await new Promise((r) => setTimeout(r, 2000));
-    update = await komodo.read("GetUpdate", { id: updateId });
-  }
-  if (update?.success === false) {
-    const errs = (update?.logs ?? [])
-      .filter((l: any) => (l.stderr ?? "") !== "")
-      .map((l: any) => `[${l.stage}] ${l.stderr}`)
-      .join("\n");
-    throw new Error(`RunSync failed:\n${errs || JSON.stringify(update)}`);
-  }
-  const after: any = await komodo.read("GetResourceSync", { sync: SYNC });
-  console.log(`applied ${after.info?.last_sync_hash ?? "?"} (${after.info?.last_sync_message ?? ""})`);
-}
+console.log(`refreshed: last=${info.last_sync_hash ?? "?"} pending=${info.pending_hash ?? "?"}`);
 '''
 
-# One-shot tag backfill: the sync only applies tags when it CREATES a
-# resource -- pre-existing resources keep their old (empty) tags. This action
-# stamps kdk-lab on every non-built-in resource so match_tags scoping works.
-# Not scheduled; run manually (Execute) if untagged resources ever reappear.
-[[action]]
+[[procedure]]
 tags = ["kdk-lab"]
-name = "tag-backfill"
-[action.config]
-schedule_enabled = false
-file_contents = '''
-const TAG = "kdk-lab";
-const SKIP = new Set(["Backup Core Database", "Global Auto Update"]);
-const KINDS: [string, string][] = [
-  ["Server", "ListServers"],
-  ["Stack", "ListStacks"],
-  ["Repo", "ListRepos"],
-  ["Procedure", "ListProcedures"],
-  ["Action", "ListActions"],
-];
-
-for (const [type, list] of KINDS) {
-  const items: any[] = await komodo.read(list as any, {});
-  for (const item of items) {
-    if (SKIP.has(item.name)) continue;
-    await komodo.write("UpdateTagsOnResource", {
-      target: { type, id: item.id } as any,
-      tags: [TAG],
-    });
-    console.log(`tagged ${type}/${item.name}`);
-  }
-}
-console.log("tag backfill complete");
-'''
+name = "gitops-sync"
+[procedure.config]
+schedule_format = "Cron"
+schedule = "0 */15 * * * *"
+schedule_enabled = true
+schedule_timezone = "America/Chicago"
+failure_alert = true
+[[procedure.config.stage]]
+name = "prep"
+enabled = true
+executions = [
+  { execution.type = "RunAction", execution.params.action = "gitops-reconcile", enabled = true },
+]
+[[procedure.config.stage]]
+name = "sync"
+enabled = true
+executions = [
+  { execution.type = "RunSync", execution.params.sync = "kdk-lab-dkr", enabled = true },
+]
 
 # NOTE: the built-in "Backup Core Database" and "Global Auto Update" procedures
 # are Komodo init resources (auto-created) and are NOT declared here -- sync
