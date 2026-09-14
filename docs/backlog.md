@@ -53,3 +53,14 @@ maintained separately.
 **Notes.** The wildcard `*.kmkdp.com → 10.1.20.20` already covers internal
 services; explicit records are only needed for the DMZ and Pi tiers (and to
 override the wildcard). Automation should focus on those.
+
+## Enable Komodo Managed Mode (bidirectional sync)
+
+**Status:** 🔵 planned · **Filed:** 2026-09-14
+
+Let Komodo write UI changes back to `komodo/resources.toml` and commit them, so
+the file is Komodo-generated rather than hand-authored. Requires a GitHub
+**write** token (PAT with `repo` scope for `BigH3ater/kdk-lab-dkr`) configured as
+a Komodo git provider (`[[git_provider]]` in `core.config.toml`), the sync's
+`git_account` set to that user, and Managed Mode enabled. See [[komodo-gitops]].
+Also enables `delete`/prune once the `kdk-lab` tag is confirmed ingested.
