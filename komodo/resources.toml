@@ -185,29 +185,11 @@ executions = [
   { execution.type = "DeployStack", execution.params.stack = "backup-dmz", enabled = true },
 ]
 
-# Komodo's own DB dump (built-in execution). Feeds the local rsync/offsite set.
-[[procedure]]
-name = "Backup Core Database"
-[procedure.config]
-schedule_format = "English"
-schedule = "Every day at 01:00"
-schedule_timezone = "America/Chicago"
-[[procedure.config.stage]]
-name = "Stage 1"
-enabled = true
-executions = [{ execution.type = "BackupCoreDatabase", enabled = true }]
-
-# Nightly image auto-update (built-in execution).
-[[procedure]]
-name = "Global Auto Update"
-[procedure.config]
-schedule_format = "English"
-schedule = "Every day at 03:00"
-schedule_timezone = "America/Chicago"
-[[procedure.config.stage]]
-name = "Stage 1"
-enabled = true
-executions = [{ execution.type = "GlobalAutoUpdate", enabled = true }]
+# NOTE: the built-in "Backup Core Database" and "Global Auto Update" procedures
+# are Komodo init resources (auto-created) and are NOT declared here -- sync
+# validation rejects them (spaced names / built-in execution types). They stay
+# managed by Komodo itself; do not enable `managed` sync deletion without
+# confirming these are exempt, or they would be pruned.
 
 # Rebuild the Quartz docs site every 6h: destroy+deploy forces the one-shot
 # builder to re-run (a plain `up -d` leaves the resident builder untouched).
