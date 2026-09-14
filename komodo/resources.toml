@@ -311,7 +311,10 @@ tags = ["kdk-lab"]
 name = "publish-docs"
 [procedure.config]
 schedule_format = "Cron"
-schedule = "0 0 */6 * * *"
+# xx:05, not xx:00 -- gitops-sync owns the :00/:15/:30/:45 slots and a
+# concurrent RunSync deploy on the docs stack makes DestroyStack fail
+# with "Resource is busy" (observed 2026-09-14).
+schedule = "0 5 */6 * * *"
 schedule_timezone = "America/Chicago"
 [[procedure.config.stage]]
 name = "rebuild"
