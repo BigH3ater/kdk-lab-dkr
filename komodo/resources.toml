@@ -349,16 +349,3 @@ server = "kdk-dkr-01"
 repo = "BigH3ater/kdk-lab-dkr"
 run_directory = "stacks/komodo"
 pre_deploy.command = "sh -c '. /etc/komodo/op.env && op inject -f -i .env.tpl -o .env'"
-
-# ---- the ResourceSync itself (self-managed) ----
-# Declaring the sync here makes the repo authoritative. managed = true means
-# Komodo auto-applies resources.toml on repo changes (poll + on execute) and
-# enforces state (it will delete resources NOT declared above -- keep this file
-# complete). Flip to false for diff-only (manual RunSync) mode.
-[[resource_sync]]
-name = "kdk-lab-dkr"
-[resource_sync.config]
-repo = "BigH3ater/kdk-lab-dkr"
-branch = "main"
-resource_path = ["komodo/resources.toml"]
-managed = true
