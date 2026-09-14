@@ -107,6 +107,6 @@ accounts = [{ username = "<gh-user>", token = "ghp_..." }]
 - Source: `linked_repo` → Repo `kdk-lab-dkr` (`BigH3ater/kdk-lab-dkr` @ `main`),
   `resource_path = ["komodo/resources.toml"]`
 - `managed = true`, `delete = false` (enable `delete` only after tag ingestion), `match_tags = ["kdk-lab"]`
-- Declares: 5 servers, 1 repo, 24 stacks, 3 tagged procedures (`nightly-backups`,
+- Declares: 5 servers, 1 repo, 27 stacks, 3 tagged procedures (`nightly-backups`,
   `publish-docs`, `gitops-sync`), 1 action (`gitops-reconcile`). The 2 built-in procedures stay
   untagged/unmanaged.
