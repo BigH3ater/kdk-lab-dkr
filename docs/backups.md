@@ -73,17 +73,19 @@ Creds from `/etc/kdk/pushover.env` (already on every host).
 
 ## Proxmox cloud-init template → offsite
 
-The base VM template is **VM 9000** (`qm clone 9000` + `--cicustom`). Because it
-isn't reconstructable from Git, it belongs offsite. It is **not** yet automated —
-`backup-verify` warns until it lands. To wire it, install on **kdk-hyp-01** a
-monthly job that dumps VM 9000 into the NFS backup tree so the offsite stage
-ships it:
+The base VM template is **VM 9000** (`debian13-cloudinit`; VMs are built with
+`qm clone 9000` + `--cicustom`). Because it isn't reconstructable from Git, it
+belongs offsite.
 
-```bash
-# /etc/cron.d/kdk-template-backup on kdk-hyp-01 (NFS backup mounted there)
-0 4 1 * * root vzdump 9000 --mode stop --compress zstd \
-  --dumpdir /mnt/backup/dkr/pve-templates >/var/log/kdk-template-backup.log 2>&1
-```
+**Automated.** kdk-hyp-01 mounts the same `tankz3/backup` dataset at
+`/mnt/pve/backups` (== dkr-01's `/mnt/backup`), so a monthly cron dumps VM 9000
+straight into the offsite tree and the `offsite` stage ships it:
 
-(Path: whatever local mount maps to `tankz3/backup/dkr/pve-templates` on the PVE
-host. Operator-owned — PVE host config is not managed by Komodo.)
+- `/usr/local/sbin/kdk-template-backup.sh` on kdk-hyp-01 —
+  `vzdump 9000 --mode stop --compress zstd --dumpdir /mnt/pve/backups/dkr/pve-templates`,
+  keeps the newest 2 dumps.
+- `/etc/cron.d/kdk-template-backup` — `0 4 1 * *` (1st of the month, 04:00).
+
+This is the one backup component that lives on the PVE host, not in Komodo (PVE
+host config isn't a Komodo periphery). A dump is ~283 MB (template disk is 95%
+sparse). `backup-verify` warns if no dump is < 40 days old.
