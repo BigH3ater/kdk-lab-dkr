@@ -20,7 +20,8 @@ rclone sync /data proton-crypt: \
   --exclude "**/jellyfin/**/cache/**" \
   --exclude "**/jellyfin/**/transcodes/**" \
   --exclude "**/MediaCover/**" \
-  --exclude "**/sabnzbd/logs/**"
+  --exclude "**/sabnzbd/logs/**" \
+  --exclude "**/proton-bridge/**/updates/**"
 rc=$?
 echo "rc=$rc ts=$(date +%s) date=$(date -Iseconds)" > /data/.offsite-status
 echo "offsite rclone exit=$rc"
