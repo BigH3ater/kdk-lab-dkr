@@ -256,9 +256,11 @@ for (const [type, list] of KINDS) {
     if (BUILT_INS.has(item.name)) continue;
     const has = (item.tags ?? []).some((t: string) => t === tagId || t === TAG);
     if (!has) {
-      await komodo.write("UpdateTagsOnResource", {
+      // NOTE: 2.3.3 has no UpdateTagsOnResource -- tags are set via
+      // UpdateResourceMeta (tags takes tag ids).
+      await komodo.write("UpdateResourceMeta", {
         target: { type, id: item.id } as any,
-        tags: [TAG],
+        tags: [tagId],
       });
       console.log(`tagged ${type}/${item.name}`);
     }
