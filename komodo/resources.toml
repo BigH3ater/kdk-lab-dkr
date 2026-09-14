@@ -232,6 +232,36 @@ schedule_timezone = "America/Chicago"
 failure_alert = true
 file_contents = '''
 const SYNC = "kdk-lab-dkr";
+const TAG = "kdk-lab";
+const BUILT_INS = new Set(["Backup Core Database", "Global Auto Update"]);
+
+// Enforce tags FIRST: the sync only matches resources carrying match_tags, so
+// an untagged resource is invisible to it -- the sync then tries to re-create
+// it (name conflict) and runs "deploy on creation" against the live stack.
+// Tagging everything non-built-in keeps the sync matching instead of creating.
+const KINDS: [string, string][] = [
+  ["Server", "ListServers"],
+  ["Stack", "ListStacks"],
+  ["Repo", "ListRepos"],
+  ["Procedure", "ListProcedures"],
+  ["Action", "ListActions"],
+];
+const tags: any[] = await komodo.read("ListTags", {});
+const tagId = tags.find((t) => t.name === TAG)?._id?.$oid ?? TAG;
+for (const [type, list] of KINDS) {
+  const items: any[] = await komodo.read(list as any, {});
+  for (const item of items) {
+    if (BUILT_INS.has(item.name)) continue;
+    const has = (item.tags ?? []).some((t: string) => t === tagId || t === TAG);
+    if (!has) {
+      await komodo.write("UpdateTagsOnResource", {
+        target: { type, id: item.id } as any,
+        tags: [TAG],
+      });
+      console.log(`tagged ${type}/${item.name}`);
+    }
+  }
+}
 
 // Pull the linked repo + recompute the sync's pending state.
 await komodo.write("RefreshResourceSyncPending", { sync: SYNC });
