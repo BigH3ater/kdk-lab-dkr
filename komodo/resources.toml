@@ -263,6 +263,40 @@ if (!repoMoved && updates === 0) {
 }
 '''
 
+# One-shot tag backfill: the sync only applies tags when it CREATES a
+# resource -- pre-existing resources keep their old (empty) tags. This action
+# stamps kdk-lab on every non-built-in resource so match_tags scoping works.
+# Not scheduled; run manually (Execute) if untagged resources ever reappear.
+[[action]]
+tags = ["kdk-lab"]
+name = "tag-backfill"
+[action.config]
+schedule_enabled = false
+file_contents = '''
+const TAG = "kdk-lab";
+const SKIP = new Set(["Backup Core Database", "Global Auto Update"]);
+const KINDS: [string, string][] = [
+  ["Server", "ListServers"],
+  ["Stack", "ListStacks"],
+  ["Repo", "ListRepos"],
+  ["Procedure", "ListProcedures"],
+  ["Action", "ListActions"],
+];
+
+for (const [type, list] of KINDS) {
+  const items: any[] = await komodo.read(list as any, {});
+  for (const item of items) {
+    if (SKIP.has(item.name)) continue;
+    await komodo.write("UpdateTagsOnResource", {
+      target: { type, id: item.id } as any,
+      tags: [TAG],
+    });
+    console.log(`tagged ${type}/${item.name}`);
+  }
+}
+console.log("tag backfill complete");
+'''
+
 # NOTE: the built-in "Backup Core Database" and "Global Auto Update" procedures
 # are Komodo init resources (auto-created) and are NOT declared here -- sync
 # validation rejects them (spaced names / built-in execution types). They stay
