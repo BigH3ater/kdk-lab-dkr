@@ -18,15 +18,16 @@ services:
   offsite:
     image: rclone/rclone:1.75
     restart: "no"
-    # Proton Drive needs a one-time interactive (CAPTCHA) login before this
-    # can run headless. Until then it is gated behind the "offsite" profile so
-    # the nightly stack stays clean. Enable with: COMPOSE_PROFILES=offsite.
-    profiles: ["offsite"]
+    # Proton Drive login is set up (password + cached session tokens live in
+    # rclone.conf), so this runs headless as part of every nightly pass.
+    # --protondrive-replace-existing-draft clears "draft exists" placeholders
+    # left by interrupted/concurrent uploads (else rclone errors on re-upload).
     depends_on:
       rsync: { condition: service_completed_successfully }
     command: >
       sync /data/kdk-dkr-01 proton-crypt:kdk-dkr-01
       --config /config/rclone.conf --transfers 4 --log-level NOTICE
+      --protondrive-replace-existing-draft=true
     volumes:
       - /mnt/backup/dkr:/data:ro
       - /opt/kdk-lab/backup/rclone:/config

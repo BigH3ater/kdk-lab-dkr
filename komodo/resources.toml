@@ -159,6 +159,10 @@ pre_deploy.command = "sh -c '. /etc/komodo/op.env && op inject -f -i .env.tpl -o
 [[procedure]]
 name = "nightly-backups"
 [procedure.config]
+# schedule_format MUST be "Cron" to match the 6-field cron value below.
+# With the default "English" format Komodo's parser can't read a cron string
+# and the job fires erratically (observed running every minute 2026-09-13/14).
+schedule_format = "Cron"
 schedule = "0 0 3 * * *"
 # DestroyStack before DeployStack so the one-shot backup containers are always
 # recreated fresh each run: `docker compose up -d` skips already-exited
