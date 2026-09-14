@@ -12,16 +12,18 @@ no hand-managed Docker outside Komodo.
 
 **Related:** [[backlog]] · `komodo/resources.toml`
 
-## The two moving parts
+## The moving parts
 
 | Piece | What it is | Clone path |
 |---|---|---|
-| **ResourceSync `kdk-lab-dkr`** | Core-level resource. Reads `komodo/resources.toml` and creates/updates every server, stack and procedure. | none — Komodo **Core** clones internally |
-| **Git-linked stacks** | The actual Docker. Each `[[stack]]` has `repo = BigH3ater/kdk-lab-dkr` + `run_directory = stacks/<name>`. | on its periphery host at **`/opt/kdk-lab/stacks/<name>/`** (periphery `stack_dir`) |
+| **Repo `kdk-lab-dkr`** | The single definition of the git source (`BigH3ater/kdk-lab-dkr@main`). The sync reads through it via `linked_repo`. Declared in `resources.toml` itself. | Core repo-cache (internal) |
+| **ResourceSync `kdk-lab-dkr`** | Core-level resource. `linked_repo` → the Repo above; reads `komodo/resources.toml` and creates/updates every server, stack, procedure and action. The one resource that can't declare itself (self-reference fails validation) — maintained in the UI. | none — Komodo **Core** clones internally |
+| **Action `gitops-reconcile`** | The automation loop. Every 15 min (on Core, Deno): `RefreshResourceSyncPending` (pulls the repo, recomputes pending) → if the repo moved or resources drifted, `RunSync` applies the toml. Needed because Core is LAN-only, so GitHub push webhooks can't reach it. | runs on Core |
+| **Git-linked stacks** | The actual Docker. Each `[[stack]]` has `repo = BigH3ater/kdk-lab-dkr` + `run_directory = stacks/<name>`. | on its periphery host at **`/opt/kdk-lab/stacks/<name>/`** (periphery `stack_dir`; `/etc/komodo/stacks/<name>/` on hosts with the older periphery default, e.g. kdk-mon-01 and the DMZ VM) |
 
-A Komodo **Repo** resource is **not** part of this framework — a Repo only
-clones a git repo to a server to *build* something (e.g. a static-site build).
-The sync + git-linked stacks need no Repo resource.
+Note the toml is **read** by the sync after the pull — it is never *generated*
+by the pull/clone job. The only supported way for Komodo to write the toml is
+Managed Mode (commit-back), which needs a GitHub write token (see below).
 
 ## Tags — the safety scope
 
@@ -38,15 +40,21 @@ never pruned.
 > prune untagged resources. Sequence: sync with `delete` **off** → confirm the
 > `kdk-lab` tag exists on the resources → **then** enable `delete`.
 
-## The process — clone → pull → sync
+## The process — push → reconcile → deploy
 
-1. Komodo Core clones/pulls `BigH3ater/kdk-lab-dkr@main` (poll interval 1h, or
-   on demand).
-2. `RunSync` reads `komodo/resources.toml` and reconciles Komodo to it
+1. Push to `main`.
+2. Within 15 min the `gitops-reconcile` Action refreshes the sync (Core pulls
+   the linked repo) and, if the commit hash moved or a resource drifted from
+   the file, executes `RunSync`.
+3. `RunSync` reads `komodo/resources.toml` and reconciles Komodo to it
    (create/update; delete only if `delete` is enabled and the resource is
-   `kdk-lab`-tagged).
-3. Each git-linked stack, on deploy, re-clones its `run_directory` from the repo
-   onto its host and runs `docker compose up`.
+   `kdk-lab`-tagged). Stacks with `deploy = true` whose config changed are
+   redeployed in `after`-order.
+4. Each git-linked stack, on deploy, pulls its clone on its host and runs
+   `docker compose up`.
+
+Manual path: Komodo → **Syncs** → `kdk-lab-dkr` → Execute → Run Sync (or run
+the `gitops-reconcile` Action).
 
 Komodo **refuses to apply a toml with validation errors** ("Found file errors.
 Cannot execute sync.") — a good guard. Common causes when hand-editing:
@@ -91,6 +99,9 @@ accounts = [{ username = "<gh-user>", token = "ghp_..." }]
 
 ## Current sync config
 
-- Source: `BigH3ater/kdk-lab-dkr` @ `main`, `resource_path = ["komodo/resources.toml"]`
+- Source: `linked_repo` → Repo `kdk-lab-dkr` (`BigH3ater/kdk-lab-dkr` @ `main`),
+  `resource_path = ["komodo/resources.toml"]`
 - `managed = true`, `delete = false` (enable `delete` only after tag ingestion), `match_tags = ["kdk-lab"]`
-- Declares: 5 servers, 24 stacks, 2 tagged procedures (`nightly-backups`, `publish-docs`). The 2 built-in procedures stay untagged/unmanaged.
+- Declares: 5 servers, 1 repo, 24 stacks, 2 tagged procedures (`nightly-backups`,
+  `publish-docs`), 1 action (`gitops-reconcile`). The 2 built-in procedures stay
+  untagged/unmanaged.

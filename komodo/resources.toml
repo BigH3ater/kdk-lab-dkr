@@ -1,7 +1,20 @@
-# Komodo Resource Sync -- servers and git-linked stacks.
+# Komodo Resource Sync -- servers, the source repo, and git-linked stacks.
 # Each stack clones this repo on the periphery host and runs
 # stacks/<name>/compose.yaml. Stacks with a .env.tpl render .env from
 # 1Password Connect in pre_deploy (op CLI + /etc/komodo/op.env on the host).
+
+# The git source of everything. The ResourceSync `kdk-lab-dkr` reads
+# komodo/resources.toml through this Repo resource (sync.linked_repo -> here),
+# so the repo definition lives in exactly one place. The sync itself cannot be
+# declared in this file (self-reference fails validation) -- its config is the
+# one Core-side resource maintained in the UI.
+[[repo]]
+tags = ["kdk-lab"]
+name = "kdk-lab-dkr"
+[repo.config]
+server = "kdk-dkr-01"
+repo = "BigH3ater/kdk-lab-dkr"
+branch = "main"
 
 [[server]]
 tags = ["kdk-lab"]
@@ -202,6 +215,53 @@ executions = [
   { execution.type = "DestroyStack", execution.params.stack = "backup-dmz", enabled = true },
   { execution.type = "DeployStack", execution.params.stack = "backup-dmz", enabled = true },
 ]
+
+# ---- actions ----
+# GitOps reconciler: Komodo Core is LAN-only, so GitHub push webhooks can't
+# reach it. This Action polls instead: refresh the sync (pulls the linked repo,
+# recomputes pending), and if the repo moved or resources drifted, RunSync
+# applies komodo/resources.toml. Runs on Core (Deno) every 15 minutes.
+[[action]]
+tags = ["kdk-lab"]
+name = "gitops-reconcile"
+[action.config]
+schedule_format = "Cron"
+schedule = "0 */15 * * * *"
+schedule_enabled = true
+schedule_timezone = "America/Chicago"
+failure_alert = true
+file_contents = '''
+const SYNC = "kdk-lab-dkr";
+
+// Pull the linked repo + recompute the sync's pending state.
+await komodo.write("RefreshResourceSyncPending", { sync: SYNC });
+
+const s: any = await komodo.read("GetResourceSync", { sync: SYNC });
+const info = s.info ?? {};
+const last = info.last_sync_hash ?? "";
+const pendingHash = info.pending_hash ?? "";
+
+// Count pending updates defensively across the info shapes Komodo reports.
+const updates =
+  (info.resource_updates?.length ?? 0) +
+  (info.variable_updates?.length ?? 0) +
+  (info.user_group_updates?.length ?? 0) +
+  (typeof info.pending_deploy?.to_deploy === "number" ? info.pending_deploy.to_deploy : 0);
+
+const repoMoved = pendingHash !== "" && pendingHash !== last;
+
+if (!repoMoved && updates === 0) {
+  console.log(`in sync at ${last || "(no hash)"} -- nothing to do`);
+} else {
+  console.log(`reconciling: ${last || "(none)"} -> ${pendingHash || last} (${updates} pending updates)`);
+  const update: any = await komodo.execute("RunSync", { sync: SYNC });
+  if (update?.success === false) {
+    throw new Error(`RunSync failed: ${JSON.stringify(update?.logs ?? update)}`);
+  }
+  const after: any = await komodo.read("GetResourceSync", { sync: SYNC });
+  console.log(`applied ${after.info?.last_sync_hash ?? "?"} (${after.info?.last_sync_message ?? ""})`);
+}
+'''
 
 # NOTE: the built-in "Backup Core Database" and "Global Auto Update" procedures
 # are Komodo init resources (auto-created) and are NOT declared here -- sync
