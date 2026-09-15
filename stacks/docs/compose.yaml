@@ -16,13 +16,17 @@ services:
     command:
       - |
         set -eu
-        apt-get update -qq && apt-get install -y -qq git >/dev/null
+        apt-get update -qq && apt-get install -y -qq git librsvg2-bin >/dev/null
         git clone --depth 1 --branch v4.5.2 https://github.com/jackyzha0/quartz /q
         cd /q && npm ci --no-audit --no-fund
         rm -rf content && cp -a /content content
         # Kodiak branding overlay (palette + fonts + bear mark / states).
         cp /theme/quartz.config.ts /q/quartz.config.ts
         cp /theme/custom.scss /q/quartz/styles/custom.scss
+        # Kodiak favicon: rasterize the bear mark over Quartz's default icon.png.
+        # Best-effort -- a rasterize failure falls back to the stock favicon and
+        # must never break the site build.
+        rsvg-convert -w 512 -h 512 /theme/icon.svg -o /q/quartz/static/icon.png || true
         npx quartz build -d content -o /site/new
         rm -rf /site/current.old
         [ -d /site/current ] && mv /site/current /site/current.old || true
