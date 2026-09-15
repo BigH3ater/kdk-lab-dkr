@@ -163,6 +163,11 @@ article td {
   padding: 0.4em 0.75em;
 }
 
+// ------------------------------------------------------------------ layout
+// Drop the Graph View — on a small ops docs site it's a large, near-empty panel
+// that makes the page feel sparse.
+.graph { display: none; }
+
 // ------------------------------------------------------------------ misc
 hr { border: none; border-top: 1px solid var(--lightgray); }
 

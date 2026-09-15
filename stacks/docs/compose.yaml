@@ -23,6 +23,7 @@ services:
         # Kodiak branding overlay (palette + fonts + bear mark / states).
         cp /theme/quartz.config.ts /q/quartz.config.ts
         cp /theme/custom.scss /q/quartz/styles/custom.scss
+        cp /theme/variables.scss /q/quartz/styles/variables.scss
         # Kodiak favicon: rasterize the bear mark over Quartz's default icon.png.
         # Best-effort -- a rasterize failure falls back to the stock favicon and
         # must never break the site build.

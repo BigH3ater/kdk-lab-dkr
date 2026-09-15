@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
-  <!-- Kodiak favicon: ink bear mark on a paper ground (Brand.md: --ink is the
-       logo on light; padded square viewBox is the favicon form). -->
+  <!-- Kodiak favicon: ink bear mark on a paper ground (Brand.md logo on light,
+       padded square viewBox for the favicon form). -->
   <rect width="120" height="120" fill="#ece2d0"/>
   <path fill="#1b1a18" fill-rule="evenodd"
     d="M60 40 C53 33 45 31 38 32 C28 33 19 43 19 56 C19 71 28 85 42 91
