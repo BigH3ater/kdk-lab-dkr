@@ -1,0 +1,96 @@
+// ==========================================================================
+// kdk-lab docs — Kodiak design system overlay
+// Homelab/Brand.md ("Kodiak · Bernese palette") + its Web Layer extension.
+// The palette and fonts are set in quartz.config.ts (light = paper ground,
+// dark = ink ground). This file adds the Kodiak character the config can't
+// express: the bear mark, rust/ember interaction states, callout accents, and
+// mono section labels. NEVER introduce a hex outside the Kodiak palette here.
+// ==========================================================================
+
+:root {
+  // Kodiak tokens not surfaced through Quartz's colour config.
+  --kdk-terminal-bg: #161311;
+  --kdk-terminal-green: #6f8f5c;
+  --kdk-ember: #c9743f;
+  --kdk-rust: #9d4a25;
+  --kdk-radius-md: 12px;
+  --kdk-radius-sm: 9px;
+
+  // The Kodiak bear mark (Brand.md logo path). Used as a CSS mask so it can be
+  // tinted with the accent — rust on paper, ember on ink — from one asset.
+  --kdk-mark: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 120'><path fill='black' fill-rule='evenodd' d='M60 40 C53 33 45 31 38 32 C28 33 19 43 19 56 C19 71 28 85 42 91 C50 95 56 93 60 90 C64 93 70 95 78 91 C92 85 101 71 101 56 C101 43 92 33 82 32 C75 31 67 33 60 40 Z M47 56 C40 54 33 58 32 66 C31 73 36 77 42 75 C38 72 39 65 46 62 C50 60 50 57 47 56 Z M73 56 C80 54 87 58 88 66 C89 73 84 77 78 75 C82 72 81 65 74 62 C70 60 70 57 73 56 Z M58.5 90 C58.5 82 58.5 70 58.5 60 C58.5 57 61.5 57 61.5 60 C61.5 70 61.5 82 61.5 90 C61.5 92 58.5 92 58.5 90 Z'/></svg>");
+}
+
+// Site title carries the bear mark, tinted with the accent for the ground.
+.page-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+
+  &::before {
+    content: "";
+    flex: 0 0 auto;
+    width: 1.4em;
+    height: 1.4em;
+    background-color: var(--secondary);
+    -webkit-mask: var(--kdk-mark) no-repeat center / contain;
+    mask: var(--kdk-mark) no-repeat center / contain;
+  }
+}
+
+// Kodiak focus grammar: a 2px accent ring, never removed (Web Layer states).
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+summary:focus-visible {
+  outline: 2px solid var(--secondary);
+  outline-offset: 2px;
+}
+a { text-underline-offset: 2px; }
+a:hover { text-decoration-thickness: 2px; }
+
+// Rust is the interactive voice — carry it into selection highlight.
+::selection { background: var(--highlight); }
+
+// Blockquotes/callouts: a rust left-rule on a warm card, Kodiak radius.
+blockquote {
+  border-left: 3px solid var(--secondary);
+  background: var(--lightgray);
+  border-radius: 0 var(--kdk-radius-md) var(--kdk-radius-md) 0;
+}
+
+// Inline code: warm chip, mono (not the syntax-block treatment).
+:not(pre) > code {
+  font-family: var(--codeFont);
+  background: var(--lightgray);
+  border-radius: var(--kdk-radius-sm);
+  padding: 0.1em 0.35em;
+}
+
+// Code blocks: Kodiak panel radius + hairline. Background is left to Quartz's
+// syntax theme so github-light/dark tokens keep their contrast on each ground.
+pre {
+  border-radius: var(--kdk-radius-md);
+  border: 1px solid var(--lightgray);
+}
+
+// Mono section labels — 1c's uppercase/tracked grammar on the app surface.
+.toc > button,
+.explorer > button {
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  font-family: var(--codeFont);
+  font-size: 0.72rem;
+  color: var(--gray);
+}
+
+// Panels adopt the Kodiak medium radius.
+.callout,
+.popover-inner { border-radius: var(--kdk-radius-md); }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

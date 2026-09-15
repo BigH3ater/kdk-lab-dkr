@@ -1,6 +1,12 @@
 # Quartz docs site. The builder runs ONCE per deploy (Komodo webhook redeploys
 # on push to main), building ../../docs from the repo clone into a shared
 # volume that nginx serves at docs.kmkdp.com.
+#
+# Branding: ./theme/ overlays the pinned Quartz clone with the Kodiak design
+# system (Homelab/Brand.md) — quartz.config.ts sets the palette + fonts and
+# custom.scss adds the bear mark and interaction states. The overlay is copied
+# in AFTER npm ci and BEFORE the build. Keep quartz.config.ts in sync with the
+# pinned v4.5.2 tag below if that tag is bumped.
 name: docs
 services:
   builder:
@@ -14,6 +20,9 @@ services:
         git clone --depth 1 --branch v4.5.2 https://github.com/jackyzha0/quartz /q
         cd /q && npm ci --no-audit --no-fund
         rm -rf content && cp -a /content content
+        # Kodiak branding overlay (palette + fonts + bear mark / states).
+        cp /theme/quartz.config.ts /q/quartz.config.ts
+        cp /theme/custom.scss /q/quartz/styles/custom.scss
         npx quartz build -d content -o /site/new
         rm -rf /site/current.old
         [ -d /site/current ] && mv /site/current /site/current.old || true
@@ -22,6 +31,7 @@ services:
         echo BUILD-DONE; sleep infinity
     volumes:
       - ../../docs:/content:ro
+      - ./theme:/theme:ro
       - site:/site
   nginx:
     image: nginx:1.29-alpine
