@@ -396,6 +396,34 @@ executions = [
   { execution.type = "DeployStack", execution.params.stack = "docs", enabled = true },
 ]
 
+# Hourly Tdarr transcode-failure validator (pages Pushover on DEE-wrapper down,
+# Tdarr server unreachable, or rising transcode-error count).
+[[stack]]
+tags = ["kdk-lab"]
+name = "tdarr-verify"
+deploy = false   # run hourly by the tdarr-verify Procedure
+[stack.config]
+server = "kdk-dkr-01"
+repo = "BigH3ater/kdk-lab-dkr"
+run_directory = "stacks/tdarr-verify"
+destroy_before_deploy = true   # one locked down+up (stage execs run in parallel)
+
+[[procedure]]
+tags = ["kdk-lab"]
+name = "tdarr-verify"
+[procedure.config]
+schedule_format = "Cron"
+# :40 every hour -- off the gitops-sync :00/:15/:30/:45 slots to avoid the
+# "Resource is busy" lock race.
+schedule = "0 40 * * * *"
+schedule_timezone = "America/Chicago"
+[[procedure.config.stage]]
+name = "verify"
+enabled = true
+executions = [
+  { execution.type = "DeployStack", execution.params.stack = "tdarr-verify", enabled = true },
+]
+
 # ---- observability: Loki logs + per-host agents ----
 [[stack]]
 tags = ["kdk-lab"]
