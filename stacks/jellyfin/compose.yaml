@@ -18,8 +18,16 @@ services:
       - /opt/kdk-lab/jellyfin/config:/config
       - /mnt/media/tv:/data/media/tv:ro
       - /mnt/media/movies:/data/media/movies:ro
+    # Transcode scratch on a RAM disk. Mounted AT Jellyfin's real transcode temp
+    # path (this version defaults TranscodingTempPath to <cache>/transcodes =
+    # /config/cache/transcodes -- verified from the FFmpeg.Transcode logs), so it
+    # is used with no in-app config. Segments live in RAM: fast, zero SSD wear,
+    # and auto-cleared on restart. 6G is safe on this 23G host (only an idle 12G
+    # /tmp tmpfs besides). tmpfs default mode is 1777 -> writable by PUID 1000.
+    # NOTE: /config/data/transcodes is a stale path from an older version and is
+    # NOT used -- do not mount here instead.
     tmpfs:
-      - /transcodes:size=6g
+      - /config/cache/transcodes:size=6g
     networks: [proxy-dmz]
     labels:
       traefik.enable: "true"
