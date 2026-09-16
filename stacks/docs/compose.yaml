@@ -33,7 +33,11 @@ services:
         [ -d /site/current ] && mv /site/current /site/current.old || true
         mv /site/new /site/current
         rm -rf /site/current.old
-        echo BUILD-DONE; sleep infinity
+        # Stay resident so Komodo sees the stack up, but exit 0 on SIGTERM so the
+        # 6-hourly publish-docs rebuild (DestroyStack) doesn't SIGKILL us with
+        # code 137 -- which docker-event-watch was paging on as a false "container
+        # down" (00:05/06:05/12:05/18:05).
+        echo BUILD-DONE; trap 'exit 0' TERM INT; sleep infinity & wait
     volumes:
       - ../../docs:/content:ro
       - ./theme:/theme:ro

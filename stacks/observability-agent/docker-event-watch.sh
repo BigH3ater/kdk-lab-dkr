@@ -37,7 +37,18 @@ while true; do
           0|143) : ;;
           *) notify "kdk container down: ${NODE_NAME}" "${name} exited (code ${code}) on ${NODE_NAME}" 1 ;;
         esac ;;
-      *unhealthy*) notify "kdk container unhealthy: ${NODE_NAME}" "${name} is unhealthy on ${NODE_NAME}" 1 ;;
+      *unhealthy*)
+        # Debounce transient health flaps (e.g. fanctl BMC/IPMI blips recover in
+        # ~30s): re-check after 60s in the background and only page if STILL
+        # unhealthy. Backgrounded so the event loop keeps reading new events.
+        ( sleep 60
+          h=$(docker inspect -f '{{.State.Health.Status}}' "$name" 2>/dev/null || echo gone)
+          if [ "$h" = "unhealthy" ]; then
+            notify "kdk container unhealthy: ${NODE_NAME}" "${name} is unhealthy on ${NODE_NAME}" 1
+          else
+            log "  unhealthy debounced: ${name} recovered (now ${h})"
+          fi
+        ) & ;;
     esac
   done
   sleep 3   # reconnect if the events stream drops
