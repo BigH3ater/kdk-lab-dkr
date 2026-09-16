@@ -1,0 +1,18 @@
+# AdGuard DNS reconciler. Derives *.kmkdp.com rewrites from each stack's Traefik
+# Host() labels + target server (komodo/resources.toml) and reconciles them into
+# AdGuard on the origin (kdk-dns-01); adguardhome-sync propagates to dns-02/03.
+# One-shot: run from the gitops-sync procedure (fresh repo clone each run), so
+# DNS follows the compose files instead of being maintained by hand.
+name: dns-reconcile
+services:
+  reconcile:
+    image: python:3.12-alpine
+    restart: "no"
+    env_file: [.env]          # ADGUARD_USERNAME / ADGUARD_PASSWORD (op-injected)
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - '. /pushover.env 2>/dev/null; exec python3 /reconcile.py'
+    volumes:
+      - ../../:/repo:ro                                   # the repo clone
+      - ./reconcile.py:/reconcile.py:ro
+      - /etc/kdk/pushover.env:/pushover.env:ro

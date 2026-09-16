@@ -121,6 +121,19 @@ run_directory = "stacks/nut"
 pre_deploy.command = "sh -c '. /etc/komodo/op.env && op inject -f -i .env.tpl -o .env'"
 webhook_enabled = true
 
+# AdGuard DNS reconciler (one-shot, run by the gitops-sync procedure's "dns"
+# stage). destroy_before_deploy so each run re-clones the repo and reads HEAD.
+[[stack]]
+tags = ["kdk-lab"]
+name = "dns-reconcile"
+deploy = true
+[stack.config]
+server = "kdk-dkr-01"
+repo = "BigH3ater/kdk-lab-dkr"
+run_directory = "stacks/dns-reconcile"
+destroy_before_deploy = true
+pre_deploy.command = "sh -c '. /etc/komodo/op.env && op inject -f -i .env.tpl -o .env'"
+
 [[stack]]
 tags = ["kdk-lab"]
 name = "backup-dkr-01"
@@ -375,6 +388,15 @@ name = "sync"
 enabled = true
 executions = [
   { execution.type = "RunSync", execution.params.sync = "kdk-lab-dkr", enabled = true },
+]
+# After sync, reconcile AdGuard DNS from the (now-current) compose Host() labels.
+# destroy_before_deploy recreates the one-shot fresh each run so it re-clones the
+# repo and reads HEAD; runs after "sync" so a just-added stack's record lands.
+[[procedure.config.stage]]
+name = "dns"
+enabled = true
+executions = [
+  { execution.type = "DeployStack", execution.params.stack = "dns-reconcile", enabled = true },
 ]
 
 # NOTE: the built-in "Backup Core Database" and "Global Auto Update" procedures
