@@ -95,6 +95,30 @@ services:
       traefik.http.routers.radarr-api.service: "radarr"
       traefik.http.services.radarr.loadbalancer.server.port: "7878"
 
+  readarr:
+    <<: *common
+    # Readarr is archived upstream (Servarr retired it in 2025); LSIO ships
+    # nightly-only builds -- pinned. Manages the ebook library; the
+    # readwise-to-remarkable ebooks leg syncs /data/media/books to the tablet.
+    image: lscr.io/linuxserver/readarr:nightly-0.4.19.2811-ls400
+    environment:
+      <<: *env
+      READARR__AUTH__METHOD: External
+      READARR__AUTH__REQUIRED: Enabled
+    volumes:
+      - /opt/kdk-lab/media/readarr:/config
+      # Single media mount so imports hardlink (downloads /data/media/staging,
+      # ebook root folder /data/media/books) -- same layout as sonarr/radarr.
+      - /mnt/media:/data/media
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.readarr.rule: "Host(`readarr.kmkdp.com`)"
+      traefik.http.routers.readarr.middlewares: "forwardauth@file"
+      traefik.http.routers.readarr-api.rule: "Host(`readarr.kmkdp.com`) && PathPrefix(`/api`)"
+      traefik.http.routers.readarr-api.priority: "100"
+      traefik.http.routers.readarr-api.service: "readarr"
+      traefik.http.services.readarr.loadbalancer.server.port: "8787"
+
   bazarr:
     <<: *common
     image: lscr.io/linuxserver/bazarr:v1.6.0-ls361

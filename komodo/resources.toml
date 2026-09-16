@@ -579,6 +579,22 @@ run_directory = "stacks/observability-agent"
 environment = "LOKI_HOST=10.1.20.20\nNODE_NAME=kdk-dkr-03"
 webhook_enabled = true
 
+# reMarkable <-> Readwise pipeline (migrated from the decommissioned dockge host).
+# Three prebuilt legs on kdk-dkr-01 talking to the live rmfakecloud over the
+# apps_default network. Readwise token via op inject; needs GHCR pull access for
+# the private ghcr.io/bigh3ater/* images and a one-time rmapi registration.
+[[stack]]
+tags = ["kdk-lab"]
+name = "readwise-to-remarkable"
+deploy = true
+after = ["apps", "media"]
+[stack.config]
+server = "kdk-dkr-01"
+repo = "BigH3ater/kdk-lab-dkr"
+run_directory = "stacks/readwise-to-remarkable"
+pre_deploy.command = "sh -c '. /etc/komodo/op.env && op inject -f -i .env.tpl -o .env'"
+webhook_enabled = true
+
 # ---- adopted stacks (files already on the Pi hosts; adopt, don't redeploy) ----
 [[stack]]
 tags = ["kdk-lab"]

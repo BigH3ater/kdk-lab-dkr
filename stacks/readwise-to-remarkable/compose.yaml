@@ -1,0 +1,91 @@
+# reMarkable <-> Readwise pipeline, migrated from the decommissioned dockge host
+# (/opt/stacks/readwise-to-remarkable). Three hourly loop legs, all talking to
+# the LIVE rmfakecloud (apps stack) over the shared apps_default network:
+#   [1] readwise-to-remarkable  Readwise Reader docs tagged 'remarkable' -> device
+#   [2] highlights (rm-highlights)   device text highlights -> Readwise
+#   [3] ebooks (rm-ebooks)      Readarr ebook library (/mnt/media/books) -> device
+#
+# Prebuilt images (ghcr.io/bigh3ater/*, pinned by digest -- these are PRIVATE
+# packages; the host needs GHCR pull access or the packages made public). The
+# Readwise token is rendered from 1Password (.env.tpl -> op inject) into a shared
+# file that the token-consuming legs ([1],[2]) read at /secrets/readwise-token.
+# rmapi device auth lives in the shared ./config (.rmapi) and must be registered
+# ONCE against the live rmfakecloud -- see the runbook. Leg [3] needs no token.
+name: readwise-to-remarkable
+services:
+  # Render the Readwise token from the injected .env into a shared file, the
+  # same interface the prebuilt images expect (/secrets/readwise-token). Runs
+  # once per deploy; the legs wait for it to finish.
+  secrets:
+    image: alpine:3.20
+    restart: "no"
+    environment:
+      READWISE_TOKEN: ${READWISE_TOKEN:?set READWISE_TOKEN in .env (op inject from .env.tpl)}
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - 'umask 077; printf "%s" "$$READWISE_TOKEN" > /secrets/readwise-token; chmod 644 /secrets/readwise-token; echo "readwise token rendered"'
+    volumes:
+      - rw-secrets:/secrets
+
+  readwise-to-remarkable:            # leg [1]  Readwise Reader -> device
+    image: ghcr.io/bigh3ater/kdk-lab-readwise-to-remarkable@sha256:7242867eb9c9c9a8d41e4528b441d3d50f633d5b4a949d56d7ce258e2b6a183c
+    restart: unless-stopped
+    depends_on:
+      secrets:
+        condition: service_completed_successfully
+    environment:
+      RMAPI_HOST: http://rmfakecloud:3000
+      RMAPI_CONFIG: /config/.rmapi
+      CONFIG_PATH: /tmp/config.cfg
+      SYNC_INTERVAL: "3600"
+      TZ: America/Chicago
+      HOME: /tmp
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        sed "s|__READWISE_TOKEN__|$$(cat /secrets/readwise-token)|" /app/config.template.cfg > /tmp/config.cfg
+        while true; do python sync.py; sleep "$${SYNC_INTERVAL:-3600}"; done
+    volumes:
+      - /opt/kdk-lab/readwise-to-remarkable/config:/config
+      - rw-secrets:/secrets:ro
+    networks: [default, apps]
+
+  highlights:                        # leg [2]  device text highlights -> Readwise
+    image: ghcr.io/bigh3ater/kdk-lab-rm-highlights@sha256:5cc75f4b0d97fb83ffedde8b31207329847c7d0eb9f3840c55886a636f281f37
+    restart: unless-stopped
+    depends_on:
+      secrets:
+        condition: service_completed_successfully
+    environment:
+      RMAPI_HOST: http://rmfakecloud:3000
+      RMAPI_CONFIG: /config/.rmapi
+      INTERVAL_SECONDS: "3600"
+      TZ: America/Chicago
+      HOME: /tmp
+    volumes:
+      - /opt/kdk-lab/readwise-to-remarkable/config:/config
+      - rw-secrets:/secrets:ro
+    networks: [default, apps]
+
+  ebooks:                            # leg [3]  Readarr ebook library -> device
+    image: ghcr.io/bigh3ater/kdk-lab-rm-ebooks@sha256:5824471b944fac5277914a3b28b022b162674f64ec3f31064a92e86c21fd27dc
+    restart: unless-stopped
+    environment:
+      RMAPI_HOST: http://rmfakecloud:3000
+      RMAPI_CONFIG: /config/.rmapi
+      INTERVAL_SECONDS: "3600"
+      TZ: America/Chicago
+      HOME: /tmp
+    volumes:
+      - /opt/kdk-lab/readwise-to-remarkable/config:/config
+      - /mnt/media/books:/ebooks:ro   # Readarr ebook root folder (text books -> tablet)
+    networks: [default, apps]
+
+volumes:
+  rw-secrets: {}
+
+networks:
+  default: {}
+  apps:
+    external: true
+    name: apps_default   # reach the live rmfakecloud (container_name: rmfakecloud)
