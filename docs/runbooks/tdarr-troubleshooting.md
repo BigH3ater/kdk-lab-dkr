@@ -6,7 +6,9 @@ title: Troubleshoot Tdarr transcodes
 
 Tdarr runs a server + local NVENC node on `kdk-dkr-01` and an external Windows
 GPU node. The `tdarr-verify` one-shot pages Pushover hourly on transcode-error
-rises, health-check errors, and `.iso` files it can't process.
+rises, health-check errors, and `.iso` files it can't process. A second one-shot,
+`tdarr-remediate`, self-heals **corrupt** files by driving Radarr/Sonarr — see
+[Self-healing corrupt files](#self-healing-corrupt-files-tdarr-remediate).
 
 ## Lossless-audio titles error → check DEE first
 
@@ -60,6 +62,59 @@ from the **Tdarr UI**: select the errored files → Re-queue. Counts are read fr
 `FileJSONDB` (Tdarr 2.86 stores state in SQLite at
 `/app/server/Tdarr/DB2/SQL/database.db`; there's no `sqlite3` in the container —
 go through the `cruddb` API).
+
+## Self-healing corrupt files (tdarr-remediate)
+
+`stacks/tdarr-remediate` (python:3.12-alpine, `network_mode: host` on
+`kdk-dkr-01`) runs hourly via a Komodo procedure (`0 50 * * * *`, after
+`tdarr-verify` at `:40` and clear of the `gitops-sync` slots). For every file
+Tdarr marks `HealthCheck: Error`, it finds the title in Radarr (movies) or
+Sonarr (TV) and **blocklists the grabbed release, deletes the file, and triggers
+a fresh search** — so a corrupt grab is replaced automatically instead of
+sitting broken.
+
+It routes by path prefix (`/data/media/movies` → Radarr, `/data/media/tv` →
+Sonarr) and reads each app's API key straight from the mounted (read-only)
+`config.xml`, so there are **no new secrets**. State (per-title attempt counts,
+dedup, and paths pending Tdarr rescan) persists in
+`/etc/kdk/tdarr-remediate.state`.
+
+### Why it ignores transcode errors
+
+It acts **only** on `HealthCheck: Error` (a genuinely unreadable/corrupt file).
+It never touches `TranscodeDecisionMaker: Transcode error`, because that is
+usually an **infra** fault — e.g. the DEE wrapper outage that failed ~78 *good*
+files. Blocklisting and redownloading those would churn perfectly good releases
+across the whole library. Transcode errors stay the job of `tdarr-verify`.
+
+### Guardrails
+
+- **`DRY_RUN`** (compose env) — `"1"` (default when first shipped) reports over
+  Pushover exactly what it *would* do and mutates nothing; `"0"` acts for real.
+- **`MAX_BATCH`** (default `5`) — a circuit breaker. If more files fail at once
+  than bad releases plausibly explain, that's systemic (ffmpeg/storage/mount);
+  it pages for manual review instead of mass-deleting.
+- **`MAX_ATTEMPTS`** (default `3`) — per-title cap. If the same movie/episode
+  comes back corrupt after N blocklist+redownload cycles, every available
+  release may be bad; it gives up and pages rather than looping. Keyed on the
+  stable Radarr `movieId` / Sonarr `episodeId` so the count survives redownloads.
+
+It is silent when there's nothing new: already-reported failures aren't re-paged,
+and paths it deleted are suppressed until Tdarr's library scan drops the stale
+record.
+
+### Enable it / flip back to dry-run
+
+Edit `DRY_RUN` in `stacks/tdarr-remediate/compose.yaml`, commit, and redeploy
+the stack (Komodo `DeployStack tdarr-remediate`, or wait for the next `:50`
+run). Run it on demand the same way.
+
+### Clearing the per-title cap
+
+If a title hit `MAX_ATTEMPTS` and you've fixed the source (better release
+available, indexer issue resolved), drop its entry from
+`/etc/kdk/tdarr-remediate.state` on `kdk-dkr-01` (the `attempts` map) so it's
+eligible again on the next run.
 
 ## The verify one-shot
 

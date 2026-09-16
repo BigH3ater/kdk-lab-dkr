@@ -110,6 +110,7 @@ def load_state():
         s = {}
     s.setdefault("attempts", {})   # key -> int, per-title remediation count
     s.setdefault("reported", [])   # keys already notified in dry-run
+    s.setdefault("deleted", [])    # paths deleted live but still lingering in Tdarr
     return s
 
 
@@ -154,17 +155,19 @@ def resolve_episode(path, key):
         return None
     eps = [e for e in (req(f"{SONARR}/api/v3/episode?seriesId={s['id']}", key) or [])
            if e.get("episodeFileId") == ef["id"]]
-    ep_ids = [e["id"] for e in eps]
+    ep_ids = sorted(e["id"] for e in eps)
     tag = ",".join(f"S{e['seasonNumber']:02d}E{e['episodeNumber']:02d}" for e in eps)
     g = None
     if ep_ids:
         h = req(f"{SONARR}/api/v3/history?episodeId={ep_ids[0]}&pageSize=50", key) or {}
         grabs = [r for r in h.get("records", []) if r.get("eventType") == "grabbed"]
         g = grabs[0] if grabs else None
-    # key on the episodeFile so multi-episode files count as one title
+    # Key on the stable episode id(s), NOT the episodeFile id -- the file id
+    # changes on every redownload, so keying on it would reset the per-title
+    # attempt counter each cycle and defeat MAX_ATTEMPTS.
     return {
         "app": "sonarr",
-        "key": f"sonarr:{ef['id']}",
+        "key": "sonarr:" + "-".join(str(i) for i in ep_ids),
         "title": f"{s.get('title')} {tag}".strip(),
         "file_id": ef["id"],
         "delete": f"{SONARR}/api/v3/episodefile/{ef['id']}",
@@ -180,7 +183,7 @@ def remediate(item, key, tdarr_record_id):
     """Blocklist grab, delete file, trigger search, drop the stale Tdarr record."""
     steps = []
     if item.get("blocklist"):
-        req(item["blocklist"], key, method="POST", body={})
+        req(item["blocklist"], key, method="POST", body=None)
         steps.append(f"blocklisted grab {item['grab_id']}")
     else:
         steps.append("no grab record to blocklist")
@@ -231,9 +234,15 @@ def main():
             unmatched.append(path)
 
     current_keys = {it["key"] for it in resolved}
+    error_paths = {r.get("file", "") for r in errors}
     # Forget dry-run notifications for titles no longer failing, so a fresh
     # failure of the same title re-notifies.
     state["reported"] = [k for k in state["reported"] if k in current_keys]
+    # A path we deleted lingers in Tdarr's DB until its next library scan drops
+    # the missing file. Keep suppressing "no *arr match" for it while it lingers;
+    # once Tdarr forgets it (leaves the error set) stop tracking it.
+    state["deleted"] = [p for p in state["deleted"] if p in error_paths]
+    unmatched = [u for u in unmatched if u not in state["deleted"]]
 
     # Circuit breaker: too many at once is systemic, not per-release rot.
     if len(resolved) > MAX_BATCH:
@@ -271,6 +280,8 @@ def main():
         else:
             summary = remediate(it, it["_apikey"], it["_tdarr_id"])
             state["attempts"][it["key"]] = attempts + 1
+            if it["_path"] not in state["deleted"]:
+                state["deleted"].append(it["_path"])  # suppress lingering-record noise
             acted.append(f"{label} [try {attempts + 1}]: {summary}")
             log(f"REMEDIATED {label}: {summary}")
 

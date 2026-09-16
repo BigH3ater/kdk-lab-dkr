@@ -17,7 +17,7 @@ services:
     restart: "no"
     network_mode: host
     environment:
-      DRY_RUN: "1"          # "0" = actually blocklist+delete+redownload
+      DRY_RUN: "0"          # "1" = report-only; "0" = actually blocklist+delete+redownload
       MAX_BATCH: "5"        # >this many at once = systemic, page instead of acting
       MAX_ATTEMPTS: "3"     # per-title blocklist+redownload cycles before giving up
     entrypoint: ["/bin/sh", "-c"]
