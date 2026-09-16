@@ -35,6 +35,31 @@ INGRESS = {
 PRUNE_IPS = {"10.1.20.10", "10.1.20.20", "192.168.191.20"}
 PROTECT = {"*.kmkdp.com"}
 
+# Static rewrites NOT derived from Traefik labels: the reMarkable cloud domains
+# a device hits, redirected to rmfakecloud (kdk-dkr-01 internal Traefik) so the
+# tablet syncs to the self-hosted cloud instead of reMarkable's. Authoritative
+# host list from the ddvk/rmfakecloud device setup docs. These are non-.kmkdp.com
+# so the prune step (kmkdp-only) never touches them; listing them here keeps them
+# in git + recreated if AdGuard is rebuilt. See the readwise-to-remarkable stack.
+STATIC = {
+    host: "10.1.20.20"
+    for host in (
+        "my.remarkable.com",
+        "ping.remarkable.com",
+        "internal.cloud.remarkable.com",
+        "local.appspot.com",
+        "hwr-production-dot-remarkable-production.appspot.com",
+        "service-manager-production-dot-remarkable-production.appspot.com",
+        "document-storage-production-dot-remarkable-production.appspot.com",
+        "eu.tectonic.remarkable.com",
+        "backtrace-proxy.cloud.remarkable.engineering",
+        "dev.ping.remarkable.com",
+        "dev.tectonic.remarkable.com",
+        "dev.internal.cloud.remarkable.com",
+        "eu.internal.tctn.cloud.remarkable.com",
+    )
+}
+
 
 def adg(path, method="GET", body=None):
     auth = base64.b64encode(
@@ -77,6 +102,7 @@ def desired_records():
             continue
         for host in re.findall(r"Host\(`([^`]+)`\)", open(cf).read()):
             want[host] = ip
+    want.update(STATIC)   # reMarkable cloud domains -> rmfakecloud (see STATIC)
     return want
 
 
