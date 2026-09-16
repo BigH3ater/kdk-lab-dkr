@@ -1,0 +1,31 @@
+# Tailscale subnet router on kdk-dkr-01. Advertises the lab subnets to the tailnet
+# so remote members (and the reMarkable, once enrolled) reach lab services —
+# rmfakecloud, the obsidian-headless host, Home Assistant, etc. — without
+# exposing anything publicly. Activates the member->subnet grants kept in the
+# tailnet ACL; routes auto-approve via the ACL autoApprovers for tag:subnet-router.
+#
+# Auth: TS_AUTHKEY is the Tailscale OAuth client secret
+# (op://kdk-ops/tailscale-admin-api/api_token) — combined with
+# --advertise-tags=tag:subnet-router it registers as a tagged node. Node state
+# persists in the volume, so the key is only used at first registration.
+name: tailscale-subnet-router
+services:
+  tailscale:
+    # Pin to a digest at first deploy (docker inspect after pull).
+    image: tailscale/tailscale:stable
+    container_name: tailscale-subnet-router
+    hostname: kdk-subnet-router
+    restart: unless-stopped
+    network_mode: host
+    cap_add: [NET_ADMIN, NET_RAW]
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    environment:
+      TS_AUTHKEY: ${TS_AUTHKEY:?set in .env via op inject}
+      TS_ROUTES: "10.1.1.0/24,10.1.20.0/24,10.1.21.0/24,10.1.30.0/24"
+      TS_EXTRA_ARGS: "--advertise-tags=tag:subnet-router --hostname=kdk-subnet-router --accept-dns=false"
+      TS_USERSPACE: "false"
+      TS_STATE_DIR: /var/lib/tailscale
+      TZ: America/Chicago
+    volumes:
+      - /opt/kdk-lab/tailscale-subnet-router:/var/lib/tailscale

@@ -610,6 +610,22 @@ run_directory = "stacks/obsidian-headless"
 pre_deploy.command = "sh -c '. /etc/komodo/op.env && op inject -f -i .env.tpl -o .env'"
 webhook_enabled = true
 
+# Tailscale subnet router on kdk-dkr-01: advertises the lab subnets
+# (10.1.1/20/21/30.0/24) to the tailnet so remote members + the reMarkable reach
+# lab services without public exposure. Auth = the Tailscale OAuth client secret
+# (op://kdk-ops/tailscale-admin-api) as TS_AUTHKEY + tag:subnet-router; routes
+# auto-approve via the ACL autoApprovers. Host networking + NET_ADMIN.
+[[stack]]
+tags = ["kdk-lab"]
+name = "tailscale-subnet-router"
+deploy = true
+[stack.config]
+server = "kdk-dkr-01"
+repo = "BigH3ater/kdk-lab-dkr"
+run_directory = "stacks/tailscale-subnet-router"
+pre_deploy.command = "sh -c '. /etc/komodo/op.env && op inject -f -i .env.tpl -o .env'"
+webhook_enabled = true
+
 # ---- adopted stacks (files already on the Pi hosts; adopt, don't redeploy) ----
 [[stack]]
 tags = ["kdk-lab"]
