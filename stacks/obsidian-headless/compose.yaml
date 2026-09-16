@@ -1,0 +1,36 @@
+# Always-on headless Obsidian Sync node on kdk-dkr-01. Keeps a local copy of the
+# NEW vault continuously synced via the user's Obsidian Sync subscription, so lab
+# services (planner-service, book-sync) can read/write the vault files at
+# /opt/kdk-lab/obsidian/vault and have changes propagate to all devices.
+#
+# The host is on the tailnet, so the vault dir is reachable to the other lab
+# services locally — the container only talks OUT to Obsidian Sync (no ingress,
+# no compose network needed).
+#
+# AUTH: this image authenticates with an OBSIDIAN_AUTH_TOKEN generated once via
+# the image's `get-token` entrypoint (uses your Obsidian email/password + 2FA one
+# time), NOT raw credentials. Generate it once and store it in 1Password; see
+# docs/runbooks/remarkable-obsidian.md. The remote vault (VAULT_NAME) must already
+# exist in Obsidian Sync.
+name: obsidian-headless
+services:
+  sync:
+    # Pin to a digest at first deploy (docker inspect after pull) — kept as a
+    # moving tag only until we pull it once.
+    image: ghcr.io/belphemur/obsidian-headless-sync-docker:latest
+    container_name: obsidian-headless
+    restart: unless-stopped
+    environment:
+      OBSIDIAN_AUTH_TOKEN: ${OBSIDIAN_AUTH_TOKEN:?set in .env via op inject}
+      VAULT_NAME: ${OBSIDIAN_VAULT_NAME:?set in .env via op inject}
+      VAULT_PASSWORD: ${OBSIDIAN_VAULT_PASSWORD:-}
+      DEVICE_NAME: kdk-dkr-01-headless
+      SYNC_MODE: bidirectional
+      CONFLICT_STRATEGY: merge
+      FILE_TYPES: image,audio,video,pdf,unsupported
+      PUID: "1000"
+      PGID: "1000"
+      TZ: America/Chicago
+    volumes:
+      - /opt/kdk-lab/obsidian/vault:/vault
+      - /opt/kdk-lab/obsidian/config:/config

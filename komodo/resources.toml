@@ -595,6 +595,21 @@ run_directory = "stacks/readwise-to-remarkable"
 pre_deploy.command = "sh -c '. /etc/komodo/op.env && op inject -f -i .env.tpl -o .env'"
 webhook_enabled = true
 
+# Always-on headless Obsidian Sync node: keeps a local copy of the vault at
+# /opt/kdk-lab/obsidian/vault for the lab services to read/write. Auth token +
+# vault name/password via op inject (op://kdk-ops/obsidian-sync/*); the remote
+# vault must exist and the token be generated once (get-token). No ingress.
+[[stack]]
+tags = ["kdk-lab"]
+name = "obsidian-headless"
+deploy = true
+[stack.config]
+server = "kdk-dkr-01"
+repo = "BigH3ater/kdk-lab-dkr"
+run_directory = "stacks/obsidian-headless"
+pre_deploy.command = "sh -c '. /etc/komodo/op.env && op inject -f -i .env.tpl -o .env'"
+webhook_enabled = true
+
 # ---- adopted stacks (files already on the Pi hosts; adopt, don't redeploy) ----
 [[stack]]
 tags = ["kdk-lab"]
