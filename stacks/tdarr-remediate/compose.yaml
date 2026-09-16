@@ -1,0 +1,30 @@
+# Tdarr health-check remediation on kdk-dkr-01 (tdarr-remediate procedure).
+# Runs one-shot hourly: finds files Tdarr flagged HealthCheck=="Error" (corrupt)
+# and, in Radarr/Sonarr, blocklists the bad grab + deletes the file + re-searches
+# so it self-heals. Logic in remediate.py (mounted, so Compose interpolation
+# never touches its $variables). Host networking to reach the Tdarr server
+# (localhost:8266) and to resolve radarr/sonarr.kmkdp.com via lab DNS.
+#
+# SAFE BY DEFAULT: DRY_RUN=1 only reports (Pushover) what it WOULD do. Flip to
+# "0" to enable real blocklist+delete+redownload once the dry-run looks right.
+# Guardrails then active: MAX_BATCH circuit breaker + MAX_ATTEMPTS per-title cap
+# (see remediate.py). API keys are read from the mounted (ro) config.xml -- no
+# new secrets. State + Pushover creds live under /etc/kdk (-> /kdk).
+name: tdarr-remediate
+services:
+  remediate:
+    image: python:3.12-alpine
+    restart: "no"
+    network_mode: host
+    environment:
+      DRY_RUN: "1"          # "0" = actually blocklist+delete+redownload
+      MAX_BATCH: "5"        # >this many at once = systemic, page instead of acting
+      MAX_ATTEMPTS: "3"     # per-title blocklist+redownload cycles before giving up
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - apk add --no-cache ca-certificates >/dev/null 2>&1 || true; exec python3 /remediate.py
+    volumes:
+      - /etc/kdk:/kdk
+      - ./remediate.py:/remediate.py:ro
+      - /opt/kdk-lab/media/radarr:/radarr-config:ro
+      - /opt/kdk-lab/media/sonarr:/sonarr-config:ro

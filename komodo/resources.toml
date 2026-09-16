@@ -459,6 +459,32 @@ executions = [
   { execution.type = "DeployStack", execution.params.stack = "tdarr-verify", enabled = true },
 ]
 
+[[stack]]
+tags = ["kdk-lab"]
+name = "tdarr-remediate"
+deploy = false   # run hourly by the tdarr-remediate Procedure
+[stack.config]
+server = "kdk-dkr-01"
+repo = "BigH3ater/kdk-lab-dkr"
+run_directory = "stacks/tdarr-remediate"
+destroy_before_deploy = true   # one locked down+up so the one-shot re-runs
+
+[[procedure]]
+tags = ["kdk-lab"]
+name = "tdarr-remediate"
+[procedure.config]
+schedule_format = "Cron"
+# :50 every hour -- after tdarr-verify (:40) and clear of the gitops-sync
+# :00/:15/:30/:45 slots to avoid the "Resource is busy" lock race.
+schedule = "0 50 * * * *"
+schedule_timezone = "America/Chicago"
+[[procedure.config.stage]]
+name = "remediate"
+enabled = true
+executions = [
+  { execution.type = "DeployStack", execution.params.stack = "tdarr-remediate", enabled = true },
+]
+
 # ---- observability: Loki logs + per-host agents ----
 [[stack]]
 tags = ["kdk-lab"]
