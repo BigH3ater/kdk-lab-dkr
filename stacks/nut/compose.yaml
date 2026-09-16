@@ -19,5 +19,9 @@ services:
       DESCRIPTION: "Eaton 5PX 1500 - Computer Room"
       API_USER: monuser
       API_PASSWORD: ${NUT_CLIENT_PASSWORD}
+    volumes:
+      # Custom driver config (low-battery safety margin). The image copies
+      # /etc/nut/local/ups.conf over its generated one.
+      - ./ups.conf:/etc/nut/local/ups.conf:ro
     ports:
       - "3493:3493"
