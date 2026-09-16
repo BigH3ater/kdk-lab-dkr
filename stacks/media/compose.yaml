@@ -1,6 +1,10 @@
-# Media acquisition + transcode on kdk-dkr-01. Volume layout mirrors k3s:
-# /config per app, /data/staging + /downloads = tankz3/media/staging,
-# /data/media/{tv,movies} = tankz3/media. arr auth is External (Authelia only).
+# Media acquisition + transcode on kdk-dkr-01. arr auth is External (Authelia).
+# Volume layout: sabnzbd/sonarr/radarr get ONE media mount, /mnt/media:/data/media
+# (the tankz3/media NFS export), so downloads (/data/media/staging) and libraries
+# (/data/media/{movies,tv}) live on the same mount and imports use instant
+# hardlinks instead of full copies. SAB complete_dir=/data/media/staging;
+# incomplete stays on local SSD. Never split staging + library into separate bind
+# mounts -- that triggers EXDEV and Radarr/Sonarr fall back to slow copies.
 name: media
 x-common: &common
   restart: unless-stopped
@@ -34,8 +38,13 @@ services:
     image: lscr.io/linuxserver/sabnzbd:5.1.2-ls270
     volumes:
       - /opt/kdk-lab/media/sabnzbd:/config
-      - /mnt/media/staging:/downloads
+      # Incomplete stays on local SSD for fast assembly + par2 repair.
       - /opt/kdk-lab/media/sabnzbd-incomplete:/incomplete-downloads
+      # Single media mount: completed downloads (complete_dir=/data/media/staging)
+      # land on the SAME mount as the *arr libraries, so Radarr/Sonarr import by
+      # instant hardlink instead of a full copy. Do NOT bind subdirs separately
+      # (staging + library on different mounts => EXDEV => copy fallback).
+      - /mnt/media:/data/media
     labels:
       traefik.enable: "true"
       traefik.http.routers.sabnzbd.rule: "Host(`sabnzbd.kmkdp.com`)"
@@ -51,9 +60,10 @@ services:
       SONARR__AUTH__REQUIRED: Enabled
     volumes:
       - /opt/kdk-lab/media/sonarr:/config
-      - /mnt/media/staging:/data/staging
-      - /mnt/media/staging:/downloads
-      - /mnt/media/tv:/data/media/tv
+      # Single mount: downloads (/data/media/staging) + library (/data/media/tv)
+      # share one mount so imports hardlink instead of copy. Root folder
+      # /data/media/tv is unchanged.
+      - /mnt/media:/data/media
     labels:
       traefik.enable: "true"
       traefik.http.routers.sonarr.rule: "Host(`sonarr.kmkdp.com`)"
@@ -72,9 +82,10 @@ services:
       RADARR__AUTH__REQUIRED: Enabled
     volumes:
       - /opt/kdk-lab/media/radarr:/config
-      - /mnt/media/staging:/data/staging
-      - /mnt/media/staging:/downloads
-      - /mnt/media/movies:/data/media/movies
+      # Single mount: downloads (/data/media/staging) + library
+      # (/data/media/movies) share one mount so imports hardlink instead of copy.
+      # Root folder /data/media/movies is unchanged.
+      - /mnt/media:/data/media
     labels:
       traefik.enable: "true"
       traefik.http.routers.radarr.rule: "Host(`radarr.kmkdp.com`)"
