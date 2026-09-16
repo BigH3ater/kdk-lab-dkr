@@ -12,6 +12,7 @@ illustrative.
 - [Add a Pushover alert](pushover-alerts.md) — wire a new alert into the per-host watchdog or a verify one-shot.
 - [Troubleshoot the Windows DEE VM](windows-vm-dee.md) — the FastAPI DeeZy wrapper, its SMB mount, and the scheduled task.
 - [Troubleshoot Tdarr transcodes](tdarr-troubleshooting.md) — transcode/health errors, the DEE dependency, node flapping.
+- [Jellyfin transcoding (ramdisk + Arc QSV)](jellyfin-transcoding.md) — the RAM-disk transcode scratch and the Arc A380 QSV/HDR settings.
 
 Conventions used throughout:
 

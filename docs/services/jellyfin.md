@@ -61,7 +61,7 @@ No dashboard. `jellyfin.kmkdp.com` probed by [[kdk-mon-01]]; alerts → Pushover
 
 ## Architecture
 
-Listens on `8096`, joins `proxy-dmz`. `/dev/dri` gives QSV. Library mounted read-only; transcode scratch is a 6G tmpfs at `/transcodes`, never backed up. In-container library paths match k3s (`/data/media/...`) so item ids stay attached.
+Listens on `8096`, joins `proxy-dmz`. `/dev/dri` gives QSV. Library mounted read-only; transcode scratch is a 6G tmpfs at `/config/cache/transcodes` (Jellyfin's real transcode path), never backed up. In-container library paths match k3s (`/data/media/...`) so item ids stay attached. Ramdisk + Arc QSV tuning: see [[jellyfin-transcoding]].
 
 ## Configuration
 
@@ -69,7 +69,8 @@ Listens on `8096`, joins `proxy-dmz`. `/dev/dri` gives QSV. Library mounted read
 |---|---|
 | `/opt/kdk-lab/jellyfin/config` | jellyfin.db (users, watched), plugins, config |
 | `stacks/jellyfin/plugins.yaml` | plugin GUIDs + pinned versions |
-| `tmpfs /transcodes` | 6G scratch, excluded from backup |
+| `tmpfs /config/cache/transcodes` | 6G RAM-disk scratch (`mode=1777`), excluded from backup — see [[jellyfin-transcoding]] |
+| `/opt/kdk-lab/jellyfin/config/encoding.xml` | Arc QSV/HDR encoding settings (host state, not in git) |
 
 ## Secret Rotation
 
