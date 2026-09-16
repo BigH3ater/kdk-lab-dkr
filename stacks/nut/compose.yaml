@@ -1,0 +1,23 @@
+# NUT (Network UPS Tools) server for the Eaton 5PX 1500 UPS ("Computer Room").
+# The UPS is network-attached via its Eaton/MGE "Mosaic" Network Management Card
+# at 10.1.3.63; NUT reads it with the netxml-ups driver over plain HTTP. That
+# card serves its monitoring XML anonymously (security="none"), so NO device
+# credentials are needed for read-only monitoring (verified live 2026-09-15).
+#
+# upsd listens on 3493 for Home Assistant's NUT integration, which authenticates
+# as the 'monuser' upsd user (password from op://kdk-ops/kdk-ups-01-nut-upsd,
+# rendered into .env by the Komodo pre_deploy op inject).
+name: nut
+services:
+  upsd:
+    image: instantlinux/nut-upsd@sha256:a4a68e3c56081e3187621ee2a4bf9bce2936eaf0b628c01f81881f25cee0e667
+    restart: unless-stopped
+    environment:
+      DRIVER: netxml-ups
+      PORT: http://10.1.3.63
+      NAME: eaton-5px
+      DESCRIPTION: "Eaton 5PX 1500 - Computer Room"
+      API_USER: monuser
+      API_PASSWORD: ${NUT_CLIENT_PASSWORD}
+    ports:
+      - "3493:3493"

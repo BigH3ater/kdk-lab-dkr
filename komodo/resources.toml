@@ -108,6 +108,19 @@ run_directory = "stacks/apps"
 pre_deploy.command = "sh -c '. /etc/komodo/op.env && op inject -f -i .env.tpl -o .env'"
 webhook_enabled = true
 
+# NUT (Network UPS Tools) server for the Eaton 5PX 1500 (network NMC 10.1.3.63,
+# netxml-ups, read-only/anonymous). upsd :3493 for Home Assistant's NUT client.
+[[stack]]
+tags = ["kdk-lab"]
+name = "nut"
+deploy = true
+[stack.config]
+server = "kdk-dkr-01"
+repo = "BigH3ater/kdk-lab-dkr"
+run_directory = "stacks/nut"
+pre_deploy.command = "sh -c '. /etc/komodo/op.env && op inject -f -i .env.tpl -o .env'"
+webhook_enabled = true
+
 [[stack]]
 tags = ["kdk-lab"]
 name = "backup-dkr-01"
