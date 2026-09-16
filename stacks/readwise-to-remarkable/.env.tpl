@@ -1,1 +1,1 @@
-READWISE_TOKEN="{{ op://kdk-ops/Readwise-token-ro/credential }}"
+READWISE_TOKEN="{{ op://kdk-cluster/Readwise-token-ro/credential }}"
