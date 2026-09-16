@@ -179,8 +179,8 @@ def resolve_episode(path, key):
     }
 
 
-def remediate(item, key, tdarr_record_id):
-    """Blocklist grab, delete file, trigger search, drop the stale Tdarr record."""
+def remediate(item, key):
+    """Blocklist grab, delete file, trigger a fresh search."""
     steps = []
     if item.get("blocklist"):
         req(item["blocklist"], key, method="POST", body=None)
@@ -192,14 +192,9 @@ def remediate(item, key, tdarr_record_id):
     url, cmd = item["search"]
     req(url, key, method="POST", body=cmd)
     steps.append("triggered search")
-    # Drop the now-stale Tdarr record so the error count clears and Tdarr
-    # re-scans the replacement fresh when it imports.
-    try:
-        req(f"{TDARR}/api/v2/cruddb", method="POST",
-            body={"data": {"collection": "FileJSONDB", "mode": "remove", "docID": tdarr_record_id}})
-        steps.append("removed Tdarr record")
-    except Exception as e:  # noqa: BLE001
-        steps.append(f"Tdarr record remove failed ({e})")
+    # No need to touch Tdarr's DB: once the file is gone from disk Tdarr drops
+    # the record itself on its next scan (observed within a minute). The
+    # deleted-path suppression in main() covers that brief window.
     return "; ".join(steps)
 
 
@@ -228,7 +223,6 @@ def main():
         if item:
             item["_path"] = path
             item["_apikey"] = key
-            item["_tdarr_id"] = r.get("_id") or r.get("id")
             resolved.append(item)
         else:
             unmatched.append(path)
@@ -278,7 +272,7 @@ def main():
                          f"{it['grab_id']}, delete file {it['file_id']}, re-search")
             state["reported"].append(it["key"])
         else:
-            summary = remediate(it, it["_apikey"], it["_tdarr_id"])
+            summary = remediate(it, it["_apikey"])
             state["attempts"][it["key"]] = attempts + 1
             if it["_path"] not in state["deleted"]:
                 state["deleted"].append(it["_path"])  # suppress lingering-record noise
