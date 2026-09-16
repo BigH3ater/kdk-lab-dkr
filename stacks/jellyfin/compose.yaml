@@ -27,7 +27,10 @@ services:
     # NOTE: /config/data/transcodes is a stale path from an older version and is
     # NOT used -- do not mount here instead.
     tmpfs:
-      - /config/cache/transcodes:size=6g
+      # mode=1777 (sticky, world-writable like /tmp) is REQUIRED: the tmpfs
+      # otherwise inherits the pre-existing dir's 2755 root:root and Jellyfin
+      # (PUID 1000) can't write -> transcodes fail.
+      - /config/cache/transcodes:size=6g,mode=1777
     networks: [proxy-dmz]
     labels:
       traefik.enable: "true"
