@@ -70,8 +70,28 @@ def icon(c, t, cx, cy, s, col):
 CARD_W, CARD_H = 140, 46
 ROW_Y0, ROW_GAP, PAD_X = 84, 150, 44
 
+
+def compute_ranks(nodes, edges):
+    """Longest-path layering from sources so every edge points strictly downward
+    and nodes sit one level below their predecessors (min crossings, no node on
+    the same rank as something it connects to)."""
+    ids=[n["id"] for n in nodes]
+    preds={i:[] for i in ids}; succ={i:[] for i in ids}
+    for e in edges:
+        if e["from"] in preds and e["to"] in preds:
+            preds[e["to"]].append(e["from"]); succ[e["from"]].append(e["to"])
+    rank={}; 
+    def r(i, seen=()):
+        if i in rank: return rank[i]
+        if i in seen or not preds[i]: rank[i]=0; return 0
+        rank[i]=1+max(r(p, seen+(i,)) for p in preds[i]); return rank[i]
+    for i in ids: r(i)
+    for n in nodes: n["rank"]=rank[n["id"]]
+    return nodes
+
 def render(spec: dict) -> str:
     nodes, edges = spec["nodes"], spec["edges"]
+    compute_ranks(nodes, edges)   # derive levels from connectivity
     ranks = sorted({n["rank"] for n in nodes})
     by_rank = {r: [n for n in nodes if n["rank"] == r] for r in ranks}
     W = max(600, PAD_X*2 + max(len(v) for v in by_rank.values())*(CARD_W+56))
