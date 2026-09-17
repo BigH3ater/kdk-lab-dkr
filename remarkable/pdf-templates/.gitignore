@@ -1,2 +1,5 @@
 cover-photo-*.png
 __pycache__/
+sections/_cover_*.pdf
+sections/_lined.pdf
+__pycache__/
