@@ -1,52 +1,52 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1620" height="2160" viewBox="0 0 1620 2160">
-<rect x="0" y="0" width="1620" height="2160" fill="#1E1E1E"/>
+<rect x="0" y="0" width="1620" height="2160" fill="#000000"/>
 <rect x="0" y="0" width="1620" height="176" fill="#4E69C9"/>
 <text x="96" y="116" font-family="DejaVu Sans, Helvetica, sans-serif" font-size="52" font-weight="bold" fill="#FFFFFF" text-anchor="start" letter-spacing="3">TO-DO</text>
 <text x="1524" y="96" font-family="DejaVu Sans, Helvetica, sans-serif" font-size="26" font-weight="bold" fill="#DFE4F5" text-anchor="end" letter-spacing="2">DATE</text>
 <line x1="1230" y1="120" x2="1524" y2="120" stroke="#AEBEEA" stroke-width="3"/>
 <text x="96" y="278" font-family="DejaVu Sans, Helvetica, sans-serif" font-size="32" font-weight="bold" fill="#7E97E8" text-anchor="start" letter-spacing="2">TOP PRIORITIES</text>
 <line x1="96" y1="294" x2="350" y2="294" stroke="#D98A63" stroke-width="4"/>
-<rect x="96" y="302" width="48" height="48" rx="8" ry="8" fill="#1E1E1E" stroke="#D98A63" stroke-width="3"/>
-<line x1="170" y1="342" x2="1524" y2="342" stroke="#565B61" stroke-width="2"/>
-<rect x="96" y="380" width="48" height="48" rx="8" ry="8" fill="#1E1E1E" stroke="#D98A63" stroke-width="3"/>
-<line x1="170" y1="420" x2="1524" y2="420" stroke="#565B61" stroke-width="2"/>
-<rect x="96" y="458" width="48" height="48" rx="8" ry="8" fill="#1E1E1E" stroke="#D98A63" stroke-width="3"/>
-<line x1="170" y1="498" x2="1524" y2="498" stroke="#565B61" stroke-width="2"/>
+<rect x="96" y="302" width="48" height="48" rx="8" ry="8" fill="#000000" stroke="#D98A63" stroke-width="3"/>
+<line x1="170" y1="342" x2="1524" y2="342" stroke="#6A7079" stroke-width="2"/>
+<rect x="96" y="380" width="48" height="48" rx="8" ry="8" fill="#000000" stroke="#D98A63" stroke-width="3"/>
+<line x1="170" y1="420" x2="1524" y2="420" stroke="#6A7079" stroke-width="2"/>
+<rect x="96" y="458" width="48" height="48" rx="8" ry="8" fill="#000000" stroke="#D98A63" stroke-width="3"/>
+<line x1="170" y1="498" x2="1524" y2="498" stroke="#6A7079" stroke-width="2"/>
 <text x="96" y="616" font-family="DejaVu Sans, Helvetica, sans-serif" font-size="32" font-weight="bold" fill="#7E97E8" text-anchor="start" letter-spacing="2">TASKS</text>
 <line x1="96" y1="632" x2="197" y2="632" stroke="#D98A63" stroke-width="4"/>
-<rect x="96" y="638" width="44" height="44" rx="8" ry="8" fill="#1E1E1E" stroke="#8A9096" stroke-width="3"/>
-<line x1="164" y1="678" x2="1524" y2="678" stroke="#565B61" stroke-width="2"/>
-<rect x="96" y="708" width="44" height="44" rx="8" ry="8" fill="#1E1E1E" stroke="#8A9096" stroke-width="3"/>
-<line x1="164" y1="748" x2="1524" y2="748" stroke="#565B61" stroke-width="2"/>
-<rect x="96" y="778" width="44" height="44" rx="8" ry="8" fill="#1E1E1E" stroke="#8A9096" stroke-width="3"/>
-<line x1="164" y1="818" x2="1524" y2="818" stroke="#565B61" stroke-width="2"/>
-<rect x="96" y="848" width="44" height="44" rx="8" ry="8" fill="#1E1E1E" stroke="#8A9096" stroke-width="3"/>
-<line x1="164" y1="888" x2="1524" y2="888" stroke="#565B61" stroke-width="2"/>
-<rect x="96" y="918" width="44" height="44" rx="8" ry="8" fill="#1E1E1E" stroke="#8A9096" stroke-width="3"/>
-<line x1="164" y1="958" x2="1524" y2="958" stroke="#565B61" stroke-width="2"/>
-<rect x="96" y="988" width="44" height="44" rx="8" ry="8" fill="#1E1E1E" stroke="#8A9096" stroke-width="3"/>
-<line x1="164" y1="1028" x2="1524" y2="1028" stroke="#565B61" stroke-width="2"/>
-<rect x="96" y="1058" width="44" height="44" rx="8" ry="8" fill="#1E1E1E" stroke="#8A9096" stroke-width="3"/>
-<line x1="164" y1="1098" x2="1524" y2="1098" stroke="#565B61" stroke-width="2"/>
-<rect x="96" y="1128" width="44" height="44" rx="8" ry="8" fill="#1E1E1E" stroke="#8A9096" stroke-width="3"/>
-<line x1="164" y1="1168" x2="1524" y2="1168" stroke="#565B61" stroke-width="2"/>
-<rect x="96" y="1198" width="44" height="44" rx="8" ry="8" fill="#1E1E1E" stroke="#8A9096" stroke-width="3"/>
-<line x1="164" y1="1238" x2="1524" y2="1238" stroke="#565B61" stroke-width="2"/>
-<rect x="96" y="1268" width="44" height="44" rx="8" ry="8" fill="#1E1E1E" stroke="#8A9096" stroke-width="3"/>
-<line x1="164" y1="1308" x2="1524" y2="1308" stroke="#565B61" stroke-width="2"/>
-<rect x="96" y="1338" width="44" height="44" rx="8" ry="8" fill="#1E1E1E" stroke="#8A9096" stroke-width="3"/>
-<line x1="164" y1="1378" x2="1524" y2="1378" stroke="#565B61" stroke-width="2"/>
-<rect x="96" y="1408" width="44" height="44" rx="8" ry="8" fill="#1E1E1E" stroke="#8A9096" stroke-width="3"/>
-<line x1="164" y1="1448" x2="1524" y2="1448" stroke="#565B61" stroke-width="2"/>
-<rect x="96" y="1478" width="44" height="44" rx="8" ry="8" fill="#1E1E1E" stroke="#8A9096" stroke-width="3"/>
-<line x1="164" y1="1518" x2="1524" y2="1518" stroke="#565B61" stroke-width="2"/>
+<rect x="96" y="638" width="44" height="44" rx="8" ry="8" fill="#000000" stroke="#8E949B" stroke-width="3"/>
+<line x1="164" y1="678" x2="1524" y2="678" stroke="#6A7079" stroke-width="2"/>
+<rect x="96" y="708" width="44" height="44" rx="8" ry="8" fill="#000000" stroke="#8E949B" stroke-width="3"/>
+<line x1="164" y1="748" x2="1524" y2="748" stroke="#6A7079" stroke-width="2"/>
+<rect x="96" y="778" width="44" height="44" rx="8" ry="8" fill="#000000" stroke="#8E949B" stroke-width="3"/>
+<line x1="164" y1="818" x2="1524" y2="818" stroke="#6A7079" stroke-width="2"/>
+<rect x="96" y="848" width="44" height="44" rx="8" ry="8" fill="#000000" stroke="#8E949B" stroke-width="3"/>
+<line x1="164" y1="888" x2="1524" y2="888" stroke="#6A7079" stroke-width="2"/>
+<rect x="96" y="918" width="44" height="44" rx="8" ry="8" fill="#000000" stroke="#8E949B" stroke-width="3"/>
+<line x1="164" y1="958" x2="1524" y2="958" stroke="#6A7079" stroke-width="2"/>
+<rect x="96" y="988" width="44" height="44" rx="8" ry="8" fill="#000000" stroke="#8E949B" stroke-width="3"/>
+<line x1="164" y1="1028" x2="1524" y2="1028" stroke="#6A7079" stroke-width="2"/>
+<rect x="96" y="1058" width="44" height="44" rx="8" ry="8" fill="#000000" stroke="#8E949B" stroke-width="3"/>
+<line x1="164" y1="1098" x2="1524" y2="1098" stroke="#6A7079" stroke-width="2"/>
+<rect x="96" y="1128" width="44" height="44" rx="8" ry="8" fill="#000000" stroke="#8E949B" stroke-width="3"/>
+<line x1="164" y1="1168" x2="1524" y2="1168" stroke="#6A7079" stroke-width="2"/>
+<rect x="96" y="1198" width="44" height="44" rx="8" ry="8" fill="#000000" stroke="#8E949B" stroke-width="3"/>
+<line x1="164" y1="1238" x2="1524" y2="1238" stroke="#6A7079" stroke-width="2"/>
+<rect x="96" y="1268" width="44" height="44" rx="8" ry="8" fill="#000000" stroke="#8E949B" stroke-width="3"/>
+<line x1="164" y1="1308" x2="1524" y2="1308" stroke="#6A7079" stroke-width="2"/>
+<rect x="96" y="1338" width="44" height="44" rx="8" ry="8" fill="#000000" stroke="#8E949B" stroke-width="3"/>
+<line x1="164" y1="1378" x2="1524" y2="1378" stroke="#6A7079" stroke-width="2"/>
+<rect x="96" y="1408" width="44" height="44" rx="8" ry="8" fill="#000000" stroke="#8E949B" stroke-width="3"/>
+<line x1="164" y1="1448" x2="1524" y2="1448" stroke="#6A7079" stroke-width="2"/>
+<rect x="96" y="1478" width="44" height="44" rx="8" ry="8" fill="#000000" stroke="#8E949B" stroke-width="3"/>
+<line x1="164" y1="1518" x2="1524" y2="1518" stroke="#6A7079" stroke-width="2"/>
 <text x="96" y="1618" font-family="DejaVu Sans, Helvetica, sans-serif" font-size="32" font-weight="bold" fill="#7E97E8" text-anchor="start" letter-spacing="2">NOTES</text>
 <line x1="96" y1="1634" x2="197" y2="1634" stroke="#D98A63" stroke-width="4"/>
-<line x1="96" y1="1688" x2="1524" y2="1688" stroke="#3A3D42" stroke-width="2"/>
-<line x1="96" y1="1752" x2="1524" y2="1752" stroke="#3A3D42" stroke-width="2"/>
-<line x1="96" y1="1816" x2="1524" y2="1816" stroke="#3A3D42" stroke-width="2"/>
-<line x1="96" y1="1880" x2="1524" y2="1880" stroke="#3A3D42" stroke-width="2"/>
-<line x1="96" y1="1944" x2="1524" y2="1944" stroke="#3A3D42" stroke-width="2"/>
-<line x1="96" y1="2008" x2="1524" y2="2008" stroke="#3A3D42" stroke-width="2"/>
-<line x1="96" y1="2072" x2="1524" y2="2072" stroke="#3A3D42" stroke-width="2"/>
+<line x1="96" y1="1688" x2="1524" y2="1688" stroke="#40444A" stroke-width="2"/>
+<line x1="96" y1="1752" x2="1524" y2="1752" stroke="#40444A" stroke-width="2"/>
+<line x1="96" y1="1816" x2="1524" y2="1816" stroke="#40444A" stroke-width="2"/>
+<line x1="96" y1="1880" x2="1524" y2="1880" stroke="#40444A" stroke-width="2"/>
+<line x1="96" y1="1944" x2="1524" y2="1944" stroke="#40444A" stroke-width="2"/>
+<line x1="96" y1="2008" x2="1524" y2="2008" stroke="#40444A" stroke-width="2"/>
+<line x1="96" y1="2072" x2="1524" y2="2072" stroke="#40444A" stroke-width="2"/>
 </svg>

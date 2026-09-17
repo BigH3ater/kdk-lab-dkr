@@ -9,8 +9,10 @@ ML,MR = 96,1524
 WHITE="#FFFFFF"
 THEME=os.environ.get("KODIAK_THEME","light")
 if THEME=="dark":
-    BG="#1E1E1E"; TEXT="#E6E8EA"; MUTED="#9AA0A6"
-    LINE="#565B61"; DIV="#3A3D42"; GRAY="#8A9096"
+    # Pure black ground: the color e-ink renders a dark GRAY (#1E1E1E) with a
+    # blue cast, but #000000 uses the true-black ink layer -> reads as black.
+    BG="#000000"; TEXT="#ECEEF0"; MUTED="#A2A8AE"
+    LINE="#6A7079"; DIV="#40444A"; GRAY="#8E949B"
     BLUE="#4E69C9"; BLUELBL="#7E97E8"; TERRA="#D98A63"
     SUFFIX="-dark"
 else:
