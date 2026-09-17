@@ -1,0 +1,18 @@
+# Tailnet DNS forwarder on kdk-dkr-01. Published on the subnet router's tailnet
+# IP (100.66.29.117:53) so tailnet clients resolve via the mesh — reliable even
+# on IPv6-only cellular, unlike a subnet-routed IPv4 nameserver. Forwards to the
+# lab AdGuard VIPs (10.1.1.53/.54), which keep doing the ad-blocking and
+# *.kmkdp.com split-horizon. Set the tailnet nameserver to 100.66.29.117.
+# Depends on the tailscale-subnet-router stack (owns tailscale0 / that IP).
+name: tailscale-dns
+services:
+  coredns:
+    image: coredns/coredns:1.12.0
+    container_name: tailscale-dns
+    restart: unless-stopped
+    command: ["-conf", "/Corefile"]
+    ports:
+      - "100.66.29.117:53:53/udp"
+      - "100.66.29.117:53:53/tcp"
+    volumes:
+      - ./Corefile:/Corefile:ro

@@ -1,0 +1,10 @@
+# Tailnet DNS forwarder: reachable at the subnet router's tailnet IP
+# (100.66.29.117) so tailnet clients — including IPv6-only mobile — get reliable
+# DNS over the mesh instead of a flaky subnet-routed IPv4 nameserver. Forwards to
+# the lab AdGuard VIPs, which do the ad-blocking + *.kmkdp.com split-horizon.
+.:53 {
+    bind 0.0.0.0
+    forward . 10.1.1.53 10.1.1.54
+    cache 30
+    errors
+}
