@@ -6,10 +6,10 @@ services:
     restart: "no"                       # one-shot; run by the procedure
     env_file: [.env]                    # RM_PW (op-injected)
     environment:
-      VAULT_DIR: /vault
+      BOOKS_DIR: /books
       STATE_DIR: /state
     entrypoint: ["/bin/sh","-c",". /pushover.env 2>/dev/null; exec python /app/book-sync.py"]
     volumes:
-      - /opt/kdk-lab/obsidian/vault:/vault
+      - /mnt/media/books:/books:ro        # Chaptarr ebook library (source of truth)
       - /opt/kdk-lab/book-sync:/state
       - /etc/kdk/pushover.env:/pushover.env:ro

@@ -96,8 +96,8 @@ services:
       traefik.http.services.radarr.loadbalancer.server.port: "7878"
 
   # Ebooks are managed by Chaptarr (the maintained Readarr replacement), defined
-  # below; the readwise-to-remarkable ebooks leg syncs /data/media/books to the
-  # tablet. Readarr (archived upstream) was removed 2026-09-16.
+  # below; the book-sync stack reconciles /data/media/books to the tablet (direct
+  # SSH, add + delete). Readarr (archived upstream) was removed 2026-09-16.
 
   bazarr:
     <<: *common
@@ -123,7 +123,7 @@ services:
       - /opt/kdk-lab/media/chaptarr:/config
       # Single media mount so imports hardlink (downloads /data/media/staging,
       # ebook root folder /data/media/books) -- same layout as sonarr/radarr.
-      # /mnt/media/books feeds the readwise-to-remarkable ebooks leg.
+      # /mnt/media/books feeds the book-sync stack (reconcile to the tablet).
       - /mnt/media:/data/media
     labels:
       traefik.enable: "true"

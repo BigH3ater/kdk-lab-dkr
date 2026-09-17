@@ -1,9 +1,11 @@
 # reMarkable <-> Readwise pipeline, migrated from the decommissioned dockge host
-# (/opt/stacks/readwise-to-remarkable). Three hourly loop legs, all talking to
+# (/opt/stacks/readwise-to-remarkable). Two hourly loop legs, all talking to
 # the LIVE rmfakecloud (apps stack) over the shared apps_default network:
 #   [1] readwise-to-remarkable  Readwise Reader docs tagged 'remarkable' -> device
 #   [2] highlights (rm-highlights)   device text highlights -> Readwise
-#   [3] ebooks (rm-ebooks)      Chaptarr ebook library (/mnt/media/books) -> device
+# The former leg [3] (Chaptarr ebook library -> device, one-way push via rmfakecloud)
+# is RETIRED in favour of the book-sync stack, which reconciles /mnt/media/books
+# to the tablet over direct SSH with add + delete ("send/remove at will").
 #
 # Prebuilt images (ghcr.io/bigh3ater/*, pinned by digest -- these are PRIVATE
 # packages; the host needs GHCR pull access or the packages made public). The
@@ -67,19 +69,8 @@ services:
       - rw-secrets:/secrets:ro
     networks: [default, apps]
 
-  ebooks:                            # leg [3]  Chaptarr ebook library -> device
-    image: ghcr.io/bigh3ater/kdk-lab-rm-ebooks@sha256:5824471b944fac5277914a3b28b022b162674f64ec3f31064a92e86c21fd27dc
-    restart: unless-stopped
-    environment:
-      RMAPI_HOST: http://rmfakecloud:3000
-      RMAPI_CONFIG: /config/.rmapi
-      INTERVAL_SECONDS: "3600"
-      TZ: America/Chicago
-      HOME: /tmp
-    volumes:
-      - /opt/kdk-lab/readwise-to-remarkable/config:/config
-      - /mnt/media/books:/ebooks:ro   # Chaptarr ebook root folder (text books -> tablet)
-    networks: [default, apps]
+  # leg [3] (ebooks) RETIRED -> replaced by the book-sync stack (direct-SSH
+  # reconcile of /mnt/media/books to the tablet, with delete). See stacks/book-sync.
 
 volumes:
   rw-secrets: {}

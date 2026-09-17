@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
-"""book-sync: reconcile the vault's 30-Books/ToTablet/ folder onto the reMarkable.
+"""book-sync: reconcile Chaptarr's ebook library onto the reMarkable.
 
-Source of truth = the ToTablet/ folder (EPUB/PDF, dropped by you or by Chaptarr).
+Source of truth = the ebook library folder BOOKS_DIR (/mnt/media/books, managed by
+Chaptarr via Prowlarr/SABnzbd). Add or remove a book in Chaptarr and it appears or
+disappears on the tablet.
 Each run makes the tablet's managed **"Kodiak Library"** folder match it:
   in folder, not on tablet (or changed)  -> push (create/replace the doc)
   on tablet (managed), not in folder      -> remove it (send + remove at will)
@@ -15,16 +17,14 @@ one reconciles. Pages Pushover on failure. Run periodically by a Komodo procedur
 from __future__ import annotations
 import os, sys, json, hashlib, subprocess, urllib.request, pathlib, datetime, time
 
-VAULT   = pathlib.Path(os.environ.get("VAULT_DIR", "/vault"))
+BOOKS   = pathlib.Path(os.environ.get("BOOKS_DIR", "/books"))  # Chaptarr ebook library (/mnt/media/books)
 STATE   = pathlib.Path(os.environ.get("STATE_DIR", "/state"))
-SUBDIR  = os.environ.get("BOOKS_SUBDIR", "30-Books/ToTablet")
 LIBNAME = os.environ.get("RM_LIB_FOLDER", "Kodiak Library")
 RM_HOST = os.environ.get("RM_HOST", "10.1.30.245")
 RM_USER = os.environ.get("RM_USER", "root")
 RM_PW   = os.environ.get("RM_PW", "")
 XO = "/home/root/.local/share/remarkable/xochitl"
 EXTS = {".epub": "epub", ".pdf": "pdf"}
-BOOKS = VAULT/SUBDIR
 STATE.mkdir(parents=True, exist_ok=True)
 ST = STATE/"book-sync.json"
 
@@ -81,7 +81,7 @@ def remove_book(uuid):
 # ---- reconcile ------------------------------------------------------------
 def main():
     if not BOOKS.exists():
-        log(f"{SUBDIR} missing in vault; nothing to sync"); return
+        log(f"{BOOKS} missing; nothing to sync"); return
     if not tablet_up():
         log("tablet asleep; skipping (will reconcile next run)"); return
     state=load_state(); fid=ensure_folder(state)

@@ -581,8 +581,8 @@ executions = [
   { execution.type = "DeployStack", execution.params.stack = "planner-service", enabled = true },
 ]
 
-# Book reconciler: makes the tablet's managed "Kodiak Library" folder match the
-# vault's 30-Books/ToTablet/ (send + remove at will). Only deletes docs it created
+# Book reconciler: makes the tablet's managed "Kodiak Library" folder match
+# Chaptarr's ebook library (/mnt/media/books) (send + remove at will). Only deletes docs it created
 # (UUIDs tracked in /opt/kdk-lab/book-sync), so hand-added books are never touched.
 # Opportunistic (tablet-awake), so hourly runs mostly no-op.
 [[stack]]
