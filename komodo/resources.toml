@@ -513,6 +513,38 @@ executions = [
   { execution.type = "DeployStack", execution.params.stack = "storage-health", enabled = true },
 ]
 
+# reMarkable handwriting -> OCR (Ollama qwen2.5vl on the 4090) -> Obsidian vault.
+# One-shot `pipeline.py run`: enqueue changed notebook pages when the tablet is on
+# Wi-Fi, drain the durable queue when the workstation is up. Both halves no-op if
+# their dependency is offline, so nothing is lost (tablet sleeps; 4090 intermittent).
+# pre_deploy op-injects the tablet root password; destroy_before_deploy re-runs it.
+[[stack]]
+tags = ["kdk-lab"]
+name = "remarkable-ocr"
+deploy = false   # run hourly by the remarkable-ocr Procedure
+[stack.config]
+server = "kdk-dkr-01"
+repo = "BigH3ater/kdk-lab-dkr"
+run_directory = "stacks/remarkable-ocr"
+destroy_before_deploy = true   # one locked down+up so the one-shot re-runs
+pre_deploy.command = "sh -c '. /etc/komodo/op.env && op inject -f -i .env.tpl -o .env'"
+
+[[procedure]]
+tags = ["kdk-lab"]
+name = "remarkable-ocr"
+[procedure.config]
+schedule_format = "Cron"
+# :20 every hour -- off the gitops-sync :00/:15/:30/:45 slots and clear of
+# storage-health (:35) / tdarr-verify (:40) / tdarr-remediate (:50).
+schedule = "0 20 * * * *"
+schedule_timezone = "America/Chicago"
+[[procedure.config.stage]]
+name = "run"
+enabled = true
+executions = [
+  { execution.type = "DeployStack", execution.params.stack = "remarkable-ocr", enabled = true },
+]
+
 # ---- observability: Loki logs + per-host agents ----
 [[stack]]
 tags = ["kdk-lab"]

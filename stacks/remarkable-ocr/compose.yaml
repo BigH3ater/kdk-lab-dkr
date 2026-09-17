@@ -1,0 +1,14 @@
+services:
+  remarkable-ocr:
+    build: .
+    image: kdk/remarkable-ocr:latest
+    container_name: remarkable-ocr
+    restart: "no"                       # one-shot; run by the gitops procedure
+    env_file: [.env]
+    environment:
+      QUEUE_DIR: /queue
+      VAULT_DIR: /vault
+    volumes:
+      - /opt/kdk-lab/remarkable-ocr:/queue
+      - /opt/kdk-lab/obsidian/vault:/vault
+      - ../../remarkable/diagram:/app/diagram:ro   # kodiak_diagram + topology_svg (repo clone)
