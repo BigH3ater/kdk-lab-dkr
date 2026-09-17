@@ -1,0 +1,29 @@
+# Hourly storage/NFS health validator on kdk-dkr-01 (storage-health procedure).
+# Pages Pushover when the NAS storage IP is unreachable, NFS 2049 is refused, or
+# any NFS mount hangs (the hung-hard-mount signature behind the 2026-09-16
+# outage). Logic in verify.sh (mounted, so Compose interpolation never touches
+# its shell $variables). host-net to ping/connect the NAS over the storage NIC.
+#
+# The host /mnt is bind-mounted with slave propagation so the NFS submounts
+# (media/backup/dee-exchange/loki) appear inside the container; a `timeout stat`
+# on each detects a hung mount without ever hanging container startup (the parent
+# /mnt is a local dir, so the bind itself never blocks).
+name: storage-health
+services:
+  verify:
+    image: alpine:3.20
+    restart: "no"
+    network_mode: host
+    entrypoint: ["/bin/sh", "/verify.sh"]
+    environment:
+      NAS_IP: "172.16.30.2"
+      NFS_MOUNTS: "media backup dee-exchange loki"
+    volumes:
+      - /etc/kdk:/kdk
+      - ./verify.sh:/verify.sh:ro
+      - type: bind
+        source: /mnt
+        target: /hostmnt
+        read_only: true
+        bind:
+          propagation: rslave

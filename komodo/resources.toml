@@ -485,6 +485,34 @@ executions = [
   { execution.type = "DeployStack", execution.params.stack = "tdarr-remediate", enabled = true },
 ]
 
+# Hourly storage/NFS health validator (pages Pushover on NAS unreachable, NFS
+# 2049 refused, a hung/missing mount, or a CGNAT regression of the storage IP).
+[[stack]]
+tags = ["kdk-lab"]
+name = "storage-health"
+deploy = false   # run hourly by the storage-health Procedure
+[stack.config]
+server = "kdk-dkr-01"
+repo = "BigH3ater/kdk-lab-dkr"
+run_directory = "stacks/storage-health"
+destroy_before_deploy = true   # one locked down+up so the one-shot re-runs
+
+[[procedure]]
+tags = ["kdk-lab"]
+name = "storage-health"
+[procedure.config]
+schedule_format = "Cron"
+# :35 every hour -- off the gitops-sync :00/:15/:30/:45 slots and clear of
+# tdarr-verify (:40) / tdarr-remediate (:50).
+schedule = "0 35 * * * *"
+schedule_timezone = "America/Chicago"
+[[procedure.config.stage]]
+name = "verify"
+enabled = true
+executions = [
+  { execution.type = "DeployStack", execution.params.stack = "storage-health", enabled = true },
+]
+
 # ---- observability: Loki logs + per-host agents ----
 [[stack]]
 tags = ["kdk-lab"]
