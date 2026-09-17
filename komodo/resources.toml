@@ -545,6 +545,38 @@ executions = [
   { execution.type = "DeployStack", execution.params.stack = "remarkable-ocr", enabled = true },
 ]
 
+# Daily planner: pull the Proton calendar (ICS share link) -> a Kodiak-brand
+# planner PDF pushed to the reMarkable + a Markdown agenda in the vault
+# (90-Meta/Planners/). Proton's client-side ICS plugin stores nothing on disk, so
+# the lab fetches the same ICS URL directly (op-injected). Tablet push is
+# opportunistic (only when the Paper Pro is awake); the vault note always writes.
+[[stack]]
+tags = ["kdk-lab"]
+name = "planner-service"
+deploy = false   # run daily by the planner-service Procedure
+[stack.config]
+server = "kdk-dkr-01"
+repo = "BigH3ater/kdk-lab-dkr"
+run_directory = "stacks/planner-service"
+destroy_before_deploy = true   # one locked down+up so the one-shot re-runs
+pre_deploy.command = "sh -c '. /etc/komodo/op.env && op inject -f -i .env.tpl -o .env'"
+
+[[procedure]]
+tags = ["kdk-lab"]
+name = "planner-service"
+[procedure.config]
+schedule_format = "Cron"
+# 05:05 daily -- early enough to be on the tablet at wake, off the gitops-sync
+# :00/:15/:30/:45 slots to avoid the "Resource is busy" lock race.
+schedule = "0 5 5 * * *"
+schedule_timezone = "America/Chicago"
+[[procedure.config.stage]]
+name = "run"
+enabled = true
+executions = [
+  { execution.type = "DeployStack", execution.params.stack = "planner-service", enabled = true },
+]
+
 # ---- observability: Loki logs + per-host agents ----
 [[stack]]
 tags = ["kdk-lab"]

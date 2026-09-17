@@ -1,0 +1,17 @@
+services:
+  planner-service:
+    build: .
+    image: kdk/planner-service:latest
+    container_name: planner-service
+    restart: "no"                       # one-shot; run daily by the procedure
+    env_file: [.env]                    # ICS_URL + RM_PW (op-injected)
+    environment:
+      VAULT_DIR: /vault
+      STATE_DIR: /state
+      TZ: America/Chicago
+    entrypoint: ["/bin/sh","-c",". /pushover.env 2>/dev/null; exec python /app/planner.py"]
+    volumes:
+      - /opt/kdk-lab/obsidian/vault:/vault
+      - /opt/kdk-lab/planner:/state
+      - ../../remarkable/pdf-templates:/app/tpl:ro   # kodiak_lib (repo clone)
+      - /etc/kdk/pushover.env:/pushover.env:ro
