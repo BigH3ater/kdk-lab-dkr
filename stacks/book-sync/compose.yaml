@@ -1,0 +1,15 @@
+services:
+  book-sync:
+    build: .
+    image: kdk/book-sync:latest
+    container_name: book-sync
+    restart: "no"                       # one-shot; run by the procedure
+    env_file: [.env]                    # RM_PW (op-injected)
+    environment:
+      VAULT_DIR: /vault
+      STATE_DIR: /state
+    entrypoint: ["/bin/sh","-c",". /pushover.env 2>/dev/null; exec python /app/book-sync.py"]
+    volumes:
+      - /opt/kdk-lab/obsidian/vault:/vault
+      - /opt/kdk-lab/book-sync:/state
+      - /etc/kdk/pushover.env:/pushover.env:ro

@@ -577,6 +577,37 @@ executions = [
   { execution.type = "DeployStack", execution.params.stack = "planner-service", enabled = true },
 ]
 
+# Book reconciler: makes the tablet's managed "Kodiak Library" folder match the
+# vault's 30-Books/ToTablet/ (send + remove at will). Only deletes docs it created
+# (UUIDs tracked in /opt/kdk-lab/book-sync), so hand-added books are never touched.
+# Opportunistic (tablet-awake), so hourly runs mostly no-op.
+[[stack]]
+tags = ["kdk-lab"]
+name = "book-sync"
+deploy = false   # run hourly by the book-sync Procedure
+[stack.config]
+server = "kdk-dkr-01"
+repo = "BigH3ater/kdk-lab-dkr"
+run_directory = "stacks/book-sync"
+destroy_before_deploy = true   # one locked down+up so the one-shot re-runs
+pre_deploy.command = "sh -c '. /etc/komodo/op.env && op inject -f -i .env.tpl -o .env'"
+
+[[procedure]]
+tags = ["kdk-lab"]
+name = "book-sync"
+[procedure.config]
+schedule_format = "Cron"
+# :25 every hour -- off the gitops-sync :00/:15/:30/:45 slots and clear of
+# remarkable-ocr (:20) / storage-health (:35) / tdarr-verify (:40) / -remediate (:50).
+schedule = "0 25 * * * *"
+schedule_timezone = "America/Chicago"
+[[procedure.config.stage]]
+name = "sync"
+enabled = true
+executions = [
+  { execution.type = "DeployStack", execution.params.stack = "book-sync", enabled = true },
+]
+
 # ---- observability: Loki logs + per-host agents ----
 [[stack]]
 tags = ["kdk-lab"]
