@@ -49,7 +49,8 @@ SECTIONS=[
  ("PERSONAL","scenery.jpg",0.5,0.5),
  ("BOOKS","redpeak.jpg",0.5,0.5),
  ("DEVELOPMENT","mountain.jpg",0.18,0.2),   # distinct crop
- ("LEARNING","scenery.jpg",0.85,0.7),        # distinct crop
+ ("LEARNING","scenery.jpg",0.85,0.7),
+ ("WORK","mountain.jpg",0.85,0.62),        # distinct crop
 ]
 PAGES=8
 for name,img,fx,fy in SECTIONS:
