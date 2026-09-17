@@ -1,47 +1,47 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1620" height="2160" viewBox="0 0 1620 2160">
 <rect x="0" y="0" width="1620" height="2160" fill="#FCFBF8"/>
 <rect x="0" y="0" width="1620" height="176" fill="#4E69C9"/>
-<text x="96" y="116" font-family="DejaVu Sans, Helvetica, sans-serif" font-size="58" font-weight="bold" fill="#FFFFFF" text-anchor="start" letter-spacing="3">TO-DO</text>
-<text x="1524" y="96" font-family="DejaVu Sans, Helvetica, sans-serif" font-size="26" font-weight="bold" fill="#Dfe4f5" text-anchor="end" letter-spacing="2">DATE</text>
+<text x="96" y="116" font-family="DejaVu Sans, Helvetica, sans-serif" font-size="52" font-weight="bold" fill="#FFFFFF" text-anchor="start" letter-spacing="3">TO-DO</text>
+<text x="1524" y="96" font-family="DejaVu Sans, Helvetica, sans-serif" font-size="26" font-weight="bold" fill="#DFE4F5" text-anchor="end" letter-spacing="2">DATE</text>
 <line x1="1230" y1="120" x2="1524" y2="120" stroke="#AEBEEA" stroke-width="3"/>
-<text x="96" y="278" font-family="DejaVu Sans, Helvetica, sans-serif" font-size="34" font-weight="bold" fill="#4E69C9" text-anchor="start" letter-spacing="2">TOP PRIORITIES</text>
-<line x1="96" y1="296" x2="396" y2="296" stroke="#C0764F" stroke-width="4"/>
-<rect x="96" y="304" width="48" height="48" rx="9" ry="9" fill="#FFFFFF" stroke="#C0764F" stroke-width="3"/>
-<line x1="168" y1="342" x2="1524" y2="342" stroke="#C9CDD2" stroke-width="2"/>
-<rect x="96" y="382" width="48" height="48" rx="9" ry="9" fill="#FFFFFF" stroke="#C0764F" stroke-width="3"/>
-<line x1="168" y1="420" x2="1524" y2="420" stroke="#C9CDD2" stroke-width="2"/>
-<rect x="96" y="460" width="48" height="48" rx="9" ry="9" fill="#FFFFFF" stroke="#C0764F" stroke-width="3"/>
-<line x1="168" y1="498" x2="1524" y2="498" stroke="#C9CDD2" stroke-width="2"/>
-<text x="96" y="616" font-family="DejaVu Sans, Helvetica, sans-serif" font-size="34" font-weight="bold" fill="#4E69C9" text-anchor="start" letter-spacing="2">TASKS</text>
-<line x1="96" y1="634" x2="236" y2="634" stroke="#C0764F" stroke-width="4"/>
-<rect x="96" y="638" width="44" height="44" rx="9" ry="9" fill="#FFFFFF" stroke="#9AA0A6" stroke-width="3"/>
+<text x="96" y="278" font-family="DejaVu Sans, Helvetica, sans-serif" font-size="32" font-weight="bold" fill="#4E69C9" text-anchor="start" letter-spacing="2">TOP PRIORITIES</text>
+<line x1="96" y1="294" x2="350" y2="294" stroke="#C0764F" stroke-width="4"/>
+<rect x="96" y="302" width="48" height="48" rx="8" ry="8" fill="#FCFBF8" stroke="#C0764F" stroke-width="3"/>
+<line x1="170" y1="342" x2="1524" y2="342" stroke="#C9CDD2" stroke-width="2"/>
+<rect x="96" y="380" width="48" height="48" rx="8" ry="8" fill="#FCFBF8" stroke="#C0764F" stroke-width="3"/>
+<line x1="170" y1="420" x2="1524" y2="420" stroke="#C9CDD2" stroke-width="2"/>
+<rect x="96" y="458" width="48" height="48" rx="8" ry="8" fill="#FCFBF8" stroke="#C0764F" stroke-width="3"/>
+<line x1="170" y1="498" x2="1524" y2="498" stroke="#C9CDD2" stroke-width="2"/>
+<text x="96" y="616" font-family="DejaVu Sans, Helvetica, sans-serif" font-size="32" font-weight="bold" fill="#4E69C9" text-anchor="start" letter-spacing="2">TASKS</text>
+<line x1="96" y1="632" x2="197" y2="632" stroke="#C0764F" stroke-width="4"/>
+<rect x="96" y="638" width="44" height="44" rx="8" ry="8" fill="#FCFBF8" stroke="#9AA0A6" stroke-width="3"/>
 <line x1="164" y1="678" x2="1524" y2="678" stroke="#C9CDD2" stroke-width="2"/>
-<rect x="96" y="708" width="44" height="44" rx="9" ry="9" fill="#FFFFFF" stroke="#9AA0A6" stroke-width="3"/>
+<rect x="96" y="708" width="44" height="44" rx="8" ry="8" fill="#FCFBF8" stroke="#9AA0A6" stroke-width="3"/>
 <line x1="164" y1="748" x2="1524" y2="748" stroke="#C9CDD2" stroke-width="2"/>
-<rect x="96" y="778" width="44" height="44" rx="9" ry="9" fill="#FFFFFF" stroke="#9AA0A6" stroke-width="3"/>
+<rect x="96" y="778" width="44" height="44" rx="8" ry="8" fill="#FCFBF8" stroke="#9AA0A6" stroke-width="3"/>
 <line x1="164" y1="818" x2="1524" y2="818" stroke="#C9CDD2" stroke-width="2"/>
-<rect x="96" y="848" width="44" height="44" rx="9" ry="9" fill="#FFFFFF" stroke="#9AA0A6" stroke-width="3"/>
+<rect x="96" y="848" width="44" height="44" rx="8" ry="8" fill="#FCFBF8" stroke="#9AA0A6" stroke-width="3"/>
 <line x1="164" y1="888" x2="1524" y2="888" stroke="#C9CDD2" stroke-width="2"/>
-<rect x="96" y="918" width="44" height="44" rx="9" ry="9" fill="#FFFFFF" stroke="#9AA0A6" stroke-width="3"/>
+<rect x="96" y="918" width="44" height="44" rx="8" ry="8" fill="#FCFBF8" stroke="#9AA0A6" stroke-width="3"/>
 <line x1="164" y1="958" x2="1524" y2="958" stroke="#C9CDD2" stroke-width="2"/>
-<rect x="96" y="988" width="44" height="44" rx="9" ry="9" fill="#FFFFFF" stroke="#9AA0A6" stroke-width="3"/>
+<rect x="96" y="988" width="44" height="44" rx="8" ry="8" fill="#FCFBF8" stroke="#9AA0A6" stroke-width="3"/>
 <line x1="164" y1="1028" x2="1524" y2="1028" stroke="#C9CDD2" stroke-width="2"/>
-<rect x="96" y="1058" width="44" height="44" rx="9" ry="9" fill="#FFFFFF" stroke="#9AA0A6" stroke-width="3"/>
+<rect x="96" y="1058" width="44" height="44" rx="8" ry="8" fill="#FCFBF8" stroke="#9AA0A6" stroke-width="3"/>
 <line x1="164" y1="1098" x2="1524" y2="1098" stroke="#C9CDD2" stroke-width="2"/>
-<rect x="96" y="1128" width="44" height="44" rx="9" ry="9" fill="#FFFFFF" stroke="#9AA0A6" stroke-width="3"/>
+<rect x="96" y="1128" width="44" height="44" rx="8" ry="8" fill="#FCFBF8" stroke="#9AA0A6" stroke-width="3"/>
 <line x1="164" y1="1168" x2="1524" y2="1168" stroke="#C9CDD2" stroke-width="2"/>
-<rect x="96" y="1198" width="44" height="44" rx="9" ry="9" fill="#FFFFFF" stroke="#9AA0A6" stroke-width="3"/>
+<rect x="96" y="1198" width="44" height="44" rx="8" ry="8" fill="#FCFBF8" stroke="#9AA0A6" stroke-width="3"/>
 <line x1="164" y1="1238" x2="1524" y2="1238" stroke="#C9CDD2" stroke-width="2"/>
-<rect x="96" y="1268" width="44" height="44" rx="9" ry="9" fill="#FFFFFF" stroke="#9AA0A6" stroke-width="3"/>
+<rect x="96" y="1268" width="44" height="44" rx="8" ry="8" fill="#FCFBF8" stroke="#9AA0A6" stroke-width="3"/>
 <line x1="164" y1="1308" x2="1524" y2="1308" stroke="#C9CDD2" stroke-width="2"/>
-<rect x="96" y="1338" width="44" height="44" rx="9" ry="9" fill="#FFFFFF" stroke="#9AA0A6" stroke-width="3"/>
+<rect x="96" y="1338" width="44" height="44" rx="8" ry="8" fill="#FCFBF8" stroke="#9AA0A6" stroke-width="3"/>
 <line x1="164" y1="1378" x2="1524" y2="1378" stroke="#C9CDD2" stroke-width="2"/>
-<rect x="96" y="1408" width="44" height="44" rx="9" ry="9" fill="#FFFFFF" stroke="#9AA0A6" stroke-width="3"/>
+<rect x="96" y="1408" width="44" height="44" rx="8" ry="8" fill="#FCFBF8" stroke="#9AA0A6" stroke-width="3"/>
 <line x1="164" y1="1448" x2="1524" y2="1448" stroke="#C9CDD2" stroke-width="2"/>
-<rect x="96" y="1478" width="44" height="44" rx="9" ry="9" fill="#FFFFFF" stroke="#9AA0A6" stroke-width="3"/>
+<rect x="96" y="1478" width="44" height="44" rx="8" ry="8" fill="#FCFBF8" stroke="#9AA0A6" stroke-width="3"/>
 <line x1="164" y1="1518" x2="1524" y2="1518" stroke="#C9CDD2" stroke-width="2"/>
-<text x="96" y="1618" font-family="DejaVu Sans, Helvetica, sans-serif" font-size="34" font-weight="bold" fill="#4E69C9" text-anchor="start" letter-spacing="2">NOTES</text>
-<line x1="96" y1="1636" x2="246" y2="1636" stroke="#C0764F" stroke-width="4"/>
+<text x="96" y="1618" font-family="DejaVu Sans, Helvetica, sans-serif" font-size="32" font-weight="bold" fill="#4E69C9" text-anchor="start" letter-spacing="2">NOTES</text>
+<line x1="96" y1="1634" x2="197" y2="1634" stroke="#C0764F" stroke-width="4"/>
 <line x1="96" y1="1688" x2="1524" y2="1688" stroke="#E4E6E9" stroke-width="2"/>
 <line x1="96" y1="1752" x2="1524" y2="1752" stroke="#E4E6E9" stroke-width="2"/>
 <line x1="96" y1="1816" x2="1524" y2="1816" stroke="#E4E6E9" stroke-width="2"/>
