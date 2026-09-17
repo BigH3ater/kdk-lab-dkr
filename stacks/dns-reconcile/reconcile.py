@@ -75,6 +75,14 @@ BLOCK = {
 }
 
 
+# Extra lab host A-records (not Traefik-derived, not .kmkdp cloud redirects).
+# ollama = the 4090 personal workstation serving Ollama for handwriting OCR;
+# opportunistic (not always on). Not in PRUNE_IPS, so the prune step never touches it.
+EXTRA = {
+    "ollama.kmkdp.com": "10.1.30.218",
+}
+
+
 def adg(path, method="GET", body=None):
     auth = base64.b64encode(
         f"{os.environ['ADGUARD_USERNAME']}:{os.environ['ADGUARD_PASSWORD']}".encode()
@@ -118,6 +126,7 @@ def desired_records():
             want[host] = ip
     want.update(STATIC)   # reMarkable cloud domains -> rmfakecloud (see STATIC)
     want.update(BLOCK)    # reMarkable OTA/telemetry -> 0.0.0.0 blackhole (see BLOCK)
+    want.update(EXTRA)    # lab host A-records (see EXTRA)
     return want
 
 
