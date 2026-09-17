@@ -39,6 +39,13 @@ def load_state():
     try: return json.loads(STATE.read_text())
     except Exception: return {}
 def save_state(s): STATE.write_text(json.dumps(s, indent=0))
+def notify(title, msg):
+    tok, usr = os.environ.get("PUSHOVER_TOKEN"), os.environ.get("PUSHOVER_USER")
+    if not (tok and usr): return
+    import urllib.parse
+    body = urllib.parse.urlencode({"token":tok,"user":usr,"title":title,"message":msg,"priority":1}).encode()
+    try: urllib.request.urlopen("https://api.pushover.net/1/messages.json",data=body,timeout=10)
+    except Exception: pass
 
 # ---- tablet (LAN dropbear, password auth) ---------------------------------
 _SSH = ["-o","StrictHostKeyChecking=accept-new","-o","UserKnownHostsFile=/dev/null","-o","ConnectTimeout=8"]
@@ -143,8 +150,8 @@ def clean_ocr(t):
     m=re.match(r"^```[a-zA-Z]*\n(.*)\n```$", t, re.S)
     return (m.group(1).strip() if m else t)
 def drain():
-    if not ollama_up(): log("drain: Ollama unreachable, queue held"); return 0
-    state=load_state(); n=0
+    if not ollama_up(): log("drain: Ollama unreachable, queue held"); return 0, []
+    state=load_state(); n=0; failed=[]
     for sidecar in sorted(PEND.glob("*.json")):
         meta=json.loads(sidecar.read_text()); md5=meta["md5"]; png=PEND/f"{md5}.png"
         if not png.exists(): sidecar.unlink(); continue
@@ -178,10 +185,23 @@ def drain():
             log("drain error",md5[:8],meta["retries"],e)
             if meta["retries"]>=MAX_RETRY:
                 (FAIL/png.name).write_bytes(png.read_bytes()); (FAIL/sidecar.name).write_text(sidecar.read_text())
-                png.unlink(); sidecar.unlink(); log("  -> failed (max retry)")
-    save_state(state); log(f"drain: {n} page(s) processed"); return n
+                png.unlink(); sidecar.unlink()
+                failed.append(f"{meta['notebook']}/{meta['page'][:6]}: {type(e).__name__}: {e}")
+                log("  -> failed (max retry)")
+    save_state(state); log(f"drain: {n} page(s) processed"); return n, failed
+
+def main(mode):
+    if mode in ("run","enqueue"): enqueue()
+    failed=[]
+    if mode in ("run","drain"): _, failed = drain()
+    if failed:
+        notify(f"remarkable-ocr: {len(failed)} page(s) failed",
+               "OCR gave up after retries (moved to failed/):\n" + "\n".join(failed[:8]))
 
 if __name__=="__main__":
     mode = sys.argv[1] if len(sys.argv)>1 else "run"
-    if mode in ("run","enqueue"): enqueue()
-    if mode in ("run","drain"):   drain()
+    try:
+        main(mode)
+    except Exception as e:
+        msg=f"{type(e).__name__}: {e}"
+        log("FATAL:",msg); notify("remarkable-ocr crashed", msg); raise
