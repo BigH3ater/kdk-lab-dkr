@@ -14,20 +14,33 @@ Linux` (Yocto scarthgap, systemd), hostname `imx8mm-ferrari`, tag `tag:remarkabl
 - **USB:** `root@10.11.99.1`.
 - The tablet drops Wi-Fi/Tailscale when asleep — all device I/O is opportunistic.
 
+## Filesystem persistence model (IMPORTANT)
+
+On the Paper Pro (Codex Linux) the rootfs is **read-only** and **`/etc` AND
+`/var/lib` are overlay-on-tmpfs** (`upperdir=/var/volatile/...`) — so *every*
+system-config change is **wiped on reboot**, resetting to the factory image.
+Only **`/home`** and **`/data`** persist. Verified 2026-09-17 by a reboot test.
+
+Consequences:
+- A systemd unit in `/etc/systemd/system` does **NOT survive a reboot** — systemd
+  does not scan units from `/home`/`/data`, so there is no drop-a-unit persistence.
+- SSH-over-Wi-Fi *does* survive: `dropbear-wlan` is baked into the RO image and
+  gated by the persistent `/data/internal/rm_enable_ssh_wifi_marker` (a factory
+  hook, the only supported extension point).
+
 ## `install-tailscale-persistence.sh`
 
-Makes `tailscaled` survive a reboot. It was started by hand (`nohup`) and did
-**not** come back after a reboot, silently breaking remote sync. This installs a
-systemd unit (`/etc/systemd/system/tailscaled.service`, `Restart=always`,
-`enabled`) running the userspace daemon with the persisted node state.
+Installs the tailscaled systemd unit and starts it. **This starts tailscaled now
+but does NOT survive a reboot** (the unit is in ephemeral `/etc`) — it must be
+re-applied whenever the tablet comes back up. Binaries + node state live in
+`/home/root` (`tailscale_*_arm64/`, `tailscaled.state`) and DO persist, and prefs
+(accept-routes, ssh, `tag:remarkable`) are in the state file, so re-running only
+re-creates the unit — no `tailscale up` / re-auth. A copy of this script lives at
+`/home/root/` (persistent).
 
-Persistence model:
-- Binaries + state under `/home/root` (`tailscale_*_arm64/`, `tailscaled.state`)
-  **survive firmware updates**.
-- The systemd unit under `/etc` survives reboots but is **wiped by a firmware
-  update** → **re-run this script after every firmware update** (it's idempotent).
+**Real persistence** (survive reboot) needs a lab-side reconciler: a scheduled job
+that SSHes to the tablet whenever it's reachable on Wi-Fi and re-applies this
+script if tailscaled isn't running. That fits the device's opportunistic nature
+(it's only online when awake anyway). TBD — see the session notes.
 
 Run on the tablet: `sh /home/root/install-tailscale-persistence.sh`
-(a copy lives at `/home/root/` so it's available after a FW update). Node prefs
-(accept-routes, ssh, `tag:remarkable`) are persisted in `tailscaled.state`, so no
-`tailscale up` / re-auth is needed.
