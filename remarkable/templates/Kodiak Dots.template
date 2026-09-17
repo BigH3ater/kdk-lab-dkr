@@ -48,7 +48,7 @@
         {
           "type": "path",
           "strokeWidth": 1,
-          "fillColor": "#ADADAD",
+          "fillColor": "#808080",
           "antialiasing": false,
           "data": [
             "M",
@@ -71,7 +71,7 @@
     {
       "type": "path",
       "strokeWidth": 3,
-      "strokeColor": "#1F5FC0",
+      "strokeColor": "#4A90D9",
       "data": [
         "M",
         "leftX",

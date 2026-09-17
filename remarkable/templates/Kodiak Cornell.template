@@ -50,7 +50,7 @@
         {
           "type": "path",
           "strokeWidth": 1,
-          "strokeColor": "#B4B4B4",
+          "strokeColor": "#808080",
           "data": [
             "M",
             0,
@@ -65,7 +65,7 @@
     {
       "type": "path",
       "strokeWidth": 3,
-      "strokeColor": "#1F5FC0",
+      "strokeColor": "#4A90D9",
       "data": [
         "M",
         "leftX",
