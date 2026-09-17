@@ -1,0 +1,103 @@
+{
+  "name": "Kodiak Dark",
+  "author": "kdk-lab",
+  "templateVersion": "1.0.0",
+  "formatVersion": 1,
+  "categories": [
+    "Lines"
+  ],
+  "orientation": "portrait",
+  "constants": [
+    {
+      "leftX": "templateWidth / 2 - templateHeight / 2"
+    },
+    {
+      "offsetY": 176
+    },
+    {
+      "lineSpacing": 62
+    },
+    {
+      "lineThick": 2.5
+    },
+    {
+      "marginX": "templateWidth / 2 - templateHeight / 2 + 464"
+    }
+  ],
+  "items": [
+    {
+      "type": "path",
+      "fillColor": "#000000",
+      "antialiasing": false,
+      "data": [
+        "M",
+        -1200,
+        -1200,
+        "L",
+        4200,
+        -1200,
+        "L",
+        4200,
+        4200,
+        "L",
+        -1200,
+        4200,
+        "Z"
+      ]
+    },
+    {
+      "type": "group",
+      "boundingBox": {
+        "x": "leftX",
+        "y": "offsetY",
+        "width": "templateHeight",
+        "height": "lineSpacing"
+      },
+      "repeat": {
+        "rows": "down"
+      },
+      "children": [
+        {
+          "type": "path",
+          "fillColor": "#AAAAAA",
+          "antialiasing": false,
+          "data": [
+            "M",
+            0,
+            0,
+            "L",
+            "parentWidth",
+            0,
+            "L",
+            "parentWidth",
+            "lineThick",
+            "L",
+            0,
+            "lineThick",
+            "Z"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "fillColor": "#D0D0D0",
+      "antialiasing": false,
+      "data": [
+        "M",
+        "marginX",
+        0,
+        "L",
+        "marginX + 3",
+        0,
+        "L",
+        "marginX + 3",
+        "templateHeight",
+        "L",
+        "marginX",
+        "templateHeight",
+        "Z"
+      ]
+    }
+  ]
+}
