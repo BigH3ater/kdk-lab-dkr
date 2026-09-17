@@ -14,11 +14,12 @@ services:
     restart: unless-stopped
     environment:
       TZ: America/Chicago
-      # Serve at root on this dedicated subdomain. ABS was auto-detecting a
-      # "/audiobookshelf" base path (making the OIDC redirect_uri
-      # .../audiobookshelf/auth/openid/callback, which Authelia rejected); pin it
-      # to empty so the redirect is the clean /auth/openid/callback.
-      ROUTER_BASE_PATH: ""
+      # Serve under /audiobookshelf to MATCH the OIDC "Subfolder for Redirect URLs"
+      # the app has stored (authOpenIDSubfolderForRedirectURLs=/audiobookshelf).
+      # With them mismatched, root served a broken base href and /audiobookshelf/
+      # 404'd. To move to a clean ROOT url instead: clear that field in ABS OIDC
+      # settings, then set this back to "" and drop the /audiobookshelf redirect_uri.
+      ROUTER_BASE_PATH: "/audiobookshelf"
     volumes:
       - /opt/kdk-lab/audiobookshelf/config:/config
       - /opt/kdk-lab/audiobookshelf/metadata:/metadata

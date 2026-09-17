@@ -368,6 +368,7 @@ identity_providers:
         public: false
         redirect_uris:
           - 'https://audiobookshelf.kmkdp.com/auth/openid/callback'
+          - 'https://audiobookshelf.kmkdp.com/audiobookshelf/auth/openid/callback'
           - 'audiobookshelf://oauth'
         scopes:
           - 'openid'
