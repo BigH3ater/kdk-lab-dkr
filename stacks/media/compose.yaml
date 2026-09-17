@@ -131,29 +131,10 @@ services:
       traefik.http.routers.chaptarr.middlewares: "forwardauth@file"
       traefik.http.services.chaptarr.loadbalancer.server.port: "8789"
 
-  # Audiobook server for the audiobooks Chaptarr manages under
-  # /mnt/media/books/audiobook. Official upstream image (runs as root; ignores
-  # PUID/PGID). NOTE: deliberately NOT behind forwardauth@file -- Authelia SSO
-  # breaks the Audiobookshelf mobile apps (they can't do the browser SSO flow);
-  # ABS has its own multi-user auth. Library mounted read-only so Chaptarr stays
-  # the owner. dns-reconcile auto-adds audiobookshelf.kmkdp.com -> 10.1.20.20.
-  audiobookshelf:
-    <<: *common
-    image: ghcr.io/advplyr/audiobookshelf:2.36.1
-    environment:
-      TZ: America/Chicago
-    volumes:
-      - /opt/kdk-lab/media/audiobookshelf/config:/config
-      - /opt/kdk-lab/media/audiobookshelf/metadata:/metadata
-      - /mnt/media/books/audiobook:/audiobooks:ro   # Chaptarr-managed (read-only)
-      # Podcasts are managed BY Audiobookshelf itself (subscribe to an RSS feed ->
-      # ABS auto-downloads episodes), so this mount is READ-WRITE and outside the
-      # Chaptarr books tree. Not fed by Prowlarr/SAB.
-      - /mnt/media/podcasts:/podcasts
-    labels:
-      traefik.enable: "true"
-      traefik.http.routers.audiobookshelf.rule: "Host(`audiobookshelf.kmkdp.com`)"
-      traefik.http.services.audiobookshelf.loadbalancer.server.port: "80"
+  # Audiobookshelf moved to its own DMZ stack (stacks/audiobookshelf, internet-
+  # facing via the Cloudflare tunnel + Authelia OIDC). It reads /mnt/media/books/
+  # audiobook read-only from dmz-01; podcasts live on dmz-01 local disk (the DMZ
+  # media NFS is read-only). Chaptarr still lays out /mnt/media/books/audiobook.
 
   wizarr:
     <<: *common

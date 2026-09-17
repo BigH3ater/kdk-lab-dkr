@@ -1,0 +1,29 @@
+# Audiobookshelf on the DMZ node -- internet-facing via the Cloudflare tunnel,
+# SSO via Authelia OIDC (client_id `audiobookshelf`). NOT behind forwardauth:
+# OIDC (and ABS's own auth) is the gate, and forwardauth would break the mobile
+# apps. Reads the audiobook library read-only from the media NFS (dmz-01 mounts
+# /mnt/media ro); podcasts live on dmz-01 LOCAL disk because ABS must WRITE them
+# (RSS auto-download) and the DMZ media mount is read-only. Official upstream
+# image (runs as root, listens on :80). dns-reconcile points
+# audiobookshelf.kmkdp.com at the DMZ Traefik (192.168.191.20) from the Host label.
+name: audiobookshelf
+services:
+  audiobookshelf:
+    image: ghcr.io/advplyr/audiobookshelf:2.36.1
+    container_name: audiobookshelf
+    restart: unless-stopped
+    environment:
+      TZ: America/Chicago
+    volumes:
+      - /opt/kdk-lab/audiobookshelf/config:/config
+      - /opt/kdk-lab/audiobookshelf/metadata:/metadata
+      - /mnt/media/books/audiobook:/audiobooks:ro   # Chaptarr-managed, read-only
+      - /opt/kdk-lab/audiobookshelf/podcasts:/podcasts   # local (DMZ media NFS is ro); ABS writes here
+    networks: [proxy-dmz]
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.audiobookshelf.rule: "Host(`audiobookshelf.kmkdp.com`)"
+      traefik.http.services.audiobookshelf.loadbalancer.server.port: "80"
+networks:
+  proxy-dmz:
+    external: true
