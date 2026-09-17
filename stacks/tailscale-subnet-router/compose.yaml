@@ -1,8 +1,10 @@
 # Tailscale subnet router on kdk-dkr-01. Advertises the lab subnets to the tailnet
-# so remote members (and the reMarkable, once enrolled) reach lab services —
-# rmfakecloud, the obsidian-headless host, Home Assistant, etc. — without
-# exposing anything publicly. Activates the member->subnet grants kept in the
-# tailnet ACL; routes auto-approve via the ACL autoApprovers for tag:subnet-router.
+# so remote members reach lab services — Home Assistant, the obsidian-headless
+# host, etc. — and get remote ad-blocking DNS, without exposing anything publicly.
+# Activates the member->subnet grants kept in the tailnet ACL; routes auto-approve
+# via the ACL autoApprovers for tag:subnet-router.
+# (The reMarkable is NOT on the tailnet — no /dev/net/tun, so userspace tailscaled
+# can't carry its sync; the tablet pipeline is lab-side SSH instead.)
 #
 # Auth: TS_AUTHKEY is the Tailscale OAuth client secret
 # (op://kdk-ops/tailscale-admin-api/api_token) — combined with
