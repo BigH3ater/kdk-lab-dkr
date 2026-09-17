@@ -540,7 +540,7 @@ after = ["loki"]
 server = "kdk-dkr-dmz-01"
 repo = "BigH3ater/kdk-lab-dkr"
 run_directory = "stacks/observability-agent"
-environment = "LOKI_HOST=100.100.100.50\nNODE_NAME=kdk-dkr-dmz-01"
+environment = "LOKI_HOST=172.16.30.50\nNODE_NAME=kdk-dkr-dmz-01"
 webhook_enabled = true
 
 [[stack]]

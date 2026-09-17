@@ -25,7 +25,7 @@ write_files:
       Description=tankz3/media (read-only) over storage net
       After=network-online.target
       [Mount]
-      What=100.100.100.2:/mnt/tankz3/media
+      What=172.16.30.2:/mnt/tankz3/media
       Where=/mnt/media
       Type=nfs
       Options=nfsvers=4.1,ro,noatime,_netdev
@@ -37,7 +37,7 @@ write_files:
       Description=tankz3/appdata over storage net
       After=network-online.target
       [Mount]
-      What=100.100.100.2:/mnt/tankz3/appdata
+      What=172.16.30.2:/mnt/tankz3/appdata
       Where=/mnt/appdata
       Type=nfs
       Options=nfsvers=4.1,noatime,_netdev
@@ -49,7 +49,7 @@ write_files:
       Description=tankz3/backup over storage net
       After=network-online.target
       [Mount]
-      What=100.100.100.2:/mnt/tankz3/backup
+      What=172.16.30.2:/mnt/tankz3/backup
       Where=/mnt/backup
       Type=nfs
       Options=nfsvers=4.1,noatime,_netdev

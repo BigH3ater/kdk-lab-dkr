@@ -40,7 +40,7 @@ ssh kdkadmin@10.1.20.30 'sudo docker logs --tail 3 fanctl-hyp'        # temps lo
 
 | Problem | Cause | Command to validate |
 |---|---|---|
-| Logs missing from a host | that host's Alloy down or wrong LOKI_HOST | `docker logs alloy` on the host; dmz-01 uses `100.100.100.50` |
+| Logs missing from a host | that host's Alloy down or wrong LOKI_HOST | `docker logs alloy` on the host; dmz-01 uses `172.16.30.50` |
 | "timestamp too old" in Alloy | one-time replay of pre-existing container logs | benign; new logs still ingest |
 | DMZ host metrics/logs absent | DMZ→internal path | node/cadvisor pulled over LAN→DMZ; Alloy pushes over the storage net |
 | `FansPinnedHigh` firing | that BMC on auto (loud) | expected only if a controller is monitoring-only/stopped |

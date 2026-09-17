@@ -29,7 +29,7 @@ The internal Docker host: Komodo control plane, 1Password Connect, internal Trae
 | Purpose | Runs all internal stacks + the Komodo control plane |
 | Status | 🟢 Live — periphery active, all stacks up (2026-09-12) |
 | Host | VM 300 on kdk-hyp-01 |
-| Address | `10.1.20.20/27` (VLAN 20) · storage `100.100.100.50` (vmbr1, MTU 9000) |
+| Address | `10.1.20.20/27` (VLAN 20) · storage `172.16.30.50` (vmbr1, MTU 9000) |
 | OS | Debian 13, kernel `6.12.107+deb13-amd64` (full kernel — required for the NVIDIA driver) |
 | Hardware | 12 vCPU / 47 GiB / 571 GB local-zfs · GTX 1050 Ti (hostpci) |
 | Managed by | cloud-init at build; Komodo periphery thereafter |
@@ -59,14 +59,14 @@ ssh kdkadmin@10.1.20.20 'nvidia-smi -L'                    # GTX 1050 Ti
 |---|---|---|
 | `nvidia-smi` fails | cloud kernel has no GPU driver | boot the full `linux-image-amd64` kernel |
 | A stack won't deploy | `op inject` can't reach Connect | `curl http://10.1.20.20:8080/heartbeat` → `.` |
-| NFS mounts missing | storage NIC / NFS down | `mount | grep 100.100.100.2` |
+| NFS mounts missing | storage NIC / NFS down | `mount | grep 172.16.30.2` |
 
 ## Dependencies
 
 | Direction | Thing | What breaks without it |
 |---|---|---|
 | Needs | [[kdk-hyp-01]] | the VM itself |
-| Needs | kdk-nas-01 NFS (100.100.100.2) | media, backup, dee-exchange |
+| Needs | kdk-nas-01 NFS (172.16.30.2) | media, backup, dee-exchange |
 | Needed by | [[kdk-dkr-dmz-01]] and all hosts | Komodo control + 1P Connect |
 
 ## Observability
@@ -91,7 +91,7 @@ VLAN 20 for services (`80/443` Traefik, `8080` Connect bound to the VLAN address
 
 | Mount | Source | FS | Consumed by | Backup |
 |---|---|---|---|---|
-| `/mnt/media` | `100.100.100.2:/mnt/tankz3/media` | NFS | media, jellyfin(RO) | tankz3 snapshots |
+| `/mnt/media` | `172.16.30.2:/mnt/tankz3/media` | NFS | media, jellyfin(RO) | tankz3 snapshots |
 | `/mnt/dee-exchange` | `…/dee-exchange` | NFS | Tdarr DEE | snapshots |
 | `/mnt/backup` | `…/backup` | NFS | backup stacks | snapshots |
 | `/opt/kdk-lab` | local-zfs | zfs | all stack config | nightly rsync → NAS |

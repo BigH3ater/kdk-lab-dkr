@@ -29,7 +29,7 @@ The DMZ Docker host: DMZ Traefik + cloudflared, Authelia/LLDAP identity, Seerr, 
 | Purpose | Runs the DMZ/public stacks and lab identity |
 | Status | 🟢 Live — periphery active, `/dev/dri` present (2026-09-12) |
 | Host | VM 23 on kdk-nas-01 (TrueNAS `vm.*` API) |
-| Address | `192.168.191.20/24` (VLAN 191, br191) · storage `100.100.100.51` |
+| Address | `192.168.191.20/24` (VLAN 191, br191) · storage `172.16.30.51` |
 | OS | Debian 13, kernel `6.12.107+deb13-amd64` (full kernel — required for i915) |
 | Hardware | 8 vCPU / 23 GiB / 59 GB vmpool zvol · Intel Arc A380 passthrough |
 | Managed by | cloud-init (NoCloud seed ISO) at build; Komodo periphery thereafter |
@@ -84,13 +84,13 @@ Public hostnames probed by `blackbox-http-app` on [[kdk-mon-01]]; alerts → Pus
 
 ## Architecture
 
-VLAN 191 (DMZ). Traefik `80/443`, periphery `8120`. Outbound: cloudflared to Cloudflare; DMZ→internal to `10.1.20.20:8080` (Connect) and `:443` (arr APIs via Seerr). Storage NIC `100.100.100.51` for NFS.
+VLAN 191 (DMZ). Traefik `80/443`, periphery `8120`. Outbound: cloudflared to Cloudflare; DMZ→internal to `10.1.20.20:8080` (Connect) and `:443` (arr APIs via Seerr). Storage NIC `172.16.30.51` for NFS.
 
 ### Storage map
 
 | Mount | Source | FS | Consumed by | Backup |
 |---|---|---|---|---|
-| `/mnt/media` (RO) | `100.100.100.2:/mnt/tankz3/media` | NFS | Jellyfin | tankz3 snapshots |
+| `/mnt/media` (RO) | `172.16.30.2:/mnt/tankz3/media` | NFS | Jellyfin | tankz3 snapshots |
 | `/mnt/appdata` | `…/appdata` | NFS | Seerr, Immich library | snapshots |
 | `/mnt/backup` | `…/backup` | NFS | backup-dmz | snapshots |
 | `/opt/kdk-lab` | vmpool zvol | zfs | identity, immich, jellyfin config | nightly rsync + pg dumps → NAS; zvol replication |
