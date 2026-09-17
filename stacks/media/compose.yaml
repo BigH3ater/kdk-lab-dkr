@@ -145,7 +145,11 @@ services:
     volumes:
       - /opt/kdk-lab/media/audiobookshelf/config:/config
       - /opt/kdk-lab/media/audiobookshelf/metadata:/metadata
-      - /mnt/media/books/audiobook:/audiobooks:ro
+      - /mnt/media/books/audiobook:/audiobooks:ro   # Chaptarr-managed (read-only)
+      # Podcasts are managed BY Audiobookshelf itself (subscribe to an RSS feed ->
+      # ABS auto-downloads episodes), so this mount is READ-WRITE and outside the
+      # Chaptarr books tree. Not fed by Prowlarr/SAB.
+      - /mnt/media/podcasts:/podcasts
     labels:
       traefik.enable: "true"
       traefik.http.routers.audiobookshelf.rule: "Host(`audiobookshelf.kmkdp.com`)"
