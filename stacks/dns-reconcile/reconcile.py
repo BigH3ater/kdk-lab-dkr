@@ -60,6 +60,20 @@ STATIC = {
     )
 }
 
+# reMarkable OTA + telemetry is delivered via Memfault, proxied through
+# device.cloud.remarkable.com (memfaultd base_url; swupdate/suricatta polls it).
+# Blackhole it (and Memfault's default endpoint) to 0.0.0.0 so the Paper Pro
+# cannot pull firmware updates on lab DNS -- updates would wipe the custom
+# /usr/share/remarkable/templates and are unwanted. Also stops Memfault telemetry.
+# Native document sync uses other (already-redirected) domains, so it is unaffected.
+BLOCK = {
+    host: "0.0.0.0"
+    for host in (
+        "device.cloud.remarkable.com",
+        "device.memfault.com",
+    )
+}
+
 
 def adg(path, method="GET", body=None):
     auth = base64.b64encode(
@@ -103,6 +117,7 @@ def desired_records():
         for host in re.findall(r"Host\(`([^`]+)`\)", open(cf).read()):
             want[host] = ip
     want.update(STATIC)   # reMarkable cloud domains -> rmfakecloud (see STATIC)
+    want.update(BLOCK)    # reMarkable OTA/telemetry -> 0.0.0.0 blackhole (see BLOCK)
     return want
 
 
