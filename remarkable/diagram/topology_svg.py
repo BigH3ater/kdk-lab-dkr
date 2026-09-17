@@ -11,19 +11,30 @@ import json, re, sys
 from kodiak_diagram import (Canvas, INK, MUTED, RUST, GREEN, DARK, CARD, FAINT,
                             BG, escape)
 
-EMBER, BARK, STONE, ASH = "#C9743F", "#6B6358", "#9A9183", "#8D8377"
+EMBER, BARK, STONE, ASH, GREENB = "#C9743F", "#6B6358", "#9A9183", "#8D8377", "#9BBD7E"
 
-# label keyword -> (type, accent). First match wins; order matters.
+# label keyword -> (type, accent). First match wins; order matters (specific
+# before short/ambiguous -- e.g. `app` before `ap`).
 TYPE_RULES = [
-    (r"^(fw|firewall)", ("firewall", EMBER)),
-    (r"^(ap|wifi|wireless)", ("ap", EMBER)),
-    (r"^(sw|switch)", ("switch", GREEN)),
-    (r"^(rs|sd|rtr|router)", ("router", RUST)),
-    (r"(k8s|kube|kubernetes)", ("k8s", INK)),
-    (r"^(vm|virtual)", ("vm", ASH)),
-    (r"(nas|san|storage)", ("storage", BARK)),
-    (r"^(srv|server|host)", ("server", BARK)),
-    (r"(isp|cloud|internet|wan)", ("cloud", STONE)),
+    (r"firewall|^fw\d*$|^fw[-_]", ("firewall", EMBER)),
+    (r"load.?balanc|haproxy|^lb\d*$|^lb[-_]", ("lb", RUST)),
+    (r"database|postgres|mysql|mariadb|mongo|\bsql\b|^pg\d*$|^db\d*$|^db[-_]", ("database", BARK)),
+    (r"cache|redis|memcache", ("cache", EMBER)),
+    (r"queue|kafka|rabbit|broker|nats|^mq\d*$", ("queue", ASH)),
+    (r"proxy|gateway|ingress|nginx|traefik|^gw\d*$", ("proxy", EMBER)),
+    (r"\bdns|adguard|pihole|unbound|^bind", ("dns", GREEN)),
+    (r"grafana|prometheus|monitor|loki|metrics|^mon\d*$", ("monitoring", RUST)),
+    (r"docker|container|podman|^ct\d*$", ("container", STONE)),
+    (r"client|laptop|workstation|^pc\d*$|^user", ("client", MUTED)),
+    (r"application|webapp|\bsvc\b|service|^app", ("app", GREENB)),
+    (r"wifi|wireless|access.?point|^ap\d*$|^ap[-_]", ("ap", EMBER)),
+    (r"switch|^sw\d*$|^sw[-_]", ("switch", GREEN)),
+    (r"router|^rtr|^rs\d*$|^sd\d*$", ("router", RUST)),
+    (r"k8s|kube|kubernetes", ("k8s", INK)),
+    (r"virtual|^vm\d*$|^vm[-_]", ("vm", ASH)),
+    (r"nas|san|storage", ("storage", BARK)),
+    (r"server|^srv|^host", ("server", BARK)),
+    (r"isp|cloud|internet|wan", ("cloud", STONE)),
 ]
 def classify(label: str):
     l = label.strip().lower()
@@ -64,6 +75,38 @@ def icon(c, t, cx, cy, s, col):
         o(f'<line x1="{cx-h}" y1="{cy}" x2="{cx+h}" y2="{cy}" stroke="{col}" stroke-width="1.2"/>')
     elif t == "cloud":
         o(f'<path d="M {cx-h} {cy+3} a {h*0.5} {h*0.5} 0 0 1 {h*0.4} -{h*0.7} a {h*0.55} {h*0.55} 0 0 1 {h} 0 a {h*0.5} {h*0.5} 0 0 1 {h*0.4} {h*0.7} z" fill="none" stroke="{col}" stroke-width="1.6"/>')
+    elif t == "app":                       # window tile
+        o(f'<rect x="{cx-h}" y="{cy-h}" width="{s}" height="{s}" rx="2" fill="none" stroke="{col}" stroke-width="2"/>')
+        o(f'<line x1="{cx-h}" y1="{cy-h+5}" x2="{cx+h}" y2="{cy-h+5}" stroke="{col}" stroke-width="1.5"/>')
+        o(f'<circle cx="{cx-h+3}" cy="{cy-h+2.5}" r="1" fill="{col}"/>')
+    elif t == "lb":                        # distributor: node fanning to 3
+        o(f'<circle cx="{cx}" cy="{cy-h}" r="2.4" fill="{col}"/>')
+        for tx in (cx-h, cx, cx+h):
+            o(f'<line x1="{cx}" y1="{cy-h+2}" x2="{tx}" y2="{cy+h}" stroke="{col}" stroke-width="1.5"/>')
+    elif t == "database":                  # cylinder
+        o(f'<ellipse cx="{cx}" cy="{cy-h+3}" rx="{h}" ry="3.4" fill="none" stroke="{col}" stroke-width="1.8"/>')
+        o(f'<path d="M {cx-h} {cy-h+3} V {cy+h-3} A {h} 3.4 0 0 0 {cx+h} {cy+h-3} V {cy-h+3}" fill="none" stroke="{col}" stroke-width="1.8"/>')
+    elif t == "cache":                     # lightning bolt
+        o(f'<path d="M {cx+2} {cy-h} L {cx-h+2} {cy+1} L {cx} {cy+1} L {cx-2} {cy+h} L {cx+h-1} {cy-2} L {cx} {cy-2} Z" fill="none" stroke="{col}" stroke-width="1.5"/>')
+    elif t == "queue":                     # 3 bars
+        for dx in (-5,0,5):
+            o(f'<line x1="{cx+dx}" y1="{cy-h}" x2="{cx+dx}" y2="{cy+h}" stroke="{col}" stroke-width="2"/>')
+    elif t == "proxy":                     # gate + arrow through
+        o(f'<line x1="{cx}" y1="{cy-h}" x2="{cx}" y2="{cy+h}" stroke="{col}" stroke-width="2"/>')
+        o(f'<path d="M {cx-h} {cy} H {cx+h} M {cx+h-3} {cy-3} L {cx+h} {cy} L {cx+h-3} {cy+3}" fill="none" stroke="{col}" stroke-width="1.4"/>')
+    elif t == "dns":                       # globe
+        o(f'<circle cx="{cx}" cy="{cy}" r="{h}" fill="none" stroke="{col}" stroke-width="1.6"/>')
+        o(f'<ellipse cx="{cx}" cy="{cy}" rx="{h*0.45}" ry="{h}" fill="none" stroke="{col}" stroke-width="1"/>')
+        o(f'<line x1="{cx-h}" y1="{cy}" x2="{cx+h}" y2="{cy}" stroke="{col}" stroke-width="1"/>')
+    elif t == "monitoring":                # line chart
+        o(f'<polyline points="{cx-h},{cy+3} {cx-h/2},{cy-2} {cx},{cy+1} {cx+h/2},{cy-h+2} {cx+h},{cy-1}" fill="none" stroke="{col}" stroke-width="1.8"/>')
+    elif t == "container":                 # box with two inner units
+        o(f'<rect x="{cx-h}" y="{cy-h}" width="{s}" height="{s}" rx="1" fill="none" stroke="{col}" stroke-width="2"/>')
+        o(f'<rect x="{cx-h+2.5}" y="{cy-2}" width="{h-3.5}" height="{h-2}" fill="none" stroke="{col}" stroke-width="1"/>')
+        o(f'<rect x="{cx+1}" y="{cy-2}" width="{h-3.5}" height="{h-2}" fill="none" stroke="{col}" stroke-width="1"/>')
+    elif t == "client":                    # person
+        o(f'<circle cx="{cx}" cy="{cy-h+3}" r="2.8" fill="none" stroke="{col}" stroke-width="1.8"/>')
+        o(f'<path d="M {cx-h+2} {cy+h} A {h*0.9} {h*0.9} 0 0 1 {cx+h-2} {cy+h}" fill="none" stroke="{col}" stroke-width="1.8"/>')
     else:
         o(f'<circle cx="{cx}" cy="{cy}" r="3" fill="{col}"/>')
 
