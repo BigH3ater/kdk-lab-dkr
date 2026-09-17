@@ -10,6 +10,6 @@ services:
       STATE_DIR: /state
     entrypoint: ["/bin/sh","-c",". /pushover.env 2>/dev/null; exec python /app/book-sync.py"]
     volumes:
-      - /mnt/media/books:/books:ro        # Chaptarr ebook library (source of truth)
+      - /mnt/media/books/ebook:/books:ro  # Chaptarr EBOOK root (audiobook root excluded)
       - /opt/kdk-lab/book-sync:/state
       - /etc/kdk/pushover.env:/pushover.env:ro

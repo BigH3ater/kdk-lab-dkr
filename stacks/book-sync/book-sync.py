@@ -24,9 +24,23 @@ RM_HOST = os.environ.get("RM_HOST", "10.1.30.245")
 RM_USER = os.environ.get("RM_USER", "root")
 RM_PW   = os.environ.get("RM_PW", "")
 XO = "/home/root/.local/share/remarkable/xochitl"
-EXTS = {".epub": "epub", ".pdf": "pdf"}
+# reMarkable natively reads only EPUB + PDF. Other ebook formats are converted to
+# EPUB (Calibre ebook-convert) before pushing; audiobooks/other exts are ignored.
+NATIVE  = {".epub": "epub", ".pdf": "pdf"}
+CONVERT = {".azw3", ".azw", ".mobi", ".fb2", ".lit", ".pdb", ".prc"}
 STATE.mkdir(parents=True, exist_ok=True)
+CONVERTED = STATE/"converted"; CONVERTED.mkdir(exist_ok=True)
 ST = STATE/"book-sync.json"
+
+def convert_to_epub(src, h):
+    out = CONVERTED/f"{h}.epub"
+    if out.exists() and out.stat().st_size > 0:
+        return out
+    r = subprocess.run(["ebook-convert", str(src), str(out)], capture_output=True, timeout=900)
+    if r.returncode != 0 or not out.exists() or out.stat().st_size == 0:
+        out.unlink(missing_ok=True)
+        raise RuntimeError(f"ebook-convert failed ({src.suffix}): {r.stderr.decode(errors='replace')[-300:]}")
+    return out
 
 def log(*a): print(datetime.datetime.now().strftime("%F %T"), *a, flush=True)
 def notify(title, msg):
@@ -85,28 +99,37 @@ def main():
     if not tablet_up():
         log("tablet asleep; skipping (will reconcile next run)"); return
     state=load_state(); fid=ensure_folder(state)
-    # desired set: relpath -> (abspath, md5, ext, name)
+    # desired set: relpath -> (abspath, md5, tablet_ext, name, needs_convert)
     want={}
     for p in sorted(BOOKS.rglob("*")):
-        if p.is_file() and p.suffix.lower() in EXTS:
-            rel=str(p.relative_to(BOOKS)); want[rel]=(p, md5(p), EXTS[p.suffix.lower()], p.stem)
-    books=state.setdefault("books",{}); pushed=updated=removed=0; changed=False
+        if not p.is_file(): continue
+        sfx=p.suffix.lower()
+        name = p.parent.name if p.parent != BOOKS else p.stem   # Chaptarr = Author/Title/file -> Title
+        if sfx in NATIVE:    want[str(p.relative_to(BOOKS))]=(p, md5(p), NATIVE[sfx], name, False)
+        elif sfx in CONVERT: want[str(p.relative_to(BOOKS))]=(p, md5(p), "epub", name, True)
+    books=state.setdefault("books",{}); pushed=updated=removed=0; changed=False; failed=[]
     # add / update
-    for rel,(p,h,ext,name) in want.items():
+    for rel,(p,h,ext,name,conv) in want.items():
         cur=books.get(rel)
         if cur and cur.get("hash")==h and exists(cur.get("uuid","")):
             continue
-        uuid=push_book(p, fid, name, ext, uuid=(cur or {}).get("uuid"))
+        try:
+            src = convert_to_epub(p, h) if conv else p
+        except Exception as e:
+            failed.append(f"{rel}: {e}"); log("convert FAILED", rel, e); continue
+        uuid=push_book(src, fid, name, ext, uuid=(cur or {}).get("uuid"))
         books[rel]={"uuid":uuid,"hash":h,"ext":ext,"name":name}
         changed=True
-        if cur: updated+=1; log("updated",rel)
-        else:   pushed+=1;  log("pushed",rel)
+        if cur: updated+=1; log("updated",rel,f"({p.suffix}->{ext})" if conv else "")
+        else:   pushed+=1;  log("pushed",rel,f"({p.suffix}->{ext})" if conv else "")
     # remove (managed books no longer in the folder)
     for rel in [r for r in books if r not in want]:
         remove_book(books[rel]["uuid"]); log("removed",rel); del books[rel]; removed+=1; changed=True
     save_state(state)
     if changed: _ssh("systemctl restart xochitl"); log("xochitl restarted")
-    log(f"book-sync OK: {len(want)} desired, +{pushed} ~{updated} -{removed}")
+    log(f"book-sync OK: {len(want)} desired, +{pushed} ~{updated} -{removed}, !{len(failed)} failed")
+    if failed:
+        notify(f"book-sync: {len(failed)} conversion(s) failed", "\n".join(failed[:8]))
 
 if __name__=="__main__":
     try: main()
