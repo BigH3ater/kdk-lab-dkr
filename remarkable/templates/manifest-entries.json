@@ -1,29 +1,10 @@
 [
   {
-    "name": "Kodiak Cornell",
-    "filename": "Kodiak Cornell",
-    "iconCode": "",
+    "name": "Kodiak College Rule",
+    "filename": "Kodiak College Rule",
+    "iconCode": "",
     "categories": [
-      "Lines",
-      "Planners"
-    ]
-  },
-  {
-    "name": "Kodiak Dots",
-    "filename": "Kodiak Dots",
-    "iconCode": "",
-    "categories": [
-      "Creative",
-      "Grids"
-    ]
-  },
-  {
-    "name": "Kodiak Grid margin",
-    "filename": "Kodiak Grid margin",
-    "iconCode": "",
-    "categories": [
-      "Grids",
-      "Planners"
+      "Lines"
     ]
   }
 ]

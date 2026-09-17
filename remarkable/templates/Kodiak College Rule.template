@@ -1,0 +1,95 @@
+{
+  "name": "Kodiak College Rule",
+  "author": "kdk-lab",
+  "templateVersion": "1.0.0",
+  "formatVersion": 1,
+  "categories": [
+    "Lines"
+  ],
+  "orientation": "portrait",
+  "constants": [
+    {
+      "mobileMaxWidth": 1000
+    },
+    {
+      "mobileOffsetY": 160
+    },
+    {
+      "magicOffsetY": 176
+    },
+    {
+      "offsetY": "templateWidth > mobileMaxWidth ? magicOffsetY : mobileOffsetY"
+    },
+    {
+      "leftX": "templateWidth / 2 - templateHeight / 2"
+    },
+    {
+      "marginX": "templateWidth / 2 - templateHeight / 2 + 464"
+    },
+    {
+      "lineSpacing": 62
+    },
+    {
+      "lineThick": 2.5
+    },
+    {
+      "marginW": 3
+    }
+  ],
+  "items": [
+    {
+      "type": "group",
+      "boundingBox": {
+        "x": "leftX",
+        "y": "offsetY",
+        "width": "templateHeight",
+        "height": "lineSpacing"
+      },
+      "repeat": {
+        "rows": "down"
+      },
+      "children": [
+        {
+          "type": "path",
+          "fillColor": "#808080",
+          "antialiasing": false,
+          "data": [
+            "M",
+            0,
+            0,
+            "L",
+            "parentWidth",
+            0,
+            "L",
+            "parentWidth",
+            "lineThick",
+            "L",
+            0,
+            "lineThick",
+            "Z"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "path",
+      "fillColor": "#E06C75",
+      "antialiasing": false,
+      "data": [
+        "M",
+        "marginX",
+        0,
+        "L",
+        "marginX + marginW",
+        0,
+        "L",
+        "marginX + marginW",
+        "templateHeight",
+        "L",
+        "marginX",
+        "templateHeight",
+        "Z"
+      ]
+    }
+  ]
+}
