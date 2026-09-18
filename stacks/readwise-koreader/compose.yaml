@@ -1,0 +1,18 @@
+services:
+  readwise-koreader:
+    build: .
+    image: kdk/readwise-koreader:latest
+    container_name: readwise-koreader
+    restart: "no"                       # one-shot; run periodically by the procedure
+    env_file: [.env]                    # READWISE_TOKEN + RM_PW (op-injected)
+    environment:
+      STATE_DIR: /state
+      RM_BOOKS_DIR: /home/root/books/Readwise   # KOReader library subfolder (files)
+      RM_HOST: "10.1.30.245"
+      RM_USER: root
+      LOCATIONS: "new,later,shortlist"
+      TAG: remarkable
+    entrypoint: ["/bin/sh","-c",". /pushover.env 2>/dev/null; exec python /app/readwise-koreader.py"]
+    volumes:
+      - /opt/kdk-lab/readwise-koreader:/state
+      - /etc/kdk/pushover.env:/pushover.env:ro
