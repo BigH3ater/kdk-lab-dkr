@@ -129,6 +129,11 @@ services:
       traefik.enable: "true"
       traefik.http.routers.chaptarr.rule: "Host(`chaptarr.kmkdp.com`)"
       traefik.http.routers.chaptarr.middlewares: "forwardauth@file"
+      # /api bypass (no ForwardAuth) so API-key clients (e.g. DMZ Libreseerr) can use the
+      # API without an Authelia redirect — mirrors sonarr-api/radarr-api.
+      traefik.http.routers.chaptarr-api.rule: "Host(`chaptarr.kmkdp.com`) && PathPrefix(`/api`)"
+      traefik.http.routers.chaptarr-api.priority: "100"
+      traefik.http.routers.chaptarr-api.service: "chaptarr"
       traefik.http.services.chaptarr.loadbalancer.server.port: "8789"
 
   # Audiobookshelf moved to its own DMZ stack (stacks/audiobookshelf, internet-
