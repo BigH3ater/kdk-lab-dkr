@@ -16,6 +16,28 @@ services:
       traefik.enable: "true"
       traefik.http.routers.seerr.rule: "Host(`seerr.kmkdp.com`)"
       traefik.http.services.seerr.loadbalancer.server.port: "5055"
+
+  # Libreseerr — Overseerr-style "request a book" UI that hands off to Chaptarr
+  # (Readarr v1 API). Reaches Chaptarr via internal Traefik (extra_hosts). OIDC
+  # (Authelia) is configured in the app UI post-deploy; SECRET_KEY keeps Flask
+  # sessions stable across restarts.
+  libreseerr:
+    image: ghcr.io/zamnzim/libreseerr:latest
+    container_name: libreseerr
+    restart: unless-stopped
+    env_file: [.env]                 # SECRET_KEY (op-injected)
+    environment:
+      PYTHONUNBUFFERED: "1"
+    extra_hosts:
+      - "chaptarr.kmkdp.com:10.1.20.20"   # Chaptarr API via internal Traefik
+    volumes:
+      - /mnt/appdata/libreseerr:/app/data
+    networks: [proxy-dmz]
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.libreseerr.rule: "Host(`libreseerr.kmkdp.com`)"
+      traefik.http.services.libreseerr.loadbalancer.server.port: "5000"
+
 networks:
   proxy-dmz:
     external: true

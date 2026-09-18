@@ -214,6 +214,7 @@ after = ["dmz-proxy"]
 server = "kdk-dkr-dmz-01"
 repo = "BigH3ater/kdk-lab-dkr"
 run_directory = "stacks/dmz-apps"
+pre_deploy.command = "sh -c '. /etc/komodo/op.env && op inject -f -i .env.tpl -o .env'"
 webhook_enabled = true
 
 [[stack]]
