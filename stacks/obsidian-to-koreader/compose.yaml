@@ -1,0 +1,19 @@
+services:
+  obsidian-to-koreader:
+    build: .
+    image: kdk/obsidian-to-koreader:latest
+    container_name: obsidian-to-koreader
+    restart: "no"                       # one-shot; run periodically by the procedure
+    env_file: [.env]                    # RM_PW (op-injected)
+    environment:
+      VAULT_DIR: /vault
+      STATE_DIR: /state
+      RM_DEST: /home/root/books/Homelab   # KOReader subfolder for vault PDFs
+      RM_HOST: "10.1.30.245"
+      RM_USER: root
+      MAX_PDF_MB: "40"                    # per-section size guard
+    entrypoint: ["/bin/sh","-c",". /pushover.env 2>/dev/null; exec python /app/obsidian-to-koreader.py"]
+    volumes:
+      - /opt/kdk-lab/obsidian/vault:/vault:ro       # read-only: never writes the vault
+      - /opt/kdk-lab/obsidian-to-koreader:/state
+      - /etc/kdk/pushover.env:/pushover.env:ro

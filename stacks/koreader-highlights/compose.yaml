@@ -1,0 +1,19 @@
+services:
+  koreader-highlights:
+    build: .
+    image: kdk/koreader-highlights:latest
+    container_name: koreader-highlights
+    restart: "no"                       # one-shot; run periodically by the procedure
+    env_file: [.env]                    # RM_PW (op-injected)
+    environment:
+      VAULT_DIR: /vault
+      HL_SUBDIR: 30-Books/Highlights    # where highlight notes land in the vault
+      STATE_DIR: /state
+      RM_BOOKS_ROOT: /home/root/books   # KOReader library root (Library/ + Readwise/)
+      RM_HOST: "10.1.30.245"
+      RM_USER: root
+    entrypoint: ["/bin/sh","-c",". /pushover.env 2>/dev/null; exec python /app/koreader-highlights.py"]
+    volumes:
+      - /opt/kdk-lab/obsidian/vault:/vault      # the headless-synced vault (propagates to devices)
+      - /opt/kdk-lab/koreader-highlights:/state
+      - /etc/kdk/pushover.env:/pushover.env:ro
