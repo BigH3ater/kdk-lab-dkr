@@ -14,10 +14,15 @@ services:
     restart: unless-stopped
     environment:
       TZ: America/Chicago
-      # Serve at ROOT. The ABS OIDC "Subfolder for Redirect URLs" field was cleared
-      # (2026-09-17), so the OIDC redirect is /auth/openid/callback and the app base
-      # href is /. Keep this empty on this dedicated subdomain.
-      ROUTER_BASE_PATH: ""
+      # ABS is HARD-BUILT for the /audiobookshelf base path: index.js defaults
+      # ROUTER_BASE_PATH to '/audiobookshelf' and the client assets are baked with
+      # that prefix (base href + all /_nuxt, /api, icon URLs) with NO runtime
+      # rewrite. Serving at true root breaks the client (assets 404). So we keep the
+      # native /audiobookshelf base path. The server's request-prefix middleware
+      # still lets the bare domain (/) resolve, and OIDC works: the callback is
+      # built from the (empty) "Subfolder for Redirect URLs" field = /auth/openid/
+      # callback (root), which Authelia has registered and the middleware prefixes.
+      ROUTER_BASE_PATH: "/audiobookshelf"
     volumes:
       - /opt/kdk-lab/audiobookshelf/config:/config
       - /opt/kdk-lab/audiobookshelf/metadata:/metadata
