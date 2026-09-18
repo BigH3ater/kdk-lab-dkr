@@ -628,6 +628,39 @@ executions = [
   { execution.type = "DeployStack", execution.params.stack = "book-sync", enabled = true },
 ]
 
+# Readwise articles -> KOReader: fetch Reader docs tagged 'remarkable', render each to
+# EPUB (Calibre), deliver as files into /home/root/books/Readwise (KOReader reads files,
+# not xochitl). Replaces the retired native-reader article leg [1] of readwise-to-remarkable.
+# Only removes files it created. Opportunistic (tablet-awake).
+[[stack]]
+tags = ["kdk-lab"]
+name = "readwise-koreader"
+deploy = false   # run by the readwise-koreader Procedure
+[stack.config]
+server = "kdk-dkr-01"
+repo = "BigH3ater/kdk-lab-dkr"
+run_directory = "stacks/readwise-koreader"
+auto_pull = false   # image is built locally (no registry) -> skip compose pull
+run_build = true    # run docker compose build before up
+destroy_before_deploy = true   # one locked down+up so the one-shot re-runs
+pre_deploy.command = "sh -c '. /etc/komodo/op.env && op inject -f -i .env.tpl -o .env'"
+
+[[procedure]]
+tags = ["kdk-lab"]
+name = "readwise-koreader"
+[procedure.config]
+schedule_format = "Cron"
+# :10 every 3rd hour -- Readwise Reader LIST is rate-limited (20 req/min); no need to
+# poll often, and off the gitops-sync :00/:15/:30/:45 slots + the other tablet jobs.
+schedule = "0 10 */3 * * *"
+schedule_timezone = "America/Chicago"
+[[procedure.config.stage]]
+name = "sync"
+enabled = true
+executions = [
+  { execution.type = "DeployStack", execution.params.stack = "readwise-koreader", enabled = true },
+]
+
 # ---- observability: Loki logs + per-host agents ----
 [[stack]]
 tags = ["kdk-lab"]
