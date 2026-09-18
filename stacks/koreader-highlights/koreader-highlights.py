@@ -47,7 +47,7 @@ def tablet_up():
     except Exception: return False
 def list_sidecars():
     # path<TAB>mtime for every KOReader metadata sidecar under RM_ROOT
-    r=_ssh(f"find {shlex.quote(RM_ROOT)} -type f -name 'metadata.*.lua' -exec sh -c 'echo \"$1\t$(stat -c %Y \"$1\" 2>/dev/null || echo 0)\"' _ {{}} \\;")
+    r=_ssh(f"find {shlex.quote(RM_ROOT)} -type f -name 'metadata.*.lua' -exec sh -c 'printf \"%s\\t%s\\n\" \"$1\" \"$(stat -c %Y \"$1\" 2>/dev/null || echo 0)\"' _ {{}} \\;")
     out=[]
     for line in r.stdout.decode(errors="replace").splitlines():
         if "\t" in line:
@@ -118,10 +118,16 @@ def main():
             title,author,anns=parse(read_remote(path))
         except Exception as e:
             failed.append(f"{path}: {e}"); log("parse FAILED",path,e); continue
+        prev=tracked.get(path,{}).get("dest")
+        book=pathlib.PurePath(path).parent.name[:-4]   # "<book>.sdr" -> "<book>"
         if not anns:
+            if prev: (HL_DIR/prev).unlink(missing_ok=True); log("removed orphan (highlights cleared)",prev)
             tracked[path]={"mtime":mtime,"ok":True,"dest":None}; empty+=1; continue
-        title=title or pathlib.PurePath(path).parent.name.replace(".sdr","")
-        dest=HL_DIR/f"{safe(title)}.md"
+        title=title or book
+        # disambiguate same-titled books (append author, else the book filename)
+        disamb=safe(author) if author else safe(book)
+        dest=HL_DIR/(f"{safe(title)} - {disamb}.md" if disamb and disamb!=safe(title) else f"{safe(title)}.md")
+        if prev and prev!=dest.name: (HL_DIR/prev).unlink(missing_ok=True)   # renamed -> drop old
         dest.write_text(render_md(title,author,anns,path), encoding="utf-8")
         tracked[path]={"mtime":mtime,"ok":True,"dest":dest.name}; wrote+=1; log("wrote",dest.name,f"({len(anns)} hl)")
     save_state(state)

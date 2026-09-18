@@ -15,6 +15,9 @@ services:
       - |
         set -eu
         apk add --no-cache rsync >/dev/null
+        # guard: refuse to run --delete against an empty source (mount failure would
+        # otherwise wipe the mirror). set -eu already aborts on apk failure.
+        [ -n "$(ls -A /docs 2>/dev/null)" ] || { echo "ERROR: /docs is empty; refusing rsync --delete"; exit 1; }
         mkdir -p /vault/10-Homelab/Reference
         rsync -a --delete --exclude '.git' /docs/ /vault/10-Homelab/Reference/
         echo "docs -> vault/10-Homelab/Reference: $(find /vault/10-Homelab/Reference -name '*.md' | wc -l) markdown file(s)"

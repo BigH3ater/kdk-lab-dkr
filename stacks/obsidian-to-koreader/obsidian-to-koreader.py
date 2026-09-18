@@ -40,7 +40,7 @@ def load_state():
 def save_state(s): ST.write_text(json.dumps(s,indent=2))
 
 # ---- markdown preprocessing (Obsidian -> plain markdown) ------------------
-FM = re.compile(r"^---\n.*?\n---\n", re.S)
+FM = re.compile(r"^---\r?\n.*?\r?\n---\r?\n", re.S)   # tolerate CRLF frontmatter
 def clean_md(text):
     text = FM.sub("", text, count=1)                    # strip YAML frontmatter
     text = re.sub(r"!\[\[[^\]]+\]\]", "", text)         # drop embeds
