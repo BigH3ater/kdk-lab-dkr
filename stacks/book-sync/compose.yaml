@@ -8,6 +8,7 @@ services:
     environment:
       BOOKS_DIR: /books
       STATE_DIR: /state
+      RM_BOOKS_DIR: /home/root/books/Library   # KOReader library dir on the tablet (files, not xochitl)
     entrypoint: ["/bin/sh","-c",". /pushover.env 2>/dev/null; exec python /app/book-sync.py"]
     volumes:
       - /mnt/media/books/ebook:/books:ro  # Chaptarr EBOOK root (audiobook root excluded)

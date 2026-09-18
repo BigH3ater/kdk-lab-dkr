@@ -1,32 +1,39 @@
 #!/usr/bin/env python3
-"""book-sync: reconcile Chaptarr's ebook library onto the reMarkable.
+"""book-sync: reconcile Chaptarr's ebook library onto the reMarkable for KOReader.
 
-Source of truth = the ebook library folder BOOKS_DIR (/mnt/media/books, managed by
-Chaptarr via Prowlarr/SABnzbd). Add or remove a book in Chaptarr and it appears or
+Source of truth = the ebook library folder BOOKS_DIR (/mnt/media/books/ebook, managed
+by Chaptarr via Prowlarr/SABnzbd). Add or remove a book in Chaptarr and it appears or
 disappears on the tablet.
-Each run makes the tablet's managed **"Kodiak Library"** folder match it:
-  in folder, not on tablet (or changed)  -> push (create/replace the doc)
-  on tablet (managed), not in folder      -> remove it (send + remove at will)
-Only documents this service created are ever deleted -- their UUIDs are tracked in
+
+Delivery = **plain files** into the KOReader library dir RM_BOOKS_DIR
+(/home/root/books/Library, on the persistent /home partition). KOReader browses a
+folder of real files — it does NOT read xochitl's document store — so we copy the
+book file (mirroring the Chaptarr Author/Title/ structure) rather than injecting a
+document into xochitl. Highlights made in KOReader land in `.sdr` sidecars next to
+each book and are ingested to Obsidian by the koreader-highlights job (separate).
+
+Each run makes RM_BOOKS_DIR match the library:
+  in library, not on tablet (or changed) -> copy it
+  on tablet (managed), not in library     -> delete it (send + remove at will)
+Only files this service created are ever deleted -- their dest paths are tracked in
 state -- so books you added on the tablet directly are never touched.
 
-Direct dropbear SSH into xochitl (the reliable path here; rmapi would need the
-cloud). Opportunistic: if the Paper Pro is asleep, this run no-ops and the next
-one reconciles. Pages Pushover on failure. Run periodically by a Komodo procedure.
+Non-EPUB/PDF ebook formats are converted to EPUB (Calibre) first. Direct dropbear SSH
+(reachable over the LAN / Tailscale `remarkable-pp`). Opportunistic: if the Paper Pro
+is asleep, this run no-ops and the next one reconciles. Pages Pushover on failure.
+Run periodically by a Komodo procedure.
 """
 from __future__ import annotations
-import os, sys, json, hashlib, subprocess, urllib.request, pathlib, datetime, time
+import os, sys, json, hashlib, subprocess, urllib.request, pathlib, datetime, shlex
 
-BOOKS   = pathlib.Path(os.environ.get("BOOKS_DIR", "/books"))  # Chaptarr ebook library (/mnt/media/books)
-STATE   = pathlib.Path(os.environ.get("STATE_DIR", "/state"))
-LIBNAME = os.environ.get("RM_LIB_FOLDER", "Kodiak Library")
-RM_HOST = os.environ.get("RM_HOST", "10.1.30.245")
-RM_USER = os.environ.get("RM_USER", "root")
-RM_PW   = os.environ.get("RM_PW", "")
-XO = "/home/root/.local/share/remarkable/xochitl"
-# reMarkable natively reads only EPUB + PDF. Other ebook formats are converted to
-# EPUB (Calibre ebook-convert) before pushing; audiobooks/other exts are ignored.
-NATIVE  = {".epub": "epub", ".pdf": "pdf"}
+BOOKS    = pathlib.Path(os.environ.get("BOOKS_DIR", "/books"))  # Chaptarr ebook library
+STATE    = pathlib.Path(os.environ.get("STATE_DIR", "/state"))
+RM_BOOKS = os.environ.get("RM_BOOKS_DIR", "/home/root/books/Library")  # KOReader library dir
+RM_HOST  = os.environ.get("RM_HOST", "10.1.30.245")
+RM_USER  = os.environ.get("RM_USER", "root")
+RM_PW    = os.environ.get("RM_PW", "")
+# KOReader reads many formats; EPUB + PDF pass through, the rest convert to EPUB.
+NATIVE  = {".epub", ".pdf"}
 CONVERT = {".azw3", ".azw", ".mobi", ".fb2", ".lit", ".pdb", ".prc"}
 STATE.mkdir(parents=True, exist_ok=True)
 CONVERTED = STATE/"converted"; CONVERTED.mkdir(exist_ok=True)
@@ -52,7 +59,7 @@ def notify(title, msg):
     except Exception: pass
 def load_state():
     try: return json.loads(ST.read_text())
-    except Exception: return {"folder": None, "books": {}}
+    except Exception: return {"books": {}}
 def save_state(s): ST.write_text(json.dumps(s, indent=2))
 def md5(p):
     h=hashlib.md5()
@@ -63,34 +70,22 @@ def md5(p):
 # ---- tablet ---------------------------------------------------------------
 _SSH=["-o","StrictHostKeyChecking=accept-new","-o","UserKnownHostsFile=/dev/null","-o","ConnectTimeout=8"]
 def _ssh(cmd, timeout=60): return subprocess.run(["sshpass","-p",RM_PW,"ssh",*_SSH,f"{RM_USER}@{RM_HOST}",cmd],capture_output=True,timeout=timeout)
-def _scp(local,remote,timeout=180): subprocess.run(["sshpass","-p",RM_PW,"scp",*_SSH,str(local),f"{RM_USER}@{RM_HOST}:{remote}"],check=True,timeout=timeout)
+def _scp(local,remote,timeout=180): subprocess.run(["sshpass","-p",RM_PW,"scp",*_SSH,str(local),f"{RM_USER}@{RM_HOST}:{shlex.quote(remote)}"],check=True,timeout=timeout)
 def tablet_up():
     try: return _ssh("echo ok",timeout=15).stdout.strip()==b"ok"
     except Exception: return False
-def new_uuid(): return _ssh("cat /proc/sys/kernel/random/uuid").stdout.decode().strip()
-def exists(uuid): return _ssh(f"test -f {XO}/{uuid}.metadata && echo y").stdout.strip()==b"y"
+def r_exists(path):
+    return _ssh(f"test -f {shlex.quote(path)} && echo y").stdout.strip()==b"y"
 
-def ensure_folder(state):
-    fid=state.get("folder")
-    if fid and exists(fid): return fid
-    fid=new_uuid(); ms=str(int(time.time()*1000))
-    meta=('{"visibleName":"%s","type":"CollectionType","parent":"","lastModified":"%s","version":0,'
-          '"deleted":false,"pinned":false,"synced":false,"metadatamodified":true,"modified":true}') % (LIBNAME, ms)
-    _ssh(f"printf '%s' '{meta}' > {XO}/{fid}.metadata; echo '{{}}' > {XO}/{fid}.content")
-    state["folder"]=fid; log("created tablet folder",LIBNAME,fid[:8]); return fid
+def push_book(local, dest_rel):
+    dest = f"{RM_BOOKS}/{dest_rel}"
+    parent = os.path.dirname(dest)
+    _ssh(f"mkdir -p {shlex.quote(parent)}")
+    _scp(local, dest)
 
-def push_book(local, fid, name, ext, uuid=None):
-    uuid = uuid or new_uuid(); ms=str(int(time.time()*1000))
-    _scp(local, f"{XO}/{uuid}.{ext}")
-    meta=('{"visibleName":"%s","type":"DocumentType","parent":"%s","lastModified":"%s","version":0,'
-          '"deleted":false,"pinned":false,"synced":false,"metadatamodified":true,"modified":true,'
-          '"lastOpened":"%s","lastOpenedPage":0}') % (name.replace("'","").replace('"',''), fid, ms, ms)
-    _ssh(f"printf '%s' '{meta}' > {XO}/{uuid}.metadata; echo '{{\"fileType\":\"{ext}\"}}' > {XO}/{uuid}.content")
-    return uuid
-
-def remove_book(uuid):
-    # explicit paths only (no glob) -- delete the doc files + any annotation dir
-    _ssh(f"rm -f {XO}/{uuid}.metadata {XO}/{uuid}.content {XO}/{uuid}.epub {XO}/{uuid}.pdf; rm -rf {XO}/{uuid} {XO}/{uuid}.thumbnails")
+def remove_book(dest_rel):
+    # explicit path only (no glob). Leave the .sdr sidecar so un-ingested highlights survive.
+    _ssh(f"rm -f {shlex.quote(RM_BOOKS + '/' + dest_rel)}")
 
 # ---- reconcile ------------------------------------------------------------
 def main():
@@ -98,35 +93,38 @@ def main():
         log(f"{BOOKS} missing; nothing to sync"); return
     if not tablet_up():
         log("tablet asleep; skipping (will reconcile next run)"); return
-    state=load_state(); fid=ensure_folder(state)
-    # desired set: relpath -> (abspath, md5, tablet_ext, name, needs_convert)
+    state=load_state()
+    _ssh(f"mkdir -p {shlex.quote(RM_BOOKS)}")
+    # desired set: src_relpath -> (abspath, md5, dest_relpath, needs_convert)
     want={}
     for p in sorted(BOOKS.rglob("*")):
         if not p.is_file(): continue
         sfx=p.suffix.lower()
-        name = p.parent.name if p.parent != BOOKS else p.stem   # Chaptarr = Author/Title/file -> Title
-        if sfx in NATIVE:    want[str(p.relative_to(BOOKS))]=(p, md5(p), NATIVE[sfx], name, False)
-        elif sfx in CONVERT: want[str(p.relative_to(BOOKS))]=(p, md5(p), "epub", name, True)
+        rel=str(p.relative_to(BOOKS))
+        if sfx in NATIVE:    want[rel]=(p, md5(p), rel, False)
+        elif sfx in CONVERT: want[rel]=(p, md5(p), str(pathlib.PurePath(rel).with_suffix(".epub")), True)
     books=state.setdefault("books",{}); pushed=updated=removed=0; changed=False; failed=[]
     # add / update
-    for rel,(p,h,ext,name,conv) in want.items():
+    for rel,(p,h,dest_rel,conv) in want.items():
         cur=books.get(rel)
-        if cur and cur.get("hash")==h and exists(cur.get("uuid","")):
+        if cur and cur.get("hash")==h and r_exists(f"{RM_BOOKS}/{cur.get('dest','')}"):
             continue
         try:
             src = convert_to_epub(p, h) if conv else p
         except Exception as e:
             failed.append(f"{rel}: {e}"); log("convert FAILED", rel, e); continue
-        uuid=push_book(src, fid, name, ext, uuid=(cur or {}).get("uuid"))
-        books[rel]={"uuid":uuid,"hash":h,"ext":ext,"name":name}
+        # if the dest path changed (e.g. re-convert), drop the old file
+        if cur and cur.get("dest") and cur["dest"]!=dest_rel:
+            remove_book(cur["dest"])
+        push_book(src, dest_rel)
+        books[rel]={"dest":dest_rel,"hash":h}
         changed=True
-        if cur: updated+=1; log("updated",rel,f"({p.suffix}->{ext})" if conv else "")
-        else:   pushed+=1;  log("pushed",rel,f"({p.suffix}->{ext})" if conv else "")
-    # remove (managed books no longer in the folder)
+        if cur: updated+=1; log("updated",dest_rel,f"({p.suffix}->epub)" if conv else "")
+        else:   pushed+=1;  log("pushed",dest_rel,f"({p.suffix}->epub)" if conv else "")
+    # remove (managed books no longer in the library)
     for rel in [r for r in books if r not in want]:
-        remove_book(books[rel]["uuid"]); log("removed",rel); del books[rel]; removed+=1; changed=True
+        remove_book(books[rel]["dest"]); log("removed",books[rel]["dest"]); del books[rel]; removed+=1; changed=True
     save_state(state)
-    if changed: _ssh("systemctl restart xochitl"); log("xochitl restarted")
     log(f"book-sync OK: {len(want)} desired, +{pushed} ~{updated} -{removed}, !{len(failed)} failed")
     if failed:
         notify(f"book-sync: {len(failed)} conversion(s) failed", "\n".join(failed[:8]))
