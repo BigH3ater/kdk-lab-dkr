@@ -6,10 +6,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       libcairo2 libpango-1.0-0 libpangocairo-1.0-0 libgdk-pixbuf-2.0-0 \
       shared-mime-info fonts-dejavu-core \
     && rm -rf /var/lib/apt/lists/*
-# Install weasyprint unpinned so pip resolves a self-consistent weasyprint+pydyf pair —
-# pinning weasyprint==62.3 alone let pip pull an incompatible pydyf ('super' object has
-# no attribute 'transform'). (Re-pin to the resolved versions once a build is verified.)
-RUN pip install --no-cache-dir weasyprint
+# weasyprint + a MATCHING pydyf (pinning weasyprint alone let pip pull an incompatible
+# pydyf -> 'super' object has no attribute 'transform'). These versions were resolved
+# together from an unpinned install and verified rendering all vault sections.
+RUN pip install --no-cache-dir weasyprint==70.0 pydyf==0.12.1
 WORKDIR /app
 COPY obsidian-to-koreader.py /app/obsidian-to-koreader.py
 ENV PYTHONUNBUFFERED=1 HOME=/tmp
