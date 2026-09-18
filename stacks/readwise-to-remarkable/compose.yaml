@@ -1,11 +1,15 @@
 # reMarkable <-> Readwise pipeline, migrated from the decommissioned dockge host
-# (/opt/stacks/readwise-to-remarkable). Two hourly loop legs, all talking to
-# the LIVE rmfakecloud (apps stack) over the shared apps_default network:
-#   [1] readwise-to-remarkable  Readwise Reader docs tagged 'remarkable' -> device
-#   [2] highlights (rm-highlights)   device text highlights -> Readwise
-# The former leg [3] (Chaptarr ebook library -> device, one-way push via rmfakecloud)
-# is RETIRED in favour of the book-sync stack, which reconciles /mnt/media/books
-# to the tablet over direct SSH with add + delete ("send/remove at will").
+# (/opt/stacks/readwise-to-remarkable). Talks to the LIVE rmfakecloud (apps stack)
+# over the shared apps_default network:
+#   [1] readwise-to-remarkable  RETIRED (below) -> replaced by the readwise-koreader
+#       stack (Readwise articles -> EPUB files in KOReader, so they're highlighted in
+#       KOReader and ingested to Obsidian via .sdr). It filtered the SAME 'remarkable'
+#       tag and pushed to the NATIVE reader, so leaving it live double-delivered every
+#       tagged article into both readers. Disabled here so a redeploy can't re-enable it.
+#   [2] highlights (rm-highlights)   device text highlights -> Readwise (still active;
+#       likely superseded by KOReader .sdr highlights — retire once that path is validated)
+# The former leg [3] (Chaptarr ebook library -> device) is RETIRED in favour of the
+# book-sync stack (which now delivers ebooks as files to KOReader).
 #
 # Prebuilt images (ghcr.io/bigh3ater/*, pinned by digest -- these are PRIVATE
 # packages; the host needs GHCR pull access or the packages made public). The
@@ -29,28 +33,12 @@ services:
     volumes:
       - rw-secrets:/secrets
 
-  readwise-to-remarkable:            # leg [1]  Readwise Reader -> device
-    image: ghcr.io/bigh3ater/kdk-lab-readwise-to-remarkable@sha256:7242867eb9c9c9a8d41e4528b441d3d50f633d5b4a949d56d7ce258e2b6a183c
-    restart: unless-stopped
-    depends_on:
-      secrets:
-        condition: service_completed_successfully
-    environment:
-      RMAPI_HOST: http://rmfakecloud:3000
-      RMAPI_CONFIG: /config/.rmapi
-      CONFIG_PATH: /tmp/config.cfg
-      SYNC_INTERVAL: "3600"
-      TZ: America/Chicago
-      HOME: /tmp
-    entrypoint: ["/bin/sh", "-c"]
-    command:
-      - |
-        sed "s|__READWISE_TOKEN__|$$(cat /secrets/readwise-token)|" /app/config.template.cfg > /tmp/config.cfg
-        while true; do python sync.py; sleep "$${SYNC_INTERVAL:-3600}"; done
-    volumes:
-      - /opt/kdk-lab/readwise-to-remarkable/config:/config
-      - rw-secrets:/secrets:ro
-    networks: [default, apps]
+  # leg [1] (readwise-to-remarkable: Readwise articles -> NATIVE reader via rmfakecloud)
+  # RETIRED 2026-09-18 -> replaced by the readwise-koreader stack (articles -> EPUB files
+  # in KOReader). Left disabled (not just stopped) so a redeploy can't re-enable it and
+  # double-deliver the same 'remarkable'-tagged articles into both readers. Re-enable ONLY
+  # if you abandon the KOReader-reading model. Image was:
+  #   ghcr.io/bigh3ater/kdk-lab-readwise-to-remarkable@sha256:7242867eb9c9c9a8d41e4528b441d3d50f633d5b4a949d56d7ce258e2b6a183c
 
   highlights:                        # leg [2]  device text highlights -> Readwise
     image: ghcr.io/bigh3ater/kdk-lab-rm-highlights@sha256:5cc75f4b0d97fb83ffedde8b31207329847c7d0eb9f3840c55886a636f281f37

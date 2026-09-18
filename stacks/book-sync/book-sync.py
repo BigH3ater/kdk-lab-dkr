@@ -24,7 +24,7 @@ is asleep, this run no-ops and the next one reconciles. Pages Pushover on failur
 Run periodically by a Komodo procedure.
 """
 from __future__ import annotations
-import os, sys, json, hashlib, subprocess, urllib.request, pathlib, datetime, shlex
+import os, json, hashlib, subprocess, urllib.request, pathlib, datetime, shlex
 
 BOOKS    = pathlib.Path(os.environ.get("BOOKS_DIR", "/books"))  # Chaptarr ebook library
 STATE    = pathlib.Path(os.environ.get("STATE_DIR", "/state"))

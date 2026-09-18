@@ -14,7 +14,7 @@ handles Readwise, but delivery reuses the exact KOReader file-push pattern as bo
 Opportunistic (tablet-awake); Pushover on failure. Run periodically by a Komodo procedure.
 """
 from __future__ import annotations
-import os, sys, json, subprocess, urllib.request, urllib.parse, pathlib, datetime, shlex, re, hashlib, time
+import os, json, subprocess, urllib.request, urllib.error, urllib.parse, pathlib, datetime, shlex, re, time
 
 TOKEN_FILE = os.environ.get("READWISE_TOKEN_FILE", "/secrets/readwise-token")
 TOKEN      = os.environ.get("READWISE_TOKEN", "")
@@ -27,6 +27,7 @@ RM_HOST    = os.environ.get("RM_HOST", "10.1.30.245")
 RM_USER    = os.environ.get("RM_USER", "root")
 RM_PW      = os.environ.get("RM_PW", "")
 API        = "https://readwise.io/api/v3/list/"
+THROTTLE   = float(os.environ.get("THROTTLE_SECONDS", "3.5"))   # Reader LIST is 20 req/min
 STATE.mkdir(parents=True, exist_ok=True)
 TMP = STATE/"tmp"; TMP.mkdir(exist_ok=True)
 ST  = STATE/"readwise-koreader.json"
@@ -52,17 +53,28 @@ def safe(name):
     return name[:120]
 
 # ---- Readwise Reader API --------------------------------------------------
+def _api_get(url, tok):
+    for _ in range(6):
+        req=urllib.request.Request(url, headers={"Authorization":f"Token {tok}"})
+        try:
+            with urllib.request.urlopen(req, timeout=60) as r:
+                return json.loads(r.read().decode())
+        except urllib.error.HTTPError as e:
+            if e.code==429:
+                wait=int(e.headers.get("Retry-After","60") or "60")
+                log(f"readwise 429; sleeping {wait}s"); time.sleep(wait); continue
+            raise
+    raise RuntimeError("readwise API: too many 429s")
+
 def fetch_docs():
     tok=token(); out={}
     for loc in LOCATIONS:
         cursor=None
         while True:
-            q={"location":loc, "withHtmlContent":"true"}
-            if cursor: q["pageCursor"]=cursor
-            req=urllib.request.Request(API+"?"+urllib.parse.urlencode(q),
-                                       headers={"Authorization":f"Token {tok}"})
-            with urllib.request.urlopen(req, timeout=60) as r:
-                data=json.loads(r.read().decode())
+            # server-side tag filter (Reader v3 supports it) + client-side re-check below
+            q=[("location",loc),("withHtmlContent","true"),("tag",TAG)]
+            if cursor: q.append(("pageCursor",cursor))
+            data=_api_get(API+"?"+urllib.parse.urlencode(q), tok)
             for d in data.get("results", []):
                 tags=d.get("tags") or {}
                 tagset={str(t).lower() for t in (tags.keys() if isinstance(tags,dict) else tags)}
@@ -71,6 +83,7 @@ def fetch_docs():
                 out[d["id"]]=d
             cursor=data.get("nextPageCursor")
             if not cursor: break
+            time.sleep(THROTTLE)   # stay under the 20 req/min LIST limit
     return out
 
 # ---- EPUB render ----------------------------------------------------------
@@ -116,7 +129,7 @@ def main():
     for did,doc in docs.items():
         seen.add(did)
         stamp=str(doc.get("updated_at") or doc.get("last_moved_at") or "")
-        dest=safe(doc.get("title") or did)+".epub"
+        dest=f"{safe(doc.get('title') or did)}-{str(did)[:8]}.epub"   # id suffix avoids title collisions
         cur=tracked.get(did)
         if cur and cur.get("stamp")==stamp and cur.get("dest")==dest and r_exists(f"{RM_BOOKS}/{dest}"):
             continue
