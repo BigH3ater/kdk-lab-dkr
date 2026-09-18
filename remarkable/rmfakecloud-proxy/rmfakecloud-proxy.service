@@ -1,0 +1,13 @@
+[Unit]
+Description=rmfakecloud device proxy (self-hosted reMarkable cloud)
+After=network-online.target home.mount
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/home/root/rmfakecloud/rmfakecloud-boot.sh
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
