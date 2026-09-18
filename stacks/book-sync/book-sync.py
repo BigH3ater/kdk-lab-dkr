@@ -70,7 +70,10 @@ def md5(p):
 # ---- tablet ---------------------------------------------------------------
 _SSH=["-o","StrictHostKeyChecking=accept-new","-o","UserKnownHostsFile=/dev/null","-o","ConnectTimeout=8"]
 def _ssh(cmd, timeout=60): return subprocess.run(["sshpass","-p",RM_PW,"ssh",*_SSH,f"{RM_USER}@{RM_HOST}",cmd],capture_output=True,timeout=timeout)
-def _scp(local,remote,timeout=180): subprocess.run(["sshpass","-p",RM_PW,"scp",*_SSH,str(local),f"{RM_USER}@{RM_HOST}:{shlex.quote(remote)}"],check=True,timeout=timeout)
+# NOTE: modern scp uses the SFTP protocol (no remote shell) -> the remote path is taken
+# literally; do NOT shell-quote it (quotes would become part of the filename). Spaces are
+# fine as-is. The _ssh commands below DO go through the remote shell, so they use shlex.quote.
+def _scp(local,remote,timeout=180): subprocess.run(["sshpass","-p",RM_PW,"scp",*_SSH,str(local),f"{RM_USER}@{RM_HOST}:{remote}"],check=True,timeout=timeout)
 def tablet_up():
     try: return _ssh("echo ok",timeout=15).stdout.strip()==b"ok"
     except Exception: return False

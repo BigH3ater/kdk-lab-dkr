@@ -107,7 +107,9 @@ def to_epub(doc):
 # ---- tablet (plain files for KOReader) ------------------------------------
 _SSH=["-o","StrictHostKeyChecking=accept-new","-o","UserKnownHostsFile=/dev/null","-o","ConnectTimeout=8"]
 def _ssh(cmd, timeout=60): return subprocess.run(["sshpass","-p",RM_PW,"ssh",*_SSH,f"{RM_USER}@{RM_HOST}",cmd],capture_output=True,timeout=timeout)
-def _scp(local,remote,timeout=180): subprocess.run(["sshpass","-p",RM_PW,"scp",*_SSH,str(local),f"{RM_USER}@{RM_HOST}:{shlex.quote(remote)}"],check=True,timeout=timeout)
+# modern scp = SFTP protocol (no remote shell): remote path is literal, do NOT shell-quote
+# it (quotes would become part of the name); spaces are fine. _ssh cmds still use shlex.quote.
+def _scp(local,remote,timeout=180): subprocess.run(["sshpass","-p",RM_PW,"scp",*_SSH,str(local),f"{RM_USER}@{RM_HOST}:{remote}"],check=True,timeout=timeout)
 def tablet_up():
     try: return _ssh("echo ok",timeout=15).stdout.strip()==b"ok"
     except Exception: return False
