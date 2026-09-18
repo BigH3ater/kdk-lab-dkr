@@ -14,12 +14,10 @@ services:
     restart: unless-stopped
     environment:
       TZ: America/Chicago
-      # Serve under /audiobookshelf to MATCH the OIDC "Subfolder for Redirect URLs"
-      # the app has stored (authOpenIDSubfolderForRedirectURLs=/audiobookshelf).
-      # With them mismatched, root served a broken base href and /audiobookshelf/
-      # 404'd. To move to a clean ROOT url instead: clear that field in ABS OIDC
-      # settings, then set this back to "" and drop the /audiobookshelf redirect_uri.
-      ROUTER_BASE_PATH: "/audiobookshelf"
+      # Serve at ROOT. The ABS OIDC "Subfolder for Redirect URLs" field was cleared
+      # (2026-09-17), so the OIDC redirect is /auth/openid/callback and the app base
+      # href is /. Keep this empty on this dedicated subdomain.
+      ROUTER_BASE_PATH: ""
     volumes:
       - /opt/kdk-lab/audiobookshelf/config:/config
       - /opt/kdk-lab/audiobookshelf/metadata:/metadata
