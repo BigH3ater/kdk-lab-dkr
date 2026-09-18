@@ -8,6 +8,11 @@ set -e
 D=/home/root/rmfakecloud
 UPSTREAM="https://remarkable.kmkdp.com"   # the rmfakecloud instance (Traefik -> apps stack)
 
+# NOTE: CA trust + /etc/hosts redirects are applied EARLY by rmfakecloud-catrust.service
+# (ordered Before=xochitl.service) — that ordering is what makes pairing work (see that
+# script). This boot script (network-gated, so it runs later) re-applies them idempotently
+# as a fallback in case catrust did not run, then runs the proxy.
+
 # 1. Trust the rmfakecloud CA. /usr/local/share/ca-certificates/rmfakecloud.crt is on the
 #    rootfs (persists); the generated bundle in /etc/ssl is tmpfs, so regenerate it here.
 update-ca-certificates 2>/dev/null || true
@@ -23,5 +28,7 @@ for d in \
   grep -q "[[:space:]]$d\$" /etc/hosts 2>/dev/null || echo "127.0.0.1 $d" >> /etc/hosts
 done
 
-# 3. Run the proxy in the foreground (systemd supervises it).
-exec "$D/rmfakecloud-proxy" -addr :443 -cert "$D/proxy.crt" -key "$D/proxy.key" "$UPSTREAM"
+# 3. Run the proxy in the foreground (systemd supervises it). Serve the full chain
+#    (proxy.bundle.crt = leaf + CA) so clients that build the chain from what the server
+#    presents succeed, not just those with the CA already in their trust store.
+exec "$D/rmfakecloud-proxy" -addr :443 -cert "$D/proxy.bundle.crt" -key "$D/proxy.key" "$UPSTREAM"

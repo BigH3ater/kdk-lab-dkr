@@ -1,0 +1,15 @@
+[Unit]
+Description=rmfakecloud CA trust + reMarkable host redirects (before xochitl caches CAs)
+# Must complete before xochitl loads/caches the system CA set on its first TLS use.
+# xochitl has no network dependency and starts early, so we only need local-fs.
+DefaultDependencies=no
+After=local-fs.target
+Before=xochitl.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/sbin/rmfakecloud-catrust.sh
+
+[Install]
+WantedBy=multi-user.target
