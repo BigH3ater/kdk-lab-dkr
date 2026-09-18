@@ -4,14 +4,24 @@ services:
     image: kdk/planner-service:latest
     container_name: planner-service
     restart: "no"                       # one-shot; run daily by the procedure
-    env_file: [.env]                    # ICS_URL + RM_PW (op-injected)
+    env_file: [.env]                    # ICS_URL (op-injected)
     environment:
       VAULT_DIR: /vault
       STATE_DIR: /state
       TZ: America/Chicago
+      RMAPI_HOST: http://rmfakecloud:3000     # deliver via rmfakecloud sync (device pulls)
+      RMAPI_CONFIG: /config/.rmapi            # shared rmapi device auth (registered once)
+      RM_CLOUD_FOLDER: Planner
     entrypoint: ["/bin/sh","-c",". /pushover.env 2>/dev/null; exec python /app/planner.py"]
     volumes:
       - /opt/kdk-lab/obsidian/vault:/vault
       - /opt/kdk-lab/planner:/state
-      - ../../remarkable/pdf-templates:/app/tpl:ro   # kodiak_lib (repo clone)
+      - /opt/kdk-lab/readwise-to-remarkable/config:/config   # shared .rmapi device auth
+      - ../../remarkable/pdf-templates:/app/tpl:ro            # kodiak_lib (repo clone)
       - /etc/kdk/pushover.env:/pushover.env:ro
+    networks: [default, apps]
+
+networks:
+  apps:
+    external: true
+    name: apps_default   # reach the live rmfakecloud (container_name: rmfakecloud)

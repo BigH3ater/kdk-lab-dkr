@@ -10,7 +10,7 @@ Tablet push is opportunistic (only when the Paper Pro is awake on Wi-Fi); the va
 note is always written. Pages Pushover on failure.
 """
 from __future__ import annotations
-import os, sys, json, subprocess, urllib.request, pathlib, datetime, time
+import os, sys, json, subprocess, urllib.request, pathlib, datetime, time, shutil
 sys.path.insert(0, "/app/tpl")            # kodiak_lib (mounted from remarkable/pdf-templates)
 
 ICS_URL = os.environ.get("ICS_URL", "")
@@ -18,10 +18,12 @@ VAULT   = pathlib.Path(os.environ.get("VAULT_DIR", "/vault"))
 STATE   = pathlib.Path(os.environ.get("STATE_DIR", "/state"))
 DAYS    = int(os.environ.get("WEEK_DAYS", "7"))
 TZ      = os.environ.get("TZ", "America/Chicago")
-RM_HOST = os.environ.get("RM_HOST", "10.1.30.245")
-RM_USER = os.environ.get("RM_USER", "root")
-RM_PW   = os.environ.get("RM_PW", "")
-RM_FOLDER_UUID = os.environ.get("RM_FOLDER_UUID", "a6af6fd7-bfa4-4895-bedc-6c286d61d819")  # "Kodiak Codex"
+# Delivery = rmfakecloud sync (rmapi). The device pulls the planner on its next sync
+# (works remotely over Tailscale); no SSH into xochitl, so no sync-vs-inject conflict.
+RMAPI_HOST     = os.environ.get("RMAPI_HOST", "http://rmfakecloud:3000")
+RMAPI_CONFIG   = os.environ.get("RMAPI_CONFIG", "/config/.rmapi")
+RM_CLOUD_FOLDER = os.environ.get("RM_CLOUD_FOLDER", "Planner")   # cloud folder for the daily planner
+DOC_NAME       = os.environ.get("RM_DOC_NAME", "Kodiak Planner") # stable doc name, replaced daily
 PLANNERS = VAULT/"90-Meta"/"Planners"
 STATE.mkdir(parents=True, exist_ok=True)
 PLANNERS.mkdir(parents=True, exist_ok=True)
@@ -122,28 +124,20 @@ def write_note(today, events):
         lines.append("")
     p=PLANNERS/f"{today.isoformat()}.md"; p.write_text("\n".join(lines)); return p
 
-# ---- tablet push (stable doc, replaced daily) -----------------------------
-_SSH=["-o","StrictHostKeyChecking=accept-new","-o","UserKnownHostsFile=/dev/null","-o","ConnectTimeout=8"]
-def _ssh(cmd): return subprocess.run(["sshpass","-p",RM_PW,"ssh",*_SSH,f"{RM_USER}@{RM_HOST}",cmd],capture_output=True,timeout=60)
-def _scp(local,remote): subprocess.run(["sshpass","-p",RM_PW,"scp",*_SSH,str(local),f"{RM_USER}@{RM_HOST}:{remote}"],check=True,timeout=60)
-def tablet_up():
-    try: return _ssh("echo ok").stdout.strip()==b"ok"
-    except Exception: return False
+# ---- tablet delivery via rmfakecloud (rmapi; stable doc, replaced daily) ---
+def _rmapi(*args, timeout=180):
+    env={**os.environ, "RMAPI_HOST": RMAPI_HOST, "RMAPI_CONFIG": RMAPI_CONFIG}
+    return subprocess.run(["rmapi", *args], capture_output=True, timeout=timeout, env=env)
 def push_tablet(pdf_path):
-    if not tablet_up(): log("tablet asleep, skipping push (vault note still written)"); return False
-    st=STATE/"planner.json"
-    try: uuid=json.loads(st.read_text())["uuid"]
-    except Exception:
-        uuid=_ssh("cat /proc/sys/kernel/random/uuid").stdout.decode().strip()
-        st.write_text(json.dumps({"uuid":uuid}))
-    XO="/home/root/.local/share/remarkable/xochitl"; ms=str(int(time.time()*1000))
-    _scp(pdf_path, f"{XO}/{uuid}.pdf")
-    meta=('{"visibleName":"Kodiak Planner","type":"DocumentType","parent":"%s","lastModified":"%s",'
-          '"version":0,"deleted":false,"pinned":true,"synced":false,"metadatamodified":true,'
-          '"modified":true,"lastOpened":"%s","lastOpenedPage":0}') % (RM_FOLDER_UUID, ms, ms)
-    _ssh(f"printf '%s' '{meta}' > {XO}/{uuid}.metadata; echo '{{\"fileType\":\"pdf\"}}' > {XO}/{uuid}.content")
-    _ssh("systemctl restart xochitl")
-    log("pushed planner to tablet (uuid",uuid[:8]+", xochitl restarted)"); return True
+    # rmapi names the doc after the filename stem -> copy to "<DOC_NAME>.pdf" first.
+    named=STATE/f"{DOC_NAME}.pdf"; shutil.copyfile(pdf_path, named)
+    _rmapi("mkdir", RM_CLOUD_FOLDER)                       # idempotent; ignore "exists"
+    _rmapi("rm", f"{RM_CLOUD_FOLDER}/{DOC_NAME}")          # drop yesterday's copy; ignore if absent
+    r=_rmapi("put", str(named), RM_CLOUD_FOLDER)
+    if r.returncode!=0:
+        raise RuntimeError(f"rmapi put failed: {r.stderr.decode(errors='replace')[-300:]}")
+    log(f"pushed planner to rmfakecloud: {RM_CLOUD_FOLDER}/{DOC_NAME} (device pulls on next sync)")
+    return True
 
 def main():
     if not ICS_URL: raise SystemExit("ICS_URL not set (add op://kdk-ops/proton-calendar-ics/url)")
