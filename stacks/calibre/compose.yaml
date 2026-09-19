@@ -61,3 +61,16 @@ services:
           calibredb add --with-library /library --automerge overwrite -r "$$INCOMING" 2>&1 | tail -n 5 || true;
           sleep "$$INTERVAL";
         done
+
+# Pin the project network to an explicitly safe /24. Do NOT let Docker auto-assign:
+# kdk-dkr-01 has exhausted the 172.17-172.31.0.0/16 default pool, so the daemon now
+# hands out 192.168.0.0/16 in /20 chunks -- and the next free one, 192.168.176.0/20,
+# OVERLAPS the DMZ (192.168.191.0/24). Auto-assignment gave calibre exactly that,
+# which black-holed kdk-dkr-01 -> DMZ routing (Authelia forward-auth) and took the
+# whole media stack "down" (incident 2026-09-19). 192.168.208.0/24 is clear of the
+# DMZ and of every existing docker network / lab subnet on this host.
+networks:
+  default:
+    ipam:
+      config:
+        - subnet: 192.168.208.0/24
