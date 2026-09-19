@@ -1,0 +1,63 @@
+# Internal Calibre Content Server on kdk-dkr-01 (Tailscale-only; no public ingress,
+# no Authelia). Serves an ebook library over OPDS so the reMarkable's KOReader pulls
+# books when it comes online (pull model — replaces the push-only book-sync path,
+# which needs the tablet awake+reachable).
+#
+# Two services from one locally-built image (calibre = calibre-server + calibredb):
+#   server  -- runs `calibre-server` on :8081 (web reader + OPDS at /opds).
+#   import  -- every INTERVAL, `calibredb add` any EPUB/ebook that Chaptarr has
+#              downloaded into /mnt/media/books/ebook (mounted :ro) into the Calibre
+#              library, de-duping by title/author. This is what turns Chaptarr's raw
+#              output folder into a browsable Calibre library.
+#
+# Reach it over the tailnet at the subnet-routed host IP: http://10.1.20.20:8081/opds
+# (add as an OPDS catalog in KOReader). Library persists at /opt/kdk-lab/calibre/library.
+name: calibre
+
+x-img: &img
+  build: .
+  image: kdk/calibre:latest
+  restart: unless-stopped
+  environment: &env
+    TZ: America/Chicago
+  logging:
+    driver: json-file
+    options: { max-size: "10m", max-file: "3" }
+
+services:
+  server:
+    <<: *img
+    container_name: calibre-server
+    volumes:
+      - /opt/kdk-lab/calibre/library:/library
+    ports:
+      - "8081:8081"
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        # Create an empty library on first run so the server starts cleanly even
+        # before any book has been imported.
+        [ -f /library/metadata.db ] || calibredb --with-library /library list >/dev/null 2>&1 || true
+        exec calibre-server --port 8081 --listen-on 0.0.0.0 /library
+
+  import:
+    <<: *img
+    container_name: calibre-import
+    environment:
+      <<: *env
+      INCOMING: /incoming
+      INTERVAL: "900"
+    volumes:
+      - /opt/kdk-lab/calibre/library:/library
+      # Chaptarr's ebook root (host /mnt/media/books/ebook = Chaptarr /data/media/books/ebook).
+      - /mnt/media/books/ebook:/incoming:ro
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        while true; do
+          echo "[calibre-import] $$(date '+%F %T') scanning $$INCOMING";
+          calibredb add --with-library /library --automerge overwrite -r "$$INCOMING" 2>&1 | tail -n 5 || true;
+          sleep "$$INTERVAL";
+        done

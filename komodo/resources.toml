@@ -870,6 +870,23 @@ run_directory = "stacks/obsidian-headless"
 pre_deploy.command = "sh -c '. /etc/komodo/op.env && op inject -f -i .env.tpl -o .env'"
 webhook_enabled = true
 
+# Internal Calibre Content Server (Tailscale-only) on kdk-dkr-01. `server` serves the
+# ebook library over OPDS on :8081; `import` folds Chaptarr's ebook downloads
+# (/mnt/media/books/ebook) into the Calibre library every 15m. The reMarkable's
+# KOReader pulls over the tailnet (http://10.1.20.20:8081/opds) when online -- a pull
+# model that doesn't need the tablet awake, unlike book-sync. Locally built (no registry).
+[[stack]]
+tags = ["kdk-lab"]
+name = "calibre"
+deploy = true
+[stack.config]
+server = "kdk-dkr-01"
+repo = "BigH3ater/kdk-lab-dkr"
+run_directory = "stacks/calibre"
+auto_pull = false   # image is built locally (no registry) -> skip compose pull
+run_build = true    # run docker compose build before up
+webhook_enabled = true
+
 # Tailscale subnet router on kdk-dkr-01: advertises the lab subnets
 # (10.1.1/20/21/30.0/24) to the tailnet so remote members + the reMarkable reach
 # lab services without public exposure. Auth = the Tailscale OAuth client secret
