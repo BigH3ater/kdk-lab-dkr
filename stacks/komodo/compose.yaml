@@ -26,6 +26,10 @@ services:
     networks: [default]
   core:
     image: ghcr.io/moghtech/komodo-core:2.3.3
+    # tini as PID 1 reaps the defunct `git` children Komodo forks for repo polling
+    # (resource sync + stack update checks). Without it they accumulate as zombies
+    # (2227 seen 2026-09-19) and inflate the host load number.
+    init: true
     labels:
       komodo.skip:
       traefik.enable: "true"

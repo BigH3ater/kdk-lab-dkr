@@ -62,15 +62,13 @@ services:
           sleep "$$INTERVAL";
         done
 
-# Pin the project network to an explicitly safe /24. Do NOT let Docker auto-assign:
-# kdk-dkr-01 has exhausted the 172.17-172.31.0.0/16 default pool, so the daemon now
-# hands out 192.168.0.0/16 in /20 chunks -- and the next free one, 192.168.176.0/20,
-# OVERLAPS the DMZ (192.168.191.0/24). Auto-assignment gave calibre exactly that,
-# which black-holed kdk-dkr-01 -> DMZ routing (Authelia forward-auth) and took the
-# whole media stack "down" (incident 2026-09-19). 192.168.208.0/24 is clear of the
-# DMZ and of every existing docker network / lab subnet on this host.
+# Pinned to this stack's slot in the kdk docker supernet (see docs/reference/docker-ipam.md).
+# kdk-dkr-01 owns 10.208.0.0/16; calibre = 10.208.22.0/24. Pinned (not pool-auto) because
+# the incident that motivated the whole IPAM plan started here: an auto-assigned
+# 192.168.176.0/20 overlapped the DMZ (192.168.191.0/24) and black-holed dkr-01 -> DMZ
+# routing (Authelia forward-auth), taking the media stack down (2026-09-19).
 networks:
   default:
     ipam:
       config:
-        - subnet: 192.168.208.0/24
+        - subnet: 10.208.22.0/24
