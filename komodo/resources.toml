@@ -217,6 +217,21 @@ run_directory = "stacks/dmz-apps"
 pre_deploy.command = "sh -c '. /etc/komodo/op.env && op inject -f -i .env.tpl -o .env'"
 webhook_enabled = true
 
+# Tandoor Recipes on the DMZ: household recipe manager + weekly meal plan + pantry-aware
+# shopping list (own multi-user auth; shared with family). Postgres + app + nginx. Public
+# via the CF tunnel (add recipes.kmkdp.com hostname in the CF dashboard).
+[[stack]]
+tags = ["kdk-lab"]
+name = "tandoor"
+deploy = true
+after = ["dmz-proxy"]
+[stack.config]
+server = "kdk-dkr-dmz-01"
+repo = "BigH3ater/kdk-lab-dkr"
+run_directory = "stacks/tandoor"
+pre_deploy.command = "sh -c '. /etc/komodo/op.env && op inject -f -i .env.tpl -o .env'"
+webhook_enabled = true
+
 [[stack]]
 tags = ["kdk-lab"]
 name = "jellyfin"

@@ -1,0 +1,77 @@
+# Tandoor Recipes on the DMZ (kdk-dkr-dmz-01): shared household recipe manager + weekly
+# meal plan + pantry-aware shopping list. Uses Tandoor's OWN multi-user auth (NOT behind
+# Authelia forwardauth) so a family member (wife) can have a Tandoor account without an
+# Authelia identity -- same rationale as audiobookshelf. Internet-facing via the Cloudflare
+# tunnel: add the public hostname `recipes.kmkdp.com` in the CF dashboard (dashboard-managed,
+# like the other DMZ apps). On the home network it's browseable directly via Traefik.
+#
+# nginx serves /static + /media (Tandoor collectstatic writes to the shared staticfiles vol)
+# and proxies the app (gunicorn web:8080). Postgres backs it. default network (db/web/nginx)
+# auto-allocates from the host's 10.211.0.0/16 pool; proxy-dmz (external) is Traefik ingress.
+# dns-reconcile points recipes.kmkdp.com at the DMZ Traefik from the Host label.
+name: tandoor
+
+services:
+  db:
+    image: docker.io/postgres:16-alpine
+    container_name: tandoor-db
+    restart: unless-stopped
+    env_file: [.env]
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - /opt/kdk-lab/tandoor/postgres:/var/lib/postgresql/data
+    networks: [default]
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+  web:
+    image: ghcr.io/tandoorrecipes/recipes:latest   # pin to a digest/tag after first pull
+    container_name: tandoor-web
+    restart: unless-stopped
+    env_file: [.env]
+    environment:
+      SECRET_KEY: ${SECRET_KEY}
+      DB_ENGINE: django.db.backends.postgresql
+      POSTGRES_HOST: db
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      TZ: America/Chicago
+      GUNICORN_MEDIA: "0"          # nginx serves /media
+      ALLOWED_HOSTS: recipes.kmkdp.com
+    volumes:
+      - /opt/kdk-lab/tandoor/staticfiles:/opt/recipes/staticfiles
+      - /opt/kdk-lab/tandoor/mediafiles:/opt/recipes/mediafiles
+    depends_on: [db]
+    networks: [default]
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+  nginx:
+    image: docker.io/nginx:mainline-alpine
+    container_name: tandoor-nginx
+    restart: unless-stopped
+    depends_on: [web]
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - /opt/kdk-lab/tandoor/staticfiles:/static:ro
+      - /opt/kdk-lab/tandoor/mediafiles:/media:ro
+    networks: [default, proxy-dmz]
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.tandoor.rule: "Host(`recipes.kmkdp.com`)"
+      traefik.http.services.tandoor.loadbalancer.server.port: "80"
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+networks:
+  default: {}
+  proxy-dmz:
+    external: true
