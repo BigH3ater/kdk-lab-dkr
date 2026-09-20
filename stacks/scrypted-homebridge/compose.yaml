@@ -1,0 +1,39 @@
+# Scrypted + Homebridge -- kdk-dkr-03 (10.1.30.22), VLAN 30.
+#
+# GITOPS-OWNED (migrated 2026-09-20 from the files-on-host compose at
+# /opt/kdk-lab/scrypted-homebridge/). Data dirs stay on the board
+# (/opt/kdk-lab/{scrypted,homebridge} -- incl. homebridge's bind:["eth1"]
+# advertiser fix in config.json, which is app state and survives redeploys).
+# NOTE: homebridge currently serves ZERO accessories (all HomeKit is Scrypted's
+# own bridge) -- removal is recommended and pending user decision.
+#
+# Scrypted is alone on this board on purpose: it was OOMKilled repeatedly on a
+# Pi 5 8 GiB during the k3s era and its limit was raised 2 GiB -> 4 GiB in
+# response. A board whose only neighbour is Homebridge (~300 MB) makes that
+# 4 GiB a ceiling rather than a competition.
+name: scrypted-homebridge
+
+services:
+  scrypted:
+    image: ghcr.io/koush/scrypted:v0.123.0-jammy-full
+    container_name: scrypted
+    # host: HomeKit accessory advertisement plus camera/RTSP discovery.
+    network_mode: host
+    restart: unless-stopped
+    volumes:
+      - /opt/kdk-lab/scrypted/volume:/server/volume
+      - /etc/localtime:/etc/localtime:ro
+
+  homebridge:
+    # Homebridge publishes DATE tags for actual release days -- there was no
+    # 2026-08-01 build, so that pin was never pullable and the compose pull
+    # failed atomically, taking scrypted down with it. 2026-08-17 is the
+    # current stable (same digest as :latest and :ubuntu).
+    image: homebridge/homebridge:2026-08-17
+    container_name: homebridge
+    # host: HomeKit advertisement is mDNS and does not survive a bridge NAT.
+    network_mode: host
+    restart: unless-stopped
+    volumes:
+      - /opt/kdk-lab/homebridge:/homebridge
+      - /etc/localtime:/etc/localtime:ro

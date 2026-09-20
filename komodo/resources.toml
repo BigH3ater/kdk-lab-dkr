@@ -292,6 +292,7 @@ after = ["proxy"]
 server = "kdk-dkr-01"
 repo = "BigH3ater/kdk-lab-dkr"
 run_directory = "stacks/dashboard"
+auto_pull = false  # mealplan image is built locally (no registry) -> skip compose pull
 run_build = true
 webhook_enabled = true
 pre_deploy.command = "sh -c '. /etc/komodo/op.env && op inject -f -i .env.tpl -o .env'"
@@ -979,26 +980,36 @@ run_directory = "stacks/home-assistant"
 pre_deploy.command = "sh -c 'cp -f traefik-dynamic/*.yml /opt/kdk-lab/home-assistant/traefik/dynamic/'"
 webhook_enabled = true
 
+# GitOps-owned since 2026-09-20 (was files-on-host). Data dirs stay at
+# /opt/kdk-lab/{scrypted,homebridge}; both services network_mode: host (HomeKit
+# mDNS). No secrets. NOTE: homebridge serves zero accessories (Scrypted's own
+# bridge does all HomeKit) — removal recommended, pending user decision.
 [[stack]]
 tags = ["kdk-lab"]
 name = "scrypted-homebridge"
-deploy = false
+deploy = true
 [stack.config]
 server = "kdk-dkr-03"
-files_on_host = true
-run_directory = "/opt/kdk-lab/scrypted-homebridge"
-file_paths = ["docker-compose.yml"]
+repo = "BigH3ater/kdk-lab-dkr"
+run_directory = "stacks/scrypted-homebridge"
+webhook_enabled = true
 
+# GitOps-owned since 2026-09-20 (was files-on-host; repo dir already existed and
+# matched the live compose byte-for-byte). project_name=monitoring preserved so
+# container/network names don't churn. Secrets stay in the HOST-managed
+# /opt/kdk-lab/monitoring/.env (mon-01 deliberately has no op CLI — keep-lean
+# directive); pre_deploy copies it next to the cloned compose for interpolation.
 [[stack]]
 tags = ["kdk-lab"]
 name = "monitoring-ext"
-deploy = false
+deploy = true
 [stack.config]
 server = "kdk-mon-01"
 project_name = "monitoring"
-files_on_host = true
-run_directory = "/opt/kdk-lab/monitoring"
-file_paths = ["docker-compose.yml"]
+repo = "BigH3ater/kdk-lab-dkr"
+run_directory = "stacks/monitoring"
+pre_deploy.command = "sh -c 'cp -f /opt/kdk-lab/monitoring/.env .env'"
+webhook_enabled = true
 
 [[stack]]
 tags = ["kdk-lab"]
