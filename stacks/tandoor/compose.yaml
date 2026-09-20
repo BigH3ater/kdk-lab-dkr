@@ -43,6 +43,9 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       TZ: America/Chicago
       GUNICORN_MEDIA: "0"          # nginx serves /media
+      # The image's gunicorn binds a unix socket (/tmp/tandoor.sock); add a TCP bind so the
+      # separate nginx container can reach it at web:8080.
+      GUNICORN_CMD_ARGS: "--bind 0.0.0.0:8080"
       ALLOWED_HOSTS: recipes.kmkdp.com
     volumes:
       - /opt/kdk-lab/tandoor/staticfiles:/opt/recipes/staticfiles
