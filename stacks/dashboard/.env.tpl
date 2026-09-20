@@ -21,7 +21,7 @@ VIKUNJA_SERVICE_JWTSECRET={{ op://kdk-cluster/vikunja-app/jwt_secret }}
 
 # ---- P3: household calendar (Proton "Share via link" ICS) ---------------------
 # Reused from planner-service (kdk-ops, read-only). The calendar widget in
-# config/services.yaml reads this via {{HOMEPAGE_VAR_ICS_URL}}.
+# config/services.yaml reads this via the HOMEPAGE_VAR_ICS_URL variable.
 HOMEPAGE_VAR_ICS_URL={{ op://kdk-ops/proton-calendar-ics/url }}
 
 # ---- P2: mealplan sidecar (dedicated Tandoor account) -------------------------
