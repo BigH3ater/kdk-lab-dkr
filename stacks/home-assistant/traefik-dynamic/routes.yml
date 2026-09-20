@@ -1,0 +1,116 @@
+# GITOPS-OWNED (2026-09-20): source of truth is stacks/home-assistant/
+# traefik-dynamic/routes.yml in kdk-lab-dkr; the stack's pre_deploy copies it to
+# /opt/kdk-lab/home-assistant/traefik/dynamic/ (the container binds that DIR and
+# the file provider watches it). Edit HERE, deploy via Komodo -- host edits drift.
+#
+# Traefik file provider — EVERY route, not just the ones labels cannot express.
+#
+# The docker provider was removed entirely (2026-08-24). Traefik v3.3 falls
+# back to Docker API 1.24 when negotiation fails, this host runs engine 29.7.2
+# which refuses anything below 1.40, and setting DOCKER_API_VERSION=1.44 in
+# the container did NOT fix it — verified live: the variable was present and
+# the provider still retry-looped, so no label-based route was ever
+# discovered while the file-based ones issued certificates normally.
+#
+# Declaring all five here is the better design anyway for a five-service
+# stack with one operator: Traefik needs no docker socket at all (it was the
+# only root-equivalent surface in the proxy), routes are in one reviewable
+# file, and there is no discovery to debug. The cost is that a new service
+# must be added here by hand — which, at this size, is a feature.
+#
+# Home Assistant runs network_mode: host (mDNS/zeroconf for Apple TVs, Lutron,
+# IPP, and its own HomeKit bridge on :21064 — none of which survive a bridge
+# NAT). A host-networked container has no compose-network address, so Traefik's
+# docker provider cannot discover it. It is addressed through the bridge
+# gateway instead.
+#
+# HA's own trusted_proxies must contain this stack's bridge subnet (now inside
+# the 10.209.0.0/16 host pool after the 2026-09 IPAM migration; the 2026-09-20
+# outage was this file pointing at the dead 172.18.0.1 gateway) or every
+# proxied request is rejected or misattributed. That
+# setting now lives in .storage/http, NOT configuration.yaml — HA migrated it
+# and ignores the YAML as of 2026.x, removing it entirely in 2027.2.0.
+http:
+  routers:
+    homeassistant:
+      rule: "Host(`homeassistant.kmkdp.com`)"
+      entrypoints: websecure
+      service: homeassistant
+      tls:
+        certresolver: cf
+    scrypted:
+      # Cross-host: scrypted runs on kdk-dkr-02, network_mode: host. One
+      # Traefik serves both boards so there is a single ACME account, a single
+      # cert store, and one Let's Encrypt rate-limit budget to reason about.
+      #
+      # The trade, stated: kdk-dkr-01 becomes a dependency for reaching
+      # kdk-dkr-02's UI. It is NOT a dependency for scrypted working --
+      # cameras, HomeKit and Homebridge keep functioning if this board is
+      # down; only the browser path through this name stops.
+      #
+      # DNS-01 issues this certificate whether or not the backend is up, so
+      # the name is valid before the scrypted stack is deployed. Until then
+      # it answers 502, which is the honest signal.
+      rule: "Host(`scrypted.kmkdp.com`)"
+      entrypoints: websecure
+      service: scrypted
+      tls:
+        certresolver: cf
+
+    zigbee:
+      rule: "Host(`zigbee.kmkdp.com`)"
+      entrypoints: websecure
+      service: zigbee
+      tls:
+        certresolver: cf
+    nodered:
+      rule: "Host(`nodered.kmkdp.com`)"
+      entrypoints: websecure
+      service: nodered
+      tls:
+        certresolver: cf
+    homebridge:
+      # Homebridge's config UI, the second half of kdk-dkr-02's stack. It was
+      # published on :8581 with no route and no TLS, so the only way in was
+      # plaintext HTTP straight to the board -- and homebridge.kmkdp.com
+      # answered 10.1.20.10, a k3s control-plane node, by wildcard
+      # fallthrough rather than resolving anywhere useful.
+      rule: "Host(`homebridge.kmkdp.com`)"
+      entrypoints: websecure
+      service: homebridge
+      tls:
+        certresolver: cf
+
+  services:
+    homeassistant:
+      loadBalancer:
+        servers:
+          - url: "http://10.1.30.21:8123"
+    scrypted:
+      loadBalancer:
+        servers:
+          # Scrypted's plain-HTTP port. Its 10443 listener serves a
+          # self-signed cert that Traefik would have to be told to ignore;
+          # proxying the HTTP port avoids configuring a trust exception.
+          - url: "http://10.1.30.22:11080"
+    # Reached by compose service name over the stack's own network. These
+    # two are bridge-networked, so Docker's embedded DNS resolves them --
+    # no host address and no published port involved.
+    zigbee:
+      loadBalancer:
+        servers:
+          # 8099, not z2m's 8080 default: the restored HAOS config sets
+          # frontend.port: 8099, verified against the container's own
+          # listener. A wrong port here is a 502 that looks like Traefik.
+          - url: "http://zigbee2mqtt:8099"
+    nodered:
+      loadBalancer:
+        servers:
+          - url: "http://node-red:1880"
+    homebridge:
+      loadBalancer:
+        servers:
+          # host-networked on kdk-dkr-02, so this is the board's address and
+          # not a compose service name -- the same reason scrypted above uses
+          # an IP while zigbee/nodered/dockge use Docker's embedded DNS.
+          - url: "http://10.1.30.22:8581"

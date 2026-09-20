@@ -964,15 +964,20 @@ run_directory = "stacks/tailscale-dns"
 webhook_enabled = true
 
 # ---- adopted stacks (files already on the Pi hosts; adopt, don't redeploy) ----
+# Home Assistant stack on kdk-dkr-02 — GitOps-owned since 2026-09-20 (was ansible-
+# shipped files-on-host). Data dirs stay at /opt/kdk-lab/home-assistant; secrets.env
+# there is host-managed (no op CLI on the Pi). pre_deploy publishes the repo's
+# traefik-dynamic/*.yml into the live watched directory.
 [[stack]]
 tags = ["kdk-lab"]
 name = "home-assistant"
-deploy = false
+deploy = true
 [stack.config]
 server = "kdk-dkr-02"
-files_on_host = true
-run_directory = "/opt/kdk-lab/home-assistant"
-file_paths = ["docker-compose.yml"]
+repo = "BigH3ater/kdk-lab-dkr"
+run_directory = "stacks/home-assistant"
+pre_deploy.command = "sh -c 'cp -f traefik-dynamic/*.yml /opt/kdk-lab/home-assistant/traefik/dynamic/'"
+webhook_enabled = true
 
 [[stack]]
 tags = ["kdk-lab"]

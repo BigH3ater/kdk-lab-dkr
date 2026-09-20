@@ -1,0 +1,154 @@
+# Home Assistant stack -- kdk-dkr-02 (10.1.30.21), VLAN 30.
+#
+# GITOPS-OWNED (migrated 2026-09-20): this stack moved from the ansible-shipped
+# host compose (/opt/kdk-lab/home-assistant/docker-compose.yml) into Komodo /
+# this repo. Deploy via Komodo (stack home-assistant); the pre_deploy step
+# copies traefik-dynamic/*.yml into /opt/kdk-lab/home-assistant/traefik/dynamic
+# (the container binds that DIRECTORY; the file provider watches it). REMOVE the
+# home-assistant role/play from the ansible control repo -- if ansible ships the
+# old compose again it will fight this stack.
+#
+# DNS (AdGuard rewrites, added by hand 2026-08-24): homeassistant / zigbee /
+# nodered / scrypted .kmkdp.com -> 10.1.30.21 (all terminate on Traefik here;
+# dockge.kmkdp.com is dead -- dockge removed 2026-09-20). scrypted.kmkdp.com
+# points here, not at kdk-dkr-03, because Traefik on this board proxies across
+# -- see traefik-dynamic/routes.yml.
+#
+# Co-located deliberately: zigbee2mqtt must be on the board holding the Sonoff
+# dongle, mosquitto is the only thing z2m talks to, and HA is the only thing
+# that consumes what z2m publishes. Splitting any of the three turns a loopback
+# publish into a VLAN-30 round trip and adds a second host whose failure stops
+# the lights. They are already one failure domain.
+#
+# Storage is the board's own NVMe under /opt/kdk-lab/ (data dirs stay in place
+# across this migration -- only the compose definition moved to git). NOT NFS:
+# HA's recorder is SQLite, z2m's database.db is the same class of embedded
+# write-heavy store, and SQLite over NFS is a documented corruption path.
+#
+# Secrets: /opt/kdk-lab/home-assistant/secrets.env (root 600, host-managed
+# out-of-band like the authelia secret files -- dkr-02 has no op CLI). Holds
+# CF_DNS_API_TOKEN for Traefik's DNS-01 resolver.
+name: home-assistant
+services:
+  homeassistant:
+    image: ghcr.io/home-assistant/home-assistant:2026.8
+    container_name: homeassistant
+    # host, not bridge: mDNS/zeroconf for the Apple TVs, Lutron, Brother/IPP and
+    # the thermostat, plus HA's own HomeKit bridge advertising on :21064.
+    # None of that survives a bridge NAT.
+    network_mode: host
+    privileged: true
+    restart: unless-stopped
+    volumes:
+      - /opt/kdk-lab/home-assistant/config:/config
+      - /run/dbus:/run/dbus:ro
+      - /etc/localtime:/etc/localtime:ro
+    depends_on:
+      - mosquitto
+
+  mosquitto:
+    image: eclipse-mosquitto:2.0
+    container_name: mosquitto
+    restart: unless-stopped
+    # 127.0.0.1 ONLY, never 0.0.0.0. A host-networked HA reaches it on loopback
+    # and nothing off-box has any reason to. Publishing to the segment would put
+    # a credential-guessable broker on the VLAN the phones live on.
+    ports:
+      - "127.0.0.1:1883:1883"
+    volumes:
+      - /opt/kdk-lab/home-assistant/mosquitto/config:/mosquitto/config
+      - /opt/kdk-lab/home-assistant/mosquitto/data:/mosquitto/data
+      - /etc/localtime:/etc/localtime:ro
+
+  zigbee2mqtt:
+    # 2.9.2, matching the version the HAOS add-on ran (45df7312_zigbee2mqtt
+    # 2.9.2-1). NOT lower: that add-on migrated configuration.yaml to schema
+    # version 5, and 2.6.2 accepts at most 4 -- it crash-loops with
+    # "unsupported version 5, expected one of undefined,2,3,4". Pinning below
+    # the version that wrote the config is a downgrade, not a pin.
+    image: ghcr.io/koenkk/zigbee2mqtt:2.9.2
+    container_name: zigbee2mqtt
+    restart: unless-stopped
+    # Bridge: it talks to a serial device and one broker. Nothing discovers it.
+    #
+    # NOT published on the host any more. Traefik reaches it over the compose
+    # network by service name, and z2m's frontend has no authentication of its
+    # own -- published on 10.1.30.21:8080 it let anyone on the phones' VLAN
+    # re-pair or factory-reset all 20 devices. Under HAOS it sat behind
+    # Ingress and HA's login; this restores an equivalent boundary.
+    expose:
+      - "8099"
+    devices:
+      # The coordinator is a Sonoff, not a SkyConnect. By-id so a reboot that
+      # renumbers ttyUSB* does not silently point z2m at the wrong dongle.
+      # By-id path hardcoded (board-specific config, not a secret); a reboot that
+      # renumbers ttyUSB* cannot point z2m at the wrong dongle.
+      - "/dev/serial/by-id/usb-ITead_Sonoff_Zigbee_3.0_USB_Dongle_Plus_e8e2fc448245ed11985dc68f0a86e0b4-if00-port0:/dev/ttyACM0"
+    volumes:
+      - /opt/kdk-lab/home-assistant/zigbee2mqtt:/app/data
+      - /run/udev:/run/udev:ro
+    depends_on:
+      - mosquitto
+
+  node-red:
+    image: nodered/node-red:4.1
+    container_name: node-red
+    restart: unless-stopped
+    # Reached through Traefik, not published on the segment -- same reasoning
+    # as zigbee2mqtt above.
+    expose:
+      - "1880"
+    # The image runs as uid 1000 (node-red). Restored data arrives owned by
+    # 1001 -- the HAOS add-on's uid, preserved by the archive -- so without
+    # this the container cannot mkdir /data/node_modules and exits 0 in a
+    # loop, which reads as "restarting" rather than as a permissions fault.
+    user: "1000:1000"
+    volumes:
+      - /opt/kdk-lab/home-assistant/node-red:/data
+      - /etc/localtime:/etc/localtime:ro
+    depends_on:
+      - homeassistant
+
+  traefik:
+    image: traefik:v3.3
+    container_name: traefik
+    restart: unless-stopped
+    # Native ACME with a Cloudflare DNS-01 solver, no certbot and no renewal
+    # timer to keep alive -- the same reasoning ansible/playbooks/
+    # proxmox-acme-certs.yaml settled for the PVE/PBS UIs, and the same
+    # Cloudflare token (cloudflare-k3s-kdk-lab) six cluster Certificates
+    # already renew through.
+    #
+    # DNS-01, not HTTP-01: nothing here is reachable from the internet, so
+    # there is no inbound path for a challenge. DNS-01 needs none.
+    command:
+      # Home Assistant runs network_mode: host, so it has no compose-network
+      # address and the docker provider cannot discover it. Same for scrypted,
+      # which is host-networked on the OTHER board. Both are declared in
+      # dynamic.yml and reach Traefik through the file provider.
+      # DIRECTORY, not a single file: a copy REPLACES the file (new inode) and a
+      # single-file bind mount stays pinned to the old one -- the container then
+      # reads stale config while the host file is correct (measured live
+      # 2026-08-24). The pre_deploy copy relies on this directory bind.
+      - "--providers.file.directory=/etc/traefik/dynamic"
+      # Reload on change instead of requiring a container recreate.
+      - "--providers.file.watch=true"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.web.http.redirections.entrypoint.to=websecure"
+      - "--entrypoints.web.http.redirections.entrypoint.scheme=https"
+      - "--entrypoints.websecure.address=:443"
+      - "--certificatesresolvers.cf.acme.dnschallenge=true"
+      - "--certificatesresolvers.cf.acme.dnschallenge.provider=cloudflare"
+      # Same contact as ansible/playbooks/proxmox-acme-certs.yaml's
+      # acme_contact. Not a secret: it is published in the ACME account.
+      - "--certificatesresolvers.cf.acme.email=admin@kmkdp.com"
+      - "--certificatesresolvers.cf.acme.storage=/letsencrypt/acme.json"
+    env_file:
+      # CF_DNS_API_TOKEN -- host-managed secret (see header).
+      - /opt/kdk-lab/home-assistant/secrets.env
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /opt/kdk-lab/home-assistant/traefik/letsencrypt:/letsencrypt
+      - /opt/kdk-lab/home-assistant/traefik/dynamic:/etc/traefik/dynamic:ro
