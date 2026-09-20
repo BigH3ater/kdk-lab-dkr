@@ -14,10 +14,10 @@ VIKUNJA_SERVICE_JWTSECRET={{ op://kdk-cluster/vikunja-app/jwt_secret }}
 # `password` field of the named kdk-cluster item. If one isn't ready yet, comment out
 # BOTH this line AND its widget block in config/services.yaml to let P1 deploy, then
 # add it back. (siteMonitor up/down health needs no key and always works.)
-# P1b: HOMEPAGE_VAR_JELLYFIN_KEY <- op://kdk-cluster/jellyfin-api-ro/password (uncomment as a real line once the item exists)
-# P1b: HOMEPAGE_VAR_SEERR_KEY <- op://kdk-cluster/seerr-api-ro/password (uncomment as a real line once the item exists)
-# P1b: HOMEPAGE_VAR_ABS_KEY <- op://kdk-cluster/audiobookshelf-api-ro/password (uncomment as a real line once the item exists)
-# P1b: HOMEPAGE_VAR_VIKUNJA_KEY <- op://kdk-cluster/vikunja-api-ro/password (uncomment as a real line once the item exists)
+# P1b: HOMEPAGE_VAR_JELLYFIN_KEY <- 1P item kdk-cluster/jellyfin-api-ro field password (uncomment as a real line once the item exists)
+# P1b: HOMEPAGE_VAR_SEERR_KEY <- 1P item kdk-cluster/seerr-api-ro field password (uncomment as a real line once the item exists)
+# P1b: HOMEPAGE_VAR_ABS_KEY <- 1P item kdk-cluster/audiobookshelf-api-ro field password (uncomment as a real line once the item exists)
+# P1b: HOMEPAGE_VAR_VIKUNJA_KEY <- 1P item kdk-cluster/vikunja-api-ro field password (uncomment as a real line once the item exists)
 
 # ---- P3: household calendar (Proton "Share via link" ICS) ---------------------
 # Reused from planner-service (kdk-ops, read-only). The calendar widget in
