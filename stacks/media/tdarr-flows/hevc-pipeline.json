@@ -1,0 +1,988 @@
+{
+  "_id": "hevc-pipeline",
+  "name": "HEVC Pipeline",
+  "description": "HEVC-target transcode + audio/track cleanup pipeline. Every file: validate-before (health check), DV gate (P5/P7 hold, P8 continue), DEE audio (lossless English -> DD+/Atmos-aware, native ffmpeg E-AC3 fallback), keep English+untagged audio (drop non-English, commentary, descriptive), drop non-English subs / cover-art / data streams, remux to MKV, validate-after (duration ratio), pass -> /data/media (in place), fail -> /data/quarantine + review. Video handling by codec: already-HEVC sources are REMUXED ONLY (audio stripped, video copied, no re-encode); non-HEVC (incl. AV1) is hardware-encoded to HEVC via hardwareType=auto -- hevc_qsv on the A380 node, libx265 CPU fallback (CQ 24 <=1440p, CQ 27 4K+; preset slow), 10-bit Main10 preserved. checkOverallBitrate still spares low-bitrate NON-HEVC sources from a pointless encode (they remux like HEVC). The compareFileSize growth guard was REMOVED 2026-08-29 (the working file always replaces the original). The former already-HEVC short-circuit was removed the same day so HEVC files also get audio-stripped. Managed by scripts/configure_tdarr.py -- edit THIS file in git, never the Tdarr UI copy.",
+  "tags": "",
+  "flowPlugins": [
+    {
+      "name": "Input File",
+      "sourceRepo": "Community",
+      "pluginName": "inputFile",
+      "version": "1.0.0",
+      "id": "input1",
+      "position": {
+        "x": 600,
+        "y": 40
+      }
+    },
+    {
+      "name": "1. Validate BEFORE (health check)",
+      "sourceRepo": "Community",
+      "pluginName": "runHealthCheck",
+      "version": "1.0.0",
+      "id": "health1",
+      "position": {
+        "x": 600,
+        "y": 140
+      },
+      "inputsDB": {
+        "type": "quick"
+      }
+    },
+    {
+      "name": "3. Audio language English?",
+      "sourceRepo": "Community",
+      "pluginName": "checkStreamProperty",
+      "version": "1.0.0",
+      "id": "lang1",
+      "position": {
+        "x": 440,
+        "y": 340
+      },
+      "inputsDB": {
+        "streamType": "audio",
+        "propertyToCheck": "tags.language",
+        "valuesToMatch": "eng",
+        "condition": "includes"
+      }
+    },
+    {
+      "name": "4. English subtitle track present?",
+      "sourceRepo": "Community",
+      "pluginName": "checkStreamProperty",
+      "version": "1.0.0",
+      "id": "sub1",
+      "position": {
+        "x": 260,
+        "y": 440
+      },
+      "inputsDB": {
+        "streamType": "subtitle",
+        "propertyToCheck": "tags.language",
+        "valuesToMatch": "eng",
+        "condition": "includes"
+      }
+    },
+    {
+      "name": "4b. Burn-in candidate - hold for review",
+      "sourceRepo": "Community",
+      "pluginName": "requireReview",
+      "version": "1.0.0",
+      "id": "review2",
+      "position": {
+        "x": 100,
+        "y": 540
+      }
+    },
+    {
+      "name": "Resolution?",
+      "sourceRepo": "Community",
+      "pluginName": "checkVideoResolution",
+      "version": "1.0.0",
+      "id": "res1",
+      "position": {
+        "x": 440,
+        "y": 460
+      }
+    },
+    {
+      "name": "5. Start (<=1440p)",
+      "sourceRepo": "Community",
+      "pluginName": "ffmpegCommandStart",
+      "version": "1.0.0",
+      "id": "start1080",
+      "position": {
+        "x": 360,
+        "y": 560
+      }
+    },
+    {
+      "name": "HEVC hw-auto CQ23 (qsv/nvenc)",
+      "sourceRepo": "Community",
+      "pluginName": "ffmpegCommandSetVideoEncoder",
+      "version": "1.0.0",
+      "id": "enc1080",
+      "position": {
+        "x": 360,
+        "y": 660
+      },
+      "inputsDB": {
+        "outputCodec": "hevc",
+        "ffmpegPresetEnabled": "true",
+        "ffmpegPreset": "slow",
+        "ffmpegQualityEnabled": "true",
+        "ffmpegQuality": "24",
+        "hardwareEncoding": "true",
+        "hardwareDecoding": "true",
+        "forceEncoding": "false",
+        "hardwareType": "auto"
+      }
+    },
+    {
+      "name": "MKV (<=1440p)",
+      "sourceRepo": "Community",
+      "pluginName": "ffmpegCommandSetContainer",
+      "version": "1.0.0",
+      "id": "cont1080",
+      "position": {
+        "x": 360,
+        "y": 760
+      },
+      "inputsDB": {
+        "container": "mkv",
+        "forceConform": "false"
+      }
+    },
+    {
+      "name": "Execute (<=1440p)",
+      "sourceRepo": "Community",
+      "pluginName": "ffmpegCommandExecute",
+      "version": "1.0.0",
+      "id": "exec1080",
+      "position": {
+        "x": 360,
+        "y": 860
+      }
+    },
+    {
+      "name": "5. Start (4K+)",
+      "sourceRepo": "Community",
+      "pluginName": "ffmpegCommandStart",
+      "version": "1.0.0",
+      "id": "start4k",
+      "position": {
+        "x": 620,
+        "y": 560
+      }
+    },
+    {
+      "name": "HEVC hw-auto CQ25 (qsv/nvenc)",
+      "sourceRepo": "Community",
+      "pluginName": "ffmpegCommandSetVideoEncoder",
+      "version": "1.0.0",
+      "id": "enc4k",
+      "position": {
+        "x": 620,
+        "y": 660
+      },
+      "inputsDB": {
+        "outputCodec": "hevc",
+        "ffmpegPresetEnabled": "true",
+        "ffmpegPreset": "slow",
+        "ffmpegQualityEnabled": "true",
+        "ffmpegQuality": "27",
+        "hardwareEncoding": "true",
+        "hardwareDecoding": "true",
+        "forceEncoding": "false",
+        "hardwareType": "auto"
+      }
+    },
+    {
+      "name": "MKV (4K+)",
+      "sourceRepo": "Community",
+      "pluginName": "ffmpegCommandSetContainer",
+      "version": "1.0.0",
+      "id": "cont4k",
+      "position": {
+        "x": 620,
+        "y": 760
+      },
+      "inputsDB": {
+        "container": "mkv",
+        "forceConform": "false"
+      }
+    },
+    {
+      "name": "Execute (4K+)",
+      "sourceRepo": "Community",
+      "pluginName": "ffmpegCommandExecute",
+      "version": "1.0.0",
+      "id": "exec4k",
+      "position": {
+        "x": 620,
+        "y": 860
+      }
+    },
+    {
+      "name": "7. Validate AFTER (duration ratio)",
+      "sourceRepo": "Community",
+      "pluginName": "compareFileDurationRatio",
+      "version": "1.0.0",
+      "id": "dur1",
+      "position": {
+        "x": 500,
+        "y": 960
+      },
+      "inputsDB": {
+        "greaterThan": "99.9",
+        "lessThan": "100.1"
+      }
+    },
+    {
+      "name": "8. PASS - replace original in place",
+      "sourceRepo": "Community",
+      "pluginName": "replaceOriginalFile",
+      "version": "1.0.0",
+      "id": "move1",
+      "position": {
+        "x": 380,
+        "y": 1060
+      }
+    },
+    {
+      "name": "8. FAIL - move to /data/quarantine",
+      "sourceRepo": "Community",
+      "pluginName": "moveToDirectory",
+      "version": "2.0.0",
+      "id": "moveQ",
+      "position": {
+        "x": 640,
+        "y": 1060
+      },
+      "inputsDB": {
+        "outputDirectory": "/data/quarantine",
+        "keepRelativePath": "true"
+      }
+    },
+    {
+      "name": "FAIL - hold for review",
+      "sourceRepo": "Community",
+      "pluginName": "requireReview",
+      "version": "1.0.0",
+      "id": "review3",
+      "position": {
+        "x": 640,
+        "y": 1160
+      }
+    },
+    {
+      "name": "Flow error handler",
+      "sourceRepo": "Community",
+      "pluginName": "onFlowError",
+      "version": "1.0.0",
+      "id": "err1",
+      "position": {
+        "x": 860,
+        "y": 140
+      }
+    },
+    {
+      "name": "Errored - hold for review (source untouched)",
+      "sourceRepo": "Community",
+      "pluginName": "requireReview",
+      "version": "1.0.0",
+      "id": "review1",
+      "position": {
+        "x": 860,
+        "y": 240
+      }
+    },
+    {
+      "name": "6a. Drop non-English audio (untagged kept)",
+      "sourceRepo": "Community",
+      "pluginName": "ffmpegCommandRemoveStreamByProperty",
+      "version": "1.0.0",
+      "id": "prunePruneLang1080",
+      "position": {
+        "x": 420,
+        "y": 750
+      },
+      "inputsDB": {
+        "codecType": "audio",
+        "propertyToCheck": "tags.language",
+        "valuesToRemove": "eng,und",
+        "condition": "not_includes"
+      }
+    },
+    {
+      "name": "6b. Drop audio-description/commentary audio",
+      "sourceRepo": "Community",
+      "pluginName": "ffmpegCommandRemoveStreamByProperty",
+      "version": "1.0.0",
+      "id": "prunePruneAD1080",
+      "position": {
+        "x": 480,
+        "y": 840
+      },
+      "inputsDB": {
+        "codecType": "audio",
+        "propertyToCheck": "tags.title",
+        "valuesToRemove": "commentary,description,descriptive,visually impaired,audio description",
+        "condition": "includes"
+      }
+    },
+    {
+      "name": "6c. Drop non-English subtitles",
+      "sourceRepo": "Community",
+      "pluginName": "ffmpegCommandRemoveStreamByProperty",
+      "version": "1.0.0",
+      "id": "prunePruneSubs1080",
+      "position": {
+        "x": 540,
+        "y": 930
+      },
+      "inputsDB": {
+        "codecType": "subtitle",
+        "propertyToCheck": "tags.language",
+        "valuesToRemove": "eng,und",
+        "condition": "not_includes"
+      }
+    },
+    {
+      "name": "6d. Drop cover-art video streams",
+      "sourceRepo": "Community",
+      "pluginName": "ffmpegCommandRemoveStreamByProperty",
+      "version": "1.0.0",
+      "id": "prunePruneArt1080",
+      "position": {
+        "x": 600,
+        "y": 1020
+      },
+      "inputsDB": {
+        "codecType": "video",
+        "propertyToCheck": "codec_name",
+        "valuesToRemove": "mjpeg,png,bmp,gif",
+        "condition": "includes"
+      }
+    },
+    {
+      "name": "6e. Drop data streams",
+      "sourceRepo": "Community",
+      "pluginName": "ffmpegCommandRemoveDataStreams",
+      "version": "1.0.0",
+      "id": "pruneData1080",
+      "position": {
+        "x": 660,
+        "y": 1110
+      }
+    },
+    {
+      "name": "6a. Drop non-English audio (untagged kept)",
+      "sourceRepo": "Community",
+      "pluginName": "ffmpegCommandRemoveStreamByProperty",
+      "version": "1.0.0",
+      "id": "prunePruneLang4k",
+      "position": {
+        "x": 680,
+        "y": 750
+      },
+      "inputsDB": {
+        "codecType": "audio",
+        "propertyToCheck": "tags.language",
+        "valuesToRemove": "eng,und",
+        "condition": "not_includes"
+      }
+    },
+    {
+      "name": "6b. Drop audio-description/commentary audio",
+      "sourceRepo": "Community",
+      "pluginName": "ffmpegCommandRemoveStreamByProperty",
+      "version": "1.0.0",
+      "id": "prunePruneAD4k",
+      "position": {
+        "x": 740,
+        "y": 840
+      },
+      "inputsDB": {
+        "codecType": "audio",
+        "propertyToCheck": "tags.title",
+        "valuesToRemove": "commentary,description,descriptive,visually impaired,audio description",
+        "condition": "includes"
+      }
+    },
+    {
+      "name": "6c. Drop non-English subtitles",
+      "sourceRepo": "Community",
+      "pluginName": "ffmpegCommandRemoveStreamByProperty",
+      "version": "1.0.0",
+      "id": "prunePruneSubs4k",
+      "position": {
+        "x": 800,
+        "y": 930
+      },
+      "inputsDB": {
+        "codecType": "subtitle",
+        "propertyToCheck": "tags.language",
+        "valuesToRemove": "eng,und",
+        "condition": "not_includes"
+      }
+    },
+    {
+      "name": "6d. Drop cover-art video streams",
+      "sourceRepo": "Community",
+      "pluginName": "ffmpegCommandRemoveStreamByProperty",
+      "version": "1.0.0",
+      "id": "prunePruneArt4k",
+      "position": {
+        "x": 860,
+        "y": 1020
+      },
+      "inputsDB": {
+        "codecType": "video",
+        "propertyToCheck": "codec_name",
+        "valuesToRemove": "mjpeg,png,bmp,gif",
+        "condition": "includes"
+      }
+    },
+    {
+      "name": "6e. Drop data streams",
+      "sourceRepo": "Community",
+      "pluginName": "ffmpegCommandRemoveDataStreams",
+      "version": "1.0.0",
+      "id": "pruneData4k",
+      "position": {
+        "x": 920,
+        "y": 1110
+      }
+    },
+    {
+      "name": "6. English audio present? (gate: only then drop foreign audio)",
+      "sourceRepo": "Community",
+      "pluginName": "checkStreamProperty",
+      "version": "1.0.0",
+      "id": "langGate1080",
+      "position": {
+        "x": 390,
+        "y": 705
+      },
+      "inputsDB": {
+        "streamType": "audio",
+        "propertyToCheck": "tags.language",
+        "valuesToMatch": "eng",
+        "condition": "includes"
+      }
+    },
+    {
+      "name": "6. English audio present? (gate: only then drop foreign audio)",
+      "sourceRepo": "Community",
+      "pluginName": "checkStreamProperty",
+      "version": "1.0.0",
+      "id": "langGate4k",
+      "position": {
+        "x": 650,
+        "y": 705
+      },
+      "inputsDB": {
+        "streamType": "audio",
+        "propertyToCheck": "tags.language",
+        "valuesToMatch": "eng",
+        "condition": "includes"
+      }
+    },
+    {
+      "name": "10-bit HEVC output",
+      "sourceRepo": "Community",
+      "pluginName": "ffmpegCommand10BitVideo",
+      "version": "1.0.0",
+      "id": "tenbit1080",
+      "position": {
+        "x": 320,
+        "y": 705
+      }
+    },
+    {
+      "name": "10-bit HEVC output",
+      "sourceRepo": "Community",
+      "pluginName": "ffmpegCommand10BitVideo",
+      "version": "1.0.0",
+      "id": "tenbit4k",
+      "position": {
+        "x": 580,
+        "y": 705
+      }
+    },
+    {
+      "name": "3b. DEE dispatch: lossless eng audio -> DD+ (Atmos-aware)",
+      "sourceRepo": "Community",
+      "pluginName": "customFunction",
+      "version": "1.0.0",
+      "id": "dee1",
+      "position": {
+        "x": 520,
+        "y": 400
+      },
+      "inputsDB": {
+        "code": "module.exports = async (args) => {\n  // \u00a77.4b DEE dispatch: replace the lossless English audio track with DD+\n  // (Atmos-aware) via the Windows DEE VM. When the wrapper is unreachable\n  // (token unset, busy, error) fall back to a NATIVE ffmpeg E-AC3 encode so\n  // DD+ is still guaranteed and the lossless->DD+ size win still lands --\n  // only a native-encode failure ends in true passthrough (output 2).\n  // Output 1 = converted (or nothing to convert); output 2 = could not\n  // convert -> continue with original audio.\n  const { execFileSync } = require('child_process');\n  const http = require('http');\n  const fs = require('fs');\n  const path = require('path');\n\n  const EXCHANGE = '/data/dee-exchange';\n  const WRAPPER = { host: '10.1.1.130', port: 8484 };\n  const TOKEN = process.env.DEE_WRAPPER_TOKEN || '';\n  const log = (m) => args.jobLog(`[dee] ${m}\\n`);\n\n  const src = args.inputFileObj._id;\n  const streams = (args.inputFileObj.ffProbeData || {}).streams || [];\n  const audio = streams.filter((s) => s.codec_type === 'audio');\n\n  const isLossless = (s) => {\n    const c = (s.codec_name || '').toLowerCase();\n    const prof = (s.profile || '').toLowerCase();\n    return c === 'truehd' || c === 'mlp' || c === 'flac' || c.startsWith('pcm')\n      || (c === 'dts' && prof.includes('dts-hd ma'));\n  };\n  const langOk = (s) => {\n    const l = ((s.tags || {}).language || '').toLowerCase();\n    return l === '' || l === 'eng' || l === 'und';\n  };\n\n  const idx = audio.findIndex((s) => isLossless(s) && langOk(s));\n  if (idx === -1) {\n    log('no lossless English audio track; nothing to convert');\n    return { outputFileObj: args.inputFileObj, outputNumber: 1, variables: args.variables };\n  }\n\n  const track = audio[idx];\n  const atmos = ((track.profile || '').toLowerCase().includes('atmos'));\n  const fmt = atmos ? 'atmos' : 'ddp';\n  const base = path.basename(src, path.extname(src)).replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 120);\n\n  // Sensible E-AC3 (DD+) bitrate by channel count: 256k stereo, 640k 5.1,\n  // 768k 7.1+ -- standard DD+ rates (Netflix uses 640k 5.1 / 768k Atmos).\n  const eac3Bitrate = (ch) => {\n    if (!ch || ch <= 2) return '256k';\n    if (ch <= 6) return '640k';\n    return '768k';\n  };\n  const nativeEac3 = () => {\n    const br = eac3Bitrate(track.channels);\n    const outPath = path.join(__dirname, `${base}.eac3.mkv`);\n    log(`native ffmpeg fallback: a:${idx} (${track.codec_name}, ${track.channels || '?'}ch) -> E-AC3 ${br}`);\n    execFileSync(args.ffmpegPath || 'tdarr-ffmpeg', [\n      '-y', '-i', src,\n      '-map', '0:v', '-map', `0:a:${idx}`, '-map', '0:s?', '-map_chapters', '0',\n      '-c', 'copy', '-c:a:0', 'eac3', '-b:a:0', br,\n      '-metadata:s:a:0', 'language=eng',\n      '-disposition:a:0', 'default',\n      outPath,\n    ], { stdio: 'pipe' });\n    return outPath;\n  };\n  const nativeFallback = (why) => {\n    log(`${why}; using native ffmpeg E-AC3 fallback`);\n    try {\n      const outPath = nativeEac3();\n      log(`native E-AC3 done; continuing with ${path.basename(outPath)}`);\n      return { outputFileObj: { _id: outPath }, outputNumber: 1, variables: args.variables };\n    } catch (e) {\n      log(`native E-AC3 fallback failed (${String(e).slice(0, 200)}); passthrough`);\n      return { outputFileObj: args.inputFileObj, outputNumber: 2, variables: args.variables };\n    }\n  };\n\n  if (!TOKEN) {\n    return nativeFallback('DEE_WRAPPER_TOKEN not set (secret not synced yet)');\n  }\n\n  const inboundName = `${base}.tdarr.mkv`;\n  const inboundPath = path.join(EXCHANGE, 'inbound', inboundName);\n  const cleanup = (p) => { try { fs.unlinkSync(p); } catch (e) { /* best effort */ } };\n\n  try {\n    log(`extracting audio stream a:${idx} (${track.codec_name}${atmos ? ' Atmos' : ''}) -> ${inboundName}`);\n    execFileSync(args.ffmpegPath || 'tdarr-ffmpeg', [\n      '-y', '-i', src, '-map', `0:a:${idx}`, '-c', 'copy', inboundPath,\n    ], { stdio: 'pipe' });\n\n    const body = JSON.stringify({ filename: inboundName, format: fmt });\n    const encodeOnce = () => new Promise((resolve, reject) => {\n      const req = http.request({\n        host: WRAPPER.host,\n        port: WRAPPER.port,\n        path: '/encode',\n        method: 'POST',\n        headers: {\n          'Content-Type': 'application/json',\n          'Content-Length': Buffer.byteLength(body),\n          Authorization: `Bearer ${TOKEN}`,\n        },\n        timeout: 7800 * 1000, // socket timeout must EXCEED the wrapper's per-encode budget (DEE_WRAPPER_TIMEOUT_SECONDS, default 7200s) or a long DEE encode is abandoned mid-flight and wrongly falls back\n      }, (res) => {\n        let data = '';\n        res.on('data', (c) => { data += c; });\n        res.on('end', () => resolve({ status: res.statusCode, data }));\n      });\n      req.on('timeout', () => { req.destroy(new Error('wrapper request timed out')); });\n      req.on('error', reject);\n      req.write(body);\n      req.end();\n    });\n\n    let resp = null;\n    for (let attempt = 1; attempt <= 5; attempt += 1) {\n      // eslint-disable-next-line no-await-in-loop\n      resp = await encodeOnce();\n      if (resp.status !== 503) break;\n      log(`encoder busy (503), attempt ${attempt}/5; waiting 60s`);\n      // eslint-disable-next-line no-await-in-loop\n      await new Promise((r) => { setTimeout(r, 60 * 1000); });\n    }\n    if (resp.status !== 200) throw new Error(`wrapper returned ${resp.status}: ${resp.data.slice(0, 300)}`);\n\n    const outName = JSON.parse(resp.data).output_filename;\n    const ec3 = path.join(EXCHANGE, 'outbound', outName);\n    if (!fs.existsSync(ec3)) throw new Error(`wrapper reported ok but ${outName} not in outbound/`);\n\n    const outPath = path.join(__dirname, `${base}.dee.mkv`);\n    log(`remuxing DD+${atmos ? ' Atmos' : ''} track back (-c copy)`);\n    execFileSync(args.ffmpegPath || 'tdarr-ffmpeg', [\n      '-y', '-i', src, '-i', ec3,\n      '-map', '0:v', '-map', '1:a:0', '-map', '0:s?', '-map_chapters', '0',\n      '-c', 'copy',\n      '-metadata:s:a:0', 'language=eng',\n      '-disposition:a:0', 'default',\n      outPath,\n    ], { stdio: 'pipe' });\n\n    cleanup(inboundPath);\n    cleanup(ec3);\n    log(`done: audio replaced with ${fmt}; continuing with ${path.basename(outPath)}`);\n    return { outputFileObj: { _id: outPath }, outputNumber: 1, variables: args.variables };\n  } catch (err) {\n    cleanup(inboundPath);\n    return nativeFallback(`DEE branch failed (${String(err).slice(0, 300)})`);\n  }\n};\n"
+      }
+    },
+    {
+      "name": "5b. Worth encoding? (overall >= 4.5 Mbps)",
+      "sourceRepo": "Community",
+      "pluginName": "checkOverallBitrate",
+      "version": "1.0.0",
+      "id": "br1080",
+      "position": {
+        "x": 200,
+        "y": 560
+      },
+      "inputsDB": {
+        "unit": "kbps",
+        "greaterThan": "4500",
+        "lessThan": "10000000"
+      }
+    },
+    {
+      "name": "5b. Worth encoding? (overall >= 16 Mbps)",
+      "sourceRepo": "Community",
+      "pluginName": "checkOverallBitrate",
+      "version": "1.0.0",
+      "id": "br4k",
+      "position": {
+        "x": 800,
+        "y": 560
+      },
+      "inputsDB": {
+        "unit": "kbps",
+        "greaterThan": "16000",
+        "lessThan": "10000000"
+      }
+    },
+    {
+      "name": "2b. Dolby Vision gate (P5/P7 hold, P8 continue)",
+      "sourceRepo": "Community",
+      "pluginName": "customFunction",
+      "version": "1.0.0",
+      "id": "dvgate",
+      "position": {
+        "x": 600,
+        "y": 300
+      },
+      "inputsDB": {
+        "code": "module.exports = async (args) => {\n  // 2b. Dolby Vision gate (2026-08-27). Any re-encode destroys the DV RPU\n  // (NVENC cannot carry it). Profile 8 has an HDR10 base layer and degrades\n  // gracefully to static HDR10 -- verified on a transcoded episode: PQ/\n  // BT.2020 + mastering-display side data intact. Profiles 5 and 7 do NOT:\n  // profile 5 keeps its color math in the RPU alone, and its stripped\n  // output probes with NO color metadata at all (measured on 5 damaged\n  // files, 2026-08-27) -- washed-out/wrong color everywhere. Output 1 =\n  // safe to continue; output 2 = pure/dual-layer DV, hold for review.\n  const streams = (args.inputFileObj.ffProbeData || {}).streams || [];\n  let dvProfile = null;\n  for (const s of streams) {\n    if (s.codec_type !== 'video') continue;\n    for (const sd of (s.side_data_list || [])) {\n      const t = String(sd.side_data_type || '');\n      if (t.includes('DOVI configuration')) {\n        dvProfile = sd.dv_profile;\n      }\n    }\n  }\n  if (dvProfile === null) {\n    args.jobLog('DV gate: no Dolby Vision side data, continue');\n    return { outputFileObj: args.inputFileObj, outputNumber: 1, variables: args.variables };\n  }\n  if (dvProfile === 5 || dvProfile === 7) {\n    args.jobLog(`DV gate: profile ${dvProfile} (no usable HDR10 fallback after RPU loss) -- hold for review`);\n    return { outputFileObj: args.inputFileObj, outputNumber: 2, variables: args.variables };\n  }\n  args.jobLog(`DV gate: profile ${dvProfile} with HDR10 base layer -- continue, accepting DV enhancement-layer loss`);\n  return { outputFileObj: args.inputFileObj, outputNumber: 1, variables: args.variables };\n};"
+      }
+    },
+    {
+      "name": "2c. Pure/dual-layer DV - hold for review",
+      "sourceRepo": "Community",
+      "pluginName": "requireReview",
+      "version": "1.0.0",
+      "id": "reviewDV",
+      "position": {
+        "x": 840,
+        "y": 330
+      }
+    },
+    {
+      "name": "5a. Already HEVC? (remux-only, skip re-encode)",
+      "sourceRepo": "Community",
+      "pluginName": "checkVideoCodec",
+      "version": "1.0.0",
+      "id": "hevc1080",
+      "position": {
+        "x": 400,
+        "y": 650
+      },
+      "inputsDB": {
+        "codec": "hevc"
+      }
+    },
+    {
+      "name": "5a. Already HEVC? (remux-only, skip re-encode)",
+      "sourceRepo": "Community",
+      "pluginName": "checkVideoCodec",
+      "version": "1.0.0",
+      "id": "hevc4k",
+      "position": {
+        "x": 660,
+        "y": 650
+      },
+      "inputsDB": {
+        "codec": "hevc"
+      }
+    }
+  ],
+  "flowEdges": [
+    {
+      "source": "input1",
+      "sourceHandle": "1",
+      "target": "health1",
+      "targetHandle": null,
+      "id": "e01"
+    },
+    {
+      "source": "lang1",
+      "sourceHandle": "2",
+      "target": "sub1",
+      "targetHandle": null,
+      "id": "e06"
+    },
+    {
+      "source": "sub1",
+      "sourceHandle": "1",
+      "target": "res1",
+      "targetHandle": null,
+      "id": "e07"
+    },
+    {
+      "source": "sub1",
+      "sourceHandle": "2",
+      "target": "review2",
+      "targetHandle": null,
+      "id": "e08"
+    },
+    {
+      "source": "res1",
+      "sourceHandle": "1",
+      "target": "start1080",
+      "targetHandle": null,
+      "id": "e09"
+    },
+    {
+      "source": "res1",
+      "sourceHandle": "2",
+      "target": "start1080",
+      "targetHandle": null,
+      "id": "e10"
+    },
+    {
+      "source": "res1",
+      "sourceHandle": "3",
+      "target": "start1080",
+      "targetHandle": null,
+      "id": "e11"
+    },
+    {
+      "source": "res1",
+      "sourceHandle": "4",
+      "target": "start1080",
+      "targetHandle": null,
+      "id": "e12"
+    },
+    {
+      "source": "res1",
+      "sourceHandle": "5",
+      "target": "start1080",
+      "targetHandle": null,
+      "id": "e13"
+    },
+    {
+      "source": "res1",
+      "sourceHandle": "6",
+      "target": "start4k",
+      "targetHandle": null,
+      "id": "e14"
+    },
+    {
+      "source": "res1",
+      "sourceHandle": "7",
+      "target": "start4k",
+      "targetHandle": null,
+      "id": "e15"
+    },
+    {
+      "source": "res1",
+      "sourceHandle": "8",
+      "target": "start4k",
+      "targetHandle": null,
+      "id": "e16"
+    },
+    {
+      "source": "res1",
+      "sourceHandle": "9",
+      "target": "start1080",
+      "targetHandle": null,
+      "id": "e17"
+    },
+    {
+      "source": "cont1080",
+      "sourceHandle": "1",
+      "target": "exec1080",
+      "targetHandle": null,
+      "id": "e20"
+    },
+    {
+      "source": "exec1080",
+      "sourceHandle": "1",
+      "target": "dur1",
+      "targetHandle": null,
+      "id": "e21"
+    },
+    {
+      "source": "cont4k",
+      "sourceHandle": "1",
+      "target": "exec4k",
+      "targetHandle": null,
+      "id": "e24"
+    },
+    {
+      "source": "exec4k",
+      "sourceHandle": "1",
+      "target": "dur1",
+      "targetHandle": null,
+      "id": "e25"
+    },
+    {
+      "source": "dur1",
+      "sourceHandle": "2",
+      "target": "moveQ",
+      "targetHandle": null,
+      "id": "e27"
+    },
+    {
+      "source": "dur1",
+      "sourceHandle": "3",
+      "target": "moveQ",
+      "targetHandle": null,
+      "id": "e28"
+    },
+    {
+      "source": "moveQ",
+      "sourceHandle": "1",
+      "target": "review3",
+      "targetHandle": null,
+      "id": "e29"
+    },
+    {
+      "source": "err1",
+      "sourceHandle": "1",
+      "target": "review1",
+      "targetHandle": null,
+      "id": "e30"
+    },
+    {
+      "source": "prunePruneLang1080",
+      "sourceHandle": "1",
+      "target": "prunePruneAD1080",
+      "targetHandle": null,
+      "id": "e-prunePruneLang1080-prunePruneAD1080"
+    },
+    {
+      "source": "prunePruneAD1080",
+      "sourceHandle": "1",
+      "target": "prunePruneSubs1080",
+      "targetHandle": null,
+      "id": "e-prunePruneAD1080-prunePruneSubs1080"
+    },
+    {
+      "source": "prunePruneSubs1080",
+      "sourceHandle": "1",
+      "target": "prunePruneArt1080",
+      "targetHandle": null,
+      "id": "e-prunePruneSubs1080-prunePruneArt1080"
+    },
+    {
+      "source": "prunePruneArt1080",
+      "sourceHandle": "1",
+      "target": "pruneData1080",
+      "targetHandle": null,
+      "id": "e-prunePruneArt1080-pruneData1080"
+    },
+    {
+      "source": "pruneData1080",
+      "sourceHandle": "1",
+      "target": "cont1080",
+      "targetHandle": null,
+      "id": "e-pruneData1080-cont1080"
+    },
+    {
+      "source": "prunePruneLang4k",
+      "sourceHandle": "1",
+      "target": "prunePruneAD4k",
+      "targetHandle": null,
+      "id": "e-prunePruneLang4k-prunePruneAD4k"
+    },
+    {
+      "source": "prunePruneAD4k",
+      "sourceHandle": "1",
+      "target": "prunePruneSubs4k",
+      "targetHandle": null,
+      "id": "e-prunePruneAD4k-prunePruneSubs4k"
+    },
+    {
+      "source": "prunePruneSubs4k",
+      "sourceHandle": "1",
+      "target": "prunePruneArt4k",
+      "targetHandle": null,
+      "id": "e-prunePruneSubs4k-prunePruneArt4k"
+    },
+    {
+      "source": "prunePruneArt4k",
+      "sourceHandle": "1",
+      "target": "pruneData4k",
+      "targetHandle": null,
+      "id": "e-prunePruneArt4k-pruneData4k"
+    },
+    {
+      "source": "pruneData4k",
+      "sourceHandle": "1",
+      "target": "cont4k",
+      "targetHandle": null,
+      "id": "e-pruneData4k-cont4k"
+    },
+    {
+      "source": "langGate1080",
+      "sourceHandle": "1",
+      "target": "prunePruneLang1080",
+      "targetHandle": null,
+      "id": "e-langGate1080-prunePruneLang1080"
+    },
+    {
+      "source": "langGate1080",
+      "sourceHandle": "2",
+      "target": "prunePruneAD1080",
+      "targetHandle": null,
+      "id": "e-langGate1080-prunePruneAD1080"
+    },
+    {
+      "source": "langGate4k",
+      "sourceHandle": "1",
+      "target": "prunePruneLang4k",
+      "targetHandle": null,
+      "id": "e-langGate4k-prunePruneLang4k"
+    },
+    {
+      "source": "langGate4k",
+      "sourceHandle": "2",
+      "target": "prunePruneAD4k",
+      "targetHandle": null,
+      "id": "e-langGate4k-prunePruneAD4k"
+    },
+    {
+      "source": "enc1080",
+      "sourceHandle": "1",
+      "target": "tenbit1080",
+      "targetHandle": null,
+      "id": "e-enc1080-tenbit1080"
+    },
+    {
+      "source": "tenbit1080",
+      "sourceHandle": "1",
+      "target": "langGate1080",
+      "targetHandle": null,
+      "id": "e-tenbit1080-langGate1080"
+    },
+    {
+      "source": "enc4k",
+      "sourceHandle": "1",
+      "target": "tenbit4k",
+      "targetHandle": null,
+      "id": "e-enc4k-tenbit4k"
+    },
+    {
+      "source": "tenbit4k",
+      "sourceHandle": "1",
+      "target": "langGate4k",
+      "targetHandle": null,
+      "id": "e-tenbit4k-langGate4k"
+    },
+    {
+      "source": "lang1",
+      "sourceHandle": "1",
+      "target": "dee1",
+      "targetHandle": null,
+      "id": "e-lang1-dee1"
+    },
+    {
+      "source": "dee1",
+      "sourceHandle": "1",
+      "target": "res1",
+      "targetHandle": null,
+      "id": "e-dee1-res1"
+    },
+    {
+      "source": "dee1",
+      "sourceHandle": "2",
+      "target": "res1",
+      "targetHandle": null,
+      "id": "e-dee1-res1-fb"
+    },
+    {
+      "source": "br1080",
+      "sourceHandle": "1",
+      "target": "enc1080",
+      "targetHandle": null,
+      "id": "e-br1080-1-enc1080"
+    },
+    {
+      "source": "br1080",
+      "sourceHandle": "2",
+      "target": "langGate1080",
+      "targetHandle": null,
+      "id": "e-br1080-2-langGate1080"
+    },
+    {
+      "source": "br4k",
+      "sourceHandle": "1",
+      "target": "enc4k",
+      "targetHandle": null,
+      "id": "e-br4k-1-enc4k"
+    },
+    {
+      "source": "br4k",
+      "sourceHandle": "2",
+      "target": "langGate4k",
+      "targetHandle": null,
+      "id": "e-br4k-2-langGate4k"
+    },
+    {
+      "source": "dvgate",
+      "sourceHandle": "1",
+      "target": "lang1",
+      "targetHandle": null,
+      "id": "e-dvgate-1-lang1"
+    },
+    {
+      "source": "dvgate",
+      "sourceHandle": "2",
+      "target": "reviewDV",
+      "targetHandle": null,
+      "id": "e-dvgate-2-reviewDV"
+    },
+    {
+      "source": "dur1",
+      "sourceHandle": "1",
+      "target": "move1",
+      "targetHandle": null,
+      "id": "e_gen_dur1_1_move1"
+    },
+    {
+      "source": "health1",
+      "sourceHandle": "1",
+      "target": "dvgate",
+      "targetHandle": null,
+      "id": "e_gen_health1_1_dvgate"
+    },
+    {
+      "source": "start1080",
+      "sourceHandle": "1",
+      "target": "hevc1080",
+      "targetHandle": null,
+      "id": "e_gen_start1080_1_hevc1080"
+    },
+    {
+      "source": "hevc1080",
+      "sourceHandle": "1",
+      "target": "langGate1080",
+      "targetHandle": null,
+      "id": "e_gen_hevc1080_1_langGate1080"
+    },
+    {
+      "source": "hevc1080",
+      "sourceHandle": "2",
+      "target": "br1080",
+      "targetHandle": null,
+      "id": "e_gen_hevc1080_2_br1080"
+    },
+    {
+      "source": "start4k",
+      "sourceHandle": "1",
+      "target": "hevc4k",
+      "targetHandle": null,
+      "id": "e_gen_start4k_1_hevc4k"
+    },
+    {
+      "source": "hevc4k",
+      "sourceHandle": "1",
+      "target": "langGate4k",
+      "targetHandle": null,
+      "id": "e_gen_hevc4k_1_langGate4k"
+    },
+    {
+      "source": "hevc4k",
+      "sourceHandle": "2",
+      "target": "br4k",
+      "targetHandle": null,
+      "id": "e_gen_hevc4k_2_br4k"
+    }
+  ]
+}

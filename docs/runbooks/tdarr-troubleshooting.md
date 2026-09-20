@@ -10,6 +10,16 @@ rises, health-check errors, and `.iso` files it can't process. A second one-shot
 `tdarr-remediate`, self-heals **corrupt** files by driving Radarr/Sonarr — see
 [Self-healing corrupt files](#self-healing-corrupt-files-tdarr-remediate).
 
+## The flow is tracked in git
+
+The transcode flow (`hevc-pipeline`, the only flow; both libraries point at
+it) is version-controlled at `stacks/media/tdarr-flows/hevc-pipeline.json`.
+Sync it with `scripts/tdarr-flow-sync.sh export|diff|import` (repo is the
+source of truth; `import` pushes via the cruddb API and restarts tdarr so the
+server drops its in-memory copy — verified the API persists flow updates).
+After editing the flow in the tdarr UI instead, run `export` and commit so
+the repo copy doesn't go stale.
+
 ## Lossless-audio titles error → check DEE first
 
 The most common failure: a batch of **transcode errors, all on lossless audio**
