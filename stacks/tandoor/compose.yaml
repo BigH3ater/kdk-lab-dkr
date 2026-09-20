@@ -2,13 +2,14 @@
 # meal plan + pantry-aware shopping list. Uses Tandoor's OWN multi-user auth (NOT behind
 # Authelia forwardauth) so a family member (wife) can have a Tandoor account without an
 # Authelia identity -- same rationale as audiobookshelf. Internet-facing via the Cloudflare
-# tunnel: add the public hostname `recipes.kmkdp.com` in the CF dashboard (dashboard-managed,
-# like the other DMZ apps). On the home network it's browseable directly via Traefik.
+# tunnel: add the public hostname `recipes.kmkdp.com` in the CF dashboard (dashboard-managed).
+# On the home network it's browseable directly via Traefik.
 #
-# nginx serves /static + /media (Tandoor collectstatic writes to the shared staticfiles vol)
-# and proxies the app (gunicorn web:8080). Postgres backs it. default network (db/web/nginx)
-# auto-allocates from the host's 10.211.0.0/16 pool; proxy-dmz (external) is Traefik ingress.
-# dns-reconcile points recipes.kmkdp.com at the DMZ Traefik from the Host label.
+# The recipes image is ALL-IN-ONE: it runs its own internal nginx on :80 (serves /static +
+# /media and proxies to the local gunicorn unix socket), so we only need this app container
+# plus Postgres. Traefik fronts the app on :80. default network (db <-> web) auto-allocates
+# from the host's 10.211.0.0/16 pool; proxy-dmz (external) is Traefik ingress. dns-reconcile
+# points recipes.kmkdp.com at the DMZ Traefik from the Host label.
 name: tandoor
 
 services:
@@ -29,7 +30,7 @@ services:
       options: { max-size: "10m", max-file: "3" }
 
   web:
-    image: ghcr.io/tandoorrecipes/recipes:latest   # pin to a digest/tag after first pull
+    image: ghcr.io/tandoorrecipes/recipes:latest   # pin to a tag after first pull
     container_name: tandoor-web
     restart: unless-stopped
     env_file: [.env]
@@ -42,29 +43,13 @@ services:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       TZ: America/Chicago
-      GUNICORN_MEDIA: "0"          # nginx serves /media
-      # The image's gunicorn binds a unix socket (/tmp/tandoor.sock); add a TCP bind so the
-      # separate nginx container can reach it at web:8080.
-      GUNICORN_CMD_ARGS: "--bind 0.0.0.0:8080"
       ALLOWED_HOSTS: recipes.kmkdp.com
+      # Behind Traefik (TLS terminated) -- trust the https origin for CSRF on login/POST.
+      CSRF_TRUSTED_ORIGINS: https://recipes.kmkdp.com
     volumes:
       - /opt/kdk-lab/tandoor/staticfiles:/opt/recipes/staticfiles
       - /opt/kdk-lab/tandoor/mediafiles:/opt/recipes/mediafiles
     depends_on: [db]
-    networks: [default]
-    logging:
-      driver: json-file
-      options: { max-size: "10m", max-file: "3" }
-
-  nginx:
-    image: docker.io/nginx:mainline-alpine
-    container_name: tandoor-nginx
-    restart: unless-stopped
-    depends_on: [web]
-    volumes:
-      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
-      - /opt/kdk-lab/tandoor/staticfiles:/static:ro
-      - /opt/kdk-lab/tandoor/mediafiles:/media:ro
     networks: [default, proxy-dmz]
     labels:
       traefik.enable: "true"
