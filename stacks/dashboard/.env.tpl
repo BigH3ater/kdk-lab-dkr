@@ -1,0 +1,33 @@
+# op-injected by the pre_deploy step (op inject -f -i .env.tpl -o .env). ALL op items
+# referenced here MUST exist in 1Password BEFORE the first deploy, or `op inject` fails
+# and the stack won't deploy. Vault kdk-cluster is read/WRITE (create new items there);
+# kdk-ops is read-only (reuse existing items only). Never print secret values.
+#
+# Item naming standard: {service}-api-ro (read-only API key), field `password`.
+
+# ---- P1: Vikunja (tasks app) --------------------------------------------------
+# Create: op item "vikunja-app" in kdk-cluster with a field `jwt_secret` (random 64+ chars).
+VIKUNJA_SERVICE_JWTSECRET={{ op://kdk-cluster/vikunja-app/jwt_secret }}
+
+# ---- P1: Homepage status/stat widget API keys (read-only) ---------------------
+# Each is a read-only API key minted in that service's own settings, stored as the
+# `password` field of the named kdk-cluster item. If one isn't ready yet, comment out
+# BOTH this line AND its widget block in config/services.yaml to let P1 deploy, then
+# add it back. (siteMonitor up/down health needs no key and always works.)
+# P1b (mint key + create op item first): HOMEPAGE_VAR_JELLYFIN_KEY={{ op://kdk-cluster/jellyfin-api-ro/password }}
+# P1b (mint key + create op item first): HOMEPAGE_VAR_SEERR_KEY={{ op://kdk-cluster/seerr-api-ro/password }}
+# P1b (mint key + create op item first): HOMEPAGE_VAR_ABS_KEY={{ op://kdk-cluster/audiobookshelf-api-ro/password }}
+# P1b (mint key + create op item first): HOMEPAGE_VAR_VIKUNJA_KEY={{ op://kdk-cluster/vikunja-api-ro/password }}
+
+# ---- P3: household calendar (Proton "Share via link" ICS) ---------------------
+# Reused from planner-service (kdk-ops, read-only). The calendar widget in
+# config/services.yaml reads this via {{HOMEPAGE_VAR_ICS_URL}}.
+HOMEPAGE_VAR_ICS_URL={{ op://kdk-ops/proton-calendar-ics/url }}
+
+# ---- P2: mealplan sidecar (dedicated Tandoor account) -------------------------
+# Create: op item "dashboard-tandoor-rw" in kdk-cluster with fields `username`/`password`.
+# The account is created in Tandoor (local login) and ADDED to the "Mack House" space
+# (id 3). It is read/write at the API level but the sidecar only ever writes CookLog
+# ratings -- nothing else.
+TANDOOR_USER={{ op://kdk-cluster/dashboard-tandoor-rw/username }}
+TANDOOR_PASS={{ op://kdk-cluster/dashboard-tandoor-rw/password }}

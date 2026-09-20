@@ -1,0 +1,96 @@
+# "Mack Adulting" recurring household tasks — transcribed 2026-09-20 from the family's
+# iOS Reminders export (83 items). Seed data for Vikunja: one project per section,
+# recurring tasks with the listed cadence; next_due = the next occurrence from the
+# export (past dates = overdue at export time). Seeded via the Vikunja API after
+# first-user registration (see docs/services/dashboard.md).
+projects:
+  Cleaning:
+    - { title: Air out bathroom rugs, repeat: monthly, next_due: 2026-06-26 }
+    - { title: Change deodorizer filter, repeat: 3 months, next_due: 2026-07-27 }
+    - { title: Change sheets, repeat: weekly, next_due: 2026-06-19 }
+    - { title: Clean appliances, repeat: monthly, next_due: 2026-06-30 }
+    - { title: Clean bathroom countertops, repeat: weekly, next_due: 2026-06-21 }
+    - { title: Clean cabinets, repeat: monthly, next_due: 2026-06-19 }
+    - { title: Clean dishwasher cycle, repeat: monthly, next_due: 2026-06-20 }
+    - { title: Clean fans, repeat: monthly, next_due: 2026-07-06 }
+    - { title: Clean fridge, repeat: weekly, next_due: 2026-06-14 }
+    - { title: Clean garbage disposal, repeat: 3 months, next_due: 2026-07-28 }
+    - { title: Clean master shower, repeat: 2 weeks, next_due: 2026-07-09 }
+    - { title: Clean master toilet, repeat: weekly, next_due: 2026-06-19 }
+    - { title: Clean mattress, repeat: monthly, next_due: 2026-07-01 }
+    - { title: Clean microwave, repeat: 2 weeks, next_due: 2026-06-20 }
+    - { title: Clean mirrors, repeat: monthly, next_due: 2026-06-19 }
+    - { title: Clean oven, repeat: 6 months, next_due: 2026-10-01 }
+    - { title: Clean stove top, repeat: weekly, next_due: 2026-06-20 }
+    - { title: Clean vents, repeat: monthly, next_due: 2026-07-06 }
+    - { title: Clean washer cycle, repeat: monthly, next_due: 2026-07-06 }
+    - { title: Clean windows, repeat: 3 months, next_due: 2026-07-01 }
+    - { title: Deep clean manual vacuum, repeat: monthly, next_due: 2026-06-26 }
+    - { title: Dust basement shelves, repeat: monthly, next_due: 2026-06-28 }
+    - { title: Dust living room, repeat: monthly, next_due: 2026-07-01 }
+    - { title: Dust master bedroom, repeat: monthly, next_due: 2026-07-01 }
+    - { title: Dust office, repeat: monthly, next_due: 2026-07-07 }
+    - { title: Dust Rachel's office, repeat: monthly, next_due: 2026-07-01 }
+    - { title: Empty bathroom garbages, repeat: weekly, next_due: 2026-06-20 }
+    - { title: Leather Honey couches, repeat: 3 months, next_due: 2026-07-01 }
+    - { title: Match socks, repeat: weekly, next_due: 2026-06-20 }
+    - { title: Organize kitchen drawers, repeat: 3 months, next_due: 2026-07-01 }
+    - { title: Rotate mattress, repeat: monthly, next_due: 2026-07-01 }
+    - { title: Vacuum air purifier filters, repeat: monthly, next_due: 2026-07-06 }
+    - { title: Wash brushes, repeat: weekly, next_due: 2026-06-21 }
+    - { title: Wash living room blankets, repeat: monthly, next_due: 2026-06-27 }
+    - { title: Wipe down sectional, repeat: monthly, next_due: 2026-07-01 }
+  Dogs:
+    - { title: "Dog baths 🛁", repeat: 3 months, next_due: 2026-07-04 }
+    - { title: Brush the beasts, repeat: weekly, next_due: 2026-06-21 }
+    - { title: Clean dog mat and bowls, repeat: weekly, next_due: 2026-06-20 }
+    - { title: Clean pupper ears, repeat: 2 weeks, next_due: 2026-06-19 }
+    - { title: Heartgard, repeat: monthly, next_due: 2026-06-16 }
+    - { title: Trim pupper nails, repeat: 2 weeks, next_due: 2026-06-21 }
+  Robot Vacuum:
+    - { title: Change brush, repeat: 3 months, next_due: 2026-07-06 }
+    - { title: Change the ole bag, repeat: 2 weeks, next_due: 2026-06-27 }
+    - { title: Clean sensors, repeat: weekly, next_due: 2026-06-21 }
+    - { title: Clean tray, repeat: 2 weeks, next_due: 2026-06-27 }
+    - { title: Fill water, repeat: weekly, next_due: 2026-06-19 }
+    - { title: Replace filter, repeat: 3 months, next_due: 2026-07-06 }
+    - { title: Wash vacuum mop pads, repeat: 2 weeks, next_due: 2026-06-27 }
+  Yard:
+    - { title: Apply pesticide (spring), repeat: yearly, next_due: 2027-04-01 }
+    - { title: Apply pesticide (early summer), repeat: yearly, next_due: 2027-06-01 }
+    - { title: Apply pesticide (midsummer), repeat: yearly, next_due: 2026-07-01 }
+    - { title: Apply pesticide (late summer), repeat: yearly, next_due: 2026-08-01 }
+    - { title: Mow lawn, repeat: weekly, next_due: 2026-06-17 }
+    - { title: Pick up dog poop, repeat: weekly, next_due: 2026-06-21 }
+  Water Filtration:
+    - { title: Check softener salt, repeat: monthly, next_due: 2026-09-04 }
+    - { title: Clean 50 micron filter, repeat: 6 months, next_due: 2026-12-04 }
+    - { title: Replace acid neutralizer filter, repeat: 2 years, next_due: 2027-06-04 }
+    - { title: Replace pre-filter 1, repeat: 2 years, next_due: 2027-06-04 }
+    - { title: Replace pre-filter 2, repeat: 2 years, next_due: 2027-06-04 }
+    - { title: Replace pre-filter 3, repeat: 2 years, next_due: 2027-06-04 }
+    - { title: Replace RO filter 1, repeat: 6 months, next_due: 2026-12-04 }
+    - { title: Replace RO filter 2, repeat: 6 months, next_due: 2026-12-04 }
+    - { title: Replace RO filter 3, repeat: 2 years, next_due: 2027-06-04 }
+    - { title: Replace RO filter 4, repeat: yearly, next_due: 2027-06-04 }
+  House Maintenance:
+    - { title: A/C check-up, repeat: yearly, next_due: 2026-09-01 }
+    - { title: Change furnace filter, repeat: 3 months, next_due: 2026-08-01 }
+    - { title: Furnace check-up, repeat: yearly, next_due: 2026-09-01 }
+    - { title: Grill cleaning and maintenance, repeat: 6 months, next_due: 2026-10-29 }
+    - { title: "Pay property tax (fall) 🚩", repeat: yearly, next_due: 2026-09-30 }
+    - { title: "Pay property tax (spring) 🚩", repeat: yearly, next_due: 2027-03-23 }
+    - { title: Plumbing check-up, repeat: yearly, next_due: 2027-01-01 }
+    - { title: Snow blower maintenance, repeat: 6 months, next_due: 2026-09-30 }
+    - { title: Test smoke alarms, repeat: 3 months, next_due: 2026-08-02 }
+    - { title: Wax cutting boards, repeat: monthly, next_due: 2026-07-01 }
+  General:
+    - { title: Check bathroom supplies (soap refills, shampoo, etc.), repeat: monthly, next_due: 2026-07-06 }
+    - { title: Clean cars, repeat: 2 weeks, next_due: 2026-06-28 }
+    - { title: Garbage on the curb, repeat: weekly, next_due: 2026-09-24, note: "7:00 AM" }
+    - { title: Get groceries, repeat: weekly, next_due: 2026-06-14 }
+    - { title: Make sanitizer, repeat: 2 weeks, next_due: 2026-06-21 }
+    - { title: Oil change — Jacob's car, repeat: 3 months, next_due: 2026-10-01 }
+    - { title: Oil change — Rachel's car, repeat: 3 months, next_due: 2026-09-02 }
+    - { title: Open windows, repeat: 2 weeks, next_due: 2026-06-20 }
+    - { title: Water plants, repeat: 2 weeks, next_due: 2026-06-20 }

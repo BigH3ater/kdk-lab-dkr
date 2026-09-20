@@ -1,0 +1,36 @@
+# Homepage settings -- Mack family home dashboard (home.kmkdp.com), LAN/Tailscale only.
+title: The Mack House
+description: Home dashboard for the Mack family
+
+theme: dark
+color: stone
+headerStyle: clean
+hideVersion: true
+disableCollapse: false
+statusStyle: dot          # compact up/down dots for siteMonitor health
+
+# Order + styling of the service groups (must match the names in services.yaml).
+layout:
+  This Week:
+    style: row
+    columns: 2
+  Watch & Listen:
+    style: row
+    columns: 3
+  Read:
+    style: row
+    columns: 3
+  Request:
+    style: row
+    columns: 2
+  Home:
+    style: row
+    columns: 3
+  Household Calendar:
+    style: row
+    columns: 1
+
+# Quick links shown in the header.
+quicklaunch:
+  searchDescriptions: true
+  hideInternetSearch: true

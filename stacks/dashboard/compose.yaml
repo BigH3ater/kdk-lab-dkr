@@ -1,0 +1,117 @@
+# Mack family home dashboard on kdk-dkr-01 (LAN + Tailscale ONLY -- no public tunnel).
+# Homepage (gethomepage.dev) is the launcher/status board; a small nginx serves the
+# family "how-to" guides at home.kmkdp.com/guides/...; Vikunja is the checkable-tasks
+# app (own auth) at tasks.kmkdp.com; the mealplan sidecar (P2) renders the Tandoor
+# weekly plan front-and-center with a star-rating write-back.
+#
+# Auth = NONE. LAN/Tailscale is the gate (same posture as the internal calibre server);
+# tiles open services that carry their own login. Do NOT expose this on the DMZ/tunnel.
+#
+# Networks: default (auto /24 from kdk-dkr-01's 10.208.0.0/16 pool -- pools are set
+# host-wide since the 2026-09-19 IPAM fix, so auto is safe; no pin needed) + proxy
+# (external, the internal Traefik ingress). recipes/*.kmkdp.com resolve to the DMZ and
+# are reachable (internal->DMZ:443 is open).
+name: dashboard
+
+services:
+  # ---- Homepage: the dashboard itself (home.kmkdp.com) ---------------------
+  homepage:
+    image: ghcr.io/gethomepage/homepage:latest   # pin to a tag after first pull
+    container_name: homepage
+    restart: unless-stopped
+    env_file: [.env]                 # HOMEPAGE_VAR_* (op-injected) + HOMEPAGE_ALLOWED_HOSTS
+    environment:
+      HOMEPAGE_ALLOWED_HOSTS: home.kmkdp.com
+      TZ: America/Chicago
+    volumes:
+      - ./config:/app/config
+    networks: [default, proxy]
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.dashboard.rule: "Host(`home.kmkdp.com`)"
+      traefik.http.routers.dashboard.priority: "1"
+      traefik.http.services.dashboard.loadbalancer.server.port: "3000"
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+  # ---- Guides: static family how-to pages (home.kmkdp.com/guides/...) ------
+  guides:
+    image: nginx:1.29-alpine
+    container_name: dashboard-guides
+    restart: unless-stopped
+    volumes:
+      - ./guides:/usr/share/nginx/html:ro
+    networks: [default, proxy]
+    labels:
+      traefik.enable: "true"
+      # More specific than the Homepage router -> wins for /guides/*. StripPrefix so
+      # nginx sees /index.html etc. Guide pages use RELATIVE links so they resolve
+      # back under /guides/ after the strip.
+      traefik.http.routers.guides.rule: "Host(`home.kmkdp.com`) && PathPrefix(`/guides`)"
+      traefik.http.routers.guides.priority: "10"
+      traefik.http.routers.guides.middlewares: "guides-strip"
+      traefik.http.middlewares.guides-strip.stripprefix.prefixes: "/guides"
+      traefik.http.services.guides.loadbalancer.server.port: "80"
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+  # ---- Vikunja: checkable household tasks (tasks.kmkdp.com), own auth ------
+  # Single unified image (frontend+api), SQLite backend (file-based -> no db sidecar),
+  # LAN-only. Recurring household items lifted from the iOS Reminders screenshots live
+  # here. JWT secret is op-injected so sessions survive restarts.
+  vikunja:
+    image: vikunja/vikunja:latest   # pin to a tag after first pull
+    container_name: vikunja
+    restart: unless-stopped
+    env_file: [.env]                # VIKUNJA_SERVICE_JWTSECRET (op-injected)
+    environment:
+      VIKUNJA_SERVICE_PUBLICURL: "https://tasks.kmkdp.com/"
+      VIKUNJA_DATABASE_TYPE: sqlite
+      VIKUNJA_DATABASE_PATH: /db/vikunja.db
+      VIKUNJA_SERVICE_TIMEZONE: America/Chicago
+      VIKUNJA_SERVICE_ENABLEREGISTRATION: "true"   # LAN-only; family self-registers once
+    volumes:
+      - /opt/kdk-lab/dashboard/vikunja/db:/db
+      - /opt/kdk-lab/dashboard/vikunja/files:/app/vikunja/files
+    networks: [default, proxy]
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.vikunja.rule: "Host(`tasks.kmkdp.com`)"
+      traefik.http.services.vikunja.loadbalancer.server.port: "3456"
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+  # ---- mealplan sidecar (P2): Tandoor weekly plan + star-rating write-back -
+  # Reached by the family browser at home.kmkdp.com/meal/ (iframe, front-and-center)
+  # and by Homepage's customapi over the default net at http://mealplan:8080. Logs in
+  # to Tandoor with the dedicated dashboard account (session auth; REST tokens are off)
+  # and reads /api/meal-plan/. Ratings POST back as CookLog entries (see mealplan/app.py).
+  mealplan:
+    build: ./mealplan
+    image: kdk/dashboard-mealplan:latest
+    container_name: dashboard-mealplan
+    restart: unless-stopped
+    env_file: [.env]                # TANDOOR_USER/TANDOOR_PASS (op-injected)
+    environment:
+      TANDOOR_URL: "https://recipes.kmkdp.com"
+      TANDOOR_SPACE: "Mack House"
+      TZ: America/Chicago
+    networks: [default, proxy]
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.mealplan.rule: "Host(`home.kmkdp.com`) && PathPrefix(`/meal`)"
+      traefik.http.routers.mealplan.priority: "10"
+      traefik.http.routers.mealplan.middlewares: "mealplan-strip"
+      traefik.http.middlewares.mealplan-strip.stripprefix.prefixes: "/meal"
+      traefik.http.services.mealplan.loadbalancer.server.port: "8080"
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+networks:
+  default: {}
+  proxy:
+    external: true

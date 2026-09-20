@@ -1,0 +1,19 @@
+# Homepage info widgets (the top bar). Kept minimal for a family board.
+- greeting:
+    text_size: xl
+    text: Welcome to the Mack House
+
+- datetime:
+    text_size: xl
+    format:
+      timeStyle: short
+      dateStyle: long
+      hourCycle: h12
+
+- openmeteo:
+    label: Home
+    latitude: 41.66          # Iowa City area (adjust if wrong)
+    longitude: -91.53
+    timezone: America/Chicago
+    units: imperial
+    cache: 15

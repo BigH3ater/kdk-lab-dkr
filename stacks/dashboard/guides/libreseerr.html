@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Books & eBooks -- Mack House</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+  <header class="site"><span class="bear">🐻</span><a href="/">The Mack House</a> &nbsp;·&nbsp; <a href="index.html">Guides</a></header>
+  <h1>📚 Books &amp; eBooks</h1>
+  <p class="lead">Request a book, and read it on the reMarkable tablet or in a reading app. Here's how both parts work.</p>
+
+  <h2>Request a book</h2>
+  <div class="card">
+    <ol>
+      <li>Go to <a href="https://libreseerr.kmkdp.com">libreseerr.kmkdp.com</a> and sign in with your house account.</li>
+      <li>Search for the book by title or author.</li>
+      <li>Tap <b>Request</b>.</li>
+    </ol>
+    <a class="btn" href="https://libreseerr.kmkdp.com">Request a Book</a>
+    <p class="note">Heads up: some books are easy to find as eBooks and some aren't. If one doesn't come through, text Jacob &mdash; he can check.</p>
+  </div>
+
+  <h2>Read on the reMarkable</h2>
+  <div class="card">
+    <p>Books you request are added to the tablet's library automatically. When the reMarkable is on Wi-Fi, it pulls in new books on its own &mdash; just open it and look in your books.</p>
+  </div>
+
+  <h2>Read on a phone, tablet, or e-reader</h2>
+  <div class="card">
+    <p>All our eBooks are also in a <b>Calibre</b> library you can open on the home network (or over Tailscale when you're out).</p>
+    <ul>
+      <li><b>In a browser:</b> open <a href="http://10.1.20.20:8081">http://10.1.20.20:8081</a> to read online.</li>
+      <li><b>In a reading app</b> (like KOReader): add this as an OPDS catalog: <code>http://10.1.20.20:8081/opds</code></li>
+    </ul>
+    <p class="note">These links only work on our home Wi-Fi or on Tailscale. Ask Jacob to set up Tailscale on your phone if you want them anywhere.</p>
+  </div>
+
+  <p class="help">Book not showing up after a day or two? Text Jacob.</p>
+</div>
+</body>
+</html>

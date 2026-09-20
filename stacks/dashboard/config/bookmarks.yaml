@@ -1,0 +1,28 @@
+# Quick bookmarks row. Guides are the family's first stop, so they lead.
+- Help:
+    - How-To Guides:
+        - abbr: "?"
+          href: https://home.kmkdp.com/guides/
+    - Text Jacob:
+        - abbr: "SOS"
+          href: "sms:"
+
+- Family:
+    - Recipes:
+        - abbr: RC
+          href: https://recipes.kmkdp.com
+    - Jellyfin:
+        - abbr: JF
+          href: https://jellyfin.kmkdp.com
+    - Audiobooks:
+        - abbr: AB
+          href: https://audiobookshelf.kmkdp.com
+    - Photos:
+        - abbr: PH
+          href: https://immich.kmkdp.com
+    - Tasks:
+        - abbr: TK
+          href: https://tasks.kmkdp.com
+    - Budget:
+        - abbr: "$"
+          href: https://budget.kmkdp.com

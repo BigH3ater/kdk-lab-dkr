@@ -1,0 +1,15 @@
+/* Kodiak-ish warm accent for the family board. Homepage loads config/custom.css. */
+:root {
+  --kodiak-amber: 217 119 6;   /* amber-600-ish */
+}
+
+/* Make group headers a touch warmer/bolder for at-a-glance scanning. */
+#page_container h2 {
+  letter-spacing: 0.01em;
+}
+
+/* Give the meal-plan iframe tile a clean framed look. */
+.service-container iframe {
+  border-radius: 0.5rem;
+  background: rgb(28 25 23);   /* stone-900 */
+}
