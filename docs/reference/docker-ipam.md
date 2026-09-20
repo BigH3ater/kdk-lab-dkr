@@ -64,6 +64,13 @@ each host before moving on.
    shows a `10.20x.x` subnet; containers healthy; for dkr-01 confirm
    `ip route get 192.168.191.20` still routes `via 10.1.20.1` (DMZ reachable) and media
    endpoints return non-`000`.
+5. **Sweep configs for old-bridge IPs:** grep host-side Traefik file routes and app
+   configs (e.g. HA `trusted_proxies` in `.storage/http`) for `172.18.x`/`172.17.x`
+   references — recreating a network changes its gateway, and anything hardcoding the
+   old bridge IP silently times out. This exact gap took down the HA UI on 2026-09-20
+   (`/opt/kdk-lab/home-assistant/traefik/dynamic/routes.yml` pointed at the dead
+   `172.18.0.1`; fix was the host LAN IP `10.1.30.21` + adding `10.209.0.0/16` to
+   HA's trusted_proxies). Prefer host LAN IPs over bridge gateways in file routes.
 
 Host-network stacks (`tailscale-subnet-router`, `observability-agent`, `node-exporter`)
 and `docker0` (`172.17`) have nothing to migrate.
