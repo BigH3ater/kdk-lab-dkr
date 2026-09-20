@@ -1,0 +1,49 @@
+# Actual Budget on kdk-dkr-01 (LAN). Envelope/YNAB-style household budgeting for the
+# Mack family (jmack + wife share ONE budget file). Deliberately LAN-only: financial
+# data does NOT go on the DMZ / Cloudflare tunnel. Remote phone access is via the
+# existing Tailscale mesh (subnet router advertises 10.1.20.0/24; tailnet DNS resolves
+# budget.kmkdp.com split-horizon) -- no public exposure.
+#
+# Auth: Authelia OIDC (client_id `actual`) via sso.kmkdp.com. Single tiny Node service,
+# SQLite-backed sync files under one /data dir -> automatically covered by the nightly
+# rsync of /opt/kdk-lab (stacks/backup-dkr-01) + Proton offsite (stacks/backup-offsite).
+#
+# BOOTSTRAP GOTCHA (read before first deploy): Actual's loginMethod is a single mechanism.
+# If you enable `openid` before an owner exists, the FIRST successful OIDC login claims
+# server ownership -- which is what we want (jmack first). But if OIDC is misconfigured you
+# can lock yourself out. Recommended: first deploy with ACTUAL_LOGIN_METHOD unset (password),
+# set a server password, create the shared budget, verify; THEN set ACTUAL_LOGIN_METHOD=openid
+# and have jmack log in via SSO to claim ownership.
+name: actual
+
+services:
+  actual:
+    image: docker.io/actualbudget/actual-server:26.9.0   # current stable (verified 2026-09-20); do NOT use :latest
+    container_name: actual
+    restart: unless-stopped
+    env_file: [.env]
+    environment:
+      TZ: America/Chicago
+      # --- Authelia OIDC (discovery-based) ---
+      ACTUAL_LOGIN_METHOD: openid
+      ACTUAL_OPENID_DISCOVERY_URL: https://sso.kmkdp.com/.well-known/openid-configuration
+      ACTUAL_OPENID_CLIENT_ID: actual
+      # ACTUAL_OPENID_CLIENT_SECRET comes from .env (op-injected; see .env.tpl)
+      ACTUAL_OPENID_SERVER_HOSTNAME: https://budget.kmkdp.com   # base for the /openid/callback redirect
+      # Behind Traefik (TLS terminated upstream). If redirect/cookie issues appear, set
+      # ACTUAL_TRUSTED_PROXIES to the docker network CIDR -- verify against the running host pool.
+    volumes:
+      - /opt/kdk-lab/actual/data:/data
+    networks: [default, proxy]
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.actual.rule: "Host(`budget.kmkdp.com`)"
+      traefik.http.services.actual.loadbalancer.server.port: "5006"
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+networks:
+  default: {}
+  proxy:
+    external: true
