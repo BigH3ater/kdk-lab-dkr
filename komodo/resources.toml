@@ -1008,6 +1008,7 @@ server = "kdk-mon-01"
 project_name = "monitoring"
 repo = "BigH3ater/kdk-lab-dkr"
 run_directory = "stacks/monitoring"
+auto_pull = false  # images already local; Docker Hub rate-limits the Pi (registry denied) -- pull explicitly on version bumps
 pre_deploy.command = "sh -c 'cp -f /opt/kdk-lab/monitoring/.env .env'"
 webhook_enabled = true
 
