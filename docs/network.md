@@ -77,9 +77,10 @@ so DoH-using browsers simply fail closed off-LAN rather than leak.
 > **Stale-record warning (found 2026-09-21):** the live origin still carried
 > pre-rename Pi records — `kdk-dkr-01.kmkdp.com → 10.1.30.21` and
 > `kdk-dkr-02.kmkdp.com → 10.1.30.22`, with no `kdk-dkr-03` record.
-> `scripts/dns-sync.py`'s static map has the correct values
-> (01 → 10.1.20.20, 02 → 10.1.30.21, 03 → 10.1.30.22); the live records need a
-> one-time manual fix on the origin (excluded from auto-reconcile).
+> `scripts/dns-sync.py`'s static map had the correct values
+> (01 → 10.1.20.20, 02 → 10.1.30.21, 03 → 10.1.30.22); **fixed on the origin
+> 2026-09-21** (manual, operator-run — these names are excluded from
+> auto-reconcile).
 
 ### Troubleshooting: redirect to `*.svc.cluster.local`
 
