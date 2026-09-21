@@ -7,6 +7,7 @@
     ["Meal Plan", "https://recipes.kmkdp.com/mealplan"],
     ["Recipes", "https://recipes.kmkdp.com/"],
     ["Tasks", "https://tasks.kmkdp.com/"],
+    ["Home Control", "https://homeassistant.kmkdp.com/lovelace"],
     ["Budget", "https://budget.kmkdp.com/"],
     ["Watch", "https://jellyfin.kmkdp.com/"],
     ["Listen", "https://audiobookshelf.kmkdp.com/"],

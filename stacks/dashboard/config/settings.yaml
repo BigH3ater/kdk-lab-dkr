@@ -17,9 +17,6 @@ layout:
   Tasks:
     style: row
     columns: 1   # full-width horizontal task strip under the weather
-  Home:
-    style: row
-    columns: 1   # embedded Home Assistant lovelace, full width
   Household Calendar:
     style: row
     columns: 2   # weekly agenda (events visible) + clickable monthly
