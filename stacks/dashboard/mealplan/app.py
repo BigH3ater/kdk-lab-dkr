@@ -385,7 +385,9 @@ def tasks_complete():
             log.info("task %s completed by %s", tid, login)
     except Exception:
         log.exception("task completion failed")
-    return redirect("tasks", code=303)
+    # relative to /meal/tasks/complete -> ../tasks == /meal/tasks (survives the
+    # StripPrefix; a bare "tasks" resolved to /meal/tasks/tasks -> 404)
+    return redirect("../tasks", code=303)
 
 
 
