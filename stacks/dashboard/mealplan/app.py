@@ -182,25 +182,26 @@ PAGE_CSS = """
 @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
 *{box-sizing:border-box}
 :root{--ink:#1b1a18;--rust:#9d4a25;--paper:#ece2d0;--paper-warm:#f7f1e6;--paper-dark:#dfd4c0;
---bark:#6b6358;--stone:#9a9183;--ok:#4a6b37;--danger:#8c2f1b}
-body{margin:0;font:14px/1.45 'Space Grotesk',sans-serif;background:var(--paper-warm);color:var(--ink)}
+--bark:#6b6358;--stone:#9a9183;--ember:#c9743f;--ash:#8d8377;--ink-surface:#2b2825;
+--ink-hairline:#423d38;--ok:#6f8f5c;--danger:#e0705a}
+body{margin:0;font:14px/1.45 'Space Grotesk',sans-serif;background:var(--ink-surface);color:var(--paper)}
 .week{display:grid;grid-template-columns:repeat(7,1fr);gap:8px;padding:10px}
 @media(max-width:560px){.week{grid-template-columns:repeat(7,minmax(130px,1fr));overflow-x:auto}}
-.day{background:var(--paper);border:1px solid var(--paper-dark);border-radius:9px;padding:8px;min-height:120px}
-.day.today{border-color:var(--rust);border-width:2px}
+.day{background:var(--ink);border:1px solid var(--ink-hairline);border-radius:9px;padding:8px;min-height:120px}
+.day.today{border-color:var(--ember);border-width:2px}
 .dow{font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:500;letter-spacing:.22em;
-text-transform:uppercase;color:var(--bark)}
-.day.today .dow{color:var(--rust)}
-.meal{margin-top:6px;padding-top:6px;border-top:1px solid var(--paper-dark)}
-.meal a{color:var(--ink);text-decoration:none;font-weight:600}
-.meal a:hover{color:var(--rust);text-decoration:underline;text-decoration-thickness:2px}
+text-transform:uppercase;color:var(--ash)}
+.day.today .dow{color:var(--ember)}
+.meal{margin-top:6px;padding-top:6px;border-top:1px solid var(--ink-hairline)}
+.meal a{color:var(--paper);text-decoration:none;font-weight:600}
+.meal a:hover{color:var(--ember);text-decoration:underline;text-decoration-thickness:2px}
 .mt{font-family:'JetBrains Mono',monospace;color:var(--bark);font-size:10px;text-transform:uppercase;letter-spacing:.12em}
 .rate{margin-top:4px;display:flex;align-items:center;gap:1px}
-.rate button{background:none;border:none;color:var(--stone);cursor:pointer;font-size:15px;padding:0 1px;line-height:1}
-.rate button:hover{color:var(--rust)}
-.rate .as{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--bark);margin-left:6px}
-:focus-visible{outline:2px solid var(--rust);outline-offset:2px}
-.empty{color:var(--bark);font-size:13px;padding:24px;text-align:center;font-family:'Space Grotesk',sans-serif}
+.rate button{background:none;border:none;color:var(--ash);cursor:pointer;font-size:15px;padding:0 1px;line-height:1}
+.rate button:hover{color:var(--ember)}
+.rate .as{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ash);margin-left:6px}
+:focus-visible{outline:2px solid var(--ember);outline-offset:2px}
+.empty{color:var(--ash);font-size:13px;padding:24px;text-align:center;font-family:'Space Grotesk',sans-serif}
 """
 
 
@@ -265,7 +266,7 @@ def index():
     except Exception:
         log.exception("meal plan fetch failed")
         return Response(
-            f"<!doctype html><body style='background:#f7f1e6;color:#6b6358;font-family:sans-serif;padding:20px'>"
+            f"<!doctype html><body style='background:#2b2825;color:#8d8377;font-family:sans-serif;padding:20px'>"
             f"Couldn't load the meal plan right now. Try again shortly.</body>",
             mimetype="text/html",
         )
@@ -305,17 +306,17 @@ def _vik(method: str, path: str, token: str, body=None):
 
 TASKS_CSS = PAGE_CSS + """
 .tl{display:flex;gap:8px;margin:0;padding:10px;overflow-x:auto;list-style:none}
-.tl li{flex:0 0 170px;background:var(--paper);border:1px solid var(--paper-dark);border-radius:9px;
+.tl li{flex:0 0 170px;background:var(--ink);border:1px solid var(--ink-hairline);border-radius:9px;
 padding:8px;display:flex;flex-direction:column;gap:4px}
 .tl li.over{border-color:var(--danger)}
 .tl form{display:flex;margin:0}
-.tl button{width:20px;height:20px;border:2px solid var(--bark);border-radius:6px;background:none;cursor:pointer}
-.tl button:hover{border-color:var(--ok);background:var(--paper-dark)}
+.tl button{width:20px;height:20px;border:2px solid var(--ash);border-radius:6px;background:none;cursor:pointer}
+.tl button:hover{border-color:var(--ok);background:var(--ink-surface)}
 .tt{font-weight:600;font-size:13px;line-height:1.25}
-.due{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--bark);white-space:nowrap}
+.due{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ash);white-space:nowrap}
 li.over .due{color:var(--danger);font-weight:500}
 .proj{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--stone)}
-.note{padding:10px;font-size:12px;color:var(--bark)}
+.note{padding:10px;font-size:12px;color:var(--ash)}
 """
 
 @app.get("/tasks")
@@ -390,16 +391,16 @@ WMO_ICON = {0:"☀️",1:"🌤️",2:"⛅",3:"☁️",45:"🌫️",48:"🌫️",
 WX_CSS = PAGE_CSS + """
 .wx{min-height:0;text-align:center;padding:8px 4px}
 .wx .icon{font-size:22px;line-height:1.3}
-.wx .desc{font-size:11px;color:var(--bark)}
+.wx .desc{font-size:11px;color:var(--ash)}
 .wx .temps{font-weight:600;font-size:13px}
-.wx .temps .lo{color:var(--bark);font-weight:400}
-.wx .pop{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--bark)}
+.wx .temps .lo{color:var(--ash);font-weight:400}
+.wx .pop{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ash)}
 .hours{display:flex;gap:6px;padding:8px 10px 0;overflow-x:auto}
-.hr{flex:0 0 60px;text-align:center;background:var(--paper);border:1px solid var(--paper-dark);border-radius:9px;padding:5px 2px}
-.hr .hh{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--bark);text-transform:lowercase}
+.hr{flex:0 0 60px;text-align:center;background:var(--ink);border:1px solid var(--ink-hairline);border-radius:9px;padding:5px 2px}
+.hr .hh{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ash);text-transform:lowercase}
 .hr .icon{font-size:17px}
 .hr .temps{font-size:12px;font-weight:600}
-.hr .pop{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--bark)}
+.hr .pop{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--ash)}
 """
 
 @app.get("/weather")

@@ -2,8 +2,8 @@
 title: The Mack House
 description: Home dashboard for the Mack family
 
-theme: light
-color: stone   # base only -- Kodiak tokens come from custom.css
+theme: dark
+color: stone   # base only -- Kodiak ink-ground tokens come from custom.css
 headerStyle: clean
 hideVersion: true
 disableCollapse: false
@@ -17,21 +17,9 @@ layout:
   Tasks:
     style: row
     columns: 1   # full-width horizontal task strip under the weather
-  Watch & Listen:
-    style: row
-    columns: 3
-  Read:
-    style: row
-    columns: 3
-  Request:
-    style: row
-    columns: 2
-  Home:
-    style: row
-    columns: 4
   Household Calendar:
     style: row
-    columns: 1
+    columns: 2   # weekly agenda (events visible) + clickable monthly
 
 # Quick links shown in the header.
 quicklaunch:

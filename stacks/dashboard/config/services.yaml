@@ -1,135 +1,61 @@
-# Homepage services -- Mack family dashboard.
-#
-# Health: `siteMonitor` gives keyless up/down for every family service (Homepage does a
-# HEAD/GET; a 2xx/3xx/401 = up). A few services also get a rich widget (light stats) that
-# needs a read-only API key, supplied via {{HOMEPAGE_VAR_*}} from the op-injected .env.
-# If a key isn't ready, comment out its `widget:` block and its line in .env.tpl -- the
-# tile + siteMonitor still work.
-#
-# All *.kmkdp.com hosts resolve to the DMZ (192.168.191.20) and are reachable from
-# kdk-dkr-01 (internal->DMZ:443 is open). Calibre is internal (Tailscale) at 10.1.20.20.
-
+# Homepage services -- Mack family dashboard (functional board; nav in sidebar).
 - This Week:
-    - Meal Plan:
-        icon: mdi-silverware-fork-knife
-        href: https://recipes.kmkdp.com/mealplan
-        description: This week's dinners -- tap a meal to open the recipe and rate it
-        widget:
-          type: iframe
-          name: Meal Plan
-          src: https://home.kmkdp.com/meal/
-          height: 235
-          referrerPolicy: same-origin
-
-    - Weather:
-        icon: mdi-weather-partly-cloudy
-        description: Tiffin, IA — 7-day forecast
-        widget:
-          type: iframe
-          name: Weather
-          src: https://home.kmkdp.com/meal/weather
-          height: 150
-
+  - Meal Plan:
+      icon: mdi-silverware-fork-knife
+      href: https://recipes.kmkdp.com/mealplan
+      description: This week's dinners -- tap a meal to open the recipe and rate it
+      widget:
+        type: iframe
+        name: Meal Plan
+        src: https://home.kmkdp.com/meal/
+        height: 235
+        referrerPolicy: same-origin
+  - Weather:
+      icon: mdi-weather-partly-cloudy
+      description: Tiffin, IA — 7-day forecast
+      widget:
+        type: iframe
+        name: Weather
+        src: https://home.kmkdp.com/meal/weather
+        height: 150
 - Tasks:
-    - Up Next:
-        icon: mdi-check-circle-outline
-        description: Family chores due soon — tap to mark done
-        widget:
-          # Shared family board (jmack account); completions attributed to the
-          # signed-in user via their own token when stored.
-          type: iframe
-          name: Tasks
-          src: https://home.kmkdp.com/meal/tasks
-          height: 175
-
-- Watch & Listen:
-    - Movies & TV:
-        icon: jellyfin.png
-        href: https://jellyfin.kmkdp.com
-        description: Watch on the Apple TV (Neptune) or the web
-        siteMonitor: https://jellyfin.kmkdp.com/health
-        # P1b (needs api key): widget:
-        # P1b (needs api key): type: jellyfin
-        # P1b (needs api key): url: https://jellyfin.kmkdp.com
-        # P1b (needs api key): key: "{{HOMEPAGE_VAR_JELLYFIN_KEY}}"
-        # P1b (needs api key): enableNowPlaying: true
-        # P1b (needs api key): enableBlocks: true
-    - Audiobooks:
-        icon: audiobookshelf.png
-        href: https://audiobookshelf.kmkdp.com
-        description: Listen in the Audiobookshelf app
-        siteMonitor: https://audiobookshelf.kmkdp.com
-        # P1b (needs api key): widget:
-        # P1b (needs api key): type: audiobookshelf
-        # P1b (needs api key): url: https://audiobookshelf.kmkdp.com
-        # P1b (needs api key): key: "{{HOMEPAGE_VAR_ABS_KEY}}"
-    - Photos:
-        icon: immich.png
-        href: https://immich.kmkdp.com
-        description: Family photos (Immich)
-        siteMonitor: https://immich.kmkdp.com
-
-- Read:
-    - eBook Library:
-        icon: calibre.png
-        href: http://10.1.20.20:8081
-        description: Calibre library (OPDS) -- on home Wi-Fi / Tailscale
-        siteMonitor: http://10.1.20.20:8081
-    - reMarkable:
-        icon: mdi-tablet
-        href: https://home.kmkdp.com/guides/libreseerr.html
-        description: Books sync to the reMarkable automatically -- see the guide
-
-- Request:
-    - Request a Movie or Show:
-        icon: jellyseerr.png
-        href: https://seerr.kmkdp.com
-        description: Ask for something to watch (sign in with your Jellyfin login)
-        siteMonitor: https://seerr.kmkdp.com
-        # P1b (needs api key): widget:
-        # P1b (needs api key): type: jellyseerr
-        # P1b (needs api key): url: https://seerr.kmkdp.com
-        # P1b (needs api key): key: "{{HOMEPAGE_VAR_SEERR_KEY}}"
-    - Request a Book:
-        icon: mdi-book-plus
-        href: https://libreseerr.kmkdp.com
-        description: Ask for an ebook (Libreseerr)
-        siteMonitor: https://libreseerr.kmkdp.com
-
-- Home:
-    - Household Tasks:
-        icon: vikunja.png
-        href: https://tasks.kmkdp.com
-        description: Recurring chores & to-dos -- tick them off
-        siteMonitor: https://tasks.kmkdp.com
-    - Budget:
-        icon: actualbudget.png
-        href: https://budget.kmkdp.com
-        description: Household budget (Actual) -- sign in with your kmkdp account
-        siteMonitor: https://budget.kmkdp.com
-    - Recipe Book:
-        icon: mdi-book-open-variant
-        href: https://recipes.kmkdp.com
-        description: Browse recipes, shopping list & pantry (Tandoor)
-        siteMonitor: https://recipes.kmkdp.com
-    - How-To Guides:
-        icon: mdi-help-circle
-        href: https://home.kmkdp.com/guides/
-        description: Plain-language guides for everything here
-
+  - Up Next:
+      icon: mdi-check-circle-outline
+      description: Family chores due soon — tap to mark done
+      widget:
+        type: iframe
+        name: Tasks
+        src: https://home.kmkdp.com/meal/tasks
+        height: 175
 - Household Calendar:
-    - Calendar:
-        icon: mdi-calendar-month
-        widget:
-          type: calendar
-          view: monthly
-          maxEvents: 12
-          showTime: true
-          timezone: America/Chicago
-          integrations:
-            - type: ical
-              url: "{{HOMEPAGE_VAR_ICS_URL}}"
-              name: Family
-              color: amber
-              params:
-                showName: true
+  - This Week's Events:
+      icon: mdi-calendar-week
+      widget:
+        type: calendar
+        view: agenda
+        maxEvents: 10
+        showTime: true
+        timezone: America/Chicago
+        previousDays: 0
+        integrations:
+        - type: ical
+          url: '{{HOMEPAGE_VAR_ICS_URL}}'
+          name: Family
+          color: amber
+          params:
+            showName: true
+  - Calendar:
+      icon: mdi-calendar-month
+      widget:
+        type: calendar
+        view: monthly
+        maxEvents: 12
+        showTime: true
+        timezone: America/Chicago
+        integrations:
+        - type: ical
+          url: '{{HOMEPAGE_VAR_ICS_URL}}'
+          name: Family
+          color: amber
+          params:
+            showName: true

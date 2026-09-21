@@ -1,7 +1,8 @@
-/* Kodiak Design System — application UI, paper ground.
-   Canonical tokens: old-repo docs/Homelab/Brand.md + "Kodiak Design System — Web
-   Layer". Never #000/#fff; rust = interactive accent only; stone is never text on
-   paper; radii 9/12/14. Homepage loads this after its own styles. */
+/* Kodiak Design System — application UI on the INK GROUND (dark).
+   Canonical tokens: old-repo Brand.md + Web Layer. Ink-ground rules: accent is
+   --ember (never --rust: 2.85:1 fails), secondary text --ash (never --bark),
+   surfaces --ink-surface, hairlines --ink-hairline; status colours use the
+   *-ink variants. Never #000/#fff. */
 @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
 
 :root {
@@ -9,95 +10,87 @@
   --paper-warm: #f7f1e6; --paper-dark: #dfd4c0;
   --bark: #6b6358; --stone: #9a9183; --terminal-bg: #161311;
   --terminal-green: #6f8f5c; --terminal-green-bright: #9bbd7e;
-  --ember: #c9743f; --ash: #8d8377; --paper-mute: #6a6156;
-  --ok: #4a6b37; --warn: #7a5a12; --danger: #8c2f1b; --info: #3f5a66;
+  --ember: #c9743f; --ash: #8d8377;
+  --ink-surface: #2b2825; --ink-hairline: #423d38;
+  --ok-ink: #6f8f5c; --warn-ink: #d9a441; --danger-ink: #e0705a; --info-ink: #8fb6c4;
   --font-display: 'Space Grotesk', sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
 }
 
-/* Ground */
-html, body, #page_container { background: var(--paper) !important; }
-body { font-family: var(--font-display) !important; color: var(--ink); }
+html, body, #page_container { background: var(--ink) !important; }
+body { font-family: var(--font-display) !important; color: var(--paper); }
 
-/* Page title */
-#page_container h1, .text-3xl { color: var(--ink) !important; font-family: var(--font-display) !important; font-weight: 700; }
+#page_container h1, .text-3xl { color: var(--paper) !important; font-family: var(--font-display) !important; font-weight: 700; }
+.information-widget-greeting, .widget-container { color: var(--paper) !important; }
 
-/* Group headers -> Kodiak mono section labels (1c grammar on app surfaces) */
 #page_container h2, .service-group-name {
   font-family: var(--font-mono) !important;
   font-size: 11px !important;
   letter-spacing: 0.22em !important;
   text-transform: uppercase !important;
-  color: var(--bark) !important;
+  color: var(--ash) !important;
   font-weight: 500 !important;
 }
 
-/* Service cards: paper-warm panels, medium radius, hairline border */
 .service-card, .bookmark, [class*="service-container"] > div > div {
-  background: var(--paper-warm) !important;
-  border: 1px solid var(--paper-dark) !important;
+  background: var(--ink-surface) !important;
+  border: 1px solid var(--ink-hairline) !important;
   border-radius: 12px !important;
   box-shadow: none !important;
 }
-.service-card:hover { border-color: var(--rust) !important; }
+.service-card:hover { border-color: var(--ember) !important; }
+.service-title, .service-card .font-medium, .bookmark-name { color: var(--paper) !important; }
+.service-description, .bookmark-description, .text-xs { color: var(--ash) !important; }
 
-/* Card text */
-.service-title, .service-card .font-medium, .bookmark-name { color: var(--ink) !important; }
-.service-description, .bookmark-description, .text-xs { color: var(--bark) !important; }
+a { color: var(--ember); }
+:focus-visible { outline: 2px solid var(--ember) !important; outline-offset: 2px; }
 
-/* Links + focus (Web Layer interactive states) */
-a { color: var(--rust); }
-:focus-visible { outline: 2px solid var(--rust) !important; outline-offset: 2px; }
+.status-dot-ok, [data-status="ok"] { background-color: var(--ok-ink) !important; }
+.status-dot-error, [data-status="error"] { background-color: var(--danger-ink) !important; }
 
-/* siteMonitor status dots: green means green (Kodiak ok), red = danger */
-.status-dot-ok, [data-status="ok"] { background-color: var(--ok) !important; }
-.status-dot-error, [data-status="error"] { background-color: var(--danger) !important; }
+.calendar { color: var(--paper) !important; }
+.widget-container .text-gray-400, .widget-container .text-neutral-400 { color: var(--ash) !important; }
 
-/* Widgets (calendar, vikunja list): keep text legible on paper */
-.widget-container, .calendar { color: var(--ink) !important; }
-.widget-container .text-gray-400, .widget-container .text-neutral-400 { color: var(--bark) !important; }
-
-/* Meal-plan iframe strip: flat seam into the page, no dark frame */
-.service-container iframe { border-radius: 12px; background: var(--paper-warm); border: 1px solid var(--paper-dark); }
+.service-container iframe { border-radius: 12px; background: var(--ink-surface); border: 1px solid var(--ink-hairline); }
 
 /* ---- Kodiak sidebar (injected by custom.js) ---- */
 #kodiak-sidebar {
   position: fixed; top: 0; left: 0; bottom: 0; width: 208px;
-  background: var(--paper-dark);
-  border-right: 1px solid var(--stone);
+  background: var(--terminal-bg);
+  border-right: 1px solid var(--ink-hairline);
   padding: 18px 14px; z-index: 40; overflow-y: auto;
+  transition: transform 0.15s ease;
 }
 #kodiak-sidebar .ks-brand {
   display: flex; align-items: center; gap: 10px;
-  color: var(--rust); font-weight: 600; font-size: 16px;
+  color: var(--ember); font-weight: 600; font-size: 16px;
   padding-bottom: 14px; margin-bottom: 10px;
-  border-bottom: 1px solid var(--stone);
+  border-bottom: 1px solid var(--ink-hairline);
 }
-#kodiak-sidebar .ks-brand span { color: var(--ink); }
+#kodiak-sidebar .ks-brand span { color: var(--paper); font-family: var(--font-display); }
 #kodiak-sidebar ul { list-style: none; margin: 0; padding: 0; }
 #kodiak-sidebar li a {
   display: block; padding: 8px 10px; margin: 2px 0;
   font-family: var(--font-mono); font-size: 11px;
   letter-spacing: 0.14em; text-transform: uppercase;
-  color: var(--bark); text-decoration: none; border-radius: 9px;
+  color: var(--ash); text-decoration: none; border-radius: 9px;
 }
-#kodiak-sidebar li a:hover { color: var(--rust); background: var(--paper-warm); }
-/* Shift ALL content via body padding -- robust against Homepage's DOM. */
+#kodiak-sidebar li a:hover { color: var(--ember); background: var(--ink-surface); }
+
 body.has-kodiak-sidebar { padding-left: 208px !important; }
 body.has-kodiak-sidebar.ks-collapsed { padding-left: 0 !important; }
 body.ks-collapsed #kodiak-sidebar { transform: translateX(-100%); }
-#kodiak-sidebar { transition: transform 0.15s ease; }
 #ks-toggle {
   position: fixed; top: 10px; left: 10px; z-index: 50;
   width: 34px; height: 34px; border-radius: 9px;
-  border: 1px solid var(--stone); background: var(--paper-warm);
-  color: var(--rust); font-size: 17px; cursor: pointer; line-height: 1;
+  border: 1px solid var(--ink-hairline); background: var(--ink-surface);
+  color: var(--ember); font-size: 17px; cursor: pointer; line-height: 1;
 }
-#ks-toggle:hover { border-color: var(--rust); }
-body:not(.ks-collapsed) #ks-toggle { left: 164px; }  /* sits inside the open sidebar */
+#ks-toggle:hover { border-color: var(--ember); }
+body:not(.ks-collapsed) #ks-toggle { left: 164px; }
 @media (max-width: 820px) {
   body.has-kodiak-sidebar { padding-left: 0 !important; }
-  #kodiak-sidebar { transform: translateX(-100%); }   /* phones: collapsed by default */
+  #kodiak-sidebar { transform: translateX(-100%); }
   body.ks-open #kodiak-sidebar { transform: none; }
   body:not(.ks-collapsed) #ks-toggle { left: 10px; }
 }

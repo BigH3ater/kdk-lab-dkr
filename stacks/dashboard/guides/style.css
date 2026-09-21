@@ -6,12 +6,9 @@
   --ink:#1b1a18; --rust:#9d4a25; --paper:#ece2d0; --paper-warm:#f7f1e6;
   --paper-dark:#dfd4c0; --bark:#6b6358; --stone:#9a9183;
   --ember:#c9743f; --ash:#8d8377; --ink-surface:#2b2825; --ink-hairline:#423d38;
-  --bg:var(--paper); --card:var(--paper-warm); --text:var(--ink);
-  --muted:var(--bark); --accent:var(--rust); --line:var(--paper-dark);
-}
-@media (prefers-color-scheme: dark) {
-  :root { --bg:var(--ink); --card:var(--ink-surface); --text:var(--paper);
-          --muted:var(--ash); --accent:var(--ember); --line:var(--ink-hairline); }
+  /* Ink ground always -- matches the dashboard's dark theme. */
+  --bg:var(--ink); --card:var(--ink-surface); --text:var(--paper);
+  --muted:var(--ash); --accent:var(--ember); --line:var(--ink-hairline);
 }
 * { box-sizing: border-box; }
 body { margin:0; background:var(--bg); color:var(--text);
@@ -36,3 +33,16 @@ code { font-family:'JetBrains Mono',monospace; font-size:14px;
   background:var(--card); border-radius:0 9px 9px 0; margin:12px 0; }
 footer { margin-top:40px; color:var(--muted); font-size:14px;
   border-top:1px solid var(--line); padding-top:14px; }
+
+/* Sidebar (nav.js) -- same treatment as the dashboard */
+#kodiak-sidebar{position:fixed;top:0;left:0;bottom:0;width:208px;background:#161311;
+border-right:1px solid var(--ink-hairline);padding:18px 14px;z-index:40;overflow-y:auto}
+#kodiak-sidebar .ks-brand{display:flex;align-items:center;gap:10px;color:var(--ember);
+font-weight:600;font-size:16px;padding-bottom:14px;margin-bottom:10px;border-bottom:1px solid var(--ink-hairline)}
+#kodiak-sidebar .ks-brand span{color:var(--paper)}
+#kodiak-sidebar ul{list-style:none;margin:0;padding:0}
+#kodiak-sidebar li a{display:block;padding:8px 10px;margin:2px 0;font-family:'JetBrains Mono',monospace;
+font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--ash);text-decoration:none;border-radius:9px}
+#kodiak-sidebar li a:hover{color:var(--ember);background:var(--ink-surface)}
+@media(min-width:960px){body{padding-left:224px}}
+@media(max-width:959px){#kodiak-sidebar{display:none}}
