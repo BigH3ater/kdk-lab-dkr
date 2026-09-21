@@ -46,3 +46,30 @@ font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--ash);te
 #kodiak-sidebar li a:hover{color:var(--ember);background:var(--ink-surface)}
 @media(min-width:960px){body{padding-left:224px}}
 @media(max-width:959px){#kodiak-sidebar{display:none}}
+
+/* ---- Components the guide pages use (index grid, cards, buttons) ---- */
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; margin: 16px 0; }
+.grid a {
+  display: flex; flex-direction: column; gap: 6px;
+  background: var(--card); border: 1px solid var(--line); border-radius: 12px;
+  padding: 16px; text-decoration: none;
+}
+.grid a:hover { border-color: var(--accent); }
+.grid .t { color: var(--text); font-weight: 600; font-size: 17px; }
+.grid .d { color: var(--muted); font-size: 14px; line-height: 1.45; }
+.note {
+  background: var(--card); border: 1px solid var(--line); border-left: 3px solid var(--accent);
+  border-radius: 0 12px 12px 0; padding: 12px 16px; margin: 16px 0;
+  color: var(--muted); font-size: 15px;
+}
+.note a { color: var(--accent); }
+.btn {
+  display: inline-block; background: var(--accent); color: var(--ink);
+  font-weight: 600; padding: 8px 16px; border-radius: 9px; text-decoration: none;
+}
+.btn:hover { filter: brightness(1.08); }
+.pill {
+  font-family: 'JetBrains Mono', monospace; font-size: 12px;
+  background: var(--card); border: 1px solid var(--line); border-radius: 999px;
+  padding: 2px 10px; white-space: nowrap;
+}
