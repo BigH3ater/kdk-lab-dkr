@@ -82,6 +82,20 @@ so DoH-using browsers simply fail closed off-LAN rather than leak.
 > 2026-09-21** (manual, operator-run — these names are excluded from
 > auto-reconcile).
 
+### Troubleshooting: external domain "connection refused" from lab hosts
+
+Check AdGuard **blocklists** before blaming the remote service: the HaGeZi
+"Most Abused TLDs" list wildcards whole TLDs (`.life` bit us 2026-09-21 —
+Nzb.su's new home nzb.life answered 0.0.0.0, surfacing as
+`Connection refused (nzb.life:443)` in Chaptarr/Prowlarr). Diagnose with
+`dig @10.1.1.53 <domain>` → `0.0.0.0` = blocked. Fix: allowlist rule
+`@@||<domain>^$important` in user rules on the ORIGIN (10.1.1.120), then make
+sure adguardhome-sync has propagated to the replicas (`docker restart
+adguardhome-sync` on kdk-dkr-01 forces it) — otherwise the fix silently
+vanishes on VRRP failover. Note: user rules still carry ~90 inert k3s-era
+external-dns `dnsrewrite` rules (→10.1.20.10; masked by the rewrite list) —
+cleanup candidate.
+
 ### Troubleshooting: redirect to `*.svc.cluster.local`
 
 A browser landing on `https://authelia.dmz.svc.cluster.local/...` (or any
