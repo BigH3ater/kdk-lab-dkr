@@ -25,7 +25,7 @@ HOMEPAGE_VAR_VIKUNJA_KEY={{ op://kdk-cluster/vikunja-api-ro/password }}
 # sidecar maps Remote-User -> token so completions show the right doer.
 # Shared family board + jmack's completions both use the rw token (it IS jmack's
 # full-permission token). rach's own token can be added later for attribution.
-VIKUNJA_TOKEN_JMACK={{ op://kdk-cluster/vikunja-api-rw/password }}
+VIKUNJA_TOKEN_JMACK={{ op://kdk-cluster/vikunja-api-rw/credential }}
 # VIKUNJA_TOKEN_RACH <- 1P item kdk-cluster/vikunja-api-rach field password (uncomment once rach has minted hers)
 
 # ---- P3: household calendar (Proton "Share via link" ICS) ---------------------
