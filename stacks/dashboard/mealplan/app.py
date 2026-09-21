@@ -360,6 +360,62 @@ def tasks_complete():
     return redirect("tasks", code=303)
 
 
+
+# ---- Weather: Tiffin, IA 7-day strip (Open-Meteo, keyless) ------------------
+WX_URL = ("https://api.open-meteo.com/v1/forecast?latitude=41.706&longitude=-91.663"
+          "&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max"
+          "&temperature_unit=fahrenheit&timezone=America%2FChicago&forecast_days=7")
+_wx_cache: tuple[float, dict] | None = None
+
+WMO = {0:"Clear",1:"Mostly clear",2:"Partly cloudy",3:"Overcast",45:"Fog",48:"Fog",
+       51:"Drizzle",53:"Drizzle",55:"Drizzle",61:"Rain",63:"Rain",65:"Heavy rain",
+       66:"Icy rain",67:"Icy rain",71:"Snow",73:"Snow",75:"Heavy snow",77:"Snow",
+       80:"Showers",81:"Showers",82:"Heavy showers",85:"Snow showers",86:"Snow showers",
+       95:"Storms",96:"Storms",99:"Hail storms"}
+WMO_ICON = {0:"☀️",1:"🌤️",2:"⛅",3:"☁️",45:"🌫️",48:"🌫️",51:"🌦️",53:"🌦️",55:"🌦️",
+            61:"🌧️",63:"🌧️",65:"🌧️",66:"🌧️",67:"🌧️",71:"🌨️",73:"🌨️",75:"🌨️",77:"🌨️",
+            80:"🌦️",81:"🌧️",82:"⛈️",85:"🌨️",86:"🌨️",95:"⛈️",96:"⛈️",99:"⛈️"}
+
+WX_CSS = PAGE_CSS + """
+.wx{min-height:0;text-align:center;padding:8px 4px}
+.wx .icon{font-size:22px;line-height:1.3}
+.wx .desc{font-size:11px;color:var(--bark)}
+.wx .temps{font-weight:600;font-size:13px}
+.wx .temps .lo{color:var(--bark);font-weight:400}
+.wx .pop{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--bark)}
+"""
+
+@app.get("/weather")
+def weather():
+    global _wx_cache
+    import time as _t
+    now = _t.time()
+    if _wx_cache and now - _wx_cache[0] < 900:
+        d = _wx_cache[1]
+    else:
+        try:
+            d = requests.get(WX_URL, timeout=15).json()["daily"]
+            _wx_cache = (now, d)
+        except Exception:
+            log.exception("open-meteo fetch failed")
+            if _wx_cache: d = _wx_cache[1]
+            else:
+                return Response(f"<!doctype html><style>{WX_CSS}</style><div class='empty'>Weather unavailable right now.</div>", mimetype="text/html")
+    today = datetime.datetime.now(TZ).date()
+    cells = []
+    for i, day in enumerate(d["time"]):
+        dt = datetime.date.fromisoformat(day)
+        code = int(d["weather_code"][i])
+        is_today = " today" if dt == today else ""
+        cells.append(
+            f"<div class='day wx{is_today}'><div class='dow'>{dt.strftime('%a %-d')}</div>"
+            f"<div class='icon' role='img' aria-label='{WMO.get(code,'')}'>{WMO_ICON.get(code,'·')}</div>"
+            f"<div class='desc'>{WMO.get(code,'—')}</div>"
+            f"<div class='temps'>{round(d['temperature_2m_max'][i])}° <span class='lo'>/ {round(d['temperature_2m_min'][i])}°</span></div>"
+            f"<div class='pop'>{int(d['precipitation_probability_max'][i] or 0)}% rain</div></div>")
+    return Response(f"<!doctype html><html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><style>{WX_CSS}</style></head><body><div class='week'>{''.join(cells)}</div></body></html>", mimetype="text/html")
+
+
 if __name__ == "__main__":
     if not (USER and PASS):
         log.warning("TANDOOR_USER/TANDOOR_PASS not set -- meal plan will fail to load")

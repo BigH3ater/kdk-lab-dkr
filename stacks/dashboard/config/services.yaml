@@ -21,6 +21,15 @@
           height: 235
           referrerPolicy: same-origin
 
+    - Weather:
+        icon: mdi-weather-partly-cloudy
+        description: Tiffin, IA — 7-day forecast
+        widget:
+          type: iframe
+          name: Weather
+          src: https://home.kmkdp.com/meal/weather
+          height: 150
+
 - Watch & Listen:
     - Movies & TV:
         icon: jellyfin.png

@@ -11,9 +11,9 @@
       hourCycle: h12
 
 - openmeteo:
-    label: Home
-    latitude: 41.66          # Iowa City area (adjust if wrong)
-    longitude: -91.53
+    label: Tiffin
+    latitude: 41.706         # Tiffin, IA
+    longitude: -91.663
     timezone: America/Chicago
     units: imperial
     cache: 15
