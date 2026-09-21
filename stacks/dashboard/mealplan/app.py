@@ -199,13 +199,30 @@ text-transform:uppercase;color:var(--ash)}
 .rate{margin-top:4px;display:flex;align-items:center;gap:1px}
 .rate button{background:none;border:none;color:var(--ash);cursor:pointer;font-size:15px;padding:0 1px;line-height:1}
 .rate button:hover{color:var(--ember)}
+.rate button.on{color:var(--ember)}
 .rate .as{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ash);margin-left:6px}
 :focus-visible{outline:2px solid var(--ember);outline-offset:2px}
 .empty{color:var(--ash);font-size:13px;padding:24px;text-align:center;font-family:'Space Grotesk',sans-serif}
 """
 
 
+def last_ratings(recipe_ids: set[int]) -> dict[int, int]:
+    """Latest CookLog rating per recipe (any household member; the dashboard
+    account sees the space's logs). Best-effort - failures mean empty stars."""
+    out: dict[int, int] = {}
+    for rid in recipe_ids:
+        try:
+            r = _api_get(f"/api/cook-log/?recipe={rid}&page_size=1&ordering=-created_at")
+            results = r.json().get("results") or []
+            if results and results[0].get("rating"):
+                out[rid] = int(results[0]["rating"])
+        except Exception:
+            pass
+    return out
+
+
 def render_week(plan: list[dict], today: datetime.date, mon: datetime.date, rater: str) -> str:
+    rated = last_ratings({e["recipe_id"] for e in plan if e.get("recipe_id")})
     by_day: dict[str, list[dict]] = {}
     for e in plan:
         if e["date"]:
@@ -220,8 +237,10 @@ def render_week(plan: list[dict], today: datetime.date, mon: datetime.date, rate
             mt = f'<div class="mt">{e["meal_type"]}</div>' if e["meal_type"] else ""
             if e["url"]:
                 name = f'<a href="{e["url"]}" target="_top">{e["title"]}</a>'
+                cur = rated.get(e["recipe_id"], 0)
                 stars = "".join(
-                    f'<button type="submit" name="rating" value="{n}" title="{n} star">&#9734;</button>'
+                    f'<button type="submit" name="rating" value="{n}" title="{n} star"'
+                    f'{" class=\"on\"" if n <= cur else ""}>{"&#9733;" if n <= cur else "&#9734;"}</button>'
                     for n in range(1, 6)
                 )
                 rate = (
@@ -381,7 +400,7 @@ def tasks_complete():
         if not token:
             token = VIKUNJA_TOKENS.get("jmack", "")
         if token:
-            _vik("POST", f"/tasks/{tid}/done", token)
+            _vik("POST", f"/tasks/{tid}", token, {"done": True})
             log.info("task %s completed by %s", tid, login)
     except Exception:
         log.exception("task completion failed")
