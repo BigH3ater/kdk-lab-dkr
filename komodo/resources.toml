@@ -436,6 +436,18 @@ enabled = true
 executions = [
   { execution.type = "RunSync", execution.params.sync = "kdk-lab-dkr", enabled = true },
 ]
+# Close the GitOps loop for FILE changes: RunSync only reconciles resources.toml;
+# it never redeploys a stack whose repo files changed (proven 2026-09-21 — two
+# sync windows ignored pushed dashboard/theme changes). BatchDeployStackIfChanged
+# compares each stack's DEPLOYED contents vs latest repo contents and deploys
+# only the changed ones, so unrelated pushes leave one-shot/backup stacks alone.
+# Public repo -> Core polls/clones anonymously, no PAT needed.
+[[procedure.config.stage]]
+name = "deploy-changed"
+enabled = true
+executions = [
+  { execution.type = "BatchDeployStackIfChanged", execution.params.pattern = "*", execution.params.tags = ["kdk-lab"], enabled = true },
+]
 # After sync, reconcile AdGuard DNS from the (now-current) compose Host() labels.
 # destroy_before_deploy recreates the one-shot fresh each run so it re-clones the
 # repo and reads HEAD; runs after "sync" so a just-added stack's record lands.
