@@ -415,6 +415,41 @@ const info = s.info ?? {};
 console.log(`refreshed: last=${info.last_sync_hash ?? "?"} pending=${info.pending_hash ?? "?"}`);
 '''
 
+# Deploys every git-linked kdk-lab stack whose repo files changed since its
+# last deploy (DeployStackIfChanged = per-stack contents diff, so unrelated
+# pushes are no-ops). backup-* stacks are excluded — the nightly-backups
+# procedure owns their cadence, and an off-schedule offsite run risks the
+# Proton auth cooldown. Driven by the gitops-sync procedure after RunSync.
+[[action]]
+tags = ["kdk-lab"]
+name = "deploy-changed"
+[action.config]
+schedule_enabled = false   # driven by the gitops-sync procedure
+failure_alert = true
+file_contents = '''
+const TAG = "kdk-lab";
+const SKIP = /^backup-/;
+const tags: any[] = await komodo.read("ListTags", {});
+const tagId = tags.find((t) => t.name === TAG)?._id?.$oid ?? TAG;
+const stacks: any[] = await komodo.read("ListStacks", {});
+let fired = 0;
+for (const s of stacks) {
+  const tagged = (s.tags ?? []).some((t: string) => t === tagId || t === TAG);
+  if (!tagged || SKIP.test(s.name)) continue;
+  // only git-linked stacks have repo-diffable contents (verified shape:
+  // info.repo = "BigH3ater/kdk-lab-dkr", files_on_host = adopted/not-git)
+  if (!s.info?.repo || s.info?.files_on_host) continue;
+  try {
+    const u: any = await komodo.execute("DeployStackIfChanged", { stack: s.name });
+    fired++;
+    console.log(`DeployStackIfChanged queued: ${s.name} (update ${u?._id?.$oid ?? "?"})`);
+  } catch (e) {
+    console.log(`FAILED to queue ${s.name}: ${e}`);
+  }
+}
+console.log(`deploy-changed: ${fired} stacks checked/queued`);
+'''
+
 [[procedure]]
 tags = ["kdk-lab"]
 name = "gitops-sync"
@@ -438,15 +473,17 @@ executions = [
 ]
 # Close the GitOps loop for FILE changes: RunSync only reconciles resources.toml;
 # it never redeploys a stack whose repo files changed (proven 2026-09-21 — two
-# sync windows ignored pushed dashboard/theme changes). BatchDeployStackIfChanged
-# compares each stack's DEPLOYED contents vs latest repo contents and deploys
-# only the changed ones, so unrelated pushes leave one-shot/backup stacks alone.
-# Public repo -> Core polls/clones anonymously, no PAT needed.
+# sync windows ignored pushed dashboard/theme changes). Implemented as a Deno
+# action (NOT a BatchDeployStackIfChanged stage: that execution type made the
+# 2.3.3 procedure sync loop "exit after max iterations", failing every RunSync
+# on 2026-09-21). DeployStackIfChanged compares deployed vs latest contents per
+# stack, so unrelated pushes leave one-shot/backup stacks alone. Public repo ->
+# Core polls/clones anonymously, no PAT needed.
 [[procedure.config.stage]]
 name = "deploy-changed"
 enabled = true
 executions = [
-  { execution.type = "BatchDeployStackIfChanged", execution.params.pattern = "*", execution.params.tags = ["kdk-lab"], enabled = true },
+  { execution.type = "RunAction", execution.params.action = "deploy-changed", enabled = true },
 ]
 # After sync, reconcile AdGuard DNS from the (now-current) compose Host() labels.
 # destroy_before_deploy recreates the one-shot fresh each run so it re-clones the
