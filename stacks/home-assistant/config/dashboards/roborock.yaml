@@ -33,6 +33,8 @@ views:
       heading: Live Map — tap a room to clean it
       icon: mdi:map
     - type: custom:xiaomi-vacuum-map-card
+      grid_options:
+        columns: full
       entity: vacuum.mr_slave_2
       vacuum_platform: Roborock
       title: ''
@@ -193,6 +195,13 @@ views:
             y: 20450
       - template: vacuum_clean_zone
       - template: vacuum_goto
+    - type: button
+      name: Full-Screen Map
+      icon: mdi:fullscreen
+      show_state: false
+      tap_action:
+        action: navigate
+        navigation_path: /roborock-vac/map
 
   - type: grid
     cards:
@@ -381,3 +390,170 @@ views:
     - type: tile
       entity: sensor.mr_slave_sensor_time_left_2
       name: Sensor Clean Left
+
+- title: Map
+  path: map
+  icon: mdi:map
+  type: panel
+  cards:
+  - type: custom:xiaomi-vacuum-map-card
+    entity: vacuum.mr_slave_2
+    vacuum_platform: Roborock
+    title: ''
+    map_source:
+      camera: image.mr_slave_main_floor_2
+    calibration_source:
+      calibration_points:
+      - vacuum:
+          x: 12225
+          y: 17250
+        map:
+          x: 350
+          y: 1224
+      - vacuum:
+          x: 22675
+          y: 20450
+        map:
+          x: 1186
+          y: 968
+      - vacuum:
+          x: 16425
+          y: 27950
+        map:
+          x: 686
+          y: 368
+    map_modes:
+    - template: vacuum_clean_segment
+      predefined_selections:
+      - id: 1
+        label:
+          text: Master Bedroom Closet
+          x: 12225
+          y: 17250
+          offset_y: 32
+        icon:
+          name: mdi:robot-vacuum
+          x: 12225
+          y: 17250
+      - id: 2
+        label:
+          text: Master Bedroom
+          x: 13350
+          y: 20950
+          offset_y: 32
+        icon:
+          name: mdi:robot-vacuum
+          x: 13350
+          y: 20950
+      - id: 3
+        label:
+          text: Bedroom 1
+          x: 13025
+          y: 27350
+          offset_y: 32
+        icon:
+          name: mdi:robot-vacuum
+          x: 13025
+          y: 27350
+      - id: 4
+        label:
+          text: Master Bathroom
+          x: 14650
+          y: 17200
+          offset_y: 32
+        icon:
+          name: mdi:robot-vacuum
+          x: 14650
+          y: 17200
+      - id: 5
+        label:
+          text: Bathroom 1
+          x: 13100
+          y: 24300
+          offset_y: 32
+        icon:
+          name: mdi:robot-vacuum
+          x: 13100
+          y: 24300
+      - id: 6
+        label:
+          text: Garage Entrance
+          x: 22650
+          y: 25250
+          offset_y: 32
+        icon:
+          name: mdi:robot-vacuum
+          x: 22650
+          y: 25250
+      - id: 7
+        label:
+          text: Half Bath
+          x: 20525
+          y: 25300
+          offset_y: 32
+        icon:
+          name: mdi:robot-vacuum
+          x: 20525
+          y: 25300
+      - id: 8
+        label:
+          text: Laundry Room
+          x: 25125
+          y: 25775
+          offset_y: 32
+        icon:
+          name: mdi:robot-vacuum
+          x: 25125
+          y: 25775
+      - id: 9
+        label:
+          text: Rachel's Office
+          x: 16425
+          y: 27950
+          offset_y: 32
+        icon:
+          name: mdi:robot-vacuum
+          x: 16425
+          y: 27950
+      - id: 10
+        label:
+          text: Hallway
+          x: 14775
+          y: 24825
+          offset_y: 32
+        icon:
+          name: mdi:robot-vacuum
+          x: 14775
+          y: 24825
+      - id: 11
+        label:
+          text: Front Door Entry
+          x: 17775
+          y: 26275
+          offset_y: 32
+        icon:
+          name: mdi:robot-vacuum
+          x: 17775
+          y: 26275
+      - id: 12
+        label:
+          text: Living Room
+          x: 17650
+          y: 21725
+          offset_y: 32
+        icon:
+          name: mdi:robot-vacuum
+          x: 17650
+          y: 21725
+      - id: 13
+        label:
+          text: Kitchen
+          x: 22675
+          y: 20450
+          offset_y: 32
+        icon:
+          name: mdi:robot-vacuum
+          x: 22675
+          y: 20450
+    - template: vacuum_clean_zone
+    - template: vacuum_goto
