@@ -71,8 +71,11 @@ services:
       VIKUNJA_DATABASE_TYPE: sqlite
       VIKUNJA_DATABASE_PATH: /db/vikunja.db
       VIKUNJA_SERVICE_TIMEZONE: America/Chicago
+      # Registration off: login is Authelia OIDC only (see vikunja-config.yml.tpl)
+      VIKUNJA_SERVICE_ENABLEREGISTRATION: "false"
       VIKUNJA_SERVICE_ENABLEREGISTRATION: "true"   # LAN-only; family self-registers once
     volumes:
+      - ./vikunja-config.yml:/etc/vikunja/config.yml:ro
       - /opt/kdk-lab/dashboard/vikunja/db:/db
       - /opt/kdk-lab/dashboard/vikunja/files:/app/vikunja/files
     networks: [default, proxy]

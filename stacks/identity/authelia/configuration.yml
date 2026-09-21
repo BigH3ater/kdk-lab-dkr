@@ -396,6 +396,23 @@ identity_providers:
         authorization_policy: 'two_factor'
         consent_mode: 'auto'
         require_pkce: false
+      - client_id: 'vikunja'
+        client_name: 'Vikunja Tasks'
+        client_secret: '{{ secret "/secrets/authelia-app-secrets/vikunja_client_secret" }}'
+        public: false
+        redirect_uris:
+          - 'https://tasks.kmkdp.com/auth/openid/authelia'
+        scopes:
+          - 'openid'
+          - 'email'
+          - 'profile'
+        grant_types:
+          - 'authorization_code'
+        response_types:
+          - 'code'
+        authorization_policy: 'two_factor'
+        consent_mode: 'auto'
+        require_pkce: false
       - client_id: 'actual'
         client_name: 'Actual Budget'
         client_secret: '{{ secret "/secrets/authelia-app-secrets/actual_client_secret" }}'
