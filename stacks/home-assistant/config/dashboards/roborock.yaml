@@ -1,16 +1,16 @@
 # Roborock (Mr. Slave) dashboard — sections layout. YAML-mode, shipped from git.
 # Map card calibration is hand-derived (python-roborock mm→px) — do not re-derive.
-# Maintenance chores live in Vikunja (tasks.kmkdp.com project 6, "Robot Vacuum");
-# Node-RED bridges sensor evidence → task completion, and publishes run progress
-# to sensor.rr_run_progress (REST-set; 'unknown' after an HA restart until the
-# next run). Per-room clean buttons live on the HOME dashboard (user 2026-09-21).
+# Layout: 3 columns; the map takes a full-width row (span 3) so it renders large
+# and the room labels stop overlapping; progress tiles are visibility-gated to
+# active runs so the idle page isn't noise. Per-room clean buttons live on the
+# HOME dashboard inside each room's section.
 title: Roborock
 views:
 - title: Mr. Slave
   path: mr-slave
   icon: mdi:robot-vacuum
   type: sections
-  max_columns: 4
+  max_columns: 3
   badges:
   - type: entity
     entity: sensor.mr_slave_status_2
@@ -27,7 +27,7 @@ views:
   sections:
 
   - type: grid
-    column_span: 2
+    column_span: 3
     cards:
     - type: heading
       heading: Live Map — tap a room to clean it
@@ -214,9 +214,17 @@ views:
     - type: tile
       entity: sensor.mr_slave_cleaning_progress_2
       name: Cleaning Progress
+      visibility:
+      - condition: state
+        entity: vacuum.mr_slave_2
+        state_not: docked
     - type: tile
       entity: sensor.mr_slave_cleaning_time_2
       name: Run Time
+      visibility:
+      - condition: state
+        entity: vacuum.mr_slave_2
+        state_not: docked
     - type: tile
       entity: vacuum.mr_slave_2
       name: Mr. Slave
@@ -250,8 +258,8 @@ views:
     - type: markdown
       content: >-
         Daily clean: **weekdays 8:30**, **weekends 10:00**. Mop follows the
-        vacuum pass on **Monday & Friday**. Stopping the vacuum by hand (app,
-        HomeKit, or its buttons) now cancels the rest of the run.
+        vacuum pass on **Monday & Friday**. Stopping the vacuum by hand (app
+        or its buttons) cancels the rest of the run.
 
   - type: grid
     cards:
@@ -298,7 +306,6 @@ views:
           entity_id: input_button.rr_return_dock
 
   - type: grid
-    column_span: 2
     cards:
     - type: heading
       heading: Rooms Cleaned
