@@ -8,6 +8,8 @@
     ["Recipes", "https://recipes.kmkdp.com/"],
     ["Tasks", "https://tasks.kmkdp.com/"],
     ["Home Control", "https://homeassistant.kmkdp.com/home-controls"],
+    ["Vacuum", "https://homeassistant.kmkdp.com/roborock-vac/mr-slave"],
+    ["Homelab", "https://homeassistant.kmkdp.com/homelab-hw"],
     ["Budget", "https://budget.kmkdp.com/"],
     ["Watch", "https://jellyfin.kmkdp.com/"],
     ["Listen", "https://audiobookshelf.kmkdp.com/"],
