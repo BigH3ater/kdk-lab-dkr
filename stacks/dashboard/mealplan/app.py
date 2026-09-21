@@ -305,17 +305,20 @@ def _vik(method: str, path: str, token: str, body=None):
     return r.json() if r.text else None
 
 TASKS_CSS = PAGE_CSS + """
-.tl{display:flex;gap:8px;margin:0;padding:10px;overflow-x:auto;list-style:none}
-.tl li{flex:0 0 170px;background:var(--ink);border:1px solid var(--ink-hairline);border-radius:9px;
-padding:8px;display:flex;flex-direction:column;gap:4px}
-.tl li.over{border-color:var(--danger)}
-.tl form{display:flex;margin:0}
-.tl button{width:20px;height:20px;border:2px solid var(--ash);border-radius:6px;background:none;cursor:pointer}
-.tl button:hover{border-color:var(--ok);background:var(--ink-surface)}
-.tt{font-weight:600;font-size:13px;line-height:1.25}
-.due{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ash);white-space:nowrap}
-li.over .due{color:var(--danger);font-weight:500}
-.proj{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--stone)}
+.cats{display:flex;gap:8px;padding:10px;overflow-x:auto;align-items:flex-start}
+.cat{flex:1 0 150px;background:var(--ink);border:1px solid var(--ink-hairline);border-radius:9px;padding:8px;min-height:90px}
+.cat h3{font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:500;letter-spacing:.18em;
+text-transform:uppercase;color:var(--ash);margin:0 0 6px;border-bottom:1px solid var(--ink-hairline);padding-bottom:5px}
+.task{display:flex;align-items:flex-start;gap:6px;padding:5px 0;border-bottom:1px solid var(--ink-hairline)}
+.task:last-child{border-bottom:none}
+.task form{display:flex;margin:1px 0 0}
+.task button{width:16px;height:16px;border:2px solid var(--ash);border-radius:5px;background:none;cursor:pointer;flex:0 0 auto}
+.task button:hover{border-color:var(--ok);background:var(--ink-surface)}
+.tw{display:flex;flex-direction:column;min-width:0}
+.tt{font-weight:600;font-size:12px;line-height:1.25}
+.due{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--ash);white-space:nowrap}
+.task.over .due{color:var(--danger);font-weight:500}
+.task.over .tt{color:var(--danger)}
 .note{padding:10px;font-size:12px;color:var(--ash)}
 """
 
@@ -343,23 +346,31 @@ def tasks_view():
         return Response(f"<!doctype html><style>{TASKS_CSS}</style><div class='note'>Couldn't reach the task list right now.</div>", mimetype="text/html")
     today = datetime.datetime.now(TZ).date()
     horizon = today + datetime.timedelta(days=14)
-    rows = []
+    CAT_ORDER = ["Cleaning", "Dogs", "Robot Vacuum", "Yard", "Water Filtration",
+                 "House Maintenance", "General"]
+    by_cat: dict[str, list] = {}
     for t in tasks:
         if t.get("done"): continue
         due = _parse_date((t.get("due_date") or "")[:10])
         if due and due > horizon: continue
-        overdue = " over" if (due and due < today) else ""
-        due_s = due.strftime("%b %-d") if due else ""
-        proj = projects.get(t.get("project_id"), "")
-        rows.append(
-            f"<li class='{overdue.strip()}'><div style='display:flex;align-items:center;gap:6px'>"
-            f"<form method='post' action='tasks/complete'>"
-            f"<input type='hidden' name='task_id' value='{t['id']}'>"
-            f"<button title='done'></button></form>"
-            f"<span class='due{overdue}'>{due_s}</span></div>"
-            f"<span class='tt'>{t['title']}</span><span class='proj'>{proj}</span></li>")
-        if len(rows) >= 20: break
-    body = f"<ul class='tl'>{''.join(rows)}</ul>" if rows else "<div class='note'>Nothing due in the next two weeks. 🎉</div>"
+        proj = projects.get(t.get("project_id"), "Other")
+        by_cat.setdefault(proj, []).append((due, t))
+    cols = []
+    names = [c for c in CAT_ORDER if c in by_cat] + [c for c in sorted(by_cat) if c not in CAT_ORDER]
+    for cat in names:
+        items = []
+        for due, t in by_cat[cat][:6]:
+            overdue = " over" if (due and due < today) else ""
+            due_s = due.strftime("%b %-d") if due else ""
+            items.append(
+                f"<div class='task{overdue}'>"
+                f"<form method='post' action='tasks/complete'>"
+                f"<input type='hidden' name='task_id' value='{t['id']}'>"
+                f"<button title='done'></button></form>"
+                f"<span class='tw'><span class='tt'>{t['title']}</span>"
+                f"<span class='due'>{due_s}</span></span></div>")
+        cols.append(f"<div class='cat'><h3>{cat}</h3>{''.join(items)}</div>")
+    body = f"<div class='cats'>{''.join(cols)}</div>" if cols else "<div class='note'>Nothing due in the next two weeks. 🎉</div>"
     return Response(f"<!doctype html><html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><style>{TASKS_CSS}</style></head><body>{body}</body></html>", mimetype="text/html")
 
 @app.post("/tasks/complete")
