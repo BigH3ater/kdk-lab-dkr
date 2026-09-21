@@ -10,8 +10,10 @@
 #              library, de-duping by title/author. This is what turns Chaptarr's raw
 #              output folder into a browsable Calibre library.
 #
-# Reach it over the tailnet at the subnet-routed host IP: http://10.1.20.20:8081/opds
-# (add as an OPDS catalog in KOReader). Library persists at /opt/kdk-lab/calibre/library.
+# Reach it at https://calibre.kmkdp.com (Traefik router, NO Authelia — KOReader's
+# OPDS client can't do SSO and the LAN is the gate, same exposure as the old raw
+# port) or the legacy tailnet path http://10.1.20.20:8081/opds. OPDS catalog URL
+# for KOReader: https://calibre.kmkdp.com/opds. Library at /opt/kdk-lab/calibre/library.
 name: calibre
 
 x-img: &img
@@ -32,6 +34,16 @@ services:
       - /opt/kdk-lab/calibre/library:/library
     ports:
       - "8081:8081"
+    networks: [default, proxy]
+    labels:
+      traefik.enable: "true"
+      traefik.docker.network: "proxy"
+      # deliberately NO forwardauth middleware: OPDS clients (KOReader) can't SSO;
+      # LAN/Tailscale is the gate, matching the raw :8081 exposure that predates this.
+      traefik.http.routers.calibre.rule: "Host(`calibre.kmkdp.com`)"
+      traefik.http.routers.calibre.entrypoints: "websecure"
+      traefik.http.routers.calibre.tls.certresolver: "cf"
+      traefik.http.services.calibre.loadbalancer.server.port: "8081"
     entrypoint:
       - /bin/sh
       - -c
@@ -72,3 +84,5 @@ networks:
     ipam:
       config:
         - subnet: 10.208.22.0/24
+  proxy:
+    external: true
