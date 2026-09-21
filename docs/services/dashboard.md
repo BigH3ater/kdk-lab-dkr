@@ -14,8 +14,9 @@ tags: [homelab/stack, tier/internal, status/live]
 
 Family-facing launcher for the Mack household: service tiles + health, plain-language
 how-to guides, a checkable task app, the weekly meal plan, and a household calendar.
-**LAN / Tailscale only** (no Cloudflare tunnel); no Authelia (LAN is the gate) so the
-whole family can use it without a directory identity.
+**LAN / Tailscale only** (no Cloudflare tunnel); **Authelia ForwardAuth** on all
+home.kmkdp.com routers (two_factor, group `dashboard-users` = jmack + rach) —
+the Remote-User header drives rating/task attribution.
 
 **Related:** [[kdk-dkr-01]] · [[traefik]] · [[tandoor-recipes]] · [[jellyfin]] · [[seerr]] · [[audiobookshelf]]
 
@@ -46,7 +47,7 @@ curl -s https://home.kmkdp.com/meal/mealplan.json | head -c 200            # JSO
 
 Homepage (`:3000`) serves `home.kmkdp.com` on the internal `proxy` net. `guides` (nginx `:80`)
 and `mealplan` (`:8080`) are routed at `/guides` and `/meal` via Traefik `StripPrefix` with
-higher router priority than the Homepage catch-all. Vikunja (`:3456`, own auth, SQLite) is at
+higher router priority than the Homepage catch-all. Vikunja (`:3456`, Authelia OIDC, SQLite) is at
 `tasks.kmkdp.com`. All `*.kmkdp.com` service URLs the widgets/monitors point at resolve to the
 DMZ (`192.168.191.20`) and are reachable (internal→DMZ:443 is open); Calibre is internal at
 `10.1.20.20:8081`.
