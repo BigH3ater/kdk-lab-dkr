@@ -221,7 +221,7 @@ def render_week(plan: list[dict], today: datetime.date, mon: datetime.date, rate
             if e["url"]:
                 name = f'<a href="{e["url"]}" target="_top">{e["title"]}</a>'
                 stars = "".join(
-                    f'<button type="submit" name="rating" value="{n}" title="{n} star">&#9733;</button>'
+                    f'<button type="submit" name="rating" value="{n}" title="{n} star">&#9734;</button>'
                     for n in range(1, 6)
                 )
                 rate = (
@@ -327,7 +327,7 @@ def tasks_view():
     token = VIKUNJA_TOKENS.get("jmack", "")
     who = rater_from_headers()
     if not token:
-        return Response(f"<!doctype html><style>{TASKS_CSS}</style><div class='note'>No Vikunja token stored for {who} yet - open <a href='{VIKUNJA_URL}' target='_top'>tasks.kmkdp.com</a>, create an API token, and have it added as vikunja-api-{login or 'user'}.</div>", mimetype="text/html")
+        return Response(f"<!doctype html><style>{TASKS_CSS}</style><div class='note'>Task board not connected yet - store the family token as the 1Password item vikunja-api-jmack and redeploy.</div>", mimetype="text/html")
     try:
         projects = {p["id"]: p["title"] for p in _vik("GET", "/projects", token)}
         tasks = _vik("GET", "/tasks/all?sort_by=due_date&order_by=asc&filter=done%3Dfalse&per_page=60", token) or []
