@@ -7,8 +7,10 @@ auth:
     enabled: false
   openid:
     enabled: true
+    # Map keyed by provider slug (list form errors "wrong format" on current Vikunja)
     providers:
-      - name: Authelia
+      authelia:
+        name: Authelia
         authurl: https://sso.kmkdp.com
         clientid: vikunja
         clientsecret: {{ op://kdk-cluster/authelia-app-secrets/vikunja_oidc_plaintext }}
