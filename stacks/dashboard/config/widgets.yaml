@@ -9,6 +9,7 @@
       timeStyle: short
       dateStyle: long
       hourCycle: h12
+      timeZone: America/Chicago
 
 - openmeteo:
     label: Tiffin

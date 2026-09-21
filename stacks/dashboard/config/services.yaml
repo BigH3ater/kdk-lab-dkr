@@ -12,7 +12,7 @@
 - This Week:
     - Meal Plan:
         icon: mdi-silverware-fork-knife
-        href: https://recipes.kmkdp.com/plan
+        href: https://recipes.kmkdp.com/mealplan
         description: This week's dinners -- tap a meal to open the recipe and rate it
         widget:
           type: iframe
@@ -29,6 +29,18 @@
           name: Weather
           src: https://home.kmkdp.com/meal/weather
           height: 150
+
+- Tasks:
+    - Up Next:
+        icon: mdi-check-circle-outline
+        description: Family chores due soon — tap to mark done
+        widget:
+          # Shared family board (jmack account); completions attributed to the
+          # signed-in user via their own token when stored.
+          type: iframe
+          name: Tasks
+          src: https://home.kmkdp.com/meal/tasks
+          height: 175
 
 - Watch & Listen:
     - Movies & TV:
@@ -90,13 +102,6 @@
         href: https://tasks.kmkdp.com
         description: Recurring chores & to-dos -- tick them off
         siteMonitor: https://tasks.kmkdp.com
-        widget:
-          # Interactive checkable list from the mealplan sidecar -- completions
-          # are written to Vikunja AS the signed-in user (per-user API tokens).
-          type: iframe
-          name: Tasks
-          src: https://home.kmkdp.com/meal/tasks
-          height: 320
     - Budget:
         icon: actualbudget.png
         href: https://budget.kmkdp.com

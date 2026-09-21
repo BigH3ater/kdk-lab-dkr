@@ -4,7 +4,7 @@
 (function () {
   const LINKS = [
     ["Home", "https://home.kmkdp.com/"],
-    ["Meal Plan", "https://recipes.kmkdp.com/plan"],
+    ["Meal Plan", "https://recipes.kmkdp.com/mealplan"],
     ["Recipes", "https://recipes.kmkdp.com/"],
     ["Tasks", "https://tasks.kmkdp.com/"],
     ["Budget", "https://budget.kmkdp.com/"],

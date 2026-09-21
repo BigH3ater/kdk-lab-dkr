@@ -304,20 +304,26 @@ def _vik(method: str, path: str, token: str, body=None):
     return r.json() if r.text else None
 
 TASKS_CSS = PAGE_CSS + """
-.tl{list-style:none;margin:0;padding:10px}
-.tl li{display:flex;align-items:center;gap:8px;padding:7px 4px;border-bottom:1px solid var(--paper-dark)}
+.tl{display:flex;gap:8px;margin:0;padding:10px;overflow-x:auto;list-style:none}
+.tl li{flex:0 0 170px;background:var(--paper);border:1px solid var(--paper-dark);border-radius:9px;
+padding:8px;display:flex;flex-direction:column;gap:4px}
+.tl li.over{border-color:var(--danger)}
 .tl form{display:flex;margin:0}
-.tl button{width:18px;height:18px;border:2px solid var(--bark);border-radius:5px;background:none;cursor:pointer}
+.tl button{width:20px;height:20px;border:2px solid var(--bark);border-radius:6px;background:none;cursor:pointer}
 .tl button:hover{border-color:var(--ok);background:var(--paper-dark)}
-.due{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--bark);margin-left:auto;white-space:nowrap}
-.due.over{color:var(--danger);font-weight:500}
+.tt{font-weight:600;font-size:13px;line-height:1.25}
+.due{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--bark);white-space:nowrap}
+li.over .due{color:var(--danger);font-weight:500}
 .proj{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--stone)}
 .note{padding:10px;font-size:12px;color:var(--bark)}
 """
 
 @app.get("/tasks")
 def tasks_view():
-    login, token = _vik_token()
+    # Shared family board: the LIST always comes from the jmack account (single
+    # source of truth); completion still uses the viewer's own token when stored
+    # so Vikunja attributes the done-by correctly.
+    token = VIKUNJA_TOKENS.get("jmack", "")
     who = rater_from_headers()
     if not token:
         return Response(f"<!doctype html><style>{TASKS_CSS}</style><div class='note'>No Vikunja token stored for {who} yet - open <a href='{VIKUNJA_URL}' target='_top'>tasks.kmkdp.com</a>, create an API token, and have it added as vikunja-api-{login or 'user'}.</div>", mimetype="text/html")
@@ -338,12 +344,13 @@ def tasks_view():
         due_s = due.strftime("%b %-d") if due else ""
         proj = projects.get(t.get("project_id"), "")
         rows.append(
-            f"<li><form method='post' action='tasks/complete'>"
+            f"<li class='{overdue.strip()}'><div style='display:flex;align-items:center;gap:6px'>"
+            f"<form method='post' action='tasks/complete'>"
             f"<input type='hidden' name='task_id' value='{t['id']}'>"
             f"<button title='done'></button></form>"
-            f"<span>{t['title']}</span><span class='proj'>{proj}</span>"
-            f"<span class='due{overdue}'>{due_s}</span></li>")
-        if len(rows) >= 14: break
+            f"<span class='due{overdue}'>{due_s}</span></div>"
+            f"<span class='tt'>{t['title']}</span><span class='proj'>{proj}</span></li>")
+        if len(rows) >= 20: break
     body = f"<ul class='tl'>{''.join(rows)}</ul>" if rows else "<div class='note'>Nothing due in the next two weeks. 🎉</div>"
     return Response(f"<!doctype html><html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><style>{TASKS_CSS}</style></head><body>{body}</body></html>", mimetype="text/html")
 
@@ -352,6 +359,8 @@ def tasks_complete():
     login, token = _vik_token()
     try:
         tid = int(request.form["task_id"])
+        if not token:
+            token = VIKUNJA_TOKENS.get("jmack", "")
         if token:
             _vik("POST", f"/tasks/{tid}/done", token)
             log.info("task %s completed by %s", tid, login)
@@ -364,8 +373,10 @@ def tasks_complete():
 # ---- Weather: Tiffin, IA 7-day strip (Open-Meteo, keyless) ------------------
 WX_URL = ("https://api.open-meteo.com/v1/forecast?latitude=41.706&longitude=-91.663"
           "&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max"
+          "&hourly=temperature_2m,precipitation_probability,weather_code"
           "&temperature_unit=fahrenheit&timezone=America%2FChicago&forecast_days=7")
 _wx_cache: tuple[float, dict] | None = None
+_wx_hourly: dict | None = None
 
 WMO = {0:"Clear",1:"Mostly clear",2:"Partly cloudy",3:"Overcast",45:"Fog",48:"Fog",
        51:"Drizzle",53:"Drizzle",55:"Drizzle",61:"Rain",63:"Rain",65:"Heavy rain",
@@ -383,6 +394,12 @@ WX_CSS = PAGE_CSS + """
 .wx .temps{font-weight:600;font-size:13px}
 .wx .temps .lo{color:var(--bark);font-weight:400}
 .wx .pop{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--bark)}
+.hours{display:flex;gap:6px;padding:8px 10px 0;overflow-x:auto}
+.hr{flex:0 0 60px;text-align:center;background:var(--paper);border:1px solid var(--paper-dark);border-radius:9px;padding:5px 2px}
+.hr .hh{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--bark);text-transform:lowercase}
+.hr .icon{font-size:17px}
+.hr .temps{font-size:12px;font-weight:600}
+.hr .pop{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--bark)}
 """
 
 @app.get("/weather")
@@ -394,7 +411,9 @@ def weather():
         d = _wx_cache[1]
     else:
         try:
-            d = requests.get(WX_URL, timeout=15).json()["daily"]
+            _full = requests.get(WX_URL, timeout=15).json()
+            d = _full["daily"]
+            globals()["_wx_hourly"] = _full.get("hourly")
             _wx_cache = (now, d)
         except Exception:
             log.exception("open-meteo fetch failed")
@@ -413,7 +432,27 @@ def weather():
             f"<div class='desc'>{WMO.get(code,'—')}</div>"
             f"<div class='temps'>{round(d['temperature_2m_max'][i])}° <span class='lo'>/ {round(d['temperature_2m_min'][i])}°</span></div>"
             f"<div class='pop'>{int(d['precipitation_probability_max'][i] or 0)}% rain</div></div>")
-    return Response(f"<!doctype html><html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><style>{WX_CSS}</style></head><body><div class='week'>{''.join(cells)}</div></body></html>", mimetype="text/html")
+    # hourly strip: the next 12 hours from now
+    hours = []
+    try:
+        h = _wx_cache[1]["__hourly"] if isinstance(_wx_cache[1], dict) and "__hourly" in _wx_cache[1] else None
+    except Exception:
+        h = None
+    hr = _wx_hourly or {}
+    now_dt = datetime.datetime.now(TZ)
+    if hr:
+        for i, ts in enumerate(hr["time"]):
+            t = datetime.datetime.fromisoformat(ts)
+            if t < now_dt.replace(minute=0, second=0, microsecond=0, tzinfo=None): continue
+            code = int(hr["weather_code"][i])
+            hours.append(
+                f"<div class='hr'><div class='hh'>{t.strftime('%-I%p').lower()}</div>"
+                f"<div class='icon' role='img' aria-label='{WMO.get(code,'')}'>{WMO_ICON.get(code,'·')}</div>"
+                f"<div class='temps'>{round(hr['temperature_2m'][i])}°</div>"
+                f"<div class='pop'>{int(hr['precipitation_probability'][i] or 0)}%</div></div>")
+            if len(hours) >= 12: break
+    hourly_html = f"<div class='hours'>{''.join(hours)}</div>" if hours else ""
+    return Response(f"<!doctype html><html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><style>{WX_CSS}</style></head><body>{hourly_html}<div class='week'>{''.join(cells)}</div></body></html>", mimetype="text/html")
 
 
 if __name__ == "__main__":
