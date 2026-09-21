@@ -115,6 +115,14 @@ scrape_configs:
           - "http://10.1.30.21:8123"    # Home Assistant  (kdk-dkr-02)
           - "http://10.1.30.22:11080"   # Scrypted        (kdk-dkr-03)
           - "http://10.1.30.22:8581"    # Homebridge UI   (kdk-dkr-03)
+          # Node-RED owns ALL Roborock automation — a dead editor endpoint means
+          # no schedules/cleans fire. Not port-published; probe via the Pi Traefik.
+          - "https://nodered.kmkdp.com"
+          # Local Roborock server (kdk-dkr-01 apps stack) — the vacuum's only
+          # cloud; real LE cert for api-slave.kmkdp.com.
+          - "https://api-slave.kmkdp.com:555/healthz"
+          # Vikunja — source of truth for household + vacuum-maintenance chores.
+          - "https://tasks.kmkdp.com"
         labels: {tier: smart-home}
     relabel_configs:
       - source_labels: [__address__]
