@@ -73,7 +73,6 @@ services:
       VIKUNJA_SERVICE_TIMEZONE: America/Chicago
       # Registration off: login is Authelia OIDC only (see vikunja-config.yml.tpl)
       VIKUNJA_SERVICE_ENABLEREGISTRATION: "false"
-      VIKUNJA_SERVICE_ENABLEREGISTRATION: "true"   # LAN-only; family self-registers once
     volumes:
       - ./vikunja-config.yml:/etc/vikunja/config.yml:ro
       - /opt/kdk-lab/dashboard/vikunja/db:/db
