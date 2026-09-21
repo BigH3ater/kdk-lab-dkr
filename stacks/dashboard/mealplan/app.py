@@ -158,12 +158,21 @@ def post_rating(recipe_id: int, rating: int, who: str) -> bool:
         "rating": max(1, min(5, int(rating))),
         "comment": f"Rated {'★' * int(rating)} by {who} via the home dashboard",
     }
-    r = s.post(
-        f"{TANDOOR_URL}/api/cook-log/",
-        json=body,
-        headers={"X-CSRFToken": csrf, "Referer": f"{TANDOOR_URL}/"},
-        timeout=20,
-    )
+    hdrs = {"X-CSRFToken": csrf, "Referer": f"{TANDOOR_URL}/"}
+    # If this account already logged this recipe, UPDATE that entry (re-rating);
+    # only the first rating creates a new cook-log row.
+    existing = None
+    try:
+        q = s.get(f"{TANDOOR_URL}/api/cook-log/?recipe={recipe_id}&page_size=1&ordering=-created_at", timeout=20)
+        results = q.json().get("results") or []
+        if results:
+            existing = results[0]["id"]
+    except Exception:
+        pass
+    if existing:
+        r = s.patch(f"{TANDOOR_URL}/api/cook-log/{existing}/", json=body, headers=hdrs, timeout=20)
+    else:
+        r = s.post(f"{TANDOOR_URL}/api/cook-log/", json=body, headers=hdrs, timeout=20)
     if r.status_code in (401, 403):
         _login_and_retry = _login()
         globals()["_sess"] = _login_and_retry
@@ -238,11 +247,12 @@ def render_week(plan: list[dict], today: datetime.date, mon: datetime.date, rate
             if e["url"]:
                 name = f'<a href="{e["url"]}" target="_top">{e["title"]}</a>'
                 cur = rated.get(e["recipe_id"], 0)
-                stars = "".join(
-                    f'<button type="submit" name="rating" value="{n}" title="{n} star"'
-                    f'{" class=\"on\"" if n <= cur else ""}>{"&#9733;" if n <= cur else "&#9734;"}</button>'
-                    for n in range(1, 6)
-                )
+                star_btns = []
+                for n in range(1, 6):
+                    cls = ' class="on"' if n <= cur else ""
+                    glyph = "&#9733;" if n <= cur else "&#9734;"
+                    star_btns.append(f'<button type="submit" name="rating" value="{n}" title="{n} star"{cls}>{glyph}</button>')
+                stars = "".join(star_btns)
                 rate = (
                     f'<form class="rate" method="post" action="rate">'
                     f'<input type="hidden" name="recipe_id" value="{e["recipe_id"]}">'
