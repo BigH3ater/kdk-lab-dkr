@@ -91,8 +91,9 @@ def _api_get(path: str) -> requests.Response:
 
 
 def _week_bounds(today: datetime.date) -> tuple[datetime.date, datetime.date]:
-    monday = today - datetime.timedelta(days=today.weekday())
-    return monday, monday + datetime.timedelta(days=6)
+    # Rolling week AHEAD, not calendar week: on Sunday evening the family cares
+    # about tomorrow's dinner, not the week that just ended.
+    return today, today + datetime.timedelta(days=6)
 
 
 def _parse_date(v: str) -> datetime.date | None:
