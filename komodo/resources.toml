@@ -295,7 +295,7 @@ run_directory = "stacks/dashboard"
 auto_pull = false  # mealplan image is built locally (no registry) -> skip compose pull
 run_build = true
 webhook_enabled = true
-pre_deploy.command = "sh -c '. /etc/komodo/op.env && op inject -f -i .env.tpl -o .env && op inject -f -i vikunja-config.yml.tpl -o vikunja-config.yml'"
+pre_deploy.command = "sh -c '. /etc/komodo/op.env && op inject -f -i .env.tpl -o .env && op inject -f -i vikunja-config.yml.tpl -o vikunja-config.yml && chmod 644 vikunja-config.yml'"
 
 # ---- procedures ----
 [[procedure]]
