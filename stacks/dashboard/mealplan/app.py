@@ -330,7 +330,10 @@ def tasks_view():
         return Response(f"<!doctype html><style>{TASKS_CSS}</style><div class='note'>Task board not connected yet - store the family token as the 1Password item vikunja-api-jmack and redeploy.</div>", mimetype="text/html")
     try:
         projects = {p["id"]: p["title"] for p in _vik("GET", "/projects", token)}
-        tasks = _vik("GET", "/tasks/all?sort_by=due_date&order_by=asc&filter=done%3Dfalse&per_page=60", token) or []
+        tasks = _vik("GET", "/tasks/all?per_page=100", token) or []
+        # filter + sort locally: Vikunja's filter query syntax varies by version
+        tasks = [t for t in tasks if not t.get("done")]
+        tasks.sort(key=lambda t: ((t.get("due_date") or "9999")[:10]))
     except Exception:
         log.exception("vikunja fetch failed")
         return Response(f"<!doctype html><style>{TASKS_CSS}</style><div class='note'>Couldn't reach the task list right now.</div>", mimetype="text/html")
