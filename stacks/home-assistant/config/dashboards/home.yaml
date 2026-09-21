@@ -48,6 +48,15 @@ views:
       name: HomePod
       features:
       - type: media-player-volume-slider
+    - type: button
+      name: Vacuum Living Room
+      icon: mdi:robot-vacuum
+      show_state: false
+      tap_action:
+        action: call-service
+        service: input_button.press
+        target:
+          entity_id: input_button.rr_clean_living_room
 
   - type: grid
     cards:
@@ -74,6 +83,15 @@ views:
       name: HomePod
       features:
       - type: media-player-volume-slider
+    - type: button
+      name: Vacuum Kitchen
+      icon: mdi:robot-vacuum
+      show_state: false
+      tap_action:
+        action: call-service
+        service: input_button.press
+        target:
+          entity_id: input_button.rr_clean_kitchen
 
   - type: grid
     cards:
@@ -138,6 +156,24 @@ views:
     - type: tile
       entity: media_player.apple_tv_master_bedroom
       name: Apple TV
+    - type: button
+      name: Vacuum Bedroom
+      icon: mdi:robot-vacuum
+      show_state: false
+      tap_action:
+        action: call-service
+        service: input_button.press
+        target:
+          entity_id: input_button.rr_clean_master_bedroom
+    - type: button
+      name: Vacuum Closet
+      icon: mdi:robot-vacuum
+      show_state: false
+      tap_action:
+        action: call-service
+        service: input_button.press
+        target:
+          entity_id: input_button.rr_clean_master_bedroom_closet
 
   - type: grid
     cards:
@@ -150,6 +186,15 @@ views:
       features:
       - type: cover-open-close
       - type: cover-position
+    - type: button
+      name: Vacuum Bathroom
+      icon: mdi:robot-vacuum
+      show_state: false
+      tap_action:
+        action: call-service
+        service: input_button.press
+        target:
+          entity_id: input_button.rr_clean_master_bathroom
 
   - type: grid
     cards:
@@ -168,6 +213,15 @@ views:
       features:
       - type: cover-open-close
       - type: cover-position
+    - type: button
+      name: Vacuum Bedroom 1
+      icon: mdi:robot-vacuum
+      show_state: false
+      tap_action:
+        action: call-service
+        service: input_button.press
+        target:
+          entity_id: input_button.rr_clean_bedroom_1
 
   - type: grid
     cards:
@@ -236,9 +290,17 @@ views:
     - type: tile
       entity: switch.garage_spot_lights
       name: Can Lights
+    - type: button
+      name: Vacuum Entrance
+      icon: mdi:robot-vacuum
+      show_state: false
+      tap_action:
+        action: call-service
+        service: input_button.press
+        target:
+          entity_id: input_button.rr_clean_garage_entrance
 
   - type: grid
-    column_span: 2
     cards:
     - type: heading
       heading: Vacuum
@@ -268,45 +330,9 @@ views:
         action: navigate
         navigation_path: /roborock-vac
     - type: heading
-      heading: Clean a Room
+      heading: Other Areas
       heading_style: subtitle
       icon: mdi:vacuum
-    - type: button
-      name: Master Bedroom Closet
-      icon: mdi:robot-vacuum
-      show_state: false
-      tap_action:
-        action: call-service
-        service: input_button.press
-        target:
-          entity_id: input_button.rr_clean_master_bedroom_closet
-    - type: button
-      name: Master Bedroom
-      icon: mdi:robot-vacuum
-      show_state: false
-      tap_action:
-        action: call-service
-        service: input_button.press
-        target:
-          entity_id: input_button.rr_clean_master_bedroom
-    - type: button
-      name: Bedroom 1
-      icon: mdi:robot-vacuum
-      show_state: false
-      tap_action:
-        action: call-service
-        service: input_button.press
-        target:
-          entity_id: input_button.rr_clean_bedroom_1
-    - type: button
-      name: Master Bathroom
-      icon: mdi:robot-vacuum
-      show_state: false
-      tap_action:
-        action: call-service
-        service: input_button.press
-        target:
-          entity_id: input_button.rr_clean_master_bathroom
     - type: button
       name: Bathroom 1
       icon: mdi:robot-vacuum
@@ -316,15 +342,6 @@ views:
         service: input_button.press
         target:
           entity_id: input_button.rr_clean_bathroom_1
-    - type: button
-      name: Garage Entrance
-      icon: mdi:robot-vacuum
-      show_state: false
-      tap_action:
-        action: call-service
-        service: input_button.press
-        target:
-          entity_id: input_button.rr_clean_garage_entrance
     - type: button
       name: Half Bath
       icon: mdi:robot-vacuum
@@ -370,24 +387,6 @@ views:
         service: input_button.press
         target:
           entity_id: input_button.rr_clean_front_door_entry
-    - type: button
-      name: Living Room
-      icon: mdi:robot-vacuum
-      show_state: false
-      tap_action:
-        action: call-service
-        service: input_button.press
-        target:
-          entity_id: input_button.rr_clean_living_room
-    - type: button
-      name: Kitchen
-      icon: mdi:robot-vacuum
-      show_state: false
-      tap_action:
-        action: call-service
-        service: input_button.press
-        target:
-          entity_id: input_button.rr_clean_kitchen
     - type: button
       name: Cancel / Return to Dock
       icon: mdi:stop-circle-outline
