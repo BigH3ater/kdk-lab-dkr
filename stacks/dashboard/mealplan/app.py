@@ -330,8 +330,12 @@ def tasks_view():
         return Response(f"<!doctype html><style>{TASKS_CSS}</style><div class='note'>Task board not connected yet - store the family token as the 1Password item vikunja-api-jmack and redeploy.</div>", mimetype="text/html")
     try:
         projects = {p["id"]: p["title"] for p in _vik("GET", "/projects", token)}
-        tasks = _vik("GET", "/tasks/all?per_page=100", token) or []
-        # filter + sort locally: Vikunja's filter query syntax varies by version
+        # per-project route: /tasks/all needs a token permission this one lacks
+        tasks = []
+        for pid in projects:
+            if pid == 1:  # skip Inbox
+                continue
+            tasks.extend(_vik("GET", f"/projects/{pid}/tasks?per_page=100", token) or [])
         tasks = [t for t in tasks if not t.get("done")]
         tasks.sort(key=lambda t: ((t.get("due_date") or "9999")[:10]))
     except Exception:
