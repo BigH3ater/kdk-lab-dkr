@@ -457,6 +457,12 @@ console.log(`behind: ${behind.join(", ") || "none"}`);
 console.log(`deploy-changed: queued ${fired} deploys`);
 '''
 
+# SELF-EDIT GOTCHA (2026-09-21): edits to THIS procedure cannot apply through
+# its own RunSync stage — Komodo won't update a mid-run resource, so the sync
+# retries until "procedure sync loop exited after max iterations" and FAILS
+# every 15 min (failure_alert pages). After changing gitops-sync's stages,
+# trigger one standalone RunSync (API /execute RunSync, or the sync webhook)
+# so the procedure is idle when updated.
 [[procedure]]
 tags = ["kdk-lab"]
 name = "gitops-sync"
