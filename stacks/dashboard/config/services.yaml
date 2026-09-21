@@ -27,6 +27,18 @@
         name: Tasks
         src: https://home.kmkdp.com/meal/tasks
         height: 175
+- Home:
+  - Home Assistant:
+      icon: mdi-home-assistant
+      href: https://homeassistant.kmkdp.com/lovelace
+      description: Lights, climate, and sensors — opens Home Assistant
+      widget:
+        type: iframe
+        name: Home Assistant
+        src: https://homeassistant.kmkdp.com/lovelace
+        height: 620
+        allowScrolling: 'yes'
+        referrerPolicy: no-referrer
 - Household Calendar:
   - This Week's Events:
       icon: mdi-calendar-week
