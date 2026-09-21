@@ -15,6 +15,31 @@ light:
       - light.theater_6
       - light.0x00158d000502f6d5   # Theater 7
       - light.0x00158d00050107c5   # Theater 8
+  # pairwise groups — the dashboard controls pairs, not individual cans
+  - platform: group
+    name: Theater 1 & 2
+    unique_id: theater_lights_12
+    entities:
+      - light.0x00158d000502f732   # Theater 1
+      - light.theater_2
+  - platform: group
+    name: Theater 3 & 4
+    unique_id: theater_lights_34
+    entities:
+      - light.0x00158d0004fdd4f4   # Theater 3
+      - light.theater_4
+  - platform: group
+    name: Theater 5 & 6
+    unique_id: theater_lights_56
+    entities:
+      - light.theater_5
+      - light.theater_6
+  - platform: group
+    name: Theater 7 & 8
+    unique_id: theater_lights_78
+    entities:
+      - light.0x00158d000502f6d5   # Theater 7
+      - light.0x00158d00050107c5   # Theater 8
 
 automation:
   - id: kodiak_default_theme

@@ -180,29 +180,25 @@ views:
       features:
       - type: light-brightness
     - type: tile
-      entity: light.0x00158d000502f732
-      name: Theater 1
+      entity: light.theater_1_2
+      name: Theater 1 & 2
+      features:
+      - type: light-brightness
     - type: tile
-      entity: light.theater_2
-      name: Theater 2
+      entity: light.theater_3_4
+      name: Theater 3 & 4
+      features:
+      - type: light-brightness
     - type: tile
-      entity: light.0x00158d0004fdd4f4
-      name: Theater 3
+      entity: light.theater_5_6
+      name: Theater 5 & 6
+      features:
+      - type: light-brightness
     - type: tile
-      entity: light.theater_4
-      name: Theater 4
-    - type: tile
-      entity: light.theater_5
-      name: Theater 5
-    - type: tile
-      entity: light.theater_6
-      name: Theater 6
-    - type: tile
-      entity: light.0x00158d000502f6d5
-      name: Theater 7
-    - type: tile
-      entity: light.0x00158d00050107c5
-      name: Theater 8
+      entity: light.theater_7_8
+      name: Theater 7 & 8
+      features:
+      - type: light-brightness
     - type: tile
       entity: media_player.theater_2
       name: Apple TV
