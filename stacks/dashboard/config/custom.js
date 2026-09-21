@@ -7,7 +7,7 @@
     ["Meal Plan", "https://recipes.kmkdp.com/mealplan"],
     ["Recipes", "https://recipes.kmkdp.com/"],
     ["Tasks", "https://tasks.kmkdp.com/"],
-    ["Home Control", "https://homeassistant.kmkdp.com/lovelace"],
+    ["Home Control", "https://homeassistant.kmkdp.com/home-controls"],
     ["Budget", "https://budget.kmkdp.com/"],
     ["Watch", "https://jellyfin.kmkdp.com/"],
     ["Listen", "https://audiobookshelf.kmkdp.com/"],
@@ -29,7 +29,10 @@
       LINKS.map(
         ([label, href]) =>
           '<li><a href="' + href + '"' +
-          (href.startsWith("https://home.kmkdp.com") ? "" : ' target="_blank" rel="noopener"') +
+          // home.* stays same-tab; homeassistant.* too — Kodiak-themed HA reads as
+          // part of the same app (OIDC via Authelia, no second login).
+          (href.startsWith("https://home.kmkdp.com") || href.startsWith("https://homeassistant.kmkdp.com")
+            ? "" : ' target="_blank" rel="noopener"') +
           ">" + label + "</a></li>"
       ).join("") +
       "</ul>";

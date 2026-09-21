@@ -1,7 +1,8 @@
 # dashboard
 
 Mack family home dashboard on **kdk-dkr-01**, **LAN / Tailscale only** (no Cloudflare
-tunnel). Auth = none (LAN is the gate); tiles open services that carry their own login.
+tunnel). Auth = Authelia ForwardAuth (two_factor, group `dashboard-users`); tiles open
+services that carry their own login (most now Authelia OIDC, incl. Home Assistant).
 
 | Service | URL | What it is |
 |---|---|---|
