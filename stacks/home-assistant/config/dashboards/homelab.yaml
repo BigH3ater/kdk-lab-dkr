@@ -1,252 +1,128 @@
-# Homelab hardware dashboard — generated, YAML-mode.
+# Homelab hardware dashboard — sections layout. YAML-mode, shipped from git.
+# Sensors come from packages/homelab.yaml (REST → Prometheus on 10.1.20.30:9090).
+# Entity naming is sensor.kdk_<host>_{cpu,memory,uptime} — it's "_memory",
+# NOT "_mem" (the 2026-09-21 "Entity not found" tiles were this drift).
 title: Homelab
 views:
 - title: Homelab
   path: homelab
   icon: mdi:server
-  cards:
-  - type: markdown
-    content: '## Homelab hardware
+  type: sections
+  max_columns: 3
+  badges:
+  - type: entity
+    entity: sensor.kdk_hyp_01_power
+    name: R720 Power
+  - type: entity
+    entity: sensor.kdk_nas_01_power
+    name: R730xd Power
+  - type: entity
+    entity: sensor.computer_room_eaton_5px_load
+    name: UPS Load
+  sections:
 
-      Live from Prometheus (iDRAC + node_exporter across all hosts).'
   - type: grid
-    title: UPS — Eaton 5PX (Computer Room)
-    columns: 2
-    square: false
     cards:
-    - type: gauge
-      entity: sensor.computer_room_eaton_5px_battery_charge
-      name: Battery
-      unit: '%'
-      min: 0
-      max: 100
-      severity:
-        green: 50
-        yellow: 20
-        red: 0
-    - type: gauge
-      entity: sensor.computer_room_eaton_5px_load
-      name: Load
-      unit: '%'
-      min: 0
-      max: 100
-      severity:
-        green: 0
-        yellow: 70
-        red: 90
-    - type: entities
-      title: Status
-      show_header_toggle: false
-      entities:
-      - entity: sensor.computer_room_eaton_5px_status
-        name: Status
-      - entity: sensor.computer_room_eaton_5px_input_voltage
-        name: Input voltage
-      - entity: sensor.computer_room_eaton_5px_output_voltage
-        name: Output voltage
-  - type: grid
-    title: kdk-hyp-01 — Proxmox (R720)
-    columns: 3
-    square: false
-    cards:
-    - type: gauge
+    - type: heading
+      heading: kdk-hyp-01 — Proxmox (R720)
+      icon: mdi:server
+    - type: tile
       entity: sensor.kdk_hyp_01_cpu_temp
       name: CPU Temp
-      unit: °C
-      min: 0
-      max: 90
-      severity: &id001
-        green: 0
-        yellow: 65
-        red: 80
-    - type: gauge
+    - type: tile
       entity: sensor.kdk_hyp_01_inlet_temp
       name: Inlet
-      unit: °C
-      min: 0
-      max: 50
-      severity:
-        green: 0
-        yellow: 30
-        red: 38
-    - type: gauge
+    - type: tile
       entity: sensor.kdk_hyp_01_power
       name: Power
-      unit: W
-      min: 0
-      max: 600
-      severity:
-        green: 0
-        yellow: 400
-        red: 550
-    - type: gauge
+    - type: tile
       entity: sensor.kdk_hyp_01_fan_speed_avg
-      name: Fan avg
-      unit: rpm
-      min: 0
-      max: 10000
-    - type: gauge
+      name: Fan Avg
+    - type: tile
       entity: sensor.kdk_hyp_01_fan_speed_max
-      name: Fan max
-      unit: rpm
-      min: 0
-      max: 10000
+      name: Fan Max
+    - type: tile
+      entity: sensor.kdk_hyp_01_cpu
+      name: CPU Use
+    - type: tile
+      entity: sensor.kdk_hyp_01_memory
+      name: Memory
+    - type: tile
+      entity: sensor.kdk_hyp_01_uptime
+      name: Uptime
+
   - type: grid
-    title: kdk-nas-01 — TrueNAS (R730xd)
-    columns: 3
-    square: false
     cards:
-    - type: gauge
+    - type: heading
+      heading: kdk-nas-01 — TrueNAS (R730xd)
+      icon: mdi:nas
+    - type: tile
       entity: sensor.kdk_nas_01_cpu_temp
       name: CPU Temp
-      unit: °C
-      min: 0
-      max: 90
-      severity: *id001
-    - type: gauge
+    - type: tile
       entity: sensor.kdk_nas_01_inlet_temp
       name: Inlet
-      unit: °C
-      min: 0
-      max: 50
-      severity:
-        green: 0
-        yellow: 30
-        red: 38
-    - type: gauge
+    - type: tile
       entity: sensor.kdk_nas_01_power
       name: Power
-      unit: W
-      min: 0
-      max: 600
-      severity:
-        green: 0
-        yellow: 400
-        red: 550
-    - type: gauge
+    - type: tile
       entity: sensor.kdk_nas_01_fan_speed_avg
-      name: Fan avg
-      unit: rpm
-      min: 0
-      max: 10000
-    - type: gauge
+      name: Fan Avg
+    - type: tile
       entity: sensor.kdk_nas_01_fan_speed_max
-      name: Fan max
-      unit: rpm
-      min: 0
-      max: 10000
+      name: Fan Max
+    - type: tile
+      entity: sensor.kdk_nas_01_cpu
+      name: CPU Use
+    - type: tile
+      entity: sensor.kdk_nas_01_memory
+      name: Memory
+    - type: tile
+      entity: sensor.kdk_nas_01_uptime
+      name: Uptime
+
   - type: grid
-    title: Hosts — CPU / memory / uptime
-    columns: 2
-    square: false
     cards:
-    - type: entities
-      title: kdk-hyp-01
-      show_header_toggle: false
-      entities:
-      - entity: sensor.kdk_hyp_01_cpu
-        name: CPU
-      - entity: sensor.kdk_hyp_01_mem
-        name: Memory
-      - entity: sensor.kdk_hyp_01_uptime
-        name: Uptime
-    - type: entities
-      title: kdk-nas-01
-      show_header_toggle: false
-      entities:
-      - entity: sensor.kdk_nas_01_cpu
-        name: CPU
-      - entity: sensor.kdk_nas_01_mem
-        name: Memory
-      - entity: sensor.kdk_nas_01_uptime
-        name: Uptime
-    - type: entities
-      title: kdk-dkr-01
-      show_header_toggle: false
-      entities:
-      - entity: sensor.kdk_dkr_01_cpu
-        name: CPU
-      - entity: sensor.kdk_dkr_01_mem
-        name: Memory
-      - entity: sensor.kdk_dkr_01_uptime
-        name: Uptime
-    - type: entities
-      title: kdk-dkr-02
-      show_header_toggle: false
-      entities:
-      - entity: sensor.kdk_dkr_02_cpu
-        name: CPU
-      - entity: sensor.kdk_dkr_02_mem
-        name: Memory
-      - entity: sensor.kdk_dkr_02_uptime
-        name: Uptime
-    - type: entities
-      title: kdk-dkr-03
-      show_header_toggle: false
-      entities:
-      - entity: sensor.kdk_dkr_03_cpu
-        name: CPU
-      - entity: sensor.kdk_dkr_03_mem
-        name: Memory
-      - entity: sensor.kdk_dkr_03_uptime
-        name: Uptime
-    - type: entities
-      title: kdk-mon-01
-      show_header_toggle: false
-      entities:
-      - entity: sensor.kdk_mon_01_cpu
-        name: CPU
-      - entity: sensor.kdk_mon_01_mem
-        name: Memory
-      - entity: sensor.kdk_mon_01_uptime
-        name: Uptime
-    - type: entities
-      title: kdk-dkr-dmz-01
-      show_header_toggle: false
-      entities:
-      - entity: sensor.kdk_dkr_dmz_01_cpu
-        name: CPU
-      - entity: sensor.kdk_dkr_dmz_01_mem
-        name: Memory
-      - entity: sensor.kdk_dkr_dmz_01_uptime
-        name: Uptime
-    - type: entities
-      title: kdk-dns-01
-      show_header_toggle: false
-      entities:
-      - entity: sensor.kdk_dns_01_cpu
-        name: CPU
-      - entity: sensor.kdk_dns_01_mem
-        name: Memory
-      - entity: sensor.kdk_dns_01_uptime
-        name: Uptime
-    - type: entities
-      title: kdk-dns-02
-      show_header_toggle: false
-      entities:
-      - entity: sensor.kdk_dns_02_cpu
-        name: CPU
-      - entity: sensor.kdk_dns_02_mem
-        name: Memory
-      - entity: sensor.kdk_dns_02_uptime
-        name: Uptime
-    - type: entities
-      title: kdk-dns-03
-      show_header_toggle: false
-      entities:
-      - entity: sensor.kdk_dns_03_cpu
-        name: CPU
-      - entity: sensor.kdk_dns_03_mem
-        name: Memory
-      - entity: sensor.kdk_dns_03_uptime
-        name: Uptime
-    - type: entities
-      title: kdk-pbs-01
-      show_header_toggle: false
-      entities:
-      - entity: sensor.kdk_pbs_01_cpu
-        name: CPU
-      - entity: sensor.kdk_pbs_01_mem
-        name: Memory
-      - entity: sensor.kdk_pbs_01_uptime
-        name: Uptime
+    - type: heading
+      heading: UPS — Eaton 5PX (Computer Room)
+      icon: mdi:battery-charging
+    - type: tile
+      entity: sensor.computer_room_eaton_5px_battery_charge
+      name: Battery
+    - type: tile
+      entity: sensor.computer_room_eaton_5px_load
+      name: Load
+    - type: tile
+      entity: sensor.computer_room_eaton_5px_status
+      name: Status
+    - type: tile
+      entity: sensor.computer_room_eaton_5px_input_voltage
+      name: Input Voltage
+    - type: tile
+      entity: sensor.computer_room_eaton_5px_output_voltage
+      name: Output Voltage
+
+  - type: grid
+    column_span: 3
+    cards:
+    - type: heading
+      heading: Hosts — CPU / Memory / Uptime
+      icon: mdi:server-network
+    - type: markdown
+      content: >-
+        {% set hosts = [
+          ('kdk-hyp-01','kdk_hyp_01'), ('kdk-nas-01','kdk_nas_01'),
+          ('kdk-dkr-01','kdk_dkr_01'), ('kdk-dkr-02','kdk_dkr_02'),
+          ('kdk-dkr-03','kdk_dkr_03'), ('kdk-dkr-dmz-01','kdk_dkr_dmz_01'),
+          ('kdk-mon-01','kdk_mon_01'), ('kdk-pbs-01','kdk_pbs_01'),
+          ('kdk-dns-01','kdk_dns_01'), ('kdk-dns-02','kdk_dns_02'),
+          ('kdk-dns-03','kdk_dns_03'),
+        ] %}
+        | Host | CPU | Memory | Uptime |
+        |---|---|---|---|
+        {% for name, slug in hosts -%}
+        {% set cpu = states('sensor.' ~ slug ~ '_cpu') -%}
+        {% set mem = states('sensor.' ~ slug ~ '_memory') -%}
+        {% set up  = states('sensor.' ~ slug ~ '_uptime') -%}
+        | {{ name }} | {{ '⚠️ **' ~ cpu ~ '%**' if cpu not in ['unknown','unavailable'] and cpu | float(0) > 85 else (cpu ~ '%' if cpu not in ['unknown','unavailable'] else '—') }} | {{ '⚠️ **' ~ mem ~ '%**' if mem not in ['unknown','unavailable'] and mem | float(0) > 85 else (mem ~ '%' if mem not in ['unknown','unavailable'] else '—') }} | {{ up ~ ' d' if up not in ['unknown','unavailable'] else '—' }} |
+        {% endfor %}
