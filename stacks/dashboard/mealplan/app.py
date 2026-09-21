@@ -410,7 +410,11 @@ def tasks_complete():
         if not token:
             token = VIKUNJA_TOKENS.get("jmack", "")
         if token:
-            _vik("POST", f"/tasks/{tid}", token, {"done": True})
+            # Vikunja ignores a bare {"done": true} -- the update endpoint wants
+            # the full task object (verified live). Fetch, flip, send back whole.
+            t = _vik("GET", f"/tasks/{tid}", token)
+            t["done"] = True
+            _vik("POST", f"/tasks/{tid}", token, t)
             log.info("task %s completed by %s", tid, login)
     except Exception:
         log.exception("task completion failed")
