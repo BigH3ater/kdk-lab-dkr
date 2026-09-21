@@ -86,12 +86,12 @@
         href: https://tasks.kmkdp.com
         description: Recurring chores & to-dos -- tick them off
         siteMonitor: https://tasks.kmkdp.com
-        # P1b (needs api key): widget:
-        # P1b (needs api key): type: vikunja
-        # P1b (needs api key): url: https://tasks.kmkdp.com
-        # P1b (needs api key): key: "{{HOMEPAGE_VAR_VIKUNJA_KEY}}"
-        # P1b (needs api key): version: 2
-        # P1b (needs api key): enableTaskList: true
+        widget:
+          type: vikunja
+          url: https://tasks.kmkdp.com
+          key: "{{HOMEPAGE_VAR_VIKUNJA_KEY}}"
+          version: 2
+          enableTaskList: true
     - Budget:
         icon: actualbudget.png
         href: https://budget.kmkdp.com

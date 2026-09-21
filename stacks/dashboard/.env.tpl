@@ -17,7 +17,7 @@ VIKUNJA_SERVICE_JWTSECRET={{ op://kdk-cluster/vikunja-app/jwt_secret }}
 # P1b: HOMEPAGE_VAR_JELLYFIN_KEY <- 1P item kdk-cluster/jellyfin-api-ro field password (uncomment as a real line once the item exists)
 # P1b: HOMEPAGE_VAR_SEERR_KEY <- 1P item kdk-cluster/seerr-api-ro field password (uncomment as a real line once the item exists)
 # P1b: HOMEPAGE_VAR_ABS_KEY <- 1P item kdk-cluster/audiobookshelf-api-ro field password (uncomment as a real line once the item exists)
-# P1b: HOMEPAGE_VAR_VIKUNJA_KEY <- 1P item kdk-cluster/vikunja-api-ro field password (uncomment as a real line once the item exists)
+HOMEPAGE_VAR_VIKUNJA_KEY={{ op://kdk-cluster/vikunja-api-ro/password }}
 
 # ---- P3: household calendar (Proton "Share via link" ICS) ---------------------
 # Reused from planner-service (kdk-ops, read-only). The calendar widget in
