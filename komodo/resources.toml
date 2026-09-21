@@ -415,11 +415,15 @@ const info = s.info ?? {};
 console.log(`refreshed: last=${info.last_sync_hash ?? "?"} pending=${info.pending_hash ?? "?"}`);
 '''
 
-# Deploys every git-linked kdk-lab stack whose repo files changed since its
-# last deploy (DeployStackIfChanged = per-stack contents diff, so unrelated
-# pushes are no-ops). backup-* stacks are excluded — the nightly-backups
-# procedure owns their cadence, and an off-schedule offsite run risks the
-# Proton auth cooldown. Driven by the gitops-sync procedure after RunSync.
+# Deploys every git-linked kdk-lab stack whose DEPLOYED commit is behind the
+# repo HEAD (deployed_hash != latest_hash via GetStack). This is the true
+# repo-is-control semantic: a push re-converges the fleet; an up-to-date stack
+# is skipped, and a behind-but-unchanged stack costs only a pre_deploy re-copy
+# + no-op `up -d`. NOT DeployStackIfChanged: Komodo's contents diff covers
+# compose.yaml only, so config-dir-only changes (HA dashboards!) never register.
+# Excluded: backup-* (nightly-backups owns their cadence; off-schedule offsite
+# risks the Proton auth cooldown), files_on_host/adopted stacks, and stopped
+# one-shot job stacks (their own procedures/schedules run them).
 [[action]]
 tags = ["kdk-lab"]
 name = "deploy-changed"
@@ -432,22 +436,25 @@ const SKIP = /^backup-/;
 const tags: any[] = await komodo.read("ListTags", {});
 const tagId = tags.find((t) => t.name === TAG)?._id?.$oid ?? TAG;
 const stacks: any[] = await komodo.read("ListStacks", {});
-let fired = 0;
+let fired = 0, behind: string[] = [];
 for (const s of stacks) {
   const tagged = (s.tags ?? []).some((t: string) => t === tagId || t === TAG);
   if (!tagged || SKIP.test(s.name)) continue;
-  // only git-linked stacks have repo-diffable contents (verified shape:
-  // info.repo = "BigH3ater/kdk-lab-dkr", files_on_host = adopted/not-git)
   if (!s.info?.repo || s.info?.files_on_host) continue;
+  if (s.info?.state === "stopped") continue;
+  const st: any = await komodo.read("GetStack", { stack: s.name });
+  const dep = st?.info?.deployed_hash, lat = st?.info?.latest_hash;
+  if (!dep || !lat || dep === lat) continue;
+  behind.push(`${s.name} ${dep}->${lat}`);
   try {
-    const u: any = await komodo.execute("DeployStackIfChanged", { stack: s.name });
+    await komodo.execute("DeployStack", { stack: s.name });
     fired++;
-    console.log(`DeployStackIfChanged queued: ${s.name} (update ${u?._id?.$oid ?? "?"})`);
   } catch (e) {
     console.log(`FAILED to queue ${s.name}: ${e}`);
   }
 }
-console.log(`deploy-changed: ${fired} stacks checked/queued`);
+console.log(`behind: ${behind.join(", ") || "none"}`);
+console.log(`deploy-changed: queued ${fired} deploys`);
 '''
 
 [[procedure]]
