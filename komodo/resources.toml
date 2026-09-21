@@ -711,6 +711,14 @@ pre_deploy.command = "sh -c '. /etc/komodo/op.env && op inject -f -i .env.tpl -o
 tags = ["kdk-lab"]
 name = "book-sync"
 [procedure.config]
+# DISABLED 2026-09-21 (user directive): ebook delivery to the reMarkable is now
+# Calibre OPDS *pull* only (calibre.kmkdp.com/opds → KOReader). book-sync was the
+# push path into xochitl's native "Kodiak Library"; keeping both means two
+# competing copies. Schedule off; the stack + procedure stay defined so re-enabling
+# is a one-line flip. NOTE: book-sync also handled REMOVAL (mirrored Chaptarr's
+# library); OPDS is add-only, so deletions no longer propagate — the device manages
+# its own library now.
+schedule_enabled = false
 schedule_format = "Cron"
 # :25 every hour -- off the gitops-sync :00/:15/:30/:45 slots and clear of
 # remarkable-ocr (:20) / storage-health (:35) / tdarr-verify (:40) / -remediate (:50).
