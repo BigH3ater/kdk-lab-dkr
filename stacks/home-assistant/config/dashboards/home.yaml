@@ -1,0 +1,269 @@
+# Home controls dashboard — iOS-Home-style rooms (sections + tile cards).
+# YAML-mode; edits are picked up on browser refresh. Shipped from git.
+title: Home
+views:
+- title: Home
+  path: home
+  icon: mdi:home-assistant
+  type: sections
+  max_columns: 3
+  badges:
+  - type: entity
+    entity: climate.t9_thermostat
+    name: Inside
+  - type: entity
+    entity: sensor.t9_thermostat_current_humidity
+    name: Humidity
+  - type: entity
+    entity: vacuum.mr_slave_2
+    name: Vacuum
+  - type: entity
+    entity: sensor.bosch_dishwasher_operation_state
+    name: Dishwasher
+  sections:
+
+  - type: grid
+    cards:
+    - type: heading
+      heading: Living Room
+      icon: mdi:sofa
+    - type: tile
+      entity: climate.t9_thermostat
+      name: Thermostat
+      features:
+      - type: target-temperature
+      - type: climate-hvac-modes
+        hvac_modes: [heat, cool, heat_cool, "off"]
+    - type: tile
+      entity: cover.0xbc026efffe57b2fc
+      name: Blind
+      features:
+      - type: cover-open-close
+      - type: cover-position
+    - type: tile
+      entity: switch.living_room_outlet
+      name: Outlet
+    - type: tile
+      entity: media_player.living_room
+      name: HomePod
+      features:
+      - type: media-player-volume-slider
+
+  - type: grid
+    cards:
+    - type: heading
+      heading: Kitchen
+      icon: mdi:silverware-fork-knife
+    - type: tile
+      entity: cover.0xbc026efffe579f1b
+      name: North Blind
+      features:
+      - type: cover-open-close
+      - type: cover-position
+    - type: tile
+      entity: cover.0x3425b4fffe32a918
+      name: South Blind
+      features:
+      - type: cover-open-close
+      - type: cover-position
+    - type: tile
+      entity: switch.kitchen_outlet
+      name: Outlet
+    - type: tile
+      entity: media_player.kitchen
+      name: HomePod
+      features:
+      - type: media-player-volume-slider
+
+  - type: grid
+    cards:
+    - type: heading
+      heading: Dishwasher
+      icon: mdi:dishwasher
+    - type: tile
+      entity: sensor.bosch_dishwasher_operation_state
+      name: Status
+    - type: tile
+      entity: sensor.bosch_dishwasher_remaining_program_time
+      name: Time Remaining
+    - type: tile
+      entity: select.bosch_dishwasher_selected_program
+      name: Program
+      features:
+      - type: select-options
+    - type: tile
+      entity: switch.bosch_dishwasher_power
+      name: Power
+    - type: tile
+      entity: button.bosch_dishwasher_start
+      name: Start
+      icon: mdi:play
+      color: green
+    - type: tile
+      entity: button.bosch_dishwasher_abort
+      name: Stop
+      icon: mdi:stop
+      color: red
+
+  - type: grid
+    cards:
+    - type: heading
+      heading: Master Bedroom
+      icon: mdi:bed-king
+    - type: tile
+      entity: cover.0x3425b4fffe32a911
+      name: North Blind
+      features:
+      - type: cover-open-close
+      - type: cover-position
+    - type: tile
+      entity: cover.south_bedroom
+      name: South Blind
+      features:
+      - type: cover-open-close
+      - type: cover-position
+    - type: tile
+      entity: fan.master_bedroom_ceiling_fan
+      name: Ceiling Fan
+      features:
+      - type: fan-speed
+    - type: tile
+      entity: light.master_bedroom_ceiling_fan_light
+      name: Fan Light
+    - type: tile
+      entity: media_player.bedroom
+      name: HomePod
+      features:
+      - type: media-player-volume-slider
+    - type: tile
+      entity: media_player.apple_tv_master_bedroom
+      name: Apple TV
+
+  - type: grid
+    cards:
+    - type: heading
+      heading: Master Bathroom
+      icon: mdi:shower
+    - type: tile
+      entity: cover.master_bathroom_blind
+      name: Blind
+      features:
+      - type: cover-open-close
+      - type: cover-position
+
+  - type: grid
+    cards:
+    - type: heading
+      heading: Bedrooms
+      icon: mdi:bed
+    - type: tile
+      entity: cover.0xbc026efffe57b2df
+      name: East Blind
+      features:
+      - type: cover-open-close
+      - type: cover-position
+    - type: tile
+      entity: cover.west_bedroom_blind
+      name: West Blind
+      features:
+      - type: cover-open-close
+      - type: cover-position
+
+  - type: grid
+    cards:
+    - type: heading
+      heading: Theater
+      icon: mdi:theater
+    - type: tile
+      entity: light.theater_lights
+      name: All Lights
+      features:
+      - type: light-brightness
+    - type: tile
+      entity: light.0x00158d000502f732
+      name: Theater 1
+    - type: tile
+      entity: light.theater_2
+      name: Theater 2
+    - type: tile
+      entity: light.0x00158d0004fdd4f4
+      name: Theater 3
+    - type: tile
+      entity: light.theater_4
+      name: Theater 4
+    - type: tile
+      entity: light.theater_5
+      name: Theater 5
+    - type: tile
+      entity: light.theater_6
+      name: Theater 6
+    - type: tile
+      entity: light.0x00158d000502f6d5
+      name: Theater 7
+    - type: tile
+      entity: light.0x00158d00050107c5
+      name: Theater 8
+    - type: tile
+      entity: media_player.theater_2
+      name: Apple TV
+    - type: tile
+      entity: media_player.theater_theater_homepod
+      name: HomePod
+      features:
+      - type: media-player-volume-slider
+
+  - type: grid
+    cards:
+    - type: heading
+      heading: Basement
+      icon: mdi:home-floor-b
+    - type: tile
+      entity: sensor.living_room_air_sensor_01_temperature_sensor
+      name: Temperature
+    - type: tile
+      entity: sensor.living_room_air_sensor_01_humidity_sensor
+      name: Humidity
+    - type: tile
+      entity: binary_sensor.living_room_air_sensor_01_motion_sensor
+      name: Motion
+    - type: tile
+      entity: media_player.basement
+      name: HomePod
+      features:
+      - type: media-player-volume-slider
+
+  - type: grid
+    cards:
+    - type: heading
+      heading: Garage
+      icon: mdi:garage
+    - type: tile
+      entity: switch.garage_spot_lights
+      name: Can Lights
+
+  - type: grid
+    cards:
+    - type: heading
+      heading: Vacuum
+      icon: mdi:robot-vacuum
+      tap_action:
+        action: navigate
+        navigation_path: /roborock-vac
+    - type: tile
+      entity: vacuum.mr_slave_2
+      name: Mr. Slave
+      features:
+      - type: vacuum-commands
+        commands:
+        - start_pause
+        - return_home
+    - type: tile
+      entity: sensor.mr_slave_battery_2
+      name: Battery
+    - type: button
+      name: Open Vacuum Dashboard
+      icon: mdi:robot-vacuum-variant
+      show_state: false
+      tap_action:
+        action: navigate
+        navigation_path: /roborock-vac

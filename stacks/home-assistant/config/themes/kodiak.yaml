@@ -1,0 +1,85 @@
+# Kodiak Design System — Home Assistant theme on the INK GROUND (dark).
+# Tokens mirror stacks/dashboard/config/custom.css (canonical: old-repo Brand.md).
+# Ink-ground rules: accent is ember (never rust — 2.85:1 fails on ink), secondary
+# text is ash (never bark), surfaces ink-surface, hairlines ink-hairline; status
+# colours use the *-ink variants. Never #000/#fff. Colors + shape only: HA cannot
+# load web fonts from a theme, so typography stays stock (no card-mod).
+# Applied as backend default by the kodiak_default_theme automation (packages/home.yaml).
+Kodiak:
+  # ground
+  primary-background-color: "#1b1a18"          # --ink
+  secondary-background-color: "#1b1a18"
+  markdown-code-background-color: "#161311"    # --terminal-bg
+  # text
+  primary-text-color: "#ece2d0"                # --paper
+  secondary-text-color: "#8d8377"              # --ash
+  text-primary-color: "#ece2d0"
+  disabled-text-color: "#6b6358"               # --bark (disabled only)
+  divider-color: "#423d38"                     # --ink-hairline
+  # accent
+  primary-color: "#c9743f"                     # --ember
+  accent-color: "#c9743f"
+  light-primary-color: "#d98a58"
+  dark-primary-color: "#9d4a25"                # --rust (large fills only)
+  state-icon-color: "#8d8377"
+  # cards — surface + hairline, radius 12, no shadow (Kodiak card rules)
+  card-background-color: "#2b2825"             # --ink-surface
+  ha-card-background: "#2b2825"
+  ha-card-border-radius: "12px"
+  ha-card-border-color: "#423d38"
+  ha-card-border-width: "1px"
+  ha-card-box-shadow: "none"
+  ha-dialog-border-radius: "12px"
+  # sidebar / header on the terminal ground
+  sidebar-background-color: "#161311"
+  sidebar-menu-button-background-color: "#161311"
+  sidebar-text-color: "#8d8377"
+  sidebar-icon-color: "#8d8377"
+  sidebar-selected-text-color: "#c9743f"
+  sidebar-selected-icon-color: "#c9743f"
+  app-header-background-color: "#161311"
+  app-header-text-color: "#ece2d0"
+  app-header-edit-background-color: "#2b2825"
+  app-header-selection-bar-color: "#c9743f"
+  # controls
+  switch-checked-color: "#c9743f"
+  switch-checked-button-color: "#c9743f"
+  switch-checked-track-color: "#9d4a25"
+  switch-unchecked-button-color: "#8d8377"
+  switch-unchecked-track-color: "#423d38"
+  slider-color: "#c9743f"
+  slider-secondary-color: "#9d4a25"
+  slider-track-color: "#423d38"
+  slider-bar-color: "#c9743f"
+  paper-slider-knob-color: "#c9743f"
+  paper-slider-active-color: "#c9743f"
+  mdc-theme-primary: "#c9743f"
+  mdc-checkbox-checked-color: "#c9743f"
+  input-fill-color: "#2b2825"
+  input-ink-color: "#ece2d0"
+  input-label-ink-color: "#8d8377"
+  input-idle-line-color: "#423d38"
+  input-hover-line-color: "#c9743f"
+  input-dropdown-icon-color: "#8d8377"
+  # status — *-ink variants
+  success-color: "#6f8f5c"                     # --ok-ink
+  warning-color: "#d9a441"                     # --warn-ink
+  error-color: "#e0705a"                       # --danger-ink
+  info-color: "#8fb6c4"                        # --info-ink
+  state-icon-error-color: "#e0705a"
+  # entity state colors (tiles/icons): warm actives instead of stock yellow/blue
+  state-active-color: "#c9743f"
+  state-binary_sensor-active-color: "#c9743f"
+  state-light-active-color: "#d98a58"
+  state-switch-active-color: "#c9743f"
+  state-fan-active-color: "#c9743f"
+  state-cover-active-color: "#c9743f"
+  state-climate-heat-color: "#c9743f"
+  state-climate-cool-color: "#8fb6c4"
+  state-vacuum-active-color: "#c9743f"
+  state-media_player-active-color: "#c9743f"
+  # tables / misc
+  table-row-background-color: "#1b1a18"
+  table-row-alternative-background-color: "#2b2825"
+  scrollbar-thumb-color: "#423d38"
+  codemirror-property: "#c9743f"

@@ -977,7 +977,7 @@ deploy = true
 server = "kdk-dkr-02"
 repo = "BigH3ater/kdk-lab-dkr"
 run_directory = "stacks/home-assistant"
-pre_deploy.command = "sh -c 'cp -f traefik-dynamic/*.yml /opt/kdk-lab/home-assistant/traefik/dynamic/'"
+pre_deploy.command = "sh -c 'cp -f traefik-dynamic/*.yml /opt/kdk-lab/home-assistant/traefik/dynamic/ && mkdir -p /opt/kdk-lab/home-assistant/config/dashboards /opt/kdk-lab/home-assistant/config/themes /opt/kdk-lab/home-assistant/config/packages && cp -f config/dashboards/*.yaml /opt/kdk-lab/home-assistant/config/dashboards/ && cp -f config/themes/*.yaml /opt/kdk-lab/home-assistant/config/themes/ && cp -f config/packages/*.yaml /opt/kdk-lab/home-assistant/config/packages/'"
 webhook_enabled = true
 
 # GitOps-owned since 2026-09-20 (was files-on-host). Data dirs stay at

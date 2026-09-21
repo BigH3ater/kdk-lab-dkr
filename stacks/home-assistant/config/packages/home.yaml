@@ -1,0 +1,29 @@
+# Home controls helpers — Kodiak theme default + room groups.
+# Shipped from git (stacks/home-assistant/config/packages/) by the Komodo
+# pre_deploy copy; reload with HA "Reload all YAML" or restart.
+
+light:
+  - platform: group
+    name: Theater Lights
+    unique_id: theater_lights_group
+    entities:
+      - light.0x00158d000502f732   # Theater 1
+      - light.theater_2
+      - light.0x00158d0004fdd4f4   # Theater 3
+      - light.theater_4
+      - light.theater_5
+      - light.theater_6
+      - light.0x00158d000502f6d5   # Theater 7
+      - light.0x00158d00050107c5   # Theater 8
+
+automation:
+  - id: kodiak_default_theme
+    alias: "Kodiak: set default theme on start"
+    triggers:
+      - trigger: homeassistant
+        event: start
+    actions:
+      - action: frontend.set_theme
+        data:
+          name: Kodiak
+    mode: single

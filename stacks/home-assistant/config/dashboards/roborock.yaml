@@ -1,0 +1,464 @@
+# Roborock (Mr. Slave) dashboard — sections layout. YAML-mode, shipped from git.
+# Map card calibration is hand-derived (python-roborock mm→px) — do not re-derive.
+# Maintenance chores live in Vikunja (tasks.kmkdp.com project 6, "Robot Vacuum");
+# Node-RED bridges sensor evidence → task completion. No rr_maint_* booleans anymore.
+title: Roborock
+views:
+- title: Mr. Slave
+  path: mr-slave
+  icon: mdi:robot-vacuum
+  type: sections
+  max_columns: 3
+  badges:
+  - type: entity
+    entity: sensor.mr_slave_status_2
+    name: Status
+  - type: entity
+    entity: sensor.mr_slave_battery_2
+    name: Battery
+  - type: entity
+    entity: input_datetime.rr_next_run
+    name: Next run
+  sections:
+
+  - type: grid
+    column_span: 2
+    cards:
+    - type: heading
+      heading: Live Map — tap a room to clean it
+      icon: mdi:map
+    - type: custom:xiaomi-vacuum-map-card
+      entity: vacuum.mr_slave_2
+      vacuum_platform: Roborock
+      title: ''
+      map_source:
+        camera: image.mr_slave_main_floor_2
+      calibration_source:
+        calibration_points:
+        - vacuum:
+            x: 12225
+            y: 17250
+          map:
+            x: 350
+            y: 1224
+        - vacuum:
+            x: 22675
+            y: 20450
+          map:
+            x: 1186
+            y: 968
+        - vacuum:
+            x: 16425
+            y: 27950
+          map:
+            x: 686
+            y: 368
+      map_modes:
+      - template: vacuum_clean_segment
+        predefined_selections:
+        - id: 1
+          label:
+            text: Master Bedroom Closet
+            x: 12225
+            y: 17250
+            offset_y: 32
+          icon:
+            name: mdi:robot-vacuum
+            x: 12225
+            y: 17250
+        - id: 2
+          label:
+            text: Master Bedroom
+            x: 13350
+            y: 20950
+            offset_y: 32
+          icon:
+            name: mdi:robot-vacuum
+            x: 13350
+            y: 20950
+        - id: 3
+          label:
+            text: Bedroom 1
+            x: 13025
+            y: 27350
+            offset_y: 32
+          icon:
+            name: mdi:robot-vacuum
+            x: 13025
+            y: 27350
+        - id: 4
+          label:
+            text: Master Bathroom
+            x: 14650
+            y: 17200
+            offset_y: 32
+          icon:
+            name: mdi:robot-vacuum
+            x: 14650
+            y: 17200
+        - id: 5
+          label:
+            text: Bathroom 1
+            x: 13100
+            y: 24300
+            offset_y: 32
+          icon:
+            name: mdi:robot-vacuum
+            x: 13100
+            y: 24300
+        - id: 6
+          label:
+            text: Garage Entrance
+            x: 22650
+            y: 25250
+            offset_y: 32
+          icon:
+            name: mdi:robot-vacuum
+            x: 22650
+            y: 25250
+        - id: 7
+          label:
+            text: Half Bath
+            x: 20525
+            y: 25300
+            offset_y: 32
+          icon:
+            name: mdi:robot-vacuum
+            x: 20525
+            y: 25300
+        - id: 8
+          label:
+            text: Laundry Room
+            x: 25125
+            y: 25775
+            offset_y: 32
+          icon:
+            name: mdi:robot-vacuum
+            x: 25125
+            y: 25775
+        - id: 9
+          label:
+            text: Rachel's Office
+            x: 16425
+            y: 27950
+            offset_y: 32
+          icon:
+            name: mdi:robot-vacuum
+            x: 16425
+            y: 27950
+        - id: 10
+          label:
+            text: Hallway
+            x: 14775
+            y: 24825
+            offset_y: 32
+          icon:
+            name: mdi:robot-vacuum
+            x: 14775
+            y: 24825
+        - id: 11
+          label:
+            text: Front Door Entry
+            x: 17775
+            y: 26275
+            offset_y: 32
+          icon:
+            name: mdi:robot-vacuum
+            x: 17775
+            y: 26275
+        - id: 12
+          label:
+            text: Living Room
+            x: 17650
+            y: 21725
+            offset_y: 32
+          icon:
+            name: mdi:robot-vacuum
+            x: 17650
+            y: 21725
+        - id: 13
+          label:
+            text: Kitchen
+            x: 22675
+            y: 20450
+            offset_y: 32
+          icon:
+            name: mdi:robot-vacuum
+            x: 22675
+            y: 20450
+      - template: vacuum_clean_zone
+      - template: vacuum_goto
+
+  - type: grid
+    cards:
+    - type: heading
+      heading: Status
+      icon: mdi:robot-vacuum
+    - type: tile
+      entity: vacuum.mr_slave_2
+      name: Mr. Slave
+      features:
+      - type: vacuum-commands
+        commands:
+        - start_pause
+        - stop
+        - return_home
+        - locate
+    - type: tile
+      entity: select.mr_slave_cleaning_mode
+      name: Cleaning Mode
+      features:
+      - type: select-options
+    - type: tile
+      entity: select.mr_slave_mop_intensity_2
+      name: Mop Intensity
+    - type: tile
+      entity: select.mr_slave_dock_empty_mode_2
+      name: Auto-Empty
+
+  - type: grid
+    cards:
+    - type: heading
+      heading: Schedule
+      icon: mdi:calendar-clock
+    - type: tile
+      entity: input_datetime.rr_next_run
+      name: Next Scheduled Run
+      icon: mdi:calendar-arrow-right
+    - type: tile
+      entity: sensor.mr_slave_last_clean_end_2
+      name: Last Clean Finished
+    - type: tile
+      entity: input_datetime.rr_last_mop_run
+      name: Last Mop Run
+      icon: mdi:bucket-outline
+    - type: markdown
+      content: >-
+        Automatic daily clean: **weekdays 8:30 AM**, **weekends 10:00 AM**.
+        Mop pass runs after vacuuming on **Monday & Friday**.
+
+  - type: grid
+    cards:
+    - type: heading
+      heading: Routines
+      icon: mdi:play-circle
+    - type: button
+      name: Daily Clean
+      icon: mdi:broom
+      show_state: false
+      tap_action:
+        action: call-service
+        service: input_button.press
+        target:
+          entity_id: input_button.rr_daily_clean
+    - type: button
+      name: Mop All Floors
+      icon: mdi:bucket
+      show_state: false
+      tap_action:
+        action: call-service
+        service: input_button.press
+        target:
+          entity_id: input_button.rr_mop_all_floors
+    - type: button
+      name: Return to Dock / Cancel
+      icon: mdi:stop-circle-outline
+      show_state: false
+      tap_action:
+        action: call-service
+        service: input_button.press
+        target:
+          entity_id: input_button.rr_return_dock
+
+  - type: grid
+    cards:
+    - type: heading
+      heading: Rooms Cleaned
+      icon: mdi:check-decagram
+    - type: markdown
+      content: >-
+        {% set rooms = [
+          ('Master Bedroom Closet','rr_last_clean_master_bedroom_closet'),
+          ('Master Bedroom','rr_last_clean_master_bedroom'),
+          ('Bedroom 1','rr_last_clean_bedroom_1'),
+          ('Master Bathroom','rr_last_clean_master_bathroom'),
+          ('Bathroom 1','rr_last_clean_bathroom_1'),
+          ('Garage Entrance','rr_last_clean_garage_entrance'),
+          ('Half Bath','rr_last_clean_half_bath'),
+          ('Laundry Room','rr_last_clean_laundry_room'),
+          ("Rachel's Office",'rr_last_clean_rachels_office'),
+          ('Hallway','rr_last_clean_hallway'),
+          ('Front Door Entry','rr_last_clean_front_door_entry'),
+          ('Living Room','rr_last_clean_living_room'),
+          ('Kitchen','rr_last_clean_kitchen'),
+        ] %}
+        {% for name, ent in rooms -%}
+        {% set dt = as_datetime(states('input_datetime.' ~ ent), default=none) -%}
+        {% if dt is none or dt.year < 2020 -%}
+        - {{ name }} — *never*
+        {% else -%}
+        - {{ name }} — **{{ relative_time(dt.replace(tzinfo=now().tzinfo)) }} ago**{{ ' ✓' if (now() - dt.replace(tzinfo=now().tzinfo)).days < 1 else '' }}
+        {% endif -%}
+        {% endfor %}
+
+  - type: grid
+    cards:
+    - type: heading
+      heading: Clean a Room
+      icon: mdi:vacuum
+    - type: button
+      name: Master Bedroom Closet
+      icon: mdi:robot-vacuum
+      show_state: false
+      tap_action:
+        action: call-service
+        service: input_button.press
+        target:
+          entity_id: input_button.rr_clean_master_bedroom_closet
+    - type: button
+      name: Master Bedroom
+      icon: mdi:robot-vacuum
+      show_state: false
+      tap_action:
+        action: call-service
+        service: input_button.press
+        target:
+          entity_id: input_button.rr_clean_master_bedroom
+    - type: button
+      name: Bedroom 1
+      icon: mdi:robot-vacuum
+      show_state: false
+      tap_action:
+        action: call-service
+        service: input_button.press
+        target:
+          entity_id: input_button.rr_clean_bedroom_1
+    - type: button
+      name: Master Bathroom
+      icon: mdi:robot-vacuum
+      show_state: false
+      tap_action:
+        action: call-service
+        service: input_button.press
+        target:
+          entity_id: input_button.rr_clean_master_bathroom
+    - type: button
+      name: Bathroom 1
+      icon: mdi:robot-vacuum
+      show_state: false
+      tap_action:
+        action: call-service
+        service: input_button.press
+        target:
+          entity_id: input_button.rr_clean_bathroom_1
+    - type: button
+      name: Garage Entrance
+      icon: mdi:robot-vacuum
+      show_state: false
+      tap_action:
+        action: call-service
+        service: input_button.press
+        target:
+          entity_id: input_button.rr_clean_garage_entrance
+    - type: button
+      name: Half Bath
+      icon: mdi:robot-vacuum
+      show_state: false
+      tap_action:
+        action: call-service
+        service: input_button.press
+        target:
+          entity_id: input_button.rr_clean_half_bath
+    - type: button
+      name: Laundry Room
+      icon: mdi:robot-vacuum
+      show_state: false
+      tap_action:
+        action: call-service
+        service: input_button.press
+        target:
+          entity_id: input_button.rr_clean_laundry_room
+    - type: button
+      name: Rachel's Office
+      icon: mdi:robot-vacuum
+      show_state: false
+      tap_action:
+        action: call-service
+        service: input_button.press
+        target:
+          entity_id: input_button.rr_clean_rachels_office
+    - type: button
+      name: Hallway
+      icon: mdi:robot-vacuum
+      show_state: false
+      tap_action:
+        action: call-service
+        service: input_button.press
+        target:
+          entity_id: input_button.rr_clean_hallway
+    - type: button
+      name: Front Door Entry
+      icon: mdi:robot-vacuum
+      show_state: false
+      tap_action:
+        action: call-service
+        service: input_button.press
+        target:
+          entity_id: input_button.rr_clean_front_door_entry
+    - type: button
+      name: Living Room
+      icon: mdi:robot-vacuum
+      show_state: false
+      tap_action:
+        action: call-service
+        service: input_button.press
+        target:
+          entity_id: input_button.rr_clean_living_room
+    - type: button
+      name: Kitchen
+      icon: mdi:robot-vacuum
+      show_state: false
+      tap_action:
+        action: call-service
+        service: input_button.press
+        target:
+          entity_id: input_button.rr_clean_kitchen
+
+  - type: grid
+    cards:
+    - type: heading
+      heading: Maintenance — managed in Tasks
+      icon: mdi:wrench-clock
+    - type: markdown
+      content: >-
+        {% set items = state_attr('sensor.rr_vikunja_chores','open') or [] %}
+        {% if states('sensor.rr_vikunja_chores') in ['unknown','unavailable'] -%}
+        *Chore list unavailable — check tasks.kmkdp.com*
+        {% elif items | count == 0 -%}
+        **All caught up ✓**
+        {% else -%}
+        {% for t in items -%}
+        - {{ '⚠️ ' if as_datetime(t.due) < now() else '' }}**{{ t.t }}** — due {{ as_timestamp(t.due) | timestamp_custom('%a %b %-d') }}
+        {% endfor -%}
+        {% endif %}
+
+        Mark chores done at [tasks.kmkdp.com](https://tasks.kmkdp.com/projects/6) —
+        water refills auto-complete when the dock tank comes back full.
+    - type: tile
+      entity: binary_sensor.mr_slave_dock_dirty_water_box
+      name: Dirty Water Tank
+    - type: tile
+      entity: binary_sensor.mr_slave_water_shortage_2
+      name: Water Shortage
+    - type: tile
+      entity: sensor.mr_slave_main_brush_time_left_2
+      name: Main Brush Left
+    - type: tile
+      entity: sensor.mr_slave_side_brush_time_left_2
+      name: Side Brush Left
+    - type: tile
+      entity: sensor.mr_slave_filter_time_left_2
+      name: Filter Left
+    - type: tile
+      entity: sensor.mr_slave_sensor_time_left_2
+      name: Sensor Clean Left

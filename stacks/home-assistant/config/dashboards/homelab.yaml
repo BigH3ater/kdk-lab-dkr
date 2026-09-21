@@ -1,0 +1,252 @@
+# Homelab hardware dashboard — generated, YAML-mode.
+title: Homelab
+views:
+- title: Homelab
+  path: homelab
+  icon: mdi:server
+  cards:
+  - type: markdown
+    content: '## Homelab hardware
+
+      Live from Prometheus (iDRAC + node_exporter across all hosts).'
+  - type: grid
+    title: UPS — Eaton 5PX (Computer Room)
+    columns: 2
+    square: false
+    cards:
+    - type: gauge
+      entity: sensor.computer_room_eaton_5px_battery_charge
+      name: Battery
+      unit: '%'
+      min: 0
+      max: 100
+      severity:
+        green: 50
+        yellow: 20
+        red: 0
+    - type: gauge
+      entity: sensor.computer_room_eaton_5px_load
+      name: Load
+      unit: '%'
+      min: 0
+      max: 100
+      severity:
+        green: 0
+        yellow: 70
+        red: 90
+    - type: entities
+      title: Status
+      show_header_toggle: false
+      entities:
+      - entity: sensor.computer_room_eaton_5px_status
+        name: Status
+      - entity: sensor.computer_room_eaton_5px_input_voltage
+        name: Input voltage
+      - entity: sensor.computer_room_eaton_5px_output_voltage
+        name: Output voltage
+  - type: grid
+    title: kdk-hyp-01 — Proxmox (R720)
+    columns: 3
+    square: false
+    cards:
+    - type: gauge
+      entity: sensor.kdk_hyp_01_cpu_temp
+      name: CPU Temp
+      unit: °C
+      min: 0
+      max: 90
+      severity: &id001
+        green: 0
+        yellow: 65
+        red: 80
+    - type: gauge
+      entity: sensor.kdk_hyp_01_inlet_temp
+      name: Inlet
+      unit: °C
+      min: 0
+      max: 50
+      severity:
+        green: 0
+        yellow: 30
+        red: 38
+    - type: gauge
+      entity: sensor.kdk_hyp_01_power
+      name: Power
+      unit: W
+      min: 0
+      max: 600
+      severity:
+        green: 0
+        yellow: 400
+        red: 550
+    - type: gauge
+      entity: sensor.kdk_hyp_01_fan_speed_avg
+      name: Fan avg
+      unit: rpm
+      min: 0
+      max: 10000
+    - type: gauge
+      entity: sensor.kdk_hyp_01_fan_speed_max
+      name: Fan max
+      unit: rpm
+      min: 0
+      max: 10000
+  - type: grid
+    title: kdk-nas-01 — TrueNAS (R730xd)
+    columns: 3
+    square: false
+    cards:
+    - type: gauge
+      entity: sensor.kdk_nas_01_cpu_temp
+      name: CPU Temp
+      unit: °C
+      min: 0
+      max: 90
+      severity: *id001
+    - type: gauge
+      entity: sensor.kdk_nas_01_inlet_temp
+      name: Inlet
+      unit: °C
+      min: 0
+      max: 50
+      severity:
+        green: 0
+        yellow: 30
+        red: 38
+    - type: gauge
+      entity: sensor.kdk_nas_01_power
+      name: Power
+      unit: W
+      min: 0
+      max: 600
+      severity:
+        green: 0
+        yellow: 400
+        red: 550
+    - type: gauge
+      entity: sensor.kdk_nas_01_fan_speed_avg
+      name: Fan avg
+      unit: rpm
+      min: 0
+      max: 10000
+    - type: gauge
+      entity: sensor.kdk_nas_01_fan_speed_max
+      name: Fan max
+      unit: rpm
+      min: 0
+      max: 10000
+  - type: grid
+    title: Hosts — CPU / memory / uptime
+    columns: 2
+    square: false
+    cards:
+    - type: entities
+      title: kdk-hyp-01
+      show_header_toggle: false
+      entities:
+      - entity: sensor.kdk_hyp_01_cpu
+        name: CPU
+      - entity: sensor.kdk_hyp_01_mem
+        name: Memory
+      - entity: sensor.kdk_hyp_01_uptime
+        name: Uptime
+    - type: entities
+      title: kdk-nas-01
+      show_header_toggle: false
+      entities:
+      - entity: sensor.kdk_nas_01_cpu
+        name: CPU
+      - entity: sensor.kdk_nas_01_mem
+        name: Memory
+      - entity: sensor.kdk_nas_01_uptime
+        name: Uptime
+    - type: entities
+      title: kdk-dkr-01
+      show_header_toggle: false
+      entities:
+      - entity: sensor.kdk_dkr_01_cpu
+        name: CPU
+      - entity: sensor.kdk_dkr_01_mem
+        name: Memory
+      - entity: sensor.kdk_dkr_01_uptime
+        name: Uptime
+    - type: entities
+      title: kdk-dkr-02
+      show_header_toggle: false
+      entities:
+      - entity: sensor.kdk_dkr_02_cpu
+        name: CPU
+      - entity: sensor.kdk_dkr_02_mem
+        name: Memory
+      - entity: sensor.kdk_dkr_02_uptime
+        name: Uptime
+    - type: entities
+      title: kdk-dkr-03
+      show_header_toggle: false
+      entities:
+      - entity: sensor.kdk_dkr_03_cpu
+        name: CPU
+      - entity: sensor.kdk_dkr_03_mem
+        name: Memory
+      - entity: sensor.kdk_dkr_03_uptime
+        name: Uptime
+    - type: entities
+      title: kdk-mon-01
+      show_header_toggle: false
+      entities:
+      - entity: sensor.kdk_mon_01_cpu
+        name: CPU
+      - entity: sensor.kdk_mon_01_mem
+        name: Memory
+      - entity: sensor.kdk_mon_01_uptime
+        name: Uptime
+    - type: entities
+      title: kdk-dkr-dmz-01
+      show_header_toggle: false
+      entities:
+      - entity: sensor.kdk_dkr_dmz_01_cpu
+        name: CPU
+      - entity: sensor.kdk_dkr_dmz_01_mem
+        name: Memory
+      - entity: sensor.kdk_dkr_dmz_01_uptime
+        name: Uptime
+    - type: entities
+      title: kdk-dns-01
+      show_header_toggle: false
+      entities:
+      - entity: sensor.kdk_dns_01_cpu
+        name: CPU
+      - entity: sensor.kdk_dns_01_mem
+        name: Memory
+      - entity: sensor.kdk_dns_01_uptime
+        name: Uptime
+    - type: entities
+      title: kdk-dns-02
+      show_header_toggle: false
+      entities:
+      - entity: sensor.kdk_dns_02_cpu
+        name: CPU
+      - entity: sensor.kdk_dns_02_mem
+        name: Memory
+      - entity: sensor.kdk_dns_02_uptime
+        name: Uptime
+    - type: entities
+      title: kdk-dns-03
+      show_header_toggle: false
+      entities:
+      - entity: sensor.kdk_dns_03_cpu
+        name: CPU
+      - entity: sensor.kdk_dns_03_mem
+        name: Memory
+      - entity: sensor.kdk_dns_03_uptime
+        name: Uptime
+    - type: entities
+      title: kdk-pbs-01
+      show_header_toggle: false
+      entities:
+      - entity: sensor.kdk_pbs_01_cpu
+        name: CPU
+      - entity: sensor.kdk_pbs_01_mem
+        name: Memory
+      - entity: sensor.kdk_pbs_01_uptime
+        name: Uptime

@@ -1,0 +1,67 @@
+# Roborock (Mr. Slave) — helper entities for per-room cleaning, routines, and
+# run tracking. Logic lives in Node-RED; these are the HomeKit-visible controls
+# and the state it drives. Shipped from git (stacks/home-assistant/config/packages/).
+#
+# Maintenance chores moved to Vikunja (tasks.kmkdp.com project 6 "Robot Vacuum",
+# 2026-09-21): the old rr_maint_* input_booleans + their Node-RED timers are gone.
+# Node-RED auto-completes the Vikunja "Fill water" task on dock-sensor evidence and
+# presses the consumable-reset buttons when a chore is completed in Vikunja.
+
+input_button:
+  # --- per-room clean (segment ids in comments) ---
+  rr_clean_master_bedroom_closet: { name: "Clean Master Bedroom Closet", icon: mdi:robot-vacuum }   # seg 1
+  rr_clean_master_bedroom:        { name: "Clean Master Bedroom", icon: mdi:robot-vacuum }           # seg 2
+  rr_clean_bedroom_1:             { name: "Clean Bedroom 1", icon: mdi:robot-vacuum }                 # seg 3
+  rr_clean_master_bathroom:       { name: "Clean Master Bathroom", icon: mdi:robot-vacuum }           # seg 4
+  rr_clean_bathroom_1:            { name: "Clean Bathroom 1", icon: mdi:robot-vacuum }                # seg 5
+  rr_clean_garage_entrance:       { name: "Clean Garage Entrance", icon: mdi:robot-vacuum }           # seg 6
+  rr_clean_half_bath:             { name: "Clean Half Bath", icon: mdi:robot-vacuum }                 # seg 7
+  rr_clean_laundry_room:          { name: "Clean Laundry Room", icon: mdi:robot-vacuum }              # seg 8
+  rr_clean_rachels_office:        { name: "Clean Rachel's Office", icon: mdi:robot-vacuum }           # seg 9
+  rr_clean_hallway:               { name: "Clean Hallway", icon: mdi:robot-vacuum }                   # seg 10
+  rr_clean_front_door_entry:      { name: "Clean Front Door Entry", icon: mdi:robot-vacuum }          # seg 11
+  rr_clean_living_room:           { name: "Clean Living Room", icon: mdi:robot-vacuum }               # seg 12
+  rr_clean_kitchen:               { name: "Clean Kitchen", icon: mdi:robot-vacuum }                   # seg 13
+  # --- routines ---
+  rr_daily_clean:    { name: "Roborock Daily Clean", icon: mdi:broom }
+  rr_mop_all_floors: { name: "Roborock Mop All Floors", icon: mdi:bucket }
+  rr_return_dock:    { name: "Roborock Return to Dock", icon: mdi:home-import-outline }
+
+input_datetime:
+  rr_last_mop_run: { name: "Roborock Last Mop Run", has_date: true, has_time: true }
+  rr_next_run:     { name: "Roborock Next Scheduled Run", has_date: true, has_time: true }
+  # per-room last-cleaned stamps — set by Node-RED when it dispatches/completes a
+  # room (it is the sole dispatcher; the vacuum's own current-room sensor uses the
+  # stale internal room names and is not trustworthy)
+  rr_last_clean_master_bedroom_closet: { name: "Last Clean Master Bedroom Closet", has_date: true, has_time: true }
+  rr_last_clean_master_bedroom:        { name: "Last Clean Master Bedroom", has_date: true, has_time: true }
+  rr_last_clean_bedroom_1:             { name: "Last Clean Bedroom 1", has_date: true, has_time: true }
+  rr_last_clean_master_bathroom:       { name: "Last Clean Master Bathroom", has_date: true, has_time: true }
+  rr_last_clean_bathroom_1:            { name: "Last Clean Bathroom 1", has_date: true, has_time: true }
+  rr_last_clean_garage_entrance:       { name: "Last Clean Garage Entrance", has_date: true, has_time: true }
+  rr_last_clean_half_bath:             { name: "Last Clean Half Bath", has_date: true, has_time: true }
+  rr_last_clean_laundry_room:          { name: "Last Clean Laundry Room", has_date: true, has_time: true }
+  rr_last_clean_rachels_office:        { name: "Last Clean Rachel's Office", has_date: true, has_time: true }
+  rr_last_clean_hallway:               { name: "Last Clean Hallway", has_date: true, has_time: true }
+  rr_last_clean_front_door_entry:      { name: "Last Clean Front Door Entry", has_date: true, has_time: true }
+  rr_last_clean_living_room:           { name: "Last Clean Living Room", has_date: true, has_time: true }
+  rr_last_clean_kitchen:               { name: "Last Clean Kitchen", has_date: true, has_time: true }
+
+# Open maintenance chores from Vikunja (project 6 "Robot Vacuum"). Token is
+# host-managed at /config/.vikunja_token (0600, not in git — same lane as
+# secrets.yaml). /tasks/all 400s on scoped tokens; the per-project route works.
+command_line:
+  - sensor:
+      name: rr_vikunja_chores
+      unique_id: rr_vikunja_chores
+      command: >-
+        curl -sk -m 20 -H "Authorization: Bearer $(cat /config/.vikunja_token)"
+        "https://tasks.kmkdp.com/api/v1/projects/6/tasks?per_page=50"
+        | python3 -c "import json,sys; ts=json.load(sys.stdin); o=[{'t':t['title'],'due':t['due_date']} for t in ts if not t['done']]; o.sort(key=lambda x:x['due']); print(json.dumps({'open':o,'count':len(o)}))"
+      value_template: "{{ value_json.count }}"
+      json_attributes:
+        - open
+      scan_interval: 900
+
+# HomeKit bridge exposes the vacuum, per-room clean buttons, and routines to
+# Apple Home (include list lives in .storage/core.config_entries on the host).

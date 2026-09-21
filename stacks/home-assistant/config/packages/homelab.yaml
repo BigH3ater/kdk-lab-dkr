@@ -1,0 +1,481 @@
+# Homelab telemetry — REST sensors from Prometheus (kdk-mon-01).
+# availability_template marks a sensor unavailable when the query is empty;
+# value_template returns a number or none (never the string 'unavailable',
+# which would crash a numeric state_class sensor). timeout 30 rides out brief
+# Prometheus slowness. Temps have NO device_class (stay °C under imperial).
+rest:
+  - resource: http://10.1.20.30:9090/api/v1/query
+    scan_interval: 60
+    timeout: 30
+    params:
+      query: 'avg(idrac_sensors_fan_speed{instance_name="kdk-hyp-01"})'
+    sensor:
+      - name: "kdk-hyp-01 Fan Speed (avg)"
+        unique_id: hl_kdk_hyp_01_fan_avg
+        value_template: "{{ (value_json.data.result[0].value[1] | float | round(0)) if value_json.data.result else none }}"
+        unit_of_measurement: "rpm"
+        state_class: measurement
+  - resource: http://10.1.20.30:9090/api/v1/query
+    scan_interval: 60
+    timeout: 30
+    params:
+      query: 'max(idrac_sensors_fan_speed{instance_name="kdk-hyp-01"})'
+    sensor:
+      - name: "kdk-hyp-01 Fan Speed (max)"
+        unique_id: hl_kdk_hyp_01_fan_max
+        value_template: "{{ (value_json.data.result[0].value[1] | float | round(0)) if value_json.data.result else none }}"
+        unit_of_measurement: "rpm"
+        state_class: measurement
+  - resource: http://10.1.20.30:9090/api/v1/query
+    scan_interval: 60
+    timeout: 30
+    params:
+      query: 'max(idrac_sensors_temperature{instance_name="kdk-hyp-01",name=~"CPU.*"})'
+    sensor:
+      - name: "kdk-hyp-01 CPU Temp"
+        unique_id: hl_kdk_hyp_01_cpu_temp
+        value_template: "{{ (value_json.data.result[0].value[1] | float | round(0)) if value_json.data.result else none }}"
+        unit_of_measurement: "°C"
+        state_class: measurement
+  - resource: http://10.1.20.30:9090/api/v1/query
+    scan_interval: 60
+    timeout: 30
+    params:
+      query: 'idrac_sensors_temperature{instance_name="kdk-hyp-01",name=~".*Inlet.*"}'
+    sensor:
+      - name: "kdk-hyp-01 Inlet Temp"
+        unique_id: hl_kdk_hyp_01_inlet_temp
+        value_template: "{{ (value_json.data.result[0].value[1] | float | round(0)) if value_json.data.result else none }}"
+        unit_of_measurement: "°C"
+        state_class: measurement
+  - resource: http://10.1.20.30:9090/api/v1/query
+    scan_interval: 60
+    timeout: 30
+    params:
+      query: 'idrac_power_control_consumed_watts{instance_name="kdk-hyp-01"}'
+    sensor:
+      - name: "kdk-hyp-01 Power"
+        unique_id: hl_kdk_hyp_01_power
+        value_template: "{{ (value_json.data.result[0].value[1] | float | round(0)) if value_json.data.result else none }}"
+        unit_of_measurement: "W"
+        state_class: measurement
+        device_class: power
+  - resource: http://10.1.20.30:9090/api/v1/query
+    scan_interval: 60
+    timeout: 30
+    params:
+      query: 'avg(idrac_sensors_fan_speed{instance_name="kdk-nas-01"})'
+    sensor:
+      - name: "kdk-nas-01 Fan Speed (avg)"
+        unique_id: hl_kdk_nas_01_fan_avg
+        value_template: "{{ (value_json.data.result[0].value[1] | float | round(0)) if value_json.data.result else none }}"
+        unit_of_measurement: "rpm"
+        state_class: measurement
+  - resource: http://10.1.20.30:9090/api/v1/query
+    scan_interval: 60
+    timeout: 30
+    params:
+      query: 'max(idrac_sensors_fan_speed{instance_name="kdk-nas-01"})'
+    sensor:
+      - name: "kdk-nas-01 Fan Speed (max)"
+        unique_id: hl_kdk_nas_01_fan_max
+        value_template: "{{ (value_json.data.result[0].value[1] | float | round(0)) if value_json.data.result else none }}"
+        unit_of_measurement: "rpm"
+        state_class: measurement
+  - resource: http://10.1.20.30:9090/api/v1/query
+    scan_interval: 60
+    timeout: 30
+    params:
+      query: 'max(idrac_sensors_temperature{instance_name="kdk-nas-01",name=~"CPU.*"})'
+    sensor:
+      - name: "kdk-nas-01 CPU Temp"
+        unique_id: hl_kdk_nas_01_cpu_temp
+        value_template: "{{ (value_json.data.result[0].value[1] | float | round(0)) if value_json.data.result else none }}"
+        unit_of_measurement: "°C"
+        state_class: measurement
+  - resource: http://10.1.20.30:9090/api/v1/query
+    scan_interval: 60
+    timeout: 30
+    params:
+      query: 'idrac_sensors_temperature{instance_name="kdk-nas-01",name=~".*Inlet.*"}'
+    sensor:
+      - name: "kdk-nas-01 Inlet Temp"
+        unique_id: hl_kdk_nas_01_inlet_temp
+        value_template: "{{ (value_json.data.result[0].value[1] | float | round(0)) if value_json.data.result else none }}"
+        unit_of_measurement: "°C"
+        state_class: measurement
+  - resource: http://10.1.20.30:9090/api/v1/query
+    scan_interval: 60
+    timeout: 30
+    params:
+      query: 'idrac_power_control_consumed_watts{instance_name="kdk-nas-01"}'
+    sensor:
+      - name: "kdk-nas-01 Power"
+        unique_id: hl_kdk_nas_01_power
+        value_template: "{{ (value_json.data.result[0].value[1] | float | round(0)) if value_json.data.result else none }}"
+        unit_of_measurement: "W"
+        state_class: measurement
+        device_class: power
+  - resource: http://10.1.20.30:9090/api/v1/query
+    scan_interval: 60
+    timeout: 30
+    params:
+      query: '100 - (avg(rate(node_cpu_seconds_total{instance="10.1.1.100:9100",mode="idle"}[5m]))*100)'
+    sensor:
+      - name: "kdk-hyp-01 CPU"
+        unique_id: hl_kdk_hyp_01_cpu
+        value_template: "{{ (value_json.data.result[0].value[1] | float | round(1)) if value_json.data.result else none }}"
+        unit_of_measurement: "%"
+        state_class: measurement
+  - resource: http://10.1.20.30:9090/api/v1/query
+    scan_interval: 60
+    timeout: 30
+    params:
+      query: '100*(1 - node_memory_MemAvailable_bytes{instance="10.1.1.100:9100"}/node_memory_MemTotal_bytes{instance="10.1.1.100:9100"})'
+    sensor:
+      - name: "kdk-hyp-01 Memory"
+        unique_id: hl_kdk_hyp_01_mem
+        value_template: "{{ (value_json.data.result[0].value[1] | float | round(1)) if value_json.data.result else none }}"
+        unit_of_measurement: "%"
+        state_class: measurement
+  - resource: http://10.1.20.30:9090/api/v1/query
+    scan_interval: 60
+    timeout: 30
+    params:
+      query: '(time() - node_boot_time_seconds{instance="10.1.1.100:9100"})/86400'
+    sensor:
+      - name: "kdk-hyp-01 Uptime"
+        unique_id: hl_kdk_hyp_01_uptime
+        value_template: "{{ (value_json.data.result[0].value[1] | float | round(1)) if value_json.data.result else none }}"
+        unit_of_measurement: "d"
+        state_class: measurement
+  - resource: http://10.1.20.30:9090/api/v1/query
+    scan_interval: 60
+    timeout: 30
+    params:
+      query: '100 - (avg(rate(node_cpu_seconds_total{instance="10.1.3.5:9100",mode="idle"}[5m]))*100)'
+    sensor:
+      - name: "kdk-nas-01 CPU"
+        unique_id: hl_kdk_nas_01_cpu
+        value_template: "{{ (value_json.data.result[0].value[1] | float | round(1)) if value_json.data.result else none }}"
+        unit_of_measurement: "%"
+        state_class: measurement
+  - resource: http://10.1.20.30:9090/api/v1/query
+    scan_interval: 60
+    timeout: 30
+    params:
+      query: '100*(1 - node_memory_MemAvailable_bytes{instance="10.1.3.5:9100"}/node_memory_MemTotal_bytes{instance="10.1.3.5:9100"})'
+    sensor:
+      - name: "kdk-nas-01 Memory"
+        unique_id: hl_kdk_nas_01_mem
+        value_template: "{{ (value_json.data.result[0].value[1] | float | round(1)) if value_json.data.result else none }}"
+        unit_of_measurement: "%"
+        state_class: measurement
+  - resource: http://10.1.20.30:9090/api/v1/query
+    scan_interval: 60
+    timeout: 30
+    params:
+      query: '(time() - node_boot_time_seconds{instance="10.1.3.5:9100"})/86400'
+    sensor:
+      - name: "kdk-nas-01 Uptime"
+        unique_id: hl_kdk_nas_01_uptime
+        value_template: "{{ (value_json.data.result[0].value[1] | float | round(1)) if value_json.data.result else none }}"
+        unit_of_measurement: "d"
+        state_class: measurement
+  - resource: http://10.1.20.30:9090/api/v1/query
+    scan_interval: 60
+    timeout: 30
+    params:
+      query: '100 - (avg(rate(node_cpu_seconds_total{instance="10.1.20.20:9100",mode="idle"}[5m]))*100)'
+    sensor:
+      - name: "kdk-dkr-01 CPU"
+        unique_id: hl_kdk_dkr_01_cpu
+        value_template: "{{ (value_json.data.result[0].value[1] | float | round(1)) if value_json.data.result else none }}"
+        unit_of_measurement: "%"
+        state_class: measurement
+  - resource: http://10.1.20.30:9090/api/v1/query
+    scan_interval: 60
+    timeout: 30
+    params:
+      query: '100*(1 - node_memory_MemAvailable_bytes{instance="10.1.20.20:9100"}/node_memory_MemTotal_bytes{instance="10.1.20.20:9100"})'
+    sensor:
+      - name: "kdk-dkr-01 Memory"
+        unique_id: hl_kdk_dkr_01_mem
+        value_template: "{{ (value_json.data.result[0].value[1] | float | round(1)) if value_json.data.result else none }}"
+        unit_of_measurement: "%"
+        state_class: measurement
+  - resource: http://10.1.20.30:9090/api/v1/query
+    scan_interval: 60
+    timeout: 30
+    params:
+      query: '(time() - node_boot_time_seconds{instance="10.1.20.20:9100"})/86400'
+    sensor:
+      - name: "kdk-dkr-01 Uptime"
+        unique_id: hl_kdk_dkr_01_uptime
+        value_template: "{{ (value_json.data.result[0].value[1] | float | round(1)) if value_json.data.result else none }}"
+        unit_of_measurement: "d"
+        state_class: measurement
+  - resource: http://10.1.20.30:9090/api/v1/query
+    scan_interval: 60
+    timeout: 30
+    params:
+      query: '100 - (avg(rate(node_cpu_seconds_total{instance="10.1.30.21:9100",mode="idle"}[5m]))*100)'
+    sensor:
+      - name: "kdk-dkr-02 CPU"
+        unique_id: hl_kdk_dkr_02_cpu
+        value_template: "{{ (value_json.data.result[0].value[1] | float | round(1)) if value_json.data.result else none }}"
+        unit_of_measurement: "%"
+        state_class: measurement
+  - resource: http://10.1.20.30:9090/api/v1/query
+    scan_interval: 60
+    timeout: 30
+    params:
+      query: '100*(1 - node_memory_MemAvailable_bytes{instance="10.1.30.21:9100"}/node_memory_MemTotal_bytes{instance="10.1.30.21:9100"})'
+    sensor:
+      - name: "kdk-dkr-02 Memory"
+        unique_id: hl_kdk_dkr_02_mem
+        value_template: "{{ (value_json.data.result[0].value[1] | float | round(1)) if value_json.data.result else none }}"
+        unit_of_measurement: "%"
+        state_class: measurement
+  - resource: http://10.1.20.30:9090/api/v1/query
+    scan_interval: 60
+    timeout: 30
+    params:
+      query: '(time() - node_boot_time_seconds{instance="10.1.30.21:9100"})/86400'
+    sensor:
+      - name: "kdk-dkr-02 Uptime"
+        unique_id: hl_kdk_dkr_02_uptime
+        value_template: "{{ (value_json.data.result[0].value[1] | float | round(1)) if value_json.data.result else none }}"
+        unit_of_measurement: "d"
+        state_class: measurement
+  - resource: http://10.1.20.30:9090/api/v1/query
+    scan_interval: 60
+    timeout: 30
+    params:
+      query: '100 - (avg(rate(node_cpu_seconds_total{instance="10.1.30.22:9100",mode="idle"}[5m]))*100)'
+    sensor:
+      - name: "kdk-dkr-03 CPU"
+        unique_id: hl_kdk_dkr_03_cpu
+        value_template: "{{ (value_json.data.result[0].value[1] | float | round(1)) if value_json.data.result else none }}"
+        unit_of_measurement: "%"
+        state_class: measurement
+  - resource: http://10.1.20.30:9090/api/v1/query
+    scan_interval: 60
+    timeout: 30
+    params:
+      query: '100*(1 - node_memory_MemAvailable_bytes{instance="10.1.30.22:9100"}/node_memory_MemTotal_bytes{instance="10.1.30.22:9100"})'
+    sensor:
+      - name: "kdk-dkr-03 Memory"
+        unique_id: hl_kdk_dkr_03_mem
+        value_template: "{{ (value_json.data.result[0].value[1] | float | round(1)) if value_json.data.result else none }}"
+        unit_of_measurement: "%"
+        state_class: measurement
+  - resource: http://10.1.20.30:9090/api/v1/query
+    scan_interval: 60
+    timeout: 30
+    params:
+      query: '(time() - node_boot_time_seconds{instance="10.1.30.22:9100"})/86400'
+    sensor:
+      - name: "kdk-dkr-03 Uptime"
+        unique_id: hl_kdk_dkr_03_uptime
+        value_template: "{{ (value_json.data.result[0].value[1] | float | round(1)) if value_json.data.result else none }}"
+        unit_of_measurement: "d"
+        state_class: measurement
+  - resource: http://10.1.20.30:9090/api/v1/query
+    scan_interval: 60
+    timeout: 30
+    params:
+      query: '100 - (avg(rate(node_cpu_seconds_total{instance="10.1.20.30:9100",mode="idle"}[5m]))*100)'
+    sensor:
+      - name: "kdk-mon-01 CPU"
+        unique_id: hl_kdk_mon_01_cpu
+        value_template: "{{ (value_json.data.result[0].value[1] | float | round(1)) if value_json.data.result else none }}"
+        unit_of_measurement: "%"
+        state_class: measurement
+  - resource: http://10.1.20.30:9090/api/v1/query
+    scan_interval: 60
+    timeout: 30
+    params:
+      query: '100*(1 - node_memory_MemAvailable_bytes{instance="10.1.20.30:9100"}/node_memory_MemTotal_bytes{instance="10.1.20.30:9100"})'
+    sensor:
+      - name: "kdk-mon-01 Memory"
+        unique_id: hl_kdk_mon_01_mem
+        value_template: "{{ (value_json.data.result[0].value[1] | float | round(1)) if value_json.data.result else none }}"
+        unit_of_measurement: "%"
+        state_class: measurement
+  - resource: http://10.1.20.30:9090/api/v1/query
+    scan_interval: 60
+    timeout: 30
+    params:
+      query: '(time() - node_boot_time_seconds{instance="10.1.20.30:9100"})/86400'
+    sensor:
+      - name: "kdk-mon-01 Uptime"
+        unique_id: hl_kdk_mon_01_uptime
+        value_template: "{{ (value_json.data.result[0].value[1] | float | round(1)) if value_json.data.result else none }}"
+        unit_of_measurement: "d"
+        state_class: measurement
+  - resource: http://10.1.20.30:9090/api/v1/query
+    scan_interval: 60
+    timeout: 30
+    params:
+      query: '100 - (avg(rate(node_cpu_seconds_total{instance="192.168.191.20:9100",mode="idle"}[5m]))*100)'
+    sensor:
+      - name: "kdk-dkr-dmz-01 CPU"
+        unique_id: hl_kdk_dkr_dmz_01_cpu
+        value_template: "{{ (value_json.data.result[0].value[1] | float | round(1)) if value_json.data.result else none }}"
+        unit_of_measurement: "%"
+        state_class: measurement
+  - resource: http://10.1.20.30:9090/api/v1/query
+    scan_interval: 60
+    timeout: 30
+    params:
+      query: '100*(1 - node_memory_MemAvailable_bytes{instance="192.168.191.20:9100"}/node_memory_MemTotal_bytes{instance="192.168.191.20:9100"})'
+    sensor:
+      - name: "kdk-dkr-dmz-01 Memory"
+        unique_id: hl_kdk_dkr_dmz_01_mem
+        value_template: "{{ (value_json.data.result[0].value[1] | float | round(1)) if value_json.data.result else none }}"
+        unit_of_measurement: "%"
+        state_class: measurement
+  - resource: http://10.1.20.30:9090/api/v1/query
+    scan_interval: 60
+    timeout: 30
+    params:
+      query: '(time() - node_boot_time_seconds{instance="192.168.191.20:9100"})/86400'
+    sensor:
+      - name: "kdk-dkr-dmz-01 Uptime"
+        unique_id: hl_kdk_dkr_dmz_01_uptime
+        value_template: "{{ (value_json.data.result[0].value[1] | float | round(1)) if value_json.data.result else none }}"
+        unit_of_measurement: "d"
+        state_class: measurement
+  - resource: http://10.1.20.30:9090/api/v1/query
+    scan_interval: 60
+    timeout: 30
+    params:
+      query: '100 - (avg(rate(node_cpu_seconds_total{instance="10.1.1.120:9100",mode="idle"}[5m]))*100)'
+    sensor:
+      - name: "kdk-dns-01 CPU"
+        unique_id: hl_kdk_dns_01_cpu
+        value_template: "{{ (value_json.data.result[0].value[1] | float | round(1)) if value_json.data.result else none }}"
+        unit_of_measurement: "%"
+        state_class: measurement
+  - resource: http://10.1.20.30:9090/api/v1/query
+    scan_interval: 60
+    timeout: 30
+    params:
+      query: '100*(1 - node_memory_MemAvailable_bytes{instance="10.1.1.120:9100"}/node_memory_MemTotal_bytes{instance="10.1.1.120:9100"})'
+    sensor:
+      - name: "kdk-dns-01 Memory"
+        unique_id: hl_kdk_dns_01_mem
+        value_template: "{{ (value_json.data.result[0].value[1] | float | round(1)) if value_json.data.result else none }}"
+        unit_of_measurement: "%"
+        state_class: measurement
+  - resource: http://10.1.20.30:9090/api/v1/query
+    scan_interval: 60
+    timeout: 30
+    params:
+      query: '(time() - node_boot_time_seconds{instance="10.1.1.120:9100"})/86400'
+    sensor:
+      - name: "kdk-dns-01 Uptime"
+        unique_id: hl_kdk_dns_01_uptime
+        value_template: "{{ (value_json.data.result[0].value[1] | float | round(1)) if value_json.data.result else none }}"
+        unit_of_measurement: "d"
+        state_class: measurement
+  - resource: http://10.1.20.30:9090/api/v1/query
+    scan_interval: 60
+    timeout: 30
+    params:
+      query: '100 - (avg(rate(node_cpu_seconds_total{instance="10.1.1.121:9100",mode="idle"}[5m]))*100)'
+    sensor:
+      - name: "kdk-dns-02 CPU"
+        unique_id: hl_kdk_dns_02_cpu
+        value_template: "{{ (value_json.data.result[0].value[1] | float | round(1)) if value_json.data.result else none }}"
+        unit_of_measurement: "%"
+        state_class: measurement
+  - resource: http://10.1.20.30:9090/api/v1/query
+    scan_interval: 60
+    timeout: 30
+    params:
+      query: '100*(1 - node_memory_MemAvailable_bytes{instance="10.1.1.121:9100"}/node_memory_MemTotal_bytes{instance="10.1.1.121:9100"})'
+    sensor:
+      - name: "kdk-dns-02 Memory"
+        unique_id: hl_kdk_dns_02_mem
+        value_template: "{{ (value_json.data.result[0].value[1] | float | round(1)) if value_json.data.result else none }}"
+        unit_of_measurement: "%"
+        state_class: measurement
+  - resource: http://10.1.20.30:9090/api/v1/query
+    scan_interval: 60
+    timeout: 30
+    params:
+      query: '(time() - node_boot_time_seconds{instance="10.1.1.121:9100"})/86400'
+    sensor:
+      - name: "kdk-dns-02 Uptime"
+        unique_id: hl_kdk_dns_02_uptime
+        value_template: "{{ (value_json.data.result[0].value[1] | float | round(1)) if value_json.data.result else none }}"
+        unit_of_measurement: "d"
+        state_class: measurement
+  - resource: http://10.1.20.30:9090/api/v1/query
+    scan_interval: 60
+    timeout: 30
+    params:
+      query: '100 - (avg(rate(node_cpu_seconds_total{instance="10.1.1.122:9100",mode="idle"}[5m]))*100)'
+    sensor:
+      - name: "kdk-dns-03 CPU"
+        unique_id: hl_kdk_dns_03_cpu
+        value_template: "{{ (value_json.data.result[0].value[1] | float | round(1)) if value_json.data.result else none }}"
+        unit_of_measurement: "%"
+        state_class: measurement
+  - resource: http://10.1.20.30:9090/api/v1/query
+    scan_interval: 60
+    timeout: 30
+    params:
+      query: '100*(1 - node_memory_MemAvailable_bytes{instance="10.1.1.122:9100"}/node_memory_MemTotal_bytes{instance="10.1.1.122:9100"})'
+    sensor:
+      - name: "kdk-dns-03 Memory"
+        unique_id: hl_kdk_dns_03_mem
+        value_template: "{{ (value_json.data.result[0].value[1] | float | round(1)) if value_json.data.result else none }}"
+        unit_of_measurement: "%"
+        state_class: measurement
+  - resource: http://10.1.20.30:9090/api/v1/query
+    scan_interval: 60
+    timeout: 30
+    params:
+      query: '(time() - node_boot_time_seconds{instance="10.1.1.122:9100"})/86400'
+    sensor:
+      - name: "kdk-dns-03 Uptime"
+        unique_id: hl_kdk_dns_03_uptime
+        value_template: "{{ (value_json.data.result[0].value[1] | float | round(1)) if value_json.data.result else none }}"
+        unit_of_measurement: "d"
+        state_class: measurement
+  - resource: http://10.1.20.30:9090/api/v1/query
+    scan_interval: 60
+    timeout: 30
+    params:
+      query: '100 - (avg(rate(node_cpu_seconds_total{instance="10.1.1.102:9100",mode="idle"}[5m]))*100)'
+    sensor:
+      - name: "kdk-pbs-01 CPU"
+        unique_id: hl_kdk_pbs_01_cpu
+        value_template: "{{ (value_json.data.result[0].value[1] | float | round(1)) if value_json.data.result else none }}"
+        unit_of_measurement: "%"
+        state_class: measurement
+  - resource: http://10.1.20.30:9090/api/v1/query
+    scan_interval: 60
+    timeout: 30
+    params:
+      query: '100*(1 - node_memory_MemAvailable_bytes{instance="10.1.1.102:9100"}/node_memory_MemTotal_bytes{instance="10.1.1.102:9100"})'
+    sensor:
+      - name: "kdk-pbs-01 Memory"
+        unique_id: hl_kdk_pbs_01_mem
+        value_template: "{{ (value_json.data.result[0].value[1] | float | round(1)) if value_json.data.result else none }}"
+        unit_of_measurement: "%"
+        state_class: measurement
+  - resource: http://10.1.20.30:9090/api/v1/query
+    scan_interval: 60
+    timeout: 30
+    params:
+      query: '(time() - node_boot_time_seconds{instance="10.1.1.102:9100"})/86400'
+    sensor:
+      - name: "kdk-pbs-01 Uptime"
+        unique_id: hl_kdk_pbs_01_uptime
+        value_template: "{{ (value_json.data.result[0].value[1] | float | round(1)) if value_json.data.result else none }}"
+        unit_of_measurement: "d"
+        state_class: measurement
