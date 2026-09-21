@@ -19,6 +19,13 @@ VIKUNJA_SERVICE_JWTSECRET={{ op://kdk-cluster/vikunja-app/jwt_secret }}
 # P1b: HOMEPAGE_VAR_ABS_KEY <- 1P item kdk-cluster/audiobookshelf-api-ro field password (uncomment as a real line once the item exists)
 HOMEPAGE_VAR_VIKUNJA_KEY={{ op://kdk-cluster/vikunja-api-ro/password }}
 
+# ---- P2b: per-user Vikunja tokens (task write-back attributed via SSO) --------
+# Each household member mints their own full-permission token in Vikunja and it
+# lands in a kdk-cluster item named vikunja-api-<user>, field password. The
+# sidecar maps Remote-User -> token so completions show the right doer.
+VIKUNJA_TOKEN_JMACK={{ op://kdk-cluster/vikunja-api-jmack/password }}
+# VIKUNJA_TOKEN_RACH <- 1P item kdk-cluster/vikunja-api-rach field password (uncomment once rach has minted hers)
+
 # ---- P3: household calendar (Proton "Share via link" ICS) ---------------------
 # Reused from planner-service (kdk-ops, read-only). The calendar widget in
 # config/services.yaml reads this via the HOMEPAGE_VAR_ICS_URL variable.

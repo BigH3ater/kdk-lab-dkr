@@ -18,13 +18,8 @@
           type: iframe
           name: Meal Plan
           src: https://home.kmkdp.com/meal/
-          height: 360
+          height: 235
           referrerPolicy: same-origin
-    - Recipe Book:
-        icon: mdi-book-open-variant
-        href: https://recipes.kmkdp.com
-        description: Browse recipes, shopping list & pantry (Tandoor)
-        siteMonitor: https://recipes.kmkdp.com
 
 - Watch & Listen:
     - Movies & TV:
@@ -87,16 +82,22 @@
         description: Recurring chores & to-dos -- tick them off
         siteMonitor: https://tasks.kmkdp.com
         widget:
-          type: vikunja
-          url: https://tasks.kmkdp.com
-          key: "{{HOMEPAGE_VAR_VIKUNJA_KEY}}"
-          version: 2
-          enableTaskList: true
+          # Interactive checkable list from the mealplan sidecar -- completions
+          # are written to Vikunja AS the signed-in user (per-user API tokens).
+          type: iframe
+          name: Tasks
+          src: https://home.kmkdp.com/meal/tasks
+          height: 320
     - Budget:
         icon: actualbudget.png
         href: https://budget.kmkdp.com
         description: Household budget (Actual) -- sign in with your kmkdp account
         siteMonitor: https://budget.kmkdp.com
+    - Recipe Book:
+        icon: mdi-book-open-variant
+        href: https://recipes.kmkdp.com
+        description: Browse recipes, shopping list & pantry (Tandoor)
+        siteMonitor: https://recipes.kmkdp.com
     - How-To Guides:
         icon: mdi-help-circle
         href: https://home.kmkdp.com/guides/

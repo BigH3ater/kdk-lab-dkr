@@ -2,8 +2,8 @@
 title: The Mack House
 description: Home dashboard for the Mack family
 
-theme: dark
-color: stone
+theme: light
+color: stone   # base only -- Kodiak tokens come from custom.css
 headerStyle: clean
 hideVersion: true
 disableCollapse: false
@@ -13,7 +13,7 @@ statusStyle: dot          # compact up/down dots for siteMonitor health
 layout:
   This Week:
     style: row
-    columns: 2
+    columns: 1   # the meal-plan week strip spans the full width
   Watch & Listen:
     style: row
     columns: 3
@@ -25,7 +25,7 @@ layout:
     columns: 2
   Home:
     style: row
-    columns: 3
+    columns: 4
   Household Calendar:
     style: row
     columns: 1

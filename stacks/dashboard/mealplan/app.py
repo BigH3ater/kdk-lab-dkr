@@ -28,6 +28,8 @@ from __future__ import annotations
 import os, re, json, datetime, logging
 from zoneinfo import ZoneInfo
 import requests
+import urllib3
+urllib3.disable_warnings()
 from flask import Flask, request, Response, redirect
 from waitress import serve
 
@@ -35,7 +37,17 @@ TANDOOR_URL = os.environ.get("TANDOOR_URL", "https://recipes.kmkdp.com").rstrip(
 USER = os.environ.get("TANDOOR_USER", "")
 PASS = os.environ.get("TANDOOR_PASS", "")
 TZ = ZoneInfo(os.environ.get("TZ", "America/Chicago"))
-RATERS = [r.strip() for r in os.environ.get("RATERS", "Jacob,Rachel").split(",") if r.strip()]
+# Rater identity comes from Authelia ForwardAuth (Remote-User / Remote-Name
+# headers injected by the internal Traefik) -- no picker. Map lab usernames to
+# household display names; unknown users fall back to Remote-Name or the login.
+USER_DISPLAY = {"jmack": "Jacob", "rach": "Rachel"}
+
+def rater_from_headers() -> str:
+    login = (request.headers.get("Remote-User") or "").strip()
+    if login in USER_DISPLAY:
+        return USER_DISPLAY[login]
+    name = (request.headers.get("Remote-Name") or "").strip()
+    return name or login or "family"
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger("mealplan")
@@ -167,25 +179,32 @@ def post_rating(recipe_id: int, rating: int, who: str) -> bool:
 
 # ---- rendering ------------------------------------------------------------
 PAGE_CSS = """
-*{box-sizing:border-box}body{margin:0;font:15px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
-background:#1c1917;color:#e7e5e4}
-.week{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;padding:8px}
-@media(max-width:640px){.week{grid-template-columns:1fr}}
-.day{background:#292524;border:1px solid #44403c;border-radius:10px;padding:8px;min-height:110px}
-.day.today{border-color:#d97706}
-.dow{font-weight:700;color:#fbbf24;font-size:12px;text-transform:uppercase;letter-spacing:.04em}
-.meal{margin-top:6px;padding-top:6px;border-top:1px solid #3a3532}
-.meal a{color:#e7e5e4;text-decoration:none;font-weight:600}
-.mt{color:#a8a29e;font-size:11px;text-transform:uppercase}
-.rate{margin-top:4px;display:flex;align-items:center;gap:2px;flex-wrap:wrap}
-.rate select{background:#1c1917;color:#e7e5e4;border:1px solid #44403c;border-radius:5px;font-size:11px;padding:1px 2px}
-.rate button{background:none;border:none;color:#78716c;cursor:pointer;font-size:15px;padding:0 1px;line-height:1}
-.rate button:hover{color:#fbbf24}
-.empty{color:#a8a29e;font-size:12px;padding:20px;text-align:center}
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
+*{box-sizing:border-box}
+:root{--ink:#1b1a18;--rust:#9d4a25;--paper:#ece2d0;--paper-warm:#f7f1e6;--paper-dark:#dfd4c0;
+--bark:#6b6358;--stone:#9a9183;--ok:#4a6b37;--danger:#8c2f1b}
+body{margin:0;font:14px/1.45 'Space Grotesk',sans-serif;background:var(--paper-warm);color:var(--ink)}
+.week{display:grid;grid-template-columns:repeat(7,1fr);gap:8px;padding:10px}
+@media(max-width:560px){.week{grid-template-columns:repeat(7,minmax(130px,1fr));overflow-x:auto}}
+.day{background:var(--paper);border:1px solid var(--paper-dark);border-radius:9px;padding:8px;min-height:120px}
+.day.today{border-color:var(--rust);border-width:2px}
+.dow{font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:500;letter-spacing:.22em;
+text-transform:uppercase;color:var(--bark)}
+.day.today .dow{color:var(--rust)}
+.meal{margin-top:6px;padding-top:6px;border-top:1px solid var(--paper-dark)}
+.meal a{color:var(--ink);text-decoration:none;font-weight:600}
+.meal a:hover{color:var(--rust);text-decoration:underline;text-decoration-thickness:2px}
+.mt{font-family:'JetBrains Mono',monospace;color:var(--bark);font-size:10px;text-transform:uppercase;letter-spacing:.12em}
+.rate{margin-top:4px;display:flex;align-items:center;gap:1px}
+.rate button{background:none;border:none;color:var(--stone);cursor:pointer;font-size:15px;padding:0 1px;line-height:1}
+.rate button:hover{color:var(--rust)}
+.rate .as{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--bark);margin-left:6px}
+:focus-visible{outline:2px solid var(--rust);outline-offset:2px}
+.empty{color:var(--bark);font-size:13px;padding:24px;text-align:center;font-family:'Space Grotesk',sans-serif}
 """
 
 
-def render_week(plan: list[dict], today: datetime.date, mon: datetime.date) -> str:
+def render_week(plan: list[dict], today: datetime.date, mon: datetime.date, rater: str) -> str:
     by_day: dict[str, list[dict]] = {}
     for e in plan:
         if e["date"]:
@@ -204,11 +223,10 @@ def render_week(plan: list[dict], today: datetime.date, mon: datetime.date) -> s
                     f'<button type="submit" name="rating" value="{n}" title="{n} star">&#9733;</button>'
                     for n in range(1, 6)
                 )
-                who = "".join(f'<option>{r}</option>' for r in RATERS)
                 rate = (
                     f'<form class="rate" method="post" action="rate">'
                     f'<input type="hidden" name="recipe_id" value="{e["recipe_id"]}">'
-                    f'<select name="who">{who}</select>{stars}</form>'
+                    f'{stars}<span class="as">as {rater}</span></form>'
                 )
             else:
                 name = e["title"]
@@ -247,11 +265,11 @@ def index():
     except Exception:
         log.exception("meal plan fetch failed")
         return Response(
-            f"<!doctype html><body style='background:#1c1917;color:#a8a29e;font-family:sans-serif;padding:20px'>"
+            f"<!doctype html><body style='background:#f7f1e6;color:#6b6358;font-family:sans-serif;padding:20px'>"
             f"Couldn't load the meal plan right now. Try again shortly.</body>",
             mimetype="text/html",
         )
-    return Response(render_week(plan, today, mon), mimetype="text/html")
+    return Response(render_week(plan, today, mon, rater_from_headers()), mimetype="text/html")
 
 
 @app.post("/rate")
@@ -259,11 +277,87 @@ def rate():
     try:
         rid = int(request.form["recipe_id"])
         stars = int(request.form["rating"])
-        who = request.form.get("who", RATERS[0] if RATERS else "family")
+        who = rater_from_headers()
         post_rating(rid, stars, who)
     except Exception:
         log.exception("rating failed")
     return redirect("./", code=303)
+
+
+
+# ---- Vikunja tasks (write-back attributed via SSO) -------------------------
+VIKUNJA_URL = os.environ.get("VIKUNJA_URL", "https://tasks.kmkdp.com")
+VIKUNJA_TOKENS = {
+    "jmack": os.environ.get("VIKUNJA_TOKEN_JMACK", ""),
+    "rach": os.environ.get("VIKUNJA_TOKEN_RACH", ""),
+}
+
+def _vik_token() -> tuple[str, str]:
+    """(login, token) for the authenticated user; empty token if none stored."""
+    login = (request.headers.get("Remote-User") or "").strip()
+    return login, VIKUNJA_TOKENS.get(login, "")
+
+def _vik(method: str, path: str, token: str, body=None):
+    r = requests.request(method, f"{VIKUNJA_URL}/api/v1{path}",
+        headers={"Authorization": f"Bearer {token}"}, json=body, timeout=15, verify=False)
+    r.raise_for_status()
+    return r.json() if r.text else None
+
+TASKS_CSS = PAGE_CSS + """
+.tl{list-style:none;margin:0;padding:10px}
+.tl li{display:flex;align-items:center;gap:8px;padding:7px 4px;border-bottom:1px solid var(--paper-dark)}
+.tl form{display:flex;margin:0}
+.tl button{width:18px;height:18px;border:2px solid var(--bark);border-radius:5px;background:none;cursor:pointer}
+.tl button:hover{border-color:var(--ok);background:var(--paper-dark)}
+.due{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--bark);margin-left:auto;white-space:nowrap}
+.due.over{color:var(--danger);font-weight:500}
+.proj{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--stone)}
+.note{padding:10px;font-size:12px;color:var(--bark)}
+"""
+
+@app.get("/tasks")
+def tasks_view():
+    login, token = _vik_token()
+    who = rater_from_headers()
+    if not token:
+        return Response(f"<!doctype html><style>{TASKS_CSS}</style><div class='note'>No Vikunja token stored for {who} yet - open <a href='{VIKUNJA_URL}' target='_top'>tasks.kmkdp.com</a>, create an API token, and have it added as vikunja-api-{login or 'user'}.</div>", mimetype="text/html")
+    try:
+        projects = {p["id"]: p["title"] for p in _vik("GET", "/projects", token)}
+        tasks = _vik("GET", "/tasks/all?sort_by=due_date&order_by=asc&filter=done%3Dfalse&per_page=60", token) or []
+    except Exception:
+        log.exception("vikunja fetch failed")
+        return Response(f"<!doctype html><style>{TASKS_CSS}</style><div class='note'>Couldn't reach the task list right now.</div>", mimetype="text/html")
+    today = datetime.datetime.now(TZ).date()
+    horizon = today + datetime.timedelta(days=14)
+    rows = []
+    for t in tasks:
+        if t.get("done"): continue
+        due = _parse_date((t.get("due_date") or "")[:10])
+        if due and due > horizon: continue
+        overdue = " over" if (due and due < today) else ""
+        due_s = due.strftime("%b %-d") if due else ""
+        proj = projects.get(t.get("project_id"), "")
+        rows.append(
+            f"<li><form method='post' action='tasks/complete'>"
+            f"<input type='hidden' name='task_id' value='{t['id']}'>"
+            f"<button title='done'></button></form>"
+            f"<span>{t['title']}</span><span class='proj'>{proj}</span>"
+            f"<span class='due{overdue}'>{due_s}</span></li>")
+        if len(rows) >= 14: break
+    body = f"<ul class='tl'>{''.join(rows)}</ul>" if rows else "<div class='note'>Nothing due in the next two weeks. 🎉</div>"
+    return Response(f"<!doctype html><html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><style>{TASKS_CSS}</style></head><body>{body}</body></html>", mimetype="text/html")
+
+@app.post("/tasks/complete")
+def tasks_complete():
+    login, token = _vik_token()
+    try:
+        tid = int(request.form["task_id"])
+        if token:
+            _vik("POST", f"/tasks/{tid}/done", token)
+            log.info("task %s completed by %s", tid, login)
+    except Exception:
+        log.exception("task completion failed")
+    return redirect("tasks", code=303)
 
 
 if __name__ == "__main__":

@@ -1,15 +1,91 @@
-/* Kodiak-ish warm accent for the family board. Homepage loads config/custom.css. */
+/* Kodiak Design System — application UI, paper ground.
+   Canonical tokens: old-repo docs/Homelab/Brand.md + "Kodiak Design System — Web
+   Layer". Never #000/#fff; rust = interactive accent only; stone is never text on
+   paper; radii 9/12/14. Homepage loads this after its own styles. */
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
+
 :root {
-  --kodiak-amber: 217 119 6;   /* amber-600-ish */
+  --ink: #1b1a18; --rust: #9d4a25; --paper: #ece2d0;
+  --paper-warm: #f7f1e6; --paper-dark: #dfd4c0;
+  --bark: #6b6358; --stone: #9a9183; --terminal-bg: #161311;
+  --terminal-green: #6f8f5c; --terminal-green-bright: #9bbd7e;
+  --ember: #c9743f; --ash: #8d8377; --paper-mute: #6a6156;
+  --ok: #4a6b37; --warn: #7a5a12; --danger: #8c2f1b; --info: #3f5a66;
+  --font-display: 'Space Grotesk', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
 }
 
-/* Make group headers a touch warmer/bolder for at-a-glance scanning. */
-#page_container h2 {
-  letter-spacing: 0.01em;
+/* Ground */
+html, body, #page_container { background: var(--paper) !important; }
+body { font-family: var(--font-display) !important; color: var(--ink); }
+
+/* Page title */
+#page_container h1, .text-3xl { color: var(--ink) !important; font-family: var(--font-display) !important; font-weight: 700; }
+
+/* Group headers -> Kodiak mono section labels (1c grammar on app surfaces) */
+#page_container h2, .service-group-name {
+  font-family: var(--font-mono) !important;
+  font-size: 11px !important;
+  letter-spacing: 0.22em !important;
+  text-transform: uppercase !important;
+  color: var(--bark) !important;
+  font-weight: 500 !important;
 }
 
-/* Give the meal-plan iframe tile a clean framed look. */
-.service-container iframe {
-  border-radius: 0.5rem;
-  background: rgb(28 25 23);   /* stone-900 */
+/* Service cards: paper-warm panels, medium radius, hairline border */
+.service-card, .bookmark, [class*="service-container"] > div > div {
+  background: var(--paper-warm) !important;
+  border: 1px solid var(--paper-dark) !important;
+  border-radius: 12px !important;
+  box-shadow: none !important;
+}
+.service-card:hover { border-color: var(--rust) !important; }
+
+/* Card text */
+.service-title, .service-card .font-medium, .bookmark-name { color: var(--ink) !important; }
+.service-description, .bookmark-description, .text-xs { color: var(--bark) !important; }
+
+/* Links + focus (Web Layer interactive states) */
+a { color: var(--rust); }
+:focus-visible { outline: 2px solid var(--rust) !important; outline-offset: 2px; }
+
+/* siteMonitor status dots: green means green (Kodiak ok), red = danger */
+.status-dot-ok, [data-status="ok"] { background-color: var(--ok) !important; }
+.status-dot-error, [data-status="error"] { background-color: var(--danger) !important; }
+
+/* Widgets (calendar, vikunja list): keep text legible on paper */
+.widget-container, .calendar { color: var(--ink) !important; }
+.widget-container .text-gray-400, .widget-container .text-neutral-400 { color: var(--bark) !important; }
+
+/* Meal-plan iframe strip: flat seam into the page, no dark frame */
+.service-container iframe { border-radius: 12px; background: var(--paper-warm); border: 1px solid var(--paper-dark); }
+
+/* ---- Kodiak sidebar (injected by custom.js) ---- */
+#kodiak-sidebar {
+  position: fixed; top: 0; left: 0; bottom: 0; width: 208px;
+  background: var(--paper-dark);
+  border-right: 1px solid var(--stone);
+  padding: 18px 14px; z-index: 40; overflow-y: auto;
+}
+#kodiak-sidebar .ks-brand {
+  display: flex; align-items: center; gap: 10px;
+  color: var(--rust); font-weight: 600; font-size: 16px;
+  padding-bottom: 14px; margin-bottom: 10px;
+  border-bottom: 1px solid var(--stone);
+}
+#kodiak-sidebar .ks-brand span { color: var(--ink); }
+#kodiak-sidebar ul { list-style: none; margin: 0; padding: 0; }
+#kodiak-sidebar li a {
+  display: block; padding: 8px 10px; margin: 2px 0;
+  font-family: var(--font-mono); font-size: 11px;
+  letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--bark); text-decoration: none; border-radius: 9px;
+}
+#kodiak-sidebar li a:hover { color: var(--rust); background: var(--paper-warm); }
+body.has-kodiak-sidebar #page_container,
+body.has-kodiak-sidebar > div#root > div { margin-left: 208px; }
+@media (max-width: 820px) {
+  #kodiak-sidebar { display: none; }   /* phones keep the full-width board */
+  body.has-kodiak-sidebar #page_container,
+  body.has-kodiak-sidebar > div#root > div { margin-left: 0; }
 }

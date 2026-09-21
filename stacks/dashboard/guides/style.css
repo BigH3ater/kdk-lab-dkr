@@ -1,57 +1,38 @@
-/* Mack House guides -- plain, warm, easy to read on a phone. */
+/* Kodiak Design System — application UI, paper ground (Brand.md + Web Layer).
+   Dark mode = the ink ground with its measured substitutes (--ember for rust,
+   --ash for bark) per rules 3 and 8. Never #000/#fff. */
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
-  --bg: #1c1917;        /* stone-900 */
-  --card: #292524;      /* stone-800 */
-  --text: #e7e5e4;      /* stone-200 */
-  --muted: #a8a29e;     /* stone-400 */
-  --amber: #d97706;     /* amber-600 */
-  --amber-soft: #fbbf24;/* amber-400 */
-  --line: #44403c;      /* stone-700 */
+  --ink:#1b1a18; --rust:#9d4a25; --paper:#ece2d0; --paper-warm:#f7f1e6;
+  --paper-dark:#dfd4c0; --bark:#6b6358; --stone:#9a9183;
+  --ember:#c9743f; --ash:#8d8377; --ink-surface:#2b2825; --ink-hairline:#423d38;
+  --bg:var(--paper); --card:var(--paper-warm); --text:var(--ink);
+  --muted:var(--bark); --accent:var(--rust); --line:var(--paper-dark);
 }
-@media (prefers-color-scheme: light) {
-  :root {
-    --bg: #faf9f7; --card: #ffffff; --text: #292524; --muted: #78716c;
-    --amber: #b45309; --amber-soft: #d97706; --line: #e7e5e4;
-  }
+@media (prefers-color-scheme: dark) {
+  :root { --bg:var(--ink); --card:var(--ink-surface); --text:var(--paper);
+          --muted:var(--ash); --accent:var(--ember); --line:var(--ink-hairline); }
 }
 * { box-sizing: border-box; }
-body {
-  margin: 0; background: var(--bg); color: var(--text);
-  font: 17px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  padding: 0 16px;
-}
-.wrap { max-width: 720px; margin: 0 auto; padding: 28px 0 80px; }
-header.site { display: flex; align-items: center; gap: 12px; padding: 8px 0 20px; }
-header.site .bear { font-size: 30px; }
-header.site a { color: var(--amber-soft); text-decoration: none; font-weight: 600; }
-h1 { font-size: 30px; line-height: 1.2; margin: 8px 0 4px; }
-h2 { font-size: 21px; margin: 28px 0 8px; color: var(--amber-soft); }
-.lead { color: var(--muted); font-size: 18px; margin: 0 0 8px; }
-a { color: var(--amber-soft); }
-.card {
-  background: var(--card); border: 1px solid var(--line);
-  border-radius: 14px; padding: 18px 20px; margin: 16px 0;
-}
-ol, ul { padding-left: 22px; }
-li { margin: 7px 0; }
-.step { counter-reset: none; }
-code, .pill {
-  background: rgba(217,119,6,0.15); color: var(--amber-soft);
-  padding: 2px 7px; border-radius: 6px; font-size: 0.95em;
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-}
-.btn {
-  display: inline-block; background: var(--amber); color: #fff !important;
-  text-decoration: none; padding: 11px 18px; border-radius: 10px;
-  font-weight: 600; margin: 6px 8px 6px 0;
-}
-.note {
-  border-left: 3px solid var(--amber); background: rgba(217,119,6,0.08);
-  padding: 12px 16px; border-radius: 0 10px 10px 0; margin: 16px 0; color: var(--text);
-}
-.help { color: var(--muted); font-size: 15px; margin-top: 28px; border-top: 1px solid var(--line); padding-top: 16px; }
-.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; margin: 18px 0; }
-.grid a { display: block; background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px; text-decoration: none; color: var(--text); }
-.grid a:hover { border-color: var(--amber); }
-.grid .t { font-weight: 700; color: var(--amber-soft); display: block; margin-bottom: 4px; }
-.grid .d { color: var(--muted); font-size: 14px; }
+body { margin:0; background:var(--bg); color:var(--text);
+  font: 16px/1.6 'Space Grotesk', sans-serif; padding: 0 16px; }
+.wrap { max-width: 68ch; margin: 0 auto; padding: 28px 0 80px; }
+header.site { display:flex; align-items:center; gap:12px; padding:8px 0 20px; }
+header.site .bear { color:var(--accent); display:flex; }
+header.site a { color:var(--text); text-decoration:none; font-weight:600; letter-spacing:0.02em; }
+h1 { font-size:31px; line-height:1.25; margin:8px 0 4px; font-weight:600; }
+h2 { font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:0.22em;
+     text-transform:uppercase; color:var(--muted); font-weight:500; margin:28px 0 8px; }
+.lead { color:var(--muted); font-size:18px; margin:0 0 8px; }
+a { color:var(--accent); }
+a:hover { text-decoration-thickness:2px; }
+:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+.card, .step { background:var(--card); border:1px solid var(--line);
+  border-radius:12px; padding:14px 16px; margin:10px 0; }
+ol,ul { padding-left:22px; } li { margin:6px 0; }
+code { font-family:'JetBrains Mono',monospace; font-size:14px;
+  background:var(--card); border:1px solid var(--line); border-radius:5px; padding:1px 5px; }
+.tip { border-left:3px solid var(--accent); padding:8px 12px; color:var(--muted);
+  background:var(--card); border-radius:0 9px 9px 0; margin:12px 0; }
+footer { margin-top:40px; color:var(--muted); font-size:14px;
+  border-top:1px solid var(--line); padding-top:14px; }
