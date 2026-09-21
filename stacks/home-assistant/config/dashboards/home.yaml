@@ -6,7 +6,7 @@ views:
   path: home
   icon: mdi:home-assistant
   type: sections
-  max_columns: 3
+  max_columns: 4
   badges:
   - type: entity
     entity: climate.t9_thermostat
@@ -238,6 +238,7 @@ views:
       name: Can Lights
 
   - type: grid
+    column_span: 2
     cards:
     - type: heading
       heading: Vacuum
@@ -256,10 +257,143 @@ views:
     - type: tile
       entity: sensor.mr_slave_battery_2
       name: Battery
+    - type: tile
+      entity: binary_sensor.mr_slave_water_shortage_2
+      name: Clean Water Empty?
     - type: button
-      name: Open Vacuum Dashboard
+      name: Map & Schedule
       icon: mdi:robot-vacuum-variant
       show_state: false
       tap_action:
         action: navigate
         navigation_path: /roborock-vac
+    - type: heading
+      heading: Clean a Room
+      heading_style: subtitle
+      icon: mdi:vacuum
+    - type: button
+      name: Master Bedroom Closet
+      icon: mdi:robot-vacuum
+      show_state: false
+      tap_action:
+        action: call-service
+        service: input_button.press
+        target:
+          entity_id: input_button.rr_clean_master_bedroom_closet
+    - type: button
+      name: Master Bedroom
+      icon: mdi:robot-vacuum
+      show_state: false
+      tap_action:
+        action: call-service
+        service: input_button.press
+        target:
+          entity_id: input_button.rr_clean_master_bedroom
+    - type: button
+      name: Bedroom 1
+      icon: mdi:robot-vacuum
+      show_state: false
+      tap_action:
+        action: call-service
+        service: input_button.press
+        target:
+          entity_id: input_button.rr_clean_bedroom_1
+    - type: button
+      name: Master Bathroom
+      icon: mdi:robot-vacuum
+      show_state: false
+      tap_action:
+        action: call-service
+        service: input_button.press
+        target:
+          entity_id: input_button.rr_clean_master_bathroom
+    - type: button
+      name: Bathroom 1
+      icon: mdi:robot-vacuum
+      show_state: false
+      tap_action:
+        action: call-service
+        service: input_button.press
+        target:
+          entity_id: input_button.rr_clean_bathroom_1
+    - type: button
+      name: Garage Entrance
+      icon: mdi:robot-vacuum
+      show_state: false
+      tap_action:
+        action: call-service
+        service: input_button.press
+        target:
+          entity_id: input_button.rr_clean_garage_entrance
+    - type: button
+      name: Half Bath
+      icon: mdi:robot-vacuum
+      show_state: false
+      tap_action:
+        action: call-service
+        service: input_button.press
+        target:
+          entity_id: input_button.rr_clean_half_bath
+    - type: button
+      name: Laundry Room
+      icon: mdi:robot-vacuum
+      show_state: false
+      tap_action:
+        action: call-service
+        service: input_button.press
+        target:
+          entity_id: input_button.rr_clean_laundry_room
+    - type: button
+      name: Rachel's Office
+      icon: mdi:robot-vacuum
+      show_state: false
+      tap_action:
+        action: call-service
+        service: input_button.press
+        target:
+          entity_id: input_button.rr_clean_rachels_office
+    - type: button
+      name: Hallway
+      icon: mdi:robot-vacuum
+      show_state: false
+      tap_action:
+        action: call-service
+        service: input_button.press
+        target:
+          entity_id: input_button.rr_clean_hallway
+    - type: button
+      name: Front Door Entry
+      icon: mdi:robot-vacuum
+      show_state: false
+      tap_action:
+        action: call-service
+        service: input_button.press
+        target:
+          entity_id: input_button.rr_clean_front_door_entry
+    - type: button
+      name: Living Room
+      icon: mdi:robot-vacuum
+      show_state: false
+      tap_action:
+        action: call-service
+        service: input_button.press
+        target:
+          entity_id: input_button.rr_clean_living_room
+    - type: button
+      name: Kitchen
+      icon: mdi:robot-vacuum
+      show_state: false
+      tap_action:
+        action: call-service
+        service: input_button.press
+        target:
+          entity_id: input_button.rr_clean_kitchen
+    - type: button
+      name: Cancel / Return to Dock
+      icon: mdi:stop-circle-outline
+      show_state: false
+      tap_action:
+        action: call-service
+        service: input_button.press
+        target:
+          entity_id: input_button.rr_return_dock

@@ -1,14 +1,16 @@
 # Roborock (Mr. Slave) dashboard — sections layout. YAML-mode, shipped from git.
 # Map card calibration is hand-derived (python-roborock mm→px) — do not re-derive.
 # Maintenance chores live in Vikunja (tasks.kmkdp.com project 6, "Robot Vacuum");
-# Node-RED bridges sensor evidence → task completion. No rr_maint_* booleans anymore.
+# Node-RED bridges sensor evidence → task completion, and publishes run progress
+# to sensor.rr_run_progress (REST-set; 'unknown' after an HA restart until the
+# next run). Per-room clean buttons live on the HOME dashboard (user 2026-09-21).
 title: Roborock
 views:
 - title: Mr. Slave
   path: mr-slave
   icon: mdi:robot-vacuum
   type: sections
-  max_columns: 3
+  max_columns: 4
   badges:
   - type: entity
     entity: sensor.mr_slave_status_2
@@ -19,6 +21,9 @@ views:
   - type: entity
     entity: input_datetime.rr_next_run
     name: Next run
+  - type: entity
+    entity: input_datetime.rr_next_mop
+    name: Next mop
   sections:
 
   - type: grid
@@ -192,8 +197,26 @@ views:
   - type: grid
     cards:
     - type: heading
-      heading: Status
-      icon: mdi:robot-vacuum
+      heading: Run Progress
+      icon: mdi:progress-check
+    - type: markdown
+      content: >-
+        {% set s = states('sensor.rr_run_progress') %}
+        {% if s in ['unknown','unavailable'] -%}
+        *No run tracked since the last restart.*
+        {% else -%}
+        **{{ s }}**
+        {% if state_attr('sensor.rr_run_progress','near') -%}
+
+        Vacuum near: {{ state_attr('sensor.rr_run_progress','near') }} *(vacuum's own room label)*
+        {% endif -%}
+        {% endif %}
+    - type: tile
+      entity: sensor.mr_slave_cleaning_progress_2
+      name: Cleaning Progress
+    - type: tile
+      entity: sensor.mr_slave_cleaning_time_2
+      name: Run Time
     - type: tile
       entity: vacuum.mr_slave_2
       name: Mr. Slave
@@ -204,6 +227,37 @@ views:
         - stop
         - return_home
         - locate
+
+  - type: grid
+    cards:
+    - type: heading
+      heading: Schedule
+      icon: mdi:calendar-clock
+    - type: tile
+      entity: input_datetime.rr_next_run
+      name: Next Clean
+      icon: mdi:calendar-arrow-right
+    - type: tile
+      entity: input_datetime.rr_next_mop
+      name: Next Mop
+      icon: mdi:bucket-outline
+    - type: tile
+      entity: sensor.mr_slave_last_clean_end_2
+      name: Last Clean Finished
+    - type: tile
+      entity: input_datetime.rr_last_mop_run
+      name: Last Mop Run
+    - type: markdown
+      content: >-
+        Daily clean: **weekdays 8:30**, **weekends 10:00**. Mop follows the
+        vacuum pass on **Monday & Friday**. Stopping the vacuum by hand (app,
+        HomeKit, or its buttons) now cancels the rest of the run.
+
+  - type: grid
+    cards:
+    - type: heading
+      heading: Modes & Routines
+      icon: mdi:tune
     - type: tile
       entity: select.mr_slave_cleaning_mode
       name: Cleaning Mode
@@ -215,33 +269,6 @@ views:
     - type: tile
       entity: select.mr_slave_dock_empty_mode_2
       name: Auto-Empty
-
-  - type: grid
-    cards:
-    - type: heading
-      heading: Schedule
-      icon: mdi:calendar-clock
-    - type: tile
-      entity: input_datetime.rr_next_run
-      name: Next Scheduled Run
-      icon: mdi:calendar-arrow-right
-    - type: tile
-      entity: sensor.mr_slave_last_clean_end_2
-      name: Last Clean Finished
-    - type: tile
-      entity: input_datetime.rr_last_mop_run
-      name: Last Mop Run
-      icon: mdi:bucket-outline
-    - type: markdown
-      content: >-
-        Automatic daily clean: **weekdays 8:30 AM**, **weekends 10:00 AM**.
-        Mop pass runs after vacuuming on **Monday & Friday**.
-
-  - type: grid
-    cards:
-    - type: heading
-      heading: Routines
-      icon: mdi:play-circle
     - type: button
       name: Daily Clean
       icon: mdi:broom
@@ -271,6 +298,7 @@ views:
           entity_id: input_button.rr_return_dock
 
   - type: grid
+    column_span: 2
     cards:
     - type: heading
       heading: Rooms Cleaned
@@ -295,136 +323,17 @@ views:
         {% for name, ent in rooms -%}
         {% set dt = as_datetime(states('input_datetime.' ~ ent), default=none) -%}
         {% if dt is none or dt.year < 2020 -%}
-        - {{ name }} — *never*
+        - {{ name }} — *no completed clean tracked yet*
         {% else -%}
         - {{ name }} — **{{ relative_time(dt.replace(tzinfo=now().tzinfo)) }} ago**{{ ' ✓' if (now() - dt.replace(tzinfo=now().tzinfo)).days < 1 else '' }}
         {% endif -%}
         {% endfor %}
 
-  - type: grid
-    cards:
-    - type: heading
-      heading: Clean a Room
-      icon: mdi:vacuum
-    - type: button
-      name: Master Bedroom Closet
-      icon: mdi:robot-vacuum
-      show_state: false
-      tap_action:
-        action: call-service
-        service: input_button.press
-        target:
-          entity_id: input_button.rr_clean_master_bedroom_closet
-    - type: button
-      name: Master Bedroom
-      icon: mdi:robot-vacuum
-      show_state: false
-      tap_action:
-        action: call-service
-        service: input_button.press
-        target:
-          entity_id: input_button.rr_clean_master_bedroom
-    - type: button
-      name: Bedroom 1
-      icon: mdi:robot-vacuum
-      show_state: false
-      tap_action:
-        action: call-service
-        service: input_button.press
-        target:
-          entity_id: input_button.rr_clean_bedroom_1
-    - type: button
-      name: Master Bathroom
-      icon: mdi:robot-vacuum
-      show_state: false
-      tap_action:
-        action: call-service
-        service: input_button.press
-        target:
-          entity_id: input_button.rr_clean_master_bathroom
-    - type: button
-      name: Bathroom 1
-      icon: mdi:robot-vacuum
-      show_state: false
-      tap_action:
-        action: call-service
-        service: input_button.press
-        target:
-          entity_id: input_button.rr_clean_bathroom_1
-    - type: button
-      name: Garage Entrance
-      icon: mdi:robot-vacuum
-      show_state: false
-      tap_action:
-        action: call-service
-        service: input_button.press
-        target:
-          entity_id: input_button.rr_clean_garage_entrance
-    - type: button
-      name: Half Bath
-      icon: mdi:robot-vacuum
-      show_state: false
-      tap_action:
-        action: call-service
-        service: input_button.press
-        target:
-          entity_id: input_button.rr_clean_half_bath
-    - type: button
-      name: Laundry Room
-      icon: mdi:robot-vacuum
-      show_state: false
-      tap_action:
-        action: call-service
-        service: input_button.press
-        target:
-          entity_id: input_button.rr_clean_laundry_room
-    - type: button
-      name: Rachel's Office
-      icon: mdi:robot-vacuum
-      show_state: false
-      tap_action:
-        action: call-service
-        service: input_button.press
-        target:
-          entity_id: input_button.rr_clean_rachels_office
-    - type: button
-      name: Hallway
-      icon: mdi:robot-vacuum
-      show_state: false
-      tap_action:
-        action: call-service
-        service: input_button.press
-        target:
-          entity_id: input_button.rr_clean_hallway
-    - type: button
-      name: Front Door Entry
-      icon: mdi:robot-vacuum
-      show_state: false
-      tap_action:
-        action: call-service
-        service: input_button.press
-        target:
-          entity_id: input_button.rr_clean_front_door_entry
-    - type: button
-      name: Living Room
-      icon: mdi:robot-vacuum
-      show_state: false
-      tap_action:
-        action: call-service
-        service: input_button.press
-        target:
-          entity_id: input_button.rr_clean_living_room
-    - type: button
-      name: Kitchen
-      icon: mdi:robot-vacuum
-      show_state: false
-      tap_action:
-        action: call-service
-        service: input_button.press
-        target:
-          entity_id: input_button.rr_clean_kitchen
+        Stamps land only when a stage **completes** — a cancelled run leaves
+        its rooms unstamped.
 
   - type: grid
+    column_span: 2
     cards:
     - type: heading
       heading: Maintenance — managed in Tasks
@@ -445,11 +354,14 @@ views:
         Mark chores done at [tasks.kmkdp.com](https://tasks.kmkdp.com/projects/6) —
         water refills auto-complete when the dock tank comes back full.
     - type: tile
+      entity: binary_sensor.mr_slave_water_shortage_2
+      name: Clean Water Empty?
+    - type: tile
+      entity: binary_sensor.mr_slave_dock_clean_water_box
+      name: Clean Water Tank
+    - type: tile
       entity: binary_sensor.mr_slave_dock_dirty_water_box
       name: Dirty Water Tank
-    - type: tile
-      entity: binary_sensor.mr_slave_water_shortage_2
-      name: Water Shortage
     - type: tile
       entity: sensor.mr_slave_main_brush_time_left_2
       name: Main Brush Left

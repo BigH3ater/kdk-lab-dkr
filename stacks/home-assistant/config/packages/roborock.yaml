@@ -30,6 +30,7 @@ input_button:
 input_datetime:
   rr_last_mop_run: { name: "Roborock Last Mop Run", has_date: true, has_time: true }
   rr_next_run:     { name: "Roborock Next Scheduled Run", has_date: true, has_time: true }
+  rr_next_mop:     { name: "Roborock Next Mop Run", has_date: true, has_time: true }
   # per-room last-cleaned stamps — set by Node-RED when it dispatches/completes a
   # room (it is the sole dispatcher; the vacuum's own current-room sensor uses the
   # stale internal room names and is not trustworthy)
