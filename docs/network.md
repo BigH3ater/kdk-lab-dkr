@@ -43,12 +43,51 @@ Storage/NFS runs on its own flat L2 (bond1/br0 on the NAS, jumbo MTU 9000):
 > (`nfs.config` bindip + `sharing.nfs` export networks); client mounts are systemd
 > `.mount` units seeded from `cloud-init/`. See `docs/runbooks/storage-network.md`.
 
-## DNS (AdGuard rewrites, end state)
+## DNS (AdGuard — live configuration, verified 2026-09-21)
+
+Three AdGuard Home instances behind a VRRP VIP; rewrites are edited on the
+**origin** `kdk-dns-01` (10.1.1.120) and replicated to dns-02/03 by
+adguardhome-sync. `scripts/dns-sync.py` reconciles service rewrites from live
+Traefik `Host()` labels plus a static map (creds op://kdk-cluster/
+kdk-dns-adguard-home-admin); the dns-reconcile stack runs it on the
+gitops-sync cadence, but **adopted Pi-tier names are excluded** from
+auto-reconciliation.
+
+| Resolver | Role |
+|---|---|
+| 10.1.1.53 (`dns.kmkdp.com`) | VRRP VIP — what clients use |
+| 10.1.1.120 `kdk-dns-01` | origin (edit rewrites HERE) |
+| 10.1.1.121 `kdk-dns-02` / 10.1.1.122 `kdk-dns-03` | replicas via adguardhome-sync |
+
+**Service rewrites** (59 total live; the tiers):
 
 | Record | Answer | Serves |
 |---|---|---|
-| *.kmkdp.com | 10.1.20.20 | everything on internal Traefik (kdk-dkr-01) |
-| sso, seerr, jellyfin, immich, users .kmkdp.com | 192.168.191.20 | DMZ Traefik (kdk-dkr-dmz-01) |
-| homeassistant, zigbee, nodered, dockge, scrypted, homebridge .kmkdp.com | 10.1.30.21 | Pi Traefik (kdk-dkr-02) |
+| `*.kmkdp.com` | 10.1.20.20 | everything on internal Traefik (kdk-dkr-01) |
+| sso, seerr, jellyfin, immich, users, recipes, audiobookshelf, libreseerr .kmkdp.com | 192.168.191.20 | DMZ Traefik (kdk-dkr-dmz-01) |
+| homeassistant, zigbee, nodered, scrypted, homebridge .kmkdp.com | 10.1.30.21 / .22 | Pi Traefik (kdk-dkr-02; scrypted/homebridge on dkr-03 behind the dkr-02 answer is historical — both resolve 10.1.30.21) |
+| ollama, kdk-tdarr-gpu-01 .kmkdp.com | 10.1.30.218 | GPU workstation |
+| reMarkable cloud domains (my/ping/tectonic/…, appspot hosts) | 10.1.20.20 (2 blackholed → 0.0.0.0) | rmfakecloud intercept |
+| host FQDNs (pve, pbs, truenas, kdk-*-NN) | per-host | infra |
 
-Public (via Cloudflare tunnel → DMZ Traefik): sso, seerr, jellyfin, immich.
+Public (Cloudflare tunnel → DMZ Traefik): sso, seerr, jellyfin, immich —
+**no internal A records exist in public DNS** (verified against 1.1.1.1/8.8.8.8),
+so DoH-using browsers simply fail closed off-LAN rather than leak.
+
+> **Stale-record warning (found 2026-09-21):** the live origin still carried
+> pre-rename Pi records — `kdk-dkr-01.kmkdp.com → 10.1.30.21` and
+> `kdk-dkr-02.kmkdp.com → 10.1.30.22`, with no `kdk-dkr-03` record.
+> `scripts/dns-sync.py`'s static map has the correct values
+> (01 → 10.1.20.20, 02 → 10.1.30.21, 03 → 10.1.30.22); the live records need a
+> one-time manual fix on the origin (excluded from auto-reconcile).
+
+### Troubleshooting: redirect to `*.svc.cluster.local`
+
+A browser landing on `https://authelia.dmz.svc.cluster.local/...` (or any
+`svc.cluster.local` name) is replaying a **permanently cached 301 from the
+pre-migration k3s ingress** (HAR-verified 2026-09-21: `fromCache: disk`,
+response date 2026-09-11). No current server issues that redirect — DNS and
+Traefik are fine. Fix per device: clear cached data for the affected site
+("Empty cache and hard reload"). Bonus quirk: the dead cluster.local name then
+404s against internal Traefik instead of NXDOMAIN because the client's
+`kmkdp.com` search domain expands it into the `*.kmkdp.com` wildcard.
