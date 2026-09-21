@@ -34,6 +34,16 @@
       "</ul>";
     document.body.appendChild(nav);
     document.body.classList.add("has-kodiak-sidebar");
+    const btn = document.createElement("button");
+    btn.id = "ks-toggle"; btn.title = "Toggle menu"; btn.textContent = "\u2630";
+    btn.addEventListener("click", function () {
+      const small = window.matchMedia("(max-width: 820px)").matches;
+      if (small) { document.body.classList.toggle("ks-open"); return; }
+      const collapsed = document.body.classList.toggle("ks-collapsed");
+      try { localStorage.setItem("ks-collapsed", collapsed ? "1" : "0"); } catch (e) {}
+    });
+    document.body.appendChild(btn);
+    try { if (localStorage.getItem("ks-collapsed") === "1") document.body.classList.add("ks-collapsed"); } catch (e) {}
   }
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", build);
