@@ -1066,7 +1066,7 @@ pre_deploy.command = "sh -c '. /etc/komodo/op.env && op inject -f -i .env.tpl -o
 [[stack]]
 tags = ["kdk-lab"]
 name = "network-sre-learning"
-deploy = false
+deploy = true
 [stack.config]
 server = "kdk-dkr-01"
 repo = "BigH3ater/network-sre-learning"
