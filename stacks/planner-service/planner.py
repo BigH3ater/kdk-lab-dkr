@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """planner-service: pull the Proton calendar (ICS share link) and produce a daily
 + week-ahead planner -- a Kodiak-brand PDF pushed to the reMarkable, and a Markdown
-agenda written into the Obsidian vault (90-Meta/Planners/, which syncs to clients).
+agenda written into the Obsidian vault (90.Meta/Planners/, which syncs to clients).
 
 Proton Calendar's ICS plugin in the client renders events live and stores nothing
 on disk, so the lab cannot read them from the vault; instead this fetches the same
@@ -24,7 +24,7 @@ RMAPI_HOST     = os.environ.get("RMAPI_HOST", "http://rmfakecloud:3000")
 RMAPI_CONFIG   = os.environ.get("RMAPI_CONFIG", "/config/.rmapi")
 RM_CLOUD_FOLDER = os.environ.get("RM_CLOUD_FOLDER", "Planner")   # cloud folder for the daily planner
 DOC_NAME       = os.environ.get("RM_DOC_NAME", "Kodiak Planner") # stable doc name, replaced daily
-PLANNERS = VAULT/"90-Meta"/"Planners"
+PLANNERS = VAULT/"90.Meta"/"Planners"
 STATE.mkdir(parents=True, exist_ok=True)
 PLANNERS.mkdir(parents=True, exist_ok=True)
 

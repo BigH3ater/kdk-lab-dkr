@@ -24,9 +24,9 @@ under `/opt/kdk-lab/remarkable-ocr/{pending,done,failed}` + `state.json` is dura
 
 ## Notebook → vault section
 
-`Homelab → 10-Homelab`, `Personal → 20-Personal`, `Books → 30-Books`,
-`Development → 40-Development`, `Learning → 50-Learning`, `Work → 60-Work`,
-anything else → `00-Inbox/Unsorted`. (Mirrors `90-Meta/Routing.md` in the vault.)
+`Homelab → 10.Homelab`, `Personal → 20.Personal`, `Books → 30.Books`,
+`Development → 40.Development`, `Learning → 50.Learning`, `Work → 60.Work`,
+anything else → `00.Inbox/Unsorted`. (Mirrors `90.Meta/Routing.md` in the vault.)
 
 ## Config (`.env`, op-injected)
 

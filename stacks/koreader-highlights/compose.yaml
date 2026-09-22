@@ -7,7 +7,7 @@ services:
     env_file: [.env]                    # RM_PW (op-injected)
     environment:
       VAULT_DIR: /vault
-      HL_SUBDIR: 30-Books/Highlights    # where highlight notes land in the vault
+      HL_SUBDIR: 30.Books/Highlights    # where highlight notes land in the vault
       STATE_DIR: /state
       RM_BOOKS_ROOT: /home/root/books   # KOReader library root (Library/ + Readwise/)
       RM_HOST: "10.1.30.245"

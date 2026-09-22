@@ -4,8 +4,8 @@ Render each Obsidian vault **section** to a PDF and put it on the reMarkable for
 the "read your notes/docs on the tablet" loop.
 
 - **Source:** the headless-synced vault (`/opt/kdk-lab/obsidian/vault`, mounted **read-only**).
-  For each top-level section matching `SECTION_REGEX` (default numbered domains `00-Inbox`,
-  `10-Homelab`, `20-Personal`, `30-Books`, `40-Development`, `50-Learning`) it concatenates
+  For each top-level section matching `SECTION_REGEX` (default numbered domains `00.Inbox`,
+  `10.Homelab`, `20.Personal`, `30.Books`, `40.Development`, `50.Learning`) it concatenates
   the section's Markdown (frontmatter stripped, `[[wikilinks]]`→text, embeds dropped).
 - **Render:** `pandoc --pdf-engine=weasyprint` → one A5 PDF per section.
 - **Deliver:** copy `\<section\>.pdf` into `RM_DEST` (`/home/root/books/Homelab`) over dropbear SSH.

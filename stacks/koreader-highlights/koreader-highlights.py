@@ -4,7 +4,7 @@
 KOReader stores annotations in a `.sdr` sidecar dir next to each book
 (`<book>.sdr/metadata.<ext>.lua`, a Lua table). This pulls every sidecar under
 RM_BOOKS_ROOT (/home/root/books) over dropbear SSH, parses the Lua, and writes one
-Markdown note per book into the vault at HL_DIR (30-Books/Highlights). The vault is
+Markdown note per book into the vault at HL_DIR (30.Books/Highlights). The vault is
 kept in sync to all devices by the obsidian-headless stack.
 
 Idempotent: a note is (re)written only when its sidecar changed (mtime tracked in
@@ -16,7 +16,7 @@ import os, json, subprocess, urllib.request, urllib.parse, pathlib, datetime, sh
 from slpp import slpp as lua
 
 VAULT    = pathlib.Path(os.environ.get("VAULT_DIR", "/vault"))
-HL_DIR   = VAULT/os.environ.get("HL_SUBDIR", "30-Books/Highlights")
+HL_DIR   = VAULT/os.environ.get("HL_SUBDIR", "30.Books/Highlights")
 STATE    = pathlib.Path(os.environ.get("STATE_DIR", "/state"))
 RM_ROOT  = os.environ.get("RM_BOOKS_ROOT", "/home/root/books")
 RM_HOST  = os.environ.get("RM_HOST", "10.1.30.245")

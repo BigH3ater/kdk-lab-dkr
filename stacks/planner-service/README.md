@@ -7,7 +7,7 @@ URL and produces two things:
   a single **"Kodiak Planner"** doc in the cloud **Planner** folder, replaced each day
   (mkdir → rm yesterday's → put) — the tablet pulls it on its next sync, even remotely.
   No SSH into xochitl (which would race the live sync engine), and
-- a **Markdown agenda** written to `90-Meta/Planners/<date>.md` in the vault (syncs to
+- a **Markdown agenda** written to `90.Meta/Planners/<date>.md` in the vault (syncs to
   every client via Obsidian Sync).
 
 Proton's client-side ICS plugin renders events live and stores nothing on disk, so the
