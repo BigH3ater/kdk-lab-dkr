@@ -2,7 +2,7 @@
 """obsidian-to-koreader: render each vault section to a PDF and put it on the tablet.
 
 Reads the headless-synced Obsidian vault (VAULT_DIR), and for each top-level section
-(dirs like 00-Inbox, 10-Homelab, ...) concatenates its Markdown into one PDF via pandoc
+(dirs like 00.Inbox, 10.Homelab, ...) concatenates its Markdown into one PDF via pandoc
 (weasyprint engine), then copies the PDFs into RM_DEST (/home/root/books/Homelab) over
 dropbear SSH so they're readable in KOReader. Reconciles: rebuilds changed sections,
 removes PDFs for sections that no longer exist. A per-section size guard skips anything
@@ -22,7 +22,7 @@ RM_USER = os.environ.get("RM_USER", "root")
 RM_PW   = os.environ.get("RM_PW", "")
 MAX_MB  = float(os.environ.get("MAX_PDF_MB", "40"))
 # only these top-level sections (regex); default = numbered domains
-SECTION_RE = re.compile(os.environ.get("SECTION_REGEX", r"^\d\d-"))
+SECTION_RE = re.compile(os.environ.get("SECTION_REGEX", r"^\d\d[-.]"))
 STATE.mkdir(parents=True, exist_ok=True)
 BUILD = STATE/"build"; BUILD.mkdir(exist_ok=True)
 ST = STATE/"obsidian-to-koreader.json"

@@ -7,7 +7,7 @@ Ingest KOReader highlights from the reMarkable into the Obsidian vault.
   (`/home/root/books`, i.e. both `Library/` ebooks and `Readwise/` articles) over dropbear SSH.
 - **Parse:** `slpp` decodes the Lua table → `doc_props` (title/author) + `annotations`
   (text, note, chapter, page, datetime). Handles the older per-page `highlight` format too.
-- **Write:** one Markdown note per book at `HL_SUBDIR` (`30-Books/Highlights/<Title>.md`) in the
+- **Write:** one Markdown note per book at `HL_SUBDIR` (`30.Books/Highlights/<Title>.md`) in the
   headless-synced vault, so it propagates to all devices. Idempotent — a note is rewritten only
   when its sidecar's mtime changed (tracked in `/opt/kdk-lab/koreader-highlights`).
 

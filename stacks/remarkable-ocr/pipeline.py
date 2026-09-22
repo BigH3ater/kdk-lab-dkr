@@ -27,10 +27,10 @@ FOLDER  = os.environ.get("RM_FOLDER", "Kodiak Notebooks")
 MAX_RETRY = int(os.environ.get("MAX_RETRY", "4"))
 MIN_STROKES = int(os.environ.get("MIN_STROKES", "3"))   # skip ~blank pages (vision models hallucinate on empty images)
 XO = "/home/root/.local/share/remarkable/xochitl"
-SECTION = {"Homelab":"10-Homelab","Personal":"20-Personal","Books":"30-Books",
-           "Development":"40-Development","Learning":"50-Learning","Work":"60-Work",
-           "Inbox":"00-Inbox/Unsorted"}
-DEFAULT_SECTION = "00-Inbox/Unsorted"
+SECTION = {"Homelab":"10.Homelab","Personal":"20.Personal","Books":"30.Books",
+           "Development":"40.Development","Learning":"50.Learning","Work":"60.Work",
+           "Inbox":"00.Inbox/Unsorted"}
+DEFAULT_SECTION = "00.Inbox/Unsorted"
 PEND, DONE, FAIL = QUEUE/"pending", QUEUE/"done", QUEUE/"failed"
 STATE = QUEUE/"state.json"
 
