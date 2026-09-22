@@ -1055,3 +1055,25 @@ server = "kdk-dkr-01"
 repo = "BigH3ater/kdk-lab-dkr"
 run_directory = "stacks/komodo"
 pre_deploy.command = "sh -c '. /etc/komodo/op.env && op inject -f -i .env.tpl -o .env'"
+
+# network-sre-learning site (learn.kmkdp.com) — built from the PRIVATE
+# BigH3ater/network-sre-learning repo, so it needs a git credential to clone:
+# Komodo git-provider account `BigH3ater` (PAT in op://kdk-cluster/komodo-github-pat,
+# Contents r/w on both repos; also enables the sync's toml write-back). Uses that
+# repo's compose.komodo.yaml (site-only, Traefik on the proxy net, LAN-gated) and
+# builds the MkDocs image on kdk-dkr-01. deploy=false until compose.komodo.yaml is
+# on the learning repo's main (PR #10) — then flip true + DeployStack.
+[[stack]]
+tags = ["kdk-lab"]
+name = "network-sre-learning"
+deploy = false
+[stack.config]
+server = "kdk-dkr-01"
+repo = "BigH3ater/network-sre-learning"
+git_account = "BigH3ater"
+branch = "main"
+run_directory = "."
+file_paths = ["compose.komodo.yaml"]
+auto_pull = false
+run_build = true
+webhook_enabled = true
