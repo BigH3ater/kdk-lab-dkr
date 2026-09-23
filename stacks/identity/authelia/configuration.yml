@@ -456,8 +456,9 @@ identity_providers:
         client_secret: '{{ secret "/secrets/authelia-app-secrets/audiobookshelf_client_secret" }}'
         public: false
         redirect_uris:
-          - 'https://audiobookshelf.kmkdp.com/auth/openid/callback'
-          - 'audiobookshelf://oauth'
+          - 'https://audiobookshelf.kmkdp.com/auth/openid/callback'         # web login
+          - 'https://audiobookshelf.kmkdp.com/auth/openid/mobile-redirect'  # mobile OIDC (official app + Prologue/iOS); ABS sends this as redirect_uri and validates the app scheme (prologue://oauth) locally
+          - 'audiobookshelf://oauth'                                        # legacy; not used by ABS 2.36 mobile flow, kept harmless
         scopes:
           - 'openid'
           - 'email'
