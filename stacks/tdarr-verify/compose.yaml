@@ -12,4 +12,5 @@ services:
     entrypoint: ["/bin/sh", "/verify.sh"]
     volumes:
       - /etc/kdk:/kdk
+      - /mnt/media:/media:ro
       - ./verify.sh:/verify.sh:ro
