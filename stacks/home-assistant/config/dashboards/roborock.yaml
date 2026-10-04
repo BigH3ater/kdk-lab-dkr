@@ -210,14 +210,15 @@ views:
       icon: mdi:progress-check
     - type: markdown
       content: >-
-        {% set s = states('sensor.rr_run_progress') %}
-        {% if s in ['unknown','unavailable'] -%}
-        *No run tracked since the last restart.*
+        {% set s = states('input_text.rr_run_phase') %}
+        {% if s in ['unknown','unavailable',''] -%}
+        *No run tracked yet.*
         {% else -%}
         **{{ s }}**
-        {% if state_attr('sensor.rr_run_progress','near') -%}
+        {% set near = states('input_text.rr_run_near') %}
+        {% if near not in ['unknown','unavailable',''] -%}
 
-        Vacuum near: {{ state_attr('sensor.rr_run_progress','near') }} *(vacuum's own room label)*
+        Vacuum near: {{ near }} *(vacuum's own room label)*
         {% endif -%}
         {% endif %}
     - type: tile

@@ -1,0 +1,3642 @@
+[
+    {
+        "id": "rr_tab_1",
+        "type": "tab",
+        "label": "Roborock",
+        "disabled": false,
+        "info": "Mr. Slave cleaning + maintenance"
+    },
+    {
+        "id": "38978576.ca0eea",
+        "type": "server",
+        "name": "Home Assistant",
+        "version": 5,
+        "addon": false,
+        "rejectUnauthorizedCerts": true,
+        "ha_boolean": "y",
+        "connectionDelay": true,
+        "cacheJson": true,
+        "heartbeat": false,
+        "heartbeatInterval": 30,
+        "areaSelector": "friendlyName",
+        "deviceSelector": "friendlyName",
+        "entitySelector": "friendlyName",
+        "statusSeparator": "at: ",
+        "statusYear": "hidden",
+        "statusMonth": "short",
+        "statusDay": "numeric",
+        "statusHourCycle": "h23",
+        "statusTimeFormat": "h:m",
+        "enableGlobalContextStore": true
+    },
+    {
+        "id": "t_1",
+        "type": "server-state-changed",
+        "z": "rr_tab_1",
+        "name": "btn master_bedroom_closet",
+        "server": "38978576.ca0eea",
+        "version": 6,
+        "outputs": 2,
+        "exposeAsEntityConfig": "",
+        "entities": {
+            "entity": [
+                "input_button.rr_clean_master_bedroom_closet"
+            ],
+            "substring": [],
+            "regex": []
+        },
+        "outputInitially": false,
+        "stateType": "str",
+        "ifState": "",
+        "ifStateType": "str",
+        "ifStateOperator": "is",
+        "outputOnlyOnStateChange": true,
+        "for": "0",
+        "forType": "num",
+        "forUnits": "minutes",
+        "ignorePrevStateNull": true,
+        "ignorePrevStateUnknown": false,
+        "ignorePrevStateUnavailable": false,
+        "ignoreCurrentStateUnknown": false,
+        "ignoreCurrentStateUnavailable": false,
+        "outputProperties": [],
+        "x": 150,
+        "y": 60,
+        "wires": [
+            [
+                "s_2"
+            ],
+            []
+        ]
+    },
+    {
+        "id": "s_2",
+        "type": "api-call-service",
+        "z": "rr_tab_1",
+        "name": "clean master_bedroom_closet",
+        "server": "38978576.ca0eea",
+        "version": 5,
+        "debugenabled": false,
+        "action": "vacuum.send_command",
+        "floorId": [],
+        "areaId": [],
+        "deviceId": [],
+        "entityId": [],
+        "data": "{\"entity_id\": \"vacuum.mr_slave_2\", \"command\": \"app_segment_clean\", \"params\": [{\"segments\": [1], \"repeat\": 1}]}",
+        "dataType": "json",
+        "mergeContext": "",
+        "mustacheAltTags": false,
+        "outputProperties": [],
+        "queue": "none",
+        "blockInputOverrides": true,
+        "domain": "",
+        "service": "",
+        "x": 420,
+        "y": 60,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "t_3",
+        "type": "server-state-changed",
+        "z": "rr_tab_1",
+        "name": "btn master_bedroom",
+        "server": "38978576.ca0eea",
+        "version": 6,
+        "outputs": 2,
+        "exposeAsEntityConfig": "",
+        "entities": {
+            "entity": [
+                "input_button.rr_clean_master_bedroom"
+            ],
+            "substring": [],
+            "regex": []
+        },
+        "outputInitially": false,
+        "stateType": "str",
+        "ifState": "",
+        "ifStateType": "str",
+        "ifStateOperator": "is",
+        "outputOnlyOnStateChange": true,
+        "for": "0",
+        "forType": "num",
+        "forUnits": "minutes",
+        "ignorePrevStateNull": true,
+        "ignorePrevStateUnknown": false,
+        "ignorePrevStateUnavailable": false,
+        "ignoreCurrentStateUnknown": false,
+        "ignoreCurrentStateUnavailable": false,
+        "outputProperties": [],
+        "x": 150,
+        "y": 105,
+        "wires": [
+            [
+                "s_4"
+            ],
+            []
+        ]
+    },
+    {
+        "id": "s_4",
+        "type": "api-call-service",
+        "z": "rr_tab_1",
+        "name": "clean master_bedroom",
+        "server": "38978576.ca0eea",
+        "version": 5,
+        "debugenabled": false,
+        "action": "vacuum.send_command",
+        "floorId": [],
+        "areaId": [],
+        "deviceId": [],
+        "entityId": [],
+        "data": "{\"entity_id\": \"vacuum.mr_slave_2\", \"command\": \"app_segment_clean\", \"params\": [{\"segments\": [2], \"repeat\": 1}]}",
+        "dataType": "json",
+        "mergeContext": "",
+        "mustacheAltTags": false,
+        "outputProperties": [],
+        "queue": "none",
+        "blockInputOverrides": true,
+        "domain": "",
+        "service": "",
+        "x": 420,
+        "y": 105,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "t_5",
+        "type": "server-state-changed",
+        "z": "rr_tab_1",
+        "name": "btn bedroom_1",
+        "server": "38978576.ca0eea",
+        "version": 6,
+        "outputs": 2,
+        "exposeAsEntityConfig": "",
+        "entities": {
+            "entity": [
+                "input_button.rr_clean_bedroom_1"
+            ],
+            "substring": [],
+            "regex": []
+        },
+        "outputInitially": false,
+        "stateType": "str",
+        "ifState": "",
+        "ifStateType": "str",
+        "ifStateOperator": "is",
+        "outputOnlyOnStateChange": true,
+        "for": "0",
+        "forType": "num",
+        "forUnits": "minutes",
+        "ignorePrevStateNull": true,
+        "ignorePrevStateUnknown": false,
+        "ignorePrevStateUnavailable": false,
+        "ignoreCurrentStateUnknown": false,
+        "ignoreCurrentStateUnavailable": false,
+        "outputProperties": [],
+        "x": 150,
+        "y": 150,
+        "wires": [
+            [
+                "s_6"
+            ],
+            []
+        ]
+    },
+    {
+        "id": "s_6",
+        "type": "api-call-service",
+        "z": "rr_tab_1",
+        "name": "clean bedroom_1",
+        "server": "38978576.ca0eea",
+        "version": 5,
+        "debugenabled": false,
+        "action": "vacuum.send_command",
+        "floorId": [],
+        "areaId": [],
+        "deviceId": [],
+        "entityId": [],
+        "data": "{\"entity_id\": \"vacuum.mr_slave_2\", \"command\": \"app_segment_clean\", \"params\": [{\"segments\": [3], \"repeat\": 1}]}",
+        "dataType": "json",
+        "mergeContext": "",
+        "mustacheAltTags": false,
+        "outputProperties": [],
+        "queue": "none",
+        "blockInputOverrides": true,
+        "domain": "",
+        "service": "",
+        "x": 420,
+        "y": 150,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "t_7",
+        "type": "server-state-changed",
+        "z": "rr_tab_1",
+        "name": "btn master_bathroom",
+        "server": "38978576.ca0eea",
+        "version": 6,
+        "outputs": 2,
+        "exposeAsEntityConfig": "",
+        "entities": {
+            "entity": [
+                "input_button.rr_clean_master_bathroom"
+            ],
+            "substring": [],
+            "regex": []
+        },
+        "outputInitially": false,
+        "stateType": "str",
+        "ifState": "",
+        "ifStateType": "str",
+        "ifStateOperator": "is",
+        "outputOnlyOnStateChange": true,
+        "for": "0",
+        "forType": "num",
+        "forUnits": "minutes",
+        "ignorePrevStateNull": true,
+        "ignorePrevStateUnknown": false,
+        "ignorePrevStateUnavailable": false,
+        "ignoreCurrentStateUnknown": false,
+        "ignoreCurrentStateUnavailable": false,
+        "outputProperties": [],
+        "x": 150,
+        "y": 195,
+        "wires": [
+            [
+                "s_8"
+            ],
+            []
+        ]
+    },
+    {
+        "id": "s_8",
+        "type": "api-call-service",
+        "z": "rr_tab_1",
+        "name": "clean master_bathroom",
+        "server": "38978576.ca0eea",
+        "version": 5,
+        "debugenabled": false,
+        "action": "vacuum.send_command",
+        "floorId": [],
+        "areaId": [],
+        "deviceId": [],
+        "entityId": [],
+        "data": "{\"entity_id\": \"vacuum.mr_slave_2\", \"command\": \"app_segment_clean\", \"params\": [{\"segments\": [4], \"repeat\": 1}]}",
+        "dataType": "json",
+        "mergeContext": "",
+        "mustacheAltTags": false,
+        "outputProperties": [],
+        "queue": "none",
+        "blockInputOverrides": true,
+        "domain": "",
+        "service": "",
+        "x": 420,
+        "y": 195,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "t_9",
+        "type": "server-state-changed",
+        "z": "rr_tab_1",
+        "name": "btn bathroom_1",
+        "server": "38978576.ca0eea",
+        "version": 6,
+        "outputs": 2,
+        "exposeAsEntityConfig": "",
+        "entities": {
+            "entity": [
+                "input_button.rr_clean_bathroom_1"
+            ],
+            "substring": [],
+            "regex": []
+        },
+        "outputInitially": false,
+        "stateType": "str",
+        "ifState": "",
+        "ifStateType": "str",
+        "ifStateOperator": "is",
+        "outputOnlyOnStateChange": true,
+        "for": "0",
+        "forType": "num",
+        "forUnits": "minutes",
+        "ignorePrevStateNull": true,
+        "ignorePrevStateUnknown": false,
+        "ignorePrevStateUnavailable": false,
+        "ignoreCurrentStateUnknown": false,
+        "ignoreCurrentStateUnavailable": false,
+        "outputProperties": [],
+        "x": 150,
+        "y": 240,
+        "wires": [
+            [
+                "s_10"
+            ],
+            []
+        ]
+    },
+    {
+        "id": "s_10",
+        "type": "api-call-service",
+        "z": "rr_tab_1",
+        "name": "clean bathroom_1",
+        "server": "38978576.ca0eea",
+        "version": 5,
+        "debugenabled": false,
+        "action": "vacuum.send_command",
+        "floorId": [],
+        "areaId": [],
+        "deviceId": [],
+        "entityId": [],
+        "data": "{\"entity_id\": \"vacuum.mr_slave_2\", \"command\": \"app_segment_clean\", \"params\": [{\"segments\": [5], \"repeat\": 1}]}",
+        "dataType": "json",
+        "mergeContext": "",
+        "mustacheAltTags": false,
+        "outputProperties": [],
+        "queue": "none",
+        "blockInputOverrides": true,
+        "domain": "",
+        "service": "",
+        "x": 420,
+        "y": 240,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "t_11",
+        "type": "server-state-changed",
+        "z": "rr_tab_1",
+        "name": "btn garage_entrance",
+        "server": "38978576.ca0eea",
+        "version": 6,
+        "outputs": 2,
+        "exposeAsEntityConfig": "",
+        "entities": {
+            "entity": [
+                "input_button.rr_clean_garage_entrance"
+            ],
+            "substring": [],
+            "regex": []
+        },
+        "outputInitially": false,
+        "stateType": "str",
+        "ifState": "",
+        "ifStateType": "str",
+        "ifStateOperator": "is",
+        "outputOnlyOnStateChange": true,
+        "for": "0",
+        "forType": "num",
+        "forUnits": "minutes",
+        "ignorePrevStateNull": true,
+        "ignorePrevStateUnknown": false,
+        "ignorePrevStateUnavailable": false,
+        "ignoreCurrentStateUnknown": false,
+        "ignoreCurrentStateUnavailable": false,
+        "outputProperties": [],
+        "x": 150,
+        "y": 285,
+        "wires": [
+            [
+                "s_12"
+            ],
+            []
+        ]
+    },
+    {
+        "id": "s_12",
+        "type": "api-call-service",
+        "z": "rr_tab_1",
+        "name": "clean garage_entrance",
+        "server": "38978576.ca0eea",
+        "version": 5,
+        "debugenabled": false,
+        "action": "vacuum.send_command",
+        "floorId": [],
+        "areaId": [],
+        "deviceId": [],
+        "entityId": [],
+        "data": "{\"entity_id\": \"vacuum.mr_slave_2\", \"command\": \"app_segment_clean\", \"params\": [{\"segments\": [6], \"repeat\": 1}]}",
+        "dataType": "json",
+        "mergeContext": "",
+        "mustacheAltTags": false,
+        "outputProperties": [],
+        "queue": "none",
+        "blockInputOverrides": true,
+        "domain": "",
+        "service": "",
+        "x": 420,
+        "y": 285,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "t_13",
+        "type": "server-state-changed",
+        "z": "rr_tab_1",
+        "name": "btn half_bath",
+        "server": "38978576.ca0eea",
+        "version": 6,
+        "outputs": 2,
+        "exposeAsEntityConfig": "",
+        "entities": {
+            "entity": [
+                "input_button.rr_clean_half_bath"
+            ],
+            "substring": [],
+            "regex": []
+        },
+        "outputInitially": false,
+        "stateType": "str",
+        "ifState": "",
+        "ifStateType": "str",
+        "ifStateOperator": "is",
+        "outputOnlyOnStateChange": true,
+        "for": "0",
+        "forType": "num",
+        "forUnits": "minutes",
+        "ignorePrevStateNull": true,
+        "ignorePrevStateUnknown": false,
+        "ignorePrevStateUnavailable": false,
+        "ignoreCurrentStateUnknown": false,
+        "ignoreCurrentStateUnavailable": false,
+        "outputProperties": [],
+        "x": 150,
+        "y": 330,
+        "wires": [
+            [
+                "s_14"
+            ],
+            []
+        ]
+    },
+    {
+        "id": "s_14",
+        "type": "api-call-service",
+        "z": "rr_tab_1",
+        "name": "clean half_bath",
+        "server": "38978576.ca0eea",
+        "version": 5,
+        "debugenabled": false,
+        "action": "vacuum.send_command",
+        "floorId": [],
+        "areaId": [],
+        "deviceId": [],
+        "entityId": [],
+        "data": "{\"entity_id\": \"vacuum.mr_slave_2\", \"command\": \"app_segment_clean\", \"params\": [{\"segments\": [7], \"repeat\": 1}]}",
+        "dataType": "json",
+        "mergeContext": "",
+        "mustacheAltTags": false,
+        "outputProperties": [],
+        "queue": "none",
+        "blockInputOverrides": true,
+        "domain": "",
+        "service": "",
+        "x": 420,
+        "y": 330,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "t_15",
+        "type": "server-state-changed",
+        "z": "rr_tab_1",
+        "name": "btn laundry_room",
+        "server": "38978576.ca0eea",
+        "version": 6,
+        "outputs": 2,
+        "exposeAsEntityConfig": "",
+        "entities": {
+            "entity": [
+                "input_button.rr_clean_laundry_room"
+            ],
+            "substring": [],
+            "regex": []
+        },
+        "outputInitially": false,
+        "stateType": "str",
+        "ifState": "",
+        "ifStateType": "str",
+        "ifStateOperator": "is",
+        "outputOnlyOnStateChange": true,
+        "for": "0",
+        "forType": "num",
+        "forUnits": "minutes",
+        "ignorePrevStateNull": true,
+        "ignorePrevStateUnknown": false,
+        "ignorePrevStateUnavailable": false,
+        "ignoreCurrentStateUnknown": false,
+        "ignoreCurrentStateUnavailable": false,
+        "outputProperties": [],
+        "x": 150,
+        "y": 375,
+        "wires": [
+            [
+                "s_16"
+            ],
+            []
+        ]
+    },
+    {
+        "id": "s_16",
+        "type": "api-call-service",
+        "z": "rr_tab_1",
+        "name": "clean laundry_room",
+        "server": "38978576.ca0eea",
+        "version": 5,
+        "debugenabled": false,
+        "action": "vacuum.send_command",
+        "floorId": [],
+        "areaId": [],
+        "deviceId": [],
+        "entityId": [],
+        "data": "{\"entity_id\": \"vacuum.mr_slave_2\", \"command\": \"app_segment_clean\", \"params\": [{\"segments\": [8], \"repeat\": 1}]}",
+        "dataType": "json",
+        "mergeContext": "",
+        "mustacheAltTags": false,
+        "outputProperties": [],
+        "queue": "none",
+        "blockInputOverrides": true,
+        "domain": "",
+        "service": "",
+        "x": 420,
+        "y": 375,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "t_17",
+        "type": "server-state-changed",
+        "z": "rr_tab_1",
+        "name": "btn rachels_office",
+        "server": "38978576.ca0eea",
+        "version": 6,
+        "outputs": 2,
+        "exposeAsEntityConfig": "",
+        "entities": {
+            "entity": [
+                "input_button.rr_clean_rachels_office"
+            ],
+            "substring": [],
+            "regex": []
+        },
+        "outputInitially": false,
+        "stateType": "str",
+        "ifState": "",
+        "ifStateType": "str",
+        "ifStateOperator": "is",
+        "outputOnlyOnStateChange": true,
+        "for": "0",
+        "forType": "num",
+        "forUnits": "minutes",
+        "ignorePrevStateNull": true,
+        "ignorePrevStateUnknown": false,
+        "ignorePrevStateUnavailable": false,
+        "ignoreCurrentStateUnknown": false,
+        "ignoreCurrentStateUnavailable": false,
+        "outputProperties": [],
+        "x": 150,
+        "y": 420,
+        "wires": [
+            [
+                "s_18"
+            ],
+            []
+        ]
+    },
+    {
+        "id": "s_18",
+        "type": "api-call-service",
+        "z": "rr_tab_1",
+        "name": "clean rachels_office",
+        "server": "38978576.ca0eea",
+        "version": 5,
+        "debugenabled": false,
+        "action": "vacuum.send_command",
+        "floorId": [],
+        "areaId": [],
+        "deviceId": [],
+        "entityId": [],
+        "data": "{\"entity_id\": \"vacuum.mr_slave_2\", \"command\": \"app_segment_clean\", \"params\": [{\"segments\": [9], \"repeat\": 1}]}",
+        "dataType": "json",
+        "mergeContext": "",
+        "mustacheAltTags": false,
+        "outputProperties": [],
+        "queue": "none",
+        "blockInputOverrides": true,
+        "domain": "",
+        "service": "",
+        "x": 420,
+        "y": 420,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "t_19",
+        "type": "server-state-changed",
+        "z": "rr_tab_1",
+        "name": "btn hallway",
+        "server": "38978576.ca0eea",
+        "version": 6,
+        "outputs": 2,
+        "exposeAsEntityConfig": "",
+        "entities": {
+            "entity": [
+                "input_button.rr_clean_hallway"
+            ],
+            "substring": [],
+            "regex": []
+        },
+        "outputInitially": false,
+        "stateType": "str",
+        "ifState": "",
+        "ifStateType": "str",
+        "ifStateOperator": "is",
+        "outputOnlyOnStateChange": true,
+        "for": "0",
+        "forType": "num",
+        "forUnits": "minutes",
+        "ignorePrevStateNull": true,
+        "ignorePrevStateUnknown": false,
+        "ignorePrevStateUnavailable": false,
+        "ignoreCurrentStateUnknown": false,
+        "ignoreCurrentStateUnavailable": false,
+        "outputProperties": [],
+        "x": 150,
+        "y": 465,
+        "wires": [
+            [
+                "s_20"
+            ],
+            []
+        ]
+    },
+    {
+        "id": "s_20",
+        "type": "api-call-service",
+        "z": "rr_tab_1",
+        "name": "clean hallway",
+        "server": "38978576.ca0eea",
+        "version": 5,
+        "debugenabled": false,
+        "action": "vacuum.send_command",
+        "floorId": [],
+        "areaId": [],
+        "deviceId": [],
+        "entityId": [],
+        "data": "{\"entity_id\": \"vacuum.mr_slave_2\", \"command\": \"app_segment_clean\", \"params\": [{\"segments\": [10], \"repeat\": 1}]}",
+        "dataType": "json",
+        "mergeContext": "",
+        "mustacheAltTags": false,
+        "outputProperties": [],
+        "queue": "none",
+        "blockInputOverrides": true,
+        "domain": "",
+        "service": "",
+        "x": 420,
+        "y": 465,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "t_21",
+        "type": "server-state-changed",
+        "z": "rr_tab_1",
+        "name": "btn front_door_entry",
+        "server": "38978576.ca0eea",
+        "version": 6,
+        "outputs": 2,
+        "exposeAsEntityConfig": "",
+        "entities": {
+            "entity": [
+                "input_button.rr_clean_front_door_entry"
+            ],
+            "substring": [],
+            "regex": []
+        },
+        "outputInitially": false,
+        "stateType": "str",
+        "ifState": "",
+        "ifStateType": "str",
+        "ifStateOperator": "is",
+        "outputOnlyOnStateChange": true,
+        "for": "0",
+        "forType": "num",
+        "forUnits": "minutes",
+        "ignorePrevStateNull": true,
+        "ignorePrevStateUnknown": false,
+        "ignorePrevStateUnavailable": false,
+        "ignoreCurrentStateUnknown": false,
+        "ignoreCurrentStateUnavailable": false,
+        "outputProperties": [],
+        "x": 150,
+        "y": 510,
+        "wires": [
+            [
+                "s_22"
+            ],
+            []
+        ]
+    },
+    {
+        "id": "s_22",
+        "type": "api-call-service",
+        "z": "rr_tab_1",
+        "name": "clean front_door_entry",
+        "server": "38978576.ca0eea",
+        "version": 5,
+        "debugenabled": false,
+        "action": "vacuum.send_command",
+        "floorId": [],
+        "areaId": [],
+        "deviceId": [],
+        "entityId": [],
+        "data": "{\"entity_id\": \"vacuum.mr_slave_2\", \"command\": \"app_segment_clean\", \"params\": [{\"segments\": [11], \"repeat\": 1}]}",
+        "dataType": "json",
+        "mergeContext": "",
+        "mustacheAltTags": false,
+        "outputProperties": [],
+        "queue": "none",
+        "blockInputOverrides": true,
+        "domain": "",
+        "service": "",
+        "x": 420,
+        "y": 510,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "t_23",
+        "type": "server-state-changed",
+        "z": "rr_tab_1",
+        "name": "btn living_room",
+        "server": "38978576.ca0eea",
+        "version": 6,
+        "outputs": 2,
+        "exposeAsEntityConfig": "",
+        "entities": {
+            "entity": [
+                "input_button.rr_clean_living_room"
+            ],
+            "substring": [],
+            "regex": []
+        },
+        "outputInitially": false,
+        "stateType": "str",
+        "ifState": "",
+        "ifStateType": "str",
+        "ifStateOperator": "is",
+        "outputOnlyOnStateChange": true,
+        "for": "0",
+        "forType": "num",
+        "forUnits": "minutes",
+        "ignorePrevStateNull": true,
+        "ignorePrevStateUnknown": false,
+        "ignorePrevStateUnavailable": false,
+        "ignoreCurrentStateUnknown": false,
+        "ignoreCurrentStateUnavailable": false,
+        "outputProperties": [],
+        "x": 150,
+        "y": 555,
+        "wires": [
+            [
+                "s_24"
+            ],
+            []
+        ]
+    },
+    {
+        "id": "s_24",
+        "type": "api-call-service",
+        "z": "rr_tab_1",
+        "name": "clean living_room",
+        "server": "38978576.ca0eea",
+        "version": 5,
+        "debugenabled": false,
+        "action": "vacuum.send_command",
+        "floorId": [],
+        "areaId": [],
+        "deviceId": [],
+        "entityId": [],
+        "data": "{\"entity_id\": \"vacuum.mr_slave_2\", \"command\": \"app_segment_clean\", \"params\": [{\"segments\": [12], \"repeat\": 1}]}",
+        "dataType": "json",
+        "mergeContext": "",
+        "mustacheAltTags": false,
+        "outputProperties": [],
+        "queue": "none",
+        "blockInputOverrides": true,
+        "domain": "",
+        "service": "",
+        "x": 420,
+        "y": 555,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "t_25",
+        "type": "server-state-changed",
+        "z": "rr_tab_1",
+        "name": "btn kitchen",
+        "server": "38978576.ca0eea",
+        "version": 6,
+        "outputs": 2,
+        "exposeAsEntityConfig": "",
+        "entities": {
+            "entity": [
+                "input_button.rr_clean_kitchen"
+            ],
+            "substring": [],
+            "regex": []
+        },
+        "outputInitially": false,
+        "stateType": "str",
+        "ifState": "",
+        "ifStateType": "str",
+        "ifStateOperator": "is",
+        "outputOnlyOnStateChange": true,
+        "for": "0",
+        "forType": "num",
+        "forUnits": "minutes",
+        "ignorePrevStateNull": true,
+        "ignorePrevStateUnknown": false,
+        "ignorePrevStateUnavailable": false,
+        "ignoreCurrentStateUnknown": false,
+        "ignoreCurrentStateUnavailable": false,
+        "outputProperties": [],
+        "x": 150,
+        "y": 600,
+        "wires": [
+            [
+                "s_26"
+            ],
+            []
+        ]
+    },
+    {
+        "id": "s_26",
+        "type": "api-call-service",
+        "z": "rr_tab_1",
+        "name": "clean kitchen",
+        "server": "38978576.ca0eea",
+        "version": 5,
+        "debugenabled": false,
+        "action": "vacuum.send_command",
+        "floorId": [],
+        "areaId": [],
+        "deviceId": [],
+        "entityId": [],
+        "data": "{\"entity_id\": \"vacuum.mr_slave_2\", \"command\": \"app_segment_clean\", \"params\": [{\"segments\": [13], \"repeat\": 1}]}",
+        "dataType": "json",
+        "mergeContext": "",
+        "mustacheAltTags": false,
+        "outputProperties": [],
+        "queue": "none",
+        "blockInputOverrides": true,
+        "domain": "",
+        "service": "",
+        "x": 420,
+        "y": 600,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "t_27",
+        "type": "server-state-changed",
+        "z": "rr_tab_1",
+        "name": "btn return dock / cancel",
+        "server": "38978576.ca0eea",
+        "version": 6,
+        "outputs": 2,
+        "exposeAsEntityConfig": "",
+        "entities": {
+            "entity": [
+                "input_button.rr_return_dock"
+            ],
+            "substring": [],
+            "regex": []
+        },
+        "outputInitially": false,
+        "stateType": "str",
+        "ifState": "",
+        "ifStateType": "str",
+        "ifStateOperator": "is",
+        "outputOnlyOnStateChange": true,
+        "for": "0",
+        "forType": "num",
+        "forUnits": "minutes",
+        "ignorePrevStateNull": true,
+        "ignorePrevStateUnknown": false,
+        "ignorePrevStateUnavailable": false,
+        "ignoreCurrentStateUnknown": false,
+        "ignoreCurrentStateUnavailable": false,
+        "outputProperties": [],
+        "x": 150,
+        "y": 645,
+        "wires": [
+            [
+                "f_28"
+            ],
+            []
+        ]
+    },
+    {
+        "id": "f_28",
+        "type": "function",
+        "z": "rr_tab_1",
+        "name": "set cancel flag",
+        "func": "flow.set('rr_cancel', true); return msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 380,
+        "y": 645,
+        "wires": [
+            [
+                "s_29",
+                "f_ev_cxl"
+            ]
+        ]
+    },
+    {
+        "id": "s_29",
+        "type": "api-call-service",
+        "z": "rr_tab_1",
+        "name": "return to base",
+        "server": "38978576.ca0eea",
+        "version": 5,
+        "debugenabled": false,
+        "action": "vacuum.return_to_base",
+        "floorId": [],
+        "areaId": [],
+        "deviceId": [],
+        "entityId": [],
+        "data": "{\"entity_id\": \"vacuum.mr_slave_2\"}",
+        "dataType": "json",
+        "mergeContext": "",
+        "mustacheAltTags": false,
+        "outputProperties": [],
+        "queue": "none",
+        "blockInputOverrides": true,
+        "domain": "",
+        "service": "",
+        "x": 560,
+        "y": 645,
+        "wires": [
+            [
+                "s_30"
+            ]
+        ]
+    },
+    {
+        "id": "s_30",
+        "type": "api-call-service",
+        "z": "rr_tab_1",
+        "name": "restore mode (cancel)",
+        "server": "38978576.ca0eea",
+        "version": 5,
+        "debugenabled": false,
+        "action": "select.select_option",
+        "floorId": [],
+        "areaId": [],
+        "deviceId": [],
+        "entityId": [],
+        "data": "{\"entity_id\": \"select.mr_slave_cleaning_mode\", \"option\": \"vac_and_mop\"}",
+        "dataType": "json",
+        "mergeContext": "",
+        "mustacheAltTags": false,
+        "outputProperties": [],
+        "queue": "none",
+        "blockInputOverrides": true,
+        "domain": "",
+        "service": "",
+        "x": 740,
+        "y": 645,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "i_31",
+        "type": "inject",
+        "z": "rr_tab_1",
+        "name": "weekdays 8:30",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "30 8 * * 1-5",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "",
+        "payloadType": "str",
+        "x": 150,
+        "y": 725,
+        "wires": [
+            [
+                "f_34",
+                "f_nx"
+            ]
+        ]
+    },
+    {
+        "id": "i_32",
+        "type": "inject",
+        "z": "rr_tab_1",
+        "name": "weekends 10:00",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "0 10 * * 0,6",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "",
+        "payloadType": "str",
+        "x": 150,
+        "y": 770,
+        "wires": [
+            [
+                "f_34",
+                "f_nx"
+            ]
+        ]
+    },
+    {
+        "id": "t_33",
+        "type": "server-state-changed",
+        "z": "rr_tab_1",
+        "name": "btn daily clean",
+        "server": "38978576.ca0eea",
+        "version": 6,
+        "outputs": 2,
+        "exposeAsEntityConfig": "",
+        "entities": {
+            "entity": [
+                "input_button.rr_daily_clean"
+            ],
+            "substring": [],
+            "regex": []
+        },
+        "outputInitially": false,
+        "stateType": "str",
+        "ifState": "",
+        "ifStateType": "str",
+        "ifStateOperator": "is",
+        "outputOnlyOnStateChange": true,
+        "for": "0",
+        "forType": "num",
+        "forUnits": "minutes",
+        "ignorePrevStateNull": true,
+        "ignorePrevStateUnknown": false,
+        "ignorePrevStateUnavailable": false,
+        "ignoreCurrentStateUnknown": false,
+        "ignoreCurrentStateUnavailable": false,
+        "outputProperties": [],
+        "x": 150,
+        "y": 815,
+        "wires": [
+            [
+                "f_34"
+            ],
+            []
+        ]
+    },
+    {
+        "id": "f_34",
+        "type": "function",
+        "z": "rr_tab_1",
+        "name": "reset retry",
+        "func": "flow.set('rr_daily_retry', 0); return msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 300,
+        "y": 770,
+        "wires": [
+            [
+                "f_35"
+            ]
+        ]
+    },
+    {
+        "id": "f_35",
+        "type": "function",
+        "z": "rr_tab_1",
+        "name": "start daily run",
+        "func": "flow.set('rr_cancel', false);\nconst d=new Date().getDay();\nmsg.mopDay=(d===1||d===5);\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 430,
+        "y": 770,
+        "wires": [
+            [
+                "f_pre"
+            ]
+        ]
+    },
+    {
+        "id": "s_36",
+        "type": "api-call-service",
+        "z": "rr_tab_1",
+        "name": "mode: vacuum (vac pass)",
+        "server": "38978576.ca0eea",
+        "version": 5,
+        "debugenabled": false,
+        "action": "select.select_option",
+        "floorId": [],
+        "areaId": [],
+        "deviceId": [],
+        "entityId": [],
+        "data": "{\"entity_id\": \"select.mr_slave_cleaning_mode\", \"option\": \"vacuum\"}",
+        "dataType": "json",
+        "mergeContext": "",
+        "mustacheAltTags": false,
+        "outputProperties": [],
+        "queue": "none",
+        "blockInputOverrides": true,
+        "domain": "",
+        "service": "",
+        "x": 620,
+        "y": 770,
+        "wires": [
+            [
+                "d_mv_A"
+            ]
+        ]
+    },
+    {
+        "id": "s_37",
+        "type": "api-call-service",
+        "z": "rr_tab_1",
+        "name": "MBR zone A",
+        "server": "38978576.ca0eea",
+        "version": 5,
+        "debugenabled": false,
+        "action": "vacuum.send_command",
+        "floorId": [],
+        "areaId": [],
+        "deviceId": [],
+        "entityId": [],
+        "data": "{\"entity_id\": \"vacuum.mr_slave_2\", \"command\": \"app_zoned_clean\", \"params\": [[11250, 18500, 13350, 23400, 1]]}",
+        "dataType": "json",
+        "mergeContext": "",
+        "mustacheAltTags": false,
+        "outputProperties": [],
+        "queue": "none",
+        "blockInputOverrides": true,
+        "domain": "",
+        "service": "",
+        "x": 680,
+        "y": 725,
+        "wires": [
+            [
+                "w_42"
+            ]
+        ]
+    },
+    {
+        "id": "cat_38",
+        "type": "catch",
+        "z": "rr_tab_1",
+        "name": "catch daily start",
+        "scope": [
+            "s_36",
+            "s_mv2_A",
+            "s_37"
+        ],
+        "uncaught": false,
+        "x": 420,
+        "y": 645,
+        "wires": [
+            [
+                "f_39"
+            ]
+        ]
+    },
+    {
+        "id": "f_39",
+        "type": "function",
+        "z": "rr_tab_1",
+        "name": "retry daily start?",
+        "func": "let n=(flow.get('rr_daily_retry')||0)+1; flow.set('rr_daily_retry',n);\nif(n<=8){ node.status({fill:'yellow',shape:'ring',text:'retry '+n+'/8'}); return [msg,null]; }\nreturn [null,msg];",
+        "outputs": 2,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 590,
+        "y": 645,
+        "wires": [
+            [
+                "d_40"
+            ],
+            [
+                "s_41"
+            ]
+        ]
+    },
+    {
+        "id": "d_40",
+        "type": "delay",
+        "z": "rr_tab_1",
+        "name": "retry wait 120s",
+        "pauseType": "delay",
+        "timeout": "120",
+        "timeoutUnits": "seconds",
+        "rate": "1",
+        "nbRateUnits": "1",
+        "rateUnits": "second",
+        "randomFirst": "1",
+        "randomLast": "5",
+        "randomUnits": "seconds",
+        "drop": false,
+        "allowrate": false,
+        "outputs": 1,
+        "x": 590,
+        "y": 595,
+        "wires": [
+            [
+                "f_35"
+            ]
+        ]
+    },
+    {
+        "id": "s_41",
+        "type": "api-call-service",
+        "z": "rr_tab_1",
+        "name": "alert failed start",
+        "server": "38978576.ca0eea",
+        "version": 5,
+        "debugenabled": false,
+        "action": "persistent_notification.create",
+        "floorId": [],
+        "areaId": [],
+        "deviceId": [],
+        "entityId": [],
+        "data": "{\"notification_id\": \"rr_daily_failed\", \"title\": \"Roborock daily clean failed\", \"message\": \"The daily clean could not start \\u2014 vacuum connection lost (gave up after 8 retries).\"}",
+        "dataType": "json",
+        "mergeContext": "",
+        "mustacheAltTags": false,
+        "outputProperties": [],
+        "queue": "none",
+        "blockInputOverrides": true,
+        "domain": "",
+        "service": "",
+        "x": 780,
+        "y": 675,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "w_42",
+        "type": "ha-wait-until",
+        "z": "rr_tab_1",
+        "name": "wait dock (A)",
+        "server": "38978576.ca0eea",
+        "outputs": 2,
+        "outputProperties": [],
+        "entityId": "sensor.mr_slave_status_2",
+        "entityIdType": "exact",
+        "property": "state",
+        "comparator": "is",
+        "value": "charging",
+        "valueType": "str",
+        "timeout": "40",
+        "timeoutType": "num",
+        "timeoutUnits": "minutes",
+        "entityLocation": "",
+        "entityLocationType": "none",
+        "checkCurrentState": false,
+        "blockInputOverrides": true,
+        "outputThenReasons": false,
+        "x": 860,
+        "y": 725,
+        "wires": [
+            [
+                "f_short_A"
+            ],
+            [
+                "f_to_w_42"
+            ]
+        ]
+    },
+    {
+        "id": "s_43",
+        "type": "api-call-service",
+        "z": "rr_tab_1",
+        "name": "MBR zone B",
+        "server": "38978576.ca0eea",
+        "version": 5,
+        "debugenabled": false,
+        "action": "vacuum.send_command",
+        "floorId": [],
+        "areaId": [],
+        "deviceId": [],
+        "entityId": [],
+        "data": "{\"entity_id\": \"vacuum.mr_slave_2\", \"command\": \"app_zoned_clean\", \"params\": [[13350, 18500, 15450, 23400, 1]]}",
+        "dataType": "json",
+        "mergeContext": "",
+        "mustacheAltTags": false,
+        "outputProperties": [],
+        "queue": "none",
+        "blockInputOverrides": true,
+        "domain": "",
+        "service": "",
+        "x": 680,
+        "y": 815,
+        "wires": [
+            [
+                "w_48",
+                "f_ev_zb"
+            ]
+        ]
+    },
+    {
+        "id": "d_44",
+        "type": "delay",
+        "z": "rr_tab_1",
+        "name": "settle (A)",
+        "pauseType": "delay",
+        "timeout": "8",
+        "timeoutUnits": "seconds",
+        "rate": "1",
+        "nbRateUnits": "1",
+        "rateUnits": "second",
+        "randomFirst": "1",
+        "randomLast": "5",
+        "randomUnits": "seconds",
+        "drop": false,
+        "allowrate": false,
+        "outputs": 1,
+        "x": 1020,
+        "y": 725,
+        "wires": [
+            [
+                "s_45",
+                "d_46"
+            ]
+        ]
+    },
+    {
+        "id": "s_45",
+        "type": "api-call-service",
+        "z": "rr_tab_1",
+        "name": "empty (A) [best-effort]",
+        "server": "38978576.ca0eea",
+        "version": 5,
+        "debugenabled": false,
+        "action": "vacuum.send_command",
+        "floorId": [],
+        "areaId": [],
+        "deviceId": [],
+        "entityId": [],
+        "data": "{\"entity_id\": \"vacuum.mr_slave_2\", \"command\": \"app_start_collect_dust\", \"params\": [1]}",
+        "dataType": "json",
+        "mergeContext": "",
+        "mustacheAltTags": false,
+        "outputProperties": [],
+        "queue": "none",
+        "blockInputOverrides": true,
+        "domain": "",
+        "service": "",
+        "x": 1190,
+        "y": 691,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "d_46",
+        "type": "delay",
+        "z": "rr_tab_1",
+        "name": "collect (A)",
+        "pauseType": "delay",
+        "timeout": "50",
+        "timeoutUnits": "seconds",
+        "rate": "1",
+        "nbRateUnits": "1",
+        "rateUnits": "second",
+        "randomFirst": "1",
+        "randomLast": "5",
+        "randomUnits": "seconds",
+        "drop": false,
+        "allowrate": false,
+        "outputs": 1,
+        "x": 1190,
+        "y": 759,
+        "wires": [
+            [
+                "f_47"
+            ]
+        ]
+    },
+    {
+        "id": "f_47",
+        "type": "function",
+        "z": "rr_tab_1",
+        "name": "cancel? (A)",
+        "func": "if (flow.get('rr_cancel')) { node.status({fill:'red',text:'cancelled'}); return null; } return msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1360,
+        "y": 759,
+        "wires": [
+            [
+                "s_mv_B"
+            ]
+        ]
+    },
+    {
+        "id": "w_48",
+        "type": "ha-wait-until",
+        "z": "rr_tab_1",
+        "name": "wait dock (B)",
+        "server": "38978576.ca0eea",
+        "outputs": 2,
+        "outputProperties": [],
+        "entityId": "sensor.mr_slave_status_2",
+        "entityIdType": "exact",
+        "property": "state",
+        "comparator": "is",
+        "value": "charging",
+        "valueType": "str",
+        "timeout": "40",
+        "timeoutType": "num",
+        "timeoutUnits": "minutes",
+        "entityLocation": "",
+        "entityLocationType": "none",
+        "checkCurrentState": false,
+        "blockInputOverrides": true,
+        "outputThenReasons": false,
+        "x": 860,
+        "y": 815,
+        "wires": [
+            [
+                "f_short_B"
+            ],
+            [
+                "f_to_w_48"
+            ]
+        ]
+    },
+    {
+        "id": "s_49",
+        "type": "api-call-service",
+        "z": "rr_tab_1",
+        "name": "clean rest (ends Rachel's office)",
+        "server": "38978576.ca0eea",
+        "version": 5,
+        "debugenabled": false,
+        "action": "vacuum.send_command",
+        "floorId": [],
+        "areaId": [],
+        "deviceId": [],
+        "entityId": [],
+        "data": "{\"entity_id\": \"vacuum.mr_slave_2\", \"command\": \"app_segment_clean\", \"params\": [{\"segments\": [1, 4, 5, 3, 13, 12, 11, 6, 7, 8, 10, 9], \"repeat\": 1}]}",
+        "dataType": "json",
+        "mergeContext": "",
+        "mustacheAltTags": false,
+        "outputProperties": [],
+        "queue": "none",
+        "blockInputOverrides": true,
+        "domain": "",
+        "service": "",
+        "x": 680,
+        "y": 905,
+        "wires": [
+            [
+                "w_54",
+                "f_ev_rest"
+            ]
+        ]
+    },
+    {
+        "id": "d_50",
+        "type": "delay",
+        "z": "rr_tab_1",
+        "name": "settle (B)",
+        "pauseType": "delay",
+        "timeout": "8",
+        "timeoutUnits": "seconds",
+        "rate": "1",
+        "nbRateUnits": "1",
+        "rateUnits": "second",
+        "randomFirst": "1",
+        "randomLast": "5",
+        "randomUnits": "seconds",
+        "drop": false,
+        "allowrate": false,
+        "outputs": 1,
+        "x": 1020,
+        "y": 815,
+        "wires": [
+            [
+                "s_51",
+                "d_52"
+            ]
+        ]
+    },
+    {
+        "id": "s_51",
+        "type": "api-call-service",
+        "z": "rr_tab_1",
+        "name": "empty (B) [best-effort]",
+        "server": "38978576.ca0eea",
+        "version": 5,
+        "debugenabled": false,
+        "action": "vacuum.send_command",
+        "floorId": [],
+        "areaId": [],
+        "deviceId": [],
+        "entityId": [],
+        "data": "{\"entity_id\": \"vacuum.mr_slave_2\", \"command\": \"app_start_collect_dust\", \"params\": [1]}",
+        "dataType": "json",
+        "mergeContext": "",
+        "mustacheAltTags": false,
+        "outputProperties": [],
+        "queue": "none",
+        "blockInputOverrides": true,
+        "domain": "",
+        "service": "",
+        "x": 1190,
+        "y": 781,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "d_52",
+        "type": "delay",
+        "z": "rr_tab_1",
+        "name": "collect (B)",
+        "pauseType": "delay",
+        "timeout": "50",
+        "timeoutUnits": "seconds",
+        "rate": "1",
+        "nbRateUnits": "1",
+        "rateUnits": "second",
+        "randomFirst": "1",
+        "randomLast": "5",
+        "randomUnits": "seconds",
+        "drop": false,
+        "allowrate": false,
+        "outputs": 1,
+        "x": 1190,
+        "y": 849,
+        "wires": [
+            [
+                "f_53"
+            ]
+        ]
+    },
+    {
+        "id": "f_53",
+        "type": "function",
+        "z": "rr_tab_1",
+        "name": "cancel? (B)",
+        "func": "if (flow.get('rr_cancel')) { node.status({fill:'red',text:'cancelled'}); return null; } return msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1360,
+        "y": 849,
+        "wires": [
+            [
+                "s_mv_R"
+            ]
+        ]
+    },
+    {
+        "id": "w_54",
+        "type": "ha-wait-until",
+        "z": "rr_tab_1",
+        "name": "wait dock (rest)",
+        "server": "38978576.ca0eea",
+        "outputs": 2,
+        "outputProperties": [],
+        "entityId": "sensor.mr_slave_status_2",
+        "entityIdType": "exact",
+        "property": "state",
+        "comparator": "is",
+        "value": "charging",
+        "valueType": "str",
+        "timeout": "150",
+        "timeoutType": "num",
+        "timeoutUnits": "minutes",
+        "entityLocation": "",
+        "entityLocationType": "none",
+        "checkCurrentState": false,
+        "blockInputOverrides": true,
+        "outputThenReasons": false,
+        "x": 910,
+        "y": 905,
+        "wires": [
+            [
+                "d_55",
+                "f_ev_restdone"
+            ],
+            [
+                "f_to_w_54"
+            ]
+        ]
+    },
+    {
+        "id": "d_55",
+        "type": "delay",
+        "z": "rr_tab_1",
+        "name": "settle final",
+        "pauseType": "delay",
+        "timeout": "8",
+        "timeoutUnits": "seconds",
+        "rate": "1",
+        "nbRateUnits": "1",
+        "rateUnits": "second",
+        "randomFirst": "1",
+        "randomLast": "5",
+        "randomUnits": "seconds",
+        "drop": false,
+        "allowrate": false,
+        "outputs": 1,
+        "x": 1100,
+        "y": 905,
+        "wires": [
+            [
+                "s_56",
+                "d_57"
+            ]
+        ]
+    },
+    {
+        "id": "s_56",
+        "type": "api-call-service",
+        "z": "rr_tab_1",
+        "name": "empty (final) [best-effort]",
+        "server": "38978576.ca0eea",
+        "version": 5,
+        "debugenabled": false,
+        "action": "vacuum.send_command",
+        "floorId": [],
+        "areaId": [],
+        "deviceId": [],
+        "entityId": [],
+        "data": "{\"entity_id\": \"vacuum.mr_slave_2\", \"command\": \"app_start_collect_dust\", \"params\": [1]}",
+        "dataType": "json",
+        "mergeContext": "",
+        "mustacheAltTags": false,
+        "outputProperties": [],
+        "queue": "none",
+        "blockInputOverrides": true,
+        "domain": "",
+        "service": "",
+        "x": 1270,
+        "y": 875,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "d_57",
+        "type": "delay",
+        "z": "rr_tab_1",
+        "name": "collect final",
+        "pauseType": "delay",
+        "timeout": "50",
+        "timeoutUnits": "seconds",
+        "rate": "1",
+        "nbRateUnits": "1",
+        "rateUnits": "second",
+        "randomFirst": "1",
+        "randomLast": "5",
+        "randomUnits": "seconds",
+        "drop": false,
+        "allowrate": false,
+        "outputs": 1,
+        "x": 1270,
+        "y": 935,
+        "wires": [
+            [
+                "f_58"
+            ]
+        ]
+    },
+    {
+        "id": "f_58",
+        "type": "function",
+        "z": "rr_tab_1",
+        "name": "mop day?",
+        "func": "const d=new Date().getDay();\nif (d!==1 && d!==5) return [null,msg,null];\nif (flow.get('rr_mop_skip')) {\n    return [null, msg, {notify:{title:'Vacuum: mop pass skipped',\n        message:'Today is a mop day but the dock had a problem at start (see earlier alert). Vacuum pass done; mop skipped.',\n        tag:'rr_mop_skipped', urgent:false}}];\n}\nreturn [msg,null,null];",
+        "outputs": 3,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1440,
+        "y": 935,
+        "wires": [
+            [
+                "f_59"
+            ],
+            [
+                "s_67"
+            ],
+            [
+                "s_notify"
+            ]
+        ]
+    },
+    {
+        "id": "f_59",
+        "type": "function",
+        "z": "rr_tab_1",
+        "name": "cancel? (mop)",
+        "func": "if (flow.get('rr_cancel')) { node.status({fill:'red',text:'cancelled'}); return null; } return msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1440,
+        "y": 875,
+        "wires": [
+            [
+                "s_60"
+            ]
+        ]
+    },
+    {
+        "id": "s_60",
+        "type": "api-call-service",
+        "z": "rr_tab_1",
+        "name": "mode: mop (mop pass)",
+        "server": "38978576.ca0eea",
+        "version": 5,
+        "debugenabled": false,
+        "action": "select.select_option",
+        "floorId": [],
+        "areaId": [],
+        "deviceId": [],
+        "entityId": [],
+        "data": "{\"entity_id\": \"select.mr_slave_cleaning_mode\", \"option\": \"mop\"}",
+        "dataType": "json",
+        "mergeContext": "",
+        "mustacheAltTags": false,
+        "outputProperties": [],
+        "queue": "none",
+        "blockInputOverrides": true,
+        "domain": "",
+        "service": "",
+        "x": 1600,
+        "y": 875,
+        "wires": [
+            [
+                "s_61"
+            ]
+        ]
+    },
+    {
+        "id": "s_61",
+        "type": "api-call-service",
+        "z": "rr_tab_1",
+        "name": "press mr_slave_mopping",
+        "server": "38978576.ca0eea",
+        "version": 5,
+        "debugenabled": false,
+        "action": "button.press",
+        "floorId": [],
+        "areaId": [],
+        "deviceId": [],
+        "entityId": [],
+        "data": "{\"entity_id\": \"button.mr_slave_mopping\"}",
+        "dataType": "json",
+        "mergeContext": "",
+        "mustacheAltTags": false,
+        "outputProperties": [],
+        "queue": "none",
+        "blockInputOverrides": true,
+        "domain": "",
+        "service": "",
+        "x": 1770,
+        "y": 875,
+        "wires": [
+            [
+                "w_62",
+                "f_ev_mop"
+            ]
+        ]
+    },
+    {
+        "id": "w_62",
+        "type": "ha-wait-until",
+        "z": "rr_tab_1",
+        "name": "wait dock (mop)",
+        "server": "38978576.ca0eea",
+        "outputs": 2,
+        "outputProperties": [],
+        "entityId": "sensor.mr_slave_status_2",
+        "entityIdType": "exact",
+        "property": "state",
+        "comparator": "is",
+        "value": "charging",
+        "valueType": "str",
+        "timeout": "120",
+        "timeoutType": "num",
+        "timeoutUnits": "minutes",
+        "entityLocation": "",
+        "entityLocationType": "none",
+        "checkCurrentState": false,
+        "blockInputOverrides": true,
+        "outputThenReasons": false,
+        "x": 1930,
+        "y": 875,
+        "wires": [
+            [
+                "s_63"
+            ],
+            [
+                "f_to_w_62"
+            ]
+        ]
+    },
+    {
+        "id": "s_63",
+        "type": "api-call-service",
+        "z": "rr_tab_1",
+        "name": "wash mop",
+        "server": "38978576.ca0eea",
+        "version": 5,
+        "debugenabled": false,
+        "action": "vacuum.send_command",
+        "floorId": [],
+        "areaId": [],
+        "deviceId": [],
+        "entityId": [],
+        "data": "{\"entity_id\": \"vacuum.mr_slave_2\", \"command\": \"start_wash_then_charge\", \"params\": [1]}",
+        "dataType": "json",
+        "mergeContext": "",
+        "mustacheAltTags": false,
+        "outputProperties": [],
+        "queue": "none",
+        "blockInputOverrides": true,
+        "domain": "",
+        "service": "",
+        "x": 2110,
+        "y": 875,
+        "wires": [
+            [
+                "f_64"
+            ]
+        ]
+    },
+    {
+        "id": "f_64",
+        "type": "function",
+        "z": "rr_tab_1",
+        "name": "stamp last_mop_run",
+        "func": "msg.payload={timestamp: Math.floor(Date.now()/1000)}; return msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 2110,
+        "y": 935,
+        "wires": [
+            [
+                "s_65"
+            ]
+        ]
+    },
+    {
+        "id": "s_65",
+        "type": "api-call-service",
+        "z": "rr_tab_1",
+        "name": "set last_mop_run",
+        "server": "38978576.ca0eea",
+        "version": 5,
+        "debugenabled": false,
+        "action": "input_datetime.set_datetime",
+        "floorId": [],
+        "areaId": [],
+        "deviceId": [],
+        "entityId": [],
+        "data": "{\"entity_id\":\"input_datetime.rr_last_mop_run\",\"timestamp\":$number($$.payload.timestamp)}",
+        "dataType": "jsonata",
+        "mergeContext": "",
+        "mustacheAltTags": false,
+        "outputProperties": [],
+        "queue": "none",
+        "blockInputOverrides": true,
+        "domain": "",
+        "service": "",
+        "x": 2290,
+        "y": 935,
+        "wires": [
+            [
+                "s_66"
+            ]
+        ]
+    },
+    {
+        "id": "s_66",
+        "type": "api-call-service",
+        "z": "rr_tab_1",
+        "name": "restore mode (post-mop)",
+        "server": "38978576.ca0eea",
+        "version": 5,
+        "debugenabled": false,
+        "action": "select.select_option",
+        "floorId": [],
+        "areaId": [],
+        "deviceId": [],
+        "entityId": [],
+        "data": "{\"entity_id\": \"select.mr_slave_cleaning_mode\", \"option\": \"vac_and_mop\"}",
+        "dataType": "json",
+        "mergeContext": "",
+        "mustacheAltTags": false,
+        "outputProperties": [],
+        "queue": "none",
+        "blockInputOverrides": true,
+        "domain": "",
+        "service": "",
+        "x": 2470,
+        "y": 935,
+        "wires": [
+            [
+                "f_ev_done"
+            ]
+        ]
+    },
+    {
+        "id": "s_67",
+        "type": "api-call-service",
+        "z": "rr_tab_1",
+        "name": "restore mode (no-mop day)",
+        "server": "38978576.ca0eea",
+        "version": 5,
+        "debugenabled": false,
+        "action": "select.select_option",
+        "floorId": [],
+        "areaId": [],
+        "deviceId": [],
+        "entityId": [],
+        "data": "{\"entity_id\": \"select.mr_slave_cleaning_mode\", \"option\": \"vac_and_mop\"}",
+        "dataType": "json",
+        "mergeContext": "",
+        "mustacheAltTags": false,
+        "outputProperties": [],
+        "queue": "none",
+        "blockInputOverrides": true,
+        "domain": "",
+        "service": "",
+        "x": 1600,
+        "y": 975,
+        "wires": [
+            [
+                "f_ev_done"
+            ]
+        ]
+    },
+    {
+        "id": "t_68",
+        "type": "server-state-changed",
+        "z": "rr_tab_1",
+        "name": "btn mop all",
+        "server": "38978576.ca0eea",
+        "version": 6,
+        "outputs": 2,
+        "exposeAsEntityConfig": "",
+        "entities": {
+            "entity": [
+                "input_button.rr_mop_all_floors"
+            ],
+            "substring": [],
+            "regex": []
+        },
+        "outputInitially": false,
+        "stateType": "str",
+        "ifState": "",
+        "ifStateType": "str",
+        "ifStateOperator": "is",
+        "outputOnlyOnStateChange": true,
+        "for": "0",
+        "forType": "num",
+        "forUnits": "minutes",
+        "ignorePrevStateNull": true,
+        "ignorePrevStateUnknown": false,
+        "ignorePrevStateUnavailable": false,
+        "ignoreCurrentStateUnknown": false,
+        "ignoreCurrentStateUnavailable": false,
+        "outputProperties": [],
+        "x": 150,
+        "y": 965,
+        "wires": [
+            [
+                "s_69"
+            ],
+            []
+        ]
+    },
+    {
+        "id": "s_69",
+        "type": "api-call-service",
+        "z": "rr_tab_1",
+        "name": "press mr_slave_mopping",
+        "server": "38978576.ca0eea",
+        "version": 5,
+        "debugenabled": false,
+        "action": "button.press",
+        "floorId": [],
+        "areaId": [],
+        "deviceId": [],
+        "entityId": [],
+        "data": "{\"entity_id\": \"button.mr_slave_mopping\"}",
+        "dataType": "json",
+        "mergeContext": "",
+        "mustacheAltTags": false,
+        "outputProperties": [],
+        "queue": "none",
+        "blockInputOverrides": true,
+        "domain": "",
+        "service": "",
+        "x": 430,
+        "y": 965,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "t_86",
+        "type": "server-state-changed",
+        "z": "rr_tab_1",
+        "name": "water refilled -> Vikunja Fill water",
+        "server": "38978576.ca0eea",
+        "version": 6,
+        "outputs": 2,
+        "exposeAsEntityConfig": "",
+        "entities": {
+            "entity": [
+                "binary_sensor.mr_slave_water_shortage_2"
+            ],
+            "substring": [],
+            "regex": []
+        },
+        "outputInitially": false,
+        "stateType": "str",
+        "ifState": "off",
+        "ifStateType": "str",
+        "ifStateOperator": "is",
+        "outputOnlyOnStateChange": true,
+        "for": "0",
+        "forType": "num",
+        "forUnits": "minutes",
+        "ignorePrevStateNull": true,
+        "ignorePrevStateUnknown": false,
+        "ignorePrevStateUnavailable": false,
+        "ignoreCurrentStateUnknown": false,
+        "ignoreCurrentStateUnavailable": false,
+        "outputProperties": [],
+        "x": 150,
+        "y": 1385,
+        "wires": [
+            [
+                "f_vk3"
+            ],
+            []
+        ]
+    },
+    {
+        "id": "s_89",
+        "type": "api-call-service",
+        "z": "rr_tab_1",
+        "name": "press mr_slave_dock_reset_strainer_consumable",
+        "server": "38978576.ca0eea",
+        "version": 5,
+        "debugenabled": false,
+        "action": "button.press",
+        "floorId": [],
+        "areaId": [],
+        "deviceId": [],
+        "entityId": [],
+        "data": "{\"entity_id\": \"button.mr_slave_dock_reset_strainer_consumable\"}",
+        "dataType": "json",
+        "mergeContext": "",
+        "mustacheAltTags": false,
+        "outputProperties": [],
+        "queue": "none",
+        "blockInputOverrides": true,
+        "domain": "",
+        "service": "",
+        "x": 470,
+        "y": 1445,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "s_91",
+        "type": "api-call-service",
+        "z": "rr_tab_1",
+        "name": "press mr_slave_reset_air_filter_consumable_2",
+        "server": "38978576.ca0eea",
+        "version": 5,
+        "debugenabled": false,
+        "action": "button.press",
+        "floorId": [],
+        "areaId": [],
+        "deviceId": [],
+        "entityId": [],
+        "data": "{\"entity_id\": \"button.mr_slave_reset_air_filter_consumable_2\"}",
+        "dataType": "json",
+        "mergeContext": "",
+        "mustacheAltTags": false,
+        "outputProperties": [],
+        "queue": "none",
+        "blockInputOverrides": true,
+        "domain": "",
+        "service": "",
+        "x": 470,
+        "y": 1490,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "s_92",
+        "type": "api-call-service",
+        "z": "rr_tab_1",
+        "name": "press mr_slave_reset_side_brush_consumable_2",
+        "server": "38978576.ca0eea",
+        "version": 5,
+        "debugenabled": false,
+        "action": "button.press",
+        "floorId": [],
+        "areaId": [],
+        "deviceId": [],
+        "entityId": [],
+        "data": "{\"entity_id\": \"button.mr_slave_reset_side_brush_consumable_2\"}",
+        "dataType": "json",
+        "mergeContext": "",
+        "mustacheAltTags": false,
+        "outputProperties": [],
+        "queue": "none",
+        "blockInputOverrides": true,
+        "domain": "",
+        "service": "",
+        "x": 470,
+        "y": 1530,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "s_93",
+        "type": "api-call-service",
+        "z": "rr_tab_1",
+        "name": "press mr_slave_reset_main_brush_consumable_2",
+        "server": "38978576.ca0eea",
+        "version": 5,
+        "debugenabled": false,
+        "action": "button.press",
+        "floorId": [],
+        "areaId": [],
+        "deviceId": [],
+        "entityId": [],
+        "data": "{\"entity_id\": \"button.mr_slave_reset_main_brush_consumable_2\"}",
+        "dataType": "json",
+        "mergeContext": "",
+        "mustacheAltTags": false,
+        "outputProperties": [],
+        "queue": "none",
+        "blockInputOverrides": true,
+        "domain": "",
+        "service": "",
+        "x": 470,
+        "y": 1570,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "s_94",
+        "type": "api-call-service",
+        "z": "rr_tab_1",
+        "name": "press mr_slave_dock_reset_cleaning_brush_consumable",
+        "server": "38978576.ca0eea",
+        "version": 5,
+        "debugenabled": false,
+        "action": "button.press",
+        "floorId": [],
+        "areaId": [],
+        "deviceId": [],
+        "entityId": [],
+        "data": "{\"entity_id\": \"button.mr_slave_dock_reset_cleaning_brush_consumable\"}",
+        "dataType": "json",
+        "mergeContext": "",
+        "mustacheAltTags": false,
+        "outputProperties": [],
+        "queue": "none",
+        "blockInputOverrides": true,
+        "domain": "",
+        "service": "",
+        "x": 470,
+        "y": 1610,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "i_vk1",
+        "type": "inject",
+        "z": "rr_tab_1",
+        "name": "poll Vikunja chores (5m)",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "300",
+        "crontab": "",
+        "once": true,
+        "onceDelay": "45",
+        "topic": "",
+        "payload": "",
+        "payloadType": "str",
+        "x": 150,
+        "y": 1085,
+        "wires": [
+            [
+                "f_vk1"
+            ]
+        ]
+    },
+    {
+        "id": "f_vk1",
+        "type": "function",
+        "z": "rr_tab_1",
+        "name": "vik: build chores GET",
+        "func": "msg.url='https://tasks.kmkdp.com/api/v1/projects/6/tasks?per_page=50';\nmsg.method='GET';\nmsg.headers={};\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 360,
+        "y": 1085,
+        "wires": [
+            [
+                "h_vk1"
+            ]
+        ]
+    },
+    {
+        "id": "h_vk1",
+        "type": "http request",
+        "z": "rr_tab_1",
+        "name": "GET chores",
+        "method": "use",
+        "ret": "obj",
+        "paytoqs": "ignore",
+        "url": "",
+        "tls": "",
+        "persist": false,
+        "proxy": "",
+        "insecureHTTPParser": false,
+        "authType": "bearer",
+        "senderr": false,
+        "headers": [],
+        "x": 560,
+        "y": 1085,
+        "wires": [
+            [
+                "f_vk2"
+            ]
+        ]
+    },
+    {
+        "id": "f_vk2",
+        "type": "function",
+        "z": "rr_tab_1",
+        "name": "vik: completions -> resets",
+        "func": "// Vikunja repeat_mode=2: completing a chore rolls due_date and bumps done_at.\n// A done_at change since the last poll = the chore was just done in Vikunja.\nconst tasks = msg.payload;\nif (!Array.isArray(tasks)) return null;\nconst MAP = {42:0, 43:1, 44:2, 47:3};  // brush, bag, sensors, filter\nconst outs = [null, null, null, null];\nfor (const t of tasks) {\n    const idx = MAP[t.id];\n    if (idx === undefined) continue;\n    const key = 'vik_done_' + t.id;\n    const last = flow.get(key);\n    const cur = t.done_at || '';\n    if (last === undefined) { flow.set(key, cur); continue; }\n    if (cur !== last) {\n        flow.set(key, cur);\n        if (cur && !cur.startsWith('0001-')) outs[idx] = {payload:{task:t.id, title:t.title}};\n    }\n}\nreturn outs.every(o => o === null) ? null : outs;",
+        "outputs": 4,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 770,
+        "y": 1085,
+        "wires": [
+            [
+                "s_92",
+                "s_93"
+            ],
+            [
+                "s_89"
+            ],
+            [
+                "s_91",
+                "s_92",
+                "s_93",
+                "s_94"
+            ],
+            [
+                "s_91"
+            ]
+        ]
+    },
+    {
+        "id": "f_vk3",
+        "type": "function",
+        "z": "rr_tab_1",
+        "name": "vik: fetch Fill water (46)",
+        "func": "// throttle: a flapping shortage sensor must not spam completions\nconst last = flow.get('vik_fill_last') || 0;\nif (Date.now() - last < 6*3600*1000) return null;\nflow.set('vik_fill_last', Date.now());\nmsg.url='https://tasks.kmkdp.com/api/v1/tasks/46';\nmsg.method='GET';\nmsg.headers={};\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 420,
+        "y": 1385,
+        "wires": [
+            [
+                "h_vk2"
+            ]
+        ]
+    },
+    {
+        "id": "h_vk2",
+        "type": "http request",
+        "z": "rr_tab_1",
+        "name": "GET task 46",
+        "method": "use",
+        "ret": "obj",
+        "paytoqs": "ignore",
+        "url": "",
+        "tls": "",
+        "persist": false,
+        "proxy": "",
+        "insecureHTTPParser": false,
+        "authType": "bearer",
+        "senderr": false,
+        "headers": [],
+        "x": 620,
+        "y": 1385,
+        "wires": [
+            [
+                "f_vk4"
+            ]
+        ]
+    },
+    {
+        "id": "f_vk4",
+        "type": "function",
+        "z": "rr_tab_1",
+        "name": "vik: mark done (full object)",
+        "func": "// Vikunja no-ops on a bare {done:true} \u2014 POST the FULL task object back.\nconst t = msg.payload;\nif (!t || !t.id || t.done) return null;\nt.done = true;\nmsg.url='https://tasks.kmkdp.com/api/v1/tasks/46';\nmsg.method='POST';\nmsg.headers={'Content-Type':'application/json'};\nmsg.payload = t;\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 840,
+        "y": 1385,
+        "wires": [
+            [
+                "h_vk3"
+            ]
+        ]
+    },
+    {
+        "id": "h_vk3",
+        "type": "http request",
+        "z": "rr_tab_1",
+        "name": "POST task 46 done",
+        "method": "use",
+        "ret": "obj",
+        "paytoqs": "ignore",
+        "url": "",
+        "tls": "",
+        "persist": false,
+        "proxy": "",
+        "insecureHTTPParser": false,
+        "authType": "bearer",
+        "senderr": false,
+        "headers": [],
+        "x": 1060,
+        "y": 1385,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "t_room",
+        "type": "server-state-changed",
+        "z": "rr_tab_1",
+        "name": "any room button -> stamp",
+        "server": "38978576.ca0eea",
+        "version": 6,
+        "outputs": 2,
+        "exposeAsEntityConfig": "",
+        "entities": {
+            "entity": [
+                "input_button.rr_clean_master_bedroom_closet",
+                "input_button.rr_clean_master_bedroom",
+                "input_button.rr_clean_bedroom_1",
+                "input_button.rr_clean_master_bathroom",
+                "input_button.rr_clean_bathroom_1",
+                "input_button.rr_clean_garage_entrance",
+                "input_button.rr_clean_half_bath",
+                "input_button.rr_clean_laundry_room",
+                "input_button.rr_clean_rachels_office",
+                "input_button.rr_clean_hallway",
+                "input_button.rr_clean_front_door_entry",
+                "input_button.rr_clean_living_room",
+                "input_button.rr_clean_kitchen"
+            ],
+            "substring": [],
+            "regex": []
+        },
+        "outputInitially": false,
+        "stateType": "str",
+        "ifState": "",
+        "ifStateType": "str",
+        "ifStateOperator": "is",
+        "outputOnlyOnStateChange": true,
+        "for": "0",
+        "forType": "num",
+        "forUnits": "minutes",
+        "ignorePrevStateNull": true,
+        "ignorePrevStateUnknown": false,
+        "ignorePrevStateUnavailable": false,
+        "ignoreCurrentStateUnknown": false,
+        "ignoreCurrentStateUnavailable": false,
+        "outputProperties": [
+            {
+                "property": "topic",
+                "propertyType": "msg",
+                "value": "",
+                "valueType": "triggerId"
+            }
+        ],
+        "x": 150,
+        "y": 1485,
+        "wires": [
+            [
+                "f_room"
+            ],
+            []
+        ]
+    },
+    {
+        "id": "f_room",
+        "type": "function",
+        "z": "rr_tab_1",
+        "name": "room -> stamp entity",
+        "func": "const m = (msg.topic || '').replace('input_button.rr_clean_', '');\nif (!m || m === msg.topic) return null;\nmsg.payload = {stamp: 'input_datetime.rr_last_clean_' + m,\n               ts: Math.floor(Date.now()/1000)};\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 400,
+        "y": 1485,
+        "wires": [
+            [
+                "s_room"
+            ]
+        ]
+    },
+    {
+        "id": "s_room",
+        "type": "api-call-service",
+        "z": "rr_tab_1",
+        "name": "stamp room last-clean",
+        "server": "38978576.ca0eea",
+        "version": 5,
+        "debugenabled": false,
+        "action": "input_datetime.set_datetime",
+        "floorId": [],
+        "areaId": [],
+        "deviceId": [],
+        "entityId": [],
+        "data": "{\"entity_id\": payload.stamp, \"timestamp\": payload.ts}",
+        "dataType": "jsonata",
+        "mergeContext": "",
+        "mustacheAltTags": false,
+        "outputProperties": [],
+        "queue": "none",
+        "blockInputOverrides": true,
+        "domain": "",
+        "service": "",
+        "x": 640,
+        "y": 1485,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "i_nx1",
+        "type": "inject",
+        "z": "rr_tab_1",
+        "name": "next-run recompute (startup + 00:01)",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "1 0 * * *",
+        "once": true,
+        "onceDelay": "40",
+        "topic": "",
+        "payload": "",
+        "payloadType": "str",
+        "x": 170,
+        "y": 1585,
+        "wires": [
+            [
+                "f_nx"
+            ]
+        ]
+    },
+    {
+        "id": "f_nx",
+        "type": "function",
+        "z": "rr_tab_1",
+        "name": "compute next run (wk 8:30 / wkend 10:00)",
+        "func": "const now = new Date();\nfunction nextSlot(dayFilter) {\n    for (let d = 0; d < 9; d++) {\n        const c = new Date(now.getFullYear(), now.getMonth(), now.getDate() + d);\n        const dow = c.getDay();\n        if (!dayFilter(dow)) continue;\n        const wkend = (dow === 0 || dow === 6);\n        c.setHours(wkend ? 10 : 8, wkend ? 0 : 30, 0, 0);\n        if (c > now) return Math.floor(c.getTime()/1000);\n    }\n    return null;\n}\nconst run = nextSlot(() => true);\nconst mop = nextSlot(d => d === 1 || d === 5);\nconst out = [];\nif (run) out.push({payload:{ent:'input_datetime.rr_next_run', ts:run}});\nif (mop) out.push({payload:{ent:'input_datetime.rr_next_mop', ts:mop}});\nreturn [out];\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 440,
+        "y": 1585,
+        "wires": [
+            [
+                "s_nx"
+            ]
+        ]
+    },
+    {
+        "id": "s_nx",
+        "type": "api-call-service",
+        "z": "rr_tab_1",
+        "name": "stamp rr_next_run",
+        "server": "38978576.ca0eea",
+        "version": 5,
+        "debugenabled": false,
+        "action": "input_datetime.set_datetime",
+        "floorId": [],
+        "areaId": [],
+        "deviceId": [],
+        "entityId": [],
+        "data": "{\"entity_id\": payload.ent, \"timestamp\": payload.ts}",
+        "dataType": "jsonata",
+        "mergeContext": "",
+        "mustacheAltTags": false,
+        "outputProperties": [],
+        "queue": "none",
+        "blockInputOverrides": true,
+        "domain": "",
+        "service": "",
+        "x": 680,
+        "y": 1585,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "f_ev_start",
+        "type": "function",
+        "z": "rr_tab_1",
+        "name": "evt: start",
+        "func": "msg.rr_evt = 'start';\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 650,
+        "y": 1650,
+        "wires": [
+            [
+                "f_track"
+            ]
+        ]
+    },
+    {
+        "id": "f_ev_zb",
+        "type": "function",
+        "z": "rr_tab_1",
+        "name": "evt: zoneB",
+        "func": "msg.rr_evt = 'zoneB';\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 650,
+        "y": 1690,
+        "wires": [
+            [
+                "f_track"
+            ]
+        ]
+    },
+    {
+        "id": "f_ev_rest",
+        "type": "function",
+        "z": "rr_tab_1",
+        "name": "evt: rest",
+        "func": "msg.rr_evt = 'rest';\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 650,
+        "y": 1730,
+        "wires": [
+            [
+                "f_track"
+            ]
+        ]
+    },
+    {
+        "id": "f_ev_mop",
+        "type": "function",
+        "z": "rr_tab_1",
+        "name": "evt: mop",
+        "func": "msg.rr_evt = 'mop';\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 650,
+        "y": 1770,
+        "wires": [
+            [
+                "f_track"
+            ]
+        ]
+    },
+    {
+        "id": "f_ev_cxl",
+        "type": "function",
+        "z": "rr_tab_1",
+        "name": "evt: cancel",
+        "func": "msg.rr_evt = 'cancel';\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 650,
+        "y": 1810,
+        "wires": [
+            [
+                "f_track"
+            ]
+        ]
+    },
+    {
+        "id": "f_ev_done",
+        "type": "function",
+        "z": "rr_tab_1",
+        "name": "evt: done",
+        "func": "msg.rr_evt = 'done';\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 650,
+        "y": 1850,
+        "wires": [
+            [
+                "f_track"
+            ]
+        ]
+    },
+    {
+        "id": "f_ev_zbdone",
+        "type": "function",
+        "z": "rr_tab_1",
+        "name": "evt: zbdone",
+        "func": "msg.rr_evt = 'zbdone';\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 650,
+        "y": 1890,
+        "wires": [
+            [
+                "f_track"
+            ]
+        ]
+    },
+    {
+        "id": "f_ev_restdone",
+        "type": "function",
+        "z": "rr_tab_1",
+        "name": "evt: restdone",
+        "func": "msg.rr_evt = 'restdone';\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 650,
+        "y": 1930,
+        "wires": [
+            [
+                "f_track"
+            ]
+        ]
+    },
+    {
+        "id": "t_idle",
+        "type": "server-state-changed",
+        "z": "rr_tab_1",
+        "name": "vacuum idle -> manual stop",
+        "server": "38978576.ca0eea",
+        "version": 6,
+        "outputs": 2,
+        "exposeAsEntityConfig": "",
+        "entities": {
+            "entity": [
+                "vacuum.mr_slave_2"
+            ],
+            "substring": [],
+            "regex": []
+        },
+        "outputInitially": false,
+        "stateType": "str",
+        "ifState": "idle",
+        "ifStateType": "str",
+        "ifStateOperator": "is",
+        "outputOnlyOnStateChange": true,
+        "for": "0",
+        "forType": "num",
+        "forUnits": "minutes",
+        "ignorePrevStateNull": true,
+        "ignorePrevStateUnknown": false,
+        "ignorePrevStateUnavailable": false,
+        "ignoreCurrentStateUnknown": true,
+        "ignoreCurrentStateUnavailable": true,
+        "outputProperties": [
+            {
+                "property": "payload",
+                "propertyType": "msg",
+                "value": "",
+                "valueType": "entityState"
+            }
+        ],
+        "x": 150,
+        "y": 1650,
+        "wires": [
+            [
+                "f_ev_idle"
+            ],
+            []
+        ]
+    },
+    {
+        "id": "f_ev_idle",
+        "type": "function",
+        "z": "rr_tab_1",
+        "name": "evt: idle",
+        "func": "msg.rr_evt = 'idle';\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 400,
+        "y": 1650,
+        "wires": [
+            [
+                "f_track"
+            ]
+        ]
+    },
+    {
+        "id": "t_croom",
+        "type": "server-state-changed",
+        "z": "rr_tab_1",
+        "name": "current room hint",
+        "server": "38978576.ca0eea",
+        "version": 6,
+        "outputs": 2,
+        "exposeAsEntityConfig": "",
+        "entities": {
+            "entity": [
+                "sensor.mr_slave_current_room_2"
+            ],
+            "substring": [],
+            "regex": []
+        },
+        "outputInitially": false,
+        "stateType": "str",
+        "ifState": "",
+        "ifStateType": "str",
+        "ifStateOperator": "is",
+        "outputOnlyOnStateChange": true,
+        "for": "0",
+        "forType": "num",
+        "forUnits": "minutes",
+        "ignorePrevStateNull": true,
+        "ignorePrevStateUnknown": false,
+        "ignorePrevStateUnavailable": false,
+        "ignoreCurrentStateUnknown": true,
+        "ignoreCurrentStateUnavailable": true,
+        "outputProperties": [
+            {
+                "property": "payload",
+                "propertyType": "msg",
+                "value": "",
+                "valueType": "entityState"
+            }
+        ],
+        "x": 150,
+        "y": 1700,
+        "wires": [
+            [
+                "f_ev_room"
+            ],
+            []
+        ]
+    },
+    {
+        "id": "f_ev_room",
+        "type": "function",
+        "z": "rr_tab_1",
+        "name": "evt: room",
+        "func": "msg.rr_evt = 'room';\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 400,
+        "y": 1700,
+        "wires": [
+            [
+                "f_track"
+            ]
+        ]
+    },
+    {
+        "id": "f_track",
+        "type": "function",
+        "z": "rr_tab_1",
+        "name": "run tracker",
+        "func": "\n// Phase-level run tracker. Publishes sensor.rr_run_progress via HA REST (out 0)\n// and emits guarded room stamps (out 1, same shape s_room consumes).\nconst REST_ROOMS = ['master_bedroom_closet','master_bathroom','bathroom_1',\n    'bedroom_1','kitchen','living_room','front_door_entry','garage_entrance',\n    'half_bath','laundry_room','hallway','rachels_office'];\nlet run = flow.get('rr_run') || {active:false, phase:'', cancelled:false, near:''};\nconst evt = msg.rr_evt;\nlet stamp = null;\nswitch (evt) {\n    case 'start':\n        run = {active:true, phase:'Master bedroom \u2014 zone A', cancelled:false, near:''};\n        break;\n    case 'zoneB':\n        run.phase = 'Master bedroom \u2014 zone B'; break;\n    case 'zbdone':\n        if (run.active && !run.cancelled && !flow.get('rr_cancel') && !flow.get('rr_mbr_short')) {\n            stamp = {stamp:'input_datetime.rr_last_clean_master_bedroom',\n                     ts: Math.floor(Date.now()/1000)};\n            run.phase = 'Dock \u2014 emptying before main sweep';\n        }\n        break;\n    case 'rest':\n        run.phase = 'Main floor sweep (12 rooms)'; break;\n    case 'restdone':\n        if (run.active && !run.cancelled && !flow.get('rr_cancel')) {\n            stamp = {stamp: REST_ROOMS.map(r => 'input_datetime.rr_last_clean_' + r),\n                     ts: Math.floor(Date.now()/1000)};\n            run.phase = 'Main sweep complete';\n        }\n        break;\n    case 'mop':\n        run.phase = 'Mop pass (all floors)'; break;\n    case 'done':\n        run.phase = run.cancelled ? 'Cancelled' : 'Complete';\n        run.active = false; run.near = '';\n        break;\n    case 'cancel':\n        run.cancelled = true; run.active = false;\n        run.phase = 'Cancelled \u2014 returning to dock';\n        break;\n    case 'failed':\n        run.cancelled = true; run.active = false; run.near = '';\n        run.phase = msg.rr_phase || 'Failed';\n        break;\n    case 'idle':\n        if (run.active && !run.cancelled) {\n            run.cancelled = true; run.active = false;\n            flow.set('rr_cancel', true);\n            run.phase = 'Stopped by hand \u2014 rest of run cancelled';\n        } else { return null; }\n        break;\n    case 'room':\n        if (!run.active) return null;\n        run.near = String(msg.payload || '');\n        break;\n    default:\n        return null;\n}\nflow.set('rr_run', run);\nconst prog = {payload: {phase: run.phase.substring(0,255), near: (run.near || '').substring(0,100)}};\nreturn [[prog], stamp ? [{payload: stamp}] : []];\n",
+        "outputs": 2,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 900,
+        "y": 1700,
+        "wires": [
+            [
+                "s_phase",
+                "s_near"
+            ],
+            [
+                "s_room"
+            ]
+        ]
+    },
+    {
+        "id": "s_notify",
+        "type": "api-call-service",
+        "z": "rr_tab_1",
+        "name": "notify phones (script.rr_notify)",
+        "server": "38978576.ca0eea",
+        "version": 5,
+        "debugenabled": false,
+        "action": "script.rr_notify",
+        "floorId": [],
+        "areaId": [],
+        "deviceId": [],
+        "entityId": [],
+        "data": "{\"title\": $$.notify.title, \"message\": $$.notify.message, \"tag\": $$.notify.tag, \"urgent\": $$.notify.urgent ? true : false}",
+        "dataType": "jsonata",
+        "mergeContext": "",
+        "mustacheAltTags": false,
+        "outputProperties": [],
+        "queue": "none",
+        "blockInputOverrides": true,
+        "domain": "",
+        "service": "",
+        "x": 1500,
+        "y": 1100,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "f_pre",
+        "type": "function",
+        "name": "preflight (dock / water)",
+        "func": "const _ha = global.get('homeassistant') || {};\nconst _st = (Object.values(_ha).find(v => v && v.states) || {}).states || {};\nconst st = id => (_st[id] && _st[id].state);\n\nconst probs = [];\nif (st('binary_sensor.mr_slave_water_shortage_2') === 'on') probs.push('clean-water tank is empty');\nconst dock = st('sensor.mr_slave_dock_dock_error');\nif (dock && !['ok','unknown','unavailable'].includes(dock)) probs.push('dock reports ' + dock.replace(/_/g,' '));\nconst verr = st('vacuum.mr_slave_2') === 'error' ? st('sensor.mr_slave_vacuum_error_2') : null;\nif (verr && verr !== 'none') probs.push('robot error ' + verr.replace(/_/g,' '));\nflow.set('rr_mop_skip', probs.length > 0);\nflow.set('rr_mbr_short', false);\nflow.set('rr_zone_t', Date.now());\nif (!Object.keys(_st).length) node.warn('preflight: HA state store empty, skipping checks');\nconst d = new Date().getDay();\nconst mopDay = (d === 1 || d === 5);\nlet note = null;\nif (probs.length) {\n    note = {notify: {title: 'Vacuum: check the dock',\n        message: 'Starting the daily clean, but the ' + probs.join(' and ') + '. ' +\n                 (mopDay ? 'Vacuum pass only \u2014 today\\'s mop pass will be skipped.' : 'Vacuum pass only.'),\n        tag: 'rr_preflight', urgent: false}};\n}\nnode.status(probs.length ? {fill:'yellow',text:probs.join(', ')} : {fill:'green',text:'ok'});\nreturn [msg, note];\n",
+        "outputs": 2,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 470,
+        "y": 770,
+        "wires": [
+            [
+                "s_36",
+                "f_ev_start"
+            ],
+            [
+                "s_notify"
+            ]
+        ],
+        "z": "rr_tab_1"
+    },
+    {
+        "id": "d_mv_A",
+        "type": "delay",
+        "z": "rr_tab_1",
+        "name": "settle mode (A)",
+        "pauseType": "delay",
+        "timeout": "5",
+        "timeoutUnits": "seconds",
+        "rate": "1",
+        "nbRateUnits": "1",
+        "rateUnits": "second",
+        "randomFirst": "1",
+        "randomLast": "5",
+        "randomUnits": "seconds",
+        "drop": false,
+        "allowrate": false,
+        "outputs": 1,
+        "x": 720,
+        "y": 820,
+        "wires": [
+            [
+                "f_mv_A"
+            ]
+        ]
+    },
+    {
+        "id": "f_mv_A",
+        "type": "function",
+        "name": "mode is vacuum? (A)",
+        "func": "const _ha = global.get('homeassistant') || {};\nconst _st = (Object.values(_ha).find(v => v && v.states) || {}).states || {};\nconst st = id => (_st[id] && _st[id].state);\n\nflow.set('rr_zone_t', Date.now());\nconst m = st('select.mr_slave_cleaning_mode');\nif (m === 'vacuum' || m === undefined) { node.status({fill:'green',text:String(m)}); return [msg, null]; }\nnode.warn('cleaning mode is ' + m + ' after set; retrying once (A)');\nnode.status({fill:'yellow',text:'retry: was ' + m});\nreturn [null, msg];\n",
+        "outputs": 2,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 880,
+        "y": 820,
+        "wires": [
+            [
+                "s_37"
+            ],
+            [
+                "s_mv2_A"
+            ]
+        ],
+        "z": "rr_tab_1"
+    },
+    {
+        "id": "s_mv2_A",
+        "type": "api-call-service",
+        "z": "rr_tab_1",
+        "name": "mode: vacuum retry (A)",
+        "server": "38978576.ca0eea",
+        "version": 5,
+        "debugenabled": false,
+        "action": "select.select_option",
+        "floorId": [],
+        "areaId": [],
+        "deviceId": [],
+        "entityId": [],
+        "data": "{\"entity_id\": \"select.mr_slave_cleaning_mode\", \"option\": \"vacuum\"}",
+        "dataType": "json",
+        "mergeContext": "",
+        "mustacheAltTags": false,
+        "outputProperties": [],
+        "queue": "none",
+        "blockInputOverrides": true,
+        "domain": "",
+        "service": "",
+        "x": 1040,
+        "y": 850,
+        "wires": [
+            [
+                "s_37"
+            ]
+        ]
+    },
+    {
+        "id": "s_mv_B",
+        "type": "api-call-service",
+        "z": "rr_tab_1",
+        "name": "mode: vacuum (B)",
+        "server": "38978576.ca0eea",
+        "version": 5,
+        "debugenabled": false,
+        "action": "select.select_option",
+        "floorId": [],
+        "areaId": [],
+        "deviceId": [],
+        "entityId": [],
+        "data": "{\"entity_id\": \"select.mr_slave_cleaning_mode\", \"option\": \"vacuum\"}",
+        "dataType": "json",
+        "mergeContext": "",
+        "mustacheAltTags": false,
+        "outputProperties": [],
+        "queue": "none",
+        "blockInputOverrides": true,
+        "domain": "",
+        "service": "",
+        "x": 1240,
+        "y": 790,
+        "wires": [
+            [
+                "d_mv_B"
+            ]
+        ]
+    },
+    {
+        "id": "d_mv_B",
+        "type": "delay",
+        "z": "rr_tab_1",
+        "name": "settle mode (B)",
+        "pauseType": "delay",
+        "timeout": "5",
+        "timeoutUnits": "seconds",
+        "rate": "1",
+        "nbRateUnits": "1",
+        "rateUnits": "second",
+        "randomFirst": "1",
+        "randomLast": "5",
+        "randomUnits": "seconds",
+        "drop": false,
+        "allowrate": false,
+        "outputs": 1,
+        "x": 1400,
+        "y": 790,
+        "wires": [
+            [
+                "f_mv_B"
+            ]
+        ]
+    },
+    {
+        "id": "f_mv_B",
+        "type": "function",
+        "name": "mode is vacuum? (B)",
+        "func": "const _ha = global.get('homeassistant') || {};\nconst _st = (Object.values(_ha).find(v => v && v.states) || {}).states || {};\nconst st = id => (_st[id] && _st[id].state);\n\nflow.set('rr_zone_t', Date.now());\nconst m = st('select.mr_slave_cleaning_mode');\nif (m === 'vacuum' || m === undefined) { node.status({fill:'green',text:String(m)}); return [msg, null]; }\nnode.warn('cleaning mode is ' + m + ' after set; retrying once (B)');\nnode.status({fill:'yellow',text:'retry: was ' + m});\nreturn [null, msg];\n",
+        "outputs": 2,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1560,
+        "y": 790,
+        "wires": [
+            [
+                "s_43"
+            ],
+            [
+                "s_mv2_B"
+            ]
+        ],
+        "z": "rr_tab_1"
+    },
+    {
+        "id": "s_mv2_B",
+        "type": "api-call-service",
+        "z": "rr_tab_1",
+        "name": "mode: vacuum retry (B)",
+        "server": "38978576.ca0eea",
+        "version": 5,
+        "debugenabled": false,
+        "action": "select.select_option",
+        "floorId": [],
+        "areaId": [],
+        "deviceId": [],
+        "entityId": [],
+        "data": "{\"entity_id\": \"select.mr_slave_cleaning_mode\", \"option\": \"vacuum\"}",
+        "dataType": "json",
+        "mergeContext": "",
+        "mustacheAltTags": false,
+        "outputProperties": [],
+        "queue": "none",
+        "blockInputOverrides": true,
+        "domain": "",
+        "service": "",
+        "x": 1720,
+        "y": 820,
+        "wires": [
+            [
+                "s_43"
+            ]
+        ]
+    },
+    {
+        "id": "s_mv_R",
+        "type": "api-call-service",
+        "z": "rr_tab_1",
+        "name": "mode: vacuum (R)",
+        "server": "38978576.ca0eea",
+        "version": 5,
+        "debugenabled": false,
+        "action": "select.select_option",
+        "floorId": [],
+        "areaId": [],
+        "deviceId": [],
+        "entityId": [],
+        "data": "{\"entity_id\": \"select.mr_slave_cleaning_mode\", \"option\": \"vacuum\"}",
+        "dataType": "json",
+        "mergeContext": "",
+        "mustacheAltTags": false,
+        "outputProperties": [],
+        "queue": "none",
+        "blockInputOverrides": true,
+        "domain": "",
+        "service": "",
+        "x": 1240,
+        "y": 880,
+        "wires": [
+            [
+                "d_mv_R"
+            ]
+        ]
+    },
+    {
+        "id": "d_mv_R",
+        "type": "delay",
+        "z": "rr_tab_1",
+        "name": "settle mode (R)",
+        "pauseType": "delay",
+        "timeout": "5",
+        "timeoutUnits": "seconds",
+        "rate": "1",
+        "nbRateUnits": "1",
+        "rateUnits": "second",
+        "randomFirst": "1",
+        "randomLast": "5",
+        "randomUnits": "seconds",
+        "drop": false,
+        "allowrate": false,
+        "outputs": 1,
+        "x": 1400,
+        "y": 880,
+        "wires": [
+            [
+                "f_mv_R"
+            ]
+        ]
+    },
+    {
+        "id": "f_mv_R",
+        "type": "function",
+        "name": "mode is vacuum? (R)",
+        "func": "const _ha = global.get('homeassistant') || {};\nconst _st = (Object.values(_ha).find(v => v && v.states) || {}).states || {};\nconst st = id => (_st[id] && _st[id].state);\n\nflow.set('rr_zone_t', Date.now());\nconst m = st('select.mr_slave_cleaning_mode');\nif (m === 'vacuum' || m === undefined) { node.status({fill:'green',text:String(m)}); return [msg, null]; }\nnode.warn('cleaning mode is ' + m + ' after set; retrying once (R)');\nnode.status({fill:'yellow',text:'retry: was ' + m});\nreturn [null, msg];\n",
+        "outputs": 2,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1560,
+        "y": 880,
+        "wires": [
+            [
+                "s_49"
+            ],
+            [
+                "s_mv2_R"
+            ]
+        ],
+        "z": "rr_tab_1"
+    },
+    {
+        "id": "s_mv2_R",
+        "type": "api-call-service",
+        "z": "rr_tab_1",
+        "name": "mode: vacuum retry (R)",
+        "server": "38978576.ca0eea",
+        "version": 5,
+        "debugenabled": false,
+        "action": "select.select_option",
+        "floorId": [],
+        "areaId": [],
+        "deviceId": [],
+        "entityId": [],
+        "data": "{\"entity_id\": \"select.mr_slave_cleaning_mode\", \"option\": \"vacuum\"}",
+        "dataType": "json",
+        "mergeContext": "",
+        "mustacheAltTags": false,
+        "outputProperties": [],
+        "queue": "none",
+        "blockInputOverrides": true,
+        "domain": "",
+        "service": "",
+        "x": 1720,
+        "y": 910,
+        "wires": [
+            [
+                "s_49"
+            ]
+        ]
+    },
+    {
+        "id": "f_to_w_42",
+        "type": "function",
+        "name": "timeout: Master bedroom zone A",
+        "func": "msg.rr_stage = \"Master bedroom zone A\"; msg.rr_mins = 40; return msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 900,
+        "y": 770,
+        "wires": [
+            [
+                "f_stall"
+            ]
+        ],
+        "z": "rr_tab_1"
+    },
+    {
+        "id": "f_to_w_48",
+        "type": "function",
+        "name": "timeout: Master bedroom zone B",
+        "func": "msg.rr_stage = \"Master bedroom zone B\"; msg.rr_mins = 40; return msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 900,
+        "y": 860,
+        "wires": [
+            [
+                "f_stall"
+            ]
+        ],
+        "z": "rr_tab_1"
+    },
+    {
+        "id": "f_to_w_54",
+        "type": "function",
+        "name": "timeout: Main floor sweep",
+        "func": "msg.rr_stage = \"Main floor sweep\"; msg.rr_mins = 150; return msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 950,
+        "y": 950,
+        "wires": [
+            [
+                "f_stall"
+            ]
+        ],
+        "z": "rr_tab_1"
+    },
+    {
+        "id": "f_to_w_62",
+        "type": "function",
+        "name": "timeout: Mop pass",
+        "func": "msg.rr_stage = \"Mop pass\"; msg.rr_mins = 120; return msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1970,
+        "y": 920,
+        "wires": [
+            [
+                "f_stall"
+            ]
+        ],
+        "z": "rr_tab_1"
+    },
+    {
+        "id": "f_stall",
+        "type": "function",
+        "name": "stall -> alert + cancel",
+        "func": "const _ha = global.get('homeassistant') || {};\nconst _st = (Object.values(_ha).find(v => v && v.states) || {}).states || {};\nconst st = id => (_st[id] && _st[id].state);\n\nflow.set('rr_cancel', true);\nconst status = st('sensor.mr_slave_status_2') || 'unknown';\nconst notify = {notify: {title: 'Vacuum: daily clean stopped', message: msg.rr_stage + ' did not finish within ' + msg.rr_mins + ' min.' + ' Vacuum is ' +\n    status.replace(/_/g,' ') + '. The rest of today\\'s run is cancelled.', tag: 'rr_run_failed', urgent: true}};\nconst evt = {rr_evt: 'failed', rr_phase: 'Stalled \u2014 ' + msg.rr_stage};\nnode.status({fill:'red', text: 'Stalled \u2014 ' + msg.rr_stage});\nreturn [notify, evt, {payload: 'restore'}];\n",
+        "outputs": 3,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1500,
+        "y": 1000,
+        "wires": [
+            [
+                "s_notify"
+            ],
+            [
+                "f_track"
+            ],
+            [
+                "w_restore"
+            ]
+        ],
+        "z": "rr_tab_1"
+    },
+    {
+        "id": "cat_mid",
+        "type": "catch",
+        "name": "catch mid-run failure",
+        "scope": [
+            "s_mv_B",
+            "s_mv2_B",
+            "s_43",
+            "s_mv_R",
+            "s_mv2_R",
+            "s_49",
+            "s_60",
+            "s_61",
+            "s_63"
+        ],
+        "uncaught": false,
+        "x": 1320,
+        "y": 1050,
+        "wires": [
+            [
+                "f_fail"
+            ]
+        ],
+        "z": "rr_tab_1"
+    },
+    {
+        "id": "f_fail",
+        "type": "function",
+        "name": "command failed -> alert + cancel",
+        "func": "const _ha = global.get('homeassistant') || {};\nconst _st = (Object.values(_ha).find(v => v && v.states) || {}).states || {};\nconst st = id => (_st[id] && _st[id].state);\n\nflow.set('rr_cancel', true);\nconst status = st('sensor.mr_slave_status_2') || 'unknown';\nconst notify = {notify: {title: 'Vacuum: daily clean stopped', message: 'Step \"' + ((msg.error && msg.error.source && msg.error.source.name) || '?') + '\" failed: ' + ((msg.error && msg.error.message) || 'unknown error') + '.' + ' Vacuum is ' +\n    status.replace(/_/g,' ') + '. The rest of today\\'s run is cancelled.', tag: 'rr_run_failed', urgent: true}};\nconst evt = {rr_evt: 'failed', rr_phase: 'Failed \u2014 ' + ((msg.error && msg.error.source && msg.error.source.name) || 'command error')};\nnode.status({fill:'red', text: 'Failed \u2014 ' + ((msg.error && msg.error.source && msg.error.source.name) || 'command error')});\nreturn [notify, evt, {payload: 'restore'}];\n",
+        "outputs": 3,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1500,
+        "y": 1050,
+        "wires": [
+            [
+                "s_notify"
+            ],
+            [
+                "f_track"
+            ],
+            [
+                "w_restore"
+            ]
+        ],
+        "z": "rr_tab_1"
+    },
+    {
+        "id": "w_restore",
+        "type": "ha-wait-until",
+        "z": "rr_tab_1",
+        "name": "wait home (restore)",
+        "server": "38978576.ca0eea",
+        "outputs": 2,
+        "outputProperties": [],
+        "entityId": "sensor.mr_slave_status_2",
+        "entityIdType": "exact",
+        "property": "state",
+        "comparator": "is",
+        "value": "charging",
+        "valueType": "str",
+        "timeout": "240",
+        "timeoutType": "num",
+        "timeoutUnits": "minutes",
+        "entityLocation": "",
+        "entityLocationType": "none",
+        "checkCurrentState": true,
+        "blockInputOverrides": true,
+        "outputThenReasons": false,
+        "x": 1700,
+        "y": 1025,
+        "wires": [
+            [
+                "s_restore"
+            ],
+            [
+                "s_restore"
+            ]
+        ]
+    },
+    {
+        "id": "s_restore",
+        "type": "api-call-service",
+        "z": "rr_tab_1",
+        "name": "restore mode (after stop)",
+        "server": "38978576.ca0eea",
+        "version": 5,
+        "debugenabled": false,
+        "action": "select.select_option",
+        "floorId": [],
+        "areaId": [],
+        "deviceId": [],
+        "entityId": [],
+        "data": "{\"entity_id\": \"select.mr_slave_cleaning_mode\", \"option\": \"vac_and_mop\"}",
+        "dataType": "json",
+        "mergeContext": "",
+        "mustacheAltTags": false,
+        "outputProperties": [],
+        "queue": "none",
+        "blockInputOverrides": true,
+        "domain": "",
+        "service": "",
+        "x": 1880,
+        "y": 1025,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "f_short_A",
+        "type": "function",
+        "name": "short zone A?",
+        "func": "\nconst mins = (Date.now() - (flow.get('rr_zone_t') || Date.now())) / 60000;\nnode.status({fill: mins < 5 ? 'yellow' : 'green', text: mins.toFixed(1) + ' min'});\nif (mins >= 5) return [msg, null];\nflow.set('rr_mbr_short', true);\nreturn [msg, {notify: {title: 'Vacuum: bedroom zone A ended early',\n    message: 'Master bedroom zone A was back at the dock after ' + mins.toFixed(1) +\n             ' min (normally ~20). The run continues; the bedroom is not marked cleaned.',\n    tag: 'rr_short_zone', urgent: false}}];\n",
+        "outputs": 2,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 940,
+        "y": 685,
+        "wires": [
+            [
+                "d_44"
+            ],
+            [
+                "s_notify"
+            ]
+        ],
+        "z": "rr_tab_1"
+    },
+    {
+        "id": "f_short_B",
+        "type": "function",
+        "name": "short zone B?",
+        "func": "\nconst mins = (Date.now() - (flow.get('rr_zone_t') || Date.now())) / 60000;\nnode.status({fill: mins < 5 ? 'yellow' : 'green', text: mins.toFixed(1) + ' min'});\nif (mins >= 5) return [msg, null];\nflow.set('rr_mbr_short', true);\nreturn [msg, {notify: {title: 'Vacuum: bedroom zone B ended early',\n    message: 'Master bedroom zone B was back at the dock after ' + mins.toFixed(1) +\n             ' min (normally ~20). The run continues; the bedroom is not marked cleaned.',\n    tag: 'rr_short_zone', urgent: false}}];\n",
+        "outputs": 2,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 940,
+        "y": 775,
+        "wires": [
+            [
+                "d_50",
+                "f_ev_zbdone"
+            ],
+            [
+                "s_notify"
+            ]
+        ],
+        "z": "rr_tab_1"
+    },
+    {
+        "id": "s_phase",
+        "type": "api-call-service",
+        "z": "rr_tab_1",
+        "name": "set rr_run_phase",
+        "server": "38978576.ca0eea",
+        "version": 5,
+        "debugenabled": false,
+        "action": "input_text.set_value",
+        "floorId": [],
+        "areaId": [],
+        "deviceId": [],
+        "entityId": [],
+        "data": "{\"entity_id\": \"input_text.rr_run_phase\", \"value\": $$.payload.phase}",
+        "dataType": "jsonata",
+        "mergeContext": "",
+        "mustacheAltTags": false,
+        "outputProperties": [],
+        "queue": "none",
+        "blockInputOverrides": true,
+        "domain": "",
+        "service": "",
+        "x": 1700,
+        "y": 1150,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "s_near",
+        "type": "api-call-service",
+        "z": "rr_tab_1",
+        "name": "set rr_run_near",
+        "server": "38978576.ca0eea",
+        "version": 5,
+        "debugenabled": false,
+        "action": "input_text.set_value",
+        "floorId": [],
+        "areaId": [],
+        "deviceId": [],
+        "entityId": [],
+        "data": "{\"entity_id\": \"input_text.rr_run_near\", \"value\": $$.payload.near}",
+        "dataType": "jsonata",
+        "mergeContext": "",
+        "mustacheAltTags": false,
+        "outputProperties": [],
+        "queue": "none",
+        "blockInputOverrides": true,
+        "domain": "",
+        "service": "",
+        "x": 1700,
+        "y": 1190,
+        "wires": [
+            []
+        ]
+    }
+]
