@@ -61,13 +61,14 @@
         "ignoreCurrentStateUnavailable": false,
         "outputProperties": [],
         "x": 150,
-        "y": 60,
+        "y": 1505,
         "wires": [
             [
                 "s_2"
             ],
             []
-        ]
+        ],
+        "g": "g_manual"
     },
     {
         "id": "s_2",
@@ -91,11 +92,12 @@
         "blockInputOverrides": true,
         "domain": "",
         "service": "",
-        "x": 420,
-        "y": 60,
+        "x": 410,
+        "y": 1505,
         "wires": [
             []
-        ]
+        ],
+        "g": "g_manual"
     },
     {
         "id": "t_3",
@@ -129,13 +131,14 @@
         "ignoreCurrentStateUnavailable": false,
         "outputProperties": [],
         "x": 150,
-        "y": 105,
+        "y": 1560,
         "wires": [
             [
                 "s_4"
             ],
             []
-        ]
+        ],
+        "g": "g_manual"
     },
     {
         "id": "s_4",
@@ -159,11 +162,12 @@
         "blockInputOverrides": true,
         "domain": "",
         "service": "",
-        "x": 420,
-        "y": 105,
+        "x": 410,
+        "y": 1560,
         "wires": [
             []
-        ]
+        ],
+        "g": "g_manual"
     },
     {
         "id": "t_5",
@@ -197,13 +201,14 @@
         "ignoreCurrentStateUnavailable": false,
         "outputProperties": [],
         "x": 150,
-        "y": 150,
+        "y": 1615,
         "wires": [
             [
                 "s_6"
             ],
             []
-        ]
+        ],
+        "g": "g_manual"
     },
     {
         "id": "s_6",
@@ -227,11 +232,12 @@
         "blockInputOverrides": true,
         "domain": "",
         "service": "",
-        "x": 420,
-        "y": 150,
+        "x": 410,
+        "y": 1615,
         "wires": [
             []
-        ]
+        ],
+        "g": "g_manual"
     },
     {
         "id": "t_7",
@@ -265,13 +271,14 @@
         "ignoreCurrentStateUnavailable": false,
         "outputProperties": [],
         "x": 150,
-        "y": 195,
+        "y": 1670,
         "wires": [
             [
                 "s_8"
             ],
             []
-        ]
+        ],
+        "g": "g_manual"
     },
     {
         "id": "s_8",
@@ -295,11 +302,12 @@
         "blockInputOverrides": true,
         "domain": "",
         "service": "",
-        "x": 420,
-        "y": 195,
+        "x": 410,
+        "y": 1670,
         "wires": [
             []
-        ]
+        ],
+        "g": "g_manual"
     },
     {
         "id": "t_9",
@@ -333,13 +341,14 @@
         "ignoreCurrentStateUnavailable": false,
         "outputProperties": [],
         "x": 150,
-        "y": 240,
+        "y": 1725,
         "wires": [
             [
                 "s_10"
             ],
             []
-        ]
+        ],
+        "g": "g_manual"
     },
     {
         "id": "s_10",
@@ -363,11 +372,12 @@
         "blockInputOverrides": true,
         "domain": "",
         "service": "",
-        "x": 420,
-        "y": 240,
+        "x": 410,
+        "y": 1725,
         "wires": [
             []
-        ]
+        ],
+        "g": "g_manual"
     },
     {
         "id": "t_11",
@@ -401,13 +411,14 @@
         "ignoreCurrentStateUnavailable": false,
         "outputProperties": [],
         "x": 150,
-        "y": 285,
+        "y": 1780,
         "wires": [
             [
                 "s_12"
             ],
             []
-        ]
+        ],
+        "g": "g_manual"
     },
     {
         "id": "s_12",
@@ -431,11 +442,12 @@
         "blockInputOverrides": true,
         "domain": "",
         "service": "",
-        "x": 420,
-        "y": 285,
+        "x": 410,
+        "y": 1780,
         "wires": [
             []
-        ]
+        ],
+        "g": "g_manual"
     },
     {
         "id": "t_13",
@@ -469,13 +481,14 @@
         "ignoreCurrentStateUnavailable": false,
         "outputProperties": [],
         "x": 150,
-        "y": 330,
+        "y": 1835,
         "wires": [
             [
                 "s_14"
             ],
             []
-        ]
+        ],
+        "g": "g_manual"
     },
     {
         "id": "s_14",
@@ -499,11 +512,12 @@
         "blockInputOverrides": true,
         "domain": "",
         "service": "",
-        "x": 420,
-        "y": 330,
+        "x": 410,
+        "y": 1835,
         "wires": [
             []
-        ]
+        ],
+        "g": "g_manual"
     },
     {
         "id": "t_15",
@@ -537,13 +551,14 @@
         "ignoreCurrentStateUnavailable": false,
         "outputProperties": [],
         "x": 150,
-        "y": 375,
+        "y": 1890,
         "wires": [
             [
                 "s_16"
             ],
             []
-        ]
+        ],
+        "g": "g_manual"
     },
     {
         "id": "s_16",
@@ -567,11 +582,12 @@
         "blockInputOverrides": true,
         "domain": "",
         "service": "",
-        "x": 420,
-        "y": 375,
+        "x": 410,
+        "y": 1890,
         "wires": [
             []
-        ]
+        ],
+        "g": "g_manual"
     },
     {
         "id": "t_17",
@@ -605,13 +621,14 @@
         "ignoreCurrentStateUnavailable": false,
         "outputProperties": [],
         "x": 150,
-        "y": 420,
+        "y": 1945,
         "wires": [
             [
                 "s_18"
             ],
             []
-        ]
+        ],
+        "g": "g_manual"
     },
     {
         "id": "s_18",
@@ -635,11 +652,12 @@
         "blockInputOverrides": true,
         "domain": "",
         "service": "",
-        "x": 420,
-        "y": 420,
+        "x": 410,
+        "y": 1945,
         "wires": [
             []
-        ]
+        ],
+        "g": "g_manual"
     },
     {
         "id": "t_19",
@@ -673,13 +691,14 @@
         "ignoreCurrentStateUnavailable": false,
         "outputProperties": [],
         "x": 150,
-        "y": 465,
+        "y": 2000,
         "wires": [
             [
                 "s_20"
             ],
             []
-        ]
+        ],
+        "g": "g_manual"
     },
     {
         "id": "s_20",
@@ -703,11 +722,12 @@
         "blockInputOverrides": true,
         "domain": "",
         "service": "",
-        "x": 420,
-        "y": 465,
+        "x": 410,
+        "y": 2000,
         "wires": [
             []
-        ]
+        ],
+        "g": "g_manual"
     },
     {
         "id": "t_21",
@@ -741,13 +761,14 @@
         "ignoreCurrentStateUnavailable": false,
         "outputProperties": [],
         "x": 150,
-        "y": 510,
+        "y": 2055,
         "wires": [
             [
                 "s_22"
             ],
             []
-        ]
+        ],
+        "g": "g_manual"
     },
     {
         "id": "s_22",
@@ -771,11 +792,12 @@
         "blockInputOverrides": true,
         "domain": "",
         "service": "",
-        "x": 420,
-        "y": 510,
+        "x": 410,
+        "y": 2055,
         "wires": [
             []
-        ]
+        ],
+        "g": "g_manual"
     },
     {
         "id": "t_23",
@@ -809,13 +831,14 @@
         "ignoreCurrentStateUnavailable": false,
         "outputProperties": [],
         "x": 150,
-        "y": 555,
+        "y": 2110,
         "wires": [
             [
                 "s_24"
             ],
             []
-        ]
+        ],
+        "g": "g_manual"
     },
     {
         "id": "s_24",
@@ -839,11 +862,12 @@
         "blockInputOverrides": true,
         "domain": "",
         "service": "",
-        "x": 420,
-        "y": 555,
+        "x": 410,
+        "y": 2110,
         "wires": [
             []
-        ]
+        ],
+        "g": "g_manual"
     },
     {
         "id": "t_25",
@@ -877,13 +901,14 @@
         "ignoreCurrentStateUnavailable": false,
         "outputProperties": [],
         "x": 150,
-        "y": 600,
+        "y": 2165,
         "wires": [
             [
                 "s_26"
             ],
             []
-        ]
+        ],
+        "g": "g_manual"
     },
     {
         "id": "s_26",
@@ -907,11 +932,12 @@
         "blockInputOverrides": true,
         "domain": "",
         "service": "",
-        "x": 420,
-        "y": 600,
+        "x": 410,
+        "y": 2165,
         "wires": [
             []
-        ]
+        ],
+        "g": "g_manual"
     },
     {
         "id": "t_27",
@@ -945,13 +971,14 @@
         "ignoreCurrentStateUnavailable": false,
         "outputProperties": [],
         "x": 150,
-        "y": 645,
+        "y": 2220,
         "wires": [
             [
                 "f_28"
             ],
             []
-        ]
+        ],
+        "g": "g_manual"
     },
     {
         "id": "f_28",
@@ -965,14 +992,15 @@
         "initialize": "",
         "finalize": "",
         "libs": [],
-        "x": 380,
-        "y": 645,
+        "x": 410,
+        "y": 2220,
         "wires": [
             [
                 "s_29",
                 "f_ev_cxl"
             ]
-        ]
+        ],
+        "g": "g_manual"
     },
     {
         "id": "s_29",
@@ -996,13 +1024,14 @@
         "blockInputOverrides": true,
         "domain": "",
         "service": "",
-        "x": 560,
-        "y": 645,
+        "x": 670,
+        "y": 2220,
         "wires": [
             [
                 "s_30"
             ]
-        ]
+        ],
+        "g": "g_manual"
     },
     {
         "id": "s_30",
@@ -1026,11 +1055,12 @@
         "blockInputOverrides": true,
         "domain": "",
         "service": "",
-        "x": 740,
-        "y": 645,
+        "x": 930,
+        "y": 2220,
         "wires": [
             []
-        ]
+        ],
+        "g": "g_manual"
     },
     {
         "id": "i_31",
@@ -1050,13 +1080,14 @@
         "payload": "",
         "payloadType": "str",
         "x": 150,
-        "y": 725,
+        "y": 75,
         "wires": [
             [
                 "f_34",
                 "f_nx"
             ]
-        ]
+        ],
+        "g": "g_start"
     },
     {
         "id": "i_32",
@@ -1076,13 +1107,14 @@
         "payload": "",
         "payloadType": "str",
         "x": 150,
-        "y": 770,
+        "y": 130,
         "wires": [
             [
                 "f_34",
                 "f_nx"
             ]
-        ]
+        ],
+        "g": "g_start"
     },
     {
         "id": "t_33",
@@ -1116,13 +1148,14 @@
         "ignoreCurrentStateUnavailable": false,
         "outputProperties": [],
         "x": 150,
-        "y": 815,
+        "y": 185,
         "wires": [
             [
                 "f_34"
             ],
             []
-        ]
+        ],
+        "g": "g_start"
     },
     {
         "id": "f_34",
@@ -1136,13 +1169,14 @@
         "initialize": "",
         "finalize": "",
         "libs": [],
-        "x": 300,
-        "y": 770,
+        "x": 410,
+        "y": 130,
         "wires": [
             [
                 "f_35"
             ]
-        ]
+        ],
+        "g": "g_start"
     },
     {
         "id": "f_35",
@@ -1156,13 +1190,14 @@
         "initialize": "",
         "finalize": "",
         "libs": [],
-        "x": 430,
-        "y": 770,
+        "x": 670,
+        "y": 130,
         "wires": [
             [
                 "f_pre"
             ]
-        ]
+        ],
+        "g": "g_start"
     },
     {
         "id": "s_36",
@@ -1186,13 +1221,14 @@
         "blockInputOverrides": true,
         "domain": "",
         "service": "",
-        "x": 620,
-        "y": 770,
+        "x": 332,
+        "y": 495,
         "wires": [
             [
                 "d_mv_A"
             ]
-        ]
+        ],
+        "g": "g_mbr"
     },
     {
         "id": "s_37",
@@ -1216,13 +1252,14 @@
         "blockInputOverrides": true,
         "domain": "",
         "service": "",
-        "x": 680,
-        "y": 725,
+        "x": 1060,
+        "y": 495,
         "wires": [
             [
                 "w_42"
             ]
-        ]
+        ],
+        "g": "g_mbr"
     },
     {
         "id": "cat_38",
@@ -1235,13 +1272,14 @@
             "s_37"
         ],
         "uncaught": false,
-        "x": 420,
-        "y": 645,
+        "x": 150,
+        "y": 262,
         "wires": [
             [
                 "f_39"
             ]
-        ]
+        ],
+        "g": "g_start"
     },
     {
         "id": "f_39",
@@ -1255,8 +1293,8 @@
         "initialize": "",
         "finalize": "",
         "libs": [],
-        "x": 590,
-        "y": 645,
+        "x": 410,
+        "y": 262,
         "wires": [
             [
                 "d_40"
@@ -1264,7 +1302,8 @@
             [
                 "s_41"
             ]
-        ]
+        ],
+        "g": "g_start"
     },
     {
         "id": "d_40",
@@ -1283,13 +1322,14 @@
         "drop": false,
         "allowrate": false,
         "outputs": 1,
-        "x": 590,
-        "y": 595,
+        "x": 670,
+        "y": 262,
         "wires": [
             [
                 "f_35"
             ]
-        ]
+        ],
+        "g": "g_start"
     },
     {
         "id": "s_41",
@@ -1313,11 +1353,12 @@
         "blockInputOverrides": true,
         "domain": "",
         "service": "",
-        "x": 780,
-        "y": 675,
+        "x": 670,
+        "y": 306,
         "wires": [
             []
-        ]
+        ],
+        "g": "g_start"
     },
     {
         "id": "w_42",
@@ -1341,8 +1382,8 @@
         "checkCurrentState": false,
         "blockInputOverrides": true,
         "outputThenReasons": false,
-        "x": 860,
-        "y": 725,
+        "x": 1320,
+        "y": 495,
         "wires": [
             [
                 "f_short_A"
@@ -1350,7 +1391,8 @@
             [
                 "f_to_w_42"
             ]
-        ]
+        ],
+        "g": "g_mbr"
     },
     {
         "id": "s_43",
@@ -1374,14 +1416,15 @@
         "blockInputOverrides": true,
         "domain": "",
         "service": "",
-        "x": 680,
-        "y": 815,
+        "x": 1060,
+        "y": 638,
         "wires": [
             [
                 "w_48",
                 "f_ev_zb"
             ]
-        ]
+        ],
+        "g": "g_mbr"
     },
     {
         "id": "d_44",
@@ -1400,14 +1443,15 @@
         "drop": false,
         "allowrate": false,
         "outputs": 1,
-        "x": 1020,
-        "y": 725,
+        "x": 1840,
+        "y": 495,
         "wires": [
             [
                 "s_45",
                 "d_46"
             ]
-        ]
+        ],
+        "g": "g_mbr"
     },
     {
         "id": "s_45",
@@ -1431,11 +1475,12 @@
         "blockInputOverrides": true,
         "domain": "",
         "service": "",
-        "x": 1190,
-        "y": 691,
+        "x": 2100,
+        "y": 550,
         "wires": [
             []
-        ]
+        ],
+        "g": "g_mbr"
     },
     {
         "id": "d_46",
@@ -1454,13 +1499,14 @@
         "drop": false,
         "allowrate": false,
         "outputs": 1,
-        "x": 1190,
-        "y": 759,
+        "x": 2100,
+        "y": 495,
         "wires": [
             [
                 "f_47"
             ]
-        ]
+        ],
+        "g": "g_mbr"
     },
     {
         "id": "f_47",
@@ -1474,13 +1520,14 @@
         "initialize": "",
         "finalize": "",
         "libs": [],
-        "x": 1360,
-        "y": 759,
+        "x": 2360,
+        "y": 495,
         "wires": [
             [
-                "s_mv_B"
+                "lo_zB"
             ]
-        ]
+        ],
+        "g": "g_mbr"
     },
     {
         "id": "w_48",
@@ -1504,8 +1551,8 @@
         "checkCurrentState": false,
         "blockInputOverrides": true,
         "outputThenReasons": false,
-        "x": 860,
-        "y": 815,
+        "x": 1320,
+        "y": 638,
         "wires": [
             [
                 "f_short_B"
@@ -1513,7 +1560,8 @@
             [
                 "f_to_w_48"
             ]
-        ]
+        ],
+        "g": "g_mbr"
     },
     {
         "id": "s_49",
@@ -1537,14 +1585,15 @@
         "blockInputOverrides": true,
         "domain": "",
         "service": "",
-        "x": 680,
-        "y": 905,
+        "x": 1060,
+        "y": 885,
         "wires": [
             [
                 "w_54",
                 "f_ev_rest"
             ]
-        ]
+        ],
+        "g": "g_sweep"
     },
     {
         "id": "d_50",
@@ -1563,14 +1612,15 @@
         "drop": false,
         "allowrate": false,
         "outputs": 1,
-        "x": 1020,
-        "y": 815,
+        "x": 1840,
+        "y": 638,
         "wires": [
             [
                 "s_51",
                 "d_52"
             ]
-        ]
+        ],
+        "g": "g_mbr"
     },
     {
         "id": "s_51",
@@ -1594,11 +1644,12 @@
         "blockInputOverrides": true,
         "domain": "",
         "service": "",
-        "x": 1190,
-        "y": 781,
+        "x": 2100,
+        "y": 693,
         "wires": [
             []
-        ]
+        ],
+        "g": "g_mbr"
     },
     {
         "id": "d_52",
@@ -1617,13 +1668,14 @@
         "drop": false,
         "allowrate": false,
         "outputs": 1,
-        "x": 1190,
-        "y": 849,
+        "x": 2100,
+        "y": 638,
         "wires": [
             [
                 "f_53"
             ]
-        ]
+        ],
+        "g": "g_mbr"
     },
     {
         "id": "f_53",
@@ -1637,13 +1689,14 @@
         "initialize": "",
         "finalize": "",
         "libs": [],
-        "x": 1360,
-        "y": 849,
+        "x": 2360,
+        "y": 638,
         "wires": [
             [
-                "s_mv_R"
+                "lo_R"
             ]
-        ]
+        ],
+        "g": "g_mbr"
     },
     {
         "id": "w_54",
@@ -1667,8 +1720,8 @@
         "checkCurrentState": false,
         "blockInputOverrides": true,
         "outputThenReasons": false,
-        "x": 910,
-        "y": 905,
+        "x": 1320,
+        "y": 885,
         "wires": [
             [
                 "d_55",
@@ -1677,7 +1730,8 @@
             [
                 "f_to_w_54"
             ]
-        ]
+        ],
+        "g": "g_sweep"
     },
     {
         "id": "d_55",
@@ -1696,14 +1750,15 @@
         "drop": false,
         "allowrate": false,
         "outputs": 1,
-        "x": 1100,
-        "y": 905,
+        "x": 1580,
+        "y": 885,
         "wires": [
             [
                 "s_56",
                 "d_57"
             ]
-        ]
+        ],
+        "g": "g_sweep"
     },
     {
         "id": "s_56",
@@ -1727,11 +1782,12 @@
         "blockInputOverrides": true,
         "domain": "",
         "service": "",
-        "x": 1270,
-        "y": 875,
+        "x": 1840,
+        "y": 940,
         "wires": [
             []
-        ]
+        ],
+        "g": "g_sweep"
     },
     {
         "id": "d_57",
@@ -1750,13 +1806,14 @@
         "drop": false,
         "allowrate": false,
         "outputs": 1,
-        "x": 1270,
-        "y": 935,
+        "x": 1840,
+        "y": 885,
         "wires": [
             [
                 "f_58"
             ]
-        ]
+        ],
+        "g": "g_sweep"
     },
     {
         "id": "f_58",
@@ -1770,19 +1827,20 @@
         "initialize": "",
         "finalize": "",
         "libs": [],
-        "x": 1440,
-        "y": 935,
+        "x": 2100,
+        "y": 885,
         "wires": [
             [
-                "f_59"
+                "lo_mop"
             ],
             [
                 "s_67"
             ],
             [
-                "s_notify"
+                "lo_n_mop"
             ]
-        ]
+        ],
+        "g": "g_sweep"
     },
     {
         "id": "f_59",
@@ -1796,13 +1854,14 @@
         "initialize": "",
         "finalize": "",
         "libs": [],
-        "x": 1440,
-        "y": 875,
+        "x": 332,
+        "y": 1050,
         "wires": [
             [
                 "s_60"
             ]
-        ]
+        ],
+        "g": "g_sweep"
     },
     {
         "id": "s_60",
@@ -1826,13 +1885,14 @@
         "blockInputOverrides": true,
         "domain": "",
         "service": "",
-        "x": 1600,
-        "y": 875,
+        "x": 566,
+        "y": 1050,
         "wires": [
             [
                 "s_61"
             ]
-        ]
+        ],
+        "g": "g_sweep"
     },
     {
         "id": "s_61",
@@ -1856,14 +1916,15 @@
         "blockInputOverrides": true,
         "domain": "",
         "service": "",
-        "x": 1770,
-        "y": 875,
+        "x": 800,
+        "y": 1050,
         "wires": [
             [
                 "w_62",
                 "f_ev_mop"
             ]
-        ]
+        ],
+        "g": "g_sweep"
     },
     {
         "id": "w_62",
@@ -1887,8 +1948,8 @@
         "checkCurrentState": false,
         "blockInputOverrides": true,
         "outputThenReasons": false,
-        "x": 1930,
-        "y": 875,
+        "x": 1060,
+        "y": 1050,
         "wires": [
             [
                 "s_63"
@@ -1896,7 +1957,8 @@
             [
                 "f_to_w_62"
             ]
-        ]
+        ],
+        "g": "g_sweep"
     },
     {
         "id": "s_63",
@@ -1920,13 +1982,14 @@
         "blockInputOverrides": true,
         "domain": "",
         "service": "",
-        "x": 2110,
-        "y": 875,
+        "x": 1320,
+        "y": 1050,
         "wires": [
             [
                 "f_64"
             ]
-        ]
+        ],
+        "g": "g_sweep"
     },
     {
         "id": "f_64",
@@ -1940,13 +2003,14 @@
         "initialize": "",
         "finalize": "",
         "libs": [],
-        "x": 2110,
-        "y": 935,
+        "x": 1580,
+        "y": 1050,
         "wires": [
             [
                 "s_65"
             ]
-        ]
+        ],
+        "g": "g_sweep"
     },
     {
         "id": "s_65",
@@ -1970,13 +2034,14 @@
         "blockInputOverrides": true,
         "domain": "",
         "service": "",
-        "x": 2290,
-        "y": 935,
+        "x": 1840,
+        "y": 1050,
         "wires": [
             [
                 "s_66"
             ]
-        ]
+        ],
+        "g": "g_sweep"
     },
     {
         "id": "s_66",
@@ -2000,13 +2065,14 @@
         "blockInputOverrides": true,
         "domain": "",
         "service": "",
-        "x": 2470,
-        "y": 935,
+        "x": 2100,
+        "y": 1050,
         "wires": [
             [
                 "f_ev_done"
             ]
-        ]
+        ],
+        "g": "g_sweep"
     },
     {
         "id": "s_67",
@@ -2030,13 +2096,14 @@
         "blockInputOverrides": true,
         "domain": "",
         "service": "",
-        "x": 1600,
-        "y": 975,
+        "x": 2360,
+        "y": 940,
         "wires": [
             [
                 "f_ev_done"
             ]
-        ]
+        ],
+        "g": "g_sweep"
     },
     {
         "id": "t_68",
@@ -2070,13 +2137,14 @@
         "ignoreCurrentStateUnavailable": false,
         "outputProperties": [],
         "x": 150,
-        "y": 965,
+        "y": 2330,
         "wires": [
             [
                 "s_69"
             ],
             []
-        ]
+        ],
+        "g": "g_manual"
     },
     {
         "id": "s_69",
@@ -2100,11 +2168,12 @@
         "blockInputOverrides": true,
         "domain": "",
         "service": "",
-        "x": 430,
-        "y": 965,
+        "x": 410,
+        "y": 2330,
         "wires": [
             []
-        ]
+        ],
+        "g": "g_manual"
     },
     {
         "id": "t_86",
@@ -2137,14 +2206,15 @@
         "ignoreCurrentStateUnknown": false,
         "ignoreCurrentStateUnavailable": false,
         "outputProperties": [],
-        "x": 150,
-        "y": 1385,
+        "x": 1480,
+        "y": 1807,
         "wires": [
             [
                 "f_vk3"
             ],
             []
-        ]
+        ],
+        "g": "g_maint"
     },
     {
         "id": "s_89",
@@ -2168,11 +2238,12 @@
         "blockInputOverrides": true,
         "domain": "",
         "service": "",
-        "x": 470,
-        "y": 1445,
+        "x": 2572,
+        "y": 1615,
         "wires": [
             []
-        ]
+        ],
+        "g": "g_maint"
     },
     {
         "id": "s_91",
@@ -2196,11 +2267,12 @@
         "blockInputOverrides": true,
         "domain": "",
         "service": "",
-        "x": 470,
-        "y": 1490,
+        "x": 2572,
+        "y": 1670,
         "wires": [
             []
-        ]
+        ],
+        "g": "g_maint"
     },
     {
         "id": "s_92",
@@ -2224,11 +2296,12 @@
         "blockInputOverrides": true,
         "domain": "",
         "service": "",
-        "x": 470,
-        "y": 1530,
+        "x": 2572,
+        "y": 1505,
         "wires": [
             []
-        ]
+        ],
+        "g": "g_maint"
     },
     {
         "id": "s_93",
@@ -2252,11 +2325,12 @@
         "blockInputOverrides": true,
         "domain": "",
         "service": "",
-        "x": 470,
-        "y": 1570,
+        "x": 2572,
+        "y": 1560,
         "wires": [
             []
-        ]
+        ],
+        "g": "g_maint"
     },
     {
         "id": "s_94",
@@ -2280,11 +2354,12 @@
         "blockInputOverrides": true,
         "domain": "",
         "service": "",
-        "x": 470,
-        "y": 1610,
+        "x": 2572,
+        "y": 1725,
         "wires": [
             []
-        ]
+        ],
+        "g": "g_maint"
     },
     {
         "id": "i_vk1",
@@ -2303,13 +2378,14 @@
         "topic": "",
         "payload": "",
         "payloadType": "str",
-        "x": 150,
-        "y": 1085,
+        "x": 1480,
+        "y": 1505,
         "wires": [
             [
                 "f_vk1"
             ]
-        ]
+        ],
+        "g": "g_maint"
     },
     {
         "id": "f_vk1",
@@ -2323,13 +2399,14 @@
         "initialize": "",
         "finalize": "",
         "libs": [],
-        "x": 360,
-        "y": 1085,
+        "x": 1740,
+        "y": 1505,
         "wires": [
             [
                 "h_vk1"
             ]
-        ]
+        ],
+        "g": "g_maint"
     },
     {
         "id": "h_vk1",
@@ -2347,13 +2424,14 @@
         "authType": "bearer",
         "senderr": false,
         "headers": [],
-        "x": 560,
-        "y": 1085,
+        "x": 2000,
+        "y": 1505,
         "wires": [
             [
                 "f_vk2"
             ]
-        ]
+        ],
+        "g": "g_maint"
     },
     {
         "id": "f_vk2",
@@ -2367,8 +2445,8 @@
         "initialize": "",
         "finalize": "",
         "libs": [],
-        "x": 770,
-        "y": 1085,
+        "x": 2260,
+        "y": 1587,
         "wires": [
             [
                 "s_92",
@@ -2386,7 +2464,8 @@
             [
                 "s_91"
             ]
-        ]
+        ],
+        "g": "g_maint"
     },
     {
         "id": "f_vk3",
@@ -2400,13 +2479,14 @@
         "initialize": "",
         "finalize": "",
         "libs": [],
-        "x": 420,
-        "y": 1385,
+        "x": 1740,
+        "y": 1807,
         "wires": [
             [
                 "h_vk2"
             ]
-        ]
+        ],
+        "g": "g_maint"
     },
     {
         "id": "h_vk2",
@@ -2424,13 +2504,14 @@
         "authType": "bearer",
         "senderr": false,
         "headers": [],
-        "x": 620,
-        "y": 1385,
+        "x": 2000,
+        "y": 1807,
         "wires": [
             [
                 "f_vk4"
             ]
-        ]
+        ],
+        "g": "g_maint"
     },
     {
         "id": "f_vk4",
@@ -2444,13 +2525,14 @@
         "initialize": "",
         "finalize": "",
         "libs": [],
-        "x": 840,
-        "y": 1385,
+        "x": 2260,
+        "y": 1807,
         "wires": [
             [
                 "h_vk3"
             ]
-        ]
+        ],
+        "g": "g_maint"
     },
     {
         "id": "h_vk3",
@@ -2468,11 +2550,12 @@
         "authType": "bearer",
         "senderr": false,
         "headers": [],
-        "x": 1060,
-        "y": 1385,
+        "x": 2520,
+        "y": 1807,
         "wires": [
             []
-        ]
+        ],
+        "g": "g_maint"
     },
     {
         "id": "t_room",
@@ -2525,13 +2608,14 @@
             }
         ],
         "x": 150,
-        "y": 1485,
+        "y": 2385,
         "wires": [
             [
                 "f_room"
             ],
             []
-        ]
+        ],
+        "g": "g_manual"
     },
     {
         "id": "f_room",
@@ -2545,13 +2629,14 @@
         "initialize": "",
         "finalize": "",
         "libs": [],
-        "x": 400,
-        "y": 1485,
+        "x": 410,
+        "y": 2385,
         "wires": [
             [
-                "s_room"
+                "lo_stamp"
             ]
-        ]
+        ],
+        "g": "g_manual"
     },
     {
         "id": "s_room",
@@ -2575,11 +2660,12 @@
         "blockInputOverrides": true,
         "domain": "",
         "service": "",
-        "x": 640,
-        "y": 1485,
+        "x": 2260,
+        "y": 1358,
         "wires": [
             []
-        ]
+        ],
+        "g": "g_track"
     },
     {
         "id": "i_nx1",
@@ -2598,13 +2684,14 @@
         "topic": "",
         "payload": "",
         "payloadType": "str",
-        "x": 170,
-        "y": 1585,
+        "x": 150,
+        "y": 372,
         "wires": [
             [
                 "f_nx"
             ]
-        ]
+        ],
+        "g": "g_start"
     },
     {
         "id": "f_nx",
@@ -2618,13 +2705,14 @@
         "initialize": "",
         "finalize": "",
         "libs": [],
-        "x": 440,
-        "y": 1585,
+        "x": 449,
+        "y": 372,
         "wires": [
             [
                 "s_nx"
             ]
-        ]
+        ],
+        "g": "g_start"
     },
     {
         "id": "s_nx",
@@ -2648,11 +2736,12 @@
         "blockInputOverrides": true,
         "domain": "",
         "service": "",
-        "x": 680,
-        "y": 1585,
+        "x": 722,
+        "y": 372,
         "wires": [
             []
-        ]
+        ],
+        "g": "g_start"
     },
     {
         "id": "f_ev_start",
@@ -2666,13 +2755,14 @@
         "initialize": "",
         "finalize": "",
         "libs": [],
-        "x": 650,
-        "y": 1650,
+        "x": 1190,
+        "y": 163,
         "wires": [
             [
-                "f_track"
+                "lo_tr_start"
             ]
-        ]
+        ],
+        "g": "g_start"
     },
     {
         "id": "f_ev_zb",
@@ -2686,13 +2776,14 @@
         "initialize": "",
         "finalize": "",
         "libs": [],
-        "x": 650,
-        "y": 1690,
+        "x": 1060,
+        "y": 737,
         "wires": [
             [
-                "f_track"
+                "lo_tr_zb"
             ]
-        ]
+        ],
+        "g": "g_mbr"
     },
     {
         "id": "f_ev_rest",
@@ -2706,13 +2797,14 @@
         "initialize": "",
         "finalize": "",
         "libs": [],
-        "x": 650,
-        "y": 1730,
+        "x": 1060,
+        "y": 984,
         "wires": [
             [
-                "f_track"
+                "lo_tr_rest"
             ]
-        ]
+        ],
+        "g": "g_sweep"
     },
     {
         "id": "f_ev_mop",
@@ -2726,13 +2818,14 @@
         "initialize": "",
         "finalize": "",
         "libs": [],
-        "x": 650,
-        "y": 1770,
+        "x": 774,
+        "y": 1105,
         "wires": [
             [
-                "f_track"
+                "lo_tr_mop"
             ]
-        ]
+        ],
+        "g": "g_sweep"
     },
     {
         "id": "f_ev_cxl",
@@ -2746,13 +2839,14 @@
         "initialize": "",
         "finalize": "",
         "libs": [],
-        "x": 650,
-        "y": 1810,
+        "x": 670,
+        "y": 2275,
         "wires": [
             [
-                "f_track"
+                "lo_tr_cxl"
             ]
-        ]
+        ],
+        "g": "g_manual"
     },
     {
         "id": "f_ev_done",
@@ -2766,13 +2860,14 @@
         "initialize": "",
         "finalize": "",
         "libs": [],
-        "x": 650,
-        "y": 1850,
+        "x": 2568,
+        "y": 1017,
         "wires": [
             [
-                "f_track"
+                "lo_tr_done"
             ]
-        ]
+        ],
+        "g": "g_sweep"
     },
     {
         "id": "f_ev_zbdone",
@@ -2786,13 +2881,14 @@
         "initialize": "",
         "finalize": "",
         "libs": [],
-        "x": 650,
-        "y": 1890,
+        "x": 1840,
+        "y": 737,
         "wires": [
             [
-                "f_track"
+                "lo_tr_zbd"
             ]
-        ]
+        ],
+        "g": "g_mbr"
     },
     {
         "id": "f_ev_restdone",
@@ -2806,13 +2902,14 @@
         "initialize": "",
         "finalize": "",
         "libs": [],
-        "x": 650,
-        "y": 1930,
+        "x": 1580,
+        "y": 984,
         "wires": [
             [
-                "f_track"
+                "lo_tr_restd"
             ]
-        ]
+        ],
+        "g": "g_sweep"
     },
     {
         "id": "t_idle",
@@ -2852,14 +2949,15 @@
                 "valueType": "entityState"
             }
         ],
-        "x": 150,
-        "y": 1650,
+        "x": 1480,
+        "y": 1215,
         "wires": [
             [
                 "f_ev_idle"
             ],
             []
-        ]
+        ],
+        "g": "g_track"
     },
     {
         "id": "f_ev_idle",
@@ -2873,13 +2971,14 @@
         "initialize": "",
         "finalize": "",
         "libs": [],
-        "x": 400,
-        "y": 1650,
+        "x": 1740,
+        "y": 1215,
         "wires": [
             [
                 "f_track"
             ]
-        ]
+        ],
+        "g": "g_track"
     },
     {
         "id": "t_croom",
@@ -2919,14 +3018,15 @@
                 "valueType": "entityState"
             }
         ],
-        "x": 150,
-        "y": 1700,
+        "x": 1480,
+        "y": 1270,
         "wires": [
             [
                 "f_ev_room"
             ],
             []
-        ]
+        ],
+        "g": "g_track"
     },
     {
         "id": "f_ev_room",
@@ -2940,13 +3040,14 @@
         "initialize": "",
         "finalize": "",
         "libs": [],
-        "x": 400,
-        "y": 1700,
+        "x": 1740,
+        "y": 1270,
         "wires": [
             [
                 "f_track"
             ]
-        ]
+        ],
+        "g": "g_track"
     },
     {
         "id": "f_track",
@@ -2960,8 +3061,8 @@
         "initialize": "",
         "finalize": "",
         "libs": [],
-        "x": 900,
-        "y": 1700,
+        "x": 2000,
+        "y": 1270,
         "wires": [
             [
                 "s_phase",
@@ -2970,7 +3071,8 @@
             [
                 "s_room"
             ]
-        ]
+        ],
+        "g": "g_track"
     },
     {
         "id": "s_notify",
@@ -2994,11 +3096,12 @@
         "blockInputOverrides": true,
         "domain": "",
         "service": "",
-        "x": 1500,
-        "y": 1100,
+        "x": 2040,
+        "y": 75,
         "wires": [
             []
-        ]
+        ],
+        "g": "g_alerts"
     },
     {
         "id": "f_pre",
@@ -3011,18 +3114,19 @@
         "initialize": "",
         "finalize": "",
         "libs": [],
-        "x": 470,
-        "y": 770,
+        "x": 930,
+        "y": 130,
         "wires": [
             [
-                "s_36",
+                "lo_runA",
                 "f_ev_start"
             ],
             [
-                "s_notify"
+                "lo_n_pre"
             ]
         ],
-        "z": "rr_tab_1"
+        "z": "rr_tab_1",
+        "g": "g_start"
     },
     {
         "id": "d_mv_A",
@@ -3041,13 +3145,14 @@
         "drop": false,
         "allowrate": false,
         "outputs": 1,
-        "x": 720,
-        "y": 820,
+        "x": 566,
+        "y": 495,
         "wires": [
             [
                 "f_mv_A"
             ]
-        ]
+        ],
+        "g": "g_mbr"
     },
     {
         "id": "f_mv_A",
@@ -3060,8 +3165,8 @@
         "initialize": "",
         "finalize": "",
         "libs": [],
-        "x": 880,
-        "y": 820,
+        "x": 800,
+        "y": 495,
         "wires": [
             [
                 "s_37"
@@ -3070,7 +3175,8 @@
                 "s_mv2_A"
             ]
         ],
-        "z": "rr_tab_1"
+        "z": "rr_tab_1",
+        "g": "g_mbr"
     },
     {
         "id": "s_mv2_A",
@@ -3094,13 +3200,14 @@
         "blockInputOverrides": true,
         "domain": "",
         "service": "",
-        "x": 1040,
-        "y": 850,
+        "x": 1060,
+        "y": 550,
         "wires": [
             [
                 "s_37"
             ]
-        ]
+        ],
+        "g": "g_mbr"
     },
     {
         "id": "s_mv_B",
@@ -3124,13 +3231,14 @@
         "blockInputOverrides": true,
         "domain": "",
         "service": "",
-        "x": 1240,
-        "y": 790,
+        "x": 332,
+        "y": 638,
         "wires": [
             [
                 "d_mv_B"
             ]
-        ]
+        ],
+        "g": "g_mbr"
     },
     {
         "id": "d_mv_B",
@@ -3149,13 +3257,14 @@
         "drop": false,
         "allowrate": false,
         "outputs": 1,
-        "x": 1400,
-        "y": 790,
+        "x": 566,
+        "y": 638,
         "wires": [
             [
                 "f_mv_B"
             ]
-        ]
+        ],
+        "g": "g_mbr"
     },
     {
         "id": "f_mv_B",
@@ -3168,8 +3277,8 @@
         "initialize": "",
         "finalize": "",
         "libs": [],
-        "x": 1560,
-        "y": 790,
+        "x": 800,
+        "y": 638,
         "wires": [
             [
                 "s_43"
@@ -3178,7 +3287,8 @@
                 "s_mv2_B"
             ]
         ],
-        "z": "rr_tab_1"
+        "z": "rr_tab_1",
+        "g": "g_mbr"
     },
     {
         "id": "s_mv2_B",
@@ -3202,13 +3312,14 @@
         "blockInputOverrides": true,
         "domain": "",
         "service": "",
-        "x": 1720,
-        "y": 820,
+        "x": 1060,
+        "y": 693,
         "wires": [
             [
                 "s_43"
             ]
-        ]
+        ],
+        "g": "g_mbr"
     },
     {
         "id": "s_mv_R",
@@ -3232,13 +3343,14 @@
         "blockInputOverrides": true,
         "domain": "",
         "service": "",
-        "x": 1240,
-        "y": 880,
+        "x": 332,
+        "y": 885,
         "wires": [
             [
                 "d_mv_R"
             ]
-        ]
+        ],
+        "g": "g_sweep"
     },
     {
         "id": "d_mv_R",
@@ -3257,13 +3369,14 @@
         "drop": false,
         "allowrate": false,
         "outputs": 1,
-        "x": 1400,
-        "y": 880,
+        "x": 566,
+        "y": 885,
         "wires": [
             [
                 "f_mv_R"
             ]
-        ]
+        ],
+        "g": "g_sweep"
     },
     {
         "id": "f_mv_R",
@@ -3276,8 +3389,8 @@
         "initialize": "",
         "finalize": "",
         "libs": [],
-        "x": 1560,
-        "y": 880,
+        "x": 800,
+        "y": 885,
         "wires": [
             [
                 "s_49"
@@ -3286,7 +3399,8 @@
                 "s_mv2_R"
             ]
         ],
-        "z": "rr_tab_1"
+        "z": "rr_tab_1",
+        "g": "g_sweep"
     },
     {
         "id": "s_mv2_R",
@@ -3310,13 +3424,14 @@
         "blockInputOverrides": true,
         "domain": "",
         "service": "",
-        "x": 1720,
-        "y": 910,
+        "x": 1060,
+        "y": 940,
         "wires": [
             [
                 "s_49"
             ]
-        ]
+        ],
+        "g": "g_sweep"
     },
     {
         "id": "f_to_w_42",
@@ -3329,14 +3444,15 @@
         "initialize": "",
         "finalize": "",
         "libs": [],
-        "x": 900,
-        "y": 770,
+        "x": 1346,
+        "y": 550,
         "wires": [
             [
-                "f_stall"
+                "lo_stop_42"
             ]
         ],
-        "z": "rr_tab_1"
+        "z": "rr_tab_1",
+        "g": "g_mbr"
     },
     {
         "id": "f_to_w_48",
@@ -3349,14 +3465,15 @@
         "initialize": "",
         "finalize": "",
         "libs": [],
-        "x": 900,
-        "y": 860,
+        "x": 1346,
+        "y": 693,
         "wires": [
             [
-                "f_stall"
+                "lo_stop_48"
             ]
         ],
-        "z": "rr_tab_1"
+        "z": "rr_tab_1",
+        "g": "g_mbr"
     },
     {
         "id": "f_to_w_54",
@@ -3369,14 +3486,15 @@
         "initialize": "",
         "finalize": "",
         "libs": [],
-        "x": 950,
-        "y": 950,
+        "x": 1320,
+        "y": 940,
         "wires": [
             [
-                "f_stall"
+                "lo_stop_54"
             ]
         ],
-        "z": "rr_tab_1"
+        "z": "rr_tab_1",
+        "g": "g_sweep"
     },
     {
         "id": "f_to_w_62",
@@ -3389,14 +3507,15 @@
         "initialize": "",
         "finalize": "",
         "libs": [],
-        "x": 1970,
-        "y": 920,
+        "x": 1112,
+        "y": 1105,
         "wires": [
             [
-                "f_stall"
+                "lo_stop_62"
             ]
         ],
-        "z": "rr_tab_1"
+        "z": "rr_tab_1",
+        "g": "g_sweep"
     },
     {
         "id": "f_stall",
@@ -3409,20 +3528,21 @@
         "initialize": "",
         "finalize": "",
         "libs": [],
-        "x": 1500,
-        "y": 1000,
+        "x": 410,
+        "y": 1215,
         "wires": [
             [
-                "s_notify"
+                "lo_n_stop"
             ],
             [
-                "f_track"
+                "lo_tr_stop"
             ],
             [
                 "w_restore"
             ]
         ],
-        "z": "rr_tab_1"
+        "z": "rr_tab_1",
+        "g": "g_stop"
     },
     {
         "id": "cat_mid",
@@ -3440,14 +3560,15 @@
             "s_63"
         ],
         "uncaught": false,
-        "x": 1320,
-        "y": 1050,
+        "x": 150,
+        "y": 1303,
         "wires": [
             [
                 "f_fail"
             ]
         ],
-        "z": "rr_tab_1"
+        "z": "rr_tab_1",
+        "g": "g_stop"
     },
     {
         "id": "f_fail",
@@ -3460,20 +3581,21 @@
         "initialize": "",
         "finalize": "",
         "libs": [],
-        "x": 1500,
-        "y": 1050,
+        "x": 410,
+        "y": 1303,
         "wires": [
             [
-                "s_notify"
+                "lo_n_stop"
             ],
             [
-                "f_track"
+                "lo_tr_stop"
             ],
             [
                 "w_restore"
             ]
         ],
-        "z": "rr_tab_1"
+        "z": "rr_tab_1",
+        "g": "g_stop"
     },
     {
         "id": "w_restore",
@@ -3497,8 +3619,8 @@
         "checkCurrentState": true,
         "blockInputOverrides": true,
         "outputThenReasons": false,
-        "x": 1700,
-        "y": 1025,
+        "x": 800,
+        "y": 1259,
         "wires": [
             [
                 "s_restore"
@@ -3506,7 +3628,8 @@
             [
                 "s_restore"
             ]
-        ]
+        ],
+        "g": "g_stop"
     },
     {
         "id": "s_restore",
@@ -3530,11 +3653,12 @@
         "blockInputOverrides": true,
         "domain": "",
         "service": "",
-        "x": 1880,
-        "y": 1025,
+        "x": 1060,
+        "y": 1259,
         "wires": [
             []
-        ]
+        ],
+        "g": "g_stop"
     },
     {
         "id": "f_short_A",
@@ -3547,17 +3671,18 @@
         "initialize": "",
         "finalize": "",
         "libs": [],
-        "x": 940,
-        "y": 685,
+        "x": 1580,
+        "y": 495,
         "wires": [
             [
                 "d_44"
             ],
             [
-                "s_notify"
+                "lo_n_shA"
             ]
         ],
-        "z": "rr_tab_1"
+        "z": "rr_tab_1",
+        "g": "g_mbr"
     },
     {
         "id": "f_short_B",
@@ -3570,18 +3695,19 @@
         "initialize": "",
         "finalize": "",
         "libs": [],
-        "x": 940,
-        "y": 775,
+        "x": 1580,
+        "y": 638,
         "wires": [
             [
                 "d_50",
                 "f_ev_zbdone"
             ],
             [
-                "s_notify"
+                "lo_n_shB"
             ]
         ],
-        "z": "rr_tab_1"
+        "z": "rr_tab_1",
+        "g": "g_mbr"
     },
     {
         "id": "s_phase",
@@ -3605,11 +3731,12 @@
         "blockInputOverrides": true,
         "domain": "",
         "service": "",
-        "x": 1700,
-        "y": 1150,
+        "x": 2260,
+        "y": 1215,
         "wires": [
             []
-        ]
+        ],
+        "g": "g_track"
     },
     {
         "id": "s_near",
@@ -3633,10 +3760,787 @@
         "blockInputOverrides": true,
         "domain": "",
         "service": "",
-        "x": 1700,
-        "y": 1190,
+        "x": 2260,
+        "y": 1270,
         "wires": [
             []
-        ]
+        ],
+        "g": "g_track"
+    },
+    {
+        "id": "li_runA",
+        "type": "link in",
+        "z": "rr_tab_1",
+        "name": "start: master bedroom",
+        "links": [
+            "lo_runA"
+        ],
+        "x": 150,
+        "y": 495,
+        "wires": [
+            [
+                "s_36"
+            ]
+        ],
+        "g": "g_mbr"
+    },
+    {
+        "id": "li_zB",
+        "type": "link in",
+        "z": "rr_tab_1",
+        "name": "zone B",
+        "links": [
+            "lo_zB"
+        ],
+        "x": 150,
+        "y": 638,
+        "wires": [
+            [
+                "s_mv_B"
+            ]
+        ],
+        "g": "g_mbr"
+    },
+    {
+        "id": "li_R",
+        "type": "link in",
+        "z": "rr_tab_1",
+        "name": "main sweep",
+        "links": [
+            "lo_R"
+        ],
+        "x": 150,
+        "y": 885,
+        "wires": [
+            [
+                "s_mv_R"
+            ]
+        ],
+        "g": "g_sweep"
+    },
+    {
+        "id": "li_mop",
+        "type": "link in",
+        "z": "rr_tab_1",
+        "name": "mop pass",
+        "links": [
+            "lo_mop"
+        ],
+        "x": 150,
+        "y": 1050,
+        "wires": [
+            [
+                "f_59"
+            ]
+        ],
+        "g": "g_sweep"
+    },
+    {
+        "id": "li_stop",
+        "type": "link in",
+        "z": "rr_tab_1",
+        "name": "stage timed out",
+        "links": [
+            "lo_stop_42",
+            "lo_stop_48",
+            "lo_stop_54",
+            "lo_stop_62"
+        ],
+        "x": 150,
+        "y": 1215,
+        "wires": [
+            [
+                "f_stall"
+            ]
+        ],
+        "g": "g_stop"
+    },
+    {
+        "id": "li_tr",
+        "type": "link in",
+        "z": "rr_tab_1",
+        "name": "run tracker",
+        "links": [
+            "lo_tr_start",
+            "lo_tr_zb",
+            "lo_tr_zbd",
+            "lo_tr_rest",
+            "lo_tr_restd",
+            "lo_tr_mop",
+            "lo_tr_done",
+            "lo_tr_cxl",
+            "lo_tr_stop"
+        ],
+        "x": 1740,
+        "y": 1325,
+        "wires": [
+            [
+                "f_track"
+            ]
+        ],
+        "g": "g_track"
+    },
+    {
+        "id": "li_notify",
+        "type": "link in",
+        "z": "rr_tab_1",
+        "name": "notify phones",
+        "links": [
+            "lo_n_pre",
+            "lo_n_shA",
+            "lo_n_shB",
+            "lo_n_mop",
+            "lo_n_stop"
+        ],
+        "x": 1780,
+        "y": 75,
+        "wires": [
+            [
+                "s_notify"
+            ]
+        ],
+        "g": "g_alerts"
+    },
+    {
+        "id": "li_stamp",
+        "type": "link in",
+        "z": "rr_tab_1",
+        "name": "stamp room",
+        "links": [
+            "lo_stamp"
+        ],
+        "x": 2104,
+        "y": 1358,
+        "wires": [
+            [
+                "s_room"
+            ]
+        ],
+        "g": "g_track"
+    },
+    {
+        "id": "lo_runA",
+        "type": "link out",
+        "z": "rr_tab_1",
+        "name": "\u2192 master bedroom",
+        "mode": "link",
+        "links": [
+            "li_runA"
+        ],
+        "x": 1086,
+        "y": 108,
+        "wires": [],
+        "g": "g_start"
+    },
+    {
+        "id": "lo_zB",
+        "type": "link out",
+        "z": "rr_tab_1",
+        "name": "\u2192 zone B",
+        "mode": "link",
+        "links": [
+            "li_zB"
+        ],
+        "x": 2516,
+        "y": 495,
+        "wires": [],
+        "g": "g_mbr"
+    },
+    {
+        "id": "lo_R",
+        "type": "link out",
+        "z": "rr_tab_1",
+        "name": "\u2192 main sweep",
+        "mode": "link",
+        "links": [
+            "li_R"
+        ],
+        "x": 2516,
+        "y": 638,
+        "wires": [],
+        "g": "g_mbr"
+    },
+    {
+        "id": "lo_mop",
+        "type": "link out",
+        "z": "rr_tab_1",
+        "name": "\u2192 mop pass",
+        "mode": "link",
+        "links": [
+            "li_mop"
+        ],
+        "x": 2256,
+        "y": 885,
+        "wires": [],
+        "g": "g_sweep"
+    },
+    {
+        "id": "lo_n_pre",
+        "type": "link out",
+        "z": "rr_tab_1",
+        "name": "\u2192 notify",
+        "mode": "link",
+        "links": [
+            "li_notify"
+        ],
+        "x": 1086,
+        "y": 207,
+        "wires": [],
+        "g": "g_start"
+    },
+    {
+        "id": "lo_n_shA",
+        "type": "link out",
+        "z": "rr_tab_1",
+        "name": "\u2192 notify",
+        "mode": "link",
+        "links": [
+            "li_notify"
+        ],
+        "x": 1736,
+        "y": 550,
+        "wires": [],
+        "g": "g_mbr"
+    },
+    {
+        "id": "lo_n_shB",
+        "type": "link out",
+        "z": "rr_tab_1",
+        "name": "\u2192 notify",
+        "mode": "link",
+        "links": [
+            "li_notify"
+        ],
+        "x": 1736,
+        "y": 693,
+        "wires": [],
+        "g": "g_mbr"
+    },
+    {
+        "id": "lo_n_mop",
+        "type": "link out",
+        "z": "rr_tab_1",
+        "name": "\u2192 notify",
+        "mode": "link",
+        "links": [
+            "li_notify"
+        ],
+        "x": 2256,
+        "y": 984,
+        "wires": [],
+        "g": "g_sweep"
+    },
+    {
+        "id": "lo_n_stop",
+        "type": "link out",
+        "z": "rr_tab_1",
+        "name": "\u2192 notify",
+        "mode": "link",
+        "links": [
+            "li_notify"
+        ],
+        "x": 605,
+        "y": 1215,
+        "wires": [],
+        "g": "g_stop"
+    },
+    {
+        "id": "lo_stop_42",
+        "type": "link out",
+        "z": "rr_tab_1",
+        "name": "\u2192 stop",
+        "mode": "link",
+        "links": [
+            "li_stop"
+        ],
+        "x": 1502,
+        "y": 550,
+        "wires": [],
+        "g": "g_mbr"
+    },
+    {
+        "id": "lo_stop_48",
+        "type": "link out",
+        "z": "rr_tab_1",
+        "name": "\u2192 stop",
+        "mode": "link",
+        "links": [
+            "li_stop"
+        ],
+        "x": 1502,
+        "y": 693,
+        "wires": [],
+        "g": "g_mbr"
+    },
+    {
+        "id": "lo_stop_54",
+        "type": "link out",
+        "z": "rr_tab_1",
+        "name": "\u2192 stop",
+        "mode": "link",
+        "links": [
+            "li_stop"
+        ],
+        "x": 1476,
+        "y": 940,
+        "wires": [],
+        "g": "g_sweep"
+    },
+    {
+        "id": "lo_stop_62",
+        "type": "link out",
+        "z": "rr_tab_1",
+        "name": "\u2192 stop",
+        "mode": "link",
+        "links": [
+            "li_stop"
+        ],
+        "x": 1268,
+        "y": 1105,
+        "wires": [],
+        "g": "g_sweep"
+    },
+    {
+        "id": "lo_tr_start",
+        "type": "link out",
+        "z": "rr_tab_1",
+        "name": "\u2192 tracker",
+        "mode": "link",
+        "links": [
+            "li_tr"
+        ],
+        "x": 1346,
+        "y": 163,
+        "wires": [],
+        "g": "g_start"
+    },
+    {
+        "id": "lo_tr_zb",
+        "type": "link out",
+        "z": "rr_tab_1",
+        "name": "\u2192 tracker",
+        "mode": "link",
+        "links": [
+            "li_tr"
+        ],
+        "x": 1216,
+        "y": 737,
+        "wires": [],
+        "g": "g_mbr"
+    },
+    {
+        "id": "lo_tr_zbd",
+        "type": "link out",
+        "z": "rr_tab_1",
+        "name": "\u2192 tracker",
+        "mode": "link",
+        "links": [
+            "li_tr"
+        ],
+        "x": 1996,
+        "y": 737,
+        "wires": [],
+        "g": "g_mbr"
+    },
+    {
+        "id": "lo_tr_rest",
+        "type": "link out",
+        "z": "rr_tab_1",
+        "name": "\u2192 tracker",
+        "mode": "link",
+        "links": [
+            "li_tr"
+        ],
+        "x": 1216,
+        "y": 984,
+        "wires": [],
+        "g": "g_sweep"
+    },
+    {
+        "id": "lo_tr_restd",
+        "type": "link out",
+        "z": "rr_tab_1",
+        "name": "\u2192 tracker",
+        "mode": "link",
+        "links": [
+            "li_tr"
+        ],
+        "x": 1736,
+        "y": 984,
+        "wires": [],
+        "g": "g_sweep"
+    },
+    {
+        "id": "lo_tr_mop",
+        "type": "link out",
+        "z": "rr_tab_1",
+        "name": "\u2192 tracker",
+        "mode": "link",
+        "links": [
+            "li_tr"
+        ],
+        "x": 904,
+        "y": 1105,
+        "wires": [],
+        "g": "g_sweep"
+    },
+    {
+        "id": "lo_tr_done",
+        "type": "link out",
+        "z": "rr_tab_1",
+        "name": "\u2192 tracker",
+        "mode": "link",
+        "links": [
+            "li_tr"
+        ],
+        "x": 2724,
+        "y": 1017,
+        "wires": [],
+        "g": "g_sweep"
+    },
+    {
+        "id": "lo_tr_cxl",
+        "type": "link out",
+        "z": "rr_tab_1",
+        "name": "\u2192 tracker",
+        "mode": "link",
+        "links": [
+            "li_tr"
+        ],
+        "x": 826,
+        "y": 2275,
+        "wires": [],
+        "g": "g_manual"
+    },
+    {
+        "id": "lo_tr_stop",
+        "type": "link out",
+        "z": "rr_tab_1",
+        "name": "\u2192 tracker",
+        "mode": "link",
+        "links": [
+            "li_tr"
+        ],
+        "x": 605,
+        "y": 1303,
+        "wires": [],
+        "g": "g_stop"
+    },
+    {
+        "id": "lo_stamp",
+        "type": "link out",
+        "z": "rr_tab_1",
+        "name": "\u2192 stamp room",
+        "mode": "link",
+        "links": [
+            "li_stamp"
+        ],
+        "x": 566,
+        "y": 2385,
+        "wires": [],
+        "g": "g_manual"
+    },
+    {
+        "id": "g_start",
+        "type": "group",
+        "z": "rr_tab_1",
+        "name": "1 \u00b7 Schedules & start (preflight checks dock/water)",
+        "style": {
+            "label": true,
+            "fill": "#e3f3d3",
+            "fill-opacity": "0.45",
+            "color": "#333"
+        },
+        "nodes": [
+            "i_31",
+            "i_32",
+            "t_33",
+            "f_34",
+            "f_35",
+            "f_pre",
+            "lo_runA",
+            "f_ev_start",
+            "lo_tr_start",
+            "lo_n_pre",
+            "cat_38",
+            "f_39",
+            "d_40",
+            "s_41",
+            "i_nx1",
+            "f_nx",
+            "s_nx"
+        ],
+        "x": 20,
+        "y": 20,
+        "w": 1516,
+        "h": 397
+    },
+    {
+        "id": "g_alerts",
+        "type": "group",
+        "z": "rr_tab_1",
+        "name": "Alerts \u2192 both phones (script.rr_notify)",
+        "style": {
+            "label": true,
+            "fill": "#fde0dd",
+            "fill-opacity": "0.45",
+            "color": "#333"
+        },
+        "nodes": [
+            "li_notify",
+            "s_notify"
+        ],
+        "x": 1650,
+        "y": 20,
+        "w": 580,
+        "h": 100
+    },
+    {
+        "id": "g_mbr",
+        "type": "group",
+        "z": "rr_tab_1",
+        "name": "2 \u00b7 Master bedroom: zone A \u2192 dock/empty \u2192 zone B (vacuum mode set + checked each stage)",
+        "style": {
+            "label": true,
+            "fill": "#dbebff",
+            "fill-opacity": "0.45",
+            "color": "#333"
+        },
+        "nodes": [
+            "li_runA",
+            "s_36",
+            "d_mv_A",
+            "f_mv_A",
+            "s_37",
+            "s_mv2_A",
+            "w_42",
+            "f_short_A",
+            "d_44",
+            "s_45",
+            "d_46",
+            "f_47",
+            "lo_zB",
+            "f_to_w_42",
+            "lo_stop_42",
+            "lo_n_shA",
+            "li_zB",
+            "s_mv_B",
+            "d_mv_B",
+            "f_mv_B",
+            "s_43",
+            "s_mv2_B",
+            "w_48",
+            "f_short_B",
+            "d_50",
+            "s_51",
+            "d_52",
+            "f_53",
+            "lo_R",
+            "f_ev_zb",
+            "lo_tr_zb",
+            "f_to_w_48",
+            "lo_stop_48",
+            "lo_n_shB",
+            "f_ev_zbdone",
+            "lo_tr_zbd"
+        ],
+        "x": 20,
+        "y": 440,
+        "w": 2686,
+        "h": 342
+    },
+    {
+        "id": "g_sweep",
+        "type": "group",
+        "z": "rr_tab_1",
+        "name": "3 \u00b7 Main sweep (12 rooms) \u2192 mop pass on Mon/Fri \u2192 restore vac+mop",
+        "style": {
+            "label": true,
+            "fill": "#dbebff",
+            "fill-opacity": "0.45",
+            "color": "#333"
+        },
+        "nodes": [
+            "li_R",
+            "s_mv_R",
+            "d_mv_R",
+            "f_mv_R",
+            "s_49",
+            "s_mv2_R",
+            "w_54",
+            "d_55",
+            "s_56",
+            "d_57",
+            "f_58",
+            "lo_mop",
+            "s_67",
+            "lo_n_mop",
+            "f_ev_rest",
+            "lo_tr_rest",
+            "f_to_w_54",
+            "lo_stop_54",
+            "f_ev_restdone",
+            "lo_tr_restd",
+            "li_mop",
+            "f_59",
+            "s_60",
+            "s_61",
+            "w_62",
+            "s_63",
+            "f_64",
+            "s_65",
+            "s_66",
+            "f_ev_done",
+            "lo_tr_done",
+            "f_ev_mop",
+            "lo_tr_mop",
+            "f_to_w_62",
+            "lo_stop_62"
+        ],
+        "x": 20,
+        "y": 830,
+        "w": 2894,
+        "h": 320
+    },
+    {
+        "id": "g_stop",
+        "type": "group",
+        "z": "rr_tab_1",
+        "name": "4 \u00b7 Stops: stage timeout or failed command \u2192 alert, cancel rest, restore mode once home",
+        "style": {
+            "label": true,
+            "fill": "#ffe9cc",
+            "fill-opacity": "0.45",
+            "color": "#333"
+        },
+        "nodes": [
+            "li_stop",
+            "f_stall",
+            "cat_mid",
+            "f_fail",
+            "lo_n_stop",
+            "lo_tr_stop",
+            "w_restore",
+            "s_restore"
+        ],
+        "x": 20,
+        "y": 1160,
+        "w": 1230,
+        "h": 188
+    },
+    {
+        "id": "g_track",
+        "type": "group",
+        "z": "rr_tab_1",
+        "name": "5 \u00b7 Run tracker \u2192 input_text.rr_run_phase / rr_run_near + last-clean stamps",
+        "style": {
+            "label": true,
+            "fill": "#ece4f7",
+            "fill-opacity": "0.45",
+            "color": "#333"
+        },
+        "nodes": [
+            "t_idle",
+            "f_ev_idle",
+            "t_croom",
+            "f_ev_room",
+            "li_tr",
+            "f_track",
+            "s_phase",
+            "s_near",
+            "li_stamp",
+            "s_room"
+        ],
+        "x": 1350,
+        "y": 1160,
+        "w": 1100,
+        "h": 243
+    },
+    {
+        "id": "g_manual",
+        "type": "group",
+        "z": "rr_tab_1",
+        "name": "6 \u00b7 Manual controls (dashboard buttons)",
+        "style": {
+            "label": true,
+            "fill": "#eeeeee",
+            "fill-opacity": "0.45",
+            "color": "#333"
+        },
+        "nodes": [
+            "t_1",
+            "s_2",
+            "t_3",
+            "s_4",
+            "t_5",
+            "s_6",
+            "t_7",
+            "s_8",
+            "t_9",
+            "s_10",
+            "t_11",
+            "s_12",
+            "t_13",
+            "s_14",
+            "t_15",
+            "s_16",
+            "t_17",
+            "s_18",
+            "t_19",
+            "s_20",
+            "t_21",
+            "s_22",
+            "t_23",
+            "s_24",
+            "t_25",
+            "s_26",
+            "t_27",
+            "f_28",
+            "s_29",
+            "s_30",
+            "f_ev_cxl",
+            "lo_tr_cxl",
+            "t_68",
+            "s_69",
+            "t_room",
+            "f_room",
+            "lo_stamp"
+        ],
+        "x": 20,
+        "y": 1450,
+        "w": 1100,
+        "h": 980
+    },
+    {
+        "id": "g_maint",
+        "type": "group",
+        "z": "rr_tab_1",
+        "name": "7 \u00b7 Maintenance: Vikunja chores \u2194 consumable resets, water refill \u2192 Fill-water done",
+        "style": {
+            "label": true,
+            "fill": "#e3f3d3",
+            "fill-opacity": "0.45",
+            "color": "#333"
+        },
+        "nodes": [
+            "i_vk1",
+            "f_vk1",
+            "h_vk1",
+            "f_vk2",
+            "s_92",
+            "s_93",
+            "s_89",
+            "s_91",
+            "s_94",
+            "t_86",
+            "f_vk3",
+            "h_vk2",
+            "f_vk4",
+            "h_vk3"
+        ],
+        "x": 1350,
+        "y": 1450,
+        "w": 1412,
+        "h": 402
     }
 ]
