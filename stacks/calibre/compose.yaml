@@ -17,7 +17,12 @@
 name: calibre
 
 x-img: &img
-  build: .
+  # provenance off: with the containerd image store, BuildKit's provenance
+  # attestation gives every (even fully cached) build a new image ID, so each
+  # gitops-sync deploy recreated these containers. Off = stable ID, no restart.
+  build:
+    context: .
+    provenance: false
   image: kdk/calibre:latest
   restart: unless-stopped
   environment: &env

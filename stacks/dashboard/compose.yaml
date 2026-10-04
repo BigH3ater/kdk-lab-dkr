@@ -95,7 +95,12 @@ services:
   # to Tandoor with the dedicated dashboard account (session auth; REST tokens are off)
   # and reads /api/meal-plan/. Ratings POST back as CookLog entries (see mealplan/app.py).
   mealplan:
-    build: ./mealplan
+    # provenance off: with the containerd image store, BuildKit's provenance
+    # attestation gives every (even fully cached) build a new image ID, so each
+    # gitops-sync deploy recreated these containers. Off = stable ID, no restart.
+    build:
+      context: ./mealplan
+      provenance: false
     image: kdk/dashboard-mealplan:latest
     container_name: dashboard-mealplan
     restart: unless-stopped
