@@ -3,7 +3,7 @@
 # as the final stage so every staging + offsite step has completed. This is the
 # single source of truth for backup health (the data/offsite stages are
 # best-effort and exit 0). Checks:
-#   * each host staged this run   -> .last-backup marker < 2h old
+#   * each host staged this run   -> .last-backup marker < 12h old
 #   * DMZ pg dumps present, non-empty, gzip-valid for today
 #   * offsite rclone exit==0 and its status is fresh (< 6h)
 #   * Proxmox cloud-init template (VM 9000) vzdump present < 40d  [WARN only]
@@ -14,12 +14,13 @@ PROB=""; WARN=""; now=$(date +%s)
 add_prob() { PROB="$PROB\n- $1"; }
 add_warn() { WARN="$WARN\n- $1"; }
 
-# 1. every host staged in this run (marker touched < 2h ago)
+# 1. every host staged in this run (marker touched < 12h ago). Not tighter:
+#    verify runs after offsite, which can take hours on a big upload.
 for h in kdk-dkr-01 kdk-dkr-dmz-01 kdk-dkr-02 kdk-dkr-03 kdk-mon-01; do
   m="/dest/$h/.last-backup"
   if [ ! -f "$m" ]; then add_prob "$h: never staged (no marker)"; continue; fi
   age=$(( now - $(date -r "$m" +%s) ))
-  [ "$age" -gt 7200 ] && add_prob "$h: stale backup (marker ${age}s old)"
+  [ "$age" -gt 43200 ] && add_prob "$h: stale backup (marker ${age}s old)"
 done
 
 # 2. DMZ pg dumps for today: present, non-empty, gzip-valid
