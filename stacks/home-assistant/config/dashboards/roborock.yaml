@@ -267,7 +267,7 @@ views:
       name: Last Mop Run
     - type: markdown
       content: >-
-        Daily clean: **weekdays 8:30**, **weekends 10:00**. Mop follows the
+        Daily clean: **weekdays 8:30**, **weekends 12:00**. Mop follows the
         vacuum pass on **Monday & Friday**. Stopping the vacuum by hand (app
         or its buttons) cancels the rest of the run.
 
