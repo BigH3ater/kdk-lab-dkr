@@ -63,7 +63,7 @@ script:
     mode: queued
     fields:
       title: { description: Alert title }
-      message: { description: Alert body, or clear_notification }
+      message: { description: "Alert body, or clear_notification" }
       tag: { description: Alert kind (replace/clear key) }
       urgent: { description: true = time-sensitive (breaks Focus) }
     sequence:
