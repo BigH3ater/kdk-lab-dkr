@@ -1093,14 +1093,14 @@
         "id": "i_32",
         "type": "inject",
         "z": "rr_tab_1",
-        "name": "weekends 10:00",
+        "name": "weekends 12:00",
         "props": [
             {
                 "p": "payload"
             }
         ],
         "repeat": "",
-        "crontab": "0 10 * * 0,6",
+        "crontab": "0 12 * * 0,6",
         "once": false,
         "onceDelay": 0.1,
         "topic": "",
@@ -2697,8 +2697,8 @@
         "id": "f_nx",
         "type": "function",
         "z": "rr_tab_1",
-        "name": "compute next run (wk 8:30 / wkend 10:00)",
-        "func": "const now = new Date();\nfunction nextSlot(dayFilter) {\n    for (let d = 0; d < 9; d++) {\n        const c = new Date(now.getFullYear(), now.getMonth(), now.getDate() + d);\n        const dow = c.getDay();\n        if (!dayFilter(dow)) continue;\n        const wkend = (dow === 0 || dow === 6);\n        c.setHours(wkend ? 10 : 8, wkend ? 0 : 30, 0, 0);\n        if (c > now) return Math.floor(c.getTime()/1000);\n    }\n    return null;\n}\nconst run = nextSlot(() => true);\nconst mop = nextSlot(d => d === 1 || d === 5);\nconst out = [];\nif (run) out.push({payload:{ent:'input_datetime.rr_next_run', ts:run}});\nif (mop) out.push({payload:{ent:'input_datetime.rr_next_mop', ts:mop}});\nreturn [out];\n",
+        "name": "compute next run (wk 8:30 / wkend 12:00)",
+        "func": "const now = new Date();\nfunction nextSlot(dayFilter) {\n    for (let d = 0; d < 9; d++) {\n        const c = new Date(now.getFullYear(), now.getMonth(), now.getDate() + d);\n        const dow = c.getDay();\n        if (!dayFilter(dow)) continue;\n        const wkend = (dow === 0 || dow === 6);\n        c.setHours(wkend ? 12 : 8, wkend ? 0 : 30, 0, 0);\n        if (c > now) return Math.floor(c.getTime()/1000);\n    }\n    return null;\n}\nconst run = nextSlot(() => true);\nconst mop = nextSlot(d => d === 1 || d === 5);\nconst out = [];\nif (run) out.push({payload:{ent:'input_datetime.rr_next_run', ts:run}});\nif (mop) out.push({payload:{ent:'input_datetime.rr_next_mop', ts:mop}});\nreturn [out];\n",
         "outputs": 1,
         "timeout": 0,
         "noerr": 0,
