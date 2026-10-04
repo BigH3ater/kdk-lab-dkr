@@ -204,9 +204,9 @@
       }
     },
     {
-      "name": "7. Validate AFTER (duration ratio)",
+      "name": "7. Validate AFTER (video end-time ratio)",
       "sourceRepo": "Community",
-      "pluginName": "compareFileDurationRatio",
+      "pluginName": "customFunction",
       "version": "1.0.0",
       "id": "dur1",
       "position": {
@@ -214,8 +214,7 @@
         "y": 960
       },
       "inputsDB": {
-        "greaterThan": "99.9",
-        "lessThan": "100.1"
+        "code": "module.exports = async (args) => {\n  // Compare where the VIDEO actually ends (last packets, found by seeking to\n  // the end) in the original vs the new file. The container duration is not\n  // trustworthy: releases carry inflated headers (Band of Brothers: 67 min\n  // header, 55:41 of video) and longer extra tracks the flow drops (Brave's\n  // commentary), which failed this check ~300x in a week on identical video.\n  // Output 1 = within 99.9-100.1%; 2 = outside or unmeasurable (-> quarantine).\n  const { execFileSync } = require('child_process');\n  const ffprobe = args.ffprobePath || 'tdarr-ffprobe';\n  const videoEnd = (file) => {\n    const out = execFileSync(ffprobe, ['-v', 'error', '-select_streams', 'v:0',\n      '-read_intervals', '999999%', '-show_entries', 'packet=pts_time,duration_time',\n      '-of', 'csv=p=0', file], { stdio: 'pipe', maxBuffer: 16 * 1024 * 1024 }).toString();\n    let end = 0;\n    for (const line of out.split('\\n')) {\n      const [pts, dur] = line.split(',').map(Number);\n      if (Number.isFinite(pts)) end = Math.max(end, pts + (Number.isFinite(dur) ? dur : 0));\n    }\n    return end;\n  };\n  const orig = videoEnd(args.originalLibraryFile._id);\n  const now = videoEnd(args.inputFileObj._id);\n  const pct = orig > 0 ? (now / orig) * 100 : NaN;\n  args.jobLog(`video end: original ${orig.toFixed(3)}s, new ${now.toFixed(3)}s (${pct.toFixed(3)}%)\\n`);\n  const ok = pct >= 99.9 && pct <= 100.1;\n  return { outputFileObj: args.inputFileObj, outputNumber: ok ? 1 : 2, variables: args.variables };\n};\n"
       }
     },
     {
@@ -745,13 +744,6 @@
       "target": "moveQ",
       "targetHandle": null,
       "id": "e27"
-    },
-    {
-      "source": "dur1",
-      "sourceHandle": "3",
-      "target": "moveQ",
-      "targetHandle": null,
-      "id": "e28"
     },
     {
       "source": "moveQ",
