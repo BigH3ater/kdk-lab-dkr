@@ -10,6 +10,11 @@
 #   * Health-check failures rising -- unreadable/corrupt files (FFprobe empty).
 #   * .iso files in the library -- disc images that can't be transcoded and will
 #     error (BR-DISK etc.); flagged so they can be excluded/converted/removed.
+#   * Library MKVs changed since the last run whose audio isn't interleaved
+#     near the start (<10 audio packets in the first 5s) -- Apple TV/Neptune
+#     direct play is silent on these (2026-10-04, 85 files from the DEE remux).
+#   * Files newly moved to /data/quarantine by the flow's FAIL branch -- these
+#     never show up as "Transcode error" in the file DB.
 # FAIL -> Pushover priority 1, WARN -> priority 0, clean -> silent (no hourly
 # spam). Baselines persist in /kdk/tdarr-verify.count as "te=.. he=.. iso=..".
 apk add --no-cache curl jq >/dev/null 2>&1 || true
@@ -19,6 +24,8 @@ TDARR="http://localhost:8266"
 STATE=/kdk/tdarr-verify.count
 THRESH=${TDARR_ERR_THRESHOLD:-1}
 PROB=""; WARN=""
+# Reference point for "since the last run" (STATE is rewritten every run).
+LAST=/tmp/last-run; if [ -f "$STATE" ]; then touch -r "$STATE" "$LAST"; else touch -d '-1 hour' "$LAST"; fi
 add_prob() { PROB="$PROB\n- $1"; }
 add_warn() { WARN="$WARN\n- $1"; }
 
@@ -83,6 +90,21 @@ if [ "$iso" -gt 0 ] && [ "$iso" -gt "$piso" ]; then
   list=$(printf '%s' "$iso_files" | sed 's/^/    /')
   add_warn "$iso .iso disc image(s) in library (can't transcode -- exclude/convert/remove):\n$list"
 fi
+
+# 6. Recently changed library files: audio interleaved from the start?
+recent=$(find /media/movies /media/tv -name '*.mkv' ! -name '.*' -newer "$LAST" 2>/dev/null)
+if [ -n "$recent" ]; then
+  apk add --no-cache ffmpeg >/dev/null 2>&1 || true
+  bad=$(printf '%s\n' "$recent" | while IFS= read -r f; do
+    n=$(ffprobe -v error -read_intervals '%+5' -show_entries packet=stream_index -of csv=p=0 "$f" 2>/dev/null | grep -vc '^0')
+    [ "$n" -lt 10 ] && printf '    %s\n' "${f##*/}"
+  done)
+  [ -n "$bad" ] && add_prob "AUDIO NOT INTERLEAVED (silent on Apple TV/Neptune direct play) -- re-interleave with a two-input ffmpeg -c copy remux:\n$bad"
+fi
+
+# 7. Files the flow moved to quarantine since the last run
+q=$(find /media/quarantine -type f -name '*.mkv' -newer "$LAST" 2>/dev/null | sed 's#.*/#    #' | head -6)
+[ -n "$q" ] && add_warn "Flow FAILed file(s) moved to quarantine since last run (check the job report):\n$q"
 
 push() {
   curl -s --max-time 25 \
