@@ -11,8 +11,10 @@
 #   * .iso files in the library -- disc images that can't be transcoded and will
 #     error (BR-DISK etc.); flagged so they can be excluded/converted/removed.
 #   * Library MKVs changed since the last run whose audio isn't interleaved
-#     near the start (<10 audio packets in the first 5s) -- Apple TV/Neptune
-#     direct play is silent on these (2026-10-04, 85 files from the DEE remux).
+#     near the start (<10 audio packets in the first 512 MB of the file) --
+#     Apple TV/Neptune direct play is silent on these (2026-10-04, 85 files
+#     from the DEE remux). Measured by bytes, not playback time: films whose
+#     audio starts seconds in (Shelter: 23s) are fine; broken ones have 1.
 #   * Files newly moved to /data/quarantine by the flow's FAIL branch -- these
 #     never show up as "Transcode error" in the file DB.
 # FAIL -> Pushover priority 1, WARN -> priority 0, clean -> silent (no hourly
@@ -96,7 +98,7 @@ recent=$(find /media/movies /media/tv -name '*.mkv' ! -name '.*' -newer "$LAST" 
 if [ -n "$recent" ]; then
   apk add --no-cache ffmpeg >/dev/null 2>&1 || true
   bad=$(printf '%s\n' "$recent" | while IFS= read -r f; do
-    n=$(ffprobe -v error -read_intervals '%+5' -show_entries packet=stream_index -of csv=p=0 "$f" 2>/dev/null | grep -vc '^0')
+    n=$(head -c 536870912 "$f" | ffprobe -v error -select_streams a -show_entries packet=pts_time -of csv=p=0 -i pipe:0 2>/dev/null | wc -l)
     [ "$n" -lt 10 ] && printf '    %s\n' "${f##*/}"
   done)
   [ -n "$bad" ] && add_prob "AUDIO NOT INTERLEAVED (silent on Apple TV/Neptune direct play) -- re-interleave with a two-input ffmpeg -c copy remux:\n$bad"
