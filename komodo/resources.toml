@@ -941,6 +941,18 @@ webhook_enabled = true
 # (/mnt/media/books/ebook) into the Calibre library every 15m. The reMarkable's
 # KOReader pulls over the tailnet (http://10.1.20.20:8081/opds) when online -- a pull
 # model that doesn't need the tablet awake, unlike book-sync. Locally built (no registry).
+# Trailarr on kdk-dkr-01: trailers for new Radarr/Sonarr titles -> Jellyfin
+# local trailers (<title>/trailers/). See stacks/trailarr.
+[[stack]]
+tags = ["kdk-lab"]
+name = "trailarr"
+deploy = true
+[stack.config]
+server = "kdk-dkr-01"
+repo = "BigH3ater/kdk-lab-dkr"
+run_directory = "stacks/trailarr"
+webhook_enabled = true
+
 [[stack]]
 tags = ["kdk-lab"]
 name = "calibre"

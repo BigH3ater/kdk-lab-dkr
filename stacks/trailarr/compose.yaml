@@ -1,0 +1,41 @@
+# Trailarr on kdk-dkr-01: downloads trailers for titles Radarr/Sonarr manage and
+# files them as Jellyfin local trailers (<title>/trailers/*.mp4), which Neptune
+# on Apple TV plays natively (verified 2026-10-04 with Battleship: Trailer extra,
+# DirectPlay). Download happens server-side (yt-dlp); no YouTube on the TV.
+#
+# Paths: same single /mnt/media:/data/media mount as Radarr/Sonarr, so their
+# paths resolve unchanged (no Trailarr path mappings). Tdarr's libraries ignore
+# "trailers" and "-trailer" paths (foldersToIgnore), so it never transcodes these.
+#
+# Connections are added with monitor=none, synced, then switched to "new" so
+# only newly added movies/shows get trailers (Trailarr's large-library advice).
+# UI at https://trailarr.kmkdp.com behind Authelia; Trailarr also has its own login.
+name: trailarr
+services:
+  trailarr:
+    image: nandyalu/trailarr:0.13.1
+    container_name: trailarr
+    restart: unless-stopped
+    environment:
+      TZ: America/Chicago
+      PUID: "1000"
+      PGID: "1000"
+    volumes:
+      - /opt/kdk-lab/trailarr:/config
+      - /mnt/media:/data/media
+    networks: [default, proxy]
+    labels:
+      traefik.enable: "true"
+      traefik.docker.network: "proxy"
+      traefik.http.routers.trailarr.rule: "Host(`trailarr.kmkdp.com`)"
+      traefik.http.routers.trailarr.entrypoints: "websecure"
+      traefik.http.routers.trailarr.tls.certresolver: "cf"
+      traefik.http.routers.trailarr.middlewares: "forwardauth@file"
+      traefik.http.services.trailarr.loadbalancer.server.port: "7889"
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+networks:
+  proxy:
+    external: true
