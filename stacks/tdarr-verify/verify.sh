@@ -10,11 +10,17 @@
 #   * Health-check failures rising -- unreadable/corrupt files (FFprobe empty).
 #   * .iso files in the library -- disc images that can't be transcoded and will
 #     error (BR-DISK etc.); flagged so they can be excluded/converted/removed.
-#   * Library MKVs changed since the last run whose audio isn't interleaved
-#     near the start (<10 audio packets in the first 512 MB of the file) --
-#     Apple TV/Neptune direct play is silent on these (2026-10-04, 85 files
-#     from the DEE remux). Measured by bytes, not playback time: films whose
-#     audio starts seconds in (Shelter: 23s) are fine; broken ones have 1.
+#   * Library MKVs changed in the last ~26h whose audio isn't interleaved from
+#     the start -- Apple TV/Neptune direct play is silent on these (2026-10-04,
+#     85 files from the old DEE remux). Check: audio share of the first 5000
+#     packets (broken = 1; healthy ~2500). Byte-window piping was dropped: Tdarr's
+#     mkvpropedit can move the Tracks element to the file end, which a pipe can't
+#     reach (false positive on The Avengers, 2026-10-05).
+#     AUTO-FIX (max 3/run): extract audio to a side file, mux video + side audio
+#     with -max_interleave_delta 0 under a 6 GB memory cap (a two-input remux of
+#     the same file buffers the gap and was OOM-killed at ~40 GB), re-verify,
+#     then swap in and keep the original in /data/quarantine/interleave-backup.
+#     Fixed -> WARN; fix failed (original untouched) -> FAIL.
 #   * Files newly moved to /data/quarantine by the flow's FAIL branch -- these
 #     never show up as "Transcode error" in the file DB.
 # FAIL -> Pushover priority 1, WARN -> priority 0, clean -> silent (no hourly
@@ -93,19 +99,57 @@ if [ "$iso" -gt 0 ] && [ "$iso" -gt "$piso" ]; then
   add_warn "$iso .iso disc image(s) in library (can't transcode -- exclude/convert/remove):\n$list"
 fi
 
-# 6. Recently changed library files: audio interleaved from the start?
-recent=$(find /media/movies /media/tv -name '*.mkv' ! -name '.*' -newer "$LAST" 2>/dev/null)
+# 6. Recently changed library files: audio interleaved from the start? Auto-fix.
+audio_share() {  # audio packets among the first 5000 packets of the file
+  ai=$(ffprobe -v error -show_entries stream=index,codec_type -of csv=p=0 "$1" | awk -F, '$2=="audio"{printf "%s|",$1}')
+  [ -z "$ai" ] && { echo 0; return; }
+  ffprobe -v error -read_intervals '%+#5000' -show_entries packet=stream_index -of csv=p=0 "$1" | grep -cE "^(${ai%|})\$"
+}
+reinterleave() {  # $1 = library file; echoes a result line
+  f="$1"; d=$(dirname "$f"); tmp="$d/.remux.tmp"; aud="$d/.remux.audio"
+  (
+    ulimit -v 6000000
+    ffmpeg -nostdin -v error -y -i "$f" -map 0:a -c copy -f matroska "$aud" &&
+    ffmpeg -nostdin -v error -y -i "$f" -i "$aud" -map 0:v -map 1:a -map '0:s?' \
+      -map_metadata 0 -map_chapters 0 -c copy -max_interleave_delta 0 -f matroska "$tmp"
+  ) >/dev/null 2>&1
+  rc=$?; rm -f "$aud"
+  if [ $rc -ne 0 ] || [ ! -s "$tmp" ]; then rm -f "$tmp"; echo "FAIL ffmpeg rc=$rc: ${f##*/}"; return; fi
+  n=$(audio_share "$tmp")
+  d0=$(ffprobe -v error -show_entries format=duration -of csv=p=0 "$f"); d1=$(ffprobe -v error -show_entries format=duration -of csv=p=0 "$tmp")
+  s0=$(ffprobe -v error -show_entries stream=codec_type,codec_name -of csv=p=0 "$f" | sort | tr '\n' ' ')
+  s1=$(ffprobe -v error -show_entries stream=codec_type,codec_name -of csv=p=0 "$tmp" | sort | tr '\n' ' ')
+  if [ "$n" -ge 100 ] && [ "$s0" = "$s1" ] && awk -v a="$d0" -v b="$d1" 'BEGIN{exit !((a-b)^2<1)}'; then
+    mkdir -p /media/quarantine/interleave-backup
+    chown "$(stat -c %u:%g "$f")" "$tmp"; chmod "$(stat -c %a "$f")" "$tmp"
+    mv "$f" /media/quarantine/interleave-backup/ && mv "$tmp" "$f" && echo "FIXED ($n audio/5000): ${f##*/}" && return
+    echo "FAIL swap: ${f##*/}"; return
+  fi
+  rm -f "$tmp"; echo "FAIL verify (audio=$n dur $d0->$d1): ${f##*/}"
+}
+# Leftovers from an interrupted run (the container is recreated every hour).
+find /media/movies /media/tv -maxdepth 3 \( -name '.remux.tmp' -o -name '.remux.audio' \) -mmin +120 -delete 2>/dev/null
+recent=$(find /media/movies /media/tv -name '*.mkv' ! -name '.*' -mmin -1560 -mmin +5 2>/dev/null)
 if [ -n "$recent" ]; then
   apk add --no-cache ffmpeg >/dev/null 2>&1 || true
-  bad=$(printf '%s\n' "$recent" | while IFS= read -r f; do
-    n=$(head -c 536870912 "$f" | ffprobe -v error -select_streams a -show_entries packet=pts_time -of csv=p=0 -i pipe:0 2>/dev/null | wc -l)
-    [ "$n" -lt 10 ] && printf '    %s\n' "${f##*/}"
-  done)
-  [ -n "$bad" ] && add_prob "AUDIO NOT INTERLEAVED (silent on Apple TV/Neptune direct play) -- re-interleave with a two-input ffmpeg -c copy remux:\n$bad"
+  busy=$(curl -s -m 20 "$TDARR/api/v2/get-nodes" 2>/dev/null)
+  fixed=""; failed=""; deferred=""; budget=3
+  while IFS= read -r f; do
+    [ "$(audio_share "$f")" -ge 10 ] && continue
+    case "$busy" in *"${f##*/}"*) deferred="$deferred\n    (busy in Tdarr) ${f##*/}"; continue;; esac
+    if [ "$budget" -le 0 ]; then deferred="$deferred\n    (next run) ${f##*/}"; continue; fi
+    budget=$((budget - 1)); r=$(reinterleave "$f"); echo "$r"
+    case "$r" in FIXED*) fixed="$fixed\n    $r";; *) failed="$failed\n    $r";; esac
+  done <<EOF2
+$recent
+EOF2
+  [ -n "$fixed" ] && add_warn "Audio re-interleaved automatically (originals in quarantine/interleave-backup):$fixed"
+  [ -n "$failed" ] && add_prob "AUDIO NOT INTERLEAVED and auto-fix FAILED (original untouched; silent on Apple TV/Neptune):$failed"
+  [ -n "$deferred" ] && add_warn "Non-interleaved audio, fix deferred:$deferred"
 fi
 
 # 7. Files the flow moved to quarantine since the last run
-q=$(find /media/quarantine -type f -name '*.mkv' -newer "$LAST" 2>/dev/null | sed 's#.*/#    #' | head -6)
+q=$(find /media/quarantine -type f -name '*.mkv' ! -path '*/interleave-backup/*' -newer "$LAST" 2>/dev/null | sed 's#.*/#    #' | head -6)
 [ -n "$q" ] && add_warn "Flow FAILed file(s) moved to quarantine since last run (check the job report):\n$q"
 
 push() {
