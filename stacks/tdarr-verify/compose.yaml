@@ -12,5 +12,5 @@ services:
     entrypoint: ["/bin/sh", "/verify.sh"]
     volumes:
       - /etc/kdk:/kdk
-      - /mnt/media:/media:ro
+      - /mnt/media:/media   # rw: auto re-interleave swaps fixed files in (step 6)
       - ./verify.sh:/verify.sh:ro
