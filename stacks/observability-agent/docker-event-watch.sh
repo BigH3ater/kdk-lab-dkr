@@ -35,7 +35,21 @@ while true; do
         # 0 = clean exit, 143 = SIGTERM (graceful stop / redeploy) -> ignore.
         case "${code:-0}" in
           0|143) : ;;
-          *) notify "kdk container down: ${NODE_NAME}" "${name} exited (code ${code}) on ${NODE_NAME}" 1 ;;
+          *)
+            # Crash-loop cooldown: at most one page per container per hour. A
+            # restart:unless-stopped container that can't start (NUT 2026-10-07,
+            # UPS card unreachable) otherwise pages every ~25s -- 525 pages in 12h.
+            # Suppressed crashes are counted and reported with the next page.
+            st="/tmp/die-${name}"; now=$(date +%s); last=0; n=0
+            [ -f "$st" ] && read -r last n < "$st"
+            if [ $((now - last)) -ge 3600 ]; then
+              extra=""; [ "${n:-0}" -gt 0 ] && extra=" (+${n} more crashes in the last hour -- crash-looping)"
+              notify "kdk container down: ${NODE_NAME}" "${name} exited (code ${code}) on ${NODE_NAME}${extra}" 1
+              echo "$now 0" > "$st"
+            else
+              echo "$last $((n + 1))" > "$st"
+              log "  die cooldown: ${name} (suppressed $((n + 1)) since last page)"
+            fi ;;
         esac ;;
       *unhealthy*)
         # Debounce transient health flaps (e.g. fanctl BMC/IPMI blips recover in
