@@ -100,5 +100,61 @@ command_line:
         - open
       scan_interval: 900
 
+# Off-charger alert. 2026-10-12: the vacuum went charger_disconnected on the
+# dock, idled on battery, and powered itself off exactly 12 h later; two daily
+# runs then failed against an unavailable entity with no phone alert. Fire while
+# it's still recoverable (30 min off the charger), and again if it has already
+# gone dark. Clears from both phones once it's charging again.
+automation:
+  - id: rr_off_charger_alert
+    alias: "Roborock: off the charger alert"
+    mode: queued
+    triggers:
+      - trigger: template
+        id: off_charger
+        value_template: >-
+          {{ states('sensor.mr_slave_status_2') in
+             ['charger_disconnected', 'idle', 'paused', 'error', 'charging_problem'] }}
+        for: "00:30:00"
+      - trigger: state
+        id: offline
+        entity_id: vacuum.mr_slave_2
+        to: unavailable
+        for: "00:15:00"
+      - trigger: state
+        id: charging
+        entity_id: sensor.mr_slave_status_2
+        to: charging
+    actions:
+      - choose:
+          - conditions: "{{ trigger.id == 'off_charger' }}"
+            sequence:
+              - action: script.rr_notify
+                data:
+                  title: "Mr. Slave is off the charger"
+                  message: >-
+                    {{ states('sensor.mr_slave_status_2') | replace('_', ' ') }} for 30 min,
+                    battery {{ states('sensor.mr_slave_battery_2') }}%. It powers itself
+                    off after ~12 h off the dock — seat it on the charger.
+                  tag: rr_off_charger
+                  urgent: true
+          - conditions: "{{ trigger.id == 'offline' }}"
+            sequence:
+              - action: script.rr_notify
+                data:
+                  title: "Mr. Slave is offline"
+                  message: >-
+                    Unreachable for 15 min — likely off the charger and powered down.
+                    Put it on the dock (press power if it doesn't wake); scheduled
+                    cleans will fail until it reconnects.
+                  tag: rr_off_charger
+                  urgent: true
+          - conditions: "{{ trigger.id == 'charging' }}"
+            sequence:
+              - action: script.rr_notify
+                data:
+                  message: clear_notification
+                  tag: rr_off_charger
+
 # HomeKit bridge exposes the vacuum, per-room clean buttons, and routines to
 # Apple Home (include list lives in .storage/core.config_entries on the host).
