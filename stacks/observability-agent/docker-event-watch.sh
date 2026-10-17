@@ -14,6 +14,27 @@ notify() {
     --form-string token="$PUSHOVER_TOKEN" --form-string user="$PUSHOVER_USER" \
     --form-string title="$1" --form-string message="$2" --form-string priority="${3:-1}"
 }
+# Per-container rate limit for crash/unhealthy pages. A restart:unless-stopped
+# container that can't start pages every ~25s otherwise (NUT 2026-10-07: 525
+# pages in 12h; 2026-10-17: 896). First page is priority 1; while the problem
+# persists, at most one priority-0 reminder per COOLDOWN with the suppressed
+# count. State is per-kind in /tmp (a watcher restart re-arms the first page).
+COOLDOWN=14400
+page_limited() {   # $1 = state key, $2 = title, $3 = message
+  st="/tmp/rl-$1"; now=$(date +%s); last=0; n=0
+  [ -f "$st" ] && read -r last n < "$st"
+  if [ ! -f "$st" ] || [ $((now - last)) -ge "$COOLDOWN" ]; then
+    if [ "${n:-0}" -gt 0 ]; then
+      notify "$2" "$3 (still failing: +${n} more since the last page)" 0
+    else
+      notify "$2" "$3" 1
+    fi
+    echo "$now 0" > "$st"
+  else
+    echo "$last $((n + 1))" > "$st"
+    log "  rate-limited: $1 (suppressed $((n + 1)) since last page)"
+  fi
+}
 notify "kdk container watch online" "Docker-event watcher started on ${NODE_NAME}." -1
 while true; do
   docker events --filter type=container --filter event=die --filter event=health_status \
@@ -35,21 +56,8 @@ while true; do
         # 0 = clean exit, 143 = SIGTERM (graceful stop / redeploy) -> ignore.
         case "${code:-0}" in
           0|143) : ;;
-          *)
-            # Crash-loop cooldown: at most one page per container per hour. A
-            # restart:unless-stopped container that can't start (NUT 2026-10-07,
-            # UPS card unreachable) otherwise pages every ~25s -- 525 pages in 12h.
-            # Suppressed crashes are counted and reported with the next page.
-            st="/tmp/die-${name}"; now=$(date +%s); last=0; n=0
-            [ -f "$st" ] && read -r last n < "$st"
-            if [ $((now - last)) -ge 3600 ]; then
-              extra=""; [ "${n:-0}" -gt 0 ] && extra=" (+${n} more crashes in the last hour -- crash-looping)"
-              notify "kdk container down: ${NODE_NAME}" "${name} exited (code ${code}) on ${NODE_NAME}${extra}" 1
-              echo "$now 0" > "$st"
-            else
-              echo "$last $((n + 1))" > "$st"
-              log "  die cooldown: ${name} (suppressed $((n + 1)) since last page)"
-            fi ;;
+          *) page_limited "die-${name}" "kdk container down: ${NODE_NAME}" \
+               "${name} exited (code ${code}) on ${NODE_NAME}" ;;
         esac ;;
       *unhealthy*)
         # Debounce transient health flaps (e.g. fanctl BMC/IPMI blips recover in
@@ -58,7 +66,8 @@ while true; do
         ( sleep 60
           h=$(docker inspect -f '{{.State.Health.Status}}' "$name" 2>/dev/null || echo gone)
           if [ "$h" = "unhealthy" ]; then
-            notify "kdk container unhealthy: ${NODE_NAME}" "${name} is unhealthy on ${NODE_NAME}" 1
+            page_limited "unhealthy-${name}" "kdk container unhealthy: ${NODE_NAME}" \
+              "${name} is unhealthy on ${NODE_NAME}"
           else
             log "  unhealthy debounced: ${name} recovered (now ${h})"
           fi
