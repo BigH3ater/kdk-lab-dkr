@@ -1724,8 +1724,7 @@
         "y": 885,
         "wires": [
             [
-                "d_55",
-                "f_ev_restdone"
+                "d_rc"
             ],
             [
                 "f_to_w_54"
@@ -1831,7 +1830,7 @@
         "y": 885,
         "wires": [
             [
-                "lo_mop"
+                "w_mopbat"
             ],
             [
                 "s_67"
@@ -3054,7 +3053,7 @@
         "type": "function",
         "z": "rr_tab_1",
         "name": "run tracker",
-        "func": "\n// Phase-level run tracker. Publishes sensor.rr_run_progress via HA REST (out 0)\n// and emits guarded room stamps (out 1, same shape s_room consumes).\nconst REST_ROOMS = ['master_bedroom_closet','master_bathroom','bathroom_1',\n    'bedroom_1','kitchen','living_room','front_door_entry','garage_entrance',\n    'half_bath','laundry_room','hallway','rachels_office'];\nlet run = flow.get('rr_run') || {active:false, phase:'', cancelled:false, near:''};\nconst evt = msg.rr_evt;\nlet stamp = null;\nswitch (evt) {\n    case 'start':\n        run = {active:true, phase:'Master bedroom \u2014 zone A', cancelled:false, near:''};\n        break;\n    case 'zoneB':\n        run.phase = 'Master bedroom \u2014 zone B'; break;\n    case 'zbdone':\n        if (run.active && !run.cancelled && !flow.get('rr_cancel') && !flow.get('rr_mbr_short')) {\n            stamp = {stamp:'input_datetime.rr_last_clean_master_bedroom',\n                     ts: Math.floor(Date.now()/1000)};\n            run.phase = 'Dock \u2014 emptying before main sweep';\n        }\n        break;\n    case 'rest':\n        run.phase = 'Main floor sweep (12 rooms)'; break;\n    case 'restdone':\n        if (run.active && !run.cancelled && !flow.get('rr_cancel')) {\n            stamp = {stamp: REST_ROOMS.map(r => 'input_datetime.rr_last_clean_' + r),\n                     ts: Math.floor(Date.now()/1000)};\n            run.phase = 'Main sweep complete';\n        }\n        break;\n    case 'mop':\n        run.phase = 'Mop pass (all floors)'; break;\n    case 'done':\n        run.phase = run.cancelled ? 'Cancelled' : 'Complete';\n        run.active = false; run.near = '';\n        break;\n    case 'cancel':\n        run.cancelled = true; run.active = false;\n        run.phase = 'Cancelled \u2014 returning to dock';\n        break;\n    case 'failed':\n        run.cancelled = true; run.active = false; run.near = '';\n        run.phase = msg.rr_phase || 'Failed';\n        break;\n    case 'idle':\n        if (run.active && !run.cancelled) {\n            run.cancelled = true; run.active = false;\n            flow.set('rr_cancel', true);\n            run.phase = 'Stopped by hand \u2014 rest of run cancelled';\n        } else { return null; }\n        break;\n    case 'room':\n        if (!run.active) return null;\n        run.near = String(msg.payload || '');\n        break;\n    default:\n        return null;\n}\nflow.set('rr_run', run);\nconst prog = {payload: {phase: run.phase.substring(0,255), near: (run.near || '').substring(0,100)}};\nreturn [[prog], stamp ? [{payload: stamp}] : []];\n",
+        "func": "\n// Phase-level run tracker. Publishes sensor.rr_run_progress via HA REST (out 0)\n// and emits guarded room stamps (out 1, same shape s_room consumes).\nconst REST_ROOMS = ['master_bedroom_closet','master_bathroom','bathroom_1',\n    'bedroom_1','kitchen','living_room','front_door_entry','garage_entrance',\n    'half_bath','laundry_room','hallway','rachels_office'];\nlet run = flow.get('rr_run') || {active:false, phase:'', cancelled:false, near:''};\nconst evt = msg.rr_evt;\nlet stamp = null;\nswitch (evt) {\n    case 'start':\n        run = {active:true, phase:'Master bedroom \u2014 zone A', cancelled:false, near:''};\n        break;\n    case 'zoneB':\n        run.phase = 'Master bedroom \u2014 zone B'; break;\n    case 'zbdone':\n        if (run.active && !run.cancelled && !flow.get('rr_cancel') && !flow.get('rr_mbr_short')) {\n            stamp = {stamp:'input_datetime.rr_last_clean_master_bedroom',\n                     ts: Math.floor(Date.now()/1000)};\n            run.phase = 'Dock \u2014 emptying before main sweep';\n        }\n        break;\n    case 'rest':\n        run.phase = 'Main floor sweep (12 rooms)'; break;\n    case 'restdone':\n        if (run.active && !run.cancelled && !flow.get('rr_cancel')) {\n            stamp = {stamp: REST_ROOMS.map(r => 'input_datetime.rr_last_clean_' + r),\n                     ts: Math.floor(Date.now()/1000)};\n            run.phase = 'Main sweep complete';\n        }\n        break;\n    case 'recharge':\n        if (run.active && !run.cancelled) run.phase = 'Main sweep \u2014 recharging, resumes at 80%';\n        break;\n    case 'mop':\n        run.phase = 'Mop pass (all floors)'; break;\n    case 'done':\n        run.phase = run.cancelled ? 'Cancelled' : 'Complete';\n        run.active = false; run.near = '';\n        break;\n    case 'cancel':\n        run.cancelled = true; run.active = false;\n        run.phase = 'Cancelled \u2014 returning to dock';\n        break;\n    case 'failed':\n        run.cancelled = true; run.active = false; run.near = '';\n        run.phase = msg.rr_phase || 'Failed';\n        break;\n    case 'idle':\n        if (run.active && !run.cancelled) {\n            run.cancelled = true; run.active = false;\n            flow.set('rr_cancel', true);\n            run.phase = 'Stopped by hand \u2014 rest of run cancelled';\n        } else { return null; }\n        break;\n    case 'room':\n        if (!run.active) return null;\n        run.near = String(msg.payload || '');\n        break;\n    default:\n        return null;\n}\nflow.set('rr_run', run);\nconst prog = {payload: {phase: run.phase.substring(0,255), near: (run.near || '').substring(0,100)}};\nreturn [[prog], stamp ? [{payload: stamp}] : []];\n",
         "outputs": 2,
         "timeout": 0,
         "noerr": 0,
@@ -3869,7 +3868,8 @@
             "lo_tr_mop",
             "lo_tr_done",
             "lo_tr_cxl",
-            "lo_tr_stop"
+            "lo_tr_stop",
+            "lo_tr_rch"
         ],
         "x": 1740,
         "y": 1325,
@@ -4542,5 +4542,141 @@
         "y": 1450,
         "w": 1412,
         "h": 402
+    },
+    {
+        "id": "d_rc",
+        "type": "delay",
+        "name": "settle (recharge check)",
+        "pauseType": "delay",
+        "timeout": "15",
+        "timeoutUnits": "seconds",
+        "rate": "1",
+        "nbRateUnits": "1",
+        "rateUnits": "second",
+        "randomFirst": "1",
+        "randomLast": "5",
+        "randomUnits": "seconds",
+        "drop": false,
+        "allowrate": false,
+        "outputs": 1,
+        "x": 1500,
+        "y": 860,
+        "wires": [
+            [
+                "f_rc"
+            ]
+        ],
+        "z": "rr_tab_1",
+        "g": "g_sweep"
+    },
+    {
+        "id": "f_rc",
+        "type": "function",
+        "name": "sweep done or recharging?",
+        "outputs": 2,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1700,
+        "y": 860,
+        "func": "if (flow.get('rr_cancel')) { node.status({fill:'red',text:'cancelled'}); return [null, null]; }\nconst _ha = global.get('homeassistant') || {};\nconst _st = (Object.values(_ha).find(v => v && v.states) || {}).states || {};\nconst st = id => (_st[id] && _st[id].state);\n// Docked after the 12-room sweep. A finished job comes home with charge to\n// spare and progress reset to 0. Docking at ~14% with progress still >0 means\n// the battery ran out mid-sweep: the robot recharges and RESUMES on its own at\n// 80% (Roborock recharge & resume). Treating that as done restored vac_and_mop\n// before the resume, so the rest of the sweep mopped every day (2026-10-15..18).\nconst batt = Number(st('sensor.mr_slave_battery_2'));\nconst prog = Number(st('sensor.mr_slave_cleaning_progress_2'));\nconst n = msg.rr_recharges || 0;\nif (batt <= 20 && prog > 0 && prog < 95 && n < 2) {\n    msg.rr_recharges = n + 1; msg.rr_evt = 'recharge';\n    node.status({fill:'yellow', text:`recharging: ${batt}% batt, ${prog}% done (#${n + 1})`});\n    return [null, msg];\n}\nnode.status({fill:'green', text:`sweep done: ${batt}% batt, ${prog}%`});\nreturn [msg, null];",
+        "wires": [
+            [
+                "d_55",
+                "f_ev_restdone"
+            ],
+            [
+                "w_rc",
+                "lo_tr_rch"
+            ]
+        ],
+        "z": "rr_tab_1",
+        "g": "g_sweep"
+    },
+    {
+        "id": "w_rc",
+        "type": "ha-wait-until",
+        "name": "wait resume (after recharge)",
+        "server": "38978576.ca0eea",
+        "outputs": 2,
+        "outputProperties": [],
+        "entityId": "sensor.mr_slave_status_2",
+        "entityIdType": "exact",
+        "property": "state",
+        "comparator": "is",
+        "value": "segment_cleaning",
+        "valueType": "str",
+        "timeout": "240",
+        "timeoutType": "num",
+        "timeoutUnits": "minutes",
+        "entityLocation": "",
+        "entityLocationType": "none",
+        "checkCurrentState": true,
+        "blockInputOverrides": true,
+        "outputThenReasons": false,
+        "x": 1700,
+        "y": 920,
+        "wires": [
+            [
+                "w_54",
+                "f_ev_rest"
+            ],
+            [
+                "d_55",
+                "f_ev_restdone"
+            ]
+        ],
+        "z": "rr_tab_1",
+        "g": "g_sweep"
+    },
+    {
+        "id": "lo_tr_rch",
+        "type": "link out",
+        "name": "\u2192 tracker",
+        "mode": "link",
+        "links": [
+            "li_tr"
+        ],
+        "x": 1880,
+        "y": 900,
+        "wires": [],
+        "z": "rr_tab_1",
+        "g": "g_sweep"
+    },
+    {
+        "id": "w_mopbat",
+        "type": "ha-wait-until",
+        "name": "wait battery \u226580% (mop pass)",
+        "server": "38978576.ca0eea",
+        "outputs": 2,
+        "outputProperties": [],
+        "entityId": "sensor.mr_slave_battery_2",
+        "entityIdType": "exact",
+        "property": "state",
+        "comparator": "gte",
+        "value": "80",
+        "valueType": "num",
+        "timeout": "180",
+        "timeoutType": "num",
+        "timeoutUnits": "minutes",
+        "entityLocation": "",
+        "entityLocationType": "none",
+        "checkCurrentState": true,
+        "blockInputOverrides": true,
+        "outputThenReasons": false,
+        "x": 2280,
+        "y": 845,
+        "z": "rr_tab_1",
+        "g": "g_sweep",
+        "wires": [
+            [
+                "lo_mop"
+            ],
+            [
+                "lo_mop"
+            ]
+        ]
     }
 ]
