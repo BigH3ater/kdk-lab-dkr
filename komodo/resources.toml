@@ -110,16 +110,21 @@ webhook_enabled = true
 
 # NUT (Network UPS Tools) server for the Eaton 5PX 1500 (network NMC 10.1.3.63,
 # netxml-ups, read-only/anonymous). upsd :3493 for Home Assistant's NUT client.
+# NUT runs on kdk-dkr-03 (Pi, VLAN 30) because that host has a tagged VLAN 1
+# leg (eth1.1, 10.1.3.62, hosts/kdk-dkr-03/kdk-ups-l2.nmconnection) on the UPS
+# card's L2. The card stops answering ROUTED TCP after its switch reboots, which
+# crash-looped NUT on kdk-dkr-01 (2026-10-07, 2026-10-17). No op CLI on the Pi:
+# the monuser password lives in the HOST-managed /opt/kdk-lab/nut/.env (0600).
 [[stack]]
 tags = ["kdk-lab"]
 name = "nut"
 deploy = true
 [stack.config]
-server = "kdk-dkr-01"
+server = "kdk-dkr-03"
 repo = "BigH3ater/kdk-lab-dkr"
 run_directory = "stacks/nut"
 extra_args = ["--force-recreate"]
-pre_deploy.command = "sh -c '. /etc/komodo/op.env && op inject -f -i .env.tpl -o .env'"
+pre_deploy.command = "sh -c 'cp -f /opt/kdk-lab/nut/.env .env'"
 webhook_enabled = true
 
 # AdGuard DNS reconciler (one-shot, run by the gitops-sync procedure's "dns"
