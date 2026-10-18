@@ -1,12 +1,12 @@
 ---
 title: NUT — UPS monitoring & power-loss shutdown
-host: kdk-dkr-01
+host: kdk-dkr-03
 stack: nut
 tier: infra
 status: live
 storage: no
 secrets: [kdk-ups-01-nut-upsd]
-updated: 2026-09-15
+updated: 2026-10-17
 tags: [homelab/stack, tier/infra, status/live]
 ---
 
@@ -17,7 +17,7 @@ down the two physical servers cleanly when the battery runs low during an
 outage. The UPS is network-attached; NUT reads it over the LAN — nothing is
 plugged into a host by USB.
 
-**Related:** [[kdk-dkr-01]] · [[kdk-hyp-01]] · [[kdk-nas-01]] · [[home-assistant]]
+**Related:** [[kdk-dkr-03]] · [[kdk-hyp-01]] · [[kdk-nas-01]] · [[home-assistant]]
 
 ## At a glance
 
@@ -25,9 +25,10 @@ plugged into a host by USB.
 |---|---|
 | UPS | Eaton 5PX 1500, network management card (Mosaic firmware) at `10.1.3.63` |
 | Driver | `netxml-ups` over `http://10.1.3.63` — the card serves its XML **anonymously**, so no device credentials are needed |
-| Server | `upsd` in the `nut` stack on [[kdk-dkr-01]], listening on `:3493` (image `instantlinux/nut-upsd`, pinned by digest) |
+| Server | `upsd` in the `nut` stack on [[kdk-dkr-03]] (Pi 5), listening on `:3493` — `10.1.30.22` (VLAN 30) and `10.1.3.62` (VLAN 1, the card's L2). Image `instantlinux/nut-upsd`, pinned by digest (multi-arch) |
+| UPS path | Host leg `eth1.1` = tagged VLAN 1 on kdk-csw-01 port 19, `10.1.3.62/24`, **no gateway** (`hosts/kdk-dkr-03/kdk-ups-l2.nmconnection`). NUT must reach the card on L2 — see Troubleshooting |
 | upsd user | `monuser` (password `op://kdk-ops/kdk-ups-01-nut-upsd`) |
-| Clients | [[kdk-nas-01]] (TrueNAS native UPS service, SLAVE mode) and [[kdk-hyp-01]] (Proxmox `nut-client` upsmon) — both **secondary**, both shut down on low battery |
+| Clients | [[kdk-nas-01]] (TrueNAS native UPS service, SLAVE mode, → `10.1.3.62`) and [[kdk-hyp-01]] (Proxmox `nut-client` upsmon, → `10.1.30.22`) — both **secondary**, both shut down on low battery |
 | Low-battery margin | `ignorelb` + `override.battery.charge.low=30` / `runtime.low=360` → LB fires with **~6 min** of runtime, not the card's ~3 min |
 | Consumer | [[home-assistant]] NUT integration (battery, load, status, voltages) |
 
@@ -35,14 +36,14 @@ plugged into a host by USB.
 
 ```sh
 # server: the UPS is being read
-ssh kdkadmin@10.1.20.20 'sudo docker exec nut-upsd-1 upsc eaton-5px@localhost' | \
+ssh kdkadmin@10.1.30.22 'sudo docker exec nut-upsd-1 upsc eaton-5px@localhost' | \
   grep -E 'ups.status|battery.charge:|ups.load:|battery.(charge|runtime).low:'
 # expect: ups.status: OL CHRG (or OL), battery.charge.low: 30, battery.runtime.low: 360
 ```
 
 ```sh
 # clients see the UPS
-ssh kdkadmin@10.1.3.5   'upsc eaton-5px@10.1.20.20 | grep ups.status'   # TrueNAS
+ssh kdkadmin@10.1.3.5   'upsc eaton-5px@10.1.3.62 | grep ups.status'    # TrueNAS
 ssh kdkadmin@10.1.1.100 'systemctl is-active nut-monitor'               # Proxmox
 ```
 
@@ -52,39 +53,46 @@ imminent), `CHRG` while charging.
 ## Troubleshooting
 
 - **Driver won't connect** — confirm the host can reach the card:
-  `curl -s http://10.1.3.63/product.xml` should return XML. The `netxml-ups`
+  `curl -s http://10.1.3.63/product.xml` on kdk-dkr-03 should return XML, and
+  `ip route get 10.1.3.63` must say `dev eth1.1` (L2). If it goes via the
+  default gateway, `sudo nmcli connection up kdk-ups-l2`.
+- **Why L2:** after its switch reboots (UniFi upgrades, power events) the card
+  keeps answering ping and same-subnet TCP but **stops answering routed TCP**
+  (2026-10-07, 2026-10-17: NUT on kdk-dkr-01 crash-looped for hours, no UPS
+  protection). A card-only restart clears it; the L2 leg avoids needing one. The `netxml-ups`
   scheme is mandatory (`http://`), not just an IP.
 - **A client isn't shutting down** — check its upsmon is connected
-  (`upsc eaton-5px@10.1.20.20`) and that `monuser`'s password matches the
+  (`upsc eaton-5px@10.1.30.22`) and that `monuser`'s password matches the
   server. On Proxmox: `journalctl -u nut-monitor`.
 - **Shuts down too early / too late** — tune `stacks/nut/ups.conf`
   (`override.battery.runtime.low`), then redeploy the stack.
-- Note the upsd runs in a container on [[kdk-dkr-01]] (a guest of
-  [[kdk-hyp-01]]); when Proxmox powers off, upsd goes with it. That's fine —
-  the clients are **secondary** and shut down on LB independently, so no
-  "primary" host is required.
+- upsd runs on [[kdk-dkr-03]], a Pi that is **not** a guest of
+  [[kdk-hyp-01]], so it keeps reporting while Proxmox shuts down. The clients
+  are still **secondary** and shut down on LB independently.
 
 ## Dependencies
 
-Depends on the UPS NMC (`10.1.3.63`) and the `op-connect` secret injection at
-deploy time. Consumed by [[home-assistant]] and, on power loss, by
+Depends on the UPS NMC (`10.1.3.63`), the `eth1.1` VLAN 1 leg on
+kdk-dkr-03, and the host-managed `/opt/kdk-lab/nut/.env` (the Pi has no `op`
+CLI; Komodo pre_deploy copies it in). Consumed by [[home-assistant]] and, on power loss, by
 [[kdk-hyp-01]] and [[kdk-nas-01]].
 
 ## Configuration
 
 - Stack: `stacks/nut/` — `compose.yaml` (env: `DRIVER`, `PORT`, `NAME`,
-  `API_USER`, `API_PASSWORD`), `.env.tpl` (op ref), `ups.conf` (driver +
+  `API_USER`, `API_PASSWORD`), `.env.tpl` (op ref, documentation only), `ups.conf` (driver +
   low-battery overrides, mounted to `/etc/nut/local/ups.conf`).
 - TrueNAS: **Services → UPS**, mode *Remote Monitor (SLAVE)*, remote host
-  `10.1.20.20:3493`, identifier `eaton-5px`, user `monuser`, shutdown
+  `10.1.3.62:3493` (same L2 — keeps the reply path symmetric), identifier `eaton-5px`, user `monuser`, shutdown
   *LOWBATT* (set via `midclt call ups.update`).
 - Proxmox: `nut-client` package, `/etc/nut/nut.conf` `MODE=netclient`,
-  `/etc/nut/upsmon.conf` `MONITOR eaton-5px@10.1.20.20:3493 1 monuser <pw>
+  `/etc/nut/upsmon.conf` `MONITOR eaton-5px@10.1.30.22:3493 1 monuser <pw>
   secondary` + `SHUTDOWNCMD "/sbin/shutdown -h +0"`, `nut-monitor` enabled.
 
 ## Secret Rotation
 
-Rotate `op://kdk-ops/kdk-ups-01-nut-upsd` (the `monuser` password), then
-redeploy the `nut` stack and update the two clients (TrueNAS `ups.update`
+Rotate `op://kdk-ops/kdk-ups-01-nut-upsd` (the `monuser` password), rewrite
+kdk-dkr-03:`/opt/kdk-lab/nut/.env` (`NUT_CLIENT_PASSWORD=...`, 0600 root), then
+redeploy the `nut` stack, update the Home Assistant NUT integration, and update the two clients (TrueNAS `ups.update`
 `monpwd`, Proxmox `upsmon.conf`). No device credentials to rotate — the card
 is read anonymously.

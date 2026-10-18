@@ -1,0 +1,24 @@
+# /etc/NetworkManager/system-connections/kdk-ups-l2.nmconnection (0600 root)
+# Tagged VLAN 1 ("VLAN 1 GW", 10.1.3.0/24) on eth1 so the nut stack reaches the
+# UPS card (10.1.3.63) on L2. The card stops answering ROUTED TCP after its
+# switch reboots (2026-10-07, 2026-10-17) while same-L2 TCP keeps working.
+# No gateway / never-default: only the 10.1.3.0/24 connected route uses this.
+# Switch side: kdk-csw-01 port 19, native VLAN 30, tagged = all (verified).
+[connection]
+id=kdk-ups-l2
+type=vlan
+interface-name=eth1.1
+autoconnect=true
+
+[vlan]
+id=1
+parent=eth1
+
+[ipv4]
+method=manual
+address1=10.1.3.62/24
+never-default=true
+may-fail=true
+
+[ipv6]
+method=disabled
