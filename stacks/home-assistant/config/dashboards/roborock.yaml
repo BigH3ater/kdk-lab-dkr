@@ -370,6 +370,11 @@ views:
 
         Mark chores done at [tasks.kmkdp.com](https://tasks.kmkdp.com/projects/6) —
         water refills auto-complete when the dock tank comes back full.
+
+
+        **Water tanks:** swap in the spare pair weekly —
+        {% set ts = state_attr('input_datetime.rr_last_tank_swap','timestamp') | float(0) -%}
+        {% if ts < 946684800 %}no swap recorded yet.{% else %}last swapped {{ ts | timestamp_custom('%a %b %-d') }}{{ ' ⚠️ overdue' if now().timestamp() - ts > 7*86400 else '' }}.{% endif %}
     - type: tile
       entity: binary_sensor.mr_slave_water_shortage_2
       name: Clean Water Empty?
@@ -379,6 +384,22 @@ views:
     - type: tile
       entity: binary_sensor.mr_slave_dock_dirty_water_box
       name: Dirty Water Tank
+    - type: tile
+      entity: sensor.rr_tank_swap_age
+      name: Days Since Tank Swap
+    - type: tile
+      entity: input_button.rr_tanks_swapped
+      name: Tanks Swapped
+      tap_action:
+        action: perform-action
+        perform_action: input_button.press
+        target:
+          entity_id: input_button.rr_tanks_swapped
+      icon_tap_action:
+        action: perform-action
+        perform_action: input_button.press
+        target:
+          entity_id: input_button.rr_tanks_swapped
     - type: tile
       entity: sensor.mr_slave_main_brush_time_left_2
       name: Main Brush Left
