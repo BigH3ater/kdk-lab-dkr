@@ -199,6 +199,9 @@ services:
       # and the dashboard you opened *because* the cluster is down.
       GF_AUTH_ANONYMOUS_ENABLED: "false"
       GF_USERS_ALLOW_SIGN_UP: "false"
+      # Public name via Traefik on kdk-dkr-01 (stacks/proxy/dynamic/grafana.yml).
+      # Only affects generated absolute links; direct http://10.1.20.30:3000 still works.
+      GF_SERVER_ROOT_URL: "https://grafana.kmkdp.com"
     volumes:
       - grafana-data:/var/lib/grafana
       - ./grafana/provisioning:/etc/grafana/provisioning:ro
