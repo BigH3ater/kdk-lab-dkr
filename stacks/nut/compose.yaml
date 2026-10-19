@@ -12,6 +12,32 @@ services:
   upsd:
     image: instantlinux/nut-upsd@sha256:a4a68e3c56081e3187621ee2a4bf9bce2936eaf0b628c01f81881f25cee0e667
     restart: unless-stopped
+    # The image's stock health check kills upsmon (PID 1) the moment upsd
+    # reports the UPS data stale. Every reboot of the card's switch (firmware
+    # updates, power events) then became a restart loop: the entrypoint's
+    # driver start fails while the card is unreachable, docker restarts the
+    # container every ~18 s, and upsmon on Proxmox/TrueNAS sees "connection
+    # refused" (17 restarts during the 2026-10-18 firmware work). This check
+    # tolerates STALE_GRACE seconds of stale data (a switch reboot is ~2 min),
+    # keeps the container up and the clients connected, and only then falls
+    # back to the stock behaviour (restart) for a driver that is truly wedged.
+    # `$$` is compose escaping; the shell inside the container sees `$`.
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          out=$$(upsc $$NAME@localhost:3493 2>&1); rc=$$?;
+          if echo "$$out" | grep -q stale; then
+          now=$$(date +%s); s=/dev/shm/nut/stale-since;
+          [ -f $$s ] || echo $$now > $$s;
+          [ $$((now - $$(cat $$s))) -ge $${STALE_GRACE:-180} ] && killall -TERM upsmon;
+          exit 1;
+          elif [ $$rc -ne 0 ]; then exit 1;
+          else rm -f /dev/shm/nut/stale-since; exit 0; fi
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
     environment:
       DRIVER: netxml-ups
       PORT: http://10.1.3.63
@@ -19,6 +45,8 @@ services:
       DESCRIPTION: "Eaton 5PX 1500 - Computer Room"
       API_USER: monuser
       API_PASSWORD: ${NUT_CLIENT_PASSWORD}
+      # seconds of stale UPS data tolerated before the health check restarts upsmon
+      STALE_GRACE: "180"
     volumes:
       # Custom driver config (low-battery safety margin). The image copies
       # /etc/nut/local/ups.conf over its generated one.
