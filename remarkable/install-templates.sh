@@ -12,7 +12,7 @@
 #
 # Usage: RM_HOST=10.1.30.245 ./install-templates.sh
 #   Auth: set up SSH however you like (key, or sshpass/SSH_ASKPASS with the
-#   root password from op://kdk-ops/remarkable-device). SSH/SCP is invoked as
+#   root password from op://kdk-cluster/remarkable-device). SSH/SCP is invoked as
 #   plain `ssh`/`scp` so your agent/askpass config applies.
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"

@@ -14,4 +14,4 @@ the "read your notes/docs on the tablet" loop.
 
 Read-only on the vault (never writes back). Opportunistic (tablet-awake); Pushover on failure.
 
-**Secret:** `RM_PW` (`op://kdk-ops/remarkable-device/password`), op-injected into `.env`.
+**Secret:** `RM_PW` (`op://kdk-cluster/remarkable-device/password`), op-injected into `.env`.

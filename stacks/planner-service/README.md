@@ -27,7 +27,7 @@ Pages Pushover priority-1 on failure.
 
 ## Config (`.env` + compose, op-injected)
 
-`ICS_URL` = `op://kdk-ops/proton-calendar-ics/url` (the Proton share link — a secret;
+`ICS_URL` = `op://kdk-cluster/proton-calendar-ics/url` (the Proton share link — a secret;
 anyone with it reads the calendar), `WEEK_DAYS`. Delivery uses the shared rmapi device
 auth mounted at `/config/.rmapi` (`RMAPI_HOST=http://rmfakecloud:3000`, registered once
 against rmfakecloud — same `.rmapi` as `readwise-to-remarkable`); no device password
@@ -36,4 +36,4 @@ needed. The container joins the external `apps_default` network to reach `rmfake
 ## Get the Proton ICS link
 
 Proton Calendar → the calendar's **⋯ → Share → Share with anyone (via link)** → copy the
-URL → store it at `op://kdk-ops/proton-calendar-ics/url`. Then deploy the stack.
+URL → store it at `op://kdk-cluster/proton-calendar-ics/url`. Then deploy the stack.

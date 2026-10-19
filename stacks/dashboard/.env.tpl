@@ -31,7 +31,7 @@ VIKUNJA_TOKEN_JMACK={{ op://kdk-cluster/vikunja-api-rw/credential }}
 # ---- P3: household calendar (Proton "Share via link" ICS) ---------------------
 # Reused from planner-service (kdk-ops, read-only). The calendar widget in
 # config/services.yaml reads this via the HOMEPAGE_VAR_ICS_URL variable.
-HOMEPAGE_VAR_ICS_URL={{ op://kdk-ops/proton-calendar-ics/url }}
+HOMEPAGE_VAR_ICS_URL={{ op://kdk-cluster/proton-calendar-ics/url }}
 
 # ---- P2: mealplan sidecar (dedicated Tandoor account) -------------------------
 # Create: op item "dashboard-tandoor-rw" in kdk-cluster with fields `username`/`password`.
