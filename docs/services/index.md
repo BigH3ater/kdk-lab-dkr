@@ -19,7 +19,7 @@ Stack definitions live in `stacks/` in the repo; Komodo deploys them from git. O
 | [Immich](immich.md) | kdk-dkr-dmz-01 | https://immich.kmkdp.com | immich |
 | [Seerr](seerr.md) | kdk-dkr-dmz-01 | https://seerr.kmkdp.com | dmz-apps |
 | [Backups](backups.md) | both VMs | — | backup-* |
-| [Observability](observability.md) | kdk-mon-01 + kdk-dkr-01 | http://10.1.20.30:3000 | monitoring, loki, observability-agent |
+| [Observability](observability.md) | kdk-mon-01 + kdk-dkr-01 | https://grafana.kmkdp.com (fallback http://10.1.20.30:3000) | monitoring, loki, observability-agent |
 | [NUT (UPS)](nut.md) | kdk-dkr-03 | 10.1.30.22:3493 (NUT; 10.1.3.62 on the UPS L2) | nut |
 | [Home Assistant](home-assistant.md) | kdk-dkr-02 | http://10.1.30.21:8123 | home-assistant (adopted) |
 

@@ -34,7 +34,7 @@ STATIC = {
     "pve.kmkdp.com":            "10.1.1.100",
     "pbs.kmkdp.com":            "10.1.1.102",
     "truenas.kmkdp.com":        "10.1.3.5",
-    "grafana.kmkdp.com":        "10.1.20.30",   # mon-01 (pending: front w/ Traefik?)
+    "grafana.kmkdp.com":        "10.1.20.20",   # fronted by Traefik: stacks/proxy/dynamic/grafana.yml (file provider, not a label, so listed here)
     "grafana-embed.kmkdp.com":  "10.1.20.30",
     # host FQDNs
     "kdk-gw-01.kmkdp.com":      "10.1.3.1",

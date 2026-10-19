@@ -24,7 +24,7 @@ Metrics + alerting live on the independent monitor [[kdk-mon-01]]; logs live on 
 | Logs | Loki 3.5.5 on [[kdk-dkr-01]], storage on `vmpool/loki` (NVMe) via NFS, 30-day retention |
 | Collection | per-host `observability-agent` (cAdvisor + Alloy + **docker-event-watch**); `node-exporter` on the two VMs |
 | Fan control | two `tigerblue77` containers on [[kdk-mon-01]]; `fanctl-hyp` **active** (R720 ~3000 RPM, 20%), `fanctl-nas` **active** (R730xd ~4800 RPM, 20%) |
-| Web UI | Grafana `http://10.1.20.30:3000` — Prometheus + Loki datasources; Explore for logs |
+| Web UI | Grafana `https://grafana.kmkdp.com` (via Traefik on kdk-dkr-01; direct fallback `http://10.1.20.30:3000` when dkr-01 is down) — Prometheus + Loki datasources; Explore for logs |
 | Blast radius | Loss of dashboards/log search; the mon-01 alerting path is independent of the rest |
 
 ## Verify

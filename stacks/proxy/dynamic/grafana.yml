@@ -1,0 +1,32 @@
+# grafana.kmkdp.com -> Grafana on kdk-mon-01 (2026-10-19).
+#
+# Grafana lives in the standalone monitoring stack on the Pi, not on this
+# host, so the docker provider cannot discover it; this file-provider route is
+# the only way the name reaches it. Traefik watches this directory, so a
+# redeploy that pulls the repo clone is enough -- no container restart.
+#
+# The name existed on the k3s cluster and was never recreated after the move
+# to Komodo (Authelia still carries its OIDC redirect URI). Until now the
+# wildcard sent it here and Traefik answered 404.
+#
+# Trade, stated: kdk-dkr-01 becomes a dependency for reaching Grafana by
+# NAME. It is not a dependency for alerting, which runs on mon-01 alone, and
+# the direct address http://10.1.20.30:3000 stays published as the outage
+# fallback -- the whole point of the monitoring stack living on its own board.
+#
+# No forwardauth middleware, on purpose: Grafana keeps its own login so the
+# auth tier is not between you and the dashboard you opened because the
+# cluster is down (see the GF_AUTH comment in stacks/monitoring/compose.yaml).
+http:
+  routers:
+    grafana:
+      rule: "Host(`grafana.kmkdp.com`)"
+      entrypoints: websecure
+      service: grafana
+      tls:
+        certresolver: cf
+  services:
+    grafana:
+      loadBalancer:
+        servers:
+          - url: "http://10.1.20.30:3000"
