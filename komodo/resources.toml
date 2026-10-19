@@ -1069,7 +1069,17 @@ project_name = "monitoring"
 repo = "BigH3ater/kdk-lab-dkr"
 run_directory = "stacks/monitoring"
 auto_pull = false  # images already local; Docker Hub rate-limits the Pi (registry denied) -- pull explicitly on version bumps
-pre_deploy.command = "sh -c 'cp -f /opt/kdk-lab/monitoring/.env .env'"
+# Alertmanager reads its Pushover/SMTP credentials from FILES bind-mounted out
+# of ./alertmanager/. Git does not carry them, so on a fresh clone Docker
+# "helpfully" creates empty DIRECTORIES at those paths and Alertmanager fails
+# every notification with "read token_file: is a directory" -- which is exactly
+# how paging was silently dead from 2026-09-21 until found 2026-10-19 (five
+# alert batches never reached Pushover). The Pi has no op CLI, so the files are
+# pre-rendered once into /opt/kdk-lab/monitoring/alertmanager/ (0400, uid 65534
+# = the alertmanager user) and installed into the clone here before every up.
+# rmdir only removes an EMPTY placeholder directory, so a real file is never
+# clobbered by mistake; install fails loudly if a source file is missing.
+pre_deploy.command = "sh -c 'cp -f /opt/kdk-lab/monitoring/.env .env && for f in pushover-app-token pushover-user-key proton-bridge-smtp-password; do if [ -d alertmanager/$f ]; then rmdir alertmanager/$f; fi; install -m 0400 -o 65534 -g 65534 /opt/kdk-lab/monitoring/alertmanager/$f alertmanager/$f || exit 1; done'"
 webhook_enabled = true
 
 [[stack]]

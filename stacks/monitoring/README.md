@@ -6,22 +6,34 @@ blackbox + idrac exporters, and the iDRAC fan controllers. It runs on **kdk-mon-
 
 ## Status: adopted (files-on-host), mirrored here
 
-This directory **mirrors** the live stack at `/opt/kdk-lab/monitoring` on kdk-mon-01,
-which Komodo currently manages as `files_on_host` (see `komodo/resources.toml`
-`monitoring-ext`). Changes are applied on the host and copied here for version
-tracking. It is **not yet git-linked-deployed** (Komodo cloning this repo) because:
+which Komodo deploys as the git-linked stack `monitoring-ext` (`komodo/resources.toml`:
+`repo` + `run_directory = stacks/monitoring`, `project_name = monitoring`). Two things
+are still rendered on the host rather than from 1Password, because kdk-mon-01 has no
+`op` CLI and no `/etc/komodo/op.env`:
 
-- Alertmanager reads secret **files** (`pushover-user-key`, `pushover-app-token`,
-  `proton-bridge-smtp-password`) that must be owned by the container UID
-  (`nobody:65534`) — rendering those in a git-clone run directory needs extra
-  `pre_deploy` handling.
-- kdk-mon-01 does not yet have the `op` CLI + `/etc/komodo/op.env`.
+- `.env` — hand-rendered at `/opt/kdk-lab/monitoring/.env`; `pre_deploy` copies it
+  next to the cloned compose. `.env.tpl` here is the cutover source (every item it
+  names now exists in `kdk-cluster`: `grafana-admin`, `kdk-lab-idrac-user`,
+  `kdk-ops/kdk-lab-idrac-fanctl-admin`).
+- Alertmanager's secret **files** (`pushover-user-key`, `pushover-app-token`,
+  `proton-bridge-smtp-password`) — pre-rendered once at
+  `/opt/kdk-lab/monitoring/alertmanager/` (0400, uid 65534 = the alertmanager user)
+  from `kdk-cluster/pushover-kdk-lab` and `proton-bridge-smtp-incluster`; `pre_deploy`
+  installs them into the clone before every `up`.
 
-**To git-link (follow-up):** install op CLI + `op.env` on kdk-mon-01, resolve the
-secret-file rendering (render pushover/smtp files in `pre_deploy` and `chown 65534`),
-confirm the `.env.tpl` item names, then switch `monitoring-ext` in `resources.toml`
-to a repo stack (`repo`, `run_directory = stacks/monitoring`, `pre_deploy` op inject,
-`project_name = monitoring`). Named volumes (`monitoring_*`) persist across the switch.
+**Why the install step exists (incident 2026-10-19):** git does not carry those files,
+so on the first git-linked deploy (2026-09-21) Docker created empty *directories* at
+the bind-mount paths. Alertmanager loaded fine, Prometheus kept firing, and every
+notification failed with `read token_file: ... is a directory` — paging was silently
+dead for four weeks (five alert batches, EndpointDown/InstanceDown/CadvisorDown, never
+reached Pushover). Fix = replace the placeholders with the real files and **recreate**
+(not restart) the container: a restart fails with "not a directory" because the
+container rootfs still has directories at the mount points. The `pre_deploy` now does
+the rmdir+install every deploy so a re-clone cannot regress it.
+
+**To finish the cutover (follow-up):** install the op CLI + `op.env` on kdk-mon-01,
+then switch `pre_deploy` to `op inject` for `.env` and `op read` for the three files.
+Named volumes (`monitoring_*`) are unaffected.
 
 ## Fan control
 
