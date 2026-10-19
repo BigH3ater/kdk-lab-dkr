@@ -26,11 +26,16 @@ input_button:
   rr_daily_clean:    { name: "Roborock Daily Clean", icon: mdi:broom }
   rr_mop_all_floors: { name: "Roborock Mop All Floors", icon: mdi:bucket }
   rr_return_dock:    { name: "Roborock Return to Dock", icon: mdi:home-import-outline }
+  # --- maintenance ---
+  rr_tanks_swapped:  { name: "Roborock Water Tanks Swapped", icon: mdi:cup-water }
 
 input_datetime:
   rr_last_mop_run: { name: "Roborock Last Mop Run", has_date: true, has_time: true }
   rr_next_run:     { name: "Roborock Next Scheduled Run", has_date: true, has_time: true }
   rr_next_mop:     { name: "Roborock Next Mop Run", has_date: true, has_time: true }
+  # weekly clean/dirty tank swap (spare pair rotates in; anti-mold) — set by
+  # input_button.rr_tanks_swapped or the "Swapped" action on the reminder
+  rr_last_tank_swap: { name: "Roborock Last Water Tank Swap", has_date: true, has_time: true }
   # per-room last-cleaned stamps — set by Node-RED when it dispatches/completes a
   # room (it is the sole dispatcher; the vacuum's own current-room sensor uses the
   # stale internal room names and is not trustworthy)
@@ -66,6 +71,7 @@ script:
       message: { description: "Alert body, or clear_notification" }
       tag: { description: Alert kind (replace/clear key) }
       urgent: { description: true = time-sensitive (breaks Focus) }
+      actions: { description: "Optional iOS action buttons: [{action: ID, title: Text}]" }
     sequence:
       - variables:
           payload:
@@ -75,6 +81,7 @@ script:
               tag: "{{ tag | default('rr_generic') }}"
               group: roborock
               url: /roborock-vac/0
+              actions: "{{ actions | default([]) }}"
               push:
                 interruption-level: "{{ 'time-sensitive' if urgent | default(false) | bool else 'active' }}"
       - action: notify.mobile_app_iphone
@@ -99,6 +106,17 @@ command_line:
       json_attributes:
         - open
       scan_interval: 900
+
+# Days since the last weekly water-tank swap (dashboard). Unavailable until the
+# first swap is recorded.
+template:
+  - sensor:
+      - name: rr_tank_swap_age
+        unique_id: rr_tank_swap_age
+        unit_of_measurement: d
+        icon: mdi:cup-water
+        availability: "{{ state_attr('input_datetime.rr_last_tank_swap', 'timestamp') | float(0) > 946684800 }}"
+        state: "{{ ((now().timestamp() - state_attr('input_datetime.rr_last_tank_swap', 'timestamp') | float(0)) / 86400) | round(1) }}"
 
 # Off-charger alert. 2026-10-12: the vacuum went charger_disconnected on the
 # dock, idled on battery, and powered itself off exactly 12 h later; two daily
@@ -155,6 +173,95 @@ automation:
                 data:
                   message: clear_notification
                   tag: rr_off_charger
+
+  # Weekly water-tank swap (2026-10-18): a spare clean + dirty tank pair rotates
+  # in every week so the used pair can be rinsed and dried (mold). 18:00 daily
+  # nag once 7 days have passed since the last recorded swap; the iOS "Swapped"
+  # button (or input_button.rr_tanks_swapped) records it and clears the alert.
+  - id: rr_tank_swap_reminder
+    alias: "Roborock: weekly water-tank swap reminder"
+    mode: single
+    triggers:
+      - trigger: time
+        at: "18:00:00"
+    conditions:
+      - condition: template
+        value_template: >-
+          {{ now().timestamp() - (state_attr('input_datetime.rr_last_tank_swap', 'timestamp') | float(0))
+             > 6.5 * 86400 }}
+    actions:
+      - action: script.rr_notify
+        data:
+          title: "Swap Mr. Slave's water tanks"
+          message: >-
+            {% set ts = state_attr('input_datetime.rr_last_tank_swap', 'timestamp') | float(0) %}
+            {{ 'No swap recorded yet.' if ts < 946684800 else
+               'Last swap ' ~ ((now().timestamp() - ts) / 86400) | round(0) | int ~ ' days ago.' }}
+            Put the spare clean (filled) and dirty tanks in the dock, then rinse the
+            used pair and let them air-dry with the lids off. Tap Swapped when done.
+          tag: rr_tank_swap
+          actions:
+            - action: RR_TANKS_SWAPPED
+              title: "Swapped ✓"
+
+  - id: rr_tank_swap_done
+    alias: "Roborock: record water-tank swap"
+    mode: single
+    triggers:
+      - trigger: state
+        entity_id: input_button.rr_tanks_swapped
+        not_from: [unknown, unavailable]
+      - trigger: event
+        event_type: mobile_app_notification_action
+        event_data:
+          action: RR_TANKS_SWAPPED
+    actions:
+      - action: input_datetime.set_datetime
+        target:
+          entity_id: input_datetime.rr_last_tank_swap
+        data:
+          timestamp: "{{ now().timestamp() }}"
+      - action: script.rr_notify
+        data:
+          message: clear_notification
+          tag: rr_tank_swap
+
+  # Both dock tanks report a problem while they're out; both clearing within
+  # ~30 min of each other looks like a swap (or an empty + refill). Ask rather
+  # than assume, unless a swap was already logged in the last day.
+  - id: rr_tank_swap_detect
+    alias: "Roborock: tanks back in the dock — confirm swap"
+    mode: single
+    triggers:
+      - trigger: state
+        entity_id:
+          - binary_sensor.mr_slave_dock_clean_water_box
+          - binary_sensor.mr_slave_dock_dirty_water_box
+        from: "on"
+        to: "off"
+        for: "00:02:00"
+    conditions:
+      - condition: state
+        entity_id:
+          - binary_sensor.mr_slave_dock_clean_water_box
+          - binary_sensor.mr_slave_dock_dirty_water_box
+        state: "off"
+      - condition: template
+        value_template: >-
+          {{ now() - states.binary_sensor.mr_slave_dock_clean_water_box.last_changed < timedelta(minutes=35)
+             and now() - states.binary_sensor.mr_slave_dock_dirty_water_box.last_changed < timedelta(minutes=35) }}
+      - condition: template
+        value_template: >-
+          {{ now().timestamp() - (state_attr('input_datetime.rr_last_tank_swap', 'timestamp') | float(0)) > 86400 }}
+    actions:
+      - action: script.rr_notify
+        data:
+          title: "Water tanks back in the dock"
+          message: Was this the weekly swap? Tap Swapped to log it and reset the 7-day reminder.
+          tag: rr_tank_swap
+          actions:
+            - action: RR_TANKS_SWAPPED
+              title: "Swapped ✓"
 
 # HomeKit bridge exposes the vacuum, per-room clean buttons, and routines to
 # Apple Home (include list lives in .storage/core.config_entries on the host).
