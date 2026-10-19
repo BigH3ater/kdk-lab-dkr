@@ -59,6 +59,11 @@ input_text:
   rr_run_phase: { name: "Roborock Run Phase", max: 255, icon: mdi:progress-check }
   rr_run_near:  { name: "Roborock Run Near", max: 100, icon: mdi:map-marker }
 
+# Set when the off-charger alert actually pages, so docking only sends a clear
+# for an alert that exists (it used to clear on every dock, ~14 a day).
+input_boolean:
+  rr_off_charger_alerted: { name: "Roborock Off-Charger Alert Sent", icon: mdi:power-plug-off }
+
 # One sink for every Roborock phone alert (Node-RED run failures + the alert
 # automations). tag replaces an earlier alert of the same kind; message
 # "clear_notification" with the same tag removes it from both phones.
@@ -122,7 +127,7 @@ template:
 # dock, idled on battery, and powered itself off exactly 12 h later; two daily
 # runs then failed against an unavailable entity with no phone alert. Fire while
 # it's still recoverable (30 min off the charger), and again if it has already
-# gone dark. Clears from both phones once it's charging again.
+# gone dark. Once it's charging again, clears from both phones if it paged.
 automation:
   - id: rr_off_charger_alert
     alias: "Roborock: off the charger alert"
@@ -156,6 +161,8 @@ automation:
                     off after ~12 h off the dock — seat it on the charger.
                   tag: rr_off_charger
                   urgent: true
+              - action: input_boolean.turn_on
+                target: { entity_id: input_boolean.rr_off_charger_alerted }
           - conditions: "{{ trigger.id == 'offline' }}"
             sequence:
               - action: script.rr_notify
@@ -167,12 +174,18 @@ automation:
                     cleans will fail until it reconnects.
                   tag: rr_off_charger
                   urgent: true
-          - conditions: "{{ trigger.id == 'charging' }}"
+              - action: input_boolean.turn_on
+                target: { entity_id: input_boolean.rr_off_charger_alerted }
+          - conditions: >-
+              {{ trigger.id == 'charging'
+                 and is_state('input_boolean.rr_off_charger_alerted', 'on') }}
             sequence:
               - action: script.rr_notify
                 data:
                   message: clear_notification
                   tag: rr_off_charger
+              - action: input_boolean.turn_off
+                target: { entity_id: input_boolean.rr_off_charger_alerted }
 
   # Weekly water-tank swap (2026-10-18): a spare clean + dirty tank pair rotates
   # in every week so the used pair can be rinsed and dried (mold). 18:00 daily

@@ -1951,10 +1951,94 @@
         "y": 1050,
         "wires": [
             [
-                "s_63"
+                "d_mopchk"
             ],
             [
                 "f_to_w_62"
+            ]
+        ],
+        "g": "g_sweep"
+    },
+    {
+        "id": "d_mopchk",
+        "type": "delay",
+        "z": "rr_tab_1",
+        "name": "settle (mop routine done?)",
+        "pauseType": "delay",
+        "timeout": "180",
+        "timeoutUnits": "seconds",
+        "rate": "1",
+        "nbRateUnits": "1",
+        "rateUnits": "second",
+        "randomFirst": "1",
+        "randomLast": "5",
+        "randomUnits": "seconds",
+        "drop": false,
+        "allowrate": false,
+        "outputs": 1,
+        "x": 1060,
+        "y": 1000,
+        "wires": [
+            [
+                "f_mopchk"
+            ]
+        ],
+        "g": "g_sweep"
+    },
+    {
+        "id": "f_mopchk",
+        "type": "function",
+        "z": "rr_tab_1",
+        "name": "mop routine finished?",
+        "func": "if (flow.get('rr_cancel')) { node.status({fill:'red',text:'cancelled'}); return [null, null]; }\nconst _ha = global.get('homeassistant') || {};\nconst _st = (Object.values(_ha).find(v => v && v.states) || {}).states || {};\n// The \"Mopping\" routine is several jobs (one per room/area). The robot docks\n// and washes between them, and recharges mid-routine with the job still open\n// (binary_sensor cleaning stays on). Only call the pass done once cleaning has\n// been off for a few minutes; otherwise wait for the current job to end (2026-10-19:\n// the first 15-min step was logged as the whole pass, the rest ran ~3 h).\nconst c = _st['binary_sensor.mr_slave_cleaning_2'] || {};\nconst offFor = c.state === 'off' ? (Date.now() - Date.parse(c.last_changed)) / 1000 : 0;\nconst n = (msg.rr_mop_docks || 0) + 1;\nmsg.rr_mop_docks = n;\nif (c.state === 'off' && offFor >= 150) {\n    node.status({fill:'green', text:`mop pass done after ${n} dock(s)`});\n    return [msg, null];\n}\nif (n >= 40) {\n    node.status({fill:'yellow', text:`giving up after ${n} docks; marking done`});\n    return [msg, null];\n}\nnode.status({fill:'blue', text:`routine still running (dock ${n}, cleaning ${c.state || '?'})`});\nreturn [null, msg];",
+        "outputs": 2,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1260,
+        "y": 1000,
+        "wires": [
+            [
+                "s_63"
+            ],
+            [
+                "w_mopoff"
+            ]
+        ],
+        "g": "g_sweep"
+    },
+    {
+        "id": "w_mopoff",
+        "type": "ha-wait-until",
+        "z": "rr_tab_1",
+        "name": "wait cleaning off (mop routine)",
+        "server": "38978576.ca0eea",
+        "outputs": 2,
+        "outputProperties": [],
+        "entityId": "binary_sensor.mr_slave_cleaning_2",
+        "entityIdType": "exact",
+        "property": "state",
+        "comparator": "is",
+        "value": "off",
+        "valueType": "str",
+        "timeout": "300",
+        "timeoutType": "num",
+        "timeoutUnits": "minutes",
+        "entityLocation": "",
+        "entityLocationType": "none",
+        "checkCurrentState": true,
+        "blockInputOverrides": true,
+        "outputThenReasons": false,
+        "x": 1460,
+        "y": 1000,
+        "wires": [
+            [
+                "d_mopchk"
+            ],
+            [
+                "d_mopchk"
             ]
         ],
         "g": "g_sweep"
