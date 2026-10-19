@@ -61,6 +61,17 @@ imminent), `CHRG` while charging.
   (2026-10-07, 2026-10-17: NUT on kdk-dkr-01 crash-looped for hours, no UPS
   protection). A card-only restart clears it; the L2 leg avoids needing one. The `netxml-ups`
   scheme is mandatory (`http://`), not just an IP.
+- **Switch reboot → short blip, no action needed.** When kdk-asw-01 (the
+  card's switch) or kdk-csw-01 (the Pi's uplink) reboots, the card is
+  unreachable for ~2 min: upsd reports `Data stale`, upsmon on the clients
+  logs "UPS unavailable", and everything reconnects by itself once the switch
+  is back (validated live 2026-10-18 during the firmware downgrade: blind for
+  1 min 58 s, self-recovered). The compose health check tolerates
+  `STALE_GRACE` (180 s) of stale data before it restarts upsmon, and
+  `ups.conf` lets the driver retry for 5 min at start-up, so the container no
+  longer restart-loops through the outage. If it is still stale after the
+  grace, the stock behaviour kicks in: upsmon is killed, the container
+  restarts, and the driver reconnects when the card answers.
 - **A client isn't shutting down** — check its upsmon is connected
   (`upsc eaton-5px@10.1.30.22`) and that `monuser`'s password matches the
   server. On Proxmox: `journalctl -u nut-monitor`.
