@@ -210,11 +210,16 @@ automation:
     triggers:
       - trigger: state
         entity_id: input_button.rr_tanks_swapped
-        not_from: [unknown, unavailable]
+        # Not "unknown": a never-pressed button is unknown, so excluding it
+        # swallowed the first press (2026-10-18). Reload/restart is covered by
+        # "unavailable" and the from_state check below.
+        not_from: unavailable
       - trigger: event
         event_type: mobile_app_notification_action
         event_data:
           action: RR_TANKS_SWAPPED
+    conditions:
+      - "{{ trigger.platform != 'state' or trigger.from_state is not none }}"
     actions:
       - action: input_datetime.set_datetime
         target:
