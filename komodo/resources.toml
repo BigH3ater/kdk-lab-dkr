@@ -153,6 +153,12 @@ destroy_before_deploy = true   # one locked down+up (stage execs run in parallel
 # Pull app state from the three hosts NOT on the storage NFS net
 # (kdk-dkr-02/03, kdk-mon-01) into the shared backup tree. Renders the kdkadmin
 # SSH key from 1Password (op read -> ./id_kdk, 0600) in pre_deploy.
+# DELIBERATE EXCEPTION to the "stacks only reference kdk-cluster" rule
+# (2026-10-19): kdkadmin-ssh-key is the operator's host-admin key for every
+# box, so it stays in kdk-ops (management). This is the only container that
+# reads it. Follow-up: give backup-collect its own restricted key
+# (backup-collect-ssh-key in kdk-cluster, forced-command/rsync-only on
+# dkr-02/03/mon-01) and retire this reference.
 [[stack]]
 tags = ["kdk-lab"]
 name = "backup-collect"
@@ -162,7 +168,7 @@ server = "kdk-dkr-01"
 repo = "BigH3ater/kdk-lab-dkr"
 run_directory = "stacks/backup-collect"
 destroy_before_deploy = true   # one locked down+up (stage execs run in parallel)
-pre_deploy.command = "sh -c '. /etc/komodo/op.env && op read \"op://kdk-cluster/kdkadmin-ssh-key/private key?ssh-format=openssh\" > id_kdk && chmod 600 id_kdk'"
+pre_deploy.command = "sh -c '. /etc/komodo/op.env && op read \"op://kdk-ops/kdkadmin-ssh-key/private key?ssh-format=openssh\" > id_kdk && chmod 600 id_kdk'"
 
 # Ship the whole backup tree (all hosts) to Proton, encrypted. Runs after the
 # staging stages. Excludes regenerable caches, repo clones, and the rclone creds.
