@@ -263,5 +263,61 @@ automation:
             - action: RR_TANKS_SWAPPED
               title: "Swapped ✓"
 
+  # Clean-water tank empty. The dock reports it as dock_error water_empty (seen
+  # 2026-10-09 and 10-18); the robot's own water_shortage flag is a second
+  # source. 10 min debounce so pulling the tank for a swap doesn't page. A
+  # time-sensitive repeat at 07:45 if it's still empty before the daily run
+  # (weekdays 08:30, weekends 12:00), since mop days need the water. Clears from
+  # both phones once the dock is happy again.
+  - id: rr_water_empty_alert
+    alias: "Roborock: clean water tank empty"
+    mode: queued
+    triggers:
+      - trigger: state
+        id: empty
+        entity_id: sensor.mr_slave_dock_dock_error
+        to: water_empty
+        for: "00:10:00"
+      - trigger: state
+        id: empty
+        entity_id: binary_sensor.mr_slave_water_shortage_2
+        to: "on"
+        for: "00:10:00"
+      - trigger: time
+        id: morning
+        at: "07:45:00"
+      - trigger: state
+        id: refilled
+        entity_id: sensor.mr_slave_dock_dock_error
+        from: water_empty
+        for: "00:01:00"
+      - trigger: state
+        id: refilled
+        entity_id: binary_sensor.mr_slave_water_shortage_2
+        from: "on"
+        for: "00:01:00"
+    variables:
+      empty: >-
+        {{ is_state('sensor.mr_slave_dock_dock_error', 'water_empty')
+           or is_state('binary_sensor.mr_slave_water_shortage_2', 'on') }}
+    actions:
+      - choose:
+          - conditions: "{{ trigger.id in ['empty', 'morning'] and empty }}"
+            sequence:
+              - action: script.rr_notify
+                data:
+                  title: "Mr. Slave needs clean water"
+                  message: >-
+                    The clean-water tank is empty. Fill it (or drop in the spare)
+                    before the next run{{ ' — mopping is skipped without it' if now().weekday() in [0, 4] else '' }}.
+                  tag: rr_water_empty
+                  urgent: "{{ trigger.id == 'morning' }}"
+          - conditions: "{{ trigger.id == 'refilled' and not empty }}"
+            sequence:
+              - action: script.rr_notify
+                data:
+                  message: clear_notification
+                  tag: rr_water_empty
+
 # HomeKit bridge exposes the vacuum, per-room clean buttons, and routines to
 # Apple Home (include list lives in .storage/core.config_entries on the host).
