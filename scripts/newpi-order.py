@@ -13,7 +13,7 @@ the cart at shop.newpi.coop, pick the DoorDash slot, pay.
 Usage (from the workstation; SSH + op access assumed):
   scripts/newpi-order.py            # dry run: match table + Penzeys section
   scripts/newpi-order.py --cart     # ALSO add matches to the logged-in Co-op Cart
-                                    # (requires op://kdk-cluster/newpi-coop-cart)
+                                    # (requires op://kdk-ops/newpi-coop-cart)
 
 Tandoor read path: Django ORM over SSH (docker exec tandoor-web), same lane the
 recipe agent uses -- REST tokens are disabled in this install.
@@ -118,7 +118,7 @@ def main():
 
     if args.cart:
         print("\n--cart: authenticated cart-add is P2 -- endpoint discovery pending a real "
-              "login session (op://kdk-cluster/newpi-coop-cart). Dry-run output above is "
+              "login session (op://kdk-ops/newpi-coop-cart). Dry-run output above is "
               "what would be added. See docs/runbooks/grocery-orders.md.")
 
 

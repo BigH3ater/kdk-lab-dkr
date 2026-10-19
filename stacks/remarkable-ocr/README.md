@@ -31,7 +31,7 @@ anything else → `00.Inbox/Unsorted`. (Mirrors `90.Meta/Routing.md` in the vaul
 ## Config (`.env`, op-injected)
 
 `RM_HOST` (tablet LAN IP — reserve it in DHCP so it doesn't drift), `RM_PW`
-(`op://kdk-ops/remarkable-device`), `OLLAMA_URL`, `OCR_MODEL`, `RM_FOLDER`.
+(`op://kdk-cluster/remarkable-device`), `OLLAMA_URL`, `OCR_MODEL`, `RM_FOLDER`.
 Tunables: `MIN_STROKES` (3), `MAX_RETRY` (4).
 
 ## Run manually

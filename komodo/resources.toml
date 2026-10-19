@@ -153,6 +153,12 @@ destroy_before_deploy = true   # one locked down+up (stage execs run in parallel
 # Pull app state from the three hosts NOT on the storage NFS net
 # (kdk-dkr-02/03, kdk-mon-01) into the shared backup tree. Renders the kdkadmin
 # SSH key from 1Password (op read -> ./id_kdk, 0600) in pre_deploy.
+# DELIBERATE EXCEPTION to the "stacks only reference kdk-cluster" rule
+# (2026-10-19): kdkadmin-ssh-key is the operator's host-admin key for every
+# box, so it stays in kdk-ops (management). This is the only container that
+# reads it. Follow-up: give backup-collect its own restricted key
+# (backup-collect-ssh-key in kdk-cluster, forced-command/rsync-only on
+# dkr-02/03/mon-01) and retire this reference.
 [[stack]]
 tags = ["kdk-lab"]
 name = "backup-collect"
@@ -937,7 +943,7 @@ webhook_enabled = true
 
 # Always-on headless Obsidian Sync node: keeps a local copy of the vault at
 # /opt/kdk-lab/obsidian/vault for the lab services to read/write. Auth token +
-# vault name/password via op inject (op://kdk-ops/obsidian-sync/*); the remote
+# vault name/password via op inject (op://kdk-cluster/obsidian-sync/*); the remote
 # vault must exist and the token be generated once (get-token). No ingress.
 [[stack]]
 tags = ["kdk-lab"]
@@ -996,7 +1002,7 @@ webhook_enabled = true
 # Tailscale subnet router on kdk-dkr-01: advertises the lab subnets
 # (10.1.1/20/21/30.0/24) to the tailnet so remote members + the reMarkable reach
 # lab services without public exposure. Auth = the Tailscale OAuth client secret
-# (op://kdk-ops/tailscale-admin-api) as TS_AUTHKEY + tag:subnet-router; routes
+# (op://kdk-cluster/tailscale-admin-api) as TS_AUTHKEY + tag:subnet-router; routes
 # auto-approve via the ACL autoApprovers. Host networking + NET_ADMIN.
 [[stack]]
 tags = ["kdk-lab"]

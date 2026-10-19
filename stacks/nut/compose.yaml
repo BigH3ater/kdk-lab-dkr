@@ -5,7 +5,7 @@
 # credentials are needed for read-only monitoring (verified live 2026-09-15).
 #
 # upsd listens on 3493 for Home Assistant's NUT integration, which authenticates
-# as the 'monuser' upsd user (password from op://kdk-ops/kdk-ups-01-nut-upsd,
+# as the 'monuser' upsd user (password from op://kdk-cluster/kdk-ups-01-nut-upsd,
 # rendered into .env by the Komodo pre_deploy op inject).
 name: nut
 services:

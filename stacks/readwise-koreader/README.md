@@ -16,8 +16,8 @@ so highlights you make land in KOReader `.sdr` sidecars and flow to Obsidian via
   ("Use Chaptarr where possible" — Chaptarr can't fetch web articles, so this small fetcher
   handles Readwise, but delivery reuses book-sync's KOReader file-push.)
 
-**Secrets:** `READWISE_TOKEN` (`op://kdk-cluster/Readwise-token-ro`), `RM_PW`
-(`op://kdk-ops/remarkable-device`) — op-injected into `.env` by the pre_deploy step.
+**Secrets:** `READWISE_TOKEN` (`op://kdk-cluster/readwise-token-ro`), `RM_PW`
+(`op://kdk-cluster/remarkable-device`) — op-injected into `.env` by the pre_deploy step.
 
 **Status (2026-09-18):** built, **not yet deployed/live-tested** — needs a run against the
 live Readwise API to confirm the v3 tag filter + EPUB render, and confirmation of the

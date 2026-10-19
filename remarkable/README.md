@@ -25,7 +25,7 @@ rmfakecloud stays **internal (LAN)**; the tablet syncs with it on home Wi-Fi.
 ## Access
 
 - **LAN (Wi-Fi):** `root@10.1.30.245` (VLAN 30), password in 1Password
-  `op://kdk-ops/remarkable-device`. Wi-Fi SSH is enabled by the persistent marker
+  `op://kdk-cluster/remarkable-device`. Wi-Fi SSH is enabled by the persistent marker
   `/data/internal/rm_enable_ssh_wifi_marker` + the baked `dropbear-wlan.socket`,
   so it survives reboots.
 - **USB:** `root@10.11.99.1`.

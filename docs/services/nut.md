@@ -27,7 +27,7 @@ plugged into a host by USB.
 | Driver | `netxml-ups` over `http://10.1.3.63` — the card serves its XML **anonymously**, so no device credentials are needed |
 | Server | `upsd` in the `nut` stack on [[kdk-dkr-03]] (Pi 5), listening on `:3493` — `10.1.30.22` (VLAN 30) and `10.1.3.62` (VLAN 1, the card's L2). Image `instantlinux/nut-upsd`, pinned by digest (multi-arch) |
 | UPS path | Host leg `eth1.1` = tagged VLAN 1 on kdk-csw-01 port 19, `10.1.3.62/24`, **no gateway** (`hosts/kdk-dkr-03/kdk-ups-l2.nmconnection`). NUT must reach the card on L2 — see Troubleshooting |
-| upsd user | `monuser` (password `op://kdk-ops/kdk-ups-01-nut-upsd`) |
+| upsd user | `monuser` (password `op://kdk-cluster/kdk-ups-01-nut-upsd`) |
 | Clients | [[kdk-nas-01]] (TrueNAS native UPS service, SLAVE mode, → `10.1.3.62`) and [[kdk-hyp-01]] (Proxmox `nut-client` upsmon, → `10.1.30.22`) — both **secondary**, both shut down on low battery |
 | Low-battery margin | `ignorelb` + `override.battery.charge.low=30` / `runtime.low=360` → LB fires with **~6 min** of runtime, not the card's ~3 min |
 | Consumer | [[home-assistant]] NUT integration (battery, load, status, voltages) |
@@ -102,7 +102,7 @@ CLI; Komodo pre_deploy copies it in). Consumed by [[home-assistant]] and, on pow
 
 ## Secret Rotation
 
-Rotate `op://kdk-ops/kdk-ups-01-nut-upsd` (the `monuser` password), rewrite
+Rotate `op://kdk-cluster/kdk-ups-01-nut-upsd` (the `monuser` password), rewrite
 kdk-dkr-03:`/opt/kdk-lab/nut/.env` (`NUT_CLIENT_PASSWORD=...`, 0600 root), then
 redeploy the `nut` stack, update the Home Assistant NUT integration, and update the two clients (TrueNAS `ups.update`
 `monpwd`, Proxmox `upsmon.conf`). No device credentials to rotate — the card

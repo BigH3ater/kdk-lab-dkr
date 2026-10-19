@@ -140,7 +140,7 @@ def push_tablet(pdf_path):
     return True
 
 def main():
-    if not ICS_URL: raise SystemExit("ICS_URL not set (add op://kdk-ops/proton-calendar-ics/url)")
+    if not ICS_URL: raise SystemExit("ICS_URL not set (add op://kdk-cluster/proton-calendar-ics/url)")
     from zoneinfo import ZoneInfo
     today=datetime.datetime.now(ZoneInfo(TZ)).date()
     start=datetime.datetime.combine(today, datetime.time(0,0), ZoneInfo(TZ))

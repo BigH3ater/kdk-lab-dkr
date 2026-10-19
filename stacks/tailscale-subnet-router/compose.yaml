@@ -7,7 +7,7 @@
 # can't carry its sync; the tablet pipeline is lab-side SSH instead.)
 #
 # Auth: TS_AUTHKEY is the Tailscale OAuth client secret
-# (op://kdk-ops/tailscale-admin-api/api_token) — combined with
+# (op://kdk-cluster/tailscale-admin-api/api_token) — combined with
 # --advertise-tags=tag:subnet-router it registers as a tagged node. Node state
 # persists in the volume, so the key is only used at first registration.
 name: tailscale-subnet-router

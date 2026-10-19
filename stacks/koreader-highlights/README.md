@@ -15,5 +15,5 @@ Opportunistic (tablet-awake); Pushover on failure. This is the ingest leg of the
 reading loop — reading + highlighting happen on-device in KOReader; both `book-sync` (ebooks)
 and `readwise-koreader` (articles) feed KOReader, and their highlights land here.
 
-**Secret:** `RM_PW` (`op://kdk-ops/remarkable-device/password`), op-injected into `.env`.
+**Secret:** `RM_PW` (`op://kdk-cluster/remarkable-device/password`), op-injected into `.env`.
 Also available as a client-side alternative: the KOHi / KOReader Highlight Importer Obsidian plugins.

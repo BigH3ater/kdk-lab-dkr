@@ -45,6 +45,16 @@ Notes:
 
 ### Secrets
 
+**Vault rule (decided 2026-10-19):** `kdk-cluster` is the single source of truth for
+every item a container or stack reads (`op inject` / `op read` in `pre_deploy`).
+`kdk-ops` holds management items containers must *not* read: host root/admin
+logins, UI logins, tokens used by people or workstation scripts. A stack template
+therefore only ever references `op://kdk-cluster/...`. The service-account lane can
+read both vaults but write only `kdk-cluster`; moving an item between vaults is
+done in the 1Password app ("Move to vault"), then the refs follow in a PR.
+One documented exception: `backup-collect` reads `op://kdk-ops/kdkadmin-ssh-key`
+(the operator host key) until it gets a restricted key of its own.
+
 Never commit secrets. Add a `.env.tpl` with `op://` references and let Komodo
 render it at deploy time with a `pre_deploy` step (see step 2):
 
