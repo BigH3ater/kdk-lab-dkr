@@ -454,6 +454,14 @@ for (const s of stacks) {
   if (!tagged || SKIP.test(s.name)) continue;
   if (!s.info?.repo || s.info?.files_on_host) continue;
   if (s.info?.state === "stopped") continue;
+  // latest_hash is a CACHE. Komodo only refreshes it on its own poll timer or
+  // when the sync rewrites the stack's config, so after a merge most stacks
+  // still report the previous commit and this loop sees nothing behind
+  // (2026-10-19: merge at 17:48, the 18:00 run deployed only the one stack
+  // whose config had changed; every other latest_hash was 20 min stale).
+  // Refresh first so the comparison is against the real HEAD.
+  try { await komodo.write("RefreshStackCache", { stack: s.name }); }
+  catch (e) { console.log(`refresh failed ${s.name}: ${e}`); }
   const st: any = await komodo.read("GetStack", { stack: s.name });
   const dep = st?.info?.deployed_hash, lat = st?.info?.latest_hash;
   if (!dep || !lat || dep === lat) continue;
