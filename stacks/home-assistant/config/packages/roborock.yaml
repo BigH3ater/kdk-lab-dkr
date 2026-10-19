@@ -210,11 +210,16 @@ automation:
     triggers:
       - trigger: state
         entity_id: input_button.rr_tanks_swapped
-        not_from: [unknown, unavailable]
+        # Not "unknown": a never-pressed button is unknown, so excluding it
+        # swallowed the first press (2026-10-18). Reload/restart is covered by
+        # "unavailable" and the from_state check below.
+        not_from: unavailable
       - trigger: event
         event_type: mobile_app_notification_action
         event_data:
           action: RR_TANKS_SWAPPED
+    conditions:
+      - "{{ trigger.platform != 'state' or trigger.from_state is not none }}"
     actions:
       - action: input_datetime.set_datetime
         target:
@@ -286,6 +291,14 @@ automation:
       - trigger: time
         id: morning
         at: "07:45:00"
+      # A restart or automation reload resets the 10-min `for:` timers above, so a
+      # tank that is ALREADY empty never "becomes" empty (missed 2026-10-18).
+      - trigger: homeassistant
+        id: recheck
+        event: start
+      - trigger: event
+        id: recheck
+        event_type: automation_reloaded
       - trigger: state
         id: refilled
         entity_id: sensor.mr_slave_dock_dock_error
@@ -301,8 +314,15 @@ automation:
         {{ is_state('sensor.mr_slave_dock_dock_error', 'water_empty')
            or is_state('binary_sensor.mr_slave_water_shortage_2', 'on') }}
     actions:
+      - if: "{{ trigger.id == 'recheck' }}"
+        then:
+          - delay: "00:10:00"
+      - variables:
+          empty: >-
+            {{ is_state('sensor.mr_slave_dock_dock_error', 'water_empty')
+               or is_state('binary_sensor.mr_slave_water_shortage_2', 'on') }}
       - choose:
-          - conditions: "{{ trigger.id in ['empty', 'morning'] and empty }}"
+          - conditions: "{{ trigger.id in ['empty', 'morning', 'recheck'] and empty }}"
             sequence:
               - action: script.rr_notify
                 data:
