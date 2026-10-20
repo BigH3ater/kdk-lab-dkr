@@ -472,6 +472,12 @@ for (const s of stacks) {
   } catch (e) {
     console.log(`FAILED to queue ${s.name}: ${e}`);
   }
+  // DeployStack returns as soon as it is queued, so without a pause every
+  // behind stack pulls images in the same second. 2026-10-19 19:00: 33 deploys
+  // -> media hit the registry burst limit ("allowed: 44000/minute") and two
+  // stacks lost a containerd lease race on a shared base image. A few seconds
+  // between queues spreads the pulls; 33 stacks still converge inside ~3 min.
+  await new Promise((r) => setTimeout(r, 5000));
 }
 console.log(`behind: ${behind.join(", ") || "none"}`);
 console.log(`deploy-changed: queued ${fired} deploys`);
