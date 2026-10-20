@@ -352,5 +352,36 @@ automation:
                   message: clear_notification
                   tag: rr_water_empty
 
+  # Job still open at 21:55. Do-not-disturb (22:00-08:00) stops the robot from
+  # resuming after a recharge, so a mop routine or sweep that is recharging (or
+  # will need to) won't finish tonight. 2026-10-19 the Monday mop day ended at
+  # 18:26; this only fires on an unusually long day. No auto-clear: tag
+  # replaces it the next time, and a clear on every job end would be noise.
+  - id: rr_dnd_unfinished_alert
+    alias: "Roborock: job unfinished before do-not-disturb"
+    mode: single
+    triggers:
+      - trigger: time
+        at: "21:55:00"
+    conditions:
+      - condition: state
+        entity_id: binary_sensor.mr_slave_cleaning_2
+        state: "on"
+      - condition: state
+        entity_id: switch.mr_slave_do_not_disturb_2
+        state: "on"
+    actions:
+      - action: script.rr_notify
+        data:
+          title: "Mr. Slave won't finish tonight"
+          message: >-
+            {% set phase = states('input_text.rr_run_phase') %}
+            {% set st = states('sensor.mr_slave_status_2') | replace('_', ' ') %}
+            {{ phase if phase not in ['unknown', 'unavailable', ''] else 'A cleaning job' }}
+            is still open ({{ st }}, battery {{ states('sensor.mr_slave_battery_2') }}%,
+            {{ states('sensor.mr_slave_cleaning_progress_2') }}% done). Do-not-disturb
+            starts at 22:00, so it won't resume after a recharge until the next run.
+          tag: rr_dnd_unfinished
+
 # HomeKit bridge exposes the vacuum, per-room clean buttons, and routines to
 # Apple Home (include list lives in .storage/core.config_entries on the host).
