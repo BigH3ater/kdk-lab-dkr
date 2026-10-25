@@ -2445,6 +2445,35 @@
         "g": "g_maint"
     },
     {
+        "id": "s_95",
+        "type": "api-call-service",
+        "z": "rr_tab_1",
+        "name": "press mr_slave_reset_sensor_consumable_2",
+        "server": "38978576.ca0eea",
+        "version": 5,
+        "debugenabled": false,
+        "action": "button.press",
+        "floorId": [],
+        "areaId": [],
+        "deviceId": [],
+        "entityId": [],
+        "data": "{\"entity_id\": \"button.mr_slave_reset_sensor_consumable_2\"}",
+        "dataType": "json",
+        "mergeContext": "",
+        "mustacheAltTags": false,
+        "outputProperties": [],
+        "queue": "none",
+        "blockInputOverrides": true,
+        "domain": "",
+        "service": "",
+        "x": 2572,
+        "y": 1780,
+        "wires": [
+            []
+        ],
+        "g": "g_maint"
+    },
+    {
         "id": "i_vk1",
         "type": "inject",
         "z": "rr_tab_1",
@@ -2521,7 +2550,7 @@
         "type": "function",
         "z": "rr_tab_1",
         "name": "vik: completions -> resets",
-        "func": "// Vikunja repeat_mode=2: completing a chore rolls due_date and bumps done_at.\n// A done_at change since the last poll = the chore was just done in Vikunja.\nconst tasks = msg.payload;\nif (!Array.isArray(tasks)) return null;\nconst MAP = {42:0, 43:1, 44:2, 47:3};  // brush, bag, sensors, filter\nconst outs = [null, null, null, null];\nfor (const t of tasks) {\n    const idx = MAP[t.id];\n    if (idx === undefined) continue;\n    const key = 'vik_done_' + t.id;\n    const last = flow.get(key);\n    const cur = t.done_at || '';\n    if (last === undefined) { flow.set(key, cur); continue; }\n    if (cur !== last) {\n        flow.set(key, cur);\n        if (cur && !cur.startsWith('0001-')) outs[idx] = {payload:{task:t.id, title:t.title}};\n    }\n}\nreturn outs.every(o => o === null) ? null : outs;",
+        "func": "// Vikunja repeat_mode=2: completing a chore rolls due_date and bumps done_at.\n// A done_at change since the last poll = the chore was just done in Vikunja.\nconst tasks = msg.payload;\nif (!Array.isArray(tasks)) return null;\nconst MAP = {42:0, 43:1, 44:2, 47:3};  // brush, bag, sensors, filter\n// 44 (sensors) presses only the sensor reset. It used to press filter, side\n// brush, main brush and dock brush, and never the sensor counter (2026-10-25).\nconst outs = [null, null, null, null];\nfor (const t of tasks) {\n    const idx = MAP[t.id];\n    if (idx === undefined) continue;\n    const key = 'vik_done_' + t.id;\n    const last = flow.get(key);\n    const cur = t.done_at || '';\n    if (last === undefined) { flow.set(key, cur); continue; }\n    if (cur !== last) {\n        flow.set(key, cur);\n        if (cur && !cur.startsWith('0001-')) outs[idx] = {payload:{task:t.id, title:t.title}};\n    }\n}\nreturn outs.every(o => o === null) ? null : outs;",
         "outputs": 4,
         "timeout": 0,
         "noerr": 0,
@@ -2539,10 +2568,7 @@
                 "s_89"
             ],
             [
-                "s_91",
-                "s_92",
-                "s_93",
-                "s_94"
+                "s_95"
             ],
             [
                 "s_91"
