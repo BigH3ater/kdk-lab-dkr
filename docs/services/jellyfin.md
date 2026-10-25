@@ -6,7 +6,7 @@ tier: dmz
 status: live
 storage: yes
 secrets: []
-updated: 2026-09-12
+updated: 2026-10-25
 tags: [homelab/stack, tier/dmz, status/live]
 ---
 
@@ -24,7 +24,7 @@ Media server on the DMZ node with Intel Arc A380 QSV transcode; public via the C
 | Status | 🟢 Live — login + playback work; plugins Active |
 | Host | [[kdk-dkr-dmz-01]], `/dev/dri` mapped (i915) |
 | Endpoint | `https://jellyfin.kmkdp.com` (LAN + Cloudflare tunnel) |
-| Image | `lscr.io/linuxserver/jellyfin:10.11.11ubu2604-ls46` — the 10.11.11 line, pinned |
+| Image | `lscr.io/linuxserver/jellyfin:12.3ubu2604-ls56` — 12.x line, pinned; server and plugins move together |
 | Deploy | Komodo stack `jellyfin` (git-linked) |
 | Storage | `/opt/kdk-lab/jellyfin/config` (byte-for-byte from k3s); library RO from `/mnt/media` |
 | Blast radius | No streaming; requests via Seerr still queue |
@@ -42,7 +42,10 @@ In the dashboard, an active transcode shows `(hw)`, watched state is present, al
 | Problem | Cause | Command to validate |
 |---|---|---|
 | No `/dev/dri` in container | host on the cloud kernel (no i915) | host runs `linux-image-amd64`, not the cloud kernel |
-| Plugins read "Restart"/broken after an image bump | 12.0 breaks the plugin ABI (ADR 0027) | stay on the 10.11.11 line |
+| Plugins read "Restart"/broken after an image bump | plugin build targets an older ABI | reinstall the matching build from its repository (`stacks/jellyfin/plugins.yaml`) |
+| Trickplay: "Error creating trickplay images" / Read-only file system | library option *Save trickplay images next to media* on a RO mount | keep `SaveTrickplayWithMedia=false` in both library options |
+| Episode metadata: "Error in The Open Movie Database" JSON errors | OMDb episode endpoint returns malformed JSON | OMDb removed from the Shows library fetchers (movies keep it) |
+| Intro Skipper: "ffmpeg did not exit within 60000ms" | two 4K software decodes in parallel on the DMZ VM | `MaxParallelism=1` in IntroSkipper.xml |
 | Watched/resume state lost | config not copied byte-for-byte | restore `/opt/kdk-lab/jellyfin/config` from the migration tar |
 | Playback buffers off-LAN | Cloudflare free-plan proxy throttling | test on LAN to isolate |
 
