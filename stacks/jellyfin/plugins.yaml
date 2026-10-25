@@ -1,8 +1,21 @@
-# Plugin manifest (reference; state migrates with /config). ADR 0027.
+# Plugin manifest (reference; state migrates with /config). Versions are the
+# Jellyfin 12.x builds re-added after the 12.3 upgrade (2026-10-25).
 repositories:
-  - url: https://intro-skipper.org/manifest.json
-  - url: https://plugins.neptuneplayer.com/manifest.json
+  - url: https://repo.jellyfin.org/files/plugin/manifest.json          # Jellyfin Stable
+  - url: https://manifest.intro-skipper.org/manifest.json              # Intro Skipper, SkipMe.db
+  - url: https://plugins.neptuneplayer.com/manifest.json               # Neptune suite
+  - url: https://raw.githubusercontent.com/voc0der/jellyfin-imdb-rating-updater/main/manifest.json
+  - url: https://www.iamparadox.dev/jellyfin/plugins/manifest.json     # Home Screen Sections
 plugins:
-  - { name: Intro Skipper, guid: c83d86bb-a1e0-4c35-a113-e2101cf4ee6b, version: 1.10.11.24 }
-  - { name: SkipMe.db, guid: b2a63e62-0ac5-4575-9ad2-2c7534ccb83d, version: 0.1.16.0 }
-  - { name: Neptune Suite (MDM/Indexers/Transcoder/Studio), guid: see-live-dashboard, version: 1.3.2.0 }
+  - { name: LDAP Authentication, guid: 958aad66-3784-4d2a-b89a-a7b6fab6e25c, version: 24.0.0.0 }   # household logins
+  - { name: Playback Reporting, version: 19.0.0.0 }
+  - { name: Webhook, version: 22.0.0.0 }
+  - { name: TheTVDB, version: 24.0.0.0 }
+  - { name: TMDb Box Sets, version: 15.0.0.0 }
+  - { name: Fanart, version: 15.0.0.0 }
+  - { name: Local Intros, version: 5.0.0.0 }
+  - { name: Intro Skipper, guid: c83d86bb-a1e0-4c35-a113-e2101cf4ee6b, version: 12.0.6.0 }
+  - { name: SkipMe.db, guid: b2a63e62-0ac5-4575-9ad2-2c7534ccb83d, version: 0.2.6.0 }
+  - { name: IMDb Ratings, version: 1.0.0.23 }
+  - { name: Home Screen Sections, version: 3.0.3.0 }
+  - { name: Neptune Suite (MDM/Indexers/Transcoder/Studio), version: 1.3.4.0, note: repo advertises 10.11 ABI only; docs claim 12.0 support -- re-add last and verify status }

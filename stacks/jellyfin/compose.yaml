@@ -1,11 +1,19 @@
-# Jellyfin on the DMZ node with the Arc A380 (QSV). Same image line as k3s
-# (12.0 breaks the plugin ABI -- do not bump without a plugin plan, ADR 0027).
-# Config migrated byte-for-byte; library paths identical to k3s so item ids
-# stay attached. Public via the Cloudflare tunnel; own login + LDAP plugin.
+# Jellyfin on the DMZ node with the Arc A380 (QSV). Config migrated
+# byte-for-byte from k3s; library paths identical so item ids stay attached.
+# Public via the Cloudflare tunnel; own login + LDAP plugin.
+#
+# 12.x (2026-10-25): major-version jump from 10.11.11. 12.0 changed the plugin
+# ABI and the database schema (no rollback without a restore), so the upgrade
+# procedure is: pre-upgrade copy of /config (+ consistent sqlite backups) ->
+# move every repository plugin out of data/plugins -> deploy -> let the
+# migrations finish -> re-add the 12.x plugin builds -> full library scan.
+# Every installed plugin had a 12.x build on 2026-10-25 except the Neptune
+# suite (see stacks/jellyfin/plugins.yaml). Rollback: pin 10.11.11 and restore
+# /opt/kdk-lab/jellyfin-pre12-2026-10-25 on kdk-dkr-dmz-01.
 name: jellyfin
 services:
   jellyfin:
-    image: lscr.io/linuxserver/jellyfin:10.11.11ubu2604-ls46
+    image: lscr.io/linuxserver/jellyfin:12.3ubu2604-ls56
     container_name: jellyfin
     restart: unless-stopped
     environment:
