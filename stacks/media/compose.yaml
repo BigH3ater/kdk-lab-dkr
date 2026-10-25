@@ -153,7 +153,12 @@ services:
 
   tdarr:
     <<: *common
-    image: ghcr.io/haveagitgat/tdarr:2.86.01
+    # v3 (2026-10-25): hard switch to the Rust engine, which this server had
+    # already been running since the 2.8x soft rollout. No schema migration;
+    # auth stays off (default-on applies to new installs only). Server and
+    # node tags MUST move together. Rollback = pin both back to 2.86.01 and,
+    # if needed, restore /opt/kdk-lab/media/tdarr/pre-v3-backup-2026-10-25.
+    image: ghcr.io/haveagitgat/tdarr:3.02.00
     environment:
       <<: *env
       serverIP: 0.0.0.0
@@ -181,7 +186,7 @@ services:
 
   tdarr-node:
     <<: *common
-    image: ghcr.io/haveagitgat/tdarr_node:2.86.01
+    image: ghcr.io/haveagitgat/tdarr_node:3.02.00
     runtime: nvidia
     environment:
       <<: *env
