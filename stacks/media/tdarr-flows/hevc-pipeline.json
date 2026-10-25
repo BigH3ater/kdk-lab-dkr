@@ -1,7 +1,7 @@
 {
   "_id": "hevc-pipeline",
   "name": "HEVC Pipeline",
-  "description": "HEVC-target transcode + audio/track cleanup pipeline. Every file: validate-before (health check), DV gate (P5/P7 hold, P8 continue), DEE audio (lossless English -> DD+/Atmos-aware, native ffmpeg E-AC3 fallback), keep English+untagged audio (drop non-English, commentary, descriptive), drop non-English subs / cover-art / data streams, remux to MKV, validate-after (duration ratio), pass -> /data/media (in place), fail -> /data/quarantine + review. Video handling by codec: already-HEVC sources are REMUXED ONLY (audio stripped, video copied, no re-encode); non-HEVC (incl. AV1) is hardware-encoded to HEVC via hardwareType=auto -- hevc_qsv on the A380 node, libx265 CPU fallback (CQ 24 <=1440p, CQ 27 4K+; preset slow), 10-bit Main10 preserved. checkOverallBitrate still spares low-bitrate NON-HEVC sources from a pointless encode (they remux like HEVC). The compareFileSize growth guard was REMOVED 2026-08-29 (the working file always replaces the original). The former already-HEVC short-circuit was removed the same day so HEVC files also get audio-stripped. Managed by scripts/configure_tdarr.py -- edit THIS file in git, never the Tdarr UI copy.",
+  "description": "HEVC-target transcode + audio/track cleanup pipeline. Every file: validate-before (health check), DV gate (P5/P7 hold, P8 continue), DEE audio (lossless English -> DD+/Atmos-aware, native ffmpeg E-AC3 fallback), keep English+untagged audio (drop non-English, commentary, descriptive), drop non-English subs / cover-art / data streams, remux to MKV, validate-after (duration ratio), pass -> /data/media (in place), fail -> /data/quarantine + review. Video handling by codec: already-HEVC sources are REMUXED ONLY (audio stripped, video copied, no re-encode); non-HEVC (incl. AV1) is hardware-encoded to HEVC via hardwareType=auto -- hevc_qsv on the A380 node, libx265 CPU fallback (CQ 24 <=1440p, CQ 27 4K+; preset slow), 10-bit Main10 preserved. checkOverallBitrate still spares low-bitrate NON-HEVC sources from a pointless encode (they remux like HEVC). The compareFileSize growth guard was REMOVED 2026-08-29 (the working file always replaces the original). The former already-HEVC short-circuit was removed the same day so HEVC files also get audio-stripped. Managed by scripts/configure_tdarr.py -- edit THIS file in git, never the Tdarr UI copy. | 2026-10-25: DV P5/P7 no longer held (HEVC takes the remux path, which keeps RPU/EL -- verified with ffmpeg copy); MKV container steps forceConform (MP4 tx3g subs); AV1 sources always re-encoded, software decode.",
   "tags": "",
   "flowPlugins": [
     {
@@ -119,7 +119,7 @@
       }
     },
     {
-      "name": "MKV (<=1440p)",
+      "name": "MKV (<=1440p, conform: drop mov_text/data)",
       "sourceRepo": "Community",
       "pluginName": "ffmpegCommandSetContainer",
       "version": "1.0.0",
@@ -130,7 +130,7 @@
       },
       "inputsDB": {
         "container": "mkv",
-        "forceConform": "false"
+        "forceConform": "true"
       }
     },
     {
@@ -178,7 +178,7 @@
       }
     },
     {
-      "name": "MKV (4K+)",
+      "name": "MKV (4K+, conform: drop mov_text/data)",
       "sourceRepo": "Community",
       "pluginName": "ffmpegCommandSetContainer",
       "version": "1.0.0",
@@ -189,7 +189,7 @@
       },
       "inputsDB": {
         "container": "mkv",
-        "forceConform": "false"
+        "forceConform": "true"
       }
     },
     {
@@ -537,31 +537,6 @@
       }
     },
     {
-      "name": "2b. Dolby Vision gate (P5/P7 hold, P8 continue)",
-      "sourceRepo": "Community",
-      "pluginName": "customFunction",
-      "version": "1.0.0",
-      "id": "dvgate",
-      "position": {
-        "x": 600,
-        "y": 300
-      },
-      "inputsDB": {
-        "code": "module.exports = async (args) => {\n  // 2b. Dolby Vision gate (2026-08-27). Any re-encode destroys the DV RPU\n  // (NVENC cannot carry it). Profile 8 has an HDR10 base layer and degrades\n  // gracefully to static HDR10 -- verified on a transcoded episode: PQ/\n  // BT.2020 + mastering-display side data intact. Profiles 5 and 7 do NOT:\n  // profile 5 keeps its color math in the RPU alone, and its stripped\n  // output probes with NO color metadata at all (measured on 5 damaged\n  // files, 2026-08-27) -- washed-out/wrong color everywhere. Output 1 =\n  // safe to continue; output 2 = pure/dual-layer DV, hold for review.\n  const streams = (args.inputFileObj.ffProbeData || {}).streams || [];\n  let dvProfile = null;\n  for (const s of streams) {\n    if (s.codec_type !== 'video') continue;\n    for (const sd of (s.side_data_list || [])) {\n      const t = String(sd.side_data_type || '');\n      if (t.includes('DOVI configuration')) {\n        dvProfile = sd.dv_profile;\n      }\n    }\n  }\n  if (dvProfile === null) {\n    args.jobLog('DV gate: no Dolby Vision side data, continue');\n    return { outputFileObj: args.inputFileObj, outputNumber: 1, variables: args.variables };\n  }\n  if (dvProfile === 5 || dvProfile === 7) {\n    args.jobLog(`DV gate: profile ${dvProfile} (no usable HDR10 fallback after RPU loss) -- hold for review`);\n    return { outputFileObj: args.inputFileObj, outputNumber: 2, variables: args.variables };\n  }\n  args.jobLog(`DV gate: profile ${dvProfile} with HDR10 base layer -- continue, accepting DV enhancement-layer loss`);\n  return { outputFileObj: args.inputFileObj, outputNumber: 1, variables: args.variables };\n};"
-      }
-    },
-    {
-      "name": "2c. Pure/dual-layer DV - hold for review",
-      "sourceRepo": "Community",
-      "pluginName": "requireReview",
-      "version": "1.0.0",
-      "id": "reviewDV",
-      "position": {
-        "x": 840,
-        "y": 330
-      }
-    },
-    {
       "name": "5a. Already HEVC? (remux-only, skip re-encode)",
       "sourceRepo": "Community",
       "pluginName": "checkVideoCodec",
@@ -615,6 +590,78 @@
       },
       "inputsDB": {
         "code": "module.exports = async (args) => {\n  // A negative audio start_time (e.g. -0.005s priming from an encoder) makes\n  // AVPlayer/Neptune play the file SILENTLY while ffmpeg decodes it fine --\n  // root cause of the 2026-09-20 \"silent AC-3\" incident. Guard every output:\n  // if any audio stream starts below zero, remux with mkvmerge --sync to\n  // shift it to zero (stream copy, seconds). Non-fatal; skips when clean.\n  const { execFileSync } = require('child_process');\n  const path = require('path');\n  const log = (m) => args.jobLog(`[negts] ${m}\\n`);\n  const file = args.inputFileObj._id;\n  try {\n    if (!/\\.mkv$/i.test(file)) {\n      log('not an mkv; skipping');\n      return { outputFileObj: args.inputFileObj, outputNumber: 1, variables: args.variables };\n    }\n    const ffprobe = args.ffprobePath || 'tdarr-ffprobe';\n    const probe = JSON.parse(execFileSync(ffprobe, ['-v', 'error',\n      '-show_entries', 'stream=index,codec_type,codec_name,start_time', '-of', 'json', file],\n      { stdio: 'pipe', maxBuffer: 16 * 1024 * 1024 }).toString());\n    // Only Dolby/DTS-family codecs: a negative start there is a muxing defect\n    // (AVPlayer plays the file silently). AAC/Opus negative starts are normal\n    // encoder priming/codec delay -- shifting those would cause desync.\n    const PATHOLOGICAL = new Set(['ac3', 'eac3', 'dts', 'truehd', 'mlp']);\n    const syncs = [];\n    for (const s of (probe.streams || [])) {\n      const st = parseFloat(s.start_time);\n      if (s.codec_type === 'audio' && PATHOLOGICAL.has((s.codec_name || '').toLowerCase())\n          && Number.isFinite(st) && st < -0.0005) {\n        const ms = Math.ceil(-st * 1000);\n        syncs.push('--sync', `${s.index}:${ms}`);\n        log(`audio stream #${s.index} starts at ${st}s -> shifting +${ms}ms`);\n      }\n    }\n    if (!syncs.length) {\n      log('all audio streams start at >= 0; nothing to do');\n      return { outputFileObj: args.inputFileObj, outputNumber: 1, variables: args.variables };\n    }\n    const outPath = path.join(__dirname, path.basename(file));\n    execFileSync('mkvmerge', ['-q', '-o', outPath, ...syncs, file],\n      { stdio: 'pipe', maxBuffer: 16 * 1024 * 1024 });\n    log('remuxed with zeroed audio timestamps');\n    return { outputFileObj: { _id: outPath }, outputNumber: 1, variables: args.variables };\n  } catch (e) {\n    log(`non-fatal: ${String(e).slice(0, 300)} (continuing with unmodified file)`);\n    return { outputFileObj: args.inputFileObj, outputNumber: 1, variables: args.variables };\n  }\n};"
+      }
+    },
+    {
+      "name": "5a2. AV1? (re-encode: no AV1 decode on 1050 Ti / older Apple TV)",
+      "sourceRepo": "Community",
+      "pluginName": "checkVideoCodec",
+      "version": "1.0.0",
+      "id": "av1chk1080",
+      "position": {
+        "x": 200,
+        "y": 500
+      },
+      "inputsDB": {
+        "codec": "av1"
+      }
+    },
+    {
+      "name": "HEVC hw-auto CQ23 (qsv/nvenc) [AV1 src: sw decode]",
+      "sourceRepo": "Community",
+      "pluginName": "ffmpegCommandSetVideoEncoder",
+      "version": "1.0.0",
+      "id": "encav11080",
+      "position": {
+        "x": 580,
+        "y": 660
+      },
+      "inputsDB": {
+        "outputCodec": "hevc",
+        "ffmpegPresetEnabled": "true",
+        "ffmpegPreset": "slow",
+        "ffmpegQualityEnabled": "true",
+        "ffmpegQuality": "24",
+        "hardwareEncoding": "true",
+        "hardwareDecoding": "false",
+        "forceEncoding": "false",
+        "hardwareType": "auto"
+      }
+    },
+    {
+      "name": "5a2. AV1? (re-encode: no AV1 decode on 1050 Ti / older Apple TV)",
+      "sourceRepo": "Community",
+      "pluginName": "checkVideoCodec",
+      "version": "1.0.0",
+      "id": "av1chk4k",
+      "position": {
+        "x": 800,
+        "y": 500
+      },
+      "inputsDB": {
+        "codec": "av1"
+      }
+    },
+    {
+      "name": "HEVC hw-auto CQ25 (qsv/nvenc) [AV1 src: sw decode]",
+      "sourceRepo": "Community",
+      "pluginName": "ffmpegCommandSetVideoEncoder",
+      "version": "1.0.0",
+      "id": "encav14k",
+      "position": {
+        "x": 840,
+        "y": 660
+      },
+      "inputsDB": {
+        "outputCodec": "hevc",
+        "ffmpegPresetEnabled": "true",
+        "ffmpegPreset": "slow",
+        "ffmpegQualityEnabled": "true",
+        "ffmpegQuality": "27",
+        "hardwareEncoding": "true",
+        "hardwareDecoding": "false",
+        "forceEncoding": "false",
+        "hardwareType": "auto"
       }
     }
   ],
@@ -935,32 +982,11 @@
       "id": "e-br4k-2-langGate4k"
     },
     {
-      "source": "dvgate",
-      "sourceHandle": "1",
-      "target": "lang1",
-      "targetHandle": null,
-      "id": "e-dvgate-1-lang1"
-    },
-    {
-      "source": "dvgate",
-      "sourceHandle": "2",
-      "target": "reviewDV",
-      "targetHandle": null,
-      "id": "e-dvgate-2-reviewDV"
-    },
-    {
       "source": "dur1",
       "sourceHandle": "1",
       "target": "subflag1",
       "targetHandle": null,
       "id": "e_gen_dur1_1_move1"
-    },
-    {
-      "source": "health1",
-      "sourceHandle": "1",
-      "target": "dvgate",
-      "targetHandle": null,
-      "id": "e_gen_health1_1_dvgate"
     },
     {
       "source": "start1080",
@@ -979,9 +1005,9 @@
     {
       "source": "hevc1080",
       "sourceHandle": "2",
-      "target": "br1080",
+      "target": "av1chk1080",
       "targetHandle": null,
-      "id": "e_gen_hevc1080_2_br1080"
+      "id": "e-hevc1080-av1chk1080"
     },
     {
       "source": "start4k",
@@ -1000,9 +1026,9 @@
     {
       "source": "hevc4k",
       "sourceHandle": "2",
-      "target": "br4k",
+      "target": "av1chk4k",
       "targetHandle": null,
-      "id": "e_gen_hevc4k_2_br4k"
+      "id": "e-hevc4k-av1chk4k"
     },
     {
       "source": "subflag1",
@@ -1017,6 +1043,55 @@
       "target": "move1",
       "targetHandle": null,
       "id": "negts1-move1-edge"
+    },
+    {
+      "source": "health1",
+      "sourceHandle": "1",
+      "target": "lang1",
+      "targetHandle": null,
+      "id": "e-health1-lang1"
+    },
+    {
+      "source": "av1chk1080",
+      "sourceHandle": "1",
+      "target": "encav11080",
+      "targetHandle": null,
+      "id": "e-av1chk1080-encav11080"
+    },
+    {
+      "source": "encav11080",
+      "sourceHandle": "1",
+      "target": "tenbit1080",
+      "targetHandle": null,
+      "id": "e-encav11080-tenbit1080"
+    },
+    {
+      "source": "av1chk1080",
+      "sourceHandle": "2",
+      "target": "br1080",
+      "targetHandle": null,
+      "id": "e-av1chk1080-br1080"
+    },
+    {
+      "source": "av1chk4k",
+      "sourceHandle": "1",
+      "target": "encav14k",
+      "targetHandle": null,
+      "id": "e-av1chk4k-encav14k"
+    },
+    {
+      "source": "encav14k",
+      "sourceHandle": "1",
+      "target": "tenbit4k",
+      "targetHandle": null,
+      "id": "e-encav14k-tenbit4k"
+    },
+    {
+      "source": "av1chk4k",
+      "sourceHandle": "2",
+      "target": "br4k",
+      "targetHandle": null,
+      "id": "e-av1chk4k-br4k"
     }
   ]
 }

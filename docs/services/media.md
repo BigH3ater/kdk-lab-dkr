@@ -45,6 +45,8 @@ docker exec media-tdarr-node-1 nvidia-smi -L                                # GT
 | Seerr can't reach Sonarr/Radarr API | DMZ→internal firewall closed | operator must open `192.168.191.20 → 10.1.20.20:443` |
 | Tdarr idle with jobs queued | staged jobs pinned to dead nodes / 0 workers | clear StagedJSONDB; set transcode workers to 1 |
 | Transcode drops Atmos to native E-AC3 | DEE wrapper 503 (single slot) | keep exactly 1 transcode worker on the node |
+| Transcode error "Subtitle codec 94213 is not supported" | MP4 source with tx3g subs, container step not conforming | both MKV steps in the flow have `forceConform=true`; re-queue |
+| AV1 file stays AV1 / 4K remux keeps foreign audio | flow bypass (bitrate gate / old DV hold) | `scripts/tdarr-flow-sync.sh diff` shows repo flow == live (see tdarr runbook) |
 
 ## Dependencies
 
@@ -61,7 +63,7 @@ No dashboard. Host probes via [[kdk-mon-01]]; alerts → Pushover.
 
 ## Architecture
 
-Each app joins `default` + `proxy`; ports are `prowlarr 9696`, `sabnzbd 8080`, `sonarr 8989`, `radarr 7878`, `bazarr 6767`, `chaptarr 8789`, `wizarr 5690`, `tdarr 8265`. Tdarr also publishes node RPC `8266` for the external RGB-Nebula 4090 node. Sonarr/Radarr have a higher-priority `/api` router without ForwardAuth so the DMZ Seerr can use the API with a key. `tdarr-node` (`kdk-tdarr-nvenc-01`) uses the NVIDIA runtime and the GTX 1050 Ti; flow is NVENC, no AV1.
+Each app joins `default` + `proxy`; ports are `prowlarr 9696`, `sabnzbd 8080`, `sonarr 8989`, `radarr 7878`, `bazarr 6767`, `chaptarr 8789`, `wizarr 5690`, `tdarr 8265`. Tdarr also publishes node RPC `8266` for the external RGB-Nebula 4090 node. Sonarr/Radarr have a higher-priority `/api` router without ForwardAuth so the DMZ Seerr can use the API with a key. `tdarr-node` (`kdk-tdarr-nvenc-01`) uses the NVIDIA runtime and the GTX 1050 Ti; flow encodes to HEVC with NVENC and re-encodes any AV1 source (software decode). Tdarr 3.x (Rust engine).
 
 ## Configuration
 

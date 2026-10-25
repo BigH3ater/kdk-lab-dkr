@@ -1,0 +1,31 @@
+# Weekly Sonarr/Radarr upgrade search on kdk-dkr-01 (arr-upgrade-search
+# procedure). Goal: files the *arr already scores below zero (today that is
+# the AV1 custom format, -10000) get replaced without waiting for a release to
+# happen to appear on RSS. Sonarr/Radarr never search for their own
+# cutoff-unmet files unless asked; this asks, once a week, for exactly those
+# files and nothing else (a global "cutoff unmet" search would hit ~1,500
+# episodes and the indexer API limits). Logic in search.py (mounted so Compose
+# interpolation never touches it). Host networking to resolve
+# sonarr/radarr.kmkdp.com via lab DNS. API keys read from the mounted (ro)
+# config.xml files -- no new secrets. Pushover creds under /etc/kdk (-> /kdk).
+#
+# DRY_RUN=1 reports what it would search; "0" posts the EpisodeSearch /
+# MoviesSearch commands. MAX_PER_RUN caps indexer load per week.
+name: arr-upgrade-search
+services:
+  search:
+    image: python:3.12-alpine
+    restart: "no"
+    network_mode: host
+    environment:
+      DRY_RUN: "0"
+      MAX_PER_RUN: "20"
+      MIN_SCORE: "0"        # search files whose custom-format score is below this
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - apk add --no-cache ca-certificates >/dev/null 2>&1 || true; exec python3 /search.py
+    volumes:
+      - /etc/kdk:/kdk:ro
+      - ./search.py:/search.py:ro
+      - /opt/kdk-lab/media/radarr:/radarr-config:ro
+      - /opt/kdk-lab/media/sonarr:/sonarr-config:ro
