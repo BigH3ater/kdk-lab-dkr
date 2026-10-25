@@ -284,8 +284,9 @@ automation:
   # Clean-water tank empty. The dock reports it as dock_error water_empty (seen
   # 2026-10-09 and 10-18); the robot's own water_shortage flag is a second
   # source. 10 min debounce so pulling the tank for a swap doesn't page. A
-  # time-sensitive repeat at 07:45 if it's still empty before the daily run
-  # (weekdays 08:30, weekends 12:00), since mop days need the water. Clears from
+  # time-sensitive repeat at 07:45 on Monday (the only mop day since 2026-10-25:
+  # one tank lasts one mop pass) if it's still empty before the 08:30 run.
+  # Vacuum-only days don't need water, so no morning nag on those. Clears from
   # both phones once the dock is happy again.
   - id: rr_water_empty_alert
     alias: "Roborock: clean water tank empty"
@@ -335,14 +336,16 @@ automation:
             {{ is_state('sensor.mr_slave_dock_dock_error', 'water_empty')
                or is_state('binary_sensor.mr_slave_water_shortage_2', 'on') }}
       - choose:
-          - conditions: "{{ trigger.id in ['empty', 'morning', 'recheck'] and empty }}"
+          - conditions: >-
+              {{ empty and (trigger.id in ['empty', 'recheck']
+                            or (trigger.id == 'morning' and now().weekday() == 0)) }}
             sequence:
               - action: script.rr_notify
                 data:
                   title: "Mr. Slave needs clean water"
                   message: >-
                     The clean-water tank is empty. Fill it (or drop in the spare)
-                    before the next run{{ ' — mopping is skipped without it' if now().weekday() in [0, 4] else '' }}.
+                    before Monday's mop pass{{ ' — it is skipped without water' if now().weekday() == 0 else '' }}.
                   tag: rr_water_empty
                   urgent: "{{ trigger.id == 'morning' }}"
           - conditions: "{{ trigger.id == 'refilled' and not empty }}"
@@ -382,6 +385,46 @@ automation:
             {{ states('sensor.mr_slave_cleaning_progress_2') }}% done). Do-not-disturb
             starts at 22:00, so it won't resume after a recharge until the next run.
           tag: rr_dnd_unfinished
+
+  # Robot error (stuck, trapped, brush jammed, ...). 2026-10-25 12:52 it was
+  # robot_trapped for 14 min mid-sweep with no phone alert. 1 min debounce so a
+  # self-clearing blip doesn't page. Time-sensitive: it can't free itself.
+  # Clears from both phones when the error goes back to none.
+  - id: rr_stuck_alert
+    alias: "Roborock: stuck or error alert"
+    mode: queued
+    triggers:
+      - trigger: state
+        id: error
+        entity_id: sensor.mr_slave_vacuum_error_2
+        not_to: [none, unknown, unavailable]
+        for: "00:01:00"
+      - trigger: state
+        id: cleared
+        entity_id: sensor.mr_slave_vacuum_error_2
+        to: none
+        not_from: [unknown, unavailable]
+    actions:
+      - choose:
+          - conditions: "{{ trigger.id == 'error' }}"
+            sequence:
+              - action: script.rr_notify
+                data:
+                  title: "Mr. Slave is stuck"
+                  message: >-
+                    {% set err = states('sensor.mr_slave_vacuum_error_2') | replace('_', ' ') %}
+                    {% set near = states('input_text.rr_run_near') %}
+                    Error: {{ err }}{{ (' near ' ~ near) if near not in ['', 'unknown', 'unavailable'] else '' }},
+                    battery {{ states('sensor.mr_slave_battery_2') }}%. Free it and press
+                    the power button (or put it back on the dock) to carry on.
+                  tag: rr_stuck
+                  urgent: true
+          - conditions: "{{ trigger.id == 'cleared' }}"
+            sequence:
+              - action: script.rr_notify
+                data:
+                  message: clear_notification
+                  tag: rr_stuck
 
 # HomeKit bridge exposes the vacuum, per-room clean buttons, and routines to
 # Apple Home (include list lives in .storage/core.config_entries on the host).
