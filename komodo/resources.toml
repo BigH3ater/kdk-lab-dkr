@@ -620,6 +620,35 @@ executions = [
   { execution.type = "DeployStack", execution.params.stack = "tdarr-remediate", enabled = true },
 ]
 
+# Weekly Sonarr/Radarr upgrade search: asks the *arrs to search for files they
+# already score below zero (AV1 custom format). They never search backwards on
+# their own -- an AV1 file is only replaced when a release happens to hit RSS.
+[[stack]]
+tags = ["kdk-lab"]
+name = "arr-upgrade-search"
+deploy = false   # run weekly by the arr-upgrade-search Procedure
+[stack.config]
+server = "kdk-dkr-01"
+repo = "BigH3ater/kdk-lab-dkr"
+run_directory = "stacks/arr-upgrade-search"
+destroy_before_deploy = true   # one locked down+up so the one-shot re-runs
+
+[[procedure]]
+tags = ["kdk-lab"]
+name = "arr-upgrade-search"
+[procedure.config]
+schedule_format = "Cron"
+# Sunday 04:25 -- off the gitops-sync :00/:15/:30/:45 slots, clear of the :20
+# hourly job and of the 03:20 / 05:05 daily jobs.
+schedule = "0 25 4 * * Sun"
+schedule_timezone = "America/Chicago"
+[[procedure.config.stage]]
+name = "search"
+enabled = true
+executions = [
+  { execution.type = "DeployStack", execution.params.stack = "arr-upgrade-search", enabled = true },
+]
+
 # Hourly storage/NFS health validator (pages Pushover on NAS unreachable, NFS
 # 2049 refused, a hung/missing mount, or a CGNAT regression of the storage IP).
 [[stack]]

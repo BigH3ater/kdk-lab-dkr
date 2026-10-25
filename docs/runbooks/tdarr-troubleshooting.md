@@ -4,8 +4,8 @@ title: Troubleshoot Tdarr transcodes
 
 # Troubleshoot Tdarr transcodes
 
-Tdarr runs a server + local NVENC node on `kdk-dkr-01` and an external Windows
-GPU node. The `tdarr-verify` one-shot pages Pushover hourly on transcode-error
+Tdarr (3.x) runs a server + local NVENC node (`kdk-tdarr-nvenc-01`, GTX
+1050 Ti) on `kdk-dkr-01`; the external Windows GPU node is no longer registered. The `tdarr-verify` one-shot pages Pushover hourly on transcode-error
 rises, health-check errors, and `.iso` files it can't process. A second one-shot,
 `tdarr-remediate`, self-heals **corrupt** files by driving Radarr/Sonarr — see
 [Self-healing corrupt files](#self-healing-corrupt-files-tdarr-remediate).
@@ -19,6 +19,44 @@ source of truth; `import` pushes via the cruddb API and restarts tdarr so the
 server drops its in-memory copy — verified the API persists flow updates).
 After editing the flow in the tdarr UI instead, run `export` and commit so
 the repo copy doesn't go stale.
+
+## What the flow does with the hard cases (2026-10-25)
+
+- **Dolby Vision profile 5/7 remuxes are no longer held.** The old DV gate
+  parked ~400 4K remuxes at "hold for review" since 2026-08-27, so they kept
+  every foreign audio track, lossless audio and multiple default flags (the
+  Super Mario Galaxy "wrong language" report). DV is always HEVC, so these files
+  take the "already HEVC" remux path, which `-c copy`s the video and keeps the
+  RPU/EL (verified: `ffprobe` on an ffmpeg copy of a P7 remux still shows
+  `dv_profile=7 rpu_present_flag=1 el_present_flag=1`). The encoder is never
+  reached for HEVC input, so the gate's concern (RPU loss on re-encode) cannot
+  occur.
+- **MP4 sources** (BEN.the.MEN etc.) carry `tx3g`/`mov_text` subtitles that
+  Matroska cannot hold; with `forceConform=false` ffmpeg failed with
+  "Subtitle codec 94213 is not supported" (exit 218). Both MKV container steps
+  now `forceConform=true`, which drops those subtitle streams (Tdarr removes,
+  it does not convert) and data streams.
+- **AV1 sources are always re-encoded.** The 1050 Ti has no AV1 NVDEC and older
+  Apple TVs cannot play AV1. A codec check sits between "already HEVC?" and the
+  bitrate gate; AV1 goes to a copy of the encoder node with `hardwareDecoding=
+  false` (CUDA hwaccel hard-fails on AV1 there; software decode runs ~5x
+  realtime at 1080p and ~1.8x at 4K). A fresh HEVC release is still better than
+  a re-encode of a lossy AV1 -- the weekly `arr-upgrade-search` (below) asks for
+  one first.
+
+## Weekly arr upgrade search (arr-upgrade-search)
+
+Sonarr/Radarr score every on-disk file against the profile's custom formats
+(AV1 = -10000), but they only replace a cutoff-unmet file when a better release
+happens to appear on RSS; nothing searches backwards. The Terminal List S01
+sat as AV1 from 2026-08-27 to 2026-10-25 for that reason. `stacks/
+arr-upgrade-search` (Komodo procedure, Sundays 04:25) posts `EpisodeSearch` /
+`MoviesSearch` for exactly the episodes/movies whose file scores below
+`MIN_SCORE` (0), capped at `MAX_PER_RUN` (20) per week. The built-in
+`CutoffUnmetEpisodeSearch` was rejected on purpose: it would search ~1,500
+episodes (quality cutoff) every run. Mislabelled releases (title says H.265,
+file is AV1) score +50 and are invisible to the *arrs; the Tdarr AV1 branch
+covers those.
 
 ## Lossless-audio titles error → check DEE first
 
