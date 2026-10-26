@@ -1206,7 +1206,7 @@ pre_deploy.command = "sh -c 'cp -f /opt/kdk-lab/monitoring/.env .env && for f in
 # Apply prometheus.yml / rules edits without a restart (lifecycle API is on).
 # Retries ride out the container (re)starting; a 500 here = invalid config, and
 # failing the deploy is the signal.
-post_deploy.command = "curl -fsS --retry 12 --retry-connrefused --retry-delay 5 -X POST http://127.0.0.1:9090/-/reload"
+post_deploy.command = "curl -fsS --retry 12 --retry-all-errors --retry-delay 5 -X POST http://127.0.0.1:9090/-/reload"
 webhook_enabled = true
 
 [[stack]]
