@@ -3073,7 +3073,7 @@
         "type": "function",
         "z": "rr_tab_1",
         "name": "evt: idle",
-        "func": "msg.rr_evt = 'idle';\nreturn msg;",
+        "func": "// returning -> idle = robot gave up on the dock; group 8 retries it.\nconst old = msg.data && msg.data.old_state && msg.data.old_state.state;\nif (old === 'returning') return null;\nmsg.rr_evt = 'idle';\nreturn msg;",
         "outputs": 1,
         "timeout": 0,
         "noerr": 0,
@@ -3163,7 +3163,7 @@
         "type": "function",
         "z": "rr_tab_1",
         "name": "run tracker",
-        "func": "\n// Phase-level run tracker. Publishes sensor.rr_run_progress via HA REST (out 0)\n// and emits guarded room stamps (out 1, same shape s_room consumes).\nconst REST_ROOMS = ['master_bedroom_closet','master_bathroom','bathroom_1',\n    'bedroom_1','kitchen','living_room','front_door_entry','garage_entrance',\n    'half_bath','laundry_room','hallway','rachels_office'];\nlet run = flow.get('rr_run') || {active:false, phase:'', cancelled:false, near:''};\nconst evt = msg.rr_evt;\nlet stamp = null;\nswitch (evt) {\n    case 'start':\n        run = {active:true, phase:'Master bedroom \u2014 zone A', cancelled:false, near:''};\n        break;\n    case 'zoneB':\n        run.phase = 'Master bedroom \u2014 zone B'; break;\n    case 'zbdone':\n        if (run.active && !run.cancelled && !flow.get('rr_cancel') && !flow.get('rr_mbr_short')) {\n            stamp = {stamp:'input_datetime.rr_last_clean_master_bedroom',\n                     ts: Math.floor(Date.now()/1000)};\n            run.phase = 'Dock \u2014 emptying before main sweep';\n        }\n        break;\n    case 'rest':\n        run.phase = 'Main floor sweep (12 rooms)'; break;\n    case 'restdone':\n        if (run.active && !run.cancelled && !flow.get('rr_cancel')) {\n            stamp = {stamp: REST_ROOMS.map(r => 'input_datetime.rr_last_clean_' + r),\n                     ts: Math.floor(Date.now()/1000)};\n            run.phase = 'Main sweep complete';\n        }\n        break;\n    case 'recharge':\n        if (run.active && !run.cancelled) run.phase = 'Main sweep \u2014 recharging, resumes at 80%';\n        break;\n    case 'mop':\n        run.phase = 'Mop pass (all floors)'; break;\n    case 'done':\n        run.phase = run.cancelled ? 'Cancelled' : 'Complete';\n        run.active = false; run.near = '';\n        break;\n    case 'cancel':\n        run.cancelled = true; run.active = false;\n        run.phase = 'Cancelled \u2014 returning to dock';\n        break;\n    case 'failed':\n        run.cancelled = true; run.active = false; run.near = '';\n        run.phase = msg.rr_phase || 'Failed';\n        break;\n    case 'idle':\n        if (run.active && !run.cancelled) {\n            run.cancelled = true; run.active = false;\n            flow.set('rr_cancel', true);\n            run.phase = 'Stopped by hand \u2014 rest of run cancelled';\n        } else { return null; }\n        break;\n    case 'room':\n        if (!run.active) return null;\n        run.near = String(msg.payload || '');\n        break;\n    default:\n        return null;\n}\nflow.set('rr_run', run);\nconst prog = {payload: {phase: run.phase.substring(0,255), near: (run.near || '').substring(0,100)}};\nreturn [[prog], stamp ? [{payload: stamp}] : []];\n",
+        "func": "\n// Phase-level run tracker. Publishes sensor.rr_run_progress via HA REST (out 0)\n// and emits guarded room stamps (out 1, same shape s_room consumes).\nconst REST_ROOMS = ['master_bedroom_closet','master_bathroom','bathroom_1',\n    'bedroom_1','kitchen','living_room','front_door_entry','garage_entrance',\n    'half_bath','laundry_room','hallway','rachels_office'];\nlet run = flow.get('rr_run') || {active:false, phase:'', cancelled:false, near:''};\nconst evt = msg.rr_evt;\nlet stamp = null;\nswitch (evt) {\n    case 'start':\n        run = {active:true, phase:'Master bedroom \u2014 zone A', cancelled:false, near:''};\n        break;\n    case 'zoneB':\n        run.phase = 'Master bedroom \u2014 zone B'; break;\n    case 'zbdone':\n        if (run.active && !run.cancelled && !flow.get('rr_cancel') && !flow.get('rr_mbr_short')) {\n            stamp = {stamp:'input_datetime.rr_last_clean_master_bedroom',\n                     ts: Math.floor(Date.now()/1000)};\n            run.phase = 'Dock \u2014 emptying before main sweep';\n        }\n        break;\n    case 'rest':\n        run.phase = 'Main floor sweep (12 rooms)'; break;\n    case 'restdone':\n        if (run.active && !run.cancelled && !flow.get('rr_cancel')) {\n            stamp = {stamp: REST_ROOMS.map(r => 'input_datetime.rr_last_clean_' + r),\n                     ts: Math.floor(Date.now()/1000)};\n            run.phase = 'Main sweep complete';\n        }\n        break;\n    case 'recharge':\n        if (run.active && !run.cancelled) run.phase = 'Main sweep \u2014 recharging, resumes at 80%';\n        break;\n    case 'mop':\n        run.phase = 'Mop pass (all floors)'; break;\n    case 'done':\n        run.phase = run.cancelled ? 'Cancelled' : 'Complete';\n        run.active = false; run.near = '';\n        break;\n    case 'cancel':\n        run.cancelled = true; run.active = false;\n        run.phase = 'Cancelled \u2014 returning to dock';\n        break;\n    case 'failed':\n        run.cancelled = true; run.active = false; run.near = '';\n        run.phase = msg.rr_phase || 'Failed';\n        break;\n    case 'idle':\n        if (run.active && !run.cancelled) {\n            run.cancelled = true; run.active = false;\n            flow.set('rr_cancel', true);\n            run.phase = 'Stopped by hand \u2014 rest of run cancelled';\n        } else { return null; }\n        break;\n    case 'dock':\n        run.phase = msg.rr_phase || run.phase; break;\n    case 'room':\n        if (!run.active) return null;\n        run.near = String(msg.payload || '');\n        break;\n    default:\n        return null;\n}\nflow.set('rr_run', run);\nconst prog = {payload: {phase: run.phase.substring(0,255), near: (run.near || '').substring(0,100)}};\nreturn [[prog], stamp ? [{payload: stamp}] : []];\n",
         "outputs": 2,
         "timeout": 0,
         "noerr": 0,
@@ -3979,7 +3979,8 @@
             "lo_tr_done",
             "lo_tr_cxl",
             "lo_tr_stop",
-            "lo_tr_rch"
+            "lo_tr_rch",
+            "lo_tr_dock"
         ],
         "x": 1740,
         "y": 1325,
@@ -4000,7 +4001,8 @@
             "lo_n_shA",
             "lo_n_shB",
             "lo_n_mop",
-            "lo_n_stop"
+            "lo_n_stop",
+            "lo_n_dock"
         ],
         "x": 1780,
         "y": 75,
@@ -4788,5 +4790,268 @@
                 "lo_mop"
             ]
         ]
+    },
+    {
+        "id": "g_dock",
+        "type": "group",
+        "z": "rr_tab_1",
+        "name": "8 \u00b7 Docking: stopped short of the dock \u2192 return_to_base up to 3\u00d7, then alert both phones",
+        "style": {
+            "label": true,
+            "fill": "#ffe9cc",
+            "fill-opacity": "0.45",
+            "color": "#333"
+        },
+        "nodes": [
+            "t_dock",
+            "f_dockevt",
+            "f_dockretry",
+            "d_dock",
+            "s_dock",
+            "w_dock",
+            "cat_dock",
+            "lo_n_dock",
+            "lo_tr_dock"
+        ],
+        "x": 20,
+        "y": 2470,
+        "w": 1360,
+        "h": 150
+    },
+    {
+        "id": "t_dock",
+        "type": "server-state-changed",
+        "z": "rr_tab_1",
+        "name": "vacuum state (dock watch)",
+        "server": "38978576.ca0eea",
+        "version": 6,
+        "outputs": 1,
+        "exposeAsEntityConfig": "",
+        "entities": {
+            "entity": [
+                "vacuum.mr_slave_2"
+            ],
+            "substring": [],
+            "regex": []
+        },
+        "outputInitially": false,
+        "stateType": "str",
+        "ifState": "",
+        "ifStateType": "str",
+        "ifStateOperator": "is",
+        "outputOnlyOnStateChange": true,
+        "for": "0",
+        "forType": "num",
+        "forUnits": "minutes",
+        "ignorePrevStateNull": true,
+        "ignorePrevStateUnknown": false,
+        "ignorePrevStateUnavailable": false,
+        "ignoreCurrentStateUnknown": true,
+        "ignoreCurrentStateUnavailable": true,
+        "outputProperties": [
+            {
+                "property": "payload",
+                "propertyType": "msg",
+                "value": "",
+                "valueType": "entityState"
+            }
+        ],
+        "x": 150,
+        "y": 2510,
+        "wires": [
+            [
+                "f_dockevt"
+            ]
+        ],
+        "g": "g_dock"
+    },
+    {
+        "id": "f_dockevt",
+        "type": "function",
+        "z": "rr_tab_1",
+        "g": "g_dock",
+        "name": "did not dock? / docked",
+        "func": "const _ha = global.get('homeassistant') || {};\nconst _st = (Object.values(_ha).find(v => v && v.states) || {}).states || {};\nconst st = id => (_st[id] && _st[id].state);\n\n// Robot gave up on the way home (returning -> idle) -> start the retry loop.\n// Back on the dock -> reset, and clear the alert if one was sent.\nconst nu = msg.payload;\nconst old = msg.data && msg.data.old_state && msg.data.old_state.state;\nconst d = flow.get('rr_dock') || {busy: false, n: 0, alerted: false};\nif (nu === 'docked') {\n    if (!d.busy && !d.alerted) return null;\n    flow.set('rr_dock', {busy: false, n: 0, alerted: false});\n    node.status({fill: 'green', text: 'docked after ' + d.n + ' retr' + (d.n === 1 ? 'y' : 'ies')});\n    const ok = d.alerted ? {notify: {title: 'Vacuum: back on the dock',\n        message: 'The vacuum docked and is charging again.', tag: 'rr_dock_failed', urgent: false}} : null;\n    return [null, ok, {rr_evt: 'dock', rr_phase: 'Docked after retry'}];\n}\nif (old === 'returning' && nu === 'idle' && !d.busy) {\n    flow.set('rr_dock', {busy: true, n: 0, alerted: false});\n    node.status({fill: 'yellow', text: 'did not dock \u2014 retrying'});\n    return [msg, null, null];\n}\nreturn null;\n",
+        "outputs": 3,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 370,
+        "y": 2510,
+        "wires": [
+            [
+                "f_dockretry"
+            ],
+            [
+                "lo_n_dock"
+            ],
+            [
+                "lo_tr_dock"
+            ]
+        ]
+    },
+    {
+        "id": "f_dockretry",
+        "type": "function",
+        "z": "rr_tab_1",
+        "g": "g_dock",
+        "name": "retry \u22643 or alert",
+        "func": "const _ha = global.get('homeassistant') || {};\nconst _st = (Object.values(_ha).find(v => v && v.states) || {}).states || {};\nconst st = id => (_st[id] && _st[id].state);\n\n// One more return_to_base, up to 3 times; then alert both phones via HA.\nconst MAX = 3;\nconst d = flow.get('rr_dock') || {busy: true, n: 0, alerted: false};\nif (!d.busy) return null;               // docked meanwhile\nd.n += 1;\nif (d.n > MAX) {\n    d.busy = false; d.alerted = true;\n    flow.set('rr_dock', d);\n    const status = (st('sensor.mr_slave_status_2') || 'unknown').replace(/_/g, ' ');\n    node.status({fill: 'red', text: 'gave up after ' + MAX + ' retries'});\n    return [null, {notify: {title: \"Vacuum: couldn't dock\",\n        message: 'It stopped short of the dock and ' + MAX + ' more tries to send it home failed ' +\n                 '(status: ' + status + '). Check the dock: power, something in front of it, or it was moved.',\n        tag: 'rr_dock_failed', urgent: true}},\n        {rr_evt: 'dock', rr_phase: \"Couldn't dock \u2014 needs a hand\"}];\n}\nflow.set('rr_dock', d);\nnode.status({fill: 'yellow', text: 'retry ' + d.n + '/' + MAX});\nreturn [{payload: d.n}, null, {rr_evt: 'dock', rr_phase: \"Couldn't dock \u2014 retry \" + d.n + '/' + MAX}];\n",
+        "outputs": 3,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 590,
+        "y": 2510,
+        "wires": [
+            [
+                "d_dock"
+            ],
+            [
+                "lo_n_dock"
+            ],
+            [
+                "lo_tr_dock"
+            ]
+        ]
+    },
+    {
+        "id": "d_dock",
+        "type": "delay",
+        "z": "rr_tab_1",
+        "g": "g_dock",
+        "name": "wait 60 s",
+        "pauseType": "delay",
+        "timeout": "60",
+        "timeoutUnits": "seconds",
+        "rate": "1",
+        "nbRateUnits": "1",
+        "rateUnits": "second",
+        "randomFirst": "1",
+        "randomLast": "5",
+        "randomUnits": "seconds",
+        "drop": false,
+        "allowrate": false,
+        "outputs": 1,
+        "x": 790,
+        "y": 2510,
+        "wires": [
+            [
+                "s_dock"
+            ]
+        ]
+    },
+    {
+        "id": "s_dock",
+        "type": "api-call-service",
+        "z": "rr_tab_1",
+        "name": "return to dock (retry)",
+        "server": "38978576.ca0eea",
+        "version": 5,
+        "debugenabled": false,
+        "action": "vacuum.return_to_base",
+        "floorId": [],
+        "areaId": [],
+        "deviceId": [],
+        "entityId": [],
+        "data": "{\"entity_id\": \"vacuum.mr_slave_2\"}",
+        "dataType": "json",
+        "mergeContext": "",
+        "mustacheAltTags": false,
+        "outputProperties": [],
+        "queue": "none",
+        "blockInputOverrides": true,
+        "domain": "",
+        "service": "",
+        "x": 990,
+        "y": 2510,
+        "wires": [
+            [
+                "w_dock"
+            ]
+        ],
+        "g": "g_dock"
+    },
+    {
+        "id": "w_dock",
+        "type": "ha-wait-until",
+        "z": "rr_tab_1",
+        "name": "wait docked (20 min)",
+        "server": "38978576.ca0eea",
+        "outputs": 2,
+        "outputProperties": [],
+        "entityId": "vacuum.mr_slave_2",
+        "entityIdType": "exact",
+        "property": "state",
+        "comparator": "is",
+        "value": "docked",
+        "valueType": "str",
+        "timeout": "20",
+        "timeoutType": "num",
+        "timeoutUnits": "minutes",
+        "entityLocation": "",
+        "entityLocationType": "none",
+        "checkCurrentState": true,
+        "blockInputOverrides": true,
+        "outputThenReasons": false,
+        "x": 1210,
+        "y": 2510,
+        "wires": [
+            [],
+            [
+                "f_dockretry"
+            ]
+        ],
+        "g": "g_dock"
+    },
+    {
+        "id": "cat_dock",
+        "type": "catch",
+        "name": "return failed",
+        "scope": [
+            "s_dock"
+        ],
+        "uncaught": false,
+        "x": 530,
+        "y": 2570,
+        "wires": [
+            [
+                "f_dockretry"
+            ]
+        ],
+        "z": "rr_tab_1",
+        "g": "g_dock"
+    },
+    {
+        "id": "lo_n_dock",
+        "type": "link out",
+        "z": "rr_tab_1",
+        "g": "g_dock",
+        "name": "\u2192 notify",
+        "mode": "link",
+        "links": [
+            "li_notify"
+        ],
+        "x": 815,
+        "y": 2570,
+        "wires": []
+    },
+    {
+        "id": "lo_tr_dock",
+        "type": "link out",
+        "z": "rr_tab_1",
+        "g": "g_dock",
+        "name": "\u2192 tracker",
+        "mode": "link",
+        "links": [
+            "li_tr"
+        ],
+        "x": 925,
+        "y": 2570,
+        "wires": []
     }
 ]
