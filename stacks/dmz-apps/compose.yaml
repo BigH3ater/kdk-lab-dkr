@@ -1,7 +1,7 @@
 name: dmz-apps
 services:
   seerr:
-    image: ghcr.io/seerr-team/seerr:v3.4.1
+    image: ghcr.io/seerr-team/seerr:v3.5.1
     container_name: seerr
     extra_hosts:
       - "sonarr.kmkdp.com:10.1.20.20"
