@@ -7,13 +7,20 @@
 name: observability-agent
 services:
   cadvisor:
-    image: gcr.io/cadvisor/cadvisor:v0.52.1
+    # ghcr, not gcr.io: gcr stops at v0.55.1. v0.55+ carries the containerd-
+    # snapshotter fix (google/cadvisor#3709). Docker on every host uses the
+    # containerd image store, and v0.52.1 failed every container with "failed to
+    # identify the read-write layer ID", so only the root cgroup was exported.
+    image: ghcr.io/google/cadvisor:v0.60.6
     container_name: cadvisor
     restart: unless-stopped
     command:
       - "--docker_only=true"
       - "--housekeeping_interval=30s"
       - "--store_container_labels=false"
+      # ...except the compose labels, so series carry stack/service like Loki does
+      # (container_label_com_docker_compose_project / _service).
+      - "--whitelisted_container_labels=com.docker.compose.project,com.docker.compose.service"
     privileged: true
     devices:
       - /dev/kmsg
@@ -24,6 +31,7 @@ services:
       - /var/run:/var/run:ro
       - /sys:/sys:ro
       - /var/lib/docker/:/var/lib/docker:ro
+      - /var/lib/containerd/:/var/lib/containerd:ro   # snapshotter layers live here
       - /dev/disk/:/dev/disk:ro
     logging: &log
       driver: json-file
