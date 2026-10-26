@@ -1,0 +1,466 @@
+{
+  "id": null,
+  "uid": "traffic-access-logs",
+  "title": "Traffic Access Logs",
+  "description": "Traefik access logs from the internal proxy (kdk-dkr-01) and the DMZ proxy (kdk-dkr-dmz-01, public via cloudflared), JSON access log via Alloy -> Loki. Client IP and geo panels use the Cloudflare headers, so they only fill for public (DMZ) traffic.",
+  "tags": [
+    "traffic",
+    "networking",
+    "security"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "1m",
+  "time": {
+    "from": "now-3h",
+    "to": "now"
+  },
+  "templating": {
+    "list": [
+      {
+        "name": "ds_loki",
+        "type": "datasource",
+        "query": "loki",
+        "current": {
+          "selected": true,
+          "text": "loki-dkr01",
+          "value": "loki-dkr01"
+        },
+        "hide": 0,
+        "label": "Loki datasource",
+        "regex": ""
+      },
+      {
+        "name": "host",
+        "label": "Traefik",
+        "type": "custom",
+        "multi": true,
+        "includeAll": true,
+        "allValue": ".*",
+        "query": "kdk-dkr-01,kdk-dkr-dmz-01",
+        "current": {
+          "selected": true,
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        },
+        "options": []
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Requests / sec",
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "type": "timeseries",
+      "datasource": {
+        "type": "loki",
+        "uid": "${ds_loki}"
+      },
+      "targets": [
+        {
+          "expr": "sum(count_over_time({container=\"traefik\", host=~\"$host\"} | json | __error__=\"\" | DownstreamStatus != \"\" [$__interval]))",
+          "refId": "A",
+          "datasource": {
+            "type": "loki",
+            "uid": "${ds_loki}"
+          },
+          "queryType": "range"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 2,
+      "title": "Requests by Status Code",
+      "gridPos": {
+        "x": 8,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "type": "timeseries",
+      "datasource": {
+        "type": "loki",
+        "uid": "${ds_loki}"
+      },
+      "targets": [
+        {
+          "expr": "sum by (DownstreamStatus) (count_over_time({container=\"traefik\", host=~\"$host\"} | json | __error__=\"\" | DownstreamStatus != \"\" [$__interval]))",
+          "refId": "A",
+          "datasource": {
+            "type": "loki",
+            "uid": "${ds_loki}"
+          },
+          "queryType": "range"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 3,
+      "title": "Requests by Host",
+      "gridPos": {
+        "x": 16,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "type": "timeseries",
+      "datasource": {
+        "type": "loki",
+        "uid": "${ds_loki}"
+      },
+      "targets": [
+        {
+          "expr": "sum by (RequestHost) (count_over_time({container=\"traefik\", host=~\"$host\"} | json | __error__=\"\" | DownstreamStatus != \"\" [$__interval]))",
+          "refId": "A",
+          "datasource": {
+            "type": "loki",
+            "uid": "${ds_loki}"
+          },
+          "queryType": "range"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 4,
+      "title": "Response Time (p95)",
+      "gridPos": {
+        "x": 0,
+        "y": 8,
+        "w": 12,
+        "h": 8
+      },
+      "type": "timeseries",
+      "datasource": {
+        "type": "loki",
+        "uid": "${ds_loki}"
+      },
+      "targets": [
+        {
+          "expr": "quantile_over_time(0.95, {container=\"traefik\", host=~\"$host\"} | json | __error__=\"\" | DownstreamStatus != \"\" | unwrap Duration [$__interval])",
+          "refId": "A",
+          "datasource": {
+            "type": "loki",
+            "uid": "${ds_loki}"
+          },
+          "queryType": "range"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ns"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 5,
+      "title": "Top Client Addresses (real source IP)",
+      "description": "request_Cf_Connecting_Ip -- Cloudflare's own edge-detected real visitor IP, not ClientAddr (which only shows cloudflared's own pod IP, e.g. 10.42.x.x, for every tunnel-routed request -- that's the local kube pod network, not the source). Only populated for requests that actually went through the tunnel; direct-LAN requests have no Cf-Connecting-Ip header at all and are correctly excluded here.",
+      "gridPos": {
+        "x": 12,
+        "y": 8,
+        "w": 12,
+        "h": 8
+      },
+      "type": "timeseries",
+      "datasource": {
+        "type": "loki",
+        "uid": "${ds_loki}"
+      },
+      "targets": [
+        {
+          "expr": "topk(10, sum by (request_Cf_Connecting_Ip) (count_over_time({container=\"traefik\", host=~\"$host\"} | json | __error__=\"\" | DownstreamStatus != \"\" | request_Cf_Connecting_Ip != \"\" [$__interval])))",
+          "refId": "A",
+          "datasource": {
+            "type": "loki",
+            "uid": "${ds_loki}"
+          },
+          "queryType": "range"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 8,
+      "title": "Requests by Country",
+      "description": "Real client geolocation via Cf-Ipcountry (Cloudflare's own edge-detected country header, passed through the tunnel to Traefik) -- not ClientAddr, which only shows cloudflared's pod IP for tunnel-routed requests. See k8s/system/traefik/helmchartconfig.yaml's header-capture config. Hover a marker to see the source IP -- grouped by IP as well as country, so multiple visitors from the same country render as separate (overlapping, individually hoverable) markers rather than being merged into one anonymous count.",
+      "gridPos": {
+        "x": 0,
+        "y": 16,
+        "w": 24,
+        "h": 12
+      },
+      "type": "geomap",
+      "datasource": {
+        "type": "loki",
+        "uid": "${ds_loki}"
+      },
+      "targets": [
+        {
+          "expr": "sum by (request_Cf_Ipcountry, request_Cf_Connecting_Ip) (count_over_time({container=\"traefik\", host=~\"$host\"} | json | __error__=\"\" | DownstreamStatus != \"\" | request_Cf_Ipcountry != \"\" [$__range]))",
+          "refId": "A",
+          "datasource": {
+            "type": "loki",
+            "uid": "${ds_loki}"
+          },
+          "queryType": "instant",
+          "instant": true
+        }
+      ],
+      "options": {
+        "view": {
+          "id": "zero",
+          "lat": 0,
+          "lon": 0,
+          "zoom": 1
+        },
+        "controls": {
+          "showZoom": true,
+          "mouseWheelZoom": true,
+          "showAttribution": true,
+          "showScale": false,
+          "showMeasure": false,
+          "showDebug": false
+        },
+        "basemap": {
+          "type": "default",
+          "name": "Basemap",
+          "config": {}
+        },
+        "layers": [
+          {
+            "type": "markers",
+            "name": "Requests by Country",
+            "config": {
+              "style": {
+                "size": {
+                  "fixed": 5,
+                  "min": 2,
+                  "max": 25,
+                  "field": "Value"
+                },
+                "color": {
+                  "fixed": "dark-orange"
+                },
+                "opacity": 0.6,
+                "rotation": {
+                  "fixed": 0,
+                  "min": -360,
+                  "max": 360,
+                  "mode": "mod"
+                },
+                "symbol": {
+                  "fixed": "img/icons/marker/circle.svg",
+                  "mode": "fixed"
+                },
+                "symbolAlign": {
+                  "horizontal": "center",
+                  "vertical": "center"
+                }
+              },
+              "showLegend": true
+            },
+            "location": {
+              "mode": "lookup",
+              "lookup": "request_Cf_Ipcountry",
+              "gazetteer": "public/gazetteer/countries.json"
+            }
+          }
+        ]
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      }
+    },
+    {
+      "id": 9,
+      "title": "Requests by Precise Location",
+      "description": "Real lat/lon via Cf-Iplatitude/Cf-Iplongitude (Cloudflare's edge-detected coordinates) -- works for any country/region, including US state-level distinction, without needing a states-specific gazetteer. Requires the \"Add visitor location headers\" Managed Transform enabled on the kmkdp.com zone (Cloudflare dashboard: Rules > Transform Rules > Managed Transforms) -- empty/no data on this panel means that transform isn't enabled yet, not a pipeline bug. Hover a marker to see the source IP (grouped in alongside lat/lon/region).",
+      "gridPos": {
+        "x": 0,
+        "y": 28,
+        "w": 24,
+        "h": 12
+      },
+      "type": "geomap",
+      "datasource": {
+        "type": "loki",
+        "uid": "${ds_loki}"
+      },
+      "targets": [
+        {
+          "expr": "sum by (request_Cf_Iplatitude, request_Cf_Iplongitude, request_Cf_Ipcountry, request_Cf_Region, request_Cf_Connecting_Ip) (count_over_time({container=\"traefik\", host=~\"$host\"} | json | __error__=\"\" | DownstreamStatus != \"\" | request_Cf_Iplatitude != \"\" [$__range]))",
+          "refId": "A",
+          "datasource": {
+            "type": "loki",
+            "uid": "${ds_loki}"
+          },
+          "queryType": "instant",
+          "instant": true
+        }
+      ],
+      "options": {
+        "view": {
+          "id": "zero",
+          "lat": 0,
+          "lon": 0,
+          "zoom": 1
+        },
+        "controls": {
+          "showZoom": true,
+          "mouseWheelZoom": true,
+          "showAttribution": true,
+          "showScale": false,
+          "showMeasure": false,
+          "showDebug": false
+        },
+        "basemap": {
+          "type": "default",
+          "name": "Basemap",
+          "config": {}
+        },
+        "layers": [
+          {
+            "type": "markers",
+            "name": "Requests by Precise Location",
+            "config": {
+              "style": {
+                "size": {
+                  "fixed": 5,
+                  "min": 2,
+                  "max": 25,
+                  "field": "Value"
+                },
+                "color": {
+                  "fixed": "semi-dark-blue"
+                },
+                "opacity": 0.7,
+                "rotation": {
+                  "fixed": 0,
+                  "min": -360,
+                  "max": 360,
+                  "mode": "mod"
+                },
+                "symbol": {
+                  "fixed": "img/icons/marker/circle.svg",
+                  "mode": "fixed"
+                },
+                "symbolAlign": {
+                  "horizontal": "center",
+                  "vertical": "center"
+                }
+              },
+              "showLegend": true
+            },
+            "location": {
+              "mode": "coords",
+              "latitude": "request_Cf_Iplatitude",
+              "longitude": "request_Cf_Iplongitude"
+            }
+          }
+        ]
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      }
+    },
+    {
+      "id": 6,
+      "title": "Raw Traefik Access Logs",
+      "gridPos": {
+        "x": 0,
+        "y": 40,
+        "w": 24,
+        "h": 10
+      },
+      "type": "logs",
+      "datasource": {
+        "type": "loki",
+        "uid": "${ds_loki}"
+      },
+      "targets": [
+        {
+          "expr": "{container=\"traefik\", host=~\"$host\"} | json | __error__=\"\" | DownstreamStatus != \"\"",
+          "refId": "A",
+          "datasource": {
+            "type": "loki",
+            "uid": "${ds_loki}"
+          },
+          "queryType": "range"
+        }
+      ],
+      "options": {
+        "showTime": true,
+        "wrapLogMessage": false,
+        "sortOrder": "Descending"
+      }
+    },
+    {
+      "id": 7,
+      "title": "Raw cloudflared Tunnel Logs",
+      "gridPos": {
+        "x": 0,
+        "y": 50,
+        "w": 24,
+        "h": 10
+      },
+      "type": "logs",
+      "datasource": {
+        "type": "loki",
+        "uid": "${ds_loki}"
+      },
+      "targets": [
+        {
+          "expr": "{container=\"cloudflared\"}",
+          "refId": "A",
+          "datasource": {
+            "type": "loki",
+            "uid": "${ds_loki}"
+          },
+          "queryType": "range"
+        }
+      ],
+      "options": {
+        "showTime": true,
+        "wrapLogMessage": false,
+        "sortOrder": "Descending"
+      }
+    }
+  ]
+}

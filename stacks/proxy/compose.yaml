@@ -26,6 +26,13 @@ services:
       - "--certificatesresolvers.cf.acme.storage=/letsencrypt/acme.json"
       - "--api.dashboard=true"
       - "--log.level=INFO"
+      # JSON access log to stdout -> Alloy -> Loki ({container="traefik"} | json),
+      # read by the Grafana "Traffic Access Logs" dashboard. Headers are dropped
+      # except the ones the dashboard uses.
+      - "--accesslog=true"
+      - "--accesslog.format=json"
+      - "--accesslog.fields.headers.defaultmode=drop"
+      - "--accesslog.fields.headers.names.User-Agent=keep"
     environment:
       CF_DNS_API_TOKEN: "${CLOUDFLARE_DNS_API_TOKEN}"
     ports:
