@@ -58,25 +58,28 @@ _sess: requests.Session | None = None
 
 
 def _login() -> requests.Session:
-    """Log in via django-allauth and return an authenticated session.
-    allauth's login form posts to /accounts/login/ with fields `login` + `password`
-    + `csrfmiddlewaretoken`, and needs a Referer. Confirm the field name is `login`
-    (not `username`) on first deploy if this fails."""
+    """Log in via django-allauth's headless *browser* API and return a session.
+    Tandoor v2 replaced the server-rendered /accounts/login/ form with the Vue SPA,
+    so that page no longer sets a csrftoken cookie and the old form POST got
+    "CSRF cookie not set" 403s (2026-10-25). The config GET sets the cookie; the
+    login POST must echo it as X-CSRFToken. A sessionid cookie comes back, which
+    DRF SessionAuthentication accepts for /api/ (ratings re-read the rotated
+    csrftoken cookie)."""
     s = requests.Session()
     s.headers["User-Agent"] = "kdk-dashboard-mealplan"
-    login_url = f"{TANDOOR_URL}/accounts/login/"
-    r = s.get(login_url, timeout=20)
+    auth = f"{TANDOOR_URL}/_allauth/browser/v1"
+    r = s.get(f"{auth}/config", timeout=20)
     r.raise_for_status()
-    m = re.search(r'name=["\']csrfmiddlewaretoken["\']\s+value=["\']([^"\']+)["\']', r.text)
-    token = m.group(1) if m else s.cookies.get("csrftoken", "")
     r = s.post(
-        login_url,
-        data={"login": USER, "username": USER, "password": PASS, "csrfmiddlewaretoken": token},
-        headers={"Referer": login_url},
+        f"{auth}/auth/login",
+        json={"username": USER, "password": PASS},
+        headers={"X-CSRFToken": s.cookies.get("csrftoken", ""), "Referer": f"{TANDOOR_URL}/"},
         timeout=20,
-        allow_redirects=True,
     )
-    r.raise_for_status()
+    if r.status_code != 200:
+        codes = [e.get("code") for e in (r.json().get("errors") or [])] if r.headers.get(
+            "content-type", "").startswith("application/json") else []
+        raise RuntimeError(f"login failed: {r.status_code} {codes}")
     # Sanity check: an authenticated JSON call should return 200, not 403.
     chk = s.get(f"{TANDOOR_URL}/api/user-preference/", timeout=20)
     if chk.status_code != 200:
