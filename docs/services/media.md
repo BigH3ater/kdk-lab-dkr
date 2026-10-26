@@ -47,6 +47,7 @@ docker exec media-tdarr-node-1 nvidia-smi -L                                # GT
 | Transcode drops Atmos to native E-AC3 | DEE wrapper 503 (single slot) | keep exactly 1 transcode worker on the node |
 | Transcode error "Subtitle codec 94213 is not supported" | MP4 source with tx3g subs, container step not conforming | both MKV steps in the flow have `forceConform=true`; re-queue |
 | AV1 file stays AV1 / 4K remux keeps foreign audio | flow bypass (bitrate gate / old DV hold) | `scripts/tdarr-flow-sync.sh diff` shows repo flow == live (see tdarr runbook) |
+| Hindi/Tamil/Telugu movie appears in Radarr (or gets downloaded) | IMDb Popular / Top 250 import lists carry Indian titles; Radarr cannot filter IMDb lists by language | `arr-list-guard` procedure (every 6 h) removes untagged, file-less ones with an exclusion; already-downloaded ones are reported, delete by hand. Want one? request it in Seerr (tagged) |
 
 ## Dependencies
 
@@ -73,6 +74,7 @@ Each app joins `default` + `proxy`; ports are `prowlarr 9696`, `sabnzbd 8080`, `
 | `*__AUTH__METHOD=External` | arr UIs trust Authelia; API keys still gate `/api` |
 | `<app>/config.xml` `<ApiKey>` | per-app API key (not in 1P) |
 | `sabnzbd/sabnzbd.ini` `host_whitelist` | accepted Host headers |
+| Radarr → Settings → Import Lists | 15 lists (13 TMDb directors, IMDb Popular, IMDb Top 250); `listSyncLevel=disabled`. Language block = `stacks/arr-list-guard` (`LANGUAGES` env) |
 
 ## Secret Rotation
 

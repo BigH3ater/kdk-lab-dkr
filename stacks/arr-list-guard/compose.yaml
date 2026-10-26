@@ -1,0 +1,34 @@
+# Radarr import-list guard on kdk-dkr-01 (arr-list-guard procedure, every 6 h).
+# Goal: Indian-language movies that the IMDb charts push into Radarr are removed
+# again and excluded before anything is downloaded. The IMDb Popular / Top 250
+# lists carry no language filter (Radarr 6.3 only filters TMDb lists), so the
+# block has to run after the list sync: The Paradise (2026, Telugu) came in via
+# IMDb Popular on 2026-09-21 and was grabbed on release day 2026-10-22.
+#
+# Rule (guard.py, mounted so Compose interpolation never touches it): a Radarr
+# movie whose original language is Hindi/Tamil/Telugu/Malayalam/Kannada/
+# Bengali/Marathi/Urdu, with NO tags and NO file, is deleted with
+# addImportExclusion=true, so the list cannot re-add it. Movies with a tag
+# (Seerr requests carry the requester's tag) or with a file on disk are never
+# touched -- those are reported only. Want one of these films? Request it in
+# Seerr (tagged) or tag it in Radarr.
+#
+# Host networking to resolve radarr.kmkdp.com via lab DNS. API key read from
+# the mounted (ro) config.xml -- no new secrets. Pushover creds under /etc/kdk.
+# DRY_RUN=1 reports what it would remove.
+name: arr-list-guard
+services:
+  guard:
+    image: python:3.12-alpine
+    restart: "no"
+    network_mode: host
+    environment:
+      DRY_RUN: "0"
+      LANGUAGES: "Hindi,Tamil,Telugu,Malayalam,Kannada,Bengali,Marathi,Urdu"
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - apk add --no-cache ca-certificates >/dev/null 2>&1 || true; exec python3 /guard.py
+    volumes:
+      - /etc/kdk:/kdk:ro
+      - ./guard.py:/guard.py:ro
+      - /opt/kdk-lab/media/radarr:/radarr-config:ro
