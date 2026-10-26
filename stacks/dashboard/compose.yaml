@@ -102,6 +102,9 @@ services:
       context: ./mealplan
       provenance: false
     image: kdk/dashboard-mealplan:latest
+    # python is PID 1 otherwise and ignores SIGTERM, so every redeploy waited out
+    # the 10 s grace and was SIGKILLed (137 -> false "container down" page).
+    init: true
     container_name: dashboard-mealplan
     restart: unless-stopped
     env_file: [.env]                # TANDOOR_USER/TANDOOR_PASS (op-injected)
