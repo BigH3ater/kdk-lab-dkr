@@ -1,0 +1,24 @@
+# Tdarr backlog feeder on kdk-dkr-01 (tdarr-backlog procedure, hourly at :55).
+# Goal: drain the list of library files that must go through the flow again
+# (2026-10-25 review: ~345 files / 13 TB -- Dolby Vision remuxes the old gate
+# held, MP4 sources, AV1 encodes, files with foreign audio/subs or lossless
+# audio) WITHOUT starving new downloads: it only tops the Tdarr queue up to
+# a few files at a time. Pops lines from /etc/kdk/tdarr-backlog.list (host
+# state, one Tdarr file path per line, highest value first) and re-queues
+# each via the cruddb API (getById -> TranscodeDecisionMaker=Queued -> update,
+# the same thing the UI's Re-queue button does). Stops when the list is empty.
+# Logic in backlog.sh (mounted). Host networking for localhost:8266.
+name: tdarr-backlog
+services:
+  backlog:
+    image: alpine:3.20
+    restart: "no"
+    network_mode: host
+    environment:
+      LIST: /kdk/tdarr-backlog.list
+      MIN_QUEUED: "3"      # top up only when fewer than this many files are Queued
+      BATCH: "6"           # how many to add per run
+    entrypoint: ["/bin/sh", "/backlog.sh"]
+    volumes:
+      - /etc/kdk:/kdk
+      - ./backlog.sh:/backlog.sh:ro

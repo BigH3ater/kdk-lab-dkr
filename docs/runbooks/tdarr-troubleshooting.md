@@ -102,6 +102,28 @@ corrupt file (some WEB-DLs, a bad remux). `.iso` files can't be transcoded at
 all (BR-DISK rips) — they need remuxing to MKV upstream. `tdarr-verify` lists
 both when their counts rise; they're data hygiene, not a pipeline fault.
 
+## Re-queueing files from the API
+
+The UI's *Re-queue* is a document update: `cruddb getById` on `FileJSONDB`,
+set `TranscodeDecisionMaker` to `Queued` (and `holdUntil` to 0), `cruddb update`
+with the whole document. `stacks/tdarr-backlog/backlog.sh` does exactly this.
+Files held for review never show as "Transcode error" -- find them from the
+job reports (`grep -l "verdict: requireReview" DB2/JobReports/*/*transcode*`).
+
+## Backlog feeder (tdarr-backlog)
+
+After the 2026-10-25 flow changes ~345 library files (12.7 TB) needed another
+pass: Dolby Vision remuxes the old gate had held (lossless audio, foreign
+tracks), MP4 sources, AV1 encodes, files with foreign audio/subs or cover
+art. Queuing them all at once would park new downloads behind days of
+remuxes, so `/etc/kdk/tdarr-backlog.list` on `kdk-dkr-01` (highest value
+first) is drained by the hourly `tdarr-backlog` procedure: when fewer than
+`MIN_QUEUED` (3) files are Queued it re-queues the next `BATCH` (6). Empty list
+= no-op. While it drains, the node runs **one** transcode worker so two
+lossless jobs cannot collide on the single-slot DEE wrapper (the DEE step
+retries a 503 for 5 minutes, then falls back to native E-AC3 and the Atmos
+bed is lost). Raise it back to 2 once the list is empty.
+
 ## Re-queueing errored files
 
 `cruddb` mode `update` returns `200` but does **not** change
