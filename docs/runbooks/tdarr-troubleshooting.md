@@ -122,7 +122,9 @@ first) is drained by the hourly `tdarr-backlog` procedure: when fewer than
 = no-op. While it drains, the node runs **one** transcode worker so two
 lossless jobs cannot collide on the single-slot DEE wrapper (the DEE step
 retries a 503 for 5 minutes, then falls back to native E-AC3 and the Atmos
-bed is lost). Raise it back to 2 once the list is empty.
+bed is lost). The first run that finds the list empty raises the node back to
+`TARGET_GPU_WORKERS` (2) through `alter-worker-limit` and sends one Pushover
+note ("tdarr-backlog done"); after that every run is a no-op.
 
 ## Re-queueing errored files
 

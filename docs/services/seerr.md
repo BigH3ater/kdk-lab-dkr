@@ -24,7 +24,7 @@ Media request UI, public via the Cloudflare tunnel, authenticating against Jelly
 | Status | 🟢 Live — Jellyfin link works; Sonarr/Radarr pending a firewall rule |
 | Host | [[kdk-dkr-dmz-01]] |
 | Endpoint | `https://seerr.kmkdp.com` |
-| Image | `ghcr.io/seerr-team/seerr:v3.4.1` |
+| Image | `ghcr.io/seerr-team/seerr:v3.5.1` (3.5.0 moved Jellyfin auth to the `Authorization: MediaBrowser` header Jellyfin 12 requires) |
 | Deploy | Komodo stack `dmz-apps` (git-linked) |
 | Storage | `/mnt/appdata/jellyseerr` (NFS, same data as the k3s deploy) |
 | Blast radius | No new requests; existing library unaffected |

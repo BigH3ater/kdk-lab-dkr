@@ -18,6 +18,7 @@ services:
       LIST: /kdk/tdarr-backlog.list
       MIN_QUEUED: "3"      # top up only when fewer than this many files are Queued
       BATCH: "6"           # how many to add per run
+      TARGET_GPU_WORKERS: "2"   # when the list is empty, raise the node back to this many GPU workers (1 during the backlog: single-slot DEE)
     entrypoint: ["/bin/sh", "/backlog.sh"]
     volumes:
       - /etc/kdk:/kdk

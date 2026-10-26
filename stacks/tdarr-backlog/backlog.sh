@@ -7,7 +7,30 @@ apk add --no-cache curl jq >/dev/null 2>&1 || true
 TDARR="${TDARR_URL:-http://localhost:8266}"
 LIST="${LIST:-/kdk/tdarr-backlog.list}"
 MIN_QUEUED="${MIN_QUEUED:-3}"; BATCH="${BATCH:-6}"
-[ -s "$LIST" ] || { echo "backlog empty -- nothing to do"; exit 0; }
+TARGET_GPU_WORKERS="${TARGET_GPU_WORKERS:-2}"   # restore this many GPU workers once the list is empty
+PUSHOVER_ENV="${PUSHOVER_ENV:-/kdk/pushover.env}"
+notify() { # title, message
+  [ -r "$PUSHOVER_ENV" ] || return 0
+  tok=$(sed -n 's/^PUSHOVER_TOKEN=//p' "$PUSHOVER_ENV" | tr -d '"'); usr=$(sed -n 's/^PUSHOVER_USER=//p' "$PUSHOVER_ENV" | tr -d '"')
+  [ -n "$tok" ] && [ -n "$usr" ] && curl -s -m 20 -o /dev/null -F "token=$tok" -F "user=$usr" -F "title=$1" -F "message=$2" https://api.pushover.net/1/messages.json || true
+}
+if [ ! -s "$LIST" ]; then
+  # Backlog drained. The node ran on 1 GPU worker during the backlog so the
+  # single-slot DEE wrapper never 503'd; put it back to TARGET_GPU_WORKERS once.
+  nodes=$(curl -s -m 30 "$TDARR/api/v2/get-nodes")
+  id=$(printf '%s' "$nodes" | jq -r 'to_entries[0].key // empty'); cur=$(printf '%s' "$nodes" | jq -r 'to_entries[0].value.workerLimits.transcodegpu // empty')
+  if [ -n "$id" ] && [ -n "$cur" ] && [ "$cur" -lt "$TARGET_GPU_WORKERS" ]; then
+    while [ "$cur" -lt "$TARGET_GPU_WORKERS" ]; do
+      curl -s -m 30 -o /dev/null -X POST "$TDARR/api/v2/alter-worker-limit" -H 'content-type: application/json' \
+        -d "$(jq -cn --arg id "$id" '{data:{nodeID:$id,process:"increase",workerType:"transcodegpu"}}')"; cur=$((cur+1))
+    done
+    echo "backlog empty -- GPU workers on $id raised to $TARGET_GPU_WORKERS"
+    notify "kdk-lab tdarr-backlog done" "Backlog list empty; node $id back to $TARGET_GPU_WORKERS GPU workers."
+  else
+    echo "backlog empty -- nothing to do (gpu workers=${cur:-?})"
+  fi
+  exit 0
+fi
 db() { curl -s -m 120 -X POST "$TDARR/api/v2/cruddb" -H 'content-type: application/json' -d "$1"; }
 queued=$(db '{"data":{"collection":"FileJSONDB","mode":"getAll"}}' | jq '[.[]|select(.TranscodeDecisionMaker=="Queued")]|length' 2>/dev/null)
 [ -n "$queued" ] || { echo "tdarr unreachable"; exit 1; }
