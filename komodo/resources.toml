@@ -620,6 +620,35 @@ executions = [
   { execution.type = "DeployStack", execution.params.stack = "tdarr-remediate", enabled = true },
 ]
 
+# Hourly Tdarr backlog feeder: tops the transcode queue up (a few files at a
+# time) from /etc/kdk/tdarr-backlog.list -- the 2026-10-25 review's ~345 files
+# that must go through the flow again. No-op once the list is empty.
+[[stack]]
+tags = ["kdk-lab"]
+name = "tdarr-backlog"
+deploy = false   # run hourly by the tdarr-backlog Procedure
+[stack.config]
+server = "kdk-dkr-01"
+repo = "BigH3ater/kdk-lab-dkr"
+run_directory = "stacks/tdarr-backlog"
+destroy_before_deploy = true   # one locked down+up so the one-shot re-runs
+
+[[procedure]]
+tags = ["kdk-lab"]
+name = "tdarr-backlog"
+[procedure.config]
+schedule_format = "Cron"
+# :55 every hour -- after tdarr-verify (:40) / tdarr-remediate (:50), off the
+# gitops-sync :00/:15/:30/:45 slots.
+schedule = "0 55 * * * *"
+schedule_timezone = "America/Chicago"
+[[procedure.config.stage]]
+name = "backlog"
+enabled = true
+executions = [
+  { execution.type = "DeployStack", execution.params.stack = "tdarr-backlog", enabled = true },
+]
+
 # Weekly Sonarr/Radarr upgrade search: asks the *arrs to search for files they
 # already score below zero (AV1 custom format). They never search backwards on
 # their own -- an AV1 file is only replaced when a release happens to hit RSS.
