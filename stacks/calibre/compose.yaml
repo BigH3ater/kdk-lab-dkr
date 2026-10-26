@@ -17,12 +17,6 @@
 name: calibre
 
 x-img: &img
-  # provenance off: with the containerd image store, BuildKit's provenance
-  # attestation gives every (even fully cached) build a new image ID, so each
-  # gitops-sync deploy recreated these containers. Off = stable ID, no restart.
-  build:
-    context: .
-    provenance: false
   image: kdk/calibre:latest
   restart: unless-stopped
   environment: &env
@@ -34,6 +28,17 @@ x-img: &img
 services:
   server:
     <<: *img
+    # Only this service builds the image; `import` reuses the tag. Compose stamps
+    # each build with com.docker.compose.service, so two services building the
+    # same tag produce two image IDs and whichever finishes last recreates the
+    # other on every gitops-sync deploy (paged "calibre-import exited 137" on
+    # every merge, 2026-10-25).
+    # provenance off: with the containerd image store, BuildKit's provenance
+    # attestation gives every (even fully cached) build a new image ID, so each
+    # deploy recreated these containers. Off = stable ID, no restart.
+    build:
+      context: .
+      provenance: false
     container_name: calibre-server
     volumes:
       - /opt/kdk-lab/calibre/library:/library
@@ -61,6 +66,10 @@ services:
   import:
     <<: *img
     container_name: calibre-import
+    # The loop's `sh` is PID 1 otherwise and ignores SIGTERM, so every stop ran
+    # out the 10 s grace and was SIGKILLed (137 = paged as a crash). tini
+    # forwards TERM, the shell exits 143, and the event watcher ignores that.
+    init: true
     environment:
       <<: *env
       INCOMING: /incoming
@@ -75,7 +84,7 @@ services:
       - |
         while true; do
           echo "[calibre-import] $$(date '+%F %T') scanning $$INCOMING";
-          calibredb add --with-library /library --automerge overwrite -r "$$INCOMING" 2>&1 | tail -n 5 || true;
+          calibredb add --with-library /library --automerge ignore -r "$$INCOMING" 2>&1 | tail -n 5 || true;
           sleep "$$INTERVAL";
         done
 
