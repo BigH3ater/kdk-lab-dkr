@@ -1,0 +1,1663 @@
+{
+  "id": null,
+  "uid": "unpoller-overview",
+  "title": "UniFi Network (unpoller)",
+  "description": "Per-client, per-device, and site-level UniFi network health via unpoller's native Prometheus export -- see Homelab/K3s Services/K3s unpoller.md and Homelab/K3s Services/K3s kube-prometheus-stack.md (unpoller-alerts.yaml PrometheusRules this data also feeds).",
+  "tags": [
+    "unpoller",
+    "unifi",
+    "network"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "1m",
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "templating": {
+    "list": [
+      {
+        "name": "ds_prometheus",
+        "type": "datasource",
+        "query": "prometheus",
+        "current": {
+          "selected": true,
+          "text": "prometheus-ext",
+          "value": "prometheus-ext"
+        },
+        "hide": 0,
+        "label": "Prometheus datasource",
+        "regex": ""
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "row",
+      "title": "Site Overview",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 2,
+      "title": "Site KPIs",
+      "type": "stat",
+      "gridPos": {
+        "x": 0,
+        "y": 1,
+        "w": 24,
+        "h": 4
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${ds_prometheus}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "unpoller_site_stations{subsystem=\"wan\"}",
+          "legendFormat": "Total Clients",
+          "instant": true,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${ds_prometheus}"
+          }
+        },
+        {
+          "refId": "B",
+          "expr": "unpoller_site_users{subsystem=\"lan\"}",
+          "legendFormat": "Wired Clients",
+          "instant": true,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${ds_prometheus}"
+          }
+        },
+        {
+          "refId": "C",
+          "expr": "unpoller_site_users{subsystem=\"wlan\"}",
+          "legendFormat": "Wireless Clients",
+          "instant": true,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${ds_prometheus}"
+          }
+        },
+        {
+          "refId": "D",
+          "expr": "sum(unpoller_site_guests)",
+          "legendFormat": "Guests",
+          "instant": true,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${ds_prometheus}"
+          }
+        },
+        {
+          "refId": "E",
+          "expr": "unpoller_site_uptime_seconds{subsystem=\"www\"}",
+          "legendFormat": "Site Uptime",
+          "instant": true,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${ds_prometheus}"
+          }
+        },
+        {
+          "refId": "F",
+          "expr": "unpoller_site_latency_seconds{subsystem=\"www\"}",
+          "legendFormat": "WAN Latency",
+          "instant": true,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${ds_prometheus}"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "E"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "dtdurations"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "F"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "s"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      }
+    },
+    {
+      "id": 3,
+      "title": "Subsystem Health",
+      "description": "unpoller_site_disconnected -- disconnected-device count per UniFi health-check subsystem. Backs the UnifiSiteHighDisconnectedDevices alert.",
+      "type": "table",
+      "gridPos": {
+        "x": 0,
+        "y": 5,
+        "w": 12,
+        "h": 6
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${ds_prometheus}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "unpoller_site_disconnected",
+          "instant": true,
+          "format": "table",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${ds_prometheus}"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            }
+          },
+          "mappings": [],
+          "overrides": []
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "status"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background"
+                }
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "ok": {
+                        "text": "OK",
+                        "color": "green"
+                      }
+                    }
+                  },
+                  {
+                    "type": "regex",
+                    "options": {
+                      "pattern": ".*",
+                      "result": {
+                        "color": "red"
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Value"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Disconnected"
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "red",
+                      "value": 1
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "subsystem"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Subsystem"
+              }
+            ]
+          }
+        ]
+      },
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "__name__": true,
+              "container": true,
+              "endpoint": true,
+              "instance": true,
+              "job": true,
+              "namespace": true,
+              "pod": true,
+              "site_name": true,
+              "source": true
+            },
+            "indexByName": {
+              "subsystem": 0,
+              "status": 1,
+              "Value": 2
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Nearby / Rogue APs",
+      "description": "unpoller_rogueap_rssi -- neighboring APs seen by this site's radios (UnifiRogueAPDetected alert source). Not necessarily malicious -- includes legitimate neighbor networks.",
+      "type": "table",
+      "gridPos": {
+        "x": 12,
+        "y": 5,
+        "w": 12,
+        "h": 6
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${ds_prometheus}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "unpoller_rogueap_rssi",
+          "instant": true,
+          "format": "table",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${ds_prometheus}"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            }
+          },
+          "mappings": [],
+          "overrides": []
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Value"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Signal"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "name"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "SSID/Name"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "ap_mac"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Seen by AP"
+              }
+            ]
+          }
+        ]
+      },
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "__name__": true,
+              "container": true,
+              "endpoint": true,
+              "instance": true,
+              "job": true,
+              "namespace": true,
+              "pod": true,
+              "site_name": true,
+              "radio_name": true
+            },
+            "indexByName": {
+              "name": 0,
+              "mac": 1,
+              "security": 2,
+              "band": 3,
+              "ap_mac": 4,
+              "radio": 5,
+              "Value": 6
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "row",
+      "title": "Client Detail",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 11,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 6,
+      "title": "Wireless Clients",
+      "description": "unpoller_client_rssi_db -- signal strength + identity for every wireless client. Only wireless clients export this metric, so no wired= filter is needed. Vendor/Family/Category/OS columns are UniFi's own internal fingerprint IDs (numeric codes, e.g. \"3\") -- not human-readable names. No public mapping table exists in unpoller or its unifi Go library to translate them; useful today mainly for spotting which clients share the same fingerprint.",
+      "type": "table",
+      "gridPos": {
+        "x": 0,
+        "y": 12,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${ds_prometheus}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "unpoller_client_rssi_db",
+          "instant": true,
+          "format": "table",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${ds_prometheus}"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            }
+          },
+          "mappings": [],
+          "overrides": []
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Value"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Signal (dB)"
+              },
+              {
+                "id": "unit",
+                "value": "dB"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "name"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Client"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "ap_name"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "AP"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "dev_vendor"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Vendor Code"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "dev_family"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Family Code"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "dev_cat"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Category Code"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "os_name"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "OS Code"
+              }
+            ]
+          }
+        ]
+      },
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "__name__": true,
+              "container": true,
+              "endpoint": true,
+              "instance": true,
+              "job": true,
+              "namespace": true,
+              "pod": true,
+              "site_name": true,
+              "source": true,
+              "wired": true,
+              "oui": true,
+              "bssid": true,
+              "channel": true,
+              "gw_name": true,
+              "ip": true,
+              "radio": true,
+              "radio_desc": true,
+              "vlan": true
+            },
+            "indexByName": {
+              "name": 0,
+              "mac": 1,
+              "ap_name": 2,
+              "dev_vendor": 3,
+              "dev_family": 4,
+              "dev_cat": 5,
+              "os_name": 6,
+              "essid": 7,
+              "network": 8,
+              "radio_proto": 9,
+              "radio_name": 10,
+              "Value": 11
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "title": "Wired Clients",
+      "description": "unpoller_client_uptime_seconds{wired=\"true\"} -- identity + uptime for every wired client, including switch/port it's connected on. Vendor/Family/Category/OS columns are UniFi's own internal fingerprint IDs (numeric codes) -- not human-readable names, see the Wireless Clients panel's description for why.",
+      "type": "table",
+      "gridPos": {
+        "x": 12,
+        "y": 12,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${ds_prometheus}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "unpoller_client_uptime_seconds{wired=\"true\"}",
+          "instant": true,
+          "format": "table",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${ds_prometheus}"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            }
+          },
+          "mappings": [],
+          "overrides": []
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Value"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Uptime"
+              },
+              {
+                "id": "unit",
+                "value": "dtdurations"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "name"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Client"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "sw_name"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Switch"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "sw_port"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Port"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "dev_vendor"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Vendor Code"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "dev_family"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Family Code"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "dev_cat"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Category Code"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "os_name"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "OS Code"
+              }
+            ]
+          }
+        ]
+      },
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "__name__": true,
+              "container": true,
+              "endpoint": true,
+              "instance": true,
+              "job": true,
+              "namespace": true,
+              "pod": true,
+              "site_name": true,
+              "source": true,
+              "wired": true,
+              "oui": true
+            },
+            "indexByName": {
+              "name": 0,
+              "mac": 1,
+              "dev_vendor": 2,
+              "dev_family": 3,
+              "dev_cat": 4,
+              "os_name": 5,
+              "network": 6,
+              "sw_name": 7,
+              "sw_port": 8,
+              "Value": 9
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "title": "Top 10 Client Bandwidth",
+      "description": "topk(10, unpoller_client_receive_rate_bytes + unpoller_client_transmit_rate_bytes) -- combined rx+tx, all clients (wired + wireless share identical label sets so the binary op joins cleanly).",
+      "type": "timeseries",
+      "gridPos": {
+        "x": 0,
+        "y": 20,
+        "w": 18,
+        "h": 8
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${ds_prometheus}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "topk(10, unpoller_client_receive_rate_bytes + unpoller_client_transmit_rate_bytes)",
+          "legendFormat": "{{name}}",
+          "range": true,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${ds_prometheus}"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "Bps",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineWidth": 1,
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": [
+            "mean",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "id": 9,
+      "title": "Active Client Anomalies",
+      "description": "unpoller_client_anomalies -- UniFi anomaly bitmask per client, -1/0 = none observed. count(... > 0) or vector(0) so this reads a real 0 rather than Grafana's No Data when nothing is currently anomalous.",
+      "type": "stat",
+      "gridPos": {
+        "x": 18,
+        "y": 20,
+        "w": 6,
+        "h": 8
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${ds_prometheus}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "count(unpoller_client_anomalies > 0) or vector(0)",
+          "instant": true,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${ds_prometheus}"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      }
+    },
+    {
+      "id": 10,
+      "type": "row",
+      "title": "Device Health",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 28,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 11,
+      "title": "Device Inventory",
+      "description": "unpoller_device_info -- one row per UniFi device (switch/AP/gateway) with model/firmware/IP.",
+      "type": "table",
+      "gridPos": {
+        "x": 0,
+        "y": 29,
+        "w": 24,
+        "h": 6
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${ds_prometheus}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "unpoller_device_info",
+          "instant": true,
+          "format": "table",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${ds_prometheus}"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            }
+          },
+          "mappings": [],
+          "overrides": []
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "name"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Device"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "type"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Role"
+              }
+            ]
+          }
+        ]
+      },
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "__name__": true,
+              "container": true,
+              "endpoint": true,
+              "instance": true,
+              "job": true,
+              "namespace": true,
+              "pod": true,
+              "site_name": true,
+              "source": true,
+              "id": true,
+              "Value": true
+            },
+            "indexByName": {
+              "name": 0,
+              "type": 1,
+              "model": 2,
+              "version": 3,
+              "ip": 4,
+              "mac": 5,
+              "serial": 6
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": 12,
+      "title": "Device CPU & Memory Utilization",
+      "description": "unpoller_device_cpu_utilization_ratio / unpoller_device_memory_utilization_ratio -- backs the UnifiDeviceHighCPU / UnifiDeviceHighMemory alerts (>0.9 for 10m).",
+      "type": "timeseries",
+      "gridPos": {
+        "x": 0,
+        "y": 35,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${ds_prometheus}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "unpoller_device_cpu_utilization_ratio",
+          "legendFormat": "{{name}} CPU",
+          "range": true,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${ds_prometheus}"
+          }
+        },
+        {
+          "refId": "B",
+          "expr": "unpoller_device_memory_utilization_ratio",
+          "legendFormat": "{{name}} MEM",
+          "range": true,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${ds_prometheus}"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1,
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineWidth": 1,
+            "spanNulls": false
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 0.9
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "id": 13,
+      "title": "Device Temperature",
+      "description": "unpoller_device_temperature_celsius -- only devices with a reporting temp sensor expose this (4 of 8 devices live).",
+      "type": "timeseries",
+      "gridPos": {
+        "x": 12,
+        "y": 35,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${ds_prometheus}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "unpoller_device_temperature_celsius",
+          "legendFormat": "{{name}} ({{temp_area}})",
+          "range": true,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${ds_prometheus}"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "celsius",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineWidth": 1,
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "id": 14,
+      "title": "Firmware Updates Available",
+      "description": "unpoller_device_upgradable == 1 -- backs the UnifiDeviceUpgradeAvailable alert. Grafana's own 'No data' panel state IS the correct empty state here (no rows = no pending updates) -- fieldConfig.noValue was tried first but only formats a null value within an existing row, it does not fire for a zero-row/zero-frame result, so it's correctly left off rather than shipping a no-op setting.",
+      "type": "table",
+      "gridPos": {
+        "x": 0,
+        "y": 43,
+        "w": 12,
+        "h": 6
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${ds_prometheus}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "unpoller_device_upgradable == 1",
+          "instant": true,
+          "format": "table",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${ds_prometheus}"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            }
+          },
+          "mappings": [],
+          "overrides": []
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "name"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Device"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "type"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Role"
+              }
+            ]
+          }
+        ]
+      },
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "__name__": true,
+              "container": true,
+              "endpoint": true,
+              "instance": true,
+              "job": true,
+              "namespace": true,
+              "pod": true,
+              "site_name": true,
+              "source": true,
+              "Value": true
+            },
+            "indexByName": {
+              "name": 0,
+              "type": 1
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": 15,
+      "title": "Top 10 Switch Port Traffic",
+      "description": "topk(10, unpoller_device_port_receive_rate_bytes + unpoller_device_port_transmit_rate_bytes) -- combined rx+tx per switch port.",
+      "type": "timeseries",
+      "gridPos": {
+        "x": 12,
+        "y": 43,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${ds_prometheus}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "topk(10, unpoller_device_port_receive_rate_bytes + unpoller_device_port_transmit_rate_bytes)",
+          "legendFormat": "{{name}}: {{port_name}}",
+          "range": true,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${ds_prometheus}"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "Bps",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineWidth": 1,
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": [
+            "mean",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "id": 16,
+      "type": "row",
+      "title": "Wireless Cameras",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 51,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 17,
+      "title": "Wireless Cameras Status",
+      "description": "Real-time status of monitored wireless security cameras (Kitchen, Living Room, Front Door). Shows uptime and AP connection.",
+      "type": "table",
+      "gridPos": {
+        "x": 0,
+        "y": 52,
+        "w": 12,
+        "h": 6
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${ds_prometheus}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "unpoller_client_uptime_seconds{name=~\"Kitchen|Living Room|Front Door\"}",
+          "instant": true,
+          "format": "table",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${ds_prometheus}"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            }
+          },
+          "mappings": [],
+          "overrides": []
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "name"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Camera"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "ap_name"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "AP"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Value"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Uptime"
+              },
+              {
+                "id": "unit",
+                "value": "dtdurations"
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "red",
+                      "value": null
+                    },
+                    {
+                      "color": "yellow",
+                      "value": 300
+                    },
+                    {
+                      "color": "green",
+                      "value": 3600
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "__name__": true,
+              "container": true,
+              "endpoint": true,
+              "instance": true,
+              "job": true,
+              "namespace": true,
+              "pod": true,
+              "site_name": true,
+              "source": true,
+              "mac": true,
+              "oui": true,
+              "network": true,
+              "gw_name": true,
+              "ip": true,
+              "bssid": true,
+              "channel": true,
+              "essid": true,
+              "radio": true,
+              "radio_desc": true,
+              "radio_name": true,
+              "radio_proto": true,
+              "sw_name": true,
+              "sw_port": true,
+              "vlan": true,
+              "wired": true
+            },
+            "indexByName": {
+              "name": 0,
+              "ap_name": 1,
+              "Value": 2
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": 18,
+      "title": "Camera Signal Strength Over Time",
+      "description": "Wireless signal strength (dB) for monitored cameras. Lower values (more negative) indicate weaker signal.",
+      "type": "timeseries",
+      "gridPos": {
+        "x": 12,
+        "y": 52,
+        "w": 12,
+        "h": 6
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${ds_prometheus}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "unpoller_client_rssi_db{name=~\"Kitchen|Living Room|Front Door\"}",
+          "legendFormat": "{{name}} @ {{ap_name}}",
+          "range": true,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${ds_prometheus}"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "dB",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineWidth": 1,
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": [
+            "mean",
+            "min"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "id": 19,
+      "title": "Camera AP & Signal Quality",
+      "description": "Current AP connection, channel, protocol, and signal quality metrics for each camera.",
+      "type": "table",
+      "gridPos": {
+        "x": 0,
+        "y": 58,
+        "w": 24,
+        "h": 6
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${ds_prometheus}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "group by (name, ap_name, bssid, channel, radio_proto) (unpoller_client_rssi_db{name=~\"Kitchen|Living Room|Front Door\"})",
+          "instant": true,
+          "format": "table",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${ds_prometheus}"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            }
+          },
+          "mappings": [],
+          "overrides": []
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "name"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Camera"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "ap_name"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "AP"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "channel"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Channel"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "radio_proto"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Protocol"
+              }
+            ]
+          }
+        ]
+      },
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "__name__": true,
+              "container": true,
+              "endpoint": true,
+              "instance": true,
+              "job": true,
+              "namespace": true,
+              "pod": true,
+              "site_name": true,
+              "source": true,
+              "mac": true,
+              "oui": true,
+              "network": true,
+              "gw_name": true,
+              "ip": true,
+              "essid": true,
+              "radio": true,
+              "radio_desc": true,
+              "radio_name": true,
+              "sw_name": true,
+              "sw_port": true,
+              "vlan": true,
+              "wired": true,
+              "Value": true
+            },
+            "indexByName": {
+              "name": 0,
+              "ap_name": 1,
+              "channel": 2,
+              "radio_proto": 3,
+              "bssid": 4
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

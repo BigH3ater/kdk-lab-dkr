@@ -24,6 +24,20 @@ services:
       - "--certificatesresolvers.cf.acme.email=admin@kmkdp.com"
       - "--certificatesresolvers.cf.acme.storage=/letsencrypt/acme.json"
       - "--log.level=INFO"
+      # JSON access log to stdout -> Alloy -> Loki ({container="traefik"} | json),
+      # read by the Grafana "Traffic Access Logs" dashboard. Headers are dropped
+      # except the ones the dashboard uses.
+      - "--accesslog=true"
+      - "--accesslog.format=json"
+      - "--accesslog.fields.headers.defaultmode=drop"
+      - "--accesslog.fields.headers.names.User-Agent=keep"
+      # Cloudflare's visitor headers (real client IP + geo) for the public routes.
+      - "--accesslog.fields.headers.names.Cf-Connecting-Ip=keep"
+      - "--accesslog.fields.headers.names.Cf-Ipcountry=keep"
+      - "--accesslog.fields.headers.names.Cf-Ipcity=keep"
+      - "--accesslog.fields.headers.names.Cf-Region=keep"
+      - "--accesslog.fields.headers.names.Cf-Iplatitude=keep"
+      - "--accesslog.fields.headers.names.Cf-Iplongitude=keep"
     environment:
       CF_DNS_API_TOKEN: "${CLOUDFLARE_DNS_API_TOKEN}"
     ports:

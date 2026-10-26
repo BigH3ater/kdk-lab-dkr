@@ -1,0 +1,447 @@
+{
+  "id": null,
+  "uid": "kdk-backups",
+  "title": "Backups",
+  "description": "Nightly backup pipeline (backup-collect, backup-offsite, backup-verify): run results from docker-event-watch exit codes in Loki, plus whatever job output Alloy captured. Replaces the k3s CronJob dashboard.",
+  "tags": [
+    "backups",
+    "loki"
+  ],
+  "editable": false,
+  "graphTooltip": 1,
+  "refresh": "",
+  "schemaVersion": 39,
+  "time": {
+    "from": "now-7d",
+    "to": "now"
+  },
+  "timezone": "browser",
+  "templating": {
+    "list": []
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Verify OK",
+      "type": "stat",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki-dkr01"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "expr": "sum(count_over_time({container=\"docker-event-watch\"} |~ \"event name=backup-verify-verify-1 action=die code=0 \" [$__range])) or vector(0)",
+          "queryType": "instant",
+          "instant": true,
+          "refId": "A",
+          "datasource": {
+            "type": "loki",
+            "uid": "loki-dkr01"
+          }
+        }
+      ],
+      "description": "backup-verify runs that exited 0 (BACKUP OK, possibly with warnings). From docker-event-watch die events.",
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 2,
+      "title": "Verify failed",
+      "type": "stat",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki-dkr01"
+      },
+      "gridPos": {
+        "x": 4,
+        "y": 0,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "expr": "sum(count_over_time({container=\"docker-event-watch\"} |~ \"event name=backup-verify-verify-1 action=die code=[1-9][0-9]* \" [$__range])) or vector(0)",
+          "queryType": "instant",
+          "instant": true,
+          "refId": "A",
+          "datasource": {
+            "type": "loki",
+            "uid": "loki-dkr01"
+          }
+        }
+      ],
+      "description": "backup-verify runs that exited non-zero: validation failed (this also pages via Pushover).",
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 3,
+      "title": "Collect OK",
+      "type": "stat",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki-dkr01"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 0,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "expr": "sum(count_over_time({container=\"docker-event-watch\"} |~ \"event name=backup-collect-collect-1 action=die code=0 \" [$__range])) or vector(0)",
+          "queryType": "instant",
+          "instant": true,
+          "refId": "A",
+          "datasource": {
+            "type": "loki",
+            "uid": "loki-dkr01"
+          }
+        }
+      ],
+      "description": "backup-collect runs that exited 0.",
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 4,
+      "title": "Collect failed",
+      "type": "stat",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki-dkr01"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "expr": "sum(count_over_time({container=\"docker-event-watch\"} |~ \"event name=backup-collect-collect-1 action=die code=[1-9][0-9]* \" [$__range])) or vector(0)",
+          "queryType": "instant",
+          "instant": true,
+          "refId": "A",
+          "datasource": {
+            "type": "loki",
+            "uid": "loki-dkr01"
+          }
+        }
+      ],
+      "description": "backup-collect runs that exited non-zero.",
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 5,
+      "title": "Offsite OK",
+      "type": "stat",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki-dkr01"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 0,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "expr": "sum(count_over_time({container=\"docker-event-watch\"} |~ \"event name=backup-offsite-offsite-1 action=die code=0 \" [$__range])) or vector(0)",
+          "queryType": "instant",
+          "instant": true,
+          "refId": "A",
+          "datasource": {
+            "type": "loki",
+            "uid": "loki-dkr01"
+          }
+        }
+      ],
+      "description": "backup-offsite runs that exited 0.",
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 6,
+      "title": "Offsite failed",
+      "type": "stat",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki-dkr01"
+      },
+      "gridPos": {
+        "x": 20,
+        "y": 0,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "expr": "sum(count_over_time({container=\"docker-event-watch\"} |~ \"event name=backup-offsite-offsite-1 action=die code=[1-9][0-9]* \" [$__range])) or vector(0)",
+          "queryType": "instant",
+          "instant": true,
+          "refId": "A",
+          "datasource": {
+            "type": "loki",
+            "uid": "loki-dkr01"
+          }
+        }
+      ],
+      "description": "backup-offsite runs that exited non-zero.",
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 7,
+      "title": "Runs per day by exit code",
+      "type": "timeseries",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki-dkr01"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 4,
+        "w": 24,
+        "h": 7
+      },
+      "targets": [
+        {
+          "expr": "sum by (backup, code) (count_over_time({container=\"docker-event-watch\"} |~ \"event name=backup-(collect|offsite|verify)-(collect|offsite|verify)-1 action=die\" | regexp \"event name=backup-(?P<backup>[a-z]+)-(?:collect|offsite|verify)-1 action=die code=(?P<code>[0-9]+)\" [1d]))",
+          "legendFormat": "{{backup}} exit {{code}}",
+          "queryType": "range",
+          "step": "1d",
+          "refId": "A",
+          "datasource": {
+            "type": "loki",
+            "uid": "loki-dkr01"
+          }
+        }
+      ],
+      "description": "One bar per job per day. Anything other than exit 0 is a failure.",
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 0,
+          "custom": {
+            "drawStyle": "bars",
+            "fillOpacity": 80
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": ".* exit [1-9].*"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "red"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": 8,
+      "title": "Run events",
+      "type": "logs",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki-dkr01"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 11,
+        "w": 24,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "{container=\"docker-event-watch\"} |~ \"event name=backup-\"",
+          "queryType": "range",
+          "refId": "A",
+          "datasource": {
+            "type": "loki",
+            "uid": "loki-dkr01"
+          }
+        }
+      ],
+      "options": {
+        "showTime": true,
+        "wrapLogMessage": true,
+        "sortOrder": "Descending"
+      }
+    },
+    {
+      "id": 9,
+      "title": "Result lines (best effort)",
+      "type": "logs",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki-dkr01"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 19,
+        "w": 24,
+        "h": 10
+      },
+      "targets": [
+        {
+          "expr": "{stack=~\"backup-.*\"} |~ \"BACKUP |rclone exit=| OK$|FAILED\"",
+          "queryType": "range",
+          "refId": "A",
+          "datasource": {
+            "type": "loki",
+            "uid": "loki-dkr01"
+          }
+        }
+      ],
+      "description": "Alloy discovers running containers, so output from these short one-shot jobs is often missed. The run events above are the reliable record.",
+      "options": {
+        "showTime": true,
+        "wrapLogMessage": true,
+        "sortOrder": "Descending",
+        "enableLogDetails": true
+      }
+    }
+  ],
+  "annotations": {
+    "list": []
+  },
+  "links": []
+}

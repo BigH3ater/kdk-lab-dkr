@@ -18,6 +18,14 @@ groups:
           summary: "cAdvisor {{ $labels.instance }} is down"
           description: "Container metrics for {{ $labels.instance }} are unavailable for 5m."
 
+      - alert: NetExporterDown
+        expr: up{job=~"unpoller|adguard|snmp"} == 0
+        for: 10m
+        labels: {severity: warning, source: external-monitor}
+        annotations:
+          summary: "{{ $labels.job }} exporter on kdk-dkr-01 is down"
+          description: "The Network dashboards (UniFi / AdGuard / SNMP) are blind: {{ $labels.job }} has been unscrapable for 10m. Check the net-exporters stack."
+
       - alert: HostDiskSpaceLow
         expr: >-
           node_filesystem_avail_bytes{fstype!~"tmpfs|overlay|squashfs",mountpoint="/"}
