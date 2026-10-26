@@ -678,6 +678,37 @@ executions = [
   { execution.type = "DeployStack", execution.params.stack = "arr-upgrade-search", enabled = true },
 ]
 
+# Radarr import-list guard: the IMDb Popular / Top 250 lists keep pushing
+# Hindi/Tamil/Telugu titles into Radarr (The Paradise, 2026-09-21 -> grabbed
+# 2026-10-22) and Radarr cannot filter IMDb lists by language. Every 6 h, after
+# the list sync, untagged + file-less movies in those languages are deleted
+# with an import-list exclusion. Tagged (Seerr) or downloaded movies are only
+# reported. See stacks/arr-list-guard/compose.yaml.
+[[stack]]
+tags = ["kdk-lab"]
+name = "arr-list-guard"
+deploy = false   # run every 6 h by the arr-list-guard Procedure
+[stack.config]
+server = "kdk-dkr-01"
+repo = "BigH3ater/kdk-lab-dkr"
+run_directory = "stacks/arr-list-guard"
+destroy_before_deploy = true   # one locked down+up so the one-shot re-runs
+
+[[procedure]]
+tags = ["kdk-lab"]
+name = "arr-list-guard"
+[procedure.config]
+schedule_format = "Cron"
+# :32 every 6 h -- a free minute, off the gitops-sync :00/:15/:30/:45 slots.
+schedule = "0 32 */6 * * *"
+schedule_timezone = "America/Chicago"
+[[procedure.config.stage]]
+name = "guard"
+enabled = true
+executions = [
+  { execution.type = "DeployStack", execution.params.stack = "arr-list-guard", enabled = true },
+]
+
 # Hourly storage/NFS health validator (pages Pushover on NAS unreachable, NFS
 # 2049 refused, a hung/missing mount, or a CGNAT regression of the storage IP).
 [[stack]]
