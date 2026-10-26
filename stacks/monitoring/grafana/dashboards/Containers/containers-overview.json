@@ -1,0 +1,642 @@
+{
+  "id": null,
+  "uid": "kdk-containers",
+  "title": "Containers Overview",
+  "description": "Per-container CPU, memory, network and restarts from cAdvisor on every compose host. Click a stack in the table for Stack Detail.",
+  "tags": [
+    "cadvisor",
+    "containers"
+  ],
+  "editable": false,
+  "graphTooltip": 1,
+  "refresh": "1m",
+  "schemaVersion": 39,
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "timezone": "browser",
+  "templating": {
+    "list": [
+      {
+        "name": "host",
+        "label": "Host",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus-ext"
+        },
+        "query": {
+          "query": "label_values(container_last_seen{job=\"cadvisor\",name!=\"\"}, host)",
+          "refId": "host-var",
+          "qryType": 1
+        },
+        "definition": "label_values(container_last_seen{job=\"cadvisor\",name!=\"\"}, host)",
+        "refresh": 2,
+        "sort": 1,
+        "includeAll": true,
+        "multi": true,
+        "allValue": ".*",
+        "current": {
+          "selected": true,
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        }
+      },
+      {
+        "name": "stack",
+        "label": "Stack",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus-ext"
+        },
+        "query": {
+          "query": "label_values(container_last_seen{job=\"cadvisor\",name!=\"\",host=~\"$host\"}, stack)",
+          "refId": "stack-var",
+          "qryType": 1
+        },
+        "definition": "label_values(container_last_seen{job=\"cadvisor\",name!=\"\",host=~\"$host\"}, stack)",
+        "refresh": 2,
+        "sort": 1,
+        "includeAll": true,
+        "multi": true,
+        "allValue": ".*",
+        "current": {
+          "selected": true,
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        }
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Containers",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus-ext"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "expr": "count(container_last_seen{job=\"cadvisor\",name!=\"\",host=~\"$host\",stack=~\"$stack\"})",
+          "instant": true,
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-ext"
+          }
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "CPU in use",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus-ext"
+      },
+      "gridPos": {
+        "x": 4,
+        "y": 0,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(container_cpu_usage_seconds_total{job=\"cadvisor\",name!=\"\",host=~\"$host\",stack=~\"$stack\"}[$__rate_interval]))",
+          "instant": true,
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-ext"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 2,
+          "displayName": "cores"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 3,
+      "title": "Memory (working set)",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus-ext"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 0,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "expr": "sum(container_memory_working_set_bytes{job=\"cadvisor\",name!=\"\",host=~\"$host\",stack=~\"$stack\"})",
+          "instant": true,
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-ext"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 4,
+      "title": "Started in range",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus-ext"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "expr": "count(container_start_time_seconds{job=\"cadvisor\",name!=\"\",host=~\"$host\",stack=~\"$stack\"} > time() - $__range_s) or vector(0)",
+          "instant": true,
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-ext"
+          }
+        }
+      ],
+      "description": "Containers whose current instance started inside the dashboard time range (deploys, restarts, crash loops).",
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 10
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 5,
+      "title": "OOM kills in range",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus-ext"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 0,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "expr": "sum(increase(container_oom_events_total{job=\"cadvisor\",name!=\"\",host=~\"$host\",stack=~\"$stack\"}[$__range])) or vector(0)",
+          "instant": true,
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-ext"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 6,
+      "title": "Hosts",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus-ext"
+      },
+      "gridPos": {
+        "x": 20,
+        "y": 0,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "expr": "count(count by (host) (container_last_seen{job=\"cadvisor\",name!=\"\",host=~\"$host\",stack=~\"$stack\"}))",
+          "instant": true,
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-ext"
+          }
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "title": "CPU by container (top 15)",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus-ext"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 4,
+        "w": 12,
+        "h": 10
+      },
+      "targets": [
+        {
+          "expr": "topk(15, sum by (host, name) (rate(container_cpu_usage_seconds_total{job=\"cadvisor\",name!=\"\",host=~\"$host\",stack=~\"$stack\"}[$__rate_interval])))",
+          "legendFormat": "{{host}} / {{name}}",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-ext"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 2
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": [
+            "mean",
+            "max"
+          ],
+          "sortBy": "Max",
+          "sortDesc": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "id": 8,
+      "title": "Memory by container (top 15)",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus-ext"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 4,
+        "w": 12,
+        "h": 10
+      },
+      "targets": [
+        {
+          "expr": "topk(15, sum by (host, name) (container_memory_working_set_bytes{job=\"cadvisor\",name!=\"\",host=~\"$host\",stack=~\"$stack\"}))",
+          "legendFormat": "{{host}} / {{name}}",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-ext"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": [
+            "mean",
+            "max"
+          ],
+          "sortBy": "Max",
+          "sortDesc": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "id": 9,
+      "title": "CPU by stack",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus-ext"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 14,
+        "w": 12,
+        "h": 9
+      },
+      "targets": [
+        {
+          "expr": "sum by (stack) (rate(container_cpu_usage_seconds_total{job=\"cadvisor\",name!=\"\",host=~\"$host\",stack=~\"$stack\"}[$__rate_interval]))",
+          "legendFormat": "{{stack}}",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-ext"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 2,
+          "custom": {
+            "stacking": {
+              "mode": "normal"
+            },
+            "fillOpacity": 30
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": [
+            "mean",
+            "max"
+          ],
+          "sortBy": "Max",
+          "sortDesc": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "id": 10,
+      "title": "Network by stack (rx / -tx)",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus-ext"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 14,
+        "w": 12,
+        "h": 9
+      },
+      "targets": [
+        {
+          "expr": "sum by (stack) (rate(container_network_receive_bytes_total{job=\"cadvisor\",name!=\"\",host=~\"$host\",stack=~\"$stack\"}[$__rate_interval]))",
+          "legendFormat": "{{stack}} rx",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-ext"
+          }
+        },
+        {
+          "expr": "-sum by (stack) (rate(container_network_transmit_bytes_total{job=\"cadvisor\",name!=\"\",host=~\"$host\",stack=~\"$stack\"}[$__rate_interval]))",
+          "legendFormat": "{{stack}} tx",
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-ext"
+          }
+        }
+      ],
+      "description": "Bridge-networked containers only; host-network containers (node-exporter, Scrypted, Homebridge) don't get per-container network counters.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "Bps"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "showLegend": false
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "id": 11,
+      "title": "Containers",
+      "type": "table",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus-ext"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 23,
+        "w": 24,
+        "h": 14
+      },
+      "targets": [
+        {
+          "expr": "sum by (host, stack, name) (rate(container_cpu_usage_seconds_total{job=\"cadvisor\",name!=\"\",host=~\"$host\",stack=~\"$stack\"}[$__rate_interval]))",
+          "instant": true,
+          "format": "table",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-ext"
+          }
+        },
+        {
+          "expr": "sum by (host, stack, name) (container_memory_working_set_bytes{job=\"cadvisor\",name!=\"\",host=~\"$host\",stack=~\"$stack\"})",
+          "instant": true,
+          "format": "table",
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-ext"
+          }
+        },
+        {
+          "expr": "min by (host, stack, name) (time() - container_start_time_seconds{job=\"cadvisor\",name!=\"\",host=~\"$host\",stack=~\"$stack\"})",
+          "instant": true,
+          "format": "table",
+          "refId": "C",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-ext"
+          }
+        }
+      ],
+      "transformations": [
+        {
+          "id": "merge",
+          "options": {}
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true
+            },
+            "renameByName": {
+              "Value #A": "CPU cores",
+              "Value #B": "Memory",
+              "Value #C": "Up for"
+            }
+          }
+        },
+        {
+          "id": "sortBy",
+          "options": {
+            "sort": [
+              {
+                "field": "Up for"
+              }
+            ]
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "CPU cores"
+            },
+            "properties": [
+              {
+                "id": "decimals",
+                "value": 3
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Memory"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "bytes"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Up for"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "s"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "stack"
+            },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "Stack detail",
+                    "url": "/d/kdk-stack-detail?var-stack=${__value.raw}&${__url_time_range}"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "annotations": {
+    "list": []
+  },
+  "links": []
+}

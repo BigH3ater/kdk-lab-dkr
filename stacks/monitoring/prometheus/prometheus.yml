@@ -58,17 +58,27 @@ scrape_configs:
 
   # --- container metrics (cAdvisor on every compose host, :9280) ------------
   - job_name: cadvisor
+    # host = the hostname, matching Loki's host label, so a dashboard can go from
+    # a container's metrics to its logs.
     static_configs:
-      - targets:
-          - "10.1.20.20:9280"     # kdk-dkr-01
-          - "192.168.191.20:9280" # kdk-dkr-dmz-01
-          - "10.1.20.30:9280"     # kdk-mon-01
-          - "10.1.30.21:9280"     # kdk-dkr-02
-          - "10.1.30.22:9280"     # kdk-dkr-03
-    relabel_configs:
-      - source_labels: [__address__]
-        regex: "([^:]+):.*"
-        target_label: host
+      - {targets: ["10.1.20.20:9280"], labels: {host: kdk-dkr-01}}
+      - {targets: ["192.168.191.20:9280"], labels: {host: kdk-dkr-dmz-01}}
+      - {targets: ["10.1.20.30:9280"], labels: {host: kdk-mon-01}}
+      - {targets: ["10.1.30.21:9280"], labels: {host: kdk-dkr-02}}
+      - {targets: ["10.1.30.22:9280"], labels: {host: kdk-dkr-03}}
+    metric_relabel_configs:
+      # Keep only what the Containers dashboards use: per-container series
+      # x ~60 cAdvisor families would roughly double this Pi's TSDB for nothing.
+      - source_labels: [__name__]
+        regex: "container_(cpu_usage_seconds_total|memory_(working_set_bytes|usage_bytes|rss|cache)|spec_memory_limit_bytes|oom_events_total|network_(receive|transmit)_(bytes|packets_dropped)_total|fs_(reads|writes)_bytes_total|last_seen|start_time_seconds)|machine_(cpu_cores|memory_bytes)"
+        action: keep
+      # Short stack/service labels instead of cAdvisor's long whitelisted-label names.
+      - source_labels: [container_label_com_docker_compose_project]
+        target_label: stack
+      - source_labels: [container_label_com_docker_compose_service]
+        target_label: service
+      - regex: container_label_com_docker_compose_(project|service)
+        action: labeldrop
 
   # --- is it alive at all (ICMP) --------------------------------------------
   - job_name: blackbox-icmp

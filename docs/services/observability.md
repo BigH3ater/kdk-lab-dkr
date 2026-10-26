@@ -44,7 +44,8 @@ ssh kdkadmin@10.1.20.30 'sudo docker logs --tail 3 fanctl-hyp'        # temps lo
 | "timestamp too old" in Alloy | one-time replay of pre-existing container logs | benign; new logs still ingest |
 | DMZ host metrics/logs absent | DMZ→internal path | node/cadvisor pulled over LAN→DMZ; Alloy pushes over the storage net |
 | `FansPinnedHigh` firing | that BMC on auto (loud) | expected only if a controller is monitoring-only/stopped |
-| No per-container Prometheus alert | cAdvisor can’t resolve names under the containerd-snapshotter driver | container crash/unhealthy alerting is the `docker-event-watch` service (Docker API → Pushover), not cAdvisor |
+| Per-container panels empty | cAdvisor older than v0.55 can't read containers under the containerd-snapshotter image store (`failed to identify the read-write layer ID`) | runs `ghcr.io/google/cadvisor:v0.60.6` (gcr.io stops at v0.55.1) with `/var/lib/containerd` mounted; `count by (host) (container_memory_usage_bytes{name!=""})` should be > 0 on every host. Crash/unhealthy alerting is still `docker-event-watch`, not cAdvisor |
+| One-shot job output missing in Loki | Alloy's `discovery.docker` lists running containers, and the backup jobs exit within seconds | the Backups dashboard counts runs from `docker-event-watch` die events instead; capturing their output needs a follow-up (exited-container discovery or pushing logs from the job) |
 
 ## Dependencies
 
