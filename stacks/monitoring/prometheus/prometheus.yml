@@ -162,6 +162,37 @@ scrape_configs:
       - target_label: __address__
         replacement: blackbox-exporter:9115
 
+  # --- network exporters on kdk-dkr-01 (stacks/net-exporters) --------------
+  - job_name: unpoller
+    scrape_interval: 60s          # unpoller polls the controller once per scrape
+    scrape_timeout: 30s
+    static_configs:
+      - targets: ["10.1.20.20:9130"]
+
+  - job_name: adguard
+    static_configs:
+      - targets: ["10.1.20.20:9618"]
+
+  # SNMPv3 IF-MIB walk of the UniFi gateway through snmp-exporter (auth/module
+  # live in stacks/net-exporters/snmp/snmp.yml).
+  - job_name: snmp
+    scrape_interval: 60s
+    scrape_timeout: 30s
+    metrics_path: /snmp
+    params:
+      module: [if_mib, system_info]
+      auth: [unifi_v3]
+    static_configs:
+      - targets: ["10.1.3.1"]
+        labels: {target: kdk-gw-01}  # the SNMP dashboard's $target variable
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: 10.1.20.20:9116
+
   - job_name: prometheus-self
     static_configs:
       - targets: ["localhost:9090"]
