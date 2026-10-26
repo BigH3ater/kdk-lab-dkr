@@ -1,8 +1,10 @@
 apiVersion: 1
 providers:
   - name: kdk-lab
-    folder: ""
     type: file
     disableDeletion: true
     options:
       path: /var/lib/grafana/dashboards
+      # Each top-level directory under dashboards/ becomes a Grafana folder
+      # (Overview, Hosts, Hardware, Services, Logs, ...). `folder` must stay unset.
+      foldersFromFilesStructure: true

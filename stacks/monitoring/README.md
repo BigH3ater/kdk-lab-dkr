@@ -47,3 +47,26 @@ fan boost; the R720 dropped from ~12000 to ~3000 RPM (20%, headroom to 72°C to 
 (and/or tune `FAN_SPEED`) and redeploy — a reviewed one-line change. Watch
 idrac-exporter fan RPM in Grafana afterward. Thermal safety is alerted independently via `prometheus/rules/thermal.yml`
 (idrac-exporter metrics), so no controller self-metric is required.
+
+## Dashboards and Prometheus config
+
+Grafana provisions every JSON file under `grafana/dashboards/`, and each top-level
+directory becomes a folder (`foldersFromFilesStructure`). New or edited files appear
+within about 10 seconds of a deploy, with no restart, because the directory is
+bind-mounted. Dashboards are read-only in the UI; change them here.
+
+| Folder | Dashboards | Data |
+|---|---|---|
+| Overview | External Monitor | Prometheus |
+| Hosts | Node Exporter Full (grafana.com 1860) | `node-external` |
+| Hardware | ZFS Zpool Health, BMC overview (idrac) | `node-external` ZFS collectors, `idrac` |
+| Services | Service Health | `blackbox-*` probes (the same probes the alerts use) |
+| Logs | Logs Explorer | Loki: Docker logs (`host`/`stack`/`container`) and syslog |
+
+The ZFS, BMC and Node Exporter dashboards are ported from the k3s-era ConfigMaps in
+`kdk-lab-old/apps/platform/monitoring-support/manifests/dashboards/`; their uids are
+kept the same.
+
+`prometheus/` is mounted as a **directory**. Komodo's `post_deploy` POSTs
+`/-/reload`, so scrape-job and rule edits apply on deploy without a restart. An
+invalid config makes the reload return 500, and that fails the deploy.

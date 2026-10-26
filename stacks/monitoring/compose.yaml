@@ -81,9 +81,11 @@ services:
       - "--storage.tsdb.retention.time=30d"
       - "--web.enable-lifecycle"
     volumes:
-      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-      - ./prometheus/rules:/etc/prometheus/rules:ro
-      - ./prometheus/scrape_configs:/etc/prometheus/scrape_configs:ro
+      # Whole directory, not single files: git replaces prometheus.yml with a new
+      # inode on every pull and a single-file bind mount keeps showing the old
+      # one forever. With the directory mounted, the post_deploy /-/reload in
+      # komodo/resources.toml picks up scrape-job and rule edits on deploy.
+      - ./prometheus:/etc/prometheus:ro
       - prometheus-data:/prometheus
     ports:
       - "9090:9090"
