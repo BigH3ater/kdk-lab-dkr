@@ -349,6 +349,38 @@ text-transform:uppercase;color:var(--ash);margin:0 0 6px;border-bottom:1px solid
 .task.over .due{color:var(--danger);font-weight:500}
 .task.over .tt{color:var(--danger)}
 .note{padding:10px;font-size:12px;color:var(--ash)}
+.task.busy{opacity:.45}
+"""
+
+# Tick a task without reloading the iframe: a plain form POST + 303 reload snapped
+# the horizontally scrolled category row (and the page) back to the start. POST in
+# the background, then swap in the re-rendered board (recurring chores come back
+# with a new due date, so it has to be re-rendered, not just removed) and restore
+# the scroll. Without JS the form still posts and redirects as before.
+TASKS_JS = """
+document.addEventListener('submit', async function (e) {
+  var f = e.target;
+  if (!f.matches('.task form')) return;
+  e.preventDefault();
+  var row = f.closest('.task');
+  if (row.classList.contains('busy')) return;
+  row.classList.add('busy');
+  var cats = document.querySelector('.cats');
+  var x = cats ? cats.scrollLeft : 0, y = window.scrollY;
+  try {
+    var r = await fetch(f.action, {method: 'POST', body: new FormData(f)});
+    if (!r.ok) throw new Error(r.status);
+    var doc = new DOMParser().parseFromString(await r.text(), 'text/html');
+    document.body.replaceWith(doc.body);
+    var c = document.querySelector('.cats');
+    if (c) c.scrollLeft = x;
+    window.scrollTo(0, y);
+  } catch (err) {
+    // never re-POST: the tick may already have landed (a recurring chore would
+    // advance twice) -- just reload to show the real state
+    location.reload();
+  }
+});
 """
 
 @app.get("/tasks")
@@ -400,7 +432,7 @@ def tasks_view():
                 f"<span class='due'>{due_s}</span></span></div>")
         cols.append(f"<div class='cat'><h3>{cat}</h3>{''.join(items)}</div>")
     body = f"<div class='cats'>{''.join(cols)}</div>" if cols else "<div class='note'>Nothing due in the next two weeks. 🎉</div>"
-    return Response(f"<!doctype html><html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><style>{TASKS_CSS}</style></head><body>{body}</body></html>", mimetype="text/html")
+    return Response(f"<!doctype html><html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><style>{TASKS_CSS}</style><script>{TASKS_JS}</script></head><body>{body}</body></html>", mimetype="text/html")
 
 @app.post("/tasks/complete")
 def tasks_complete():
