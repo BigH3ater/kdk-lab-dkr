@@ -1,0 +1,375 @@
+{
+  "uid": "kdk-logs-explorer",
+  "title": "Logs Explorer",
+  "description": "Docker container logs (Alloy on every compose host) and syslog, from Loki on kdk-dkr-01.",
+  "tags": [
+    "loki",
+    "logs"
+  ],
+  "editable": false,
+  "graphTooltip": 1,
+  "refresh": "",
+  "schemaVersion": 39,
+  "time": {
+    "from": "now-3h",
+    "to": "now"
+  },
+  "timezone": "browser",
+  "templating": {
+    "list": [
+      {
+        "name": "host",
+        "label": "Host",
+        "type": "query",
+        "datasource": {
+          "type": "loki",
+          "uid": "loki-dkr01"
+        },
+        "query": {
+          "label": "host",
+          "refId": "LokiVariableQueryEditor-VariableQuery",
+          "stream": "{job=\"docker\"}",
+          "type": 1
+        },
+        "definition": "label_values({job=\"docker\"}, host)",
+        "includeAll": true,
+        "multi": true,
+        "allValue": ".*",
+        "refresh": 2,
+        "sort": 1,
+        "current": {
+          "selected": true,
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        }
+      },
+      {
+        "name": "stack",
+        "label": "Stack",
+        "type": "query",
+        "datasource": {
+          "type": "loki",
+          "uid": "loki-dkr01"
+        },
+        "query": {
+          "label": "stack",
+          "refId": "LokiVariableQueryEditor-VariableQuery",
+          "stream": "{job=\"docker\", host=~\"$host\"}",
+          "type": 1
+        },
+        "definition": "label_values({job=\"docker\", host=~\"$host\"}, stack)",
+        "includeAll": true,
+        "multi": true,
+        "allValue": ".*",
+        "refresh": 2,
+        "sort": 1,
+        "current": {
+          "selected": true,
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        }
+      },
+      {
+        "name": "container",
+        "label": "Container",
+        "type": "query",
+        "datasource": {
+          "type": "loki",
+          "uid": "loki-dkr01"
+        },
+        "query": {
+          "label": "container",
+          "refId": "LokiVariableQueryEditor-VariableQuery",
+          "stream": "{job=\"docker\", host=~\"$host\", stack=~\"$stack\"}",
+          "type": 1
+        },
+        "definition": "label_values({job=\"docker\", host=~\"$host\", stack=~\"$stack\"}, container)",
+        "includeAll": true,
+        "multi": true,
+        "allValue": ".*",
+        "refresh": 2,
+        "sort": 1,
+        "current": {
+          "selected": true,
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        }
+      },
+      {
+        "name": "search",
+        "label": "Search",
+        "type": "textbox",
+        "query": "",
+        "current": {
+          "text": "",
+          "value": ""
+        }
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Log volume by stack",
+      "type": "timeseries",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki-dkr01"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "sum by (stack) (count_over_time({job=\"docker\", host=~\"$host\", stack=~\"$stack\", container=~\"$container\"} |~ \"(?i)$search\" [$__auto]))",
+          "legendFormat": "{{stack}}",
+          "queryType": "range",
+          "refId": "A",
+          "datasource": {
+            "type": "loki",
+            "uid": "loki-dkr01"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "bars",
+            "stacking": {
+              "mode": "normal"
+            },
+            "fillOpacity": 80
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": [
+            "sum"
+          ],
+          "sortBy": "Total",
+          "sortDesc": true
+        }
+      }
+    },
+    {
+      "id": 2,
+      "title": "Error-looking lines by container",
+      "type": "timeseries",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki-dkr01"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "sum by (container) (count_over_time({job=\"docker\", host=~\"$host\", stack=~\"$stack\", container=~\"$container\"} |~ \"(?i)(error|fatal|panic|exception|traceback)\" [$__auto]))",
+          "legendFormat": "{{container}}",
+          "queryType": "range",
+          "refId": "A",
+          "datasource": {
+            "type": "loki",
+            "uid": "loki-dkr01"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "bars",
+            "stacking": {
+              "mode": "normal"
+            },
+            "fillOpacity": 80
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": [
+            "sum"
+          ],
+          "sortBy": "Total",
+          "sortDesc": true
+        }
+      }
+    },
+    {
+      "id": 3,
+      "title": "Top error sources (range)",
+      "type": "bargauge",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki-dkr01"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 8,
+        "w": 8,
+        "h": 10
+      },
+      "targets": [
+        {
+          "expr": "topk(10, sum by (host, container) (count_over_time({job=\"docker\", host=~\"$host\", stack=~\"$stack\", container=~\"$container\"} |~ \"(?i)(error|fatal|panic|exception|traceback)\" [$__range])))",
+          "legendFormat": "{{host}} / {{container}}",
+          "instant": true,
+          "queryType": "instant",
+          "refId": "A",
+          "datasource": {
+            "type": "loki",
+            "uid": "loki-dkr01"
+          }
+        }
+      ],
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "basic",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      }
+    },
+    {
+      "id": 4,
+      "title": "Container logs",
+      "type": "logs",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki-dkr01"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 8,
+        "w": 16,
+        "h": 18
+      },
+      "targets": [
+        {
+          "expr": "{job=\"docker\", host=~\"$host\", stack=~\"$stack\", container=~\"$container\"} |~ \"(?i)$search\"",
+          "queryType": "range",
+          "refId": "A",
+          "datasource": {
+            "type": "loki",
+            "uid": "loki-dkr01"
+          }
+        }
+      ],
+      "options": {
+        "showTime": true,
+        "wrapLogMessage": true,
+        "sortOrder": "Descending",
+        "enableLogDetails": true,
+        "dedupStrategy": "none"
+      }
+    },
+    {
+      "id": 5,
+      "title": "Syslog by host / app",
+      "type": "timeseries",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki-dkr01"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 18,
+        "w": 8,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "sum by (host, app) (count_over_time({job=\"syslog\"} [$__auto]))",
+          "legendFormat": "{{host}} {{app}}",
+          "queryType": "range",
+          "refId": "A",
+          "datasource": {
+            "type": "loki",
+            "uid": "loki-dkr01"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "bars",
+            "stacking": {
+              "mode": "normal"
+            },
+            "fillOpacity": 80
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "showLegend": false
+        }
+      }
+    },
+    {
+      "id": 6,
+      "title": "Syslog warnings and errors",
+      "type": "logs",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki-dkr01"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 26,
+        "w": 24,
+        "h": 10
+      },
+      "targets": [
+        {
+          "expr": "{job=\"syslog\", level=~\"warning|error|critical|alert|emergency\"} |~ \"(?i)$search\"",
+          "queryType": "range",
+          "refId": "A",
+          "datasource": {
+            "type": "loki",
+            "uid": "loki-dkr01"
+          }
+        }
+      ],
+      "options": {
+        "showTime": true,
+        "wrapLogMessage": true,
+        "sortOrder": "Descending",
+        "enableLogDetails": true
+      }
+    }
+  ],
+  "annotations": {
+    "list": []
+  },
+  "links": [],
+  "id": null
+}
