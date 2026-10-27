@@ -44,6 +44,7 @@ Then log in at `sso.kmkdp.com` with an existing user + TOTP.
 | All logins fail after a restore | storage key / DB mismatch | key and DB are PAIRED — restore both from the same point |
 | TOTP no longer accepted | storage encryption key changed | never rotate `storage_encryption_key` alone |
 | ForwardAuth 500 from other services | Authelia down or Redis unreachable | `docker ps` — authelia, redis Up |
+| Authelia ignores a merged config change (e.g. new access rule still 403) | Authelia only reads config at start; since 2026-10-27 the yml files are compose `configs`, so an edit recreates the container. If it still happens: `RestartStack identity services=[authelia]` |
 | LDAP bind fails | `lldap-admin` password drift | Authelia and LLDAP must share `LLDAP_ADMIN_PASSWORD` |
 | Authelia: `x509: certificate` / `tls: failed to verify` on LDAP | lldap is serving a stale or wrong cert (dumper not run, or restart missed after renewal) | `openssl s_client -connect 192.168.191.20:6360 -servername lldap.kmkdp.com` and check `notAfter`; `docker logs lldap-certs-dumper`; run procedure `identity-ldaps-refresh` |
 | lldap restart-loops with `No such file` for `/certs/kmkdp.com/...` | First deploy raced the dumper, or acme.json has no `kmkdp.com` cert yet | Wait for the dumper (seconds); confirm the DMZ Traefik holds the wildcard |
