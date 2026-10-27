@@ -15,20 +15,49 @@ services:
       LLDAP_LDAP_USER_PASS: "${LLDAP_ADMIN_PASSWORD}"
       LLDAP_JWT_SECRET: "${LLDAP_JWT_SECRET}"
       LLDAP_KEY_SEED: "${LLDAP_KEY_SEED}"
-      # LDAPS on 6360 (self-signed cert for `lldap`) alongside plain :3890.
-      # Jellyfin binds over LDAPS; Authelia still uses ldap://lldap:3890.
+      # LDAPS on 6360 alongside plain :3890. The certificate is the lab's real
+      # Let's Encrypt wildcard (*.kmkdp.com), dumped out of the DMZ Traefik's
+      # acme.json by the certs-dumper sidecar below, so every LDAP client verifies
+      # it against public roots: Authelia (skip_verify off), the Jellyfin LDAP
+      # plugin (SkipSslVerify off) and Wizarr on kdk-dkr-01 (verify on). Clients
+      # address it as lldap.kmkdp.com: in-host containers get that name from the
+      # Docker network aliases below; Wizarr reaches the published port via the
+      # AdGuard A-record (stacks/dns-reconcile EXTRA). Until 2026-10-27 this was
+      # a self-signed CN=lldap cert with no SAN that nothing could verify.
       LLDAP_LDAPS_OPTIONS__ENABLED: "true"
       LLDAP_LDAPS_OPTIONS__PORT: "6360"
-      LLDAP_LDAPS_OPTIONS__CERT_FILE: /certs/lldap.crt
-      LLDAP_LDAPS_OPTIONS__KEY_FILE: /certs/lldap.key
+      LLDAP_LDAPS_OPTIONS__CERT_FILE: /certs/kmkdp.com/certificate.crt
+      LLDAP_LDAPS_OPTIONS__KEY_FILE: /certs/kmkdp.com/privatekey.key
     volumes:
       - /opt/kdk-lab/identity/lldap:/data
       - /opt/kdk-lab/identity/lldap-certs:/certs:ro
-    networks: [default, proxy-dmz]
+    ports:
+      # LDAPS for Wizarr (kdk-dkr-01). Plain :3890 stays unpublished.
+      - "192.168.191.20:6360:6360"
+    networks:
+      default:
+        aliases: [lldap.kmkdp.com]     # Authelia verifies the LE cert against this name
+      proxy-dmz:
+        aliases: [lldap.kmkdp.com]     # Jellyfin's LDAP plugin, same
     labels:
       traefik.enable: "true"
       traefik.http.routers.lldap.rule: "Host(`users.kmkdp.com`)"
       traefik.http.services.lldap.loadbalancer.server.port: "17170"
+
+  # Keeps /opt/kdk-lab/identity/lldap-certs/kmkdp.com/{certificate.crt,privatekey.key}
+  # equal to the wildcard cert in the DMZ Traefik's acme.json (watched; re-dumped on
+  # renewal). lldap does not reload certificate files, so the identity-ldaps-refresh
+  # procedure restarts the lldap service on the 1st and 15th (renewal happens 30 days
+  # before expiry, so the served cert is never more than ~15 days behind).
+  certs-dumper:
+    image: ldez/traefik-certs-dumper:v2.11.4
+    container_name: lldap-certs-dumper
+    restart: unless-stopped
+    command: ["file", "--version", "v2", "--source", "/acme/acme.json", "--dest", "/certs", "--domain-subfolder", "--watch"]
+    volumes:
+      - /opt/kdk-lab/dmz-proxy/letsencrypt:/acme:ro
+      - /opt/kdk-lab/identity/lldap-certs:/certs
+    networks: [default]
 
   postgres:
     image: postgres:16-alpine

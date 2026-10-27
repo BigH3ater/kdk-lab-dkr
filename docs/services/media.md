@@ -76,6 +76,26 @@ Each app joins `default` + `proxy`; ports are `prowlarr 9696`, `sabnzbd 8080`, `
 | `sabnzbd/sabnzbd.ini` `host_whitelist` | accepted Host headers |
 | Radarr → Settings → Import Lists | 15 lists (13 TMDb directors, IMDb Popular, IMDb Top 250); `listSyncLevel=disabled`. Language block = `stacks/arr-list-guard` (`LANGUAGES` env) |
 
+
+### Wizarr → LLDAP (invites create directory accounts)
+
+Wizarr (`v2026.10.1`; the lldap create needs ≥ 2026.10.0) creates the **lldap user** on an accepted invite, then the
+Jellyfin account. Settings → LDAP (stored in Wizarr's own DB, not in git):
+
+| Field | Value |
+|---|---|
+| Server URL | `ldaps://lldap.kmkdp.com:6360` (Use TLS on, Verify certificate **on**: LE wildcard) |
+| Base DN | `dc=kmkdp,dc=com` |
+| Service account DN | `uid=wizarr,ou=people,dc=kmkdp,dc=com` (member of `lldap_password_manager`, password `op://kdk-cluster/wizarr-ldap/password`) |
+| User base DN / filter / attrs | `ou=people,dc=kmkdp,dc=com` · `(uid={username})` · `uid` · `mail` · object class `person` |
+| Group base DN / class / member attr | `ou=groups,dc=kmkdp,dc=com` · `groupOfUniqueNames` · `uniqueMember` |
+| Admin LDAP bind | off (Wizarr admin stays local) |
+
+**Group caveat:** Wizarr never adds the new user to a group. The Jellyfin LDAP plugin only accepts members of
+`jellyfin-users`, and Authelia rules are group-based, so after each invite add the user to `jellyfin-users`
+(and any app groups) at `users.kmkdp.com`. Until then the invitee can log in to Jellyfin only through the local
+account Wizarr created, not via SSO.
+
 ## Secret Rotation
 
 | Secret (1P item) | Used for | Class | Rotate live? |
