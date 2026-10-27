@@ -15,7 +15,13 @@ services:
       - "--entrypoints.web.http.redirections.entrypoint.to=websecure"
       - "--entrypoints.web.http.redirections.entrypoint.scheme=https"
       - "--entrypoints.websecure.address=:443"
-      - "--entrypoints.websecure.forwardedHeaders.trustedIPs=10.1.20.20/32,192.168.191.0/24"
+      # Trusted sources of X-Forwarded-For: the internal Traefik (10.1.20.20),
+      # the DMZ host network, and the proxy-dmz Docker network where cloudflared
+      # lives (10.211.2.2). Without the last one Traefik discarded Cloudflare's
+      # visitor address and rewrote XFF to the cloudflared container IP, so
+      # Jellyfin (known proxies = 10.211.2.0/24) logged every tunnel visitor as
+      # 10.211.2.2 and could not classify them as remote (2026-10-26).
+      - "--entrypoints.websecure.forwardedHeaders.trustedIPs=10.1.20.20/32,192.168.191.0/24,10.211.2.0/24"
       - "--entrypoints.websecure.http.tls.certresolver=cf"
       - "--entrypoints.websecure.http.tls.domains[0].main=kmkdp.com"
       - "--entrypoints.websecure.http.tls.domains[0].sans=*.kmkdp.com"
@@ -49,7 +55,7 @@ services:
     networks: [proxy-dmz]
 
   cloudflared:
-    image: cloudflare/cloudflared:2025.8.1
+    image: cloudflare/cloudflared:2026.10.3
     container_name: cloudflared
     restart: unless-stopped
     user: "65532"

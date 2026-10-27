@@ -23,7 +23,7 @@ DMZ ingress: Traefik terminates TLS and host-routes the public services, and clo
 | Purpose | Reverse proxy + tunnel for DMZ/public services |
 | Status | 🟢 Live — 443 serves; tunnel connected |
 | Host | [[kdk-dkr-dmz-01]] (192.168.191.20), ports `80`/`443` |
-| Images | `traefik:v3.7`, `cloudflare/cloudflared:2025.8.1` |
+| Images | `traefik:v3.7`, `cloudflare/cloudflared:2026.10.3` |
 | Deploy | Komodo stack `dmz-proxy` (git-linked, `op inject` pre_deploy) |
 | Cert | `kmkdp.com` + `*.kmkdp.com`, ACME DNS-01 via Cloudflare |
 | Blast radius | All DMZ + public services (sso, jellyfin, immich, seerr, users) unreachable |
@@ -41,7 +41,7 @@ Off-LAN, `sso`/`seerr`/`jellyfin`/`immich` answer with a `server: cloudflare` he
 | Problem | Cause | Command to validate |
 |---|---|---|
 | Public hostname 502 | tunnel down or token invalid | `docker logs cloudflared` — connection/registration errors |
-| Wrong client IP in logs | trustedIPs missing the source | `forwardedHeaders.trustedIPs` includes `10.1.20.20/32,192.168.191.0/24` |
+| Wrong client IP in logs | trustedIPs missing the source | `forwardedHeaders.trustedIPs` includes `10.1.20.20/32,192.168.191.0/24,10.211.2.0/24` (the last = cloudflared on proxy-dmz, so Cloudflare's visitor IP survives into Jellyfin's known-proxies logic) |
 | Cert not issued | Cloudflare DNS token invalid | `docker logs traefik 2>&1 | grep -i acme` |
 
 ## Dependencies
