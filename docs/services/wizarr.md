@@ -166,6 +166,19 @@ reaches `lldap:17170` on `identity_default` and
 reports without changing anything; Pushover summary only when something changed or
 errored (creds `/etc/kdk/pushover.env`); exits 1 on errors.
 
+
+> [!warning] Which users the sync touches
+> Only users that came through a Wizarr **invitation** (`user` JOIN `invitation_user`) with
+> `is_ldap_user=1`, minus `EXCLUDE_USERS` (`admin,wizarr,jellyfin-bind`). Wizarr's own
+> "Sync all LDAP users" button imports *every* directory account into its `user` table with
+> the LDAP flag set and no invitation link; the first run (2026-10-27) selected those and
+> refused them at the Jellyfin step. The join is what keeps service accounts out.
+
+**Server URL on the DMZ:** kdk-dkr-dmz-01 resolves with public DNS (1.1.1.1/9.9.9.9), so
+`https://jellyfin.kmkdp.com` only works there while Jellyfin is published on the tunnel.
+Wizarr's media server is therefore `http://jellyfin:8096` (container name on `proxy-dmz`)
+and the wizard's **External URL** is `https://jellyfin.kmkdp.com` for what invitees see.
+
 ## Secret Rotation
 
 | Secret (1P item) | Used for | Class | Rotate live? |

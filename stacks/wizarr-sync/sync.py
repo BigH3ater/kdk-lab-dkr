@@ -57,6 +57,9 @@ def err(msg):
     print("ERROR", msg, file=sys.stderr, flush=True)
 
 
+EXCLUDE_USERS = [u.strip() for u in os.environ.get("EXCLUDE_USERS", "admin,wizarr,jellyfin-bind").split(",") if u.strip()]
+
+
 def _req(url, method="GET", headers=None, body=None, timeout=60):
     data = None
     if body is not None:
@@ -94,8 +97,16 @@ def wizarr_ldap_users():
                 shutil.copy2(src, os.path.join(tmp, base + suffix))
         con = sqlite3.connect(os.path.join(tmp, base))
         try:
+            # Only users that came through a Wizarr INVITATION. Wizarr's own
+            # "sync all LDAP users" task also fills `user` with every directory
+            # account (is_ldap_user=1, server_id NULL, no invitation link) --
+            # including the service accounts -- and those must never be touched
+            # (2026-10-27: first run tried admin/jellyfin-bind/rach/wizarr).
             rows = con.execute(
-                "SELECT DISTINCT username, email FROM user WHERE is_ldap_user = 1"
+                "SELECT DISTINCT u.username, u.email FROM user u "
+                "JOIN invitation_user iu ON iu.user_id = u.id "
+                "WHERE u.is_ldap_user = 1 AND u.username NOT IN (%s)"
+                % ",".join("?" * len(EXCLUDE_USERS)), EXCLUDE_USERS
             ).fetchall()
         finally:
             con.close()
