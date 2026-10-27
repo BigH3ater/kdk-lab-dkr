@@ -53,7 +53,20 @@ services:
     image: ldez/traefik-certs-dumper:v2.11.4
     container_name: lldap-certs-dumper
     restart: unless-stopped
-    command: ["file", "--version", "v2", "--source", "/acme/acme.json", "--dest", "/certs", "--domain-subfolder", "--watch"]
+    # The lldap image drops to uid 1000 at runtime while the dumper writes the
+    # key 0600 root, so every dump must hand the key to lldap: first an initial
+    # dump + chown (so lldap can start on a fresh deploy), then watch mode whose
+    # post-hook repeats the chown after each renewal. Flag is --domain-subdir
+    # (2026-10-27: --domain-subfolder was wrong and left lldap restart-looping).
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        set -e
+        D="file --version v2 --source /acme/acme.json --dest /certs --domain-subdir"
+        FIX="chown 1000:1000 /certs/kmkdp.com/privatekey.key /certs/kmkdp.com/certificate.crt && chmod 600 /certs/kmkdp.com/privatekey.key"
+        /usr/bin/traefik-certs-dumper $$D
+        sh -c "$$FIX"
+        exec /usr/bin/traefik-certs-dumper $$D --watch --post-hook "$$FIX"
     volumes:
       - /opt/kdk-lab/dmz-proxy/letsencrypt:/acme:ro
       - /opt/kdk-lab/identity/lldap-certs:/certs
