@@ -55,7 +55,7 @@ services:
     networks: [proxy-dmz]
 
   cloudflared:
-    image: cloudflare/cloudflared:2025.8.1
+    image: cloudflare/cloudflared:2026.10.3
     container_name: cloudflared
     restart: unless-stopped
     user: "65532"
