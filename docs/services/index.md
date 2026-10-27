@@ -18,6 +18,7 @@ Stack definitions live in `stacks/` in the repo; Komodo deploys them from git. O
 | [Jellyfin](jellyfin.md) | kdk-dkr-dmz-01 | https://jellyfin.kmkdp.com | jellyfin |
 | [Immich](immich.md) | kdk-dkr-dmz-01 | https://immich.kmkdp.com | immich |
 | [Seerr](seerr.md) | kdk-dkr-dmz-01 | https://seerr.kmkdp.com | dmz-apps |
+| [Wizarr](wizarr.md) | kdk-dkr-dmz-01 | https://wizarr.kmkdp.com | wizarr |
 | [Backups](backups.md) | both VMs | — | backup-* |
 | [Observability](observability.md) | kdk-mon-01 + kdk-dkr-01 | https://grafana.kmkdp.com (fallback http://10.1.20.30:3000) | monitoring, loki, observability-agent |
 | [NUT (UPS)](nut.md) | kdk-dkr-03 | 10.1.30.22:3493 (NUT; 10.1.3.62 on the UPS L2) | nut |

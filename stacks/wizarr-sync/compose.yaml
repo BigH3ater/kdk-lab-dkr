@@ -1,0 +1,48 @@
+# wizarr-sync: idempotent one-shot on kdk-dkr-dmz-01 that finishes the job a
+# Wizarr invite leaves half-done. When Wizarr's "Create LDAP user" runs it makes
+# an lldap user (uid=<name>,ou=people) and a local Jellyfin account, but adds NO
+# group and leaves Jellyfin on the DEFAULT auth provider -- so the invitee cannot
+# log in via LDAP/SSO and is unknown to Seerr. For every Wizarr user row with
+# is_ldap_user=1 this run:
+#   (a) lldap  -> ensures membership in jellyfin-users (and nothing else);
+#   (b) Jellyfin -> sets AuthenticationProviderId to the LDAP plugin if not set;
+#   (c) Seerr  -> imports the Jellyfin user if not already present.
+# Nothing else -- no other groups, no permission changes.
+#
+# deploy=false; run by the wizarr-sync Procedure every 15 min (:07,:22,:37,:52).
+# destroy_before_deploy (resources.toml) recreates it fresh each run. Stdlib-only
+# python; DRY_RUN=1 reports without changing anything.
+name: wizarr-sync
+services:
+  sync:
+    image: python:3.12-alpine
+    container_name: wizarr-sync
+    restart: "no"
+    env_file: [.env]          # LLDAP_ADMIN_PASSWORD, JELLYFIN_API_KEY (op-injected)
+    environment:
+      DRY_RUN: "0"
+      # Service URLs reachable on the two joined networks (see below).
+      LLDAP_URL: "http://lldap:17170"        # identity_default (container `lldap`)
+      JELLYFIN_URL: "http://jellyfin:8096"   # proxy-dmz (container `jellyfin`)
+      SEERR_URL: "http://seerr:5055"         # proxy-dmz (container `seerr`)
+      JELLYFIN_GROUP: "jellyfin-users"
+      # Jellyfin LDAP plugin provider id (default is the built-in provider).
+      LDAP_PROVIDER_ID: "Jellyfin.Plugin.LDAP_Auth.LdapAuthenticationProviderPlugin"
+    entrypoint: ["/bin/sh", "-c"]
+    # ca-certificates for the HTTPS Pushover summary; everything else is internal HTTP.
+    command:
+      - apk add --no-cache ca-certificates >/dev/null 2>&1 || true; exec python3 /sync.py
+    volumes:
+      - /mnt/appdata/wizarr:/wizarr:ro                         # Wizarr sqlite (read-only)
+      - /mnt/appdata/jellyseerr/settings.json:/seerr-settings.json:ro  # Seerr main.apiKey
+      - /etc/kdk:/kdk:ro                                       # pushover.env
+      - ./sync.py:/sync.py:ro                                  # mounted so compose never interpolates it
+    networks: [proxy-dmz, identity_default]
+
+networks:
+  proxy-dmz:
+    external: true
+  # lldap lives here (also aliased on proxy-dmz, but the GraphQL API is addressed
+  # as the container name `lldap` which resolves on identity_default).
+  identity_default:
+    external: true

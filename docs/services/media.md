@@ -6,7 +6,7 @@ tier: internal
 status: live
 storage: yes
 secrets: [kdk-dee-01-api-token]
-updated: 2026-09-12
+updated: 2026-10-27
 tags: [homelab/stack, tier/internal, status/live]
 ---
 
@@ -23,7 +23,7 @@ Acquisition, subtitles, request-library management and GPU transcode on kdk-dkr-
 | Purpose | Sonarr/Radarr/Prowlarr/Bazarr/SABnzbd + Tdarr NVENC transcode |
 | Status | 🟢 Live — each UI 302s to SSO; arr health clean |
 | Host | [[kdk-dkr-01]] |
-| Endpoints | `prowlarr / sabnzbd / sonarr / radarr / bazarr / chaptarr / wizarr / tdarr .kmkdp.com` |
+| Endpoints | `prowlarr / sabnzbd / sonarr / radarr / bazarr / chaptarr / tdarr .kmkdp.com` |
 | Deploy | Komodo stack `media` (git-linked, `op inject` pre_deploy) |
 | Storage | `/opt/kdk-lab/media/<app>` (config); bulk on `/mnt/media/{tv,movies,staging,quarantine}` + `/mnt/dee-exchange` |
 | Blast radius | No new downloads/imports/transcodes; Jellyfin playback unaffected |
@@ -64,7 +64,7 @@ No dashboard. Host probes via [[kdk-mon-01]]; alerts → Pushover.
 
 ## Architecture
 
-Each app joins `default` + `proxy`; ports are `prowlarr 9696`, `sabnzbd 8080`, `sonarr 8989`, `radarr 7878`, `bazarr 6767`, `chaptarr 8789`, `wizarr 5690`, `tdarr 8265`. Tdarr also publishes node RPC `8266` for the external RGB-Nebula 4090 node. Sonarr/Radarr have a higher-priority `/api` router without ForwardAuth so the DMZ Seerr can use the API with a key. `tdarr-node` (`kdk-tdarr-nvenc-01`) uses the NVIDIA runtime and the GTX 1050 Ti; flow encodes to HEVC with NVENC and re-encodes any AV1 source (software decode). Tdarr 3.x (Rust engine).
+Each app joins `default` + `proxy`; ports are `prowlarr 9696`, `sabnzbd 8080`, `sonarr 8989`, `radarr 7878`, `bazarr 6767`, `chaptarr 8789`, `tdarr 8265`. Tdarr also publishes node RPC `8266` for the external RGB-Nebula 4090 node. Sonarr/Radarr have a higher-priority `/api` router without ForwardAuth so the DMZ Seerr can use the API with a key. `tdarr-node` (`kdk-tdarr-nvenc-01`) uses the NVIDIA runtime and the GTX 1050 Ti; flow encodes to HEVC with NVENC and re-encodes any AV1 source (software decode). Tdarr 3.x (Rust engine).
 
 ## Configuration
 
@@ -77,24 +77,12 @@ Each app joins `default` + `proxy`; ports are `prowlarr 9696`, `sabnzbd 8080`, `
 | Radarr → Settings → Import Lists | 15 lists (13 TMDb directors, IMDb Popular, IMDb Top 250); `listSyncLevel=disabled`. Language block = `stacks/arr-list-guard` (`LANGUAGES` env) |
 
 
-### Wizarr → LLDAP (invites create directory accounts)
+### Wizarr (invites) — MOVED
 
-Wizarr (`v2026.10.1`; the lldap create needs ≥ 2026.10.0) creates the **lldap user** on an accepted invite, then the
-Jellyfin account. Settings → LDAP (stored in Wizarr's own DB, not in git):
-
-| Field | Value |
-|---|---|
-| Server URL | `ldaps://lldap.kmkdp.com:6360` (Use TLS on, Verify certificate **on**: LE wildcard) |
-| Base DN | `dc=kmkdp,dc=com` |
-| Service account DN | `uid=wizarr,ou=people,dc=kmkdp,dc=com` (member of `lldap_password_manager`, password `op://kdk-cluster/wizarr-ldap/password`) |
-| User base DN / filter / attrs | `ou=people,dc=kmkdp,dc=com` · `(uid={username})` · `uid` · `mail` · object class `person` |
-| Group base DN / class / member attr | `ou=groups,dc=kmkdp,dc=com` · `groupOfUniqueNames` · `uniqueMember` |
-| Admin LDAP bind | off (Wizarr admin stays local) |
-
-**Group caveat:** Wizarr never adds the new user to a group. The Jellyfin LDAP plugin only accepts members of
-`jellyfin-users`, and Authelia rules are group-based, so after each invite add the user to `jellyfin-users`
-(and any app groups) at `users.kmkdp.com`. Until then the invitee can log in to Jellyfin only through the local
-account Wizarr created, not via SSO.
+Wizarr left the media stack on 2026-10-27 for its own internet-facing DMZ stack
+(`stacks/wizarr` on kdk-dkr-dmz-01). Its LDAP settings table, the public-path allowlist,
+and the `wizarr-sync` invite-reconcile automation now live in
+[Wizarr](wizarr.md).
 
 ## Secret Rotation
 
@@ -105,4 +93,4 @@ account Wizarr created, not via SSO.
 
 ## User Guide
 
-Prowlarr feeds indexers to Sonarr/Radarr; downloads land via SABnzbd into `/mnt/media/staging`, are imported to `tv`/`movies`, then Tdarr transcodes. Wizarr issues Jellyfin invites.
+Prowlarr feeds indexers to Sonarr/Radarr; downloads land via SABnzbd into `/mnt/media/staging`, are imported to `tv`/`movies`, then Tdarr transcodes. Jellyfin invites are issued by [Wizarr](wizarr.md) (now on the DMZ).

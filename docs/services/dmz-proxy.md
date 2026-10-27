@@ -6,7 +6,7 @@ tier: dmz
 status: live
 storage: yes
 secrets: [cloudflare-dns-acme-hosts, cloudflare-tunnel-credentials]
-updated: 2026-09-12
+updated: 2026-10-27
 tags: [homelab/stack, tier/dmz, status/live]
 ---
 
@@ -14,7 +14,7 @@ tags: [homelab/stack, tier/dmz, status/live]
 
 DMZ ingress: Traefik terminates TLS and host-routes the public services, and cloudflared connects the Cloudflare tunnel to it.
 
-**Related:** [[kdk-dkr-dmz-01]] · [[identity]] · [[jellyfin]] · [[immich]] · [[seerr]]
+**Related:** [[kdk-dkr-dmz-01]] · [[identity]] · [[jellyfin]] · [[immich]] · [[seerr]] · [[wizarr]]
 
 ## At a glance
 
@@ -26,7 +26,7 @@ DMZ ingress: Traefik terminates TLS and host-routes the public services, and clo
 | Images | `traefik:v3.7`, `cloudflare/cloudflared:2026.10.3` |
 | Deploy | Komodo stack `dmz-proxy` (git-linked, `op inject` pre_deploy) |
 | Cert | `kmkdp.com` + `*.kmkdp.com`, ACME DNS-01 via Cloudflare |
-| Blast radius | All DMZ + public services (sso, jellyfin, immich, seerr, users) unreachable |
+| Blast radius | All DMZ + public services (sso, jellyfin, immich, seerr, wizarr, users) unreachable |
 
 ## Verify
 
@@ -34,7 +34,7 @@ DMZ ingress: Traefik terminates TLS and host-routes the public services, and clo
 curl -s -o /dev/null -w '%{http_code}\n' https://sso.kmkdp.com/     # 200, valid TLS
 docker logs cloudflared 2>&1 | grep -i "registered tunnel" | tail -2
 ```
-Off-LAN, `sso`/`seerr`/`jellyfin`/`immich` answer with a `server: cloudflare` header.
+Off-LAN, `sso`/`seerr`/`jellyfin`/`immich`/`wizarr` answer with a `server: cloudflare` header.
 
 ## Troubleshooting
 
@@ -49,7 +49,7 @@ Off-LAN, `sso`/`seerr`/`jellyfin`/`immich` answer with a `server: cloudflare` he
 | Direction | Thing | What breaks without it |
 |---|---|---|
 | Needs | Cloudflare (tunnel + DNS API) | no public access, no cert renewal |
-| Needed by | [[identity]], [[jellyfin]], [[immich]], [[seerr]] | ingress + TLS on the DMZ |
+| Needed by | [[identity]], [[jellyfin]], [[immich]], [[seerr]], [[wizarr]] | ingress + TLS on the DMZ |
 
 ## Observability
 
@@ -57,7 +57,7 @@ No dashboard. Public hostnames probed by [[kdk-mon-01]]; alerts → Pushover.
 
 ## Architecture
 
-Docker provider on the `proxy-dmz` network; `web:80` redirects to `websecure:443`. cloudflared runs as uid `65532` and dials out to Cloudflare, forwarding to this Traefik. The tunnel's public hostnames are dashboard-managed (operator-owned); Traefik host-routes what arrives. No ForwardAuth here — each public service carries its own auth.
+Docker provider on the `proxy-dmz` network; `web:80` redirects to `websecure:443`. cloudflared runs as uid `65532` and dials out to Cloudflare, forwarding to this Traefik. The tunnel's public hostnames are dashboard-managed (operator-owned); Traefik host-routes what arrives. Most public services carry their own auth; the one exception is [[wizarr]], whose **admin** router declares a label-defined `wizarr-auth` ForwardAuth middleware (→ `http://authelia:9091/api/authz/forward-auth`) while its invitee paths stay open on a higher-priority public router.
 
 ## Configuration
 

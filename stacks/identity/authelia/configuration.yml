@@ -723,4 +723,14 @@ access_control:
         - 'jellystat.kmkdp.com'  # PR #54
       subject:
         - ['group:internal-users']
+    # Wizarr moved to the DMZ (Cloudflare tunnel). Only the admin Traefik router
+    # carries ForwardAuth, so this rule gates the admin portal (/login, /api,
+    # /admin, /setup, /settings, ...); the invitee paths (/j, /join, /wizard,
+    # /invitation/process, /reset, /static, ...) are served by a higher-priority
+    # public router with no auth and never reach Authelia. See stacks/wizarr.
+    - policy: two_factor
+      domain:
+        - 'wizarr.kmkdp.com'
+      subject:
+        - ['group:internal-users']
 ...

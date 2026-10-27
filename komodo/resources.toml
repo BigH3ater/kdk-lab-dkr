@@ -287,6 +287,23 @@ repo = "BigH3ater/kdk-lab-dkr"
 run_directory = "stacks/audiobookshelf"
 webhook_enabled = true
 
+# Wizarr on the DMZ: Jellyfin invite manager, internet-facing via the Cloudflare
+# tunnel (owner adds wizarr.kmkdp.com in the CF dashboard). Path-scoped public
+# exposure -- invitee paths open, admin behind Authelia -- is all in the Traefik
+# labels (stacks/wizarr/compose.yaml). Moved here from the media stack
+# (kdk-dkr-01); data rsync'd to /mnt/appdata/wizarr. The wizarr-sync Procedure
+# finishes each invite (jellyfin-users group + Jellyfin LDAP provider + Seerr import).
+[[stack]]
+tags = ["kdk-lab"]
+name = "wizarr"
+deploy = true
+after = ["dmz-proxy"]
+[stack.config]
+server = "kdk-dkr-dmz-01"
+repo = "BigH3ater/kdk-lab-dkr"
+run_directory = "stacks/wizarr"
+webhook_enabled = true
+
 [[stack]]
 tags = ["kdk-lab"]
 name = "backup-dmz"
@@ -733,6 +750,41 @@ name = "guard"
 enabled = true
 executions = [
   { execution.type = "DeployStack", execution.params.stack = "arr-list-guard", enabled = true },
+]
+
+# wizarr-sync: finish Wizarr LDAP invites on kdk-dkr-dmz-01. Each "Create LDAP
+# user" invite leaves the account out of the jellyfin-users lldap group, on the
+# default Jellyfin auth provider, and unknown to Seerr -- so the invitee cannot
+# log in via LDAP/SSO. Every 15 min this adds the group, flips the Jellyfin
+# provider to the LDAP plugin, and imports the user into Seerr. Idempotent; no-op
+# when nothing is pending. deploy=false (run by the Procedure);
+# destroy_before_deploy re-runs the one-shot; pre_deploy op-injects the lldap
+# admin password + Jellyfin API key. See stacks/wizarr-sync/.
+[[stack]]
+tags = ["kdk-lab"]
+name = "wizarr-sync"
+deploy = false   # run every 15 min by the wizarr-sync Procedure
+[stack.config]
+server = "kdk-dkr-dmz-01"
+repo = "BigH3ater/kdk-lab-dkr"
+run_directory = "stacks/wizarr-sync"
+destroy_before_deploy = true   # one locked down+up so the one-shot re-runs
+pre_deploy.command = "sh -c '. /etc/komodo/op.env && op inject -f -i .env.tpl -o .env'"
+
+[[procedure]]
+tags = ["kdk-lab"]
+name = "wizarr-sync"
+[procedure.config]
+schedule_format = "Cron"
+# :07,:22,:37,:52 every hour (every 15 min, offset) -- off the gitops-sync
+# :00/:15/:30/:45 slots to avoid the "Resource is busy" lock race.
+schedule = "0 7,22,37,52 * * * *"
+schedule_timezone = "America/Chicago"
+[[procedure.config.stage]]
+name = "sync"
+enabled = true
+executions = [
+  { execution.type = "DeployStack", execution.params.stack = "wizarr-sync", enabled = true },
 ]
 
 # Hourly storage/NFS health validator (pages Pushover on NAS unreachable, NFS

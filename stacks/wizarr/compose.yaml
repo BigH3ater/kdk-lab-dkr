@@ -1,0 +1,63 @@
+# Wizarr on the DMZ node (kdk-dkr-dmz-01), internet-facing via the Cloudflare
+# tunnel. Moved here from stacks/media (kdk-dkr-01) so the owner can publish
+# wizarr.kmkdp.com, but ONLY the invitee paths are reachable without auth: the
+# admin portal sits behind Authelia ForwardAuth (and keeps Wizarr's own login as
+# a second layer, DISABLE_BUILTIN_AUTH=false).
+#
+# Two routers share one service (port 5690):
+#   wizarr-public  Host + invitee-path allowlist (PathRegexp), NO auth, priority 100.
+#   wizarr-admin   Host only, ForwardAuth -> Authelia, priority 1 (catches /login,
+#                  /api, /admin, /setup, /settings, / ... everything not allowlisted).
+# Higher priority wins, so an allowlisted path skips auth and everything else is
+# forced through sso.kmkdp.com. The invitee allowlist comes from Wizarr's SSO docs
+# (docs.wizarr.dev single-sign-on-sso) cross-checked against the app's public
+# blueprint (wizarrrr/wizarr app/blueprints/public/routes.py). Query strings are
+# excluded because Traefik PathRegexp matches the path only; /setup is treated as
+# admin-only (first-run). Never allowlist /login or /api.
+#
+# NOTE on $$ : docker compose interpolates a lone $, so every regex anchor $ is
+# written $$ here; the deployed Traefik label gets a single $ (see docker compose
+# config). LDAP settings live in Wizarr's own DB (see docs/services/wizarr.md),
+# not in git; v2026.10.0+ is required for the lldap create (sends cn/sn, lowercases
+# uids). Membership in jellyfin-users + the Jellyfin LDAP provider + Seerr import
+# are reconciled by the wizarr-sync one-shot (stacks/wizarr-sync).
+name: wizarr
+services:
+  wizarr:
+    image: ghcr.io/wizarrrr/wizarr:v2026.10.1
+    container_name: wizarr
+    restart: unless-stopped
+    environment:
+      PUID: "1000"
+      PGID: "1000"
+      TZ: America/Chicago
+      # Keep Wizarr's built-in admin login as a second layer behind Authelia.
+      # (DISABLE_BUILTIN_AUTH=true would sign EVERY visitor to /login in as admin.)
+      DISABLE_BUILTIN_AUTH: "false"
+    volumes:
+      - /mnt/appdata/wizarr:/data/database
+    networks: [proxy-dmz]
+    labels:
+      traefik.enable: "true"
+      traefik.docker.network: "proxy-dmz"
+      # ---- public invitee router: allowlisted paths only, no auth ----
+      traefik.http.routers.wizarr-public.rule: "Host(`wizarr.kmkdp.com`) && (PathRegexp(`^/j(/.*)?$$`) || PathRegexp(`^/join(/.*)?$$`) || PathRegexp(`^/invitation/process(/.*)?$$`) || PathRegexp(`^/plex/callback(/.*)?$$`) || PathRegexp(`^/wizard(/.*)?$$`) || PathRegexp(`^/reset/.+$$`) || PathRegexp(`^/static(/.*)?$$`) || PathRegexp(`^/image-proxy(/.*)?$$`) || PathRegexp(`^/cinema-posters(/.*)?$$`) || PathRegexp(`^/favicon\\.ico$$`))"
+      traefik.http.routers.wizarr-public.priority: "100"
+      traefik.http.routers.wizarr-public.service: "wizarr"
+      # ---- admin router: everything else, behind Authelia ForwardAuth ----
+      traefik.http.routers.wizarr-admin.rule: "Host(`wizarr.kmkdp.com`)"
+      traefik.http.routers.wizarr-admin.priority: "1"
+      traefik.http.routers.wizarr-admin.service: "wizarr"
+      traefik.http.routers.wizarr-admin.middlewares: "wizarr-auth"
+      # ForwardAuth -> Authelia on proxy-dmz (container `authelia`, port 9091).
+      # Mirrors the internal Traefik's forwardauth@file (stacks/proxy/dynamic),
+      # but points straight at the container instead of sso.kmkdp.com.
+      traefik.http.middlewares.wizarr-auth.forwardauth.address: "http://authelia:9091/api/authz/forward-auth"
+      traefik.http.middlewares.wizarr-auth.forwardauth.trustForwardHeader: "true"
+      traefik.http.middlewares.wizarr-auth.forwardauth.authResponseHeaders: "Remote-User,Remote-Groups,Remote-Name,Remote-Email"
+      # One service definition shared by both routers.
+      traefik.http.services.wizarr.loadbalancer.server.port: "5690"
+
+networks:
+  proxy-dmz:
+    external: true
