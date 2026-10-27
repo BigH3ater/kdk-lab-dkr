@@ -43,6 +43,21 @@ Storage/NFS runs on its own flat L2 (bond1/br0 on the NAS, jumbo MTU 9000):
 > (`nfs.config` bindip + `sharing.nfs` export networks); client mounts are systemd
 > `.mount` units seeded from `cloud-init/`. See `docs/runbooks/storage-network.md`.
 
+## Remote access (Tailscale)
+
+Tailnet login is Authelia OIDC; `stacks/tailscale-subnet-router` on kdk-dkr-01 advertises
+`10.1.1.0/24, 10.1.20.0/24, 10.1.30.0/24, 192.168.191.0/24` and `stacks/tailscale-dns`
+serves ad-blocking DNS on the router's tailnet IP (the tailnet's global nameserver).
+Clients join with `tailscale up --accept-routes` (DNS accepted by default). Only
+`sso.kmkdp.com` has a public DNS record (Cloudflare tunnel); every other `*.kmkdp.com`
+name resolves only through lab DNS, i.e. only on the LAN or the tailnet.
+
+| Symptom | Cause | Check / fix |
+|---|---|---|
+| Remote client reaches `10.1.20.20` (Komodo, Radarr…) but nothing on the DMZ, VLAN 1 or VLAN 30 | Docker's nftables `FORWARD` policy DROP eats forwarded tailnet packets; tailscaled's rules are in iptables-legacy | `sudo iptables -S DOCKER-USER` on dkr-01 must show `-i tailscale0 -j ACCEPT` and `-o tailscale0 -j ACCEPT`; the `docker-forward` sidecar in the subnet-router stack re-adds them every minute |
+| Everything via DERP ("direct connection not established") | Lab side has no inbound UDP; hotel/CGNAT on the client side | Fine functionally; throughput measured 2026-10-26 at ~21 Mbit/s from a 28 Mbit/s hotel link. A UDP 41641 forward to dkr-01 on the UniFi gateway would allow direct paths |
+| Hotel/captive Wi-Fi: `dig @1.1.1.1` times out | Network blocks outbound port 53 | Tailnet DNS (100.100.100.100 → router forwarder) still works; use DoH for public lookups |
+
 ## DNS (AdGuard — live configuration, verified 2026-09-21)
 
 Three AdGuard Home instances behind a VRRP VIP; rewrites are edited on the
