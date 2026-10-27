@@ -67,6 +67,7 @@ No dashboard. `jellyfin.kmkdp.com` probed by [[kdk-mon-01]]; alerts → Pushover
 Listens on `8096`, joins `proxy-dmz`. `/dev/dri` gives QSV. Library mounted read-only; transcode scratch is a 6G tmpfs at `/config/cache/transcodes` (Jellyfin's real transcode path), never backed up. In-container library paths match k3s (`/data/media/...`) so item ids stay attached. Ramdisk + Arc QSV tuning: see [[jellyfin-transcoding]].
 
 ## Configuration
+| Networking (dashboard, host-managed) | Known proxies `10.211.2.0/24` (proxy-dmz: Traefik + cloudflared); LAN networks `10.1.1.0/24, 10.1.3.0/24, 10.1.30.0/24, 192.168.191.0/24` — 10.1.20.0/24 deliberately omitted so masqueraded Tailscale clients (source 10.1.20.20) count as remote; auto discovery off; Internet streaming bitrate limit applies to remote clients (set 2026-10-26, raise for more remote viewers) |
 
 | Path / setting | What it is |
 |---|---|

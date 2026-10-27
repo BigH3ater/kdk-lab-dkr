@@ -41,7 +41,7 @@ Off-LAN, `sso`/`seerr`/`jellyfin`/`immich` answer with a `server: cloudflare` he
 | Problem | Cause | Command to validate |
 |---|---|---|
 | Public hostname 502 | tunnel down or token invalid | `docker logs cloudflared` — connection/registration errors |
-| Wrong client IP in logs | trustedIPs missing the source | `forwardedHeaders.trustedIPs` includes `10.1.20.20/32,192.168.191.0/24` |
+| Wrong client IP in logs | trustedIPs missing the source | `forwardedHeaders.trustedIPs` includes `10.1.20.20/32,192.168.191.0/24,10.211.2.0/24` (the last = cloudflared on proxy-dmz, so Cloudflare's visitor IP survives into Jellyfin's known-proxies logic) |
 | Cert not issued | Cloudflare DNS token invalid | `docker logs traefik 2>&1 | grep -i acme` |
 
 ## Dependencies
