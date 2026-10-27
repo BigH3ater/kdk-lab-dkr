@@ -141,18 +141,11 @@ services:
   # audiobook read-only from dmz-01; podcasts live on dmz-01 local disk (the DMZ
   # media NFS is read-only). Chaptarr still lays out /mnt/media/books/audiobook.
 
-  wizarr:
-    <<: *common
-    # v2026.10.0+ sends cn/sn when creating LDAP users (lldap requires both) and
-    # lower-cases uids; older releases fail the lldap create. LDAP settings live in
-    # the Wizarr UI (Settings -> LDAP), see docs/services/media.md.
-    image: ghcr.io/wizarrrr/wizarr:v2026.10.1
-    volumes:
-      - /opt/kdk-lab/media/wizarr:/data/database
-    labels:
-      traefik.enable: "true"
-      traefik.http.routers.wizarr.rule: "Host(`wizarr.kmkdp.com`)"
-      traefik.http.services.wizarr.loadbalancer.server.port: "5690"
+  # Wizarr MOVED to its own DMZ stack (stacks/wizarr on kdk-dkr-dmz-01) so it can
+  # be internet-facing via the Cloudflare tunnel with path-scoped public exposure
+  # (invitee paths open, admin behind Authelia). Data was rsync'd to
+  # /mnt/appdata/wizarr on dmz-01. LDAP + invite behaviour now in
+  # docs/services/wizarr.md. See stacks/wizarr/compose.yaml.
 
   tdarr:
     <<: *common
