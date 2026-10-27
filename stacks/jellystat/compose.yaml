@@ -1,0 +1,77 @@
+# Jellystat on kdk-dkr-01 (internal tier). Playback + library statistics for the
+# household Jellyfin (jellyfin.kmkdp.com, DMZ). Reached at https://jellystat.kmkdp.com
+# through the INTERNAL Traefik with Authelia ForwardAuth (forwardauth@file) -- admin/
+# stats tooling, so it sits behind SSO like the arr apps, not on the DMZ tunnel.
+#
+# Jellystat talks to Jellyfin over the lab network; the Jellyfin URL + API key are set
+# in Jellystat's OWN first-run UI (not here), so this stack only needs its JWT secret
+# and Postgres credentials. See docs/services/jellystat.md.
+#
+# Its own PostgreSQL 16 (db `jfstat`, the name Jellystat's backend defaults to) stays
+# on the stack default network; only `jellystat` joins the external `proxy` network.
+# Postgres data at /opt/kdk-lab/jellystat/postgres is EXCLUDED from the raw nightly
+# rsync -- it is captured by a pg_dump sidecar in stacks/backup-dkr-01 (house
+# convention; a live cluster dir is not safe to rsync). The in-app backup dir is a
+# plain-file volume that the rsync does sweep.
+name: jellystat
+
+services:
+  jellystat-db:
+    image: postgres:16-alpine
+    container_name: jellystat-db
+    restart: unless-stopped
+    env_file: [.env]
+    environment:
+      POSTGRES_DB: jfstat
+      POSTGRES_USER: jellystat
+      # POSTGRES_PASSWORD comes from .env (op-injected; see .env.tpl)
+    volumes:
+      - /opt/kdk-lab/jellystat/postgres:/var/lib/postgresql/data
+    networks: [default]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U jellystat -d jfstat"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+  jellystat:
+    image: docker.io/cyfershepard/jellystat:1.1.12   # latest release 2026-09-08; do NOT use :latest
+    container_name: jellystat
+    restart: unless-stopped
+    depends_on:
+      jellystat-db:
+        condition: service_healthy
+    env_file: [.env]
+    environment:
+      TZ: America/Chicago
+      POSTGRES_USER: jellystat
+      POSTGRES_IP: jellystat-db
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: jfstat
+      # POSTGRES_PASSWORD and JWT_SECRET come from .env (op-injected; see .env.tpl)
+    volumes:
+      - /opt/kdk-lab/jellystat/backup-data:/app/backend/backup-data
+    networks: [default, proxy]
+    labels:
+      traefik.enable: "true"
+      traefik.docker.network: "proxy"
+      traefik.http.routers.jellystat.rule: "Host(`jellystat.kmkdp.com`)"
+      traefik.http.routers.jellystat.middlewares: "forwardauth@file"
+      traefik.http.services.jellystat.loadbalancer.server.port: "3000"
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:3000/auth/isConfigured || exit 1"]
+      interval: 60s
+      timeout: 30s
+      retries: 5
+      start_period: 30s
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+networks:
+  default: {}
+  proxy:
+    external: true

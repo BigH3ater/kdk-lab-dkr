@@ -5,8 +5,8 @@ stack: backup-dkr-01, backup-dmz
 tier: infra
 status: live
 storage: yes
-secrets: [proton-mirror-crypt, authelia-postgres, immich-postgres]
-updated: 2026-09-12
+secrets: [proton-mirror-crypt, authelia-postgres, immich-postgres, jellystat]
+updated: 2026-10-26
 tags: [homelab/stack, tier/infra, status/live]
 ---
 
@@ -31,6 +31,7 @@ Nightly app-state backups run as one-shot stacks that a Komodo Procedure redeplo
 
 ```bash
 ssh kdkadmin@10.1.20.20 'ls -t /mnt/backup/dkr/kdk-dkr-01 | head'                    # recent state
+ssh kdkadmin@10.1.20.20 'ls -t /mnt/backup/dkr/kdk-dkr-01/pgdump | head'             # jellystat .sql.gz
 ssh kdkadmin@10.1.20.20 'ls -t /mnt/backup/dkr/kdk-dkr-dmz-01/pgdump | head'         # dated .sql.gz
 ```
 In Komodo, Procedure `nightly-backups` shows a recent successful run.
@@ -58,7 +59,7 @@ No dashboard. Success is visible in the Komodo Procedure run history.
 
 ## Architecture
 
-Three layers: (1) ZFS snapshots — vmpool covers the DMZ VM zvol, tankz3 covers bulk + backup datasets; (2) VM-level — vzdump of VM 300 to PBS, TrueNAS zvol replication of the DMZ VM; (3) app-level — the two backup stacks. `backup-dmz` runs `pg_dump` for Authelia and Immich (keeps 15) then rsyncs state; `backup-dkr-01` rsyncs `/opt/kdk-lab` (excluding scratch/DBs), then the gated `offsite` service syncs to Proton.
+Three layers: (1) ZFS snapshots — vmpool covers the DMZ VM zvol, tankz3 covers bulk + backup datasets; (2) VM-level — vzdump of VM 300 to PBS, TrueNAS zvol replication of the DMZ VM; (3) app-level — the two backup stacks. `backup-dmz` runs `pg_dump` for Authelia and Immich (keeps 15) then rsyncs state; `backup-dkr-01` runs `pg_dump` for Jellystat (keeps 15, into `kdk-dkr-01/pgdump`) then rsyncs `/opt/kdk-lab` (excluding scratch + the live Postgres cluster dirs `komodo/postgres` and `jellystat/postgres`), then the gated `offsite` service syncs to Proton. `backup-verify` checks all three pg dumps are present + gzip-valid for the day.
 
 ## Configuration
 
@@ -77,6 +78,7 @@ Restore: rsync/untar back from `/mnt/backup`, `psql < dump`. Migration tars rema
 |---|---|---|---|
 | `proton-mirror-crypt` (kdk-ops) | rclone crypt password | 🔴 purge-on-change | rotating it orphans every object — `rclone purge` the Proton target first |
 | `authelia-postgres`, `immich-postgres` | pg_dump auth | 🟢 self-service | rotate with the DB, then redeploy |
+| `jellystat` (postgres_password) | pg_dump auth for Jellystat | 🟢 self-service | rotate with the DB, then redeploy `jellystat` + `backup-dkr-01` |
 
 ## Offsite status (2026-09-12)
 

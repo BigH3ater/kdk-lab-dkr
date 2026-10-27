@@ -13,16 +13,38 @@
 #    the single source of truth and pages Pushover if the marker is stale.
 name: backup-dkr-01
 services:
+  # Jellystat's PostgreSQL is the one app DB on this host, so it is pg_dumped here
+  # (house convention, mirrors backup-dmz) rather than rsynced raw -- a live cluster
+  # dir is torn/unsafe to restore, so jellystat/postgres is excluded from the rsync
+  # below. Reaches the DB over the external jellystat_default network. Best-effort
+  # (exit 0); backup-verify checks the dump is present + gzip-valid for today.
+  pgdump-jellystat:
+    image: postgres:16-alpine
+    restart: "no"
+    env_file: [.env]
+    environment:
+      PGPASSWORD: "${JELLYSTAT_POSTGRES_PASSWORD}"
+    command: >
+      sh -c 'pg_dump -h jellystat-db -U jellystat jfstat
+      | gzip > /dest/jellystat-$$(date +%F).sql.gz
+      && ls -t /dest/jellystat-*.sql.gz | tail -n +15 | xargs -r rm; exit 0'
+    volumes:
+      - /mnt/backup/dkr/kdk-dkr-01/pgdump:/dest
+    networks: [jellystat_default]
+
   rsync:
     image: instrumentisto/rsync-ssh:alpine
     restart: "no"
+    depends_on:
+      pgdump-jellystat: { condition: service_completed_successfully }
     entrypoint: /bin/sh
     command:
       - -c
       - |
         rsync -a --delete \
           --exclude 'tdarr-temp' --exclude 'sabnzbd-incomplete' \
-          --exclude 'komodo/postgres' --exclude 'proxy/letsencrypt' \
+          --exclude 'komodo/postgres' --exclude 'jellystat/postgres' \
+          --exclude 'proxy/letsencrypt' \
           --exclude 'stacks/' --exclude 'backup/' \
           /src/ /dest/kdk-dkr-01/
         rc=$$?
@@ -38,3 +60,9 @@ services:
     depends_on:
       rsync: { condition: service_completed_successfully }
     command: ["true"]
+
+networks:
+  # The jellystat stack's default network, joined so pgdump-jellystat can reach the
+  # `jellystat-db` container by name (same approach as backup-dmz -> identity/immich).
+  jellystat_default:
+    external: true
