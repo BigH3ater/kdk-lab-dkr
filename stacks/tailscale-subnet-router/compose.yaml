@@ -36,7 +36,13 @@ services:
     environment:
       TS_AUTHKEY: ${TS_AUTHKEY:?set in .env via op inject}
       TS_ROUTES: "10.1.1.0/24,10.1.3.0/24,10.1.20.0/24,10.1.30.0/24,192.168.191.0/24"
-      TS_EXTRA_ARGS: "--advertise-tags=tag:subnet-router --hostname=kdk-subnet-router --accept-dns=false"
+      # --snat-subnet-routes=false (2026-10-26): lab hosts see the client's real
+      # tailnet address (100.x) instead of this host's 10.1.20.20, so Jellyfin,
+      # Traefik logs and firewall rules can tell remote clients apart. REQUIRES
+      # the return route on the gateway: UniFi static route 100.64.0.0/10 via
+      # 10.1.20.20 (VLAN 20). Without it every subnet-routed reply is lost and
+      # remote access breaks -- re-add masquerading (drop the flag) to recover.
+      TS_EXTRA_ARGS: "--advertise-tags=tag:subnet-router --hostname=kdk-subnet-router --accept-dns=false --snat-subnet-routes=false"
       TS_USERSPACE: "false"
       TS_STATE_DIR: /var/lib/tailscale
       TZ: America/Chicago
