@@ -93,6 +93,9 @@ after = ["proxy"]
 server = "kdk-dkr-01"
 repo = "BigH3ater/kdk-lab-dkr"
 run_directory = "stacks/media"
+# A service removed from the compose (wizarr -> DMZ, 2026-10-27) is otherwise left
+# running as an orphan by `up -d`; this makes the deploy remove it.
+extra_args = ["--remove-orphans"]
 pre_deploy.command = "sh -c '. /etc/komodo/op.env && op inject -f -i .env.tpl -o .env'"
 webhook_enabled = true
 
