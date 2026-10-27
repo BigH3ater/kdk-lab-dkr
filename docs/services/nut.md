@@ -17,6 +17,15 @@ down the two physical servers cleanly when the battery runs low during an
 outage. The UPS is network-attached; NUT reads it over the LAN — nothing is
 plugged into a host by USB.
 
+> **READ-ONLY since 2026-10-26 21:xx CDT.** The NUT stack runs `SERVER: secondary` (no
+> primary → no FSD), kdk-hyp-01's `nut-monitor` is disabled and TrueNAS's UPS service is
+> stopped/disabled. Monitoring (upsc, dashboards, alerts) still works; **nothing shuts down
+> on a power event** until this is reverted. Why: the 21:00 gitops sync force-recreated the
+> container at 21:02:03 and kdk-hyp-01 shut itself down cleanly in the same minute
+> (node_exporter gone 21:03, dkr-01 21:03, dns-01 21:07, ICMP 21:08, iDRAC draw 170 W → 23 W)
+> with the UPS reporting `OL CHRG`, 100 %, 120 V throughout. Re-enable: `SERVER: primary`,
+> `systemctl enable --now nut-monitor` on hyp-01, TrueNAS → System → Services → UPS on.
+
 **Related:** [[kdk-dkr-03]] · [[kdk-hyp-01]] · [[kdk-nas-01]] · [[home-assistant]]
 
 ## At a glance
