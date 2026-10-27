@@ -47,6 +47,16 @@ services:
       API_PASSWORD: ${NUT_CLIENT_PASSWORD}
       # seconds of stale UPS data tolerated before the health check restarts upsmon
       STALE_GRACE: "180"
+      # READ-ONLY MONITORING (2026-10-26 incident): the 21:00 gitops sync
+      # force-recreated this container at 21:02 and kdk-hyp-01 (Proxmox, with
+      # kdk-dkr-01 and kdk-dns-01 on it) performed a full graceful shutdown in
+      # the same minute, while the UPS was OL/100% the whole time. Until the
+      # client-side trigger is understood, upsmon here runs as a SECONDARY:
+      # upsd keeps serving data (dashboards, alerts, HA) but no primary exists,
+      # so FSD can never be raised. The clients' upsmon are disabled too
+      # (hyp-01 nut-monitor, TrueNAS UPS service) -- see docs/services/nut.md.
+      # Restore with SERVER: primary + re-enabling the clients.
+      SERVER: secondary
     volumes:
       # Custom driver config (low-battery safety margin). The image copies
       # /etc/nut/local/ups.conf over its generated one.
