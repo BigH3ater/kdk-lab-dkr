@@ -47,19 +47,28 @@ services:
       API_PASSWORD: ${NUT_CLIENT_PASSWORD}
       # seconds of stale UPS data tolerated before the health check restarts upsmon
       STALE_GRACE: "180"
-      # READ-ONLY MONITORING (2026-10-26 incident): the 21:00 gitops sync
-      # force-recreated this container at 21:02 and kdk-hyp-01 (Proxmox, with
-      # kdk-dkr-01 and kdk-dns-01 on it) performed a full graceful shutdown in
-      # the same minute, while the UPS was OL/100% the whole time. Until the
-      # client-side trigger is understood, upsmon here runs as a SECONDARY:
-      # upsd keeps serving data (dashboards, alerts, HA) but no primary exists,
-      # so FSD can never be raised. The clients' upsmon are disabled too
-      # (hyp-01 nut-monitor, TrueNAS UPS service) -- see docs/services/nut.md.
-      # Restore with SERVER: primary + re-enabling the clients.
-      SERVER: secondary
-    volumes:
-      # Custom driver config (low-battery safety margin). The image copies
-      # /etc/nut/local/ups.conf over its generated one.
-      - ./ups.conf:/etc/nut/local/ups.conf:ro
+      # upsmon role. 2026-10-26: this ran as "secondary" for one evening after
+      # the incident below; primary restored once the trigger was removed.
+      SERVER: primary
+    # Custom driver config (low-battery safety margin). The image copies
+    # /etc/nut/local/ups.conf over its generated one. Delivered as a compose
+    # `config`, NOT a bind mount: compose hashes the file CONTENT into the
+    # service config, so an edit to ups.conf recreates the container and an
+    # unrelated merge does not. (A bind mount needed --force-recreate to pick
+    # up edits, and that recreated upsd on EVERY gitops merge -- six times on
+    # 2026-10-26 alone. One of those landed while the UPS was running its
+    # monthly battery self-test: upsmon 2.8.1 on kdk-hyp-01 lost upsd for one
+    # poll while the status carried CAL, hit NUT's "last known to be
+    # calibrating and not communicating, assuming dead" rule -- which is NOT
+    # gated by DEADTIME, in 2.8.1 or upstream master -- and shut Proxmox down
+    # with kdk-dkr-01 and kdk-dns-01 on it, UPS on line at 100 %.) Rule: never
+    # restart upsd without a reason; the clients cannot tell a restart from a
+    # dead UPS.
+    configs:
+      - source: ups-conf
+        target: /etc/nut/local/ups.conf
     ports:
       - "3493:3493"
+configs:
+  ups-conf:
+    file: ./ups.conf

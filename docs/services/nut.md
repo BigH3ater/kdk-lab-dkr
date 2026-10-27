@@ -17,15 +17,6 @@ down the two physical servers cleanly when the battery runs low during an
 outage. The UPS is network-attached; NUT reads it over the LAN — nothing is
 plugged into a host by USB.
 
-> **READ-ONLY since 2026-10-26 21:xx CDT.** The NUT stack runs `SERVER: secondary` (no
-> primary → no FSD), kdk-hyp-01's `nut-monitor` is disabled and TrueNAS's UPS service is
-> stopped/disabled. Monitoring (upsc, dashboards, alerts) still works; **nothing shuts down
-> on a power event** until this is reverted. Why: the 21:00 gitops sync force-recreated the
-> container at 21:02:03 and kdk-hyp-01 shut itself down cleanly in the same minute
-> (node_exporter gone 21:03, dkr-01 21:03, dns-01 21:07, ICMP 21:08, iDRAC draw 170 W → 23 W)
-> with the UPS reporting `OL CHRG`, 100 %, 120 V throughout. Re-enable: `SERVER: primary`,
-> `systemctl enable --now nut-monitor` on hyp-01, TrueNAS → System → Services → UPS on.
-
 **Related:** [[kdk-dkr-03]] · [[kdk-hyp-01]] · [[kdk-nas-01]] · [[home-assistant]]
 
 ## At a glance
@@ -89,6 +80,36 @@ imminent), `CHRG` while charging.
 - upsd runs on [[kdk-dkr-03]], a Pi that is **not** a guest of
   [[kdk-hyp-01]], so it keeps reporting while Proxmox shuts down. The clients
   are still **secondary** and shut down on LB independently.
+
+## Incident 2026-10-26: upsd restart shut Proxmox down (UPS was fine)
+
+**What happened.** 21:00 CDT gitops sync → deploy-changed redeployed every stack behind
+HEAD, and the `nut` stack still carried `--force-recreate`, so upsd was recreated at
+21:02:03 (the 6th time that day). The Eaton was in its monthly battery self-test
+(`ups.test.interval` 2592000 s), so the last status the clients saw carried `CAL`.
+`upsmon` 2.8.1 on [[kdk-hyp-01]] failed one poll at 21:02:18 and logged
+`UPS [eaton-5px@10.1.30.22] was last known to be calibrating and currently is not
+communicating, assuming dead` → `Executing automatic power-fail shutdown`. Proxmox shut
+down cleanly with kdk-dkr-01 (Komodo, media, Tdarr, docs…) and kdk-dns-01 on it; iDRAC
+draw 170 W → 23 W by 21:10. TrueNAS (upsmon 2.8.0, no CAL rule) only logged
+"Communications lost" and reconnected 5 s later. UPS: `OL CHRG`, 100 %, 120 V throughout.
+
+**Why DEADTIME does not help.** In `is_ups_critical()` the CAL (and OB) "assuming dead"
+branch is gated only by `commstate == 0`, i.e. the first failed poll — in 2.8.1 and in
+upstream master. `DEADTIME` only promotes a dead on-battery UPS to low-battery.
+
+**Fix (landed).** (1) `--force-recreate` removed from the Komodo stack; (2) `ups.conf`
+is a compose `config` (content-hashed) so real edits still recreate the container while
+unrelated merges are a no-op; (3) `SERVER: primary` restored, hyp-01 `nut-monitor` and the
+TrueNAS UPS service re-enabled. **Rule: never restart upsd without a reason** — the
+clients cannot distinguish a restart from a dead UPS, and during a self-test or on
+battery they will shut down on the spot.
+
+**Residual exposure.** A dkr-03 reboot/crash or a network blip *during* the ~10-minute
+monthly self-test (or a manual test) still triggers the rule on hyp-01. Options: disable
+the card's automatic battery test (card UI at 10.1.3.63 → run tests manually when the
+lab is quiet), or stop/`systemctl disable --now nut-monitor` on hyp-01 before planned
+work on dkr-03 and re-enable after.
 
 ## Dependencies
 

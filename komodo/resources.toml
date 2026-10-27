@@ -123,7 +123,11 @@ deploy = true
 server = "kdk-dkr-03"
 repo = "BigH3ater/kdk-lab-dkr"
 run_directory = "stacks/nut"
-extra_args = ["--force-recreate"]
+# NO --force-recreate here (removed 2026-10-26): deploy-changed redeploys every
+# behind-HEAD stack on each merge, and force-recreate turned that no-op `up -d`
+# into an upsd restart six times a day. upsmon clients treat a lost upsd during
+# a battery self-test as a dead UPS and shut down (kdk-hyp-01, 2026-10-26 21:02).
+# ups.conf edits still deploy: it is a compose `config` (content-hashed).
 pre_deploy.command = "sh -c 'cp -f /opt/kdk-lab/nut/.env .env'"
 webhook_enabled = true
 
