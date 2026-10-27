@@ -9,10 +9,15 @@ services:
   coredns:
     image: coredns/coredns:1.12.0
     container_name: tailscale-dns
-    restart: unless-stopped
+    # Host network + `bind 100.66.29.117` in the Corefile instead of a Docker
+    # port mapping on that IP: at host boot Docker starts containers before the
+    # subnet router has brought tailscale0 up, the mapping fails with "cannot
+    # assign requested address" and Docker does NOT retry a failed start, so the
+    # forwarder stayed dead after the 2026-10-26 reboot (remote DNS gone). With
+    # host networking CoreDNS itself fails to bind, exits non-zero, and
+    # `restart: always` keeps retrying with backoff until tailscale0 exists.
+    restart: always
+    network_mode: host
     command: ["-conf", "/Corefile"]
-    ports:
-      - "100.66.29.117:53:53/udp"
-      - "100.66.29.117:53:53/tcp"
     volumes:
       - ./Corefile:/Corefile:ro
