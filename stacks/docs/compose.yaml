@@ -17,6 +17,10 @@ services:
       - |
         set -eu
         apt-get update -qq && apt-get install -y -qq git librsvg2-bin >/dev/null
+        # Idempotent: after an unclean host reboot Docker restarts this same
+        # container, /q still exists and `git clone` fails forever (14 restarts
+        # on 2026-10-26). Start from a clean tree every run.
+        rm -rf /q
         git clone --depth 1 --branch v4.5.2 https://github.com/jackyzha0/quartz /q
         cd /q && npm ci --no-audit --no-fund
         rm -rf content && cp -a /content content

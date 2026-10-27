@@ -3,7 +3,7 @@
 # DNS over the mesh instead of a flaky subnet-routed IPv4 nameserver. Forwards to
 # the lab AdGuard VIPs, which do the ad-blocking + *.kmkdp.com split-horizon.
 .:53 {
-    bind 0.0.0.0
+    bind 100.66.29.117
     forward . 10.1.1.53 10.1.1.54
     cache 30
     errors
