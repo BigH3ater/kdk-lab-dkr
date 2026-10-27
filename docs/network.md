@@ -49,13 +49,16 @@ Tailnet login is Authelia OIDC; `stacks/tailscale-subnet-router` on kdk-dkr-01 a
 `10.1.1.0/24, 10.1.3.0/24, 10.1.20.0/24, 10.1.30.0/24, 192.168.191.0/24` (10.1.3 = VLAN 1
 management: TrueNAS, iDRACs, UPS card; added 2026-10-26) and `stacks/tailscale-dns`
 serves ad-blocking DNS on the router's tailnet IP (the tailnet's global nameserver).
-Clients join with `tailscale up --accept-routes` (DNS accepted by default). Only
+Clients join with `tailscale up --accept-routes` (DNS accepted by default). The router does
+**not** masquerade (`--snat-subnet-routes=false`, 2026-10-26): lab hosts see the client's
+tailnet address (100.64.0.0/10) and reply via the UniFi static route `100.64.0.0/10 → 10.1.20.20`.
+That route is load-bearing — if it disappears, remote access dies while the router looks healthy. Only
 `sso.kmkdp.com` has a public DNS record (Cloudflare tunnel); every other `*.kmkdp.com`
 name resolves only through lab DNS, i.e. only on the LAN or the tailnet.
 
 | Symptom | Cause | Check / fix |
 |---|---|---|
-| Remote client reaches `10.1.20.20` (Komodo, Radarr…) but nothing on the DMZ, VLAN 1 or VLAN 30 | Docker's nftables `FORWARD` policy DROP eats forwarded tailnet packets; tailscaled's rules are in iptables-legacy | `sudo iptables -S DOCKER-USER` on dkr-01 must show `-i tailscale0 -j ACCEPT` and `-o tailscale0 -j ACCEPT`; the `docker-forward` sidecar in the subnet-router stack re-adds them every minute |
+| Remote client reaches `10.1.20.20` (Komodo, Radarr…) but nothing on the DMZ, VLAN 1 or VLAN 30 | (a) Docker's nftables `FORWARD` policy DROP eats forwarded tailnet packets; tailscaled's rules are in iptables-legacy. (b) The gateway static route `100.64.0.0/10 → 10.1.20.20` is missing, so replies to the un-masqueraded client never come back | `sudo iptables -S DOCKER-USER` on dkr-01 must show `-i tailscale0 -j ACCEPT` and `-o tailscale0 -j ACCEPT`; the `docker-forward` sidecar in the subnet-router stack re-adds them every minute |
 | Everything via DERP ("direct connection not established") | Lab side has no inbound UDP; hotel/CGNAT on the client side | Fine functionally; throughput measured 2026-10-26 at ~21 Mbit/s from a 28 Mbit/s hotel link. A UDP 41641 forward to dkr-01 on the UniFi gateway would allow direct paths |
 | A new subnet is advertised but tailnet clients cannot reach it | ACL: the route needs an `autoApprovers.routes` entry for `tag:subnet-router` AND a `grants` dst for `autogroup:member` | Tailscale console → Access controls (API writes are guarded for the ops token) |
 | `tailscale-dns` exited after a dkr-01 reboot | Docker started it before tailscale0 existed; a failed start is not retried | fixed 2026-10-26: host network + `bind 100.66.29.117` + `restart: always`; check `docker ps -a \| grep tailscale-dns` |
