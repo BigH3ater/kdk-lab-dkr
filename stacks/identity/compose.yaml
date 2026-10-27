@@ -63,10 +63,12 @@ services:
       - |
         set -e
         D="file --version v2 --source /acme/acme.json --dest /certs --domain-subdir"
-        FIX="chown 1000:1000 /certs/kmkdp.com/privatekey.key /certs/kmkdp.com/certificate.crt && chmod 600 /certs/kmkdp.com/privatekey.key"
+        # --post-hook is exec'd directly (strings.Fields, no shell) and a non-zero
+        # exit panics the dumper, so it must be ONE plain command: chown only.
+        # The dumper already writes the key 0600; chown makes it lldap's (uid 1000).
         /usr/bin/traefik-certs-dumper $$D
-        sh -c "$$FIX"
-        exec /usr/bin/traefik-certs-dumper $$D --watch --post-hook "$$FIX"
+        chown 1000:1000 /certs/kmkdp.com/privatekey.key /certs/kmkdp.com/certificate.crt
+        exec /usr/bin/traefik-certs-dumper $$D --watch --post-hook "chown 1000:1000 /certs/kmkdp.com/privatekey.key"
     volumes:
       - /opt/kdk-lab/dmz-proxy/letsencrypt:/acme:ro
       - /opt/kdk-lab/identity/lldap-certs:/certs
@@ -106,8 +108,17 @@ services:
       AUTHELIA_AUTHENTICATION_BACKEND_LDAP_PASSWORD: "${LLDAP_ADMIN_PASSWORD}"
       AUTHELIA_NOTIFIER_SMTP_PASSWORD: "${AUTHELIA_SMTP_PASSWORD}"
       AUTHELIA_IDENTITY_PROVIDERS_OIDC_HMAC_SECRET: "${OIDC_HMAC_SECRET}"
+    # Config files are compose `configs` (content-hashed into the service), not a
+    # bind mount: Authelia reads its config only at start, and a bind-mounted
+    # directory updated by git pull left the running container on the OLD rules
+    # until someone restarted it (2026-10-27: PR #56's access rules sat unapplied
+    # after a successful deploy). With configs, an edit recreates the container.
+    configs:
+      - source: authelia-config
+        target: /config/configuration.yml
+      - source: authelia-webauthn
+        target: /config/configuration.webauthn.yml
     volumes:
-      - ./authelia:/config:ro
       - /opt/kdk-lab/identity/authelia-secrets:/secrets:ro
     networks: [default, proxy-dmz]
     labels:
@@ -119,3 +130,9 @@ networks:
   default: {}
   proxy-dmz:
     external: true
+
+configs:
+  authelia-config:
+    file: ./authelia/configuration.yml
+  authelia-webauthn:
+    file: ./authelia/configuration.webauthn.yml
