@@ -1,15 +1,23 @@
 # Tailscale subnet router on kdk-dkr-01. Advertises the lab subnets to the tailnet
-# so remote members reach lab services — Home Assistant, the obsidian-headless
-# host, etc. — and get remote ad-blocking DNS, without exposing anything publicly.
-# Activates the member->subnet grants kept in the tailnet ACL; routes auto-approve
-# via the ACL autoApprovers for tag:subnet-router.
-# (The reMarkable is NOT on the tailnet — no /dev/net/tun, so userspace tailscaled
-# can't carry its sync; the tablet pipeline is lab-side SSH instead.)
+# so remote members reach lab services -- Jellyfin/Seerr on the DMZ, Komodo,
+# Home Assistant, etc. -- and get remote ad-blocking DNS (see tailscale-dns),
+# without exposing anything publicly. Activates the member->subnet grants in the
+# tailnet ACL; routes auto-approve via the ACL autoApprovers for tag:subnet-router.
 #
-# Auth: TS_AUTHKEY is the Tailscale OAuth client secret
-# (op://kdk-cluster/tailscale-admin-api/api_token) — combined with
-# --advertise-tags=tag:subnet-router it registers as a tagged node. Node state
+# Auth: TS_AUTHKEY is a reusable, pre-authorized tag:subnet-router auth key
+# (op://kdk-cluster/tailscale-subnet-router/authkey, see .env.tpl). Node state
 # persists in the volume, so the key is only used at first registration.
+#
+# docker-forward sidecar (2026-10-26): the host is Debian 13 / Docker 29, whose
+# FORWARD chain (policy DROP) lives in nftables, while the tailscale image's
+# `iptables` is iptables-legacy -- tailscaled's ts-forward ACCEPT and the
+# MASQUERADE land in a table Docker's chain never consults, so every packet a
+# tailnet client sent to a subnet behind the router arrived on tailscale0 and
+# was dropped (only dkr-01 itself, local delivery, worked). DOCKER-USER is the
+# chain Docker reserves for operator rules and evaluates first; accepting
+# tailscale0 in/out there lets the router forward. Docker recreates DOCKER-USER
+# empty on every restart/reboot, so the sidecar re-asserts the two rules every
+# minute with the nft-backed iptables from alpine (same backend as the host).
 name: tailscale-subnet-router
 services:
   tailscale:
@@ -31,3 +39,23 @@ services:
       TZ: America/Chicago
     volumes:
       - /opt/kdk-lab/tailscale-subnet-router:/var/lib/tailscale
+
+  docker-forward:
+    image: alpine:3.20
+    container_name: tailscale-docker-forward
+    restart: unless-stopped
+    network_mode: host
+    cap_add: [NET_ADMIN, NET_RAW]
+    depends_on: [tailscale]
+    command:
+      - sh
+      - -c
+      - |
+        apk add -q --no-cache iptables || exit 1
+        while :; do
+          for d in -i -o; do
+            iptables -C DOCKER-USER $$d tailscale0 -j ACCEPT 2>/dev/null \
+              || { iptables -I DOCKER-USER $$d tailscale0 -j ACCEPT && echo "added DOCKER-USER $$d tailscale0 ACCEPT"; }
+          done
+          sleep 60
+        done
