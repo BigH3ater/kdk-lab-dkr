@@ -80,6 +80,9 @@ BLOCK = {
 # opportunistic (not always on). Not in PRUNE_IPS, so the prune step never touches it.
 EXTRA = {
     "ollama.kmkdp.com": "10.1.30.218",
+    # LDAPS (lldap on kdk-dkr-dmz-01, published 192.168.191.20:6360) for Wizarr on
+    # kdk-dkr-01; the name matches the LE wildcard cert so clients verify it.
+    "lldap.kmkdp.com": "192.168.191.20",
 }
 
 

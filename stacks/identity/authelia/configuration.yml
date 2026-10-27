@@ -111,11 +111,12 @@ authentication_backend:
   refresh_interval: '5 minutes'
   ldap:
     implementation: 'lldap'
-    address: 'ldaps://lldap:6360'
+    address: 'ldaps://lldap.kmkdp.com:6360'
     timeout: '5 seconds'
     start_tls: false
     tls:
-      skip_verify: true   # self-signed cert for `lldap` (same-host container-to-container)
+      server_name: 'lldap.kmkdp.com'
+      skip_verify: false   # LE wildcard served by lldap (certs-dumper), verified against public roots
     pooling:
       enable: false
       count: 5

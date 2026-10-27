@@ -493,6 +493,26 @@ console.log(`deploy-changed: queued ${fired} deploys`);
 # every 15 min (failure_alert pages). After changing gitops-sync's stages,
 # trigger one standalone RunSync (API /execute RunSync, or the sync webhook)
 # so the procedure is idle when updated.
+# lldap serves the LE wildcard cert dumped from the DMZ Traefik's acme.json but does
+# not reload the files; restart just the lldap service twice a month so a renewed
+# cert (issued 30 days before expiry) is picked up within ~15 days. 04:20 is outside
+# the backup window and the dns-reconcile slot.
+[[procedure]]
+tags = ["kdk-lab"]
+name = "identity-ldaps-refresh"
+[procedure.config]
+schedule_format = "Cron"
+schedule = "0 20 4 1,15 * *"
+schedule_enabled = true
+schedule_timezone = "America/Chicago"
+failure_alert = true
+[[procedure.config.stage]]
+name = "restart-lldap"
+enabled = true
+executions = [
+  { execution.type = "RestartStack", execution.params.stack = "identity", execution.params.services = ["lldap"], enabled = true },
+]
+
 [[procedure]]
 tags = ["kdk-lab"]
 name = "gitops-sync"

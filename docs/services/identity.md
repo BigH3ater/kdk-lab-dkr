@@ -45,6 +45,9 @@ Then log in at `sso.kmkdp.com` with an existing user + TOTP.
 | TOTP no longer accepted | storage encryption key changed | never rotate `storage_encryption_key` alone |
 | ForwardAuth 500 from other services | Authelia down or Redis unreachable | `docker ps` — authelia, redis Up |
 | LDAP bind fails | `lldap-admin` password drift | Authelia and LLDAP must share `LLDAP_ADMIN_PASSWORD` |
+| Authelia: `x509: certificate` / `tls: failed to verify` on LDAP | lldap is serving a stale or wrong cert (dumper not run, or restart missed after renewal) | `openssl s_client -connect 192.168.191.20:6360 -servername lldap.kmkdp.com` and check `notAfter`; `docker logs lldap-certs-dumper`; run procedure `identity-ldaps-refresh` |
+| lldap restart-loops with `No such file` for `/certs/kmkdp.com/...` | First deploy raced the dumper, or acme.json has no `kmkdp.com` cert yet | Wait for the dumper (seconds); confirm the DMZ Traefik holds the wildcard |
+| Wizarr: LDAP test connection fails from kdk-dkr-01 | VLAN 20 → DMZ port 6360 blocked, or DNS record missing | `nc -zv 192.168.191.20 6360` from dkr-01; `getent hosts lldap.kmkdp.com` → 192.168.191.20 |
 
 ## Dependencies
 
@@ -60,7 +63,7 @@ No dashboard. `sso.kmkdp.com` probed by [[kdk-mon-01]]; alerts → Pushover.
 
 ## Architecture
 
-`authelia:9091` and `lldap:17170` join `proxy-dmz` for ingress; `postgres:5432`, `redis:6379` stay internal. LLDAP serves **LDAPS on 6360** (self-signed cert for `lldap`, `/opt/kdk-lab/identity/lldap-certs/`) — Jellyfin binds over LDAPS — plus plain `3890` which Authelia uses (`ldap://lldap:3890`). Config is templated from `configuration.yml` + `configuration.webauthn.yml`.
+`authelia:9091` and `lldap:17170` join `proxy-dmz` for ingress; `postgres:5432`, `redis:6379` stay internal. LLDAP serves **LDAPS on 6360** with the lab's **Let's Encrypt wildcard** (since 2026-10-27): the `certs-dumper` sidecar keeps `/opt/kdk-lab/identity/lldap-certs/kmkdp.com/` in sync with the DMZ Traefik's `acme.json`, and the `identity-ldaps-refresh` procedure restarts the `lldap` service on the 1st and 15th because lldap does not reload certificate files. Clients address it as `lldap.kmkdp.com` and verify against public roots: Authelia (`ldaps://lldap.kmkdp.com:6360`, `skip_verify: false`), the Jellyfin LDAP plugin (host `lldap.kmkdp.com`, SkipSslVerify off) and Wizarr on kdk-dkr-01 (verify on). In-host containers resolve the name through Docker network aliases on `default` and `proxy-dmz`; Wizarr uses the AdGuard A-record (dns-reconcile `EXTRA`) to the **published** `192.168.191.20:6360`. Plain `:3890` is not published.
 
 ## Configuration
 
