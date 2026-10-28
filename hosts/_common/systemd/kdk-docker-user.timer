@@ -1,0 +1,15 @@
+# Re-asserts the DOCKER-USER policy every 5 minutes: picks up new container
+# addresses for allow_ctr exceptions (seerr/libreseerr/alloy after a recreate)
+# and restores the chain if anything flushed it.
+# Install: /etc/systemd/system/kdk-docker-user.timer (root:root 0644).
+[Unit]
+Description=Re-assert the kdk DOCKER-USER policy every 5 minutes
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=5min
+AccuracySec=15s
+Unit=kdk-docker-user.service
+
+[Install]
+WantedBy=timers.target

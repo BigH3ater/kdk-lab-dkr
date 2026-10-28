@@ -78,6 +78,11 @@ Public hostnames probed by `blackbox-http-app` on [[kdk-mon-01]]; alerts → Pus
 |---|---|---|---|
 | Hostname | `{site}-{role}-{nn}` | ✅ `kdk-dkr-dmz-01` | |
 | Admin account | `kdkadmin`, key-only, NOPASSWD | ✅ | |
+| SSH hardening | `98-kdk-admin.conf` (no root login, no X11/TCP/agent forwarding, `AllowUsers kdkadmin`, `MaxAuthTries 3`) + kdkadmin key `from=` admin sources | ⏳ pending apply (2026-10-28) | Debian VM defaults today (X11/TCP forwarding on). `hosts/README.md` |
+| Kernel sysctl | `90-kdk-hardening.conf` (ptrace_scope 1, kptr/dmesg restrict, no redirects, martians, sysrq 0) | ⏳ pending apply (2026-10-28) | |
+| Patching | unattended-upgrades: Debian + Docker CE origins | ⏳ pending apply (2026-10-28) | no automatic reboot (public edge); kernel reboot pending since 2026-09 |
+| Docker daemon | `daemon.json`: log rotation 10m×3, `live-restore`, `no-new-privileges`, `userland-proxy: false`, `icc: false` | ⏳ pending apply (2026-10-28) | [[docker-daemon]] |
+| Host firewall | storage-net fence (`inet kdk-storage`) + DOCKER-USER unit | ⏳ pending apply (2026-10-28) | `MODE=enforce`; also blocks containers -> host SSH/Periphery (`host_guard`). [[host-firewall]] |
 | Timezone | America/Chicago | ✅ | CDT |
 | NTP | `ntp.kmkdp.com` primary | ⚠️ synced via public pools (timesyncd) | |
 | Syslog | `syslog.kmkdp.com:514` | ⚠️ no forward rule (cloud-init gap); receiver also absent | |

@@ -1,0 +1,25 @@
+// kdk-lab unattended-upgrades policy for the two Debian 13 VMs (kdk-dkr-01,
+// kdk-dkr-dmz-01). Install: /etc/apt/apt.conf.d/52kdk-unattended-upgrades
+// (root:root 0644). Source of truth: hosts/_common/apt/ in BigH3ater/kdk-lab-dkr.
+//
+// A drop-in, not an edited 50unattended-upgrades: that file is a dpkg conffile,
+// and unattended-upgrades refuses to upgrade any package whose conffile would
+// prompt -- an edited 50unattended-upgrades holds back the unattended-upgrades
+// package itself. #clear makes this file the complete origin list (Debian's
+// defaults + Docker CE), whatever 50unattended-upgrades says.
+//
+// Docker CE (docker-ce, containerd.io) restarts dockerd on upgrade. Install
+// this file only AFTER daemon.json has "live-restore": true on the host, or
+// every container restarts at the 06:xx apt run.
+// No Automatic-Reboot on the VMs: dkr-01 is the router for the tailnet and
+// the DMZ VM serves the public edge; their kernel reboots stay owner-scheduled
+// (/var/run/reboot-required is visible in `needrestart`/motd).
+#clear Unattended-Upgrade::Origins-Pattern;
+Unattended-Upgrade::Origins-Pattern {
+        "origin=Debian,codename=${distro_codename},label=Debian";
+        "origin=Debian,codename=${distro_codename},label=Debian-Security";
+        "origin=Debian,codename=${distro_codename}-security,label=Debian-Security";
+        "origin=Docker,codename=${distro_codename},label=Docker CE";
+};
+Unattended-Upgrade::Remove-Unused-Kernel-Packages "true";
+Unattended-Upgrade::Automatic-Reboot "false";

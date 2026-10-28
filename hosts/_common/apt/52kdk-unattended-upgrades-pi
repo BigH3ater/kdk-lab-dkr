@@ -1,0 +1,28 @@
+// kdk-lab unattended-upgrades policy for the three Raspberry Pi 5 hosts
+// (kdk-mon-01, kdk-dkr-02, kdk-dkr-03; Raspberry Pi OS = Debian 13 + the
+// Raspberry Pi Foundation archive). Install as
+// /etc/apt/apt.conf.d/52kdk-unattended-upgrades (root:root 0644).
+// Source of truth: hosts/_common/apt/ in BigH3ater/kdk-lab-dkr.
+//
+// Why a drop-in and why #clear: see 52kdk-unattended-upgrades (the VM file).
+// The Raspberry Pi Foundation origin carries the kernel, firmware, and the
+// +rpt rebuilds of libc6/libssl3 -- without it those never auto-apply
+// (hosts report H-01: 64 pending on every Pi).
+//
+// Docker CE restarts dockerd on upgrade: install only after daemon.json has
+// "live-restore": true on the host.
+// Automatic reboot at 04:30 when a package asks for one (kernel/firmware/libc).
+// kdk-dkr-03 runs NUT: a reboot restarts the nut-upsd container, which is
+// fine while NUT is read-only (no upsmon clients); revisit if that changes.
+#clear Unattended-Upgrade::Origins-Pattern;
+Unattended-Upgrade::Origins-Pattern {
+        "origin=Debian,codename=${distro_codename},label=Debian";
+        "origin=Debian,codename=${distro_codename},label=Debian-Security";
+        "origin=Debian,codename=${distro_codename}-security,label=Debian-Security";
+        "origin=Raspberry Pi Foundation,codename=${distro_codename}";
+        "origin=Docker,codename=${distro_codename},label=Docker CE";
+};
+Unattended-Upgrade::Remove-Unused-Kernel-Packages "true";
+Unattended-Upgrade::Automatic-Reboot "true";
+Unattended-Upgrade::Automatic-Reboot-WithUsers "true";
+Unattended-Upgrade::Automatic-Reboot-Time "04:30";

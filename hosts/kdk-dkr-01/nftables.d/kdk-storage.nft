@@ -1,0 +1,63 @@
+#!/usr/sbin/nft -f
+# kdk-dkr-01 storage-net fence (security plan A1.4; hosts report C-01/C-02).
+# Installed as /etc/nftables.d/kdk-storage.nft and loaded by
+# kdk-storage-fence.service (hosts/_common/systemd/). See
+# docs/runbooks/host-firewall.md for install, verify and rollback.
+#
+# The storage net 172.16.30.0/24 is a flat L2 shared with the DMZ VM and the
+# Proxmox host. dkr-01 answered SSH, Komodo Periphery, Loki, syslog, Traefik and
+# node_exporter on 172.16.30.50 to anything on it (including every DMZ
+# container). After this file: the host talks NFS to the NAS and nothing else,
+# nothing new comes in on the storage NIC, and containers never route onto it.
+#
+# PREREQUISITE: security batch 2 is live (Loki on kdk-log-01, dmz-01 Alloy
+# pushing to 10.1.20.21). The DMZ Alloy -> 172.16.30.50:3100 path that existed
+# before batch 2 is exactly what `storage_in` drops.
+#
+# Own table, never `flush ruleset`: Docker's rules (iptables-nft) and
+# tailscaled's (iptables-legacy) stay untouched. The empty-table + delete pair
+# makes a reload replace only this table. Do NOT `systemctl enable nftables`:
+# Debian's /etc/nftables.conf starts with `flush ruleset`.
+#
+# Tailscale: TS_ROUTES does not include 172.16.30.0/24, so no tailnet traffic is
+# routed onto the storage net; the forward drops below cannot touch the
+# subnet-router path (tailscale0 <-> eth0).
+
+define STORAGE_IF = "eth1"
+define NAS = 172.16.30.2
+define STORAGE_NET = 172.16.30.0/24
+
+table inet kdk-storage {}
+delete table inet kdk-storage
+
+table inet kdk-storage {
+    # Host -> storage net: NFS (media, backup, dee-exchange, loki mounts) and
+    # ping to the NAS only. `stacks/storage-health` (host network) pings the NAS
+    # and connects to 2049 every hour; both stay allowed.
+    chain storage_out {
+        type filter hook output priority 0; policy accept;
+        oifname $STORAGE_IF ct state established,related accept
+        oifname $STORAGE_IF ip daddr $NAS meta l4proto { tcp, udp } th dport { 111, 2049 } accept
+        oifname $STORAGE_IF ip daddr $NAS icmp type echo-request accept
+        oifname $STORAGE_IF counter drop
+    }
+
+    # Storage net -> host: only replies. Closes 172.16.30.50:22/8120/9100/111/5355
+    # (host listeners) to the DMZ VM and the Proxmox host.
+    chain storage_in {
+        type filter hook input priority 0; policy accept;
+        iifname $STORAGE_IF ct state established,related accept
+        iifname $STORAGE_IF counter drop
+    }
+
+    chain fence_forward {
+        type filter hook forward priority -10; policy accept;
+        # Published ports (Traefik 443, Loki 3100, syslog 514) are DNATed in
+        # prerouting and arrive here from eth1: drop them all. Nothing routes out
+        # via eth1 either.
+        iifname $STORAGE_IF counter drop
+        oifname $STORAGE_IF counter drop
+        # Containers never touch storage (explicit form of the line above).
+        iifname "br-*" ip daddr $STORAGE_NET counter drop
+    }
+}

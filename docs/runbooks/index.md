@@ -14,6 +14,7 @@ illustrative.
 - [Troubleshoot Tdarr transcodes](tdarr-troubleshooting.md) — transcode/health errors, the DEE dependency, node flapping.
 - [Jellyfin transcoding (ramdisk + Arc QSV)](jellyfin-transcoding.md) — the RAM-disk transcode scratch and the Arc A380 QSV/HDR settings.
 - [Storage network & NFS](storage-network.md) — the `172.16.30.0/24` storage plane, the Tailscale-CGNAT collision that broke NFS, renumber + hung-mount procedures.
+- [Host firewall (storage fence + DOCKER-USER)](host-firewall.md) — the nft storage-net fence and the DOCKER-USER egress policy on the two VMs: install, verify, log -> enforce, rollback.
 
 Conventions used throughout:
 
