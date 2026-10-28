@@ -27,7 +27,7 @@ under `/opt/kdk-lab/home-assistant/`.
 | Field | Value |
 |---|---|
 | Host | [[kdk-dkr-02]] (10.1.30.21, VLAN 30), HA + Node-RED, HomeKit bridge |
-| Login | **Authelia OIDC** (`hass-oidc-auth` custom component, client `homeassistant`, group `dashboard-users`); local login kept as fallback (usernames `jmack`/`rach`) |
+| Login | **Authelia OIDC** (`hass-oidc-auth` custom component, client `homeassistant`, Authelia policy `ha_access` = LLDAP group **`ha-users`** with 2FA; `ha-admins` → HA admin role); local login kept as fallback (usernames `jmack`/`rach`) |
 | Theme | **Kodiak** (INK GROUND dark, `config/themes/kodiak.yaml`), set as backend default on start |
 | Dashboards | **Home** (iOS-Home-style rooms, sections+tile), **Roborock**, **Homelab** — YAML-mode, registered in `configuration.yaml` |
 | Home controls | per-room sections: blinds (Zigbee covers), theater lights (+group), T9 thermostat, ceiling fan, outlets, Bosch dishwasher, HomePods/Apple TVs |
@@ -90,8 +90,12 @@ ssh kdkadmin@10.1.30.21 'curl -s -H "Authorization: Bearer $(sudo cat \
   package edits reload with Developer Tools → "Reload all YAML".
 - **OIDC login loop / missing button** — check `auth_oidc:` in
   `configuration.yaml`, the Authelia client `homeassistant`
-  (PKCE S256 + `client_secret_post`), and that the user's LLDAP username
-  matches the HA username (`jmack`/`rach` — linking is by username).
+  (PKCE S256 + `client_secret_post`, policy `ha_access`), and that the user is
+  in the LLDAP group `ha-users` (Authelia refuses everyone else). Host-side
+  `auth_oidc:` should carry `features: {automatic_user_linking: false}` and
+  `roles: {user: ha-users, admin: ha-admins}` (both humans are already linked,
+  and without `roles` HA falls back to "anyone" for users and a group literally
+  named `admins` for admins).
 
 ## Configuration
 

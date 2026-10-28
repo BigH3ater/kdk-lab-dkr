@@ -36,7 +36,9 @@ services:
       DISABLE_BUILTIN_AUTH: "false"
     volumes:
       - /mnt/appdata/wizarr:/data/database
-    networks: [proxy-dmz]
+    # identity_ldap: LDAPS to lldap.kmkdp.com:6360 (alias on that internal network;
+    # lldap is no longer on proxy-dmz). Created by stacks/identity.
+    networks: [proxy-dmz, identity_ldap]
     labels:
       traefik.enable: "true"
       traefik.docker.network: "proxy-dmz"
@@ -60,4 +62,6 @@ services:
 
 networks:
   proxy-dmz:
+    external: true
+  identity_ldap:
     external: true

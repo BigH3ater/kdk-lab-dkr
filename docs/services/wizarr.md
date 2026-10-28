@@ -110,7 +110,9 @@ Pushover on error (and on any change it made).
 
 ## Architecture
 
-Single container on `proxy-dmz`, port 5690. The DMZ Traefik host-routes two routers to
+Single container on `proxy-dmz` (port 5690) and the internal `identity_ldap` network, where
+`lldap.kmkdp.com` resolves to lldap for LDAPS :6360 (since 2026-10-28; lldap is no longer on
+`proxy-dmz`, and [[identity]] creates the network, so deploy identity first). The DMZ Traefik host-routes two routers to
 it: `wizarr-public` (invitee allowlist, no auth, priority 100) and `wizarr-admin`
 (ForwardAuth → `authelia:9091`, priority 1). `DISABLE_BUILTIN_AUTH=false` keeps Wizarr's
 own admin login as a second layer behind Authelia. Data on `/mnt/appdata/wizarr`.
@@ -131,7 +133,7 @@ Settings → LDAP (stored in Wizarr's own DB, not in git):
 
 | Field | Value |
 |---|---|
-| Server URL | `ldaps://lldap.kmkdp.com:6360` (Use TLS on, Verify certificate **on**: LE wildcard) |
+| Server URL | `ldaps://lldap.kmkdp.com:6360` (Use TLS on, Verify certificate **on**: LE wildcard; name via the `identity_ldap` network alias) |
 | Base DN | `dc=kmkdp,dc=com` |
 | Service account DN | `uid=wizarr,ou=people,dc=kmkdp,dc=com` (member of `lldap_password_manager`, password `op://kdk-cluster/wizarr-ldap/password`) |
 | User base DN / filter / attrs | `ou=people,dc=kmkdp,dc=com` · `(uid={username})` · `uid` · `mail` · object class `person` |

@@ -52,7 +52,9 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - /opt/kdk-lab/dmz-proxy/letsencrypt:/letsencrypt
-    networks: [proxy-dmz]
+    # identity_default: the lldap UI router (users.kmkdp.com) -- lldap left proxy-dmz
+    # (security plan A1.2) and carries traefik.docker.network=identity_default.
+    networks: [proxy-dmz, identity_default]
 
   cloudflared:
     image: cloudflare/cloudflared:2026.10.3
@@ -66,3 +68,5 @@ services:
 networks:
   proxy-dmz:
     name: proxy-dmz
+  identity_default:
+    external: true       # created by stacks/identity
