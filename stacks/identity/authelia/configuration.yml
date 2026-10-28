@@ -723,6 +723,14 @@ access_control:
         - 'jellystat.kmkdp.com'  # PR #54
       subject:
         - ['group:internal-users']
+    # Komodo UI (internal Traefik, forwardauth@file). Komodo is the deploy root
+    # for every host. API-key calls to /read|/write|/execute and the HMAC webhook
+    # /listener use separate Traefik routers that never reach Authelia.
+    - policy: two_factor
+      domain:
+        - 'komodo.kmkdp.com'
+      subject:
+        - ['group:internal-users']
     # Wizarr moved to the DMZ (Cloudflare tunnel). Only the admin Traefik router
     # carries ForwardAuth, so this rule gates the admin portal (/login, /api,
     # /admin, /setup, /settings, ...); the invitee paths (/j, /join, /wizard,

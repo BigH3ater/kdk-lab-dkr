@@ -127,7 +127,6 @@ scrape_configs:
       - targets:
           - "http://10.1.30.21:8123"    # Home Assistant  (kdk-dkr-02)
           - "http://10.1.30.22:11080"   # Scrypted        (kdk-dkr-03)
-          - "http://10.1.30.22:8581"    # Homebridge UI   (kdk-dkr-03)
           # Node-RED owns ALL Roborock automation — a dead editor endpoint means
           # no schedules/cleans fire. Not port-published; probe via the Pi Traefik.
           - "https://nodered.kmkdp.com"

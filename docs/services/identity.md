@@ -6,7 +6,7 @@ tier: dmz
 status: live
 storage: yes
 secrets: [authelia-app-secrets, authelia-postgres, lldap-admin, lldap-app-secrets, proton-bridge-smtp-incluster]
-updated: 2026-09-12
+updated: 2026-10-28
 tags: [homelab/stack, tier/dmz, status/live]
 ---
 
@@ -24,7 +24,7 @@ Single sign-on for every `*.kmkdp.com` service; lives on the DMZ node so authent
 | Status | 🟢 Live — `sso.kmkdp.com` 200; login + TOTP works |
 | Host | [[kdk-dkr-dmz-01]] (192.168.191.20) |
 | Endpoints | `https://sso.kmkdp.com` (Authelia), `https://users.kmkdp.com` (LLDAP) |
-| Images | authelia `4.39.20`, lldap `v0.6.3-alpine`, postgres `16-alpine`, redis `8-alpine` |
+| Images | authelia `4.39.28`, lldap `v0.6.3-alpine`, postgres `16-alpine`, redis `8-alpine` |
 | Deploy | Komodo stack `identity` (git-linked, `op inject` pre_deploy) |
 | Storage | `/opt/kdk-lab/identity/{lldap,postgres,authelia-secrets}` (VM disk) |
 | Blast radius | Every gated UI 500s; no logins lab-wide |
@@ -33,6 +33,7 @@ Single sign-on for every `*.kmkdp.com` service; lives on the DMZ node so authent
 
 ```bash
 curl -s -o /dev/null -w '%{http_code}\n' https://sso.kmkdp.com/     # 200
+curl -s https://sso.kmkdp.com/api/health                           # {"status":"OK"}
 docker exec authelia-postgres pg_isready -U authelia               # accepting connections
 ```
 Then log in at `sso.kmkdp.com` with an existing user + TOTP.
@@ -44,7 +45,8 @@ Then log in at `sso.kmkdp.com` with an existing user + TOTP.
 | All logins fail after a restore | storage key / DB mismatch | key and DB are PAIRED — restore both from the same point |
 | TOTP no longer accepted | storage encryption key changed | never rotate `storage_encryption_key` alone |
 | ForwardAuth 500 from other services | Authelia down or Redis unreachable | `docker ps` — authelia, redis Up |
-| Authelia ignores a merged config change (e.g. new access rule still 403) | Authelia only reads config at start; since 2026-10-27 the yml files are compose `configs`, so an edit recreates the container. If it still happens: `RestartStack identity services=[authelia]` |
+| Authelia ignores a merged config change (e.g. new access rule still 403) | Authelia only reads config at start, and compose does not content-hash `configs: file:`, so a config-only change does not recreate the container (an image tag change does) | `RestartStack identity services=[authelia]` |
+| Need to roll back from 4.39.28 to 4.39.20 | 4.39.21–.28 add storage schema migrations V0025–V0029, all with down scripts (run automatically on first start) | with the 4.39.28 image: `authelia storage migrate down --target 24` (needs the same config/encryption key), then change the tag; or restore the pre-upgrade `pg_dump` |
 | LDAP bind fails | `lldap-admin` password drift | Authelia and LLDAP must share `LLDAP_ADMIN_PASSWORD` |
 | Authelia: `x509: certificate` / `tls: failed to verify` on LDAP | lldap is serving a stale or wrong cert (dumper not run, or restart missed after renewal) | `openssl s_client -connect 192.168.191.20:6360 -servername lldap.kmkdp.com` and check `notAfter`; `docker logs lldap-certs-dumper`; run procedure `identity-ldaps-refresh` |
 | lldap restart-loops with `No such file` for `/certs/kmkdp.com/...` | First deploy raced the dumper, or acme.json has no `kmkdp.com` cert yet | Wait for the dumper (seconds); confirm the DMZ Traefik holds the wildcard |

@@ -1,8 +1,9 @@
-# Komodo Core + FerretDB (official pattern). UI at komodo.kmkdp.com.
+# Komodo Core + FerretDB (official pattern). UI at komodo.kmkdp.com (Authelia SSO,
+# then Komodo local login; self-registration closed).
 name: komodo
 services:
   postgres:
-    image: ghcr.io/ferretdb/postgres-documentdb:17
+    image: ghcr.io/ferretdb/postgres-documentdb:17-0.107.0-ferretdb-2.7.0
     labels:
       komodo.skip:
     restart: unless-stopped
@@ -14,7 +15,7 @@ services:
       POSTGRES_DB: postgres
     networks: [default]
   ferretdb:
-    image: ghcr.io/ferretdb/ferretdb:2
+    image: ghcr.io/ferretdb/ferretdb:2.7.0
     labels:
       komodo.skip:
     restart: unless-stopped
@@ -33,7 +34,38 @@ services:
     labels:
       komodo.skip:
       traefik.enable: "true"
+      # UI (and everything not matched below) sits behind Authelia ForwardAuth;
+      # Komodo's own local login stays as the second layer. Authelia needs the
+      # matching access_control rule (stacks/identity/authelia/configuration.yml),
+      # default_policy is deny.
       traefik.http.routers.komodo.rule: "Host(`komodo.kmkdp.com`)"
+      # Komodo-specific ForwardAuth: the UI sends `Authorization: Bearer <jwt>`
+      # on every API call, and Authelia's forward-auth rejects any Authorization
+      # header whose scheme is not Basic (401) before it looks at the session
+      # cookie. Forward only Accept + Cookie to Authelia; Traefik still adds the
+      # X-Forwarded-* headers itself. Komodo validates the JWT afterwards.
+      traefik.http.routers.komodo.middlewares: "komodo-auth"
+      traefik.http.middlewares.komodo-auth.forwardauth.address: "https://sso.kmkdp.com/api/authz/forward-auth"
+      traefik.http.middlewares.komodo-auth.forwardauth.trustForwardHeader: "true"
+      traefik.http.middlewares.komodo-auth.forwardauth.authRequestHeaders: "Accept,Cookie"
+      traefik.http.middlewares.komodo-auth.forwardauth.authResponseHeaders: "Remote-User,Remote-Groups,Remote-Email,Remote-Name"
+      traefik.http.routers.komodo.service: "komodo"
+      # API-key automation bypasses SSO, but only for the key-authenticated
+      # endpoints (/read, /write, /execute) AND only when an X-Api-Key header is
+      # present: a header-less request (browser) never matches. /auth (password
+      # login), /user and /terminal stay behind SSO. Core still validates the
+      # key+secret. In-repo automation does not need this (Komodo actions call
+      # http://localhost:9120; hand scripts use container:komodo-core-1), but
+      # operator sessions have called https://komodo.kmkdp.com with a key.
+      traefik.http.routers.komodo-api.rule: "Host(`komodo.kmkdp.com`) && PathRegexp(`^/(read|write|execute)(/|$$)`) && HeaderRegexp(`X-Api-Key`, `.+`)"
+      traefik.http.routers.komodo-api.priority: "200"
+      traefik.http.routers.komodo-api.service: "komodo"
+      # Git webhook listener: authenticated by HMAC (KOMODO_WEBHOOK_SECRET), not
+      # by a session. Kept reachable without SSO as a RunSync recovery trigger
+      # (see the gitops-sync SELF-EDIT note in komodo/resources.toml).
+      traefik.http.routers.komodo-listener.rule: "Host(`komodo.kmkdp.com`) && PathPrefix(`/listener/`)"
+      traefik.http.routers.komodo-listener.priority: "190"
+      traefik.http.routers.komodo-listener.service: "komodo"
       traefik.http.services.komodo.loadbalancer.server.port: "9120"
     restart: unless-stopped
     depends_on: [ferretdb]
@@ -47,8 +79,10 @@ services:
       KOMODO_LOCAL_AUTH: "true"
       KOMODO_INIT_ADMIN_USERNAME: ${KOMODO_ADMIN_USERNAME}
       KOMODO_INIT_ADMIN_PASSWORD: ${KOMODO_ADMIN_PASSWORD}
-      KOMODO_DISABLE_USER_REGISTRATION: "false"
-      KOMODO_ENABLE_NEW_USERS: "true"
+      # Registration closed (2026-10): no self-signup; any user created some other
+      # way starts disabled until an admin enables it.
+      KOMODO_DISABLE_USER_REGISTRATION: "true"
+      KOMODO_ENABLE_NEW_USERS: "false"
     volumes:
       - /opt/kdk-lab/komodo/syncs:/syncs
       - /opt/kdk-lab/komodo/backups:/backups

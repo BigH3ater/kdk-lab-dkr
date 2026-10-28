@@ -75,7 +75,7 @@ services:
     networks: [default]
 
   postgres:
-    image: postgres:16-alpine
+    image: postgres:16.15-alpine
     container_name: authelia-postgres
     restart: unless-stopped
     environment:
@@ -87,13 +87,13 @@ services:
     networks: [default]
 
   redis:
-    image: redis:8-alpine
+    image: redis:8.10.3-alpine
     container_name: authelia-redis
     restart: unless-stopped
     networks: [default]
 
   authelia:
-    image: ghcr.io/authelia/authelia:4.39.20
+    image: ghcr.io/authelia/authelia:4.39.28
     container_name: authelia
     restart: unless-stopped
     depends_on: [lldap, postgres, redis]
@@ -108,11 +108,12 @@ services:
       AUTHELIA_AUTHENTICATION_BACKEND_LDAP_PASSWORD: "${LLDAP_ADMIN_PASSWORD}"
       AUTHELIA_NOTIFIER_SMTP_PASSWORD: "${AUTHELIA_SMTP_PASSWORD}"
       AUTHELIA_IDENTITY_PROVIDERS_OIDC_HMAC_SECRET: "${OIDC_HMAC_SECRET}"
-    # Config files are compose `configs` (content-hashed into the service), not a
-    # bind mount: Authelia reads its config only at start, and a bind-mounted
-    # directory updated by git pull left the running container on the OLD rules
-    # until someone restarted it (2026-10-27: PR #56's access rules sat unapplied
-    # after a successful deploy). With configs, an edit recreates the container.
+    # Config files are compose `configs`, not a bind-mounted directory: Authelia
+    # reads its config only at start, and a directory updated by git pull left the
+    # running container on the OLD rules (2026-10-27, PR #56). CAUTION: non-swarm
+    # compose does NOT content-hash `configs: file:` either, so a config-only edit
+    # still needs `RestartStack identity services=[authelia]`; an image tag change
+    # recreates the container and picks the new files up.
     configs:
       - source: authelia-config
         target: /config/configuration.yml
