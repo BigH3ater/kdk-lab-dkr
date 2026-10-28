@@ -70,7 +70,7 @@ No service dashboard. Host reachability via `blackbox-http-app` on [[kdk-mon-01]
 
 | Router | Match | Auth in front |
 |---|---|---|
-| `komodo` | everything on `komodo.kmkdp.com` (UI, `/auth`, `/user`, `/ws`, `/terminal`) | `forwardauth@file` (Authelia), then Komodo local login |
+| `komodo` | everything on `komodo.kmkdp.com` (UI, `/auth`, `/user`, `/ws`, `/terminal`) | `komodo-auth` (Authelia ForwardAuth forwarding only `Accept`+`Cookie`; the UI's `Authorization: Bearer` JWT header would otherwise be rejected by Authelia), then Komodo local login |
 | `komodo-api` | `/read`, `/write`, `/execute` **and** an `X-Api-Key` header | none at Traefik; Komodo checks key + secret |
 | `komodo-listener` | `/listener/...` (git webhooks) | none at Traefik; Komodo checks the HMAC (`komodo-webhook-secret`) |
 
