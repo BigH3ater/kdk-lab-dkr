@@ -94,7 +94,6 @@ readwise-koreader/readwise-koreader: no-new-privileges,cap_drop,read_only,pids_l
 readwise-to-remarkable/highlights: no-new-privileges,cap_drop,read_only,pids_limit,mem_limit,logging,healthcheck
 readwise-to-remarkable/secrets: no-new-privileges,cap_drop,read_only,pids_limit,mem_limit,logging,healthcheck
 remarkable-ocr/remarkable-ocr: no-new-privileges,cap_drop,read_only,pids_limit,mem_limit,logging,healthcheck
-scrypted-homebridge/homebridge: no-new-privileges,cap_drop,read_only,pids_limit,mem_limit,logging,healthcheck,host-net
 scrypted-homebridge/scrypted: no-new-privileges,cap_drop,read_only,pids_limit,mem_limit,logging,healthcheck,host-net
 storage-health/verify: no-new-privileges,cap_drop,read_only,pids_limit,mem_limit,logging,healthcheck,host-net
 tailscale-dns/coredns: no-new-privileges,cap_drop,read_only,pids_limit,mem_limit,logging,restart,healthcheck,host-net
