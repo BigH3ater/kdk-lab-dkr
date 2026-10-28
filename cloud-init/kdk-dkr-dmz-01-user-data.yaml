@@ -205,7 +205,9 @@ write_files:
       PasswordAuthentication no
       KbdInteractiveAuthentication no
       X11Forwarding no
-      AllowTcpForwarding local   # VS Code Remote-SSH; logins are kdkadmin-only (AllowUsers)
+      # local, not no: VS Code Remote-SSH needs a local port forward; AllowUsers
+      # limits logins to kdkadmin. (sshd has no inline comments.)
+      AllowTcpForwarding local
       AllowAgentForwarding no
       AllowUsers kdkadmin
       MaxAuthTries 3
