@@ -48,6 +48,7 @@ services:
           --exclude 'dmz-proxy/letsencrypt' --exclude 'stacks/' \
           --exclude 'jellyfin/config/data/metadata' \
           --exclude 'jellyfin/config/cache' \
+          --exclude 'audiobookshelf/podcasts' \
           --exclude 'jellyfin/config/data/transcodes' \
           /src/ /dest/kdk-dkr-dmz-01/state/
         rc=$$?
