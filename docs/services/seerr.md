@@ -6,13 +6,13 @@ tier: dmz
 status: live
 storage: yes
 secrets: []
-updated: 2026-09-12
+updated: 2026-10-28
 tags: [homelab/stack, tier/dmz, status/live]
 ---
 
 # Seerr
 
-Media request UI, public via the Cloudflare tunnel, authenticating against Jellyfin accounts.
+Media request UI, LAN/tailnet only (its router is on the DMZ Traefik's `websecure` entrypoint only, not the Cloudflare tunnel — see [[dmz-proxy]]), authenticating against Jellyfin accounts.
 
 **Related:** [[kdk-dkr-dmz-01]] · [[jellyfin]] · [[media]] · [[dmz-proxy]]
 
@@ -51,7 +51,7 @@ In Settings, the Jellyfin, Sonarr, and Radarr integrations each test green.
 |---|---|---|
 | Needs | [[jellyfin]] | user auth + library status |
 | Needs | [[media]] Sonarr/Radarr `/api` | request fulfilment (needs the firewall rule) |
-| Needs | [[dmz-proxy]] + tunnel | ingress + public access |
+| Needs | [[dmz-proxy]] | ingress (LAN/tailnet) |
 
 ## Observability
 

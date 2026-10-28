@@ -1,7 +1,7 @@
 // Per-host log shipper: discovers local Docker containers and forwards their
-// logs to Loki on kdk-dkr-01. LOKI_HOST and NODE_NAME are set per host by the
-// Komodo stack env (dkr-01 -> localhost/10.1.20.20, dmz-01 -> 100.100.100.50
-// over the storage net, Pis/mon -> 10.1.20.20).
+// logs to Loki on kdk-log-01. LOKI_HOST and NODE_NAME are set per host by the
+// Komodo stack env; every host uses LOKI_HOST=10.1.20.21 (routed, incl. the
+// DMZ via the UniFi rule 192.168.191.20 -> 10.1.20.21:3100).
 
 discovery.docker "containers" {
   // Docker API through the read-only socket proxy in this stack (security

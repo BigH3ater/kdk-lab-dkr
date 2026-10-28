@@ -1,4 +1,4 @@
-FROM python:3.12-slim
+FROM python:3.12.16-slim
 # icalendar+recurring_ical_events parse the Proton ICS (incl. RRULE); cairosvg
 # renders the Kodiak-brand planner PDF (needs cairo). Delivery = rmapi (ddvk fork)
 # uploading to the live rmfakecloud, which the tablet pulls on sync. Reuses

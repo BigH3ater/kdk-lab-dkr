@@ -23,7 +23,7 @@ Terminates TLS and host-routes every internal `*.kmkdp.com` service on kdk-dkr-0
 | Purpose | Reverse proxy + ACME wildcard certs for internal services |
 | Status | 🟢 Live — serves 80/443, wildcard cert valid |
 | Host | [[kdk-dkr-01]], ports `80`/`443` |
-| Image | `traefik:v3.7` |
+| Image | `traefik:v3.7.16` (pinned; Renovate proposes updates) |
 | Deploy | Komodo stack `proxy` (git-linked) |
 | Cert | `kmkdp.com` + `*.kmkdp.com`, ACME DNS-01 via Cloudflare, stored `/opt/kdk-lab/proxy/letsencrypt/acme.json` |
 | Blast radius | Every internal `*.kmkdp.com` service is unreachable |
@@ -65,6 +65,7 @@ Docker provider (label discovery on the `proxy` network) + file provider (`./dyn
 |---|---|
 | `stacks/proxy/compose.yaml` | Entrypoints, ACME resolver, provider config |
 | `stacks/proxy/dynamic/middlewares.yml` | `forwardauth@file` → Authelia |
+| `stacks/proxy/dynamic/alertmanager.yml` | `alertmanager.kmkdp.com` → `http://10.1.20.30:9093` behind `forwardauth` (2026-10-28, PR #85; DNS from `EXTRA` in dns-reconcile) |
 | Per-service labels | `traefik.http.routers.<name>.rule` + `.middlewares` |
 
 Add a service: join the external `proxy` network and add Traefik labels. No DNS change — the wildcard rewrite already points here.

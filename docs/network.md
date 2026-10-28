@@ -13,6 +13,7 @@ PR as any change that adds or moves an address.
 | kdk-hyp-01 | 10.1.1.100 | 10 | bare metal (R720) | — |
 | kdk-nas-01 | 10.1.3.5 (storage 172.16.30.2) | 1 | bare metal (R730xd) | — |
 | kdk-dkr-01 | 10.1.20.20 (storage 172.16.30.50) | 20 | VM on kdk-hyp-01 | 300 |
+| kdk-log-01 (Loki, syslog) | 10.1.20.21 (no storage NIC) | 20 | VM on kdk-hyp-01 | 320 |
 |  kdk-dkr-dmz-01 | 192.168.191.20 ( storage 172.16.30.51) | 191 | VM 23 on kdk-nas-01 | — |
 | kdk-dkr-02 (Pi, HA) | 10.1.30.21 | 30 | bare metal Pi 5 | — |
 | kdk-dkr-03 (Pi, HomeKit) | 10.1.30.22 | 30 | bare metal Pi 5 | — |
@@ -26,6 +27,19 @@ PR as any change that adds or moves an address.
 > wildcard to the internal Traefik (10.1.20.20), so a host without a record
 > silently "resolves" to the wrong box. Add new hosts here AND in `EXTRA`.
 
+VLAN 20 is a `/27`: gateway `.1`, kdk-dkr-01 `.20`, kdk-log-01 `.21`, kdk-mon-01 `.30`.
+
+## Inter-VLAN rules for the log host (UniFi)
+
+kdk-log-01 receives logs from every VLAN. Its own nft policy
+(`hosts/kdk-log-01/nftables.conf`) is the allowlist of record; the gateway needs
+these allows for the cross-VLAN senders (VLAN 20 senders are same-subnet):
+
+| Source | Destination | Ports | Why |
+|---|---|---|---|
+| `192.168.191.20` (DMZ) | `10.1.20.21` | tcp 3100, tcp 514 | dmz-01 Alloy pushes to Loki (no longer over the storage net); rsyslog forwarder |
+| `10.1.30.21`, `10.1.30.22` (Pis) | `10.1.20.21` | tcp 3100, tcp 514 | Pi Alloy pushes; Pi rsyslog → `syslog.kmkdp.com` |
+| `10.1.1.100`, `10.1.1.120`, `10.1.3.5` | `10.1.20.21` | tcp/udp 514, tcp 3100 | hypervisor, DNS origin and NAS syslog (when configured) |
 
 ## Storage network (NFS)
 
@@ -59,8 +73,24 @@ Clients join with `tailscale up --accept-routes` (DNS accepted by default). The 
 **not** masquerade (`--snat-subnet-routes=false`, 2026-10-26): lab hosts see the client's
 tailnet address (100.64.0.0/10) and reply via the UniFi static route `100.64.0.0/10 → 10.1.20.20`.
 That route is load-bearing — if it disappears, remote access dies while the router looks healthy. Only
-`sso.kmkdp.com` has a public DNS record (Cloudflare tunnel); every other `*.kmkdp.com`
-name resolves only through lab DNS, i.e. only on the LAN or the tailnet.
+the Cloudflare tunnel hostnames (`sso.kmkdp.com`, `jellyfin.kmkdp.com`) have public DNS records;
+every other `*.kmkdp.com` name resolves only through lab DNS, i.e. only on the LAN or the tailnet.
+
+### Public path (Cloudflare tunnel, since 2026-10-28)
+
+```
+visitor ─► Cloudflare edge (WAF/geo rules) ─► tunnel (outbound from cloudflared, TCP 7844)
+        ─► cloudflared 10.211.2.2 ─► https://traefik:8443  (DMZ Traefik 10.211.2.3, `tunnel` entrypoint;
+           8443 is not published, proxy-dmz only; trusts XFF only from 10.211.2.2, keeps Cf-*)
+        ─► app on proxy-dmz — only routers labelled entrypoints=websecure,tunnel (sso, jellyfin, wizarr-public)
+
+LAN / tailnet ─► 192.168.191.20:443 (`websecure`; XFF trusted only from 10.1.20.20 + 10.1.30.21,
+                 Cf-*/True-Client-Ip stripped) ─► any DMZ router
+```
+
+`proxy-dmz` is `10.211.2.0/24` with an explicit ipam block (`stacks/dmz-proxy/compose.yaml`):
+cloudflared `.2` and Traefik `.3` are pinned, other containers get `.128`–`.254`. Jellyfin known
+proxies and `IMMICH_TRUSTED_PROXIES` are `10.211.2.3/32`. See [[dmz-proxy]].
 
 | Symptom | Cause | Check / fix |
 |---|---|---|
@@ -114,12 +144,12 @@ auto-reconciliation.
 |---|---|---|
 | `*.kmkdp.com` | 10.1.20.20 | everything on internal Traefik (kdk-dkr-01) |
 | sso, seerr, jellyfin, immich, users, recipes, audiobookshelf, libreseerr .kmkdp.com | 192.168.191.20 | DMZ Traefik (kdk-dkr-dmz-01) |
-| homeassistant, zigbee, nodered, scrypted, homebridge .kmkdp.com | 10.1.30.21 / .22 | Pi Traefik (kdk-dkr-02; scrypted/homebridge on dkr-03 behind the dkr-02 answer is historical — both resolve 10.1.30.21) |
+| homeassistant, zigbee, nodered, scrypted .kmkdp.com | 10.1.30.21 | Pi Traefik (kdk-dkr-02; proxies scrypted across to dkr-03). homebridge.kmkdp.com retired 2026-10-28 — dns-reconcile deletes it (`RETIRED`), so it falls through to the wildcard |
 | ollama, kdk-tdarr-gpu-01 .kmkdp.com | 10.1.30.218 | GPU workstation |
 | reMarkable cloud domains (my/ping/tectonic/…, appspot hosts) | 10.1.20.20 (2 blackholed → 0.0.0.0) | rmfakecloud intercept |
 | host FQDNs (pve, pbs, truenas, kdk-*-NN) | per-host | infra |
 
-Public (Cloudflare tunnel → DMZ Traefik): sso, seerr, jellyfin, immich —
+Public (Cloudflare tunnel → DMZ Traefik `tunnel` entrypoint): sso, jellyfin (wizarr invitee paths when published) —
 **no internal A records exist in public DNS** (verified against 1.1.1.1/8.8.8.8),
 so DoH-using browsers simply fail closed off-LAN rather than leak.
 

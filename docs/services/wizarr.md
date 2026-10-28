@@ -92,7 +92,7 @@ stack's server — moving the stack moved the record).
 | Admin portal reachable without login | public allowlist too broad / forwardauth missing | admin router has `middlewares=wizarr-auth` → `http://authelia:9091/api/authz/forward-auth` |
 | Invited user cannot log in via LDAP/SSO | invite not yet reconciled (no jellyfin-users group / default Jellyfin provider / not in Seerr) | wait for the next `:07/:22/:37/:52` `wizarr-sync` run, or run the Procedure now |
 | lldap create fails on invite | Wizarr < 2026.10.0 (no cn/sn, mixed-case uid) | image is `v2026.10.1`; check Wizarr logs for the lldap error |
-| 530/502 from the tunnel | CF public hostname missing/origin-server-name wrong | add `wizarr.kmkdp.com` → `https://traefik`, TLS origin server name = `wizarr.kmkdp.com` |
+| 530/502 from the tunnel | CF public hostname missing/origin-server-name wrong | add `wizarr.kmkdp.com` → `https://traefik:8443` (the `tunnel` entrypoint; only the `wizarr-public` router listens there, admin paths 404 off-LAN), TLS origin server name = `wizarr.kmkdp.com` |
 
 ## Dependencies
 
@@ -110,7 +110,9 @@ Pushover on error (and on any change it made).
 
 ## Architecture
 
-Single container on `proxy-dmz`, port 5690. The DMZ Traefik host-routes two routers to
+Single container on `proxy-dmz` (port 5690) and the internal `identity_ldap` network, where
+`lldap.kmkdp.com` resolves to lldap for LDAPS :6360 (since 2026-10-28; lldap is no longer on
+`proxy-dmz`, and [[identity]] creates the network, so deploy identity first). The DMZ Traefik host-routes two routers to
 it: `wizarr-public` (invitee allowlist, no auth, priority 100) and `wizarr-admin`
 (ForwardAuth → `authelia:9091`, priority 1). `DISABLE_BUILTIN_AUTH=false` keeps Wizarr's
 own admin login as a second layer behind Authelia. Data on `/mnt/appdata/wizarr`.
@@ -131,7 +133,7 @@ Settings → LDAP (stored in Wizarr's own DB, not in git):
 
 | Field | Value |
 |---|---|
-| Server URL | `ldaps://lldap.kmkdp.com:6360` (Use TLS on, Verify certificate **on**: LE wildcard) |
+| Server URL | `ldaps://lldap.kmkdp.com:6360` (Use TLS on, Verify certificate **on**: LE wildcard; name via the `identity_ldap` network alias) |
 | Base DN | `dc=kmkdp,dc=com` |
 | Service account DN | `uid=wizarr,ou=people,dc=kmkdp,dc=com` (member of `lldap_password_manager`, password `op://kdk-cluster/wizarr-ldap/password`) |
 | User base DN / filter / attrs | `ou=people,dc=kmkdp,dc=com` · `(uid={username})` · `uid` · `mail` · object class `person` |

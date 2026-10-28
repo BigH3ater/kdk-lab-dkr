@@ -28,7 +28,7 @@ the Remote-User header drives rating/task attribution.
 | Status | 🟢 Live (P1); meal-plan sidecar = P2, calendar = P3 |
 | Host | [[kdk-dkr-01]] |
 | Endpoints | `home.kmkdp.com` (+ `/guides`, `/meal`), `tasks.kmkdp.com` |
-| Images | `ghcr.io/gethomepage/homepage`, `nginx:1.29-alpine`, `vikunja/vikunja`, `kdk/dashboard-mealplan` (built) |
+| Images | `ghcr.io/gethomepage/homepage:v2.4.0`, `nginx:1.29.8-alpine`, `vikunja/vikunja:2.6.0`, `kdk/dashboard-mealplan` (built) |
 | Deploy | Komodo stack `dashboard` (git-linked, `op inject` pre_deploy) |
 | Storage | `/opt/kdk-lab/dashboard/vikunja` (SQLite + files) |
 | Blast radius | Cosmetic — a launcher; the underlying services are unaffected |

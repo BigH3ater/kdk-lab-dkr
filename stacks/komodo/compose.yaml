@@ -3,7 +3,7 @@
 name: komodo
 services:
   postgres:
-    image: ghcr.io/ferretdb/postgres-documentdb:17
+    image: ghcr.io/ferretdb/postgres-documentdb:17-0.107.0-ferretdb-2.7.0
     labels:
       komodo.skip:
     restart: unless-stopped
@@ -15,7 +15,7 @@ services:
       POSTGRES_DB: postgres
     networks: [default]
   ferretdb:
-    image: ghcr.io/ferretdb/ferretdb:2
+    image: ghcr.io/ferretdb/ferretdb:2.7.0
     labels:
       komodo.skip:
     restart: unless-stopped

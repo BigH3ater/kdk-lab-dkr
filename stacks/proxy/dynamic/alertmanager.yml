@@ -1,0 +1,25 @@
+# alertmanager.kmkdp.com -> Alertmanager on kdk-mon-01 (2026-10-28).
+#
+# Same pattern as grafana.yml: Alertmanager lives in the standalone monitoring
+# stack on the Pi (published on 10.1.20.30:9093 since #67), so the docker
+# provider cannot discover it; this file-provider route carries the name.
+#
+# UNLIKE grafana.yml this route sits behind Authelia ForwardAuth: Alertmanager
+# has no login of its own and its UI can silence alerts and show every
+# annotation. The outage fallback stays the direct address http://10.1.20.30:9093
+# from an allowed source (mon-01's DOCKER-USER allowlist, batch 7, must keep
+# 10.1.20.20 = this Traefik next to 10.1.20.21 = the Loki ruler).
+http:
+  routers:
+    alertmanager:
+      rule: "Host(`alertmanager.kmkdp.com`)"
+      entrypoints: websecure
+      middlewares: [forwardauth]
+      service: alertmanager
+      tls:
+        certresolver: cf
+  services:
+    alertmanager:
+      loadBalancer:
+        servers:
+          - url: "http://10.1.20.30:9093"

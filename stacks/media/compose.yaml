@@ -101,7 +101,7 @@ services:
 
   bazarr:
     <<: *common
-    image: lscr.io/linuxserver/bazarr:v1.6.0-ls361
+    image: lscr.io/linuxserver/bazarr:development-v1.6.3-beta.22-ls31@sha256:1ee154277cb74285df43048712af15e1662970a955e5990d59c4dd6dc6e64934
     volumes:
       - /opt/kdk-lab/media/bazarr:/config
       - /mnt/media/staging:/data/staging

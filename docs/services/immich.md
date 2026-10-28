@@ -6,13 +6,13 @@ tier: dmz
 status: live
 storage: yes
 secrets: [immich-postgres]
-updated: 2026-09-12
+updated: 2026-10-28
 tags: [homelab/stack, tier/dmz, status/live]
 ---
 
 # Immich
 
-Photo and video backup, public via the Cloudflare tunnel; a fresh deploy (the k3s instance was unused), segmented on its own internal network.
+Photo and video backup, LAN/tailnet only (router on the DMZ Traefik's `websecure` entrypoint only, not the Cloudflare tunnel; `IMMICH_TRUSTED_PROXIES=10.211.2.3/32` = that Traefik — see [[dmz-proxy]]); a fresh deploy (the k3s instance was unused), segmented on its own internal network.
 
 **Related:** [[kdk-dkr-dmz-01]] · [[dmz-proxy]]
 
@@ -48,7 +48,7 @@ docker exec immich-postgres pg_isready -U immich                                
 
 | Direction | Thing | What breaks without it |
 |---|---|---|
-| Needs | [[dmz-proxy]] + tunnel | ingress + public access |
+| Needs | [[dmz-proxy]] | ingress (LAN/tailnet) |
 | Needs | `/mnt/appdata/immich` (NFS) | no library storage |
 | Needed by | — | none |
 

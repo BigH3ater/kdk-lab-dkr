@@ -24,7 +24,7 @@ This site: `docs/` in the repo, built with Quartz and served by nginx; the Komod
 | Status | 🟢 Live — `curl https://docs.kmkdp.com/healthz` returns `ok` |
 | Host | [[kdk-dkr-01]] |
 | Endpoint | `https://docs.kmkdp.com` (ForwardAuth-gated) |
-| Images | builder `node:24-bookworm-slim` + Quartz `v4.5.2`, server `nginx:1.29-alpine` |
+| Images | builder `node:24.22.1-bookworm-slim` + Quartz `v4.5.2`, server `nginx:1.29.8-alpine` |
 | Deploy | Komodo stack `docs` (git-linked); builder runs once per deploy |
 | Storage | shared `site` volume (built output); source is the repo clone |
 | Blast radius | Docs offline; no operational impact |

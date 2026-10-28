@@ -1,0 +1,135 @@
+# Smart home on kdk-dkr-02 (HA, Node-RED, zigbee2mqtt, Mosquitto) and
+# kdk-dkr-03 (Scrypted, Homebridge). Source: vault 10.Homelab/Security/
+# home-assistant-posture-2026-10.md section 5 (finding M4).
+#
+# Some rules need a config change before they can ever fire (noted per rule):
+# HA OIDC info logging, an HA "SECURITY" automation, Node-RED audit logging.
+# Long-lived HA access tokens are NOT covered here: that is the Prometheus
+# metric ha_llat_count (node_exporter textfile collector on kdk-dkr-02,
+# `changes(ha_llat_count[1h]) > 0`), alerted on kdk-mon-01, not by Loki.
+#
+# Runbook: docs/runbooks/security-alerts.md#home-assistant
+groups:
+  - name: home-assistant
+    interval: 1m
+    rules:
+      - alert: HaFailedLogins
+        expr: |
+          sum by (host) (count_over_time({host="kdk-dkr-02", container="homeassistant"}
+            |= "Login attempt or request with invalid authentication" [10m])) > 3
+        for: 0m
+        labels:
+          severity: warning
+          source: loki
+          scope: home-assistant
+        annotations:
+          summary: "Home Assistant: more than 3 invalid logins/tokens in 10m"
+          runbook: docs/runbooks/security-alerts.md#home-assistant
+
+      # Needs http.login_attempts_threshold set in configuration.yaml.
+      - alert: HaIpBanned
+        expr: |
+          sum(count_over_time({host="kdk-dkr-02", container="homeassistant"} |= "Banned IP" [5m])) > 0
+        for: 0m
+        labels:
+          severity: warning
+          source: loki
+          scope: home-assistant
+        annotations:
+          summary: "Home Assistant banned an IP after failed logins"
+          runbook: docs/runbooks/security-alerts.md#home-assistant
+
+      # Needs `logger: custom_components.auth_oidc: info`.
+      - alert: HaOidcLoginUnexpectedUser
+        expr: |
+          sum(count_over_time({host="kdk-dkr-02", container="homeassistant"}
+            |= "Logged in user through OIDC" !~ "jmack|rach" [15m])) > 0
+        for: 0m
+        labels:
+          severity: warning
+          source: loki
+          scope: home-assistant
+        annotations:
+          summary: "Home Assistant: OIDC login by a user other than jmack/rach"
+          runbook: docs/runbooks/security-alerts.md#home-assistant
+
+      # Needs the package automation that writes user_added/user_updated/
+      # user_removed events as `system_log.write` lines starting "SECURITY ".
+      - alert: HaSecurityEvent
+        expr: |
+          sum(count_over_time({host="kdk-dkr-02", container="homeassistant"} |= "SECURITY " [5m])) > 0
+        for: 0m
+        labels:
+          severity: warning
+          source: loki
+          scope: home-assistant
+        annotations:
+          summary: "Home Assistant user added/changed/removed (SECURITY log line)"
+          runbook: docs/runbooks/security-alerts.md#home-assistant
+
+      # Needs logging.console.audit: true in Node-RED settings.js.
+      - alert: NodeRedFlowsDeployed
+        expr: |
+          sum(count_over_time({host="kdk-dkr-02", container="node-red"} |~ "flows.set|Starting flows" [5m])) > 0
+        for: 0m
+        labels:
+          severity: info
+          source: loki
+          scope: home-assistant
+        annotations:
+          summary: "Node-RED flows were deployed or restarted"
+          runbook: docs/runbooks/security-alerts.md#home-assistant
+
+      # Meaningful once Node-RED has adminAuth.
+      - alert: NodeRedAuthFailures
+        expr: |
+          sum(count_over_time({host="kdk-dkr-02", container="node-red"} |~ "auth.login.fail|permission denied" [10m])) > 3
+        for: 0m
+        labels:
+          severity: warning
+          source: loki
+          scope: home-assistant
+        annotations:
+          summary: "Node-RED: more than 3 failed admin logins / permission denials in 10m"
+          runbook: docs/runbooks/security-alerts.md#home-assistant
+
+      - alert: ZigbeePermitJoinOrNewDevice
+        expr: |
+          sum(count_over_time({host="kdk-dkr-02", container="zigbee2mqtt"}
+            |~ "(?i)permit.?join.*(true|enabled)|allowing new devices to join|Device '.*' joined" [5m])) > 0
+        for: 0m
+        labels:
+          severity: warning
+          source: loki
+          scope: home-assistant
+        annotations:
+          summary: "zigbee2mqtt: permit-join opened or a new device joined"
+          runbook: docs/runbooks/security-alerts.md#home-assistant
+
+      - alert: MosquittoAuthFailure
+        expr: |
+          sum(count_over_time({host="kdk-dkr-02", container="mosquitto"}
+            |~ "(?i)not authori[sz]ed|bad user name or password" [10m])) > 0
+        for: 0m
+        labels:
+          severity: warning
+          source: loki
+          scope: home-assistant
+        annotations:
+          summary: "Mosquitto rejected a client (not authorised / bad credentials)"
+          runbook: docs/runbooks/security-alerts.md#home-assistant
+
+      # Strings are Inferred; confirm after the next Scrypted/Homebridge upgrade.
+      - alert: ScryptedHomebridgeAuthEvent
+        expr: |
+          sum by (container) (count_over_time({host="kdk-dkr-03", container=~"scrypted|homebridge"}
+            |~ "(?i)login failed|invalid (password|credentials)|user (created|added)|installNpm|plugin install" [10m])) > 0
+        for: 0m
+        labels:
+          severity: warning
+          source: loki
+          scope: home-assistant
+        annotations:
+          summary: "{{ $labels.container }}: login failure, new user or plugin install"
+          kdk_inferred: "true"
+          runbook: docs/runbooks/security-alerts.md#home-assistant
