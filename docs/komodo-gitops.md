@@ -1,7 +1,7 @@
 ---
 title: Komodo GitOps (Resource Sync)
 tags: [homelab/process, komodo, gitops]
-updated: 2026-09-14
+updated: 2026-10-28
 ---
 
 # Komodo GitOps — Resource Sync
@@ -11,6 +11,14 @@ How this repo drives Komodo. Every Docker stack on every host is declared in
 no hand-managed Docker outside Komodo.
 
 **Related:** [[backlog]] · `komodo/resources.toml`
+
+## Access
+
+The UI at `komodo.kmkdp.com` is behind Authelia SSO and Komodo self-registration is
+closed (`stacks/komodo/compose.yaml`). The loop below does not depend on SSO: the
+actions call Core at `http://localhost:9120`, and API-key calls (`X-Api-Key` on
+`/read`, `/write`, `/execute`) plus the `/listener` webhooks have their own Traefik
+routers without ForwardAuth. Details: [[komodo]].
 
 ## The moving parts
 

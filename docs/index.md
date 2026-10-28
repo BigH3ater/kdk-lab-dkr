@@ -4,7 +4,9 @@ title: kdk-lab
 # kdk-lab
 
 Komodo-managed Docker Compose homelab. One page per host and service.
-Operations dashboard: [komodo.kmkdp.com](https://komodo.kmkdp.com).
+Operations dashboard: [komodo.kmkdp.com](https://komodo.kmkdp.com) (Authelia SSO, then Komodo login).
+
+Security posture reports are kept in the Obsidian vault (`10.Homelab/Security/`) and are never committed: this repo is public (`docs/security/` is git-ignored).
 
 - [Network & addresses](network.md)
 - [Runbooks](runbooks/index.md) — deploy a service, add an alert, fix the DEE VM, Tdarr
