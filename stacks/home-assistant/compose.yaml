@@ -130,7 +130,7 @@ services:
       - homeassistant
 
   traefik:
-    image: traefik:v3.3.7
+    image: traefik:v3.7.16
     container_name: traefik
     restart: unless-stopped
     # Native ACME with a Cloudflare DNS-01 solver, no certbot and no renewal
