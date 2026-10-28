@@ -41,7 +41,7 @@ services:
   #   ghcr.io/bigh3ater/kdk-lab-readwise-to-remarkable@sha256:7242867eb9c9c9a8d41e4528b441d3d50f633d5b4a949d56d7ce258e2b6a183c
 
   highlights:                        # leg [2]  device text highlights -> Readwise
-    image: ghcr.io/bigh3ater/kdk-lab-rm-highlights@sha256:5cc75f4b0d97fb83ffedde8b31207329847c7d0eb9f3840c55886a636f281f37
+    image: ghcr.io/bigh3ater/kdk-lab-rm-highlights@sha256:e894e651b4c70141e2919e511b87773a751991c1e12f0dc1fc516e5d5f9f9243
     restart: unless-stopped
     depends_on:
       secrets:
