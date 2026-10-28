@@ -54,6 +54,8 @@ services:
     labels:
       traefik.enable: "true"
       traefik.http.routers.tandoor.rule: "Host(`recipes.kmkdp.com`)"
+      # LAN only: never on the Cloudflare tunnel entrypoint (docs/services/dmz-proxy.md).
+      traefik.http.routers.tandoor.entrypoints: "websecure"
       traefik.http.services.tandoor.loadbalancer.server.port: "80"
     logging:
       driver: json-file

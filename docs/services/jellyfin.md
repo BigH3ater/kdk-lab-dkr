@@ -68,7 +68,7 @@ Listens on `8096`, joins `proxy-dmz`. `/dev/dri` gives QSV. Library mounted read
 
 ## Configuration
 | LDAP-Auth plugin (dashboard, host-managed) | Server `lldap.kmkdp.com`, port 6360, SSL on, **SkipSslVerify off** (LE wildcard via lldap's certs-dumper, 2026-10-27); base `ou=people,dc=kmkdp,dc=com`; filter `(memberof=cn=jellyfin-users,ou=groups,dc=kmkdp,dc=com)`; create users from LDAP on |
-| Networking (dashboard, host-managed) | Known proxies `10.211.2.0/24` (proxy-dmz: Traefik + cloudflared); LAN networks `10.1.1.0/24, 10.1.3.0/24, 10.1.20.0/24, 10.1.30.0/24, 192.168.191.0/24` (Tailscale clients arrive un-masqueraded as 100.64.0.0/10 since 2026-10-26 and are therefore remote; before that 10.1.20.0/24 had to be left out); auto discovery off; Internet streaming bitrate limit applies to remote clients (set 2026-10-26, raise for more remote viewers) |
+| Networking (dashboard, host-managed) | Known proxies `10.211.2.3/32` (the DMZ Traefik, pinned on proxy-dmz since 2026-10-28; was `10.211.2.0/24`, which let any proxy-dmz container forge `X-Forwarded-For` — set by the owner in Dashboard → Networking in the same window as the dmz-proxy redeploy; cloudflared `10.211.2.2` is not needed: the tunnel entrypoint passes Cloudflare's `X-Forwarded-For` through without appending its own hop); LAN networks `10.1.1.0/24, 10.1.3.0/24, 10.1.20.0/24, 10.1.30.0/24, 192.168.191.0/24` (Tailscale clients arrive un-masqueraded as 100.64.0.0/10 since 2026-10-26 and are therefore remote; before that 10.1.20.0/24 had to be left out); auto discovery off; Internet streaming bitrate limit applies to remote clients (set 2026-10-26, raise for more remote viewers) |
 
 | Path / setting | What it is |
 |---|---|

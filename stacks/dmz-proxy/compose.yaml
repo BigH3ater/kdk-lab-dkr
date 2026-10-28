@@ -1,5 +1,20 @@
 # DMZ Traefik + cloudflared on kdk-dkr-dmz-01. The tunnel is dashboard-managed
-# (operator) and simply forwards to this Traefik; Traefik host-routes.
+# (operator) and forwards to this Traefik's `tunnel` entrypoint
+# (https://traefik:8443, Origin Server Name = the public hostname); Traefik
+# host-routes. See docs/services/dmz-proxy.md for the two-entrypoint design.
+#
+# Two HTTPS entrypoints, split by who is allowed to set client-IP headers:
+#   websecure :443  published; LAN / tailnet / internal-Traefik traffic.
+#                   X-Forwarded-* trusted only from the internal Traefik
+#                   (10.1.20.20) and the Pi Traefik (10.1.30.21, ForwardAuth);
+#                   strip-cf removes every Cf-*/True-Client-Ip header, so nobody
+#                   on the LAN can forge Cloudflare's visitor IP/geo.
+#   tunnel    :8443 NOT published; reachable only on proxy-dmz. X-Forwarded-*
+#                   trusted only from cloudflared (pinned 10.211.2.2), Cf-* kept.
+# Routers serve the tunnel only when they say `entrypoints=websecure,tunnel`;
+# websecure is the sole default entrypoint, so a router without the label (or a
+# Cloudflare hostname added for an internal-only host) never answers on the
+# tunnel -- Traefik returns 404 there.
 name: dmz-proxy
 services:
   traefik:
@@ -7,24 +22,55 @@ services:
     container_name: traefik
     restart: unless-stopped
     security_opt: ["no-new-privileges:true"]
+    # The official image runs as root (no USER in the image config). NET_BIND_SERVICE
+    # is kept for :80/:443 although Docker already sets ip_unprivileged_port_start=0
+    # in the container netns -- harmless, and correct if that default ever changes.
+    cap_drop: [ALL]
+    cap_add: [NET_BIND_SERVICE]
+    pids_limit: 512
+    mem_limit: 1g
     command:
       - "--providers.docker=true"
       - "--providers.docker.exposedbydefault=false"
       - "--providers.docker.network=proxy-dmz"
+      # File provider: strip-cf middleware. Directory mount + watch (same as the
+      # internal Traefik) -- a single-file bind mount keeps the old inode when git
+      # replaces the file, so edits would never reach the container.
+      - "--providers.file.directory=/etc/traefik/dynamic"
+      - "--providers.file.watch=true"
       - "--entrypoints.web.address=:80"
       - "--entrypoints.web.http.redirections.entrypoint.to=websecure"
       - "--entrypoints.web.http.redirections.entrypoint.scheme=https"
+      # ---- websecure :443 (LAN) ----
       - "--entrypoints.websecure.address=:443"
-      # Trusted sources of X-Forwarded-For: the internal Traefik (10.1.20.20),
-      # the DMZ host network, and the proxy-dmz Docker network where cloudflared
-      # lives (10.211.2.2). Without the last one Traefik discarded Cloudflare's
-      # visitor address and rewrote XFF to the cloudflared container IP, so
-      # Jellyfin (known proxies = 10.211.2.0/24) logged every tunnel visitor as
-      # 10.211.2.2 and could not classify them as remote (2026-10-26).
-      - "--entrypoints.websecure.forwardedHeaders.trustedIPs=10.1.20.20/32,192.168.191.0/24,10.211.2.0/24"
+      # The ONLY default entrypoint: routers without an entrypoints label attach
+      # here and never to `tunnel`.
+      - "--entrypoints.websecure.asDefault=true"
+      - "--entrypoints.websecure.forwardedHeaders.trustedIPs=10.1.20.20/32,10.1.30.21/32"
+      - "--entrypoints.websecure.http.middlewares=strip-cf@file"
+      # Drop request headers whose names alias another (Cf_Connecting_Ip,
+      # X_Forwarded_For ...): WSGI/PHP/nginx backends fold `_` and `-` together,
+      # which would let a client walk around strip-cf.
+      - "--entrypoints.websecure.http.aliasHeadersStrategy=delete"
       - "--entrypoints.websecure.http.tls.certresolver=cf"
       - "--entrypoints.websecure.http.tls.domains[0].main=kmkdp.com"
       - "--entrypoints.websecure.http.tls.domains[0].sans=*.kmkdp.com"
+      # ---- tunnel :8443 (cloudflared only; not published on the host) ----
+      - "--entrypoints.tunnel.address=:8443"
+      - "--entrypoints.tunnel.forwardedHeaders.trustedIPs=10.211.2.2/32"
+      # Pass cloudflared's X-Forwarded-For (the visitor IP Cloudflare appended) through
+      # unchanged instead of appending 10.211.2.2. Backends then see exactly one hop
+      # behind Traefik, so Jellyfin KnownProxies / IMMICH_TRUSTED_PROXIES need only
+      # Traefik (10.211.2.3/32); with the append they would also have to trust .2.
+      - "--entrypoints.tunnel.forwardedHeaders.notAppendXForwardedFor=true"
+      - "--entrypoints.tunnel.http.aliasHeadersStrategy=delete"
+      - "--entrypoints.tunnel.http.tls.certresolver=cf"
+      - "--entrypoints.tunnel.http.tls.domains[0].main=kmkdp.com"
+      - "--entrypoints.tunnel.http.tls.domains[0].sans=*.kmkdp.com"
+      # ---- /ping for the healthcheck, loopback only (built-in `traefik`
+      # entrypoint: never a default entrypoint, no API/dashboard enabled) ----
+      - "--ping=true"
+      - "--entrypoints.traefik.address=127.0.0.1:8080"
       - "--certificatesresolvers.cf.acme.dnschallenge=true"
       - "--certificatesresolvers.cf.acme.dnschallenge.provider=cloudflare"
       - "--certificatesresolvers.cf.acme.email=admin@kmkdp.com"
@@ -32,12 +78,14 @@ services:
       - "--log.level=INFO"
       # JSON access log to stdout -> Alloy -> Loki ({container="traefik"} | json),
       # read by the Grafana "Traffic Access Logs" dashboard. Headers are dropped
-      # except the ones the dashboard uses.
+      # except the ones the dashboard uses. Tunnel traffic: entryPointName="tunnel"
+      # or ClientAddr=~"10\.211\.2\.2:.*".
       - "--accesslog=true"
       - "--accesslog.format=json"
       - "--accesslog.fields.headers.defaultmode=drop"
       - "--accesslog.fields.headers.names.User-Agent=keep"
-      # Cloudflare's visitor headers (real client IP + geo) for the public routes.
+      # Cloudflare's visitor headers (real client IP + geo); only present on the
+      # tunnel entrypoint (websecure strips them).
       - "--accesslog.fields.headers.names.Cf-Connecting-Ip=keep"
       - "--accesslog.fields.headers.names.Cf-Ipcountry=keep"
       - "--accesslog.fields.headers.names.Cf-Ipcity=keep"
@@ -47,22 +95,58 @@ services:
     environment:
       CF_DNS_API_TOKEN: "${CLOUDFLARE_DNS_API_TOKEN}"
     ports:
+      # 8443 (tunnel) is deliberately NOT published: cloudflared reaches it on proxy-dmz.
       - "80:80"
       - "443:443"
     volumes:
+      # Docker provider. Root + socket = host root on a Traefik RCE; the
+      # read-only socket proxy replaces this mount in a later PR (batch 7).
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - /opt/kdk-lab/dmz-proxy/letsencrypt:/letsencrypt
-    networks: [proxy-dmz]
+      - ./dynamic:/etc/traefik/dynamic:ro
+    networks:
+      proxy-dmz:
+        ipv4_address: 10.211.2.3   # Jellyfin KnownProxies / IMMICH_TRUSTED_PROXIES depend on it
+    healthcheck:
+      # Same address flag as above so the CLI dials 127.0.0.1:8080/ping.
+      test: ["CMD", "traefik", "healthcheck", "--ping", "--entrypoints.traefik.address=127.0.0.1:8080"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    logging: &log
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
 
   cloudflared:
-    image: cloudflare/cloudflared:2026.10.3
+    image: cloudflare/cloudflared:2026.10.5
     container_name: cloudflared
     restart: unless-stopped
     user: "65532"
-    command: ["tunnel", "--no-autoupdate", "--protocol", "http2", "run"]
+    read_only: true
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: [ALL]
+    pids_limit: 128
+    mem_limit: 256m
+    # Metrics/readiness server on loopback only (default listens on every
+    # container interface and serves /config + /diag to all of proxy-dmz).
+    command: ["tunnel", "--no-autoupdate", "--protocol", "http2", "--metrics", "127.0.0.1:20241", "run"]
     environment:
       TUNNEL_TOKEN: "${CLOUDFLARE_TUNNEL_TOKEN}"
-    networks: [proxy-dmz]
+    networks:
+      proxy-dmz:
+        ipv4_address: 10.211.2.2   # the tunnel entrypoint trusts exactly this /32
+    logging: *log
+
 networks:
   proxy-dmz:
     name: proxy-dmz
+    # Same /24 the network already had from the host pool (10.211.0.0/16, see
+    # docs/reference/docker-ipam.md); now explicit so the two ingress containers
+    # can be pinned. Dynamic addresses come from ip_range (.128-.254), so no
+    # other container can take .2/.3 while cloudflared/traefik are recreated.
+    ipam:
+      config:
+        - subnet: 10.211.2.0/24
+          ip_range: 10.211.2.128/25
+          gateway: 10.211.2.1

@@ -42,6 +42,8 @@ services:
     labels:
       traefik.enable: "true"
       traefik.http.routers.lldap.rule: "Host(`users.kmkdp.com`)"
+      # LAN only: never on the Cloudflare tunnel entrypoint (docs/services/dmz-proxy.md).
+      traefik.http.routers.lldap.entrypoints: "websecure"
       traefik.http.services.lldap.loadbalancer.server.port: "17170"
 
   # Keeps /opt/kdk-lab/identity/lldap-certs/kmkdp.com/{certificate.crt,privatekey.key}
@@ -125,6 +127,8 @@ services:
     labels:
       traefik.enable: "true"
       traefik.http.routers.authelia.rule: "Host(`sso.kmkdp.com`)"
+      # Public: LAN entrypoint + the cloudflared-only `tunnel` entrypoint.
+      traefik.http.routers.authelia.entrypoints: "websecure,tunnel"
       traefik.http.services.authelia.loadbalancer.server.port: "9091"
 
 networks:

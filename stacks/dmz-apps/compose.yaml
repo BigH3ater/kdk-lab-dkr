@@ -15,6 +15,8 @@ services:
     labels:
       traefik.enable: "true"
       traefik.http.routers.seerr.rule: "Host(`seerr.kmkdp.com`)"
+      # LAN only: never on the Cloudflare tunnel entrypoint (docs/services/dmz-proxy.md).
+      traefik.http.routers.seerr.entrypoints: "websecure"
       traefik.http.services.seerr.loadbalancer.server.port: "5055"
 
   # Libreseerr — Overseerr-style "request a book" UI that hands off to Chaptarr
@@ -36,6 +38,8 @@ services:
     labels:
       traefik.enable: "true"
       traefik.http.routers.libreseerr.rule: "Host(`libreseerr.kmkdp.com`)"
+      # LAN only: never on the Cloudflare tunnel entrypoint (docs/services/dmz-proxy.md).
+      traefik.http.routers.libreseerr.entrypoints: "websecure"
       traefik.http.services.libreseerr.loadbalancer.server.port: "5000"
 
 networks:

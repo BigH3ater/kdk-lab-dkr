@@ -49,6 +49,8 @@ services:
     labels:
       traefik.enable: "true"
       traefik.http.routers.jellyfin.rule: "Host(`jellyfin.kmkdp.com`)"
+      # Public: LAN entrypoint + the cloudflared-only `tunnel` entrypoint.
+      traefik.http.routers.jellyfin.entrypoints: "websecure,tunnel"
       traefik.http.services.jellyfin.loadbalancer.server.port: "8096"
 networks:
   proxy-dmz:
