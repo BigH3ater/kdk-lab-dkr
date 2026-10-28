@@ -235,8 +235,9 @@
       "tag_is_version": false
     },
     "instrumentisto/rsync-ssh": {
-      "note": "rsync + openssh client as Alpine packages: Trivy's weekly scan covers their CVEs; product-level NVD lookups were dropped 2026-10-28 (always Unknown, 9 Low per run). Tag alpineX.Y-rN is not a version.",
-      "tag_is_version": false
+      "note": "image repo for advisories (rarely any); tag alpineX.Y-rN is not a version so GHSA compares stay Unknown but there are none; rsync/openssh CVEs inside the image are caught by Trivy. Product-level NVD lookups dropped 2026-10-28 (always Unknown, 9 Low per run).",
+      "tag_is_version": false,
+      "github": "instrumentisto/rsync-ssh-docker-image"
     },
     "kdk/calibre": {
       "local": true,
