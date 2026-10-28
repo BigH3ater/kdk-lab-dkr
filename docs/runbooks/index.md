@@ -13,6 +13,7 @@ illustrative.
 - [Troubleshoot the Windows DEE VM](windows-vm-dee.md) — the FastAPI DeeZy wrapper, its SMB mount, and the scheduled task.
 - [Troubleshoot Tdarr transcodes](tdarr-troubleshooting.md) — transcode/health errors, the DEE dependency, node flapping.
 - [Jellyfin transcoding (ramdisk + Arc QSV)](jellyfin-transcoding.md) — the RAM-disk transcode scratch and the Arc A380 QSV/HDR settings.
+- [Jellyfin SSO (Authelia OIDC)](jellyfin-sso.md) — install the SSO Authentication plugin, the `jellyfin` client secret, the login button, Quick Connect tests.
 - [Storage network & NFS](storage-network.md) — the `172.16.30.0/24` storage plane, the Tailscale-CGNAT collision that broke NFS, renumber + hung-mount procedures.
 
 Conventions used throughout:

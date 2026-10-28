@@ -282,6 +282,15 @@ identity_providers:
         - policy: 'two_factor'
           subject:
             - ['group:internal-users']
+      # Batch 5b (Jellyfin SSO plugin): household viewers (jellyfin-users, the same
+      # group the LDAP plugin filters on) plus directory admins. Two subjects = OR.
+      jellyfin_access:
+        default_policy: 'deny'
+        rules:
+        - policy: 'two_factor'
+          subject:
+            - ['group:jellyfin-users']
+            - ['group:lldap_admin']
     jwks:
       - algorithm: 'RS256'
         use: 'sig'
@@ -664,6 +673,68 @@ identity_providers:
         request_object_signing_alg: ''
         request_object_encryption_alg: 'none'
         request_object_encryption_enc: ''
+        token_endpoint_auth_method: 'client_secret_post'
+        token_endpoint_auth_signing_alg: ''
+        revocation_endpoint_auth_method: 'client_secret_basic'
+        revocation_endpoint_auth_signing_alg: 'RS256'
+        pushed_authorization_request_endpoint_auth_method: 'client_secret_basic'
+        pushed_authorization_request_endpoint_auth_signing_alg: 'RS256'
+      - client_id: 'jellyfin'
+        client_name: 'Jellyfin'
+        # Batch 5b: K0lin/jellyfin-plugin-sso (SSO Authentication 5.1.1, Jellyfin 12).
+        # The file holds a $pbkdf2-sha512$ digest; the plugin keeps the plaintext
+        # (op://kdk-cluster/jellyfin-oidc/password). Runbook: docs/runbooks/jellyfin-sso.md.
+        client_secret: '{{ secret "/secrets/authelia-app-secrets/jellyfin_client_secret" }}'
+        public: false
+        redirect_uris:
+          - 'https://jellyfin.kmkdp.com/sso/OID/redirect/authelia'   # provider name in the plugin = authelia
+        scopes:
+          - 'openid'
+          - 'email'
+          - 'profile'
+          - 'groups'
+        grant_types:
+          - 'authorization_code'
+        response_types:
+          - 'code'
+        authorization_policy: 'jellyfin_access'   # group jellyfin-users or lldap_admin
+        consent_mode: 'auto'
+        require_pushed_authorization_requests: false
+        # The plugin's Duende OidcClient always sends an S256 challenge, so enforce it.
+        require_pkce: true
+        pkce_challenge_method: 'S256'
+        authorization_signed_response_alg: 'RS256'
+        authorization_signed_response_key_id: ''
+        authorization_encrypted_response_key_id: ''
+        authorization_encrypted_response_alg: ''
+        authorization_encrypted_response_enc: ''
+        id_token_signed_response_alg: 'RS256'
+        id_token_signed_response_key_id: ''
+        id_token_encrypted_response_key_id: ''
+        id_token_encrypted_response_alg: ''
+        id_token_encrypted_response_enc: ''
+        access_token_signed_response_alg: 'none'
+        access_token_signed_response_key_id: ''
+        access_token_encrypted_response_key_id: ''
+        access_token_encrypted_response_alg: ''
+        access_token_encrypted_response_enc: ''
+        # The plugin reads groups from the UserInfo response (LoadProfile), as plain JSON.
+        userinfo_signed_response_alg: 'none'
+        userinfo_signed_response_key_id: ''
+        userinfo_encrypted_response_key_id: ''
+        userinfo_encrypted_response_alg: ''
+        userinfo_encrypted_response_enc: ''
+        introspection_signed_response_alg: 'none'
+        introspection_signed_response_key_id: ''
+        introspection_encrypted_response_key_id: ''
+        introspection_encrypted_response_alg: ''
+        introspection_encrypted_response_enc: ''
+        introspection_endpoint_auth_method: 'client_secret_basic'
+        introspection_endpoint_auth_signing_alg: 'RS256'
+        request_object_signing_alg: ''
+        request_object_encryption_alg: 'none'
+        request_object_encryption_enc: ''
+        # Duende OidcClient default TokenClientCredentialStyle = PostBody.
         token_endpoint_auth_method: 'client_secret_post'
         token_endpoint_auth_signing_alg: ''
         revocation_endpoint_auth_method: 'client_secret_basic'

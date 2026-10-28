@@ -6,8 +6,10 @@ repositories:
   - url: https://plugins.neptuneplayer.com/manifest.json               # Neptune suite
   - url: https://raw.githubusercontent.com/voc0der/jellyfin-imdb-rating-updater/main/manifest.json
   - url: https://www.iamparadox.dev/jellyfin/plugins/manifest.json     # Home Screen Sections
+  - url: https://raw.githubusercontent.com/k0lin/jellyfin-plugin-sso/manifest-release/manifest.json   # SSO Authentication (K0lin fork), batch 5b
 plugins:
   - { name: LDAP Authentication, guid: 958aad66-3784-4d2a-b89a-a7b6fab6e25c, version: 24.0.0.0 }   # household logins
+  - { name: SSO Authentication, guid: 505ce9d1-d916-42fa-86ca-673ef241d7df, version: 5.1.1, note: "K0lin fork, targetAbi 12.0.0.0; Authelia web login; installed by hand per docs/runbooks/jellyfin-sso.md" }
   - { name: Playback Reporting, version: 19.0.0.0 }
   - { name: Webhook, version: 22.0.0.0 }
   - { name: TheTVDB, version: 24.0.0.0 }
