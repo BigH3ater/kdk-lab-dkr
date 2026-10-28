@@ -405,6 +405,10 @@
       },
       "confirm": true,
       "note": "GitHub is a mirror (main forge is kolaente.dev); confirm the OSV module path. The OSV Go entries for code.vikunja.io/api mostly carry only an introduced event (no fixed), so the GHSA alias from go-vikunja/vikunja is authoritative for the verdict (source=osv+ghsa)"
+    },
+    "ghcr.io/tecnativa/docker-socket-proxy": {
+      "github": "Tecnativa/docker-socket-proxy",
+      "note": "HAProxy-based read-only Docker API proxy (security batch 7); HAProxy CVEs inside the image are Trivy's job"
     }
   }
 }
