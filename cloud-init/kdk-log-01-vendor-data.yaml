@@ -32,15 +32,11 @@ write_files:
       PasswordAuthentication no
       KbdInteractiveAuthentication no
       X11Forwarding no
-      AllowTcpForwarding no
+      AllowTcpForwarding local   # VS Code Remote-SSH; logins are kdkadmin-only (AllowUsers)
       AllowAgentForwarding no
       AllowUsers kdkadmin
       MaxAuthTries 3
       LoginGraceTime 20
-      # VS Code Remote-SSH needs a local port forward; the admin account only.
-      # Match must stay last in this file.
-      Match User kdkadmin
-          AllowTcpForwarding local
 
   - path: /etc/nftables.conf
     permissions: "0755"

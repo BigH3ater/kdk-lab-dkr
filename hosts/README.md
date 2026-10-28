@@ -139,10 +139,11 @@ Clean up: `rm -rf /tmp/kdk-host` on the host when done.
 
 ## VS Code Remote-SSH
 
-The sshd baseline turns TCP forwarding off, which VS Code Remote-SSH needs for its
-server tunnel ("TCP port forwarding appears to be disabled"). `98-kdk-admin.conf`
-therefore ends with `Match User kdkadmin` / `AllowTcpForwarding local`: local
-forwards for the admin account only, remote and gateway forwards still off. Keep
-the default `remote.SSH.remoteServerListenOnSocket` (false); the Unix-socket mode
-is refused by the Pi sshd. Key auth comes from the 1Password agent via
-`IdentityAgent ~/.1password/agent.sock` in `~/.ssh/config`.
+VS Code Remote-SSH tunnels its server over a local port forward, so the sshd
+baseline sets `AllowTcpForwarding local` (not `no`): local forwards only, and
+`AllowUsers kdkadmin` already limits that to the admin account; remote and
+gateway forwards stay off. Keep VS Code's `remote.SSH.remoteServerListenOnSocket`
+at its default (false); the Unix-socket mode is refused by the Pi sshd. A `Match`
+block cannot do this on Debian (drop-ins are included at the top of sshd_config).
+Key auth comes from the 1Password agent via `IdentityAgent ~/.1password/agent.sock`
+in `~/.ssh/config`.

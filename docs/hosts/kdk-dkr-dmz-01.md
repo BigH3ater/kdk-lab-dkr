@@ -87,7 +87,7 @@ Public hostnames probed by `blackbox-http-app` on [[kdk-mon-01]]; alerts → Pus
 | NTP | `ntp.kmkdp.com` primary | ⚠️ synced via public pools (timesyncd) | |
 | Syslog | `syslog.kmkdp.com:514` | ✅ forwarding to [[kdk-log-01]] since 2026-10-28 (rsyslog installed by hand; cloud-init now includes the package, PR #84) | copy `hosts/_common/rsyslog.d/90-kdk-loki.conf` to `/etc/rsyslog.d/`, restart rsyslog (needs UniFi `192.168.191.20 → 10.1.20.21:514`) |
 
-> VS Code Remote-SSH on any lab host: see `hosts/README.md` (the sshd baseline allows local TCP forwards for kdkadmin only).
+> VS Code Remote-SSH on any lab host: see `hosts/README.md` (the sshd baseline sets `AllowTcpForwarding local`).
 
 
 ## Architecture
