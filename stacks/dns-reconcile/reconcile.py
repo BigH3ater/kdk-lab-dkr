@@ -79,6 +79,19 @@ BLOCK = {
 # ollama = the 4090 personal workstation serving Ollama for handwriting OCR;
 # opportunistic (not always on). Not in PRUNE_IPS, so the prune step never touches it.
 EXTRA = {
+    # Lab host FQDNs (management address of each host). Before 2026-10-28 only
+    # mon-01/dkr-02/dkr-03/dns-01 had hand-made rewrites; the rest (dmz-01, hyp-01,
+    # nas-01) fell through the *.kmkdp.com wildcard to 10.1.20.20, i.e. the
+    # internal Traefik, which is wrong for ssh/API use. Source of truth:
+    # docs/network.md host table. kdk-* names are never pruned.
+    "kdk-hyp-01.kmkdp.com": "10.1.1.100",
+    "kdk-dns-01.kmkdp.com": "10.1.1.120",
+    "kdk-nas-01.kmkdp.com": "10.1.3.5",
+    "kdk-dkr-01.kmkdp.com": "10.1.20.20",
+    "kdk-mon-01.kmkdp.com": "10.1.20.30",
+    "kdk-dkr-02.kmkdp.com": "10.1.30.21",
+    "kdk-dkr-03.kmkdp.com": "10.1.30.22",
+    "kdk-dkr-dmz-01.kmkdp.com": "192.168.191.20",
     "ollama.kmkdp.com": "10.1.30.218",
     # LDAPS (lldap on kdk-dkr-dmz-01, published 192.168.191.20:6360) for Wizarr on
     # kdk-dkr-01; the name matches the LE wildcard cert so clients verify it.
