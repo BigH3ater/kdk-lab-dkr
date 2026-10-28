@@ -21,6 +21,12 @@ PR as any change that adds or moves an address.
 | kdk-dee-01 | 10.1.1.130 | 10 | VM on kdk-hyp-01 | 220 |
 | kdk-pbs-01 | 10.1.1.102 | 10 | VM 23 on kdk-nas-01 | — |
 
+> Host FQDNs (`kdk-*.kmkdp.com`) are A-records written by `stacks/dns-reconcile`
+> (`EXTRA` map) from this table; unknown names fall through the `*.kmkdp.com`
+> wildcard to the internal Traefik (10.1.20.20), so a host without a record
+> silently "resolves" to the wrong box. Add new hosts here AND in `EXTRA`.
+
+
 ## Storage network (NFS)
 
 Storage/NFS runs on its own flat L2 (bond1/br0 on the NAS, jumbo MTU 9000):
