@@ -36,7 +36,7 @@
 name: home-assistant
 services:
   homeassistant:
-    image: ghcr.io/home-assistant/home-assistant:2026.8.3
+    image: ghcr.io/home-assistant/home-assistant:2026.10.4
     container_name: homeassistant
     # host, not bridge: mDNS/zeroconf for the Apple TVs, Lutron, Brother/IPP and
     # the thermostat, plus HA's own HomeKit bridge advertising on :21064.
