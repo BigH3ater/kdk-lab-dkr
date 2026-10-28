@@ -96,7 +96,7 @@ webauthn:
     # L7: validate authenticators against the FIDO Alliance MDS3 blob. Needs egress
     # to mds3.fidoalliance.org at startup ('strict' = Authelia refuses to start
     # without a fresh copy). TOTP stays the fallback if a passkey is rejected.
-    enabled: true
+    enabled: false   # L7 deferred by the reviewer: strict MDS3 validation needs an internet download at start and can reject the owner's existing zero-AAGUID passkey; revisit after a test enrolment
     cache_policy: 'strict'
     validate_trust_anchor: true
     validate_entry: true
