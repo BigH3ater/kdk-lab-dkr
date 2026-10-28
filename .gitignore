@@ -5,3 +5,6 @@ node_modules/
 # rendered SSH key for backup-collect (op read in pre_deploy; host clone only)
 id_kdk
 __pycache__/
+# Security posture reports live in the Obsidian vault (10.Homelab/Security/), never
+# here: this repo is public and the reports map weaknesses to hosts.
+docs/security/
