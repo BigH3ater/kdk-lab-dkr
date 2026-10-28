@@ -145,7 +145,13 @@ touches `home-assistant`, `scrypted-homebridge`, `proxy`, `dmz-proxy`,
 
 **Not covered by an automatic deploy:**
 
-- `komodo` is `deploy = false`: merge, then deploy it by hand.
+- `komodo` is `deploy = false` **and** excluded from the `deploy-changed` action
+  (since 2026-10-28): deploying it from inside Core restarts Core mid-procedure
+  ("Komodo shutdown during execution") and leaves every later stack for the next
+  tick. The action logs `komodo stack behind … apply by hand` instead. Apply it on
+  dkr-01 from Komodo's own clone: `cd /opt/kdk-lab/stacks/komodo/stacks/komodo &&
+  sudo docker compose up -d` (the pre_deploy `op inject` has already rendered
+  `.env` there), or Deploy the stack from the Komodo UI while nothing else runs.
 - One-shot stacks (`backup-*`, `tdarr-*`, `arr-*`, `storage-health`, …) pick
   up the new tag on their next scheduled run.
 - Local builds (`kdk/*:latest`, `run_build = true`) are ignored by Renovate;

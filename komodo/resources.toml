@@ -479,14 +479,28 @@ schedule_enabled = false   # driven by the gitops-sync procedure
 failure_alert = true
 file_contents = '''
 const TAG = "kdk-lab";
-const SKIP = /^backup-/;
+// Never deploy the `komodo` stack from here: DeployStack on it recreates Core
+// while this action runs inside Core, the update ends with "Komodo shutdown
+// during execution" and every stack after it waits for the next tick
+// (2026-10-28, PR #72). Core is applied by hand (docs/services/komodo.md).
+const SKIP = /^(backup-|komodo$)/;
+const NOTE = /^komodo$/;
 const tags: any[] = await komodo.read("ListTags", {});
 const tagId = tags.find((t) => t.name === TAG)?._id?.$oid ?? TAG;
 const stacks: any[] = await komodo.read("ListStacks", {});
 let fired = 0, behind: string[] = [];
 for (const s of stacks) {
   const tagged = (s.tags ?? []).some((t: string) => t === tagId || t === TAG);
-  if (!tagged || SKIP.test(s.name)) continue;
+  if (!tagged) continue;
+  if (NOTE.test(s.name)) {
+    // Still refresh and report it, so a behind Core shows up in the log.
+    try { await komodo.write("RefreshStackCache", { stack: s.name }); } catch (e) {}
+    const k: any = await komodo.read("GetStack", { stack: s.name });
+    if (k?.info?.deployed_hash && k?.info?.latest_hash && k.info.deployed_hash !== k.info.latest_hash)
+      console.log(`komodo stack behind (${k.info.deployed_hash}->${k.info.latest_hash}): apply by hand, never from deploy-changed`);
+    continue;
+  }
+  if (SKIP.test(s.name)) continue;
   if (!s.info?.repo || s.info?.files_on_host) continue;
   if (s.info?.state === "stopped") continue;
   // latest_hash is a CACHE. Komodo only refreshes it on its own poll timer or
