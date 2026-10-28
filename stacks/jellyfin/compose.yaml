@@ -45,7 +45,9 @@ services:
       # otherwise inherits the pre-existing dir's 2755 root:root and Jellyfin
       # (PUID 1000) can't write -> transcodes fail.
       - /config/cache/transcodes:size=6g,mode=1777
-    networks: [proxy-dmz]
+    # identity_ldap: LDAPS to lldap.kmkdp.com:6360 (alias on that internal network;
+    # lldap is no longer on proxy-dmz). Created by stacks/identity.
+    networks: [proxy-dmz, identity_ldap]
     labels:
       traefik.enable: "true"
       traefik.http.routers.jellyfin.rule: "Host(`jellyfin.kmkdp.com`)"
@@ -54,4 +56,6 @@ services:
       traefik.http.services.jellyfin.loadbalancer.server.port: "8096"
 networks:
   proxy-dmz:
+    external: true
+  identity_ldap:
     external: true

@@ -159,9 +159,13 @@ scrape_configs:
           - "https://seerr.kmkdp.com"
           - "https://jellyfin.kmkdp.com"
           - "https://immich.kmkdp.com"
-          - "https://sonarr.kmkdp.com"
-          - "https://radarr.kmkdp.com"
-          - "https://prowlarr.kmkdp.com"
+          # *arr apps: probe the anonymous /ping (Authelia bypass rule for exactly
+          # ^/ping$) so the probe reaches the app instead of logging an Authelia
+          # denial every 15 s. Bazarr/SABnzbd/Tdarr have no confirmed anonymous
+          # health path yet and still probe / (ForwardAuth 302 = UP).
+          - "https://sonarr.kmkdp.com/ping"
+          - "https://radarr.kmkdp.com/ping"
+          - "https://prowlarr.kmkdp.com/ping"
           - "https://bazarr.kmkdp.com"
           - "https://sabnzbd.kmkdp.com"
           - "https://tdarr.kmkdp.com"

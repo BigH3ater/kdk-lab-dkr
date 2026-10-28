@@ -1,15 +1,49 @@
 # SSO on the DMZ node: Authelia + LLDAP + Postgres + Redis in one stack.
-# LDAP is plain :3890 on the stack-internal network only (was LDAPS in k3s).
 # The Authelia storage encryption key and the Postgres DB are PAIRED --
 # migrated together from the k3s cluster; never replace one without the other.
+#
+# Networks (2026-10-28, security plan A1.2/A4):
+#   default (identity_default)  every service here; Postgres/Redis live ONLY here.
+#                               The DMZ Traefik also joins it to reach the lldap
+#                               UI (:17170), as do wizarr-sync and backup-dmz.
+#   identity_ldap (internal)    lldap + its LDAP clients only: Authelia, Jellyfin,
+#                               Wizarr. lldap.kmkdp.com is a network alias here,
+#                               so the LE wildcard on LDAPS :6360 verifies.
+#   proxy-dmz                   Authelia only (sso.kmkdp.com + ForwardAuth target
+#                               for wizarr-admin / lldap-auth). lldap is NOT on
+#                               it any more, so the other public apps cannot reach
+#                               :3890/:6360/:17170.
 name: identity
+
+# Logging per docs/reference/compose-baseline.md: json-file 10m x 3 (Alloy reads it).
+x-logging: &logging
+  driver: json-file
+  options: { max-size: "10m", max-file: "3" }
+
 services:
   lldap:
     image: lldap/lldap:v0.6.3-alpine
     container_name: lldap
     restart: unless-stopped
+    security_opt: ["no-new-privileges:true"]
+    # The entrypoint runs as root, chowns /data and drops to uid 1000 (gosu/su-exec).
+    # This set is Inferred from the entrypoint (auth audit M1) -- VALIDATE ON DEPLOY:
+    # `docker logs lldap` shows no "Operation not permitted" and LDAPS answers.
+    # Rollback: delete cap_drop/cap_add (keep the rest) and RestartStack identity.
+    cap_drop: [ALL]
+    cap_add:
+      - CHOWN          # entrypoint: chown /data to the lldap user
+      - SETUID         # drop to uid 1000
+      - SETGID         # drop to gid 1000
+      - DAC_OVERRIDE   # root reads/writes files under /data owned by 1000
+      - FOWNER         # chmod of files it does not own
+    pids_limit: 128
+    mem_limit: 256m
+    logging: *logging
     environment:
       TZ: America/Chicago
+      # Log every bind attempt incl. failures (Loki: {container="lldap"} |~ "Login attempt").
+      LLDAP_VERBOSE: "true"
       LLDAP_LDAP_BASE_DN: dc=kmkdp,dc=com
       LLDAP_LDAP_USER_EMAIL: admin@kmkdp.com
       LLDAP_LDAP_USER_PASS: "${LLDAP_ADMIN_PASSWORD}"
@@ -19,11 +53,12 @@ services:
       # Let's Encrypt wildcard (*.kmkdp.com), dumped out of the DMZ Traefik's
       # acme.json by the certs-dumper sidecar below, so every LDAP client verifies
       # it against public roots: Authelia (skip_verify off), the Jellyfin LDAP
-      # plugin (SkipSslVerify off) and Wizarr on kdk-dkr-01 (verify on). Clients
-      # address it as lldap.kmkdp.com: in-host containers get that name from the
-      # Docker network aliases below; Wizarr reaches the published port via the
-      # AdGuard A-record (stacks/dns-reconcile EXTRA). Until 2026-10-27 this was
-      # a self-signed CN=lldap cert with no SAN that nothing could verify.
+      # plugin (SkipSslVerify off) and Wizarr (verify on). Clients address it as
+      # lldap.kmkdp.com: the containers get that name from the identity_ldap
+      # network alias below (since 2026-10-28; before that, default + proxy-dmz);
+      # LAN clients use the published port via the AdGuard A-record
+      # (stacks/dns-reconcile EXTRA). Until 2026-10-27 this was a self-signed
+      # CN=lldap cert with no SAN that nothing could verify.
       LLDAP_LDAPS_OPTIONS__ENABLED: "true"
       LLDAP_LDAPS_OPTIONS__PORT: "6360"
       LLDAP_LDAPS_OPTIONS__CERT_FILE: /certs/kmkdp.com/certificate.crt
@@ -32,19 +67,30 @@ services:
       - /opt/kdk-lab/identity/lldap:/data
       - /opt/kdk-lab/identity/lldap-certs:/certs:ro
     ports:
-      # LDAPS for Wizarr (kdk-dkr-01). Plain :3890 stays unpublished.
+      # LDAPS on the DMZ host IP: kdk-mon-01's LDAPS cert probe and any LAN client.
+      # Plain :3890 stays unpublished.
       - "192.168.191.20:6360:6360"
     networks:
-      default:
-        aliases: [lldap.kmkdp.com]     # Authelia verifies the LE cert against this name
-      proxy-dmz:
-        aliases: [lldap.kmkdp.com]     # Jellyfin's LDAP plugin, same
+      default: {}                      # UI :17170 for the DMZ Traefik, wizarr-sync GraphQL
+      identity_ldap:
+        aliases: [lldap.kmkdp.com]     # Authelia, Jellyfin LDAP plugin, Wizarr verify the LE cert against this name
     labels:
       traefik.enable: "true"
       traefik.http.routers.lldap.rule: "Host(`users.kmkdp.com`)"
       # LAN only: never on the Cloudflare tunnel entrypoint (docs/services/dmz-proxy.md).
       traefik.http.routers.lldap.entrypoints: "websecure"
       traefik.http.services.lldap.loadbalancer.server.port: "17170"
+      # lldap is not on proxy-dmz any more: the DMZ Traefik reaches the UI on
+      # identity_default (it joins that network in stacks/dmz-proxy).
+      traefik.docker.network: "identity_default"
+      # Admin UI behind Authelia (H1): access rule users.kmkdp.com = two_factor,
+      # group lldap_admin. LLDAP's own login stays as the second gate. Jellyfin and
+      # Wizarr use LDAPS :6360, wizarr-sync uses lldap:17170 directly -- none of
+      # them go through this router.
+      traefik.http.routers.lldap.middlewares: "lldap-auth"
+      traefik.http.middlewares.lldap-auth.forwardauth.address: "http://authelia:9091/api/authz/forward-auth"
+      traefik.http.middlewares.lldap-auth.forwardauth.trustForwardHeader: "true"
+      traefik.http.middlewares.lldap-auth.forwardauth.authResponseHeaders: "Remote-User,Remote-Groups,Remote-Name,Remote-Email"
 
   # Keeps /opt/kdk-lab/identity/lldap-certs/kmkdp.com/{certificate.crt,privatekey.key}
   # equal to the wildcard cert in the DMZ Traefik's acme.json (watched; re-dumped on
@@ -55,6 +101,18 @@ services:
     image: ldez/traefik-certs-dumper:v2.11.4
     container_name: lldap-certs-dumper
     restart: unless-stopped
+    security_opt: ["no-new-privileges:true"]
+    # Runs as root: reads acme.json (root 0600) and hands the dumped key to uid 1000.
+    # Inferred set (auth audit M1) -- VALIDATE ON DEPLOY: `docker logs lldap-certs-dumper`
+    # has no "Operation not permitted" and privatekey.key stays 1000:1000 0600.
+    cap_drop: [ALL]
+    cap_add:
+      - CHOWN          # chown 1000:1000 of the key/cert (wrapper + --post-hook)
+      - FOWNER         # chmod/utime on files now owned by 1000
+      - DAC_OVERRIDE   # overwrite the 1000-owned 0600 key on renewal
+    pids_limit: 64
+    mem_limit: 128m
+    logging: *logging
     # The lldap image drops to uid 1000 at runtime while the dumper writes the
     # key 0600 root, so every dump must hand the key to lldap: first an initial
     # dump + chown (so lldap can start on a fresh deploy), then watch mode whose
@@ -80,6 +138,25 @@ services:
     image: postgres:16.15-alpine
     container_name: authelia-postgres
     restart: unless-stopped
+    # Data dir is already owned by uid 70 (the image's postgres user), so the
+    # entrypoint needs no root step. Socket/lock dir on tmpfs.
+    user: "70:70"
+    tmpfs: [/run/postgresql]
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: [ALL]
+    # No-op while user: 70:70 (non-root gets no effective caps). Kept so that a
+    # rollback that only deletes `user:` still starts (root entrypoint chowns, then
+    # drops to postgres).
+    cap_add: [CHOWN, SETUID, SETGID, DAC_OVERRIDE, FOWNER]
+    pids_limit: 256
+    mem_limit: 512m
+    logging: *logging
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "authelia", "-d", "authelia"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
     environment:
       POSTGRES_DB: authelia
       POSTGRES_USER: authelia
@@ -92,6 +169,35 @@ services:
     image: redis:8.10.3-alpine
     container_name: authelia-redis
     restart: unless-stopped
+    user: "999:999"
+    read_only: true
+    tmpfs: [/tmp]
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: [ALL]
+    pids_limit: 128
+    mem_limit: 256m
+    logging: *logging
+    # Auth (audit L2). The password is written to a 0600 config on tmpfs instead of
+    # --requirepass so it never shows in the host's process list. REDISCLI_AUTH is
+    # also what redis-cli (healthcheck) reads. Keep the 1Password value
+    # alphanumeric: it goes inside a quoted redis.conf string.
+    environment:
+      REDISCLI_AUTH: "${AUTHELIA_REDIS_PASSWORD}"
+    command:
+      - sh
+      - -c
+      - |
+        umask 077
+        printf 'requirepass "%s"\n' "$$REDISCLI_AUTH" > /tmp/redis.conf
+        exec redis-server /tmp/redis.conf
+    volumes:
+      - redis-data:/data               # sessions survive a recreate (image default dir)
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ping | grep -q PONG"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
     networks: [default]
 
   authelia:
@@ -99,6 +205,24 @@ services:
     container_name: authelia
     restart: unless-stopped
     depends_on: [lldap, postgres, redis]
+    # Non-root (audit M1). HOST PREREQ before this deploys, on kdk-dkr-dmz-01:
+    #   sudo chown -R 8091:8091 /opt/kdk-lab/identity/authelia-secrets
+    # (the tree was root:root 0700; Authelia only reads it). Authelia writes nothing
+    # to disk here; server.disable_healthcheck stops it writing /app/.healthcheck.env.
+    user: "8091:8091"
+    read_only: true
+    tmpfs: [/tmp]
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: [ALL]
+    pids_limit: 256
+    mem_limit: 512m
+    logging: *logging
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://127.0.0.1:9091/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
     environment:
       TZ: America/Chicago
       X_AUTHELIA_CONFIG: /config/configuration.yml,/config/configuration.webauthn.yml
@@ -107,7 +231,10 @@ services:
       AUTHELIA_SESSION_SECRET: "${AUTHELIA_SESSION_SECRET}"
       AUTHELIA_STORAGE_ENCRYPTION_KEY: "${AUTHELIA_STORAGE_ENCRYPTION_KEY}"
       AUTHELIA_STORAGE_POSTGRES_PASSWORD: "${AUTHELIA_POSTGRES_PASSWORD}"
-      AUTHELIA_AUTHENTICATION_BACKEND_LDAP_PASSWORD: "${LLDAP_ADMIN_PASSWORD}"
+      # Dedicated bind account uid=authelia-bind (lldap_password_manager only), not
+      # the directory admin (audit M3). `admin` is break-glass only.
+      AUTHELIA_AUTHENTICATION_BACKEND_LDAP_PASSWORD: "${LLDAP_AUTHELIA_BIND_PASSWORD}"
+      AUTHELIA_SESSION_REDIS_PASSWORD: "${AUTHELIA_REDIS_PASSWORD}"
       AUTHELIA_NOTIFIER_SMTP_PASSWORD: "${AUTHELIA_SMTP_PASSWORD}"
       AUTHELIA_IDENTITY_PROVIDERS_OIDC_HMAC_SECRET: "${OIDC_HMAC_SECRET}"
     # Config files are compose `configs`, not a bind-mounted directory: Authelia
@@ -123,7 +250,9 @@ services:
         target: /config/configuration.webauthn.yml
     volumes:
       - /opt/kdk-lab/identity/authelia-secrets:/secrets:ro
-    networks: [default, proxy-dmz]
+    # identity_ldap: LDAPS to lldap.kmkdp.com. proxy-dmz: sso.kmkdp.com router and
+    # the ForwardAuth target (http://authelia:9091) for the DMZ Traefik.
+    networks: [default, identity_ldap, proxy-dmz]
     labels:
       traefik.enable: "true"
       traefik.http.routers.authelia.rule: "Host(`sso.kmkdp.com`)"
@@ -133,8 +262,17 @@ services:
 
 networks:
   default: {}
+  # LDAP-only segment. internal: no gateway, no egress, nothing published from it
+  # (lldap's :6360 publish rides on `default`). Created by this stack; jellyfin and
+  # wizarr declare it external, so identity must be deployed first.
+  identity_ldap:
+    name: identity_ldap
+    internal: true
   proxy-dmz:
     external: true
+
+volumes:
+  redis-data: {}
 
 configs:
   authelia-config:

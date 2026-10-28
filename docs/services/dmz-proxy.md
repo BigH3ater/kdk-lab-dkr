@@ -61,6 +61,7 @@ docker run --rm --network proxy-dmz curlimages/curl:8.17.0 -sk -o /dev/null -w '
 | Direction | Thing | What breaks without it |
 |---|---|---|
 | Needs | Cloudflare (tunnel + DNS API) | no public access, no cert renewal |
+| Needs | `identity_default` network (created by [[identity]]); Traefik joins it for the lldap UI router | stack fails to start; `users.kmkdp.com` 502 |
 | Needed by | [[identity]], [[jellyfin]], [[immich]], [[seerr]], [[wizarr]] | ingress + TLS on the DMZ |
 
 ## Observability

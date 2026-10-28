@@ -5,6 +5,9 @@ default_2fa_method: ''
 server:
   address: 'tcp://0.0.0.0:9091/'
   asset_path: ''
+  # The container runs as uid 8091 with a read-only rootfs, so Authelia must not
+  # try to write /app/.healthcheck.env; compose defines its own healthcheck.
+  disable_healthcheck: true
   headers:
     csp_template: ""
   buffers:
@@ -54,7 +57,9 @@ identity_validation:
     code_lifespan: '5 minutes'
     elevation_lifespan: '10 minutes'
     characters: 8
-    require_second_factor: false
+    # L1: enrolling/removing a 2FA device needs the second factor, not just
+    # password + mailbox (every user already has TOTP + WebAuthn).
+    require_second_factor: true
     skip_second_factor: false
   reset_password:
     jwt_lifespan: '5 minutes'
@@ -88,7 +93,10 @@ webauthn:
     discoverability: 'preferred'
     user_verification: 'required'
   metadata:
-    enabled: false
+    # L7: validate authenticators against the FIDO Alliance MDS3 blob. Needs egress
+    # to mds3.fidoalliance.org at startup ('strict' = Authelia refuses to start
+    # without a fresh copy). TOTP stays the fallback if a passkey is rejected.
+    enabled: false   # L7 deferred by the reviewer: strict MDS3 validation needs an internet download at start and can reject the owner's existing zero-AAGUID passkey; revisit after a test enrolment
     cache_policy: 'strict'
     validate_trust_anchor: true
     validate_entry: true
@@ -130,7 +138,12 @@ authentication_backend:
     group_search_mode: 'filter'
     permit_referrals: false
     permit_unauthenticated_bind: false
-    user: 'uid=admin,ou=people,dc=kmkdp,dc=com'
+    # M3: dedicated bind account in lldap_password_manager (read + password
+    # reset/change for non-admin users). Password: AUTHELIA_AUTHENTICATION_BACKEND_LDAP_PASSWORD
+    # (op://kdk-cluster/lldap-authelia-bind/password). uid=admin is break-glass only.
+    # Consequence: lldap_admin members cannot reset/change their password through
+    # Authelia any more (a password manager cannot touch admins) -- use users.kmkdp.com.
+    user: 'uid=authelia-bind,ou=people,dc=kmkdp,dc=com'
     attributes:
       distinguished_name: ''
       username: 'uid'
@@ -156,18 +169,22 @@ authentication_backend:
       mail:  'mail'
       member_of:  'memberOf'
       group_name:  ''
+# M5: Authelia applies ONE password policy (docs: "Only one password policy can be
+# applied at a time"). standard enforces; zxcvbn only shows a strength meter, so
+# standard wins and zxcvbn is off. Applies to Authelia's reset/change flow only --
+# passwords set in the lldap UI or by Wizarr bypass it.
 password_policy:
   standard:
-    enabled: false
-    min_length: 8
+    enabled: true
+    min_length: 14
     max_length: 0
     require_uppercase: false
     require_lowercase: false
     require_number: false
     require_special: false
   zxcvbn:
-    enabled: true
-    min_score: 0
+    enabled: false
+    min_score: 3
 session:
   name: 'authelia_session'
   same_site: 'lax'
@@ -183,9 +200,13 @@ session:
     database_index: 0
     maximum_active_connections: 8
     minimum_idle_connections: 0
+# M5: ban the source IP as well as the username (4.39 `regulation.modes`). The IP is
+# the first X-Forwarded-For entry, which is only trustworthy once the DMZ Traefik
+# trusts XFF from cloudflared/internal Traefik alone (batch 3, M7) -- merge after it.
 regulation:
   modes:
   - 'user'
+  - 'ip'
   max_retries: 3
   find_time: '2 minutes'
   ban_time: '5 minutes'
@@ -238,12 +259,29 @@ identity_providers:
         - policy: 'two_factor'
           subject:
             - ['group:immich-users']
-      netbox_access:
+      # HA H3: only household HA users; any other LLDAP account (e.g. Wizarr-invited
+      # Jellyfin guests) is refused before Home Assistant ever sees it.
+      ha_access:
         default_policy: 'deny'
         rules:
         - policy: 'two_factor'
           subject:
-            - ['group:netbox-users']
+            - ['group:ha-users']
+      # ABS-2: ABS auto-registers every OIDC user, so gate it here.
+      audiobookshelf_access:
+        default_policy: 'deny'
+        rules:
+        - policy: 'two_factor'
+          subject:
+            - ['group:audiobookshelf-users']
+      # Libreseerr auto-creates OIDC users and hands every user the Chaptarr key
+      # (request-apps audit H-L3): household only.
+      libreseerr_access:
+        default_policy: 'deny'
+        rules:
+        - policy: 'two_factor'
+          subject:
+            - ['group:internal-users']
     jwks:
       - algorithm: 'RS256'
         use: 'sig'
@@ -252,62 +290,6 @@ identity_providers:
     cors:
       allowed_origins_from_client_redirect_uris: false
     clients:
-      - client_id: 'netbox'
-        client_name: 'NetBox'
-        client_secret: '{{ secret "/secrets/authelia-app-secrets/netbox_client_secret" }}'
-        public: false
-        redirect_uris:
-          - 'https://netbox.kmkdp.com/oauth/complete/oidc/'
-        scopes:
-          - 'openid'
-          - 'email'
-          - 'profile'
-          - 'groups'
-        grant_types:
-          - 'authorization_code'
-        response_types:
-          - 'code'
-        authorization_policy: 'netbox_access'
-        consent_mode: 'auto'
-        require_pushed_authorization_requests: false
-        require_pkce: false
-        pkce_challenge_method: ''
-        authorization_signed_response_alg: 'RS256'
-        authorization_signed_response_key_id: ''
-        authorization_encrypted_response_key_id: ''
-        authorization_encrypted_response_alg: ''
-        authorization_encrypted_response_enc: ''
-        id_token_signed_response_alg: 'RS256'
-        id_token_signed_response_key_id: ''
-        id_token_encrypted_response_key_id: ''
-        id_token_encrypted_response_alg: ''
-        id_token_encrypted_response_enc: ''
-        access_token_signed_response_alg: 'none'
-        access_token_signed_response_key_id: ''
-        access_token_encrypted_response_key_id: ''
-        access_token_encrypted_response_alg: ''
-        access_token_encrypted_response_enc: ''
-        userinfo_signed_response_alg: 'none'
-        userinfo_signed_response_key_id: ''
-        userinfo_encrypted_response_key_id: ''
-        userinfo_encrypted_response_alg: ''
-        userinfo_encrypted_response_enc: ''
-        introspection_signed_response_alg: 'none'
-        introspection_signed_response_key_id: ''
-        introspection_encrypted_response_key_id: ''
-        introspection_encrypted_response_alg: ''
-        introspection_encrypted_response_enc: ''
-        introspection_endpoint_auth_method: 'client_secret_basic'
-        introspection_endpoint_auth_signing_alg: 'RS256'
-        request_object_signing_alg: ''
-        request_object_encryption_alg: 'none'
-        request_object_encryption_enc: ''
-        token_endpoint_auth_method: 'client_secret_post'
-        token_endpoint_auth_signing_alg: ''
-        revocation_endpoint_auth_method: 'client_secret_basic'
-        revocation_endpoint_auth_signing_alg: 'RS256'
-        pushed_authorization_request_endpoint_auth_method: 'client_secret_basic'
-        pushed_authorization_request_endpoint_auth_signing_alg: 'RS256'
       - client_id: 'tailscale'
         client_name: 'Tailscale'
         client_secret: '{{ secret "/secrets/authelia-app-secrets/tailscale_client_secret" }}'
@@ -377,8 +359,11 @@ identity_providers:
           - 'authorization_code'
         response_types:
           - 'code'
-        authorization_policy: 'two_factor'
+        authorization_policy: 'libreseerr_access'
         consent_mode: 'auto'
+        # PKCE stays OFF: Libreseerr's Authlib client only sends a code_challenge when
+        # code_challenge_method is set in its client_kwargs, which is not confirmed
+        # for v0.9.0. Enforcing it here without that would break every SSO login.
         require_pkce: false
       - client_id: 'tandoor'
         client_name: 'Tandoor'
@@ -396,7 +381,10 @@ identity_providers:
           - 'code'
         authorization_policy: 'two_factor'
         consent_mode: 'auto'
-        require_pkce: false
+        # TAN-9: Tandoor (django-allauth) already sends S256 (OAUTH_PKCE_ENABLED in
+        # stacks/tandoor/.env.tpl); now the IdP enforces it.
+        require_pkce: true
+        pkce_challenge_method: 'S256'
       - client_id: 'vikunja'
         client_name: 'Vikunja Tasks'
         client_secret: '{{ secret "/secrets/authelia-app-secrets/vikunja_client_secret" }}'
@@ -429,7 +417,7 @@ identity_providers:
           - 'authorization_code'
         response_types:
           - 'code'
-        authorization_policy: 'two_factor'
+        authorization_policy: 'ha_access'   # group ha-users (HA H3)
         consent_mode: 'auto'
         # hass-oidc-auth is a spec-strict RP: PKCE S256 + client_secret_post
         require_pkce: true
@@ -469,7 +457,7 @@ identity_providers:
           - 'authorization_code'
         response_types:
           - 'code'
-        authorization_policy: 'two_factor'
+        authorization_policy: 'audiobookshelf_access'   # group audiobookshelf-users (ABS-2)
         consent_mode: 'auto'
         require_pushed_authorization_requests: false
         require_pkce: true
@@ -568,6 +556,7 @@ identity_providers:
         pushed_authorization_request_endpoint_auth_signing_alg: 'RS256'
       - client_id: 'grafana'
         client_name: 'Grafana'
+        # M4: the file holds a $pbkdf2-sha512$ digest (Grafana keeps the plaintext).
         client_secret: '{{ secret "/secrets/authelia-app-secrets/grafana_client_secret" }}'
         public: false
         redirect_uris:
@@ -624,6 +613,8 @@ identity_providers:
         pushed_authorization_request_endpoint_auth_signing_alg: 'RS256'
       - client_id: 'immich'
         client_name: 'Immich'
+        # M4: the file holds a $pbkdf2-sha512$ digest (Immich keeps the plaintext).
+        # PKCE stays off on purpose (owner decision K10).
         client_secret: '{{ secret "/secrets/authelia-app-secrets/immich_client_secret" }}'
         public: false
         redirect_uris:
@@ -679,39 +670,51 @@ identity_providers:
         revocation_endpoint_auth_signing_alg: 'RS256'
         pushed_authorization_request_endpoint_auth_method: 'client_secret_basic'
         pushed_authorization_request_endpoint_auth_signing_alg: 'RS256'
+# Named networks for access_control / OIDC policy rules (4.39: definitions.network).
+# Not referenced by any rule yet -- defined for later network-scoped rules. Matches
+# the first X-Forwarded-For address, so only meaningful with the batch-3 trusted-XFF
+# lists on the DMZ Traefik. 192.168.3.0/24 = WireGuard break-glass (admin source).
+definitions:
+  network:
+    internal:
+      - '10.1.1.0/24'
+      - '10.1.3.0/24'
+      - '10.1.20.0/24'
+      - '10.1.30.0/24'
+      - '192.168.191.0/24'
+      - '100.64.0.0/10'
+      - '192.168.3.0/24'
 access_control:
   default_policy: 'deny'
   rules:
     - policy: bypass
       domain:
         - 'sso.kmkdp.com'
+    # L3: blackbox probes from kdk-mon-01 hit the apps' anonymous health endpoint
+    # (Sonarr/Radarr/Prowlarr `GET /ping` -> {"status":"OK"}, [AllowAnonymous]).
+    # `resources` matches path+query, so only the exact path /ping bypasses.
+    # Must stay ABOVE the two_factor rule for these hosts (first match wins).
+    - policy: bypass
+      domain:
+        - 'sonarr.kmkdp.com'
+        - 'radarr.kmkdp.com'
+        - 'prowlarr.kmkdp.com'
+      resources:
+        - '^/ping$'
     - policy: two_factor
       domain:
         - 'home.kmkdp.com'
       subject:
         - ['group:dashboard-users']
-    - policy: two_factor
-      domain:
-        - 'grafana-embed.kmkdp.com'
-      subject:
-        - ['group:dashboard-users']
-    - policy: two_factor
-      domain:
-        - 'learn-k3s.kmkdp.com'
-      subject:
-        - ['group:internal-users']
-    - policy: two_factor
-      domain:
-        - 'swagger.kmkdp.com'
-      subject:
-        - ['group:internal-users']
+    # LLDAP admin UI (H1, ForwardAuth label on the lldap router). Directory
+    # admins only; LLDAP's own login is the second gate.
     - policy: two_factor
       domain:
         - 'users.kmkdp.com'
       subject:
-        - ['group:internal-users']
+        - ['group:lldap_admin']
     - policy: two_factor
-      domain:        
+      domain:
         - 'sonarr.kmkdp.com'
         - 'radarr.kmkdp.com'
         - 'sabnzbd.kmkdp.com'
