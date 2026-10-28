@@ -164,7 +164,12 @@ services:
       DEE_WRAPPER_TOKEN: ${DEE_WRAPPER_TOKEN:-}
       inContainer: "true"
     ports:
-      - "8266:8266"   # node RPC (external nodes: RGB-Nebula 4090)
+      # Node RPC for the external GPU node (RGB-Nebula 4090) on the VLAN 20
+      # address, plus loopback for the host-network jobs (tdarr-backlog,
+      # tdarr-remediate, tdarr-verify call http://localhost:8266). Not 0.0.0.0:
+      # the storage NIC and docker bridges never needed it (hosts report H-02).
+      - "127.0.0.1:8266:8266"
+      - "10.1.20.20:8266:8266"
     volumes:
       - /opt/kdk-lab/media/tdarr/server:/app/server
       - /opt/kdk-lab/media/tdarr/configs:/app/configs

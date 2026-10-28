@@ -88,7 +88,9 @@ services:
       - ./prometheus:/etc/prometheus:ro
       - prometheus-data:/prometheus
     ports:
-      - "9090:9090"
+      # VLAN 20 address only (hosts report H-02). Grafana uses prometheus:9090
+      # on the compose network; HA on dkr-02 queries 10.1.20.30:9090.
+      - "10.1.20.30:9090:9090"
 
   # The one thing this stack could not do before 2026-08-30: turn a failed
   # probe into a notification. It records but never alerted, which is why the

@@ -4,7 +4,9 @@
 // DMZ via the UniFi rule 192.168.191.20 -> 10.1.20.21:3100).
 
 discovery.docker "containers" {
-  host = "unix:///var/run/docker.sock"
+  // Docker API through the read-only socket proxy in this stack (security
+  // batch 7): GET containers/networks only, no socket mount in this container.
+  host = "tcp://socket-proxy:2375"
 }
 
 discovery.relabel "docker" {
@@ -26,7 +28,7 @@ discovery.relabel "docker" {
 }
 
 loki.source.docker "containers" {
-  host       = "unix:///var/run/docker.sock"
+  host       = "tcp://socket-proxy:2375"
   targets    = discovery.relabel.docker.output
   labels     = { job = "docker" }
   forward_to = [loki.write.default.receiver]

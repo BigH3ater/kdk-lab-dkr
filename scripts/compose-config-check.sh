@@ -18,6 +18,10 @@ set -uo pipefail
 repo=$(cd "$(dirname "$0")/.." && pwd)
 ci=0
 if [ "${1:-}" = "--ci" ]; then ci=1; shift; fi
+# Komodo renders per-stack `environment` (komodo/resources.toml) into .env at
+# deploy time. Variables that a compose file requires with ${VAR:?...} need a
+# placeholder here or `config` fails before it validates anything.
+export BIND_IP="${BIND_IP:-127.0.0.1}"
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 cp -r "$repo/stacks" "$work/"

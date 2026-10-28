@@ -40,6 +40,11 @@ Spare `/16`s for future hosts: `10.214.0.0/16` – `10.223.0.0/16`.
 The per-host `daemon.json` files are version-controlled under `hosts/<host>/daemon.json`
 and applied to `/etc/docker/daemon.json` on each host.
 
+Since 2026-10 the same files carry the security baseline keys (log rotation,
+`live-restore`, `no-new-privileges`, `userland-proxy: false`, `icc: false`). Those are
+applied with a reload + restart that keeps containers running, not with the restart in
+the runbook below: see [[docker-daemon]].
+
 ## Rule for new stacks
 
 With `default-address-pools` set, **any** new compose network auto-allocates a safe
