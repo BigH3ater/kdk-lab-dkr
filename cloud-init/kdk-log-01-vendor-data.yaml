@@ -211,6 +211,8 @@ runcmd:
   # Periphery pinned to Core's release line (docs/services/komodo.md: 2.3.3).
   # Installed but left STOPPED and DISABLED until the auth line is in place:
   # with neither passkeys nor core_public_keys, periphery accepts any caller.
-  - curl -fsSL https://raw.githubusercontent.com/moghtech/komodo/v2.3.3/scripts/setup-periphery.py | python3 - --version v2.3.3
+  # HOME must be set: cloud-init runcmd has no HOME and the installer reads
+  # os.environ["HOME"] (KeyError on the first build, 2026-10-28).
+  - curl -fsSL https://raw.githubusercontent.com/moghtech/komodo/v2.3.3/scripts/setup-periphery.py | HOME=/root python3 - --version v2.3.3
   - systemctl disable --now periphery
   - touch /var/lib/cloud/kdk-log-01-ready
