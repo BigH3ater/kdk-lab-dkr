@@ -16,6 +16,8 @@ Metrics + alerting live on the independent monitor [[kdk-mon-01]]; logs live on 
 
 **Related:** [[kdk-mon-01]] · [[kdk-log-01]] · [[kdk-dkr-01]] · [[komodo]]
 
+> `https://alertmanager.kmkdp.com` (Authelia, `internal-users`) fronts Alertmanager via the internal Traefik; direct fallback `http://10.1.20.30:9093` from an allowed source.
+
 ## At a glance
 
 | Field | Value |

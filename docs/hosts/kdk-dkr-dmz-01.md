@@ -12,7 +12,7 @@ vmid: 23
 console: TrueNAS UI → Virtualization → kdkdkrdmz01 → Console
 standards: drifted
 secrets: []
-updated: 2026-09-12
+updated: 2026-10-28
 tags: [homelab/host, role/docker-host, status/live, tier/dmz]
 ---
 
@@ -80,7 +80,7 @@ Public hostnames probed by `blackbox-http-app` on [[kdk-mon-01]]; alerts → Pus
 | Admin account | `kdkadmin`, key-only, NOPASSWD | ✅ | |
 | Timezone | America/Chicago | ✅ | CDT |
 | NTP | `ntp.kmkdp.com` primary | ⚠️ synced via public pools (timesyncd) | |
-| Syslog | `syslog.kmkdp.com:514` | ⚠️ receiver live on [[kdk-log-01]]; forwarder is a hand step | copy `hosts/_common/rsyslog.d/90-kdk-loki.conf` to `/etc/rsyslog.d/`, restart rsyslog (needs UniFi `192.168.191.20 → 10.1.20.21:514`) |
+| Syslog | `syslog.kmkdp.com:514` | ⚠️ receiver live on [[kdk-log-01]]; forwarder is a hand step (`apt install rsyslog` first: the VMs were journald-only) | copy `hosts/_common/rsyslog.d/90-kdk-loki.conf` to `/etc/rsyslog.d/`, restart rsyslog (needs UniFi `192.168.191.20 → 10.1.20.21:514`) |
 
 ## Architecture
 
@@ -91,9 +91,11 @@ VLAN 191 (DMZ). Traefik `80/443`, periphery `8120`. Outbound: cloudflared to Clo
 | Mount | Source | FS | Consumed by | Backup |
 |---|---|---|---|---|
 | `/mnt/media` (RO) | `172.16.30.2:/mnt/tankz3/media` | NFS | Jellyfin | tankz3 snapshots |
-| `/mnt/appdata` | `…/appdata` | NFS | Seerr, Immich library | snapshots |
+| `/mnt/appdata` | `…/appdata` | NFS | Seerr, Wizarr, Libreseerr, Immich library, Jellyfin metadata (`jellyfin/metadata`), ABS podcasts (`audiobookshelf/podcasts`) | snapshots |
 | `/mnt/backup` | `…/backup` | NFS | backup-dmz | snapshots |
-| `/opt/kdk-lab` | vmpool zvol | zfs | identity, immich, jellyfin config | nightly rsync + pg dumps → NAS; zvol replication |
+| `/opt/kdk-lab` | vmpool zvol | zfs | identity, immich, jellyfin config + DB, audiobookshelf config + metadata | nightly rsync + pg dumps → NAS; zvol replication |
+
+**Root disk.** `/dev/vda1` is only 59 GB and holds the OS, Docker images and `/opt/kdk-lab`. It hit 75 % (alert) on 2026-10-28; the fixes were moving the two growing write paths to `/mnt/appdata` (Jellyfin metadata 8.3 GB, ABS podcasts 7.5 GB) and the weekly `prune-images` Procedure (old image tags; see [Komodo GitOps](../komodo-gitops.md)). Keep only small state and SQLite DBs here; anything that grows with the library goes on the appdata NFS. Check: `ssh kdkadmin@192.168.191.20 'df -h /; sudo du -xsh /opt/kdk-lab/* | sort -h | tail'`.
 
 ## Configuration
 

@@ -6,7 +6,7 @@ tier: dmz
 status: live
 storage: yes
 secrets: []
-updated: 2026-10-25
+updated: 2026-10-28
 tags: [homelab/stack, tier/dmz, status/live]
 ---
 
@@ -26,7 +26,7 @@ Media server on the DMZ node with Intel Arc A380 QSV transcode; public via the C
 | Endpoint | `https://jellyfin.kmkdp.com` (LAN + Cloudflare tunnel) |
 | Image | `lscr.io/linuxserver/jellyfin:12.3ubu2604-ls56` — 12.x line, pinned; server and plugins move together |
 | Deploy | Komodo stack `jellyfin` (git-linked) |
-| Storage | `/opt/kdk-lab/jellyfin/config` (byte-for-byte from k3s); library RO from `/mnt/media` |
+| Storage | `/opt/kdk-lab/jellyfin/config` on local disk (DB, cache, plugins; byte-for-byte from k3s); images/metadata on NFS `/mnt/appdata/jellyfin/metadata` → `/config/data/metadata`; library RO from `/mnt/media` |
 | Blast radius | No streaming; requests via Seerr still queue |
 
 ## Verify
@@ -73,6 +73,7 @@ Listens on `8096`, joins `proxy-dmz`. `/dev/dri` gives QSV. Library mounted read
 | Path / setting | What it is |
 |---|---|
 | `/opt/kdk-lab/jellyfin/config` | jellyfin.db (users, watched), plugins, config |
+| `/mnt/appdata/jellyfin/metadata` → `/config/data/metadata` | posters/images/NFO metadata (8+ GB) on the rw appdata NFS since 2026-10-28, off the 59 GB root disk. Same in-container path, so no dashboard change. `1000:1000` (PUID/PGID). Regenerable: excluded from backup-dmz, tankz3 snapshots only. The DB (`/config/data/data`) stays local — never on NFS |
 | `stacks/jellyfin/plugins.yaml` | plugin GUIDs + pinned versions |
 | `tmpfs /config/cache/transcodes` | 6G RAM-disk scratch (`mode=1777`), excluded from backup — see [[jellyfin-transcoding]] |
 | `/opt/kdk-lab/jellyfin/config/encoding.xml` | Arc QSV/HDR encoding settings (host state, not in git) |

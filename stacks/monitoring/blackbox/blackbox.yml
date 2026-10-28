@@ -28,7 +28,7 @@ modules:
       valid_status_codes: []
       fail_if_ssl: false
 
-  # Smart-home app endpoints (Home Assistant, Scrypted, Homebridge). These
+  # Smart-home app endpoints (Home Assistant, Scrypted, Node-RED). These
   # legitimately answer with a login redirect (Scrypted -> 302) or an auth
   # challenge, so a strict 2xx check would report a HEALTHY endpoint as down.
   # Success here means "the app responded with a real HTTP status". TLS

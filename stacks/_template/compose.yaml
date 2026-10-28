@@ -1,0 +1,102 @@
+# _template: starting point for a new stack. Copy the directory, rename it and
+# every "template" below, then replace this header with: what the service does,
+# which host runs it, how it is reached (LAN via stacks/proxy, public via
+# stacks/dmz-proxy, Tailscale only) and how users authenticate (Authelia
+# forwardauth or the app's own login).
+#
+# Every service meets docs/reference/compose-baseline.md. Check it with
+#   python3 scripts/compose-baseline-check.py --stack <name>
+# before opening the PR; the compose-baseline Action fails on new gaps.
+#
+# Secrets: .env is rendered from .env.tpl by the Komodo pre_deploy step
+# (op inject against 1Password Connect, kdk-cluster vault). Never commit .env.
+#
+# This directory is NOT a [[stack]] in komodo/resources.toml, so Komodo never
+# deploys it and dns-reconcile ignores its Host() rule.
+name: template
+
+# Baseline for every service. Services merge it with `<<: *hardened` and only
+# add or override what they need (a key set on the service replaces the
+# anchor's value, it is not merged).
+x-hardened: &hardened
+  security_opt: ["no-new-privileges:true"]
+  cap_drop: [ALL]            # add back only what the image needs, with a comment
+  read_only: true            # writable paths come from volumes + tmpfs
+  tmpfs: [/tmp]
+  restart: unless-stopped    # one-shot jobs (deploy = false): "no"
+  pids_limit: 256
+  mem_limit: 512m
+  logging:
+    driver: json-file
+    options: { max-size: "10m", max-file: "3" }
+
+services:
+  app:
+    <<: *hardened
+    # Pin x.y.z (Renovate adds the @sha256 digest). Never latest/stable/major-only.
+    image: ghcr.io/example/app:1.2.3
+    container_name: template-app
+    # The image runs as root but does not need to. LinuxServer images instead
+    # take PUID/PGID and need cap_add for s6 (see the baseline doc).
+    user: "1000:1000"
+    init: true                 # node/python app: tini reaps children, forwards SIGTERM
+    env_file: [.env]           # APP_SECRET_KEY, POSTGRES_PASSWORD (op-injected)
+    environment:
+      TZ: America/Chicago
+      DB_HOST: db
+      DB_NAME: template
+      DB_USER: template
+    volumes:
+      - /opt/kdk-lab/template/data:/data           # the only path the app writes
+      - ./config:/config:ro                        # repo-managed config dir (delete if none)
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    depends_on:
+      db: { condition: service_healthy }
+    # backend reaches the db; proxy is the shared Traefik network (dmz: proxy-dmz).
+    networks: [backend, proxy]
+    labels:
+      traefik.enable: "true"
+      traefik.docker.network: "proxy"
+      traefik.http.routers.template.rule: "Host(`template.kmkdp.com`)"
+      traefik.http.routers.template.middlewares: "forwardauth@file"   # Authelia
+      traefik.http.services.template.loadbalancer.server.port: "3000" # container port
+      # Exceptions: one label, "<item>: <why>" pairs separated by ";".
+      # kdk.baseline.exception: "devices: /dev/dri for VAAPI transcode"
+      # Opt-outs for baseline items the image genuinely cannot meet; say why here.
+      # kdk.baseline.skip: "read_only"   # app 1.2 writes /app/cache at start, no env to move it
+
+  db:
+    <<: *hardened
+    image: postgres:16.10-alpine
+    container_name: template-db
+    # The entrypoint chowns the data dir and drops to the postgres user.
+    cap_add: [CHOWN, SETUID, SETGID, DAC_OVERRIDE, FOWNER]
+    tmpfs: [/tmp, /var/run/postgresql]
+    mem_limit: 1g
+    shm_size: 128m
+    env_file: [.env]           # POSTGRES_PASSWORD (op-injected)
+    environment:
+      POSTGRES_DB: template
+      POSTGRES_USER: template
+    volumes:
+      - /opt/kdk-lab/template/postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U template -d template"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks: [backend]
+
+networks:
+  # DB/cache tier: internal = no route out of the host; only the app joins both.
+  # Pin a subnet from the host's slot if the stack needs a stable range
+  # (docs/reference/docker-ipam.md); otherwise the daemon pool assigns one.
+  backend:
+    internal: true
+  proxy:
+    external: true

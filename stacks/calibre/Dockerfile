@@ -1,4 +1,4 @@
-FROM python:3.12-slim
+FROM python:3.12.16-slim
 # Calibre ships both `calibre-server` (Content Server + OPDS) and `calibredb`
 # (library management). Installed WITH recommends so the Qt runtime deps calibre
 # needs are present even headless. Same base pattern as book-sync.

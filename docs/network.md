@@ -22,6 +22,11 @@ PR as any change that adds or moves an address.
 | kdk-dee-01 | 10.1.1.130 | 10 | VM on kdk-hyp-01 | 220 |
 | kdk-pbs-01 | 10.1.1.102 | 10 | VM 23 on kdk-nas-01 | — |
 
+> Host FQDNs (`kdk-*.kmkdp.com`) are A-records written by `stacks/dns-reconcile`
+> (`EXTRA` map) from this table; unknown names fall through the `*.kmkdp.com`
+> wildcard to the internal Traefik (10.1.20.20), so a host without a record
+> silently "resolves" to the wrong box. Add new hosts here AND in `EXTRA`.
+
 VLAN 20 is a `/27`: gateway `.1`, kdk-dkr-01 `.20`, kdk-log-01 `.21`, kdk-mon-01 `.30`.
 
 ## Inter-VLAN rules for the log host (UniFi)
@@ -101,7 +106,7 @@ auto-reconciliation.
 |---|---|---|
 | `*.kmkdp.com` | 10.1.20.20 | everything on internal Traefik (kdk-dkr-01) |
 | sso, seerr, jellyfin, immich, users, recipes, audiobookshelf, libreseerr .kmkdp.com | 192.168.191.20 | DMZ Traefik (kdk-dkr-dmz-01) |
-| homeassistant, zigbee, nodered, scrypted, homebridge .kmkdp.com | 10.1.30.21 / .22 | Pi Traefik (kdk-dkr-02; scrypted/homebridge on dkr-03 behind the dkr-02 answer is historical — both resolve 10.1.30.21) |
+| homeassistant, zigbee, nodered, scrypted .kmkdp.com | 10.1.30.21 | Pi Traefik (kdk-dkr-02; proxies scrypted across to dkr-03). homebridge.kmkdp.com retired 2026-10-28 — dns-reconcile deletes it (`RETIRED`), so it falls through to the wildcard |
 | ollama, kdk-tdarr-gpu-01 .kmkdp.com | 10.1.30.218 | GPU workstation |
 | reMarkable cloud domains (my/ping/tectonic/…, appspot hosts) | 10.1.20.20 (2 blackholed → 0.0.0.0) | rmfakecloud intercept |
 | host FQDNs (pve, pbs, truenas, kdk-*-NN) | per-host | infra |

@@ -1,4 +1,4 @@
-FROM python:3.12-slim
+FROM python:3.12.16-slim
 # ssh/sshpass reach the tablet's dropbear to drop plain EPUB files for KOReader.
 # Calibre's `ebook-convert` renders each Readwise article's HTML into an EPUB.
 # Installed WITH recommends so ebook-convert has its Qt runtime deps.
