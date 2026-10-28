@@ -404,7 +404,7 @@
         "package": "code.vikunja.io/api"
       },
       "confirm": true,
-      "note": "GitHub is a mirror (main forge is kolaente.dev); confirm the OSV module path"
+      "note": "GitHub is a mirror (main forge is kolaente.dev); confirm the OSV module path. The OSV Go entries for code.vikunja.io/api mostly carry only an introduced event (no fixed), so the GHSA alias from go-vikunja/vikunja is authoritative for the verdict (source=osv+ghsa)"
     }
   }
 }

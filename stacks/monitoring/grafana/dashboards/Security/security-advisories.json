@@ -124,6 +124,7 @@
        "fixed_in": true,
        "stacks": true,
        "source": true,
+       "note": true,
        "title": true,
        "url": true
       },
@@ -137,8 +138,9 @@
        "fixed_in": 6,
        "stacks": 7,
        "source": 8,
-       "title": 9,
-       "url": 10
+       "note": 9,
+       "title": 10,
+       "url": 11
       }
      }
     },

@@ -9,9 +9,12 @@ logfmt line per (image, tag, advisory):
   ts=... image=... tag=... severity=... id=... verdict=... fixed_in=... url=...
 
 verdict: Vulnerable (the pinned tag is inside the affected range), Patched
-(outside it), Unknown (the tag cannot be compared: `latest`, a floating
-`16-alpine`, a digest, an RSS item). Lines go to Loki (job="advisory-watch",
-the ruler pages on Critical/High Vulnerable/Unknown) and to stdout.
+(outside it, or at/after the published fix), Unknown (the tag cannot be
+compared: `latest`, a floating `16-alpine`, a digest, an RSS item, an OSV entry
+with no fix event and no GHSA alias). An optional note= says why a verdict is
+odd (contradictory-metadata, unfixed-or-unknown). Lines go to Loki
+(job="advisory-watch", the ruler pages on Critical/High Vulnerable/Unknown) and
+to stdout. `--selftest` runs the verdict unit cases offline.
 
 Sources: GitHub repository advisories (token optional, only lifts the rate
 limit), OSV /v1/query by package + pinned version, NVD CVE API 2.0 (optional,
@@ -134,19 +137,30 @@ def vcmp(a: tuple[int, ...], b: tuple[int, ...]) -> int:
     return (a > b) - (a < b)
 
 
-def in_range(bounds, rng: str) -> bool | None:
-    """Is the tag's interval inside a GHSA range like '>= 1.0.0, < 1.2.3'?
-    True = every version the tag can be is affected, False = none is, None = some
-    are (a floating tag straddling the fix) or the range is unparsable."""
-    conds = [c.strip() for c in (rng or "").split(",") if c.strip()]
-    if bounds is None or not conds:
-        return None
+def split_range(rng: str) -> list[str]:
+    """'>=v1.68.0 <= 1.75.1' or '>= 1.0.0, < 1.2.3' -> one string per condition.
+    GitHub uses commas, but also plain spaces before the next operator."""
+    return [c.strip() for c in re.split(r",|\s+(?=[<>=])", rng or "") if c.strip()]
+
+
+def parse_range(rng: str) -> list[tuple[str, tuple[int, ...]]] | None:
+    """[(op, version)] for each condition; None when empty or any part is unparsable."""
     parsed = []
-    for c in conds:
+    for c in split_range(rng):
         m = re.match(r"^(>=|<=|>|<|=)?\s*(v?\d+(?:\.\d+)*)", c)
         if not m:
             return None
         parsed.append((m.group(1) or "=", vtuple(m.group(2))))
+    return parsed or None
+
+
+def in_range(bounds, rng: str) -> bool | None:
+    """Is the tag's interval inside a GHSA range like '>= 1.0.0, < 1.2.3'?
+    True = every version the tag can be is affected, False = none is, None = some
+    are (a floating tag straddling the fix) or the range is unparsable."""
+    parsed = parse_range(rng)
+    if bounds is None or not parsed:
+        return None
 
     def ok(v):
         return all({">=": r >= 0, "<=": r <= 0, ">": r > 0, "<": r < 0, "=": r == 0}[op]
@@ -160,6 +174,61 @@ def in_range(bounds, rng: str) -> bool | None:
     above = any(op in (">", ">=", "=") and (vcmp(hi, x) < 0 or (op == ">" and vcmp(hi, x) == 0))
                 for op, x in parsed)
     return False if below or above else None
+
+
+def entry_verdict(bounds, rng: str, patched: str | None) -> tuple[bool | None, str]:
+    """in_range() for one (vulnerable range, patched versions) pair, plus the fix:
+    a tag at or after the patched version is not affected even when the range is
+    open-ended ('>= 1.75.0' patched '1.75.2'). When the range's own upper bound
+    also covers the fix ('<= v2.36.1' patched '>= v2.36.1') the metadata
+    contradicts itself: keep the range's answer and say so."""
+    r = in_range(bounds, rng)
+    fixes = [vtuple(x) for x in re.findall(r"v?\d+(?:\.\d+)*", patched or "")]
+    if r is False or bounds is None or not fixes:
+        return r, ""
+    fix = max(fixes)                  # several lines listed: only the newest is safe for all
+    if vcmp(bounds[0], fix) < 0:
+        return r, ""
+    if any(op in ("<", "<=", "=") for op, _ in parse_range(rng) or []):
+        return r, "contradictory-metadata"
+    return False, ""
+
+
+def judge(bounds, entries: list[tuple[str, str]]) -> tuple[str, str, str]:
+    """(verdict, fixed_in, note) for an advisory given its [(range, patched)] entries."""
+    res = [entry_verdict(bounds, rng, pat) for rng, pat in entries]
+    verdict = ("Vulnerable" if any(r is True for r, _ in res) else
+               "Patched" if res and all(r is False for r, _ in res) else "Unknown")
+    all_fixes = sorted({p for _, p in entries if p})
+    hit = [p for (_, p), (r, _) in zip(entries, res) if r is not False and p]
+    note = "contradictory-metadata" if any(r is not False and n for r, n in res) else ""
+    return verdict, "|".join(sorted(set(hit or all_fixes))[:4]), note
+
+
+def osv_entries(affected: list[dict], pkg: str) -> list[tuple[str, str]]:
+    """OSV affected[].ranges[].events -> [(GHSA-style range, fixed)] for `pkg`
+    (all packages when none matches). GIT ranges (commit hashes) are skipped."""
+    aff = [a for a in affected if (a.get("package") or {}).get("name") == pkg] or affected
+    out = []
+    for a in aff:
+        for r in a.get("ranges") or []:
+            if r.get("type") not in ("SEMVER", "ECOSYSTEM"):
+                continue
+            lo = None
+            for ev in r.get("events") or []:
+                if "introduced" in ev:
+                    if lo is not None:
+                        out.append((f">= {lo}", ""))
+                    lo = ev["introduced"]
+                elif "fixed" in ev:
+                    out.append((f">= {lo or 0}, < {ev['fixed']}", ev["fixed"]))
+                    lo = None
+                elif "last_affected" in ev:
+                    out.append((f">= {lo or 0}, <= {ev['last_affected']}", ""))
+                    lo = None
+            if lo is not None:
+                out.append((f">= {lo}", ""))
+    return out
 
 
 def sev(s: str | None) -> str:
@@ -208,23 +277,68 @@ def src_ghsa(gh: str, since: dt.datetime, tags: dict[str, tuple | None]) -> list
     url = (f"https://api.github.com/repos/{gh}/security-advisories"
            "?per_page=100&sort=published&direction=desc")
     out = []
-    for adv in json.loads(http(url, headers=gh_headers())):
+    advs = json.loads(http(url, headers=gh_headers()))
+    GHSA_REPO[gh] = {a.get("ghsa_id"): a for a in advs}   # all of them, for OSV alias lookups
+    for adv in advs:
         pub = parse_time(adv.get("published_at"))
         if not pub or pub <= since:
             continue
-        vulns = adv.get("vulnerabilities") or []
-        all_fixes = sorted({v["patched_versions"] for v in vulns if v.get("patched_versions")})
+        entries = ghsa_entries(adv)
         for tag, bounds in tags.items():
-            res = [in_range(bounds, v.get("vulnerable_version_range")) for v in vulns]
-            verdict = ("Vulnerable" if any(r is True for r in res) else
-                       "Patched" if res and all(r is False for r in res) else "Unknown")
-            hit = [v.get("patched_versions") for v, r in zip(vulns, res) if r is not False]
-            fixed = [f for f in hit if f] or all_fixes   # the fix for this tag's line, else all lines
+            verdict, fixed, note = judge(bounds, entries)
             out.append({"tag": tag, "id": adv.get("ghsa_id"), "aliases": [adv.get("cve_id")],
                          "severity": sev(adv.get("severity")), "verdict": verdict,
-                         "fixed_in": "|".join(sorted(set(fixed))[:4]), "url": adv.get("html_url"),
+                         "fixed_in": fixed, "url": adv.get("html_url"), "note": note,
                          "title": adv.get("summary", ""), "source": "ghsa"})
     return out
+
+
+def ghsa_entries(adv: dict, pkg: str | None = None) -> list[tuple[str, str]]:
+    """GitHub advisory vulnerabilities[] -> [(range, patched)], only `pkg`'s when it is listed."""
+    vulns = adv.get("vulnerabilities") or []
+    if pkg:
+        vulns = [v for v in vulns if (v.get("package") or {}).get("name") == pkg] or vulns
+    return [(v.get("vulnerable_version_range") or "", v.get("patched_versions") or "") for v in vulns]
+
+
+GHSA_REPO: dict[str, dict[str, dict]] = {}   # github repo -> {ghsa_id: advisory}, filled by src_ghsa
+OSV_VULN: dict[str, dict | None] = {}        # OSV id -> record (None = fetch failed)
+
+
+def osv_vuln(vid: str) -> dict | None:
+    if vid not in OSV_VULN:
+        try:
+            OSV_VULN[vid] = json.loads(http(f"https://api.osv.dev/v1/vulns/{vid}"))
+        except Exception as e:
+            log(f"osv lookup {vid} failed: {e}")
+            OSV_VULN[vid] = None
+    return OSV_VULN[vid]
+
+
+def judge_osv(v: dict, pkg: str, ver: str, gh: str | None) -> dict:
+    """Verdict fields for one OSV hit. OSV's Go entries often carry only an
+    `introduced` event, which OSV reads as 'every later version'; the GHSA alias
+    usually has the real fix, so it wins: the repo's advisory list when the
+    catalog has `github`, else the OSV mirror of the GHSA record. No alias and
+    no fix event = Unknown (note=unfixed-or-unknown), not Vulnerable."""
+    bounds = tag_bounds(ver)
+    for alias in v.get("aliases") or []:
+        if not alias.startswith("GHSA-"):
+            continue
+        adv = GHSA_REPO.get(gh or "", {}).get(alias)
+        entries = ghsa_entries(adv, pkg) if adv else []
+        if not entries:
+            g = osv_vuln(alias)
+            entries = osv_entries(g.get("affected") or [], pkg) if g else []
+        if entries:
+            verdict, fixed, note = judge(bounds, entries)
+            return {"verdict": verdict, "fixed_in": fixed, "note": note, "source": "osv+ghsa"}
+    entries = osv_entries(v.get("affected") or [], pkg)
+    if not any(parse_range(r) and any(op in ("<", "<=", "=") for op, _ in parse_range(r))
+               for r, _ in entries):
+        return {"verdict": "Unknown", "fixed_in": "", "note": "unfixed-or-unknown", "source": "osv"}
+    verdict, fixed, note = judge(bounds, entries)
+    return {"verdict": verdict, "fixed_in": fixed, "note": note, "source": "osv"}
 
 
 def osv_severity(v: dict) -> str:
@@ -233,15 +347,13 @@ def osv_severity(v: dict) -> str:
         return sev(s)
     for alias in v.get("aliases") or []:
         if alias.startswith("GHSA-"):
-            try:
-                g = json.loads(http(f"https://api.osv.dev/v1/vulns/{alias}"))
-                return sev((g.get("database_specific") or {}).get("severity"))
-            except Exception:
-                break
+            g = osv_vuln(alias)
+            return sev((g.get("database_specific") or {}).get("severity")) if g else "Unknown"
     return "Unknown"
 
 
-def src_osv(eco: str, pkg: str, tag: str, ver: str, since: dt.datetime | None) -> list[dict]:
+def src_osv(eco: str, pkg: str, tag: str, ver: str, since: dt.datetime | None,
+            gh: str | None = None) -> list[dict]:
     body = {"package": {"ecosystem": eco, "name": pkg}, "version": ver}
     vulns, token = [], None
     while True:
@@ -258,16 +370,10 @@ def src_osv(eco: str, pkg: str, tag: str, ver: str, since: dt.datetime | None) -
         pub = parse_time(v.get("published"))
         if since and pub and pub <= since:
             continue
-        fixes = sorted({ev["fixed"] for a in v.get("affected") or []
-                        if (a.get("package") or {}).get("name") == pkg
-                        for r in a.get("ranges") or [] for ev in r.get("events") or [] if "fixed" in ev},
-                       key=lambda f: vtuple(f) or (0,))
-        later = [f for f in fixes if vtuple(f) and vcmp(vtuple(f), vtuple(ver)) > 0]
         out.append({"tag": tag, "id": v["id"], "aliases": v.get("aliases") or [],
-                    "severity": osv_severity(v), "verdict": "Vulnerable",
-                    "fixed_in": (later or fixes or [""])[0],
+                    "severity": osv_severity(v), **judge_osv(v, pkg, ver, gh),
                     "url": f"https://osv.dev/vulnerability/{v['id']}",
-                    "title": v.get("summary", ""), "source": "osv"})
+                    "title": v.get("summary", "")})
     return out
 
 
@@ -348,6 +454,29 @@ def pushover(title: str, msg: str) -> None:
 
 
 # ---- main -------------------------------------------------------------------
+def merge(findings: dict, repo: str, f: dict, stacks) -> None:
+    """Keep one line per (image, tag, advisory): the same advisory reached via
+    GHSA and OSV (shared id or alias) is emitted once, the ghsa record preferred;
+    between two non-ghsa records the first non-Unknown one wins."""
+    f = {"note": "", **f}
+    keys = {f["id"], *[x for x in f["aliases"] if x]}
+    prev = next((k for k in findings if k[0] == repo and k[1] == f["tag"] and keys & k[2]), None)
+    if prev:
+        old = findings[prev]
+        if old["source"] == "ghsa" and f["source"] != "ghsa":
+            return
+        if f["source"] != "ghsa" and old["verdict"] != "Unknown":
+            return
+        keys |= prev[2]
+        findings.pop(prev)
+    findings[(repo, f["tag"], frozenset(keys))] = {**f, "stacks": stacks}
+
+
+def parse_only(values: list[str]) -> set[str]:
+    """--only a,b --only c -> {a, b, c}, each normalised like a compose image ref."""
+    return {normalize(x.strip())[0] for v in values for x in v.split(",") if x.strip()}
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--repo", default=os.environ.get("REPO", "/repo"))
@@ -356,9 +485,13 @@ def main() -> int:
     ap.add_argument("--loki", default=os.environ.get("LOKI_URL", ""))
     ap.add_argument("--dry-run", action="store_true", help="print only: no Loki push, no state write")
     ap.add_argument("--limit", type=int, default=0, help="check only the first N catalog images")
-    ap.add_argument("--only", action="append", default=[], help="check only this image repository")
+    ap.add_argument("--only", action="append", default=[],
+                    help="check only these catalog keys (comma-separated and/or repeated)")
     ap.add_argument("--first-run-days", type=int, default=int(os.environ.get("FIRST_RUN_DAYS", "30")))
+    ap.add_argument("--selftest", action="store_true", help="run the offline verdict unit cases and exit")
     a = ap.parse_args()
+    if a.selftest:
+        return selftest()
     catalog = json.load(open(a.catalog or f"{a.repo}/stacks/advisory-watch/catalog.json"))["images"]
     state = {}
     if os.path.exists(a.state):
@@ -370,7 +503,10 @@ def main() -> int:
     by_repo: dict[str, dict[str, set[str]]] = {}
     for (repo, tag), stacks in tree_images(a.repo).items():
         by_repo.setdefault(repo, {})[tag] = stacks
-    repos = [r for r in sorted(by_repo) if (not a.only or r in a.only)]
+    only = parse_only(a.only)
+    for o in sorted(only - set(by_repo)):
+        log(f"--only {o}: no stack uses this image repository")
+    repos = [r for r in sorted(by_repo) if (not only or r in only)]
     checked = 0
     for repo in repos:
         ent = catalog.get(repo)
@@ -393,7 +529,8 @@ def main() -> int:
                 ver = tag_version(tag) if use_tag else None
                 if ver:   # OSV matches by exact version only; the first run returns all
                     jobs.append((f"osv:{o['ecosystem']}:{o['package']}@{ver}", "all",
-                                 lambda s, t=tag, v=ver: src_osv(o["ecosystem"], o["package"], t, v, s)))
+                                 lambda s, t=tag, v=ver: src_osv(o["ecosystem"], o["package"], t, v, s,
+                                                                     ent.get("github"))))
         cpes = ent.get("nvd_cpe") or []
         for cpe in [cpes] if isinstance(cpes, str) else cpes:
             if os.environ.get("NVD_DISABLE") != "1":
@@ -410,19 +547,15 @@ def main() -> int:
                 print(f"level=error source={q(sid)} image={q(repo)} err={q(e)}", flush=True)
                 continue
             new_state[sid] = iso(NOW)
-            for f in res:   # one line per (tag, advisory); the same id via GHSA+OSV is kept once
-                keys = {f["id"], *[x for x in f["aliases"] if x]}
-                prev = next((k for k in findings if k[0] == repo and k[1] == f["tag"] and keys & k[2]), None)
-                if prev and findings[prev]["verdict"] != "Unknown":
-                    continue
-                findings.pop(prev, None)
-                findings[(repo, f["tag"], frozenset(keys))] = {**f, "stacks": by_repo[repo][f["tag"]]}
+            for f in res:
+                merge(findings, repo, f, by_repo[repo][f["tag"]])
 
     lines = []
     for (repo, tag, _), f in sorted(findings.items(), key=lambda kv: (kv[0][0], kv[0][1], kv[1]["id"])):
         lines.append(" ".join(f"{k}={q(v)}" for k, v in [
             ("ts", iso(NOW)), ("image", repo), ("tag", tag), ("severity", f["severity"]), ("id", f["id"]),
             ("verdict", f["verdict"]), ("fixed_in", f["fixed_in"]), ("source", f["source"]),
+            *([("note", f["note"])] if f["note"] else []),
             ("stacks", ",".join(sorted(f["stacks"]))), ("url", f["url"]), ("title", f["title"][:160])]))
     count = lambda v: sum(1 for f in findings.values() if f["verdict"] == v)
     lines.append(f"ts={iso(NOW)} summary=1 images_checked={checked} advisories={len(findings)} "
@@ -449,6 +582,84 @@ def main() -> int:
         json.dump(new_state, fh, indent=1, sort_keys=True)
     os.replace(tmp, a.state)
     return 1 if errors else 0
+
+
+# ---- self-test (offline, canned upstream JSON) -------------------------------
+def selftest() -> int:
+    def offline(*_a, **_k):
+        raise RuntimeError("selftest is offline")
+    globals()["http"] = offline
+    GHSA_REPO.clear()
+    OSV_VULN.clear()
+
+    def ex(v):
+        return tag_bounds(v)
+
+    def osv_rec(vid, pkg, events, aliases=()):
+        return {"id": vid, "aliases": list(aliases),
+                "affected": [{"package": {"name": pkg}, "ranges": [{"type": "SEMVER", "events": events}]}]}
+
+    # vikunja 2.6.0: GO-2026-6749 only says introduced 0.24.0; GHSA-rj9j (repo list) is patched in 2.4.0.
+    GHSA_REPO["go-vikunja/vikunja"] = {"GHSA-rj9j-8772-4h6c": {"ghsa_id": "GHSA-rj9j-8772-4h6c", "vulnerabilities": [
+        {"package": {"name": "code.vikunja.io/api"}, "vulnerable_version_range": ">= 0.24.0", "patched_versions": "2.4.0"}]}}
+    vik = osv_rec("GO-2026-6749", "code.vikunja.io/api", [{"introduced": "0.24.0"}], ["GHSA-rj9j-8772-4h6c", "CVE-2026-0001"])
+    # trivy 0.76.1: GO-2026-4919 says introduced 0.69.4; the GHSA (OSV mirror) is =0.69.4, <0.35.0, <0.2.6.
+    OSV_VULN["GHSA-trvy-0000-0000"] = {"id": "GHSA-trvy-0000-0000", "affected": [
+        {"package": {"name": "github.com/aquasecurity/trivy"}, "ranges": [
+            {"type": "ECOSYSTEM", "events": [{"introduced": "0.69.4"}, {"last_affected": "0.69.4"}]},
+            {"type": "ECOSYSTEM", "events": [{"introduced": "0"}, {"fixed": "0.35.0"}]},
+            {"type": "ECOSYSTEM", "events": [{"introduced": "0"}, {"fixed": "0.2.6"}]}]}]}
+    trv = osv_rec("GO-2026-4919", "github.com/aquasecurity/trivy", [{"introduced": "0.69.4"}], ["GHSA-trvy-0000-0000"])
+    cdn = osv_rec("GO-2026-0002", "github.com/coredns/coredns", [{"introduced": "0"}, {"fixed": "1.14.3"}])
+    bare = osv_rec("GO-2026-0003", "example.org/x", [{"introduced": "1.0.0"}])
+    gone = osv_rec("GO-2026-0004", "example.org/x", [{"introduced": "1.0.0"}], ["GHSA-none-0000-0000"])
+
+    dd: dict = {}
+    merge(dd, "img", {"tag": "1", "id": "GHSA-aaaa", "aliases": ["CVE-1"], "verdict": "Patched", "source": "ghsa"}, set())
+    merge(dd, "img", {"tag": "1", "id": "GO-1", "aliases": ["GHSA-aaaa"], "verdict": "Vulnerable", "source": "osv+ghsa"}, set())
+    dd2: dict = {}
+    merge(dd2, "img", {"tag": "1", "id": "GO-1", "aliases": ["GHSA-aaaa"], "verdict": "Unknown", "source": "osv"}, set())
+    merge(dd2, "img", {"tag": "1", "id": "GHSA-aaaa", "aliases": [None], "verdict": "Patched", "source": "ghsa"}, set())
+
+    cases = [
+        ("split space-separated", split_range(">=v1.68.0 <= 1.75.1"), [">=v1.68.0", "<= 1.75.1"]),
+        ("split comma", split_range(">= 1.0.0, < 1.2.3"), [">= 1.0.0", "< 1.2.3"]),
+        ("split exact", split_range("=0.69.4"), ["=0.69.4"]),
+        ("in_range rclone 1.75.2 vs >=v1.68.0 <= 1.75.1", in_range(ex("1.75.2"), ">=v1.68.0 <= 1.75.1"), False),
+        ("in_range rclone 1.75.1 vs >=v1.68.0 <= 1.75.1", in_range(ex("1.75.1"), ">=v1.68.0 <= 1.75.1"), True),
+        ("in_range traefik 3.3.7 vs < 3.6.14", in_range(ex("v3.3.7"), "< 3.6.14"), True),
+        ("in_range trivy 0.76.1 vs =0.69.4", in_range(ex("0.76.1"), "=0.69.4"), False),
+        ("in_range floating v3.3 straddles < 3.3.5", in_range(ex("v3.3"), ">= 3.0.0, < 3.3.5"), None),
+        ("rclone GHSA-35g6 1.75.2", judge(ex("1.75.2"), [(">=v1.68.0 <= 1.75.1", "1.75.2")])[0], "Patched"),
+        ("rclone GHSA-qjw8 1.75.2 (open range, patched 1.75.2)", judge(ex("1.75.2"), [(">= 1.75.0", "1.75.2")])[0], "Patched"),
+        ("rclone GHSA-qjw8 1.75.1 still vulnerable", judge(ex("1.75.1"), [(">= 1.75.0", "1.75.2")])[0], "Vulnerable"),
+        ("ABS 2.36.1 contradictory", judge(ex("2.36.1"), [("<= v2.36.1", ">= v2.36.1")]),
+         ("Vulnerable", ">= v2.36.1", "contradictory-metadata")),
+        ("traefik 3.3.7 vs < 3.6.14", judge(ex("v3.3.7"), [("< 3.6.14", "3.6.14")]), ("Vulnerable", "3.6.14", "")),
+        ("trivy 0.76.1 GHSA ranges", judge(ex("0.76.1"), [("=0.69.4", ""), ("<0.35.0", "0.35.0"), ("<0.2.6", "0.2.6")])[0], "Patched"),
+        ("osv_entries events", osv_entries(cdn["affected"], "github.com/coredns/coredns"), [(">= 0, < 1.14.3", "1.14.3")]),
+        ("vikunja 2.6.0 via repo GHSA alias", judge_osv(vik, "code.vikunja.io/api", "2.6.0", "go-vikunja/vikunja"),
+         {"verdict": "Patched", "fixed_in": "2.4.0", "note": "", "source": "osv+ghsa"}),
+        ("vikunja 2.3.0 via repo GHSA alias", judge_osv(vik, "code.vikunja.io/api", "2.3.0", "go-vikunja/vikunja")["verdict"], "Vulnerable"),
+        ("trivy 0.76.1 via OSV-mirror GHSA alias", judge_osv(trv, "github.com/aquasecurity/trivy", "0.76.1", None)[
+            "verdict"], "Patched"),
+        ("coredns 1.12.0 vs fixed 1.14.3", judge_osv(cdn, "github.com/coredns/coredns", "1.12.0", None),
+         {"verdict": "Vulnerable", "fixed_in": "1.14.3", "note": "", "source": "osv"}),
+        ("osv no fix, no alias", judge_osv(bare, "example.org/x", "1.2.0", None),
+         {"verdict": "Unknown", "fixed_in": "", "note": "unfixed-or-unknown", "source": "osv"}),
+        ("osv no fix, alias unresolvable", judge_osv(gone, "example.org/x", "1.2.0", None)["note"], "unfixed-or-unknown"),
+        ("dedupe: ghsa first, osv dropped", [f["source"] for f in dd.values()], ["ghsa"]),
+        ("dedupe: osv first, ghsa replaces", [f["source"] for f in dd2.values()], ["ghsa"]),
+        ("--only comma list", parse_only(["vikunja/vikunja,rclone/rclone", "docker.io/library/traefik"]),
+         {"vikunja/vikunja", "rclone/rclone", "traefik"}),
+    ]
+    failed = 0
+    for name, got, want in cases:
+        ok = got == want
+        failed += not ok
+        print(f"{'PASS' if ok else 'FAIL'} {name}" + ("" if ok else f": got {got!r}, want {want!r}"))
+    print(f"selftest: {len(cases) - failed}/{len(cases)} passed")
+    return 1 if failed else 0
 
 
 if __name__ == "__main__":

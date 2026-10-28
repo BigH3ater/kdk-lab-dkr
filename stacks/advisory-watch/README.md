@@ -13,8 +13,36 @@ ts=2026-11-02T13:03:20Z image=traefik tag=v3.3 severity=High id=GHSA-46wh-3698-f
 | verdict | meaning |
 |---|---|
 | `Vulnerable` | every version the tag can be is inside the affected range (a floating `v3.3` counts as 3.3.0 to 3.3.x) |
-| `Patched` | none is |
-| `Unknown` | not comparable: `latest`/`stable`, digests, date tags, a floating tag that straddles the fix, wrapper images (`tag_is_version: false`), NVD and RSS items |
+| `Patched` | none is, or the tag is at/after the advisory's patched version |
+| `Unknown` | not comparable: `latest`/`stable`, digests, date tags, a floating tag that straddles the fix, wrapper images (`tag_is_version: false`), NVD and RSS items, OSV entries with no fix and no GHSA alias |
+
+### Verdict rules
+
+- **Ranges.** GitHub `vulnerable_version_range` conditions are split on commas
+  *and* on whitespace before an operator, so `>=v1.68.0 <= 1.75.1` is two
+  conditions; a missing space after the operator (`>=v1.68.0`) is fine.
+- **Patched wins over an open range.** When the tag's lowest version is at or
+  after the advisory's `patched_versions` (a leading `>=`/`v` is ignored; several
+  listed fixes -> the newest), the verdict is `Patched` even if an open-ended
+  range like `>= 1.75.0` still matches. The same applies to OSV `fixed` events.
+- **Contradictory metadata.** If the range's own upper bound also covers the
+  fix (`<= v2.36.1` patched `>= v2.36.1`), the verdict stays `Vulnerable`
+  (conservative) and the line gets `note=contradictory-metadata`. Check upstream
+  by hand.
+- **OSV + GHSA alias.** OSV hits are re-judged from their `GHSA-...` alias: the
+  catalog repo's advisory list when `github` is set and contains it, else the
+  OSV mirror of the GHSA record (`/v1/vulns/GHSA-...`). Those lines say
+  `source=osv+ghsa`. Many Go-vulndb entries carry only an `introduced` event,
+  which OSV itself reads as "every later version".
+- **No fix, no alias.** An OSV entry with no `fixed`/`last_affected` event and
+  no resolvable GHSA alias is `Unknown`, `fixed_in=""`, `note=unfixed-or-unknown`.
+- **One line per advisory.** The same advisory from the `ghsa` and `osv`
+  sources (shared id or alias) for one image tag is emitted once; the `ghsa`
+  record wins.
+
+`python3 stacks/advisory-watch/advisory_watch.py --selftest` runs these rules
+offline against canned upstream records (real cases: vikunja, rclone, trivy,
+audiobookshelf, traefik, coredns) and exits non-zero on a failure.
 
 Alerts (`stacks/loki/rules/advisories.yml`): `AdvisoryPinnedImageVulnerable`
 (Vulnerable + Critical/High, warning), `AdvisoryNeedsReview` (Unknown +
@@ -58,6 +86,11 @@ until it has an entry. Key = the image reference without tag/digest, with
 
 Check locally: `python3 scripts/advisory-catalog-check.py`, then
 `python3 stacks/advisory-watch/advisory_watch.py --repo . --state /tmp/aw.json --dry-run --only <key>`.
+
+`--only` takes catalog keys (exact match after the same normalisation as
+compose refs: lowercased, `docker.io/` and `library/` stripped), either
+comma-separated (`--only traefik,rclone/rclone`) or repeated
+(`--only traefik --only rclone/rclone`). A key that no stack uses is logged.
 
 ## Weekly review (Grafana)
 
