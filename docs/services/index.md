@@ -16,6 +16,7 @@ Stack definitions live in `stacks/` in the repo; Komodo deploys them from git. O
 | [Traefik DMZ + tunnel](dmz-proxy.md) | kdk-dkr-dmz-01 | — | dmz-proxy |
 | [Identity](identity.md) | kdk-dkr-dmz-01 | https://sso.kmkdp.com | identity |
 | [Jellyfin](jellyfin.md) | kdk-dkr-dmz-01 | https://jellyfin.kmkdp.com | jellyfin |
+| [Audiobookshelf](audiobookshelf.md) | kdk-dkr-dmz-01 | https://audiobookshelf.kmkdp.com | audiobookshelf |
 | [Immich](immich.md) | kdk-dkr-dmz-01 | https://immich.kmkdp.com | immich |
 | [Seerr](seerr.md) | kdk-dkr-dmz-01 | https://seerr.kmkdp.com | dmz-apps |
 | [Wizarr](wizarr.md) | kdk-dkr-dmz-01 | https://wizarr.kmkdp.com | wizarr |

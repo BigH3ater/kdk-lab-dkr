@@ -2,8 +2,10 @@
 # SSO via Authelia OIDC (client_id `audiobookshelf`). NOT behind forwardauth:
 # OIDC (and ABS's own auth) is the gate, and forwardauth would break the mobile
 # apps. Reads the audiobook library read-only from the media NFS (dmz-01 mounts
-# /mnt/media ro); podcasts live on dmz-01 LOCAL disk because ABS must WRITE them
-# (RSS auto-download) and the DMZ media mount is read-only. Official upstream
+# /mnt/media ro). Podcasts live on the rw appdata NFS (/mnt/appdata/audiobookshelf/
+# podcasts, tankz3) because ABS must WRITE them (RSS auto-download), the DMZ media
+# mount is read-only, and the 59 GB root disk was filling up (7.5 GB of episodes,
+# moved 2026-10-28). config + metadata (the SQLite DB) stay on local disk. Official upstream
 # image (runs as root, listens on :80). dns-reconcile points
 # audiobookshelf.kmkdp.com at the DMZ Traefik (192.168.191.20) from the Host label.
 name: audiobookshelf
@@ -27,7 +29,7 @@ services:
       - /opt/kdk-lab/audiobookshelf/config:/config
       - /opt/kdk-lab/audiobookshelf/metadata:/metadata
       - /mnt/media/books/audiobook:/audiobooks:ro   # Chaptarr-managed, read-only
-      - /opt/kdk-lab/audiobookshelf/podcasts:/podcasts   # local (DMZ media NFS is ro); ABS writes here
+      - /mnt/appdata/audiobookshelf/podcasts:/podcasts   # rw NFS (media NFS is ro); ABS writes here
     networks: [proxy-dmz]
     labels:
       traefik.enable: "true"

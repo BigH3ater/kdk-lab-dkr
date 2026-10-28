@@ -163,6 +163,23 @@ kdk-mon-01 has `auto_pull = false` (Docker Hub rate-limits the Pi). A changed
 tag still pulls on `compose up` because the image is missing; if the pull is
 denied, pull it on the Pi by hand and redeploy.
 
+## Image cleanup — weekly prune
+
+Docker never deletes old images by itself. The `prune-images` Procedure
+(Sunday 05:10 America/Chicago) runs Komodo's `PruneImages` execution
+(`docker image prune -a -f`) on every `[[server]]`: kdk-dkr-01, kdk-dkr-dmz-01,
+kdk-mon-01, kdk-dkr-02, kdk-dkr-03 (add kdk-log-01 once its `[[server]]` exists).
+
+- Removes every image that **no container references** — running or exited.
+- A one-shot's image (backup workers, `arr-*`, `planner-service`, …) **stays**:
+  its exited container still references it. A stack that is fully `down`
+  loses its image and re-pulls (or rebuilds) it on the next deploy.
+- A Renovate bump leaves the **old tag on disk until Sunday**; a full root disk
+  right after a pin wave is expected to clear then. To reclaim now, Execute
+  `prune-images` (Komodo → Procedures) or Server → Docker → Images → Prune.
+- Never `PruneSystem`: it adds `--volumes` and would delete named volumes of
+  stopped stacks.
+
 ## Target state — Managed Mode (bidirectional)
 
 Komodo can also write UI changes **back** to `resources.toml` and commit them
