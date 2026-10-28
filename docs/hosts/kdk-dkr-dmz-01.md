@@ -87,6 +87,9 @@ Public hostnames probed by `blackbox-http-app` on [[kdk-mon-01]]; alerts → Pus
 | NTP | `ntp.kmkdp.com` primary | ⚠️ synced via public pools (timesyncd) | |
 | Syslog | `syslog.kmkdp.com:514` | ⚠️ no forward rule (cloud-init gap); receiver also absent | |
 
+> VS Code Remote-SSH on any lab host: TCP forwarding is off by the sshd baseline, so set `"remote.SSH.remoteServerListenOnSocket": true` in the local VS Code settings (the server then listens on a Unix socket, which `AllowStreamLocalForwarding` still permits). Without it the connection fails with "TCP port forwarding appears to be disabled".
+
+
 ## Architecture
 
 VLAN 191 (DMZ). Traefik `80/443`, periphery `8120`. Outbound: cloudflared to Cloudflare; DMZ→internal to `10.1.20.20:8080` (Connect) and `:443` (arr APIs via Seerr). Storage NIC `172.16.30.51` for NFS.
