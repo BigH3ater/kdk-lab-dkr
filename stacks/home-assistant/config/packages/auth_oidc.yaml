@@ -13,9 +13,11 @@
 #   ha-admins -> HA administrator on login
 # automatic_user_linking is OFF (security plan A4 / HA audit H3): an OIDC
 # identity is linked to an HA user only by the one-time linking already done
-# for jmack and rach. require_existing_user stops SSO from creating new HA
-# users; create the HA user first, then link once with automatic_user_linking
-# temporarily on (docs/services/home-assistant.md, "Adding an SSO user").
+# for jmack and rach; a new SSO identity gets its own fresh HA profile unless
+# it is linked first with automatic_user_linking temporarily on
+# (docs/services/home-assistant.md, "Adding an SSO user"). The component's
+# newer `require_existing_user` option is not in the installed 1.2.1
+# (check_config rejects it); re-add it after the component is updated.
 auth_oidc:
   client_id: homeassistant
   client_secret: !secret oidc_client_secret
@@ -23,7 +25,6 @@ auth_oidc:
   display_name: "Mack House SSO"
   features:
     automatic_user_linking: false
-    require_existing_user: true
   claims:
     username: "preferred_username"
     groups: "groups"
