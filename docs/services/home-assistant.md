@@ -114,8 +114,15 @@ curl -s --http1.1 -m 3 -N -H 'Connection: Upgrade' -H 'Upgrade: websocket' \
 - Dashboards/themes/packages: **repo** `stacks/home-assistant/config/…` →
   pre_deploy copies to `/opt/kdk-lab/home-assistant/config/…` (url path must
   contain a hyphen; new dashboards need an HA restart).
-- Host-side: `configuration.yaml` (incl. `auth_oidc:`), `secrets.yaml`,
-  `/config/.vikunja_token`, `custom_components/auth_oidc`.
+- SSO: `config/packages/auth_oidc.yaml` is **repo-owned** (since 2026-10-28;
+  before that the block lived in `configuration.yaml`). The client secret is
+  `!secret oidc_client_secret` in the host `secrets.yaml`.
+- Host-side: `configuration.yaml` (only the includes, `default_config`,
+  `lovelace` dashboard registrations and the `packages:` include), `secrets.yaml`,
+  `/config/.vikunja_token`, `custom_components/auth_oidc`, `.storage/`.
+- Adding an SSO user: create the HA user with the same username as LLDAP, add the
+  LLDAP user to `ha-users`, set `automatic_user_linking: true` in the package,
+  deploy + restart, have them log in once, set it back to `false`, deploy + restart.
 - Node-RED: `/opt/kdk-lab/home-assistant/node-red/` (Roborock automation +
   Vikunja bridge; token in the "vik auth" function node). `settings.js` is
   **repo-owned** — pre_deploy copies it in; Node-RED reads it only at start, so
