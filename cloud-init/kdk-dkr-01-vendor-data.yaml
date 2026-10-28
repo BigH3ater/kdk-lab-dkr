@@ -230,8 +230,11 @@ write_files:
       PasswordAuthentication no
       KbdInteractiveAuthentication no
       X11Forwarding no
-      # local, not no: VS Code Remote-SSH needs a local port forward; AllowUsers
-      # limits logins to kdkadmin. (sshd has no inline comments.)
+      # "local" not "no": VS Code Remote-SSH tunnels its server over a local port
+      # forward. AllowUsers above limits logins to kdkadmin, so this is admin-only;
+      # remote (-R) and gateway forwards stay off. A Match block cannot be used
+      # here: Debian includes sshd_config.d/* at the top of sshd_config and the
+      # global directives below the include would fall inside the Match.
       AllowTcpForwarding local
       AllowAgentForwarding no
       AllowUsers kdkadmin
