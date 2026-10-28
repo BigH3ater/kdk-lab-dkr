@@ -98,6 +98,71 @@ itself. Keep those out of the file.
    `kdk-lab`; `deploy = true` stacks deploy in `after`-order). To apply
    immediately, Execute the `gitops-sync` Procedure in the UI instead.
 
+## Dependency updates (Renovate)
+
+Image versions are pinned to full tags in every `compose.yaml` and
+`Dockerfile`; nothing floats (`:latest`, `:stable`, `:3.20`). The Mend
+Renovate GitHub App proposes the bumps; config is `renovate.json` at the repo
+root. Renovate never merges anything (`automerge: false`).
+
+**How PRs arrive**
+
+- On **weekends** (America/Chicago), at most 5 open PRs and 2 new per hour.
+  Vulnerability fixes (GitHub/OSV advisories) are raised at any time and
+  labelled `security`. Those advisories cover language packages (pypi, npm,
+  …), not container images, so today they rarely fire here. Image CVE fixes
+  arrive through the normal patch PRs.
+- **`renovate/dmz-patch`**: one PR with every patch + digest update for stacks
+  on kdk-dkr-dmz-01 (`dmz-proxy`, `identity`, `jellyfin`, `wizarr`, `dmz-apps`,
+  `immich`, `tandoor`, `audiobookshelf`).
+- **`renovate/internal-patch`**: the same for every other stack.
+- **Minor** bumps: one PR per image (e.g. `renovate/python-3.x` covers every
+  `python:` reference, compose and Dockerfile alike).
+- **Major** bumps (e.g. postgres 16 → 18, node-red 4 → 5) get no PR until you
+  tick the box next to them on the **Dependency Dashboard** issue.
+- Auth/edge images (authelia, lldap, traefik, cloudflared) also get the
+  `identity` label.
+- `docker:pinDigests` is on: the first run (and every digest refresh after it)
+  writes `tag@sha256:…` into the image lines. That first wave lands inside the
+  two patch PRs and **recreates every container they touch**.
+
+**What a merge does.** A merge to `main` deploys within 15 minutes through
+`gitops-sync`. **Any change to an image string recreates that container**,
+even when the new tag resolves to the same image. Treat each merge as a planned
+restart of the services in its diff, and merge on a quiet evening if the PR
+touches `home-assistant`, `scrypted-homebridge`, `proxy`, `dmz-proxy`,
+`identity`, `komodo`, `tailscale-subnet-router` or `tailscale-dns`.
+
+**Merge order** (one at a time, wait for the deploy before the next):
+
+1. Anything labelled `security`.
+2. PRs touching `dmz-proxy` (public edge): `renovate/dmz-patch` first (it
+   also carries `identity`), then a traefik/cloudflared minor → check
+   `https://<any public host>` loads.
+3. PRs touching `identity` (Authelia / LLDAP / Redis / Postgres) → check an
+   Authelia login.
+4. Everything else: `renovate/internal-patch`, then the minors.
+
+**Not covered by an automatic deploy:**
+
+- `komodo` is `deploy = false`: merge, then deploy it by hand.
+- One-shot stacks (`backup-*`, `tdarr-*`, `arr-*`, `storage-health`, …) pick
+  up the new tag on their next scheduled run.
+- Local builds (`kdk/*:latest`, `run_build = true`) are ignored by Renovate;
+  their `FROM python:…` line is updated, and the image rebuilds on the stack's
+  next deploy.
+- A PR that only changes a file mounted through compose `configs:` (or a
+  single-file bind mount) does not change the compose spec, so the deploy does
+  not restart anything. Run **`RestartStack`** for that stack in Komodo.
+
+**NUT is excluded.** `stacks/nut/` never gets a version PR; a digest refresh
+of `instantlinux/nut-upsd` waits for a Dependency Dashboard tick. A NUT
+recreate once shut down kdk-hyp-01: only approve it with a person watching.
+
+kdk-mon-01 has `auto_pull = false` (Docker Hub rate-limits the Pi). A changed
+tag still pulls on `compose up` because the image is missing; if the pull is
+denied, pull it on the Pi by hand and redeploy.
+
 ## Target state — Managed Mode (bidirectional)
 
 Komodo can also write UI changes **back** to `resources.toml` and commit them

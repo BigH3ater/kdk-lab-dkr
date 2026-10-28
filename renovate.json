@@ -1,6 +1,147 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "description": "kdk-lab: container image updates as grouped weekend PRs. See docs/komodo-gitops.md#dependency-updates-renovate. Every image-string change recreates the container on merge.",
   "extends": [
-    "config:recommended"
+    "config:recommended",
+    ":dependencyDashboard",
+    "docker:pinDigests",
+    "schedule:weekends"
+  ],
+  "timezone": "America/Chicago",
+  "prConcurrentLimit": 5,
+  "prHourlyLimit": 2,
+  "labels": [
+    "renovate"
+  ],
+  "semanticCommits": "enabled",
+  "semanticCommitType": "chore",
+  "semanticCommitScope": "deps",
+  "automerge": false,
+  "osvVulnerabilityAlerts": true,
+  "vulnerabilityAlerts": {
+    "addLabels": [
+      "security"
+    ],
+    "schedule": [
+      "at any time"
+    ]
+  },
+  "ignorePaths": [
+    "**/node_modules/**",
+    "docs/**",
+    "cloud-init/**",
+    "hosts/**"
+  ],
+  "packageRules": [
+    {
+      "description": "Local builds (stacks/*/Dockerfile -> kdk/*:latest): no registry to look up.",
+      "matchDatasources": [
+        "docker"
+      ],
+      "matchPackageNames": [
+        "kdk/**"
+      ],
+      "enabled": false
+    },
+    {
+      "description": "Patch + digest updates (incl. the first pinDigest wave): one grouped PR for the internal hosts.",
+      "matchUpdateTypes": [
+        "patch",
+        "digest",
+        "pinDigest"
+      ],
+      "groupName": "internal patch",
+      "groupSlug": "internal-patch"
+    },
+    {
+      "description": "Patch + digest updates for stacks on kdk-dkr-dmz-01: separate group, merged first (dmz-proxy -> identity -> rest).",
+      "matchFileNames": [
+        "stacks/{dmz-proxy,identity,jellyfin,wizarr,dmz-apps,immich,tandoor,audiobookshelf}/**"
+      ],
+      "matchUpdateTypes": [
+        "patch",
+        "digest",
+        "pinDigest"
+      ],
+      "groupName": "dmz patch",
+      "groupSlug": "dmz-patch"
+    },
+    {
+      "description": "Majors: one PR per package, only after ticking the box on the Dependency Dashboard.",
+      "matchUpdateTypes": [
+        "major"
+      ],
+      "dependencyDashboardApproval": true
+    },
+    {
+      "description": "Auth / edge components: extra label so they are reviewed with the identity stack in mind.",
+      "matchDatasources": [
+        "docker"
+      ],
+      "matchPackageNames": [
+        "ghcr.io/authelia/authelia",
+        "lldap/lldap",
+        "traefik",
+        "cloudflare/cloudflared"
+      ],
+      "addLabels": [
+        "identity"
+      ]
+    },
+    {
+      "description": "linuxserver.io tags: <version>[.<build>]-ls<revision>, optional leading v (bazarr).",
+      "matchDatasources": [
+        "docker"
+      ],
+      "matchPackageNames": [
+        "lscr.io/linuxserver/**"
+      ],
+      "versioning": "regex:^v?(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)(\\.(?<build>\\d+))?-ls(?<revision>\\d+)$"
+    },
+    {
+      "description": "linuxserver jellyfin: 12.3ubu2604-ls56; the ubuNNNN base is kept as compatibility.",
+      "matchDatasources": [
+        "docker"
+      ],
+      "matchPackageNames": [
+        "lscr.io/linuxserver/jellyfin"
+      ],
+      "versioning": "regex:^(?<major>\\d+)\\.(?<minor>\\d+)(\\.(?<patch>\\d+))?(?<compatibility>ubu\\d+)-ls(?<revision>\\d+)$"
+    },
+    {
+      "description": "instrumentisto/rsync-ssh tags: alpine<alpine-version>-r<revision>.",
+      "matchDatasources": [
+        "docker"
+      ],
+      "matchPackageNames": [
+        "instrumentisto/rsync-ssh"
+      ],
+      "versioning": "regex:^alpine(?<major>\\d+)\\.(?<minor>\\d+)-r(?<patch>\\d+)$"
+    },
+    {
+      "description": "NUT: a recreate once shut down kdk-hyp-01. Never a version PR; digest refreshes only, and only on explicit dashboard approval.",
+      "matchFileNames": [
+        "stacks/nut/**"
+      ],
+      "matchUpdateTypes": [
+        "major",
+        "minor",
+        "patch",
+        "pin",
+        "pinDigest"
+      ],
+      "enabled": false
+    },
+    {
+      "description": "NUT digest refreshes: own PR, gated on the Dependency Dashboard.",
+      "matchPackageNames": [
+        "instantlinux/nut-upsd"
+      ],
+      "matchUpdateTypes": [
+        "digest"
+      ],
+      "groupName": null,
+      "dependencyDashboardApproval": true
+    }
   ]
 }
