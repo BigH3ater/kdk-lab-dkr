@@ -64,10 +64,11 @@ services:
     command: ["/watch.sh"]
     environment:
       NODE_NAME: "${NODE_NAME:-unknown}"
-    # The script is a compose `config`, not a bind mount: compose hashes config
-    # contents, so a script edit recreates this container on the next deploy
-    # (a plain bind mount never did once --force-recreate was dropped; same
-    # pattern as ups.conf in stacks/nut).
+    # The script is a compose `config`, not a bind mount, so the file ships with
+    # the compose project. CAUTION (verified 2026-10-27 on the identity stack):
+    # non-swarm compose does NOT content-hash `configs:`; a script-only edit
+    # still needs `RestartStack observability-agent-<host>`. A compose.yaml
+    # change (like this PR) does recreate the container.
     # NOTE 2026-10-28: compose does NOT content-hash `configs:`; a script-only edit to
 # docker-event-watch.sh still needs `RestartStack observability-agent-*` (the
 # change in this PR recreates because compose.yaml itself changed).
