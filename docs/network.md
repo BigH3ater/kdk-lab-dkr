@@ -62,6 +62,11 @@ That route is load-bearing — if it disappears, remote access dies while the ro
 `sso.kmkdp.com` has a public DNS record (Cloudflare tunnel); every other `*.kmkdp.com`
 name resolves only through lab DNS, i.e. only on the LAN or the tailnet.
 
+Public edge (Cloudflare tunnel: `sso`, `jellyfin`): `scripts/edge-probe.sh` checks the WAF rules,
+rate limit, HSTS, minimum TLS, apex and CAA from outside and prints a PASS/FAIL table
+(`--no-ratelimit` skips the login bursts). The rule expressions and dashboard steps are in the
+vault note *Cloudflare edge rules (2026-10)* (10.Homelab/Security), not in this repo.
+
 | Symptom | Cause | Check / fix |
 |---|---|---|
 | Remote client reaches `10.1.20.20` (Komodo, Radarr…) but nothing on the DMZ, VLAN 1 or VLAN 30 | (a) Docker's nftables `FORWARD` policy DROP eats forwarded tailnet packets; tailscaled's rules are in iptables-legacy. (b) The gateway static route `100.64.0.0/10 → 10.1.20.20` is missing, so replies to the un-masqueraded client never come back | `sudo iptables -S DOCKER-USER` on dkr-01 must show `-i tailscale0 -j ACCEPT` and `-o tailscale0 -j ACCEPT`; the `docker-forward` sidecar in the subnet-router stack re-adds them every minute |
