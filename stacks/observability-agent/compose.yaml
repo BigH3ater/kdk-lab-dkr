@@ -40,6 +40,11 @@ services:
   alloy:
     image: grafana/alloy:v1.10.0
     container_name: alloy
+    # Recreate on config change: compose does not hash single-file bind mounts;
+    # the Komodo pre_deploy writes AGENT_CONFIG_SHA (alloy/config.alloy +
+    # docker-event-watch.sh) into .env, so an edit to either changes this label.
+    labels:
+      kdk.config-sha: "${AGENT_CONFIG_SHA:-unset}"
     restart: unless-stopped
     command:
       - "run"
@@ -59,6 +64,11 @@ services:
   docker-event-watch:
     image: docker:28-cli
     container_name: docker-event-watch
+    # Recreate on config change: compose does not hash single-file bind mounts;
+    # the Komodo pre_deploy writes AGENT_CONFIG_SHA (alloy/config.alloy +
+    # docker-event-watch.sh) into .env, so an edit to either changes this label.
+    labels:
+      kdk.config-sha: "${AGENT_CONFIG_SHA:-unset}"
     restart: unless-stopped
     entrypoint: ["/bin/sh"]
     command: ["/watch.sh"]
