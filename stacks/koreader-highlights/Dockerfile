@@ -1,4 +1,4 @@
-FROM python:3.12-slim
+FROM python:3.12.16-slim
 # ssh/sshpass pull the KOReader .sdr sidecars from the tablet's dropbear; slpp parses
 # the Lua-serialized annotation tables into Python.
 RUN apt-get update && apt-get install -y --no-install-recommends openssh-client sshpass \

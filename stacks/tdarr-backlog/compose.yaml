@@ -11,7 +11,7 @@
 name: tdarr-backlog
 services:
   backlog:
-    image: alpine:3.20
+    image: alpine:3.20.10
     restart: "no"
     network_mode: host
     environment:

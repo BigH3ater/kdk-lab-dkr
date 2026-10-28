@@ -23,7 +23,7 @@ services:
   # same interface the prebuilt images expect (/secrets/readwise-token). Runs
   # once per deploy; the legs wait for it to finish.
   secrets:
-    image: alpine:3.20
+    image: alpine:3.20.10
     restart: "no"
     environment:
       READWISE_TOKEN: ${READWISE_TOKEN:?set READWISE_TOKEN in .env (op inject from .env.tpl)}

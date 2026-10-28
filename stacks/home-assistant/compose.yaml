@@ -36,7 +36,7 @@
 name: home-assistant
 services:
   homeassistant:
-    image: ghcr.io/home-assistant/home-assistant:2026.8
+    image: ghcr.io/home-assistant/home-assistant:2026.8.3
     container_name: homeassistant
     # host, not bridge: mDNS/zeroconf for the Apple TVs, Lutron, Brother/IPP and
     # the thermostat, plus HA's own HomeKit bridge advertising on :21064.
@@ -52,7 +52,7 @@ services:
       - mosquitto
 
   mosquitto:
-    image: eclipse-mosquitto:2.0
+    image: eclipse-mosquitto:2.0.22
     container_name: mosquitto
     restart: unless-stopped
     # 127.0.0.1 ONLY, never 0.0.0.0. A host-networked HA reaches it on loopback
@@ -106,7 +106,7 @@ services:
       - mosquitto
 
   node-red:
-    image: nodered/node-red:4.1
+    image: nodered/node-red:4.1.12
     container_name: node-red
     restart: unless-stopped
     # Reached through Traefik, not published on the segment -- same reasoning
@@ -130,7 +130,7 @@ services:
       - homeassistant
 
   traefik:
-    image: traefik:v3.3
+    image: traefik:v3.3.7
     container_name: traefik
     restart: unless-stopped
     # Native ACME with a Cloudflare DNS-01 solver, no certbot and no renewal

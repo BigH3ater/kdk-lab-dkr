@@ -25,7 +25,7 @@ name: tailscale-subnet-router
 services:
   tailscale:
     # Pin to a digest at first deploy (docker inspect after pull).
-    image: tailscale/tailscale:stable
+    image: tailscale/tailscale:v1.104.2
     container_name: tailscale-subnet-router
     hostname: kdk-subnet-router
     restart: unless-stopped
@@ -50,7 +50,7 @@ services:
       - /opt/kdk-lab/tailscale-subnet-router:/var/lib/tailscale
 
   docker-forward:
-    image: alpine:3.20
+    image: alpine:3.20.10
     container_name: tailscale-docker-forward
     restart: unless-stopped
     network_mode: host

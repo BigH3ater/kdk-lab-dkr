@@ -6,7 +6,7 @@
 name: dns-reconcile
 services:
   reconcile:
-    image: python:3.12-alpine
+    image: python:3.12.16-alpine
     restart: "no"
     env_file: [.env]          # ADGUARD_USERNAME / ADGUARD_PASSWORD (op-injected)
     entrypoint: ["/bin/sh", "-c"]
