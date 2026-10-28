@@ -11,6 +11,7 @@ this repo on each host and runs the stacks in `stacks/`. Komodo at
 | kdk-dkr-02 (10.1.30.21) | Pi 5 | home-assistant stack (adopted) |
 | kdk-dkr-03 (10.1.30.22) | Pi 5 | scrypted-homebridge stack (Scrypted only; Homebridge removed 2026-10-28) |
 | kdk-mon-01 (10.1.20.30) | Pi 5 | external monitoring stack (adopted) |
+| kdk-log-01 (10.1.20.21) | VM 320 on kdk-hyp-01 | loki (Loki + syslog receiver), agents |
 
 ## How deploys work
 

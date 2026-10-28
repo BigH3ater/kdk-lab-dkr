@@ -18,6 +18,13 @@ route:
   group_wait: 30s
   group_interval: 5m
   repeat_interval: 4h
+  routes:
+    # Loki ruler alerts (stacks/loki/rules/, sent from kdk-log-01 to
+    # 10.1.20.30:9093). Grouped per host so one silent host is one page.
+    - matchers: ['source="loki"']
+      receiver: pushover
+      group_by: ["alertname", "host"]
+      repeat_interval: 4h
 
 receivers:
   - name: pushover

@@ -1,6 +1,9 @@
-// Syslog receiver on kdk-dkr-01. syslog.kmkdp.com already resolves to
-// 10.1.20.20, so the Pi rsyslog forwarders (`*.* @@syslog.kmkdp.com:514`, TCP)
-// land here. Parsed RFC3164 and pushed to the local Loki.
+// Syslog receiver on kdk-log-01. syslog.kmkdp.com resolves to 10.1.20.21
+// (stacks/dns-reconcile/reconcile.py EXTRA), so the rsyslog forwarders
+// (`*.* @@syslog.kmkdp.com:514` on the Pis, hosts/_common/rsyslog.d/
+// 90-kdk-loki.conf on the VMs) land here. Docker publishes host :514 (tcp+udp)
+// to 1514 in this container, which runs as a non-root user. Parsed as RFC3164
+// and pushed to the Loki next to it.
 
 loki.write "default" {
   endpoint {
@@ -26,8 +29,14 @@ loki.relabel "syslog" {
 
 loki.source.syslog "in" {
   listener {
-    address       = "0.0.0.0:514"
+    address       = "0.0.0.0:1514"
     protocol      = "tcp"
+    syslog_format = "rfc3164"
+    labels        = { job = "syslog" }
+  }
+  listener {
+    address       = "0.0.0.0:1514"
+    protocol      = "udp"
     syslog_format = "rfc3164"
     labels        = { job = "syslog" }
   }

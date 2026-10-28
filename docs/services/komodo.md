@@ -20,7 +20,7 @@ Deployment control plane and the lab's single pane of glass; every other stack i
 
 | Field | Value |
 |---|---|
-| Purpose | Deploys and monitors every stack on all five hosts from this repo |
+| Purpose | Deploys and monitors every stack on all six hosts from this repo |
 | Status | 🟢 Live — UI behind Authelia SSO, all servers green |
 | Host | [[kdk-dkr-01]] (10.1.20.20) |
 | Endpoint | `https://komodo.kmkdp.com` — Authelia SSO (`internal-users`, 2FA), then local login `kdkadmin` (1P `komodo-admin`); self-registration closed |
@@ -38,7 +38,7 @@ sudo docker run --rm --network container:komodo-core-1 curlimages/curl:8.10.1 -s
 sudo docker exec komodo-core-1 env | grep -E '^KOMODO_(DISABLE_USER_REGISTRATION|ENABLE_NEW_USERS)='   # true / false
 docker ps --filter label=komodo.skip --format '{{.Names}} {{.Status}}'   # core, ferretdb, postgres Up
 ```
-In the UI, Servers shows all five hosts (`kdk-dkr-01/-dmz-01/-02/-03`, `kdk-mon-01`) green.
+In the UI, Servers shows all six hosts (`kdk-dkr-01/-dmz-01/-02/-03`, `kdk-mon-01`, `kdk-log-01`) green.
 
 ## Troubleshooting
 
@@ -103,4 +103,4 @@ Rotate in 1P (`op item edit <item> --vault kdk-cluster ...`), then redeploy the 
 
 ## User Guide
 
-Open `komodo.kmkdp.com`, sign in at Authelia (`sso.kmkdp.com`, 2FA), then log in to Komodo with `kdkadmin`. There is no sign-up; new Komodo users are created by an admin and start disabled. Stacks lists every deployment with logs and a Deploy/Redeploy button; Servers is the health dashboard for all five hosts.
+Open `komodo.kmkdp.com`, sign in at Authelia (`sso.kmkdp.com`, 2FA), then log in to Komodo with `kdkadmin`. There is no sign-up; new Komodo users are created by an admin and start disabled. Stacks lists every deployment with logs and a Deploy/Redeploy button; Servers is the health dashboard for all six hosts.

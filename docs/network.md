@@ -13,6 +13,7 @@ PR as any change that adds or moves an address.
 | kdk-hyp-01 | 10.1.1.100 | 10 | bare metal (R720) | — |
 | kdk-nas-01 | 10.1.3.5 (storage 172.16.30.2) | 1 | bare metal (R730xd) | — |
 | kdk-dkr-01 | 10.1.20.20 (storage 172.16.30.50) | 20 | VM on kdk-hyp-01 | 300 |
+| kdk-log-01 (Loki, syslog) | 10.1.20.21 (no storage NIC) | 20 | VM on kdk-hyp-01 | 320 |
 |  kdk-dkr-dmz-01 | 192.168.191.20 ( storage 172.16.30.51) | 191 | VM 23 on kdk-nas-01 | — |
 | kdk-dkr-02 (Pi, HA) | 10.1.30.21 | 30 | bare metal Pi 5 | — |
 | kdk-dkr-03 (Pi, HomeKit) | 10.1.30.22 | 30 | bare metal Pi 5 | — |
@@ -26,6 +27,19 @@ PR as any change that adds or moves an address.
 > wildcard to the internal Traefik (10.1.20.20), so a host without a record
 > silently "resolves" to the wrong box. Add new hosts here AND in `EXTRA`.
 
+VLAN 20 is a `/27`: gateway `.1`, kdk-dkr-01 `.20`, kdk-log-01 `.21`, kdk-mon-01 `.30`.
+
+## Inter-VLAN rules for the log host (UniFi)
+
+kdk-log-01 receives logs from every VLAN. Its own nft policy
+(`hosts/kdk-log-01/nftables.conf`) is the allowlist of record; the gateway needs
+these allows for the cross-VLAN senders (VLAN 20 senders are same-subnet):
+
+| Source | Destination | Ports | Why |
+|---|---|---|---|
+| `192.168.191.20` (DMZ) | `10.1.20.21` | tcp 3100, tcp 514 | dmz-01 Alloy pushes to Loki (no longer over the storage net); rsyslog forwarder |
+| `10.1.30.21`, `10.1.30.22` (Pis) | `10.1.20.21` | tcp 3100, tcp 514 | Pi Alloy pushes; Pi rsyslog → `syslog.kmkdp.com` |
+| `10.1.1.100`, `10.1.1.120`, `10.1.3.5` | `10.1.20.21` | tcp/udp 514, tcp 3100 | hypervisor, DNS origin and NAS syslog (when configured) |
 
 ## Storage network (NFS)
 

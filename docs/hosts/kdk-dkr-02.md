@@ -81,7 +81,7 @@ curl -s -o /dev/null -w '%{http_code}\n' https://homeassistant.kmkdp.com/     # 
 | Admin account | `kdkadmin`, key-only, NOPASSWD | ✅ | |
 | Timezone | America/Chicago | ✅ | CDT |
 | NTP | `ntp.kmkdp.com` primary | ⚠️ synced via public pools (timesyncd) | |
-| Syslog | `syslog.kmkdp.com:514` | ⚠️ forwards (`*.* @@…:514`), but the receiver is absent | |
+| Syslog | `syslog.kmkdp.com:514` | ✅ forwards (`*.* @@…:514`) to the receiver on [[kdk-log-01]] | restart rsyslog once after the DNS flip so the open TCP session re-resolves |
 
 ## Architecture
 

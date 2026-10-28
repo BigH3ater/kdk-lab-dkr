@@ -102,6 +102,11 @@ EXTRA = {
     # LDAPS (lldap on kdk-dkr-dmz-01, published 192.168.191.20:6360) for Wizarr on
     # kdk-dkr-01; the name matches the LE wildcard cert so clients verify it.
     "lldap.kmkdp.com": "192.168.191.20",
+    # Log host (VM 320). syslog.kmkdp.com used to ride the *.kmkdp.com wildcard
+    # to kdk-dkr-01; it now needs its own record because the receiver moved.
+    # The Pi rsyslog forwarders (`@@syslog.kmkdp.com:514`) follow this name.
+    "kdk-log-01.kmkdp.com": "10.1.20.21",
+    "syslog.kmkdp.com": "10.1.20.21",
 }
 
 
