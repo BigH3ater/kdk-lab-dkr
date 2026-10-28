@@ -16,7 +16,7 @@ name: dashboard
 services:
   # ---- Homepage: the dashboard itself (home.kmkdp.com) ---------------------
   homepage:
-    image: ghcr.io/gethomepage/homepage:latest   # pin to a tag after first pull
+    image: ghcr.io/gethomepage/homepage:v2.4.0
     container_name: homepage
     restart: unless-stopped
     env_file: [.env]                 # HOMEPAGE_VAR_* (op-injected) + HOMEPAGE_ALLOWED_HOSTS
@@ -40,7 +40,7 @@ services:
 
   # ---- Guides: static family how-to pages (home.kmkdp.com/guides/...) ------
   guides:
-    image: nginx:1.29-alpine
+    image: nginx:1.29.8-alpine
     container_name: dashboard-guides
     restart: unless-stopped
     volumes:
@@ -65,7 +65,7 @@ services:
   # LAN-only. Recurring household items lifted from the iOS Reminders screenshots live
   # here. JWT secret is op-injected so sessions survive restarts.
   vikunja:
-    image: vikunja/vikunja:latest   # pin to a tag after first pull
+    image: vikunja/vikunja:2.6.0
     container_name: vikunja
     restart: unless-stopped
     env_file: [.env]                # VIKUNJA_SERVICE_JWTSECRET (op-injected)

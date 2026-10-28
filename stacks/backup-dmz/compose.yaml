@@ -8,7 +8,7 @@
 name: backup-dmz
 services:
   pgdump-authelia:
-    image: postgres:16-alpine
+    image: postgres:16.15-alpine
     restart: "no"
     environment:
       PGPASSWORD: "${AUTHELIA_POSTGRES_PASSWORD}"
@@ -21,7 +21,7 @@ services:
     networks: [identity_default]
 
   pgdump-immich:
-    image: postgres:16-alpine
+    image: postgres:16.15-alpine
     restart: "no"
     environment:
       PGPASSWORD: "${IMMICH_DB_PASSWORD}"
@@ -34,7 +34,7 @@ services:
     networks: [immich_internal]
 
   rsync:
-    image: instrumentisto/rsync-ssh:alpine
+    image: instrumentisto/rsync-ssh:alpine3.23-r3
     restart: "no"
     depends_on:
       pgdump-authelia: { condition: service_completed_successfully }
@@ -58,7 +58,7 @@ services:
       - /mnt/backup/dkr:/dest
 
   gate:
-    image: busybox:stable
+    image: busybox:1.36.1
     restart: "no"
     depends_on:
       rsync: { condition: service_completed_successfully }
