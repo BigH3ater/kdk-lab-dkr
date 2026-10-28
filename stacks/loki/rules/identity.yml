@@ -1,0 +1,118 @@
+# Identity: Authelia + LLDAP on kdk-dkr-dmz-01 (source: vault 10.Homelab/
+# Security/authelia-posture-2026-10.md section 6). Authelia logs JSON
+# (`level`, `msg`, `remote_ip`, `method`, `path`), so `| json` gives msg and
+# remote_ip as labels. LogQL label regexes are fully anchored: `msg=~"X.*"`
+# means "starts with X".
+#
+# Runbook: docs/runbooks/security-alerts.md#identity
+groups:
+  - name: identity
+    interval: 1m
+    rules:
+      # Failed first factor / TOTP / WebAuthn (Authelia prefixes them "Unsuccessful").
+      - alert: AutheliaFailedLoginBurst
+        expr: |
+          sum by (remote_ip) (count_over_time({host="kdk-dkr-dmz-01", container="authelia"}
+            |= "Unsuccessful" | json | msg=~"Unsuccessful .*" [15m])) > 10
+        for: 0m
+        labels:
+          severity: warning
+          source: loki
+          scope: identity
+        annotations:
+          summary: "Authelia: more than 10 failed authentications in 15m from {{ $labels.remote_ip }}"
+          runbook: docs/runbooks/security-alerts.md#identity
+
+      - alert: AutheliaRegulationBan
+        expr: |
+          sum(count_over_time({host="kdk-dkr-dmz-01", container="authelia"}
+            |~ "(?i)banned" | json | msg=~"(?i).*banned.*" [5m])) > 0
+        for: 0m
+        labels:
+          severity: warning
+          source: loki
+          scope: identity
+        annotations:
+          summary: "Authelia regulation banned a user or IP"
+          runbook: docs/runbooks/security-alerts.md#identity
+
+      - alert: AutheliaOidcClientAuthFailure
+        expr: |
+          sum(count_over_time({host="kdk-dkr-dmz-01", container="authelia"}
+            |= "Authorization Request failed" | json | msg=~"Authorization Request failed.*" [15m])) > 0
+        for: 0m
+        labels:
+          severity: warning
+          source: loki
+          scope: identity
+        annotations:
+          summary: "Authelia: an OIDC authorization request failed (bad client, redirect URI or secret)"
+          runbook: docs/runbooks/security-alerts.md#identity
+
+      # An authenticated user denied by policy (not the anonymous 401s).
+      - alert: AutheliaForbiddenNamedUser
+        expr: |
+          sum by (msg) (count_over_time({host="kdk-dkr-dmz-01", container="authelia"}
+            |= "is forbidden to user" | json | msg=~".* is forbidden to user '.*'" | msg!~".*<anonymous>.*" [15m])) > 0
+        for: 0m
+        labels:
+          severity: warning
+          source: loki
+          scope: identity
+        annotations:
+          summary: "Authelia denied a signed-in user by policy: {{ $labels.msg }}"
+          runbook: docs/runbooks/security-alerts.md#identity
+
+      # The forward-auth endpoint called with bad headers from a public address.
+      # ip() instead of a prefix regex: label regexes are anchored, and a CIDR
+      # match also covers 172.16/12 (Docker bridges, storage net).
+      - alert: AutheliaForwardAuthBadHeadersPublic
+        expr: |
+          sum by (remote_ip) (count_over_time({host="kdk-dkr-dmz-01", container="authelia"}
+            |= "Error getting Target URL and Request Method" | json
+            | msg="Error getting Target URL and Request Method"
+            | remote_ip != ip("10.0.0.0/8") | remote_ip != ip("172.16.0.0/12")
+            | remote_ip != ip("192.168.0.0/16") | remote_ip != ip("100.64.0.0/10")
+            | remote_ip != ip("127.0.0.0/8") [15m])) > 0
+        for: 0m
+        labels:
+          severity: warning
+          source: loki
+          scope: identity
+        annotations:
+          summary: "Authelia forward-auth endpoint called with bad headers from public IP {{ $labels.remote_ip }} (direct probe of /api/authz)"
+          runbook: docs/runbooks/security-alerts.md#identity
+
+      # Inferred wording (not yet observed in this lab's logs): confirm once with
+      # a test TOTP/WebAuthn enrolment and tighten the regex to the real message.
+      - alert: AutheliaSecondFactorChanged
+        expr: |
+          sum(count_over_time({host="kdk-dkr-dmz-01", container="authelia"}
+            |~ "(?i)(totp|webauthn|passkey)" | json
+            | msg=~"(?i).*(totp|webauthn|passkey).*(regist|added|deleted|removed).*" [15m])) > 0
+        for: 0m
+        labels:
+          severity: info
+          source: loki
+          scope: identity
+        annotations:
+          summary: "Authelia: a 2FA device (TOTP/WebAuthn) was registered or removed"
+          kdk_inferred: "true"
+          runbook: docs/runbooks/security-alerts.md#identity
+
+      # Inferred wording: lldap logs bind attempts ("Login attempt for ...");
+      # failures are only visible with LLDAP_VERBOSE=true. Confirm the failure
+      # text with one wrong-password bind and tighten the regex.
+      - alert: LldapBindFailures
+        expr: |
+          sum(count_over_time({host="kdk-dkr-dmz-01", container="lldap"}
+            |~ "(?i)(invalid credentials|bind (failed|error)|login attempt for .*(fail|invalid|wrong))" [10m])) > 5
+        for: 0m
+        labels:
+          severity: warning
+          source: loki
+          scope: identity
+        annotations:
+          summary: "lldap: more than 5 failed LDAP binds in 10m (password spraying via a service that binds as the user)"
+          kdk_inferred: "true"
+          runbook: docs/runbooks/security-alerts.md#identity

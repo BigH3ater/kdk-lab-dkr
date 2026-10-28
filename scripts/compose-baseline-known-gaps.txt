@@ -59,8 +59,6 @@ komodo/core: no-new-privileges,cap_drop,read_only,pids_limit,mem_limit,logging,h
 komodo/ferretdb: no-new-privileges,cap_drop,read_only,pids_limit,mem_limit,logging,healthcheck
 komodo/postgres: no-new-privileges,cap_drop,read_only,pids_limit,mem_limit,logging,image-pin,healthcheck
 koreader-highlights/koreader-highlights: no-new-privileges,cap_drop,read_only,pids_limit,mem_limit,logging,healthcheck
-loki/loki: no-new-privileges,cap_drop,read_only,pids_limit,mem_limit,healthcheck
-loki/syslog: no-new-privileges,cap_drop,read_only,pids_limit,mem_limit,healthcheck
 media/bazarr: no-new-privileges,cap_drop,read_only,pids_limit,mem_limit,healthcheck
 media/chaptarr: no-new-privileges,cap_drop,read_only,pids_limit,mem_limit,healthcheck
 media/prowlarr: no-new-privileges,cap_drop,read_only,pids_limit,mem_limit,healthcheck

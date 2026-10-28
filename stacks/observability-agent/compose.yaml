@@ -74,8 +74,19 @@ services:
     command: ["/watch.sh"]
     environment:
       NODE_NAME: "${NODE_NAME:-unknown}"
+    # The script is a compose `config`, not a bind mount, so the file ships with
+    # the compose project. CAUTION (verified 2026-10-27 on the identity stack):
+    # non-swarm compose does NOT content-hash `configs:`; a script-only edit
+    # still needs `RestartStack observability-agent-<host>`. A compose.yaml
+    # change (like this PR) does recreate the container.
+    configs:
+      - source: event-watch
+        target: /watch.sh
     volumes:
-      - ./docker-event-watch.sh:/watch.sh:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - /etc/kdk/pushover.env:/pushover.env:ro
     logging: *log
+
+configs:
+  event-watch:
+    file: ./docker-event-watch.sh

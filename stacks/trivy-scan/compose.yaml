@@ -1,0 +1,124 @@
+# Weekly Trivy scan of every image RUNNING on this host (trivy-scan procedure,
+# Monday 06:03 America/Chicago). One Komodo stack per compose host
+# (trivy-scan-<host>, NODE_NAME differs); deploy=false + destroy_before_deploy.
+#
+#   socket-proxy  tecnativa/docker-socket-proxy: the ONLY docker.sock mount, GET
+#                 only (POST=0), allowlist CONTAINERS/IMAGES/INFO/PING/VERSION,
+#                 on an internal network no other stack can reach. proxy.sh
+#                 stops it once `report` has exited, so the stack ends stopped.
+#   scan          aquasec/trivy: lists running containers' images via the proxy and
+#                 scans each with --image-src docker (layers are read from the
+#                 local daemon through the proxy: no registry pull, no host write).
+#                 Writes one JSON report per image to the trivy-out volume.
+#   report        python: waits for `scan` to exit, emits one logfmt line per
+#                 image (critical high fixable_critical fixable_high top_cve) to
+#                 stdout + Loki job="trivy" (rule TrivyFixableCritical), Pushover
+#                 only if the Loki push failed (PUSHOVER_MODE=always to change).
+#
+# Read-only for the host: the proxy refuses every non-GET call, so nothing here
+# can start/stop/exec a container. That is why the NUT host (kdk-dkr-03) is
+# scanned too: upsd is never touched. --severity HIGH,CRITICAL without
+# --ignore-unfixed so the line reports total AND fixable counts; only fixable
+# criticals alert.
+name: trivy-scan
+
+x-hardened: &hardened
+  security_opt: ["no-new-privileges:true"]
+  cap_drop: [ALL]
+  read_only: true
+  tmpfs: [/tmp]
+  restart: "no"
+  pids_limit: 128
+  mem_limit: 256m
+  logging:
+    driver: json-file
+    options: { max-size: "10m", max-file: "3" }
+
+services:
+  socket-proxy:
+    <<: *hardened
+    image: tecnativa/docker-socket-proxy:v0.5.0
+    container_name: trivy-scan-proxy
+    # root: the socket is root:docker 0660. No capabilities needed (owner match).
+    tmpfs: [/tmp, /run]      # rendered haproxy.cfg, pidfile
+    environment:
+      CONTAINERS: "1"        # /containers/json (what runs) + report's exit poll
+      IMAGES: "1"            # /images/{id}/json and /images/get (layer export for trivy)
+      INFO: "1"
+      PING: "1"
+      VERSION: "1"
+      EVENTS: "0"
+      POST: "0"              # GET/HEAD only
+      DISABLE_IPV6: "1"
+      LOG_LEVEL: "warning"
+    # The image entrypoint renders /tmp/haproxy.cfg, then execs this command.
+    command: ["/bin/sh", "/proxy.sh"]
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./proxy.sh:/proxy.sh:ro
+    networks: [docker-api]
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:2375/_ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+    labels:
+      kdk.baseline.exception: "docker-sock: GET-only allowlist proxy, internal network, lives only for the weekly scan"
+
+  scan:
+    <<: *hardened
+    image: aquasec/trivy:0.76.1
+    container_name: trivy-scan
+    # root without capabilities: the named volumes are created root-owned and the
+    # image has no non-root user; uid 0 can write them by owner match alone.
+    user: "0:0"
+    pids_limit: 256
+    mem_limit: 1536m         # large images (HA, Scrypted, immich-ml) need ~1 GB
+    entrypoint: ["/bin/sh", "/scan.sh"]
+    environment:
+      DOCKER_HOST: "tcp://trivy-scan-proxy:2375"
+      TRIVY_CACHE_DIR: /cache
+      TMPDIR: /cache/tmp     # trivy exports each image here; never on the tmpfs
+    volumes:
+      - ./scan.sh:/scan.sh:ro
+      - trivy-cache:/cache
+      - trivy-out:/out
+    networks: [docker-api, egress]   # egress: vulnerability DB download (mirror.gcr.io / ghcr.io)
+    depends_on:
+      socket-proxy:
+        condition: service_healthy
+    labels:
+      kdk.baseline.skip: "healthcheck"   # one-shot
+
+  report:
+    <<: *hardened
+    image: python:3.12.16-alpine
+    container_name: trivy-scan-report
+    user: "1000:1000"
+    init: true
+    entrypoint: ["python3", "-I", "/report.py"]
+    environment:
+      NODE_NAME: "${NODE_NAME:-unknown}"
+      LOKI_URL: "${LOKI_URL:-http://10.1.20.21:3100}"
+      DOCKER_API: "http://trivy-scan-proxy:2375"
+      PUSHOVER_MODE: "fallback"
+    volumes:
+      - ./report.py:/report.py:ro
+      - trivy-out:/out:ro
+      - /etc/kdk/pushover.env:/pushover.env:ro
+    networks: [docker-api, egress]
+    depends_on:
+      socket-proxy:
+        condition: service_healthy
+    labels:
+      kdk.baseline.skip: "healthcheck"   # one-shot
+
+networks:
+  docker-api:
+    internal: true           # proxy reachable only by scan + report
+  egress: {}
+
+volumes:
+  trivy-cache:               # vulnerability DB, survives between runs
+  trivy-out:                 # this run's JSON reports (cleared by scan.sh)

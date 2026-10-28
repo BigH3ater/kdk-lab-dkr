@@ -25,6 +25,13 @@ route:
       receiver: pushover
       group_by: ["alertname", "host"]
       repeat_interval: 4h
+      routes:
+        # severity=info Loki rules (stacks/loki/rules/*: "expected while you work
+        # in X", cloudflared outdated, advisories to review) go out quietly
+        # (Pushover priority -1) and repeat at most daily.
+        - matchers: ['severity="info"']
+          receiver: pushover-quiet
+          repeat_interval: 24h
 
 receivers:
   - name: pushover
@@ -37,6 +44,20 @@ receivers:
         message: >-
           {{ range .Alerts }}{{ if .Annotations.summary }}{{ .Annotations.summary }}{{ else }}{{ .Labels.alertname }}{{ end }}
           {{ if .Annotations.description }}{{ .Annotations.description }}{{ end }}
+          {{ end }}
+        url_title: 'Open Alertmanager'
+        html: false
+
+  # Same app and credentials, priority -1 (quiet notification), for info alerts.
+  - name: pushover-quiet
+    pushover_configs:
+      - user_key_file: /etc/alertmanager/pushover-user-key
+        token_file: /etc/alertmanager/pushover-app-token
+        send_resolved: false
+        priority: '-1'
+        title: '[INFO] {{ .CommonLabels.alertname }} ({{ .Alerts | len }})'
+        message: >-
+          {{ range .Alerts }}{{ if .Annotations.summary }}{{ .Annotations.summary }}{{ else }}{{ .Labels.alertname }}{{ end }}
           {{ end }}
         url_title: 'Open Alertmanager'
         html: false
