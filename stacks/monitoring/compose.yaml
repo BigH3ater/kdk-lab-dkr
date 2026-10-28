@@ -111,6 +111,9 @@ services:
     restart: unless-stopped
     command:
       - "--config.file=/etc/alertmanager/alertmanager.yml"
+      # Pushover's "Open Alertmanager" link and the API's alert URLs use this; without
+      # it Alertmanager advertises http://<container-id>:9093, which nothing can open.
+      - "--web.external-url=https://alertmanager.kmkdp.com"
       - "--storage.path=/alertmanager"
     volumes:
       - ./alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
