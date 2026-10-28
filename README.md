@@ -22,5 +22,9 @@ this repo on each host and runs the stacks in `stacks/`. Komodo at
 
 Server and stack definitions are in `komodo/resources.toml` (Komodo Resource Sync).
 
+Standards/CI: every service follows the [compose hardening baseline](docs/reference/compose-baseline.md)
+(new stacks start from `stacks/_template`); the `compose-baseline` GitHub Action checks it
+and runs `docker compose config` on every PR.
+
 Docs: `docs/` is published as a Quartz site at `https://docs.kmkdp.com`
 (rebuilt on every push by the `docs` stack). Address registry: `docs/network.md`.
