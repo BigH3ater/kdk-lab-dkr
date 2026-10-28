@@ -59,7 +59,7 @@ No dashboard. Success is visible in the Komodo Procedure run history.
 
 ## Architecture
 
-Three layers: (1) ZFS snapshots — vmpool covers the DMZ VM zvol, tankz3 covers bulk + backup datasets; (2) VM-level — vzdump of VM 300 to PBS, TrueNAS zvol replication of the DMZ VM; (3) app-level — the two backup stacks. `backup-dmz` runs `pg_dump` for Authelia and Immich (keeps 15) then rsyncs state; `backup-dkr-01` runs `pg_dump` for Jellystat (keeps 15, into `kdk-dkr-01/pgdump`) then rsyncs `/opt/kdk-lab` (excluding scratch + the live Postgres cluster dirs `komodo/postgres` and `jellystat/postgres`), then the gated `offsite` service syncs to Proton. `backup-verify` checks all three pg dumps are present + gzip-valid for the day.
+Three layers: (1) ZFS snapshots — vmpool covers the DMZ VM zvol, tankz3 covers bulk + backup datasets; (2) VM-level — vzdump of VM 300 and VM 320 (kdk-log-01: Loki data lives on its disk, no app-level backup) to PBS, TrueNAS zvol replication of the DMZ VM; (3) app-level — the two backup stacks. `backup-dmz` runs `pg_dump` for Authelia and Immich (keeps 15) then rsyncs state; `backup-dkr-01` runs `pg_dump` for Jellystat (keeps 15, into `kdk-dkr-01/pgdump`) then rsyncs `/opt/kdk-lab` (excluding scratch + the live Postgres cluster dirs `komodo/postgres` and `jellystat/postgres`), then the gated `offsite` service syncs to Proton. `backup-verify` checks all three pg dumps are present + gzip-valid for the day.
 
 ## Configuration
 
@@ -70,7 +70,13 @@ Three layers: (1) ZFS snapshots — vmpool covers the DMZ VM zvol, tankz3 covers
 | `/opt/kdk-lab/backup/rclone/rclone.conf` | `proton` + `proton-crypt` remotes |
 | Procedure `nightly-backups` | schedule `0 0 3 * * *` (03:00 daily) |
 
-Restore: rsync/untar back from `/mnt/backup`, `psql < dump`. Migration tars remain under `tankz3/backup/migrate` until parity is confirmed.
+Restore: rsync/untar back from `/mnt/backup`, `psql < dump`.
+
+**PBS job for VM 320 (kdk-log-01).** The nightly Proxmox → PBS (`kdk-pbs-01`)
+vzdump job on kdk-hyp-01 must include VM 320: if its selection is "all", it is
+picked up automatically; otherwise the owner adds it (Datacenter → Backup → the
+job → Selection), mode `snapshot`. Loki's chunks and
+index are in that disk image; a restore loses at most the day since the last dump. Migration tars remain under `tankz3/backup/migrate` until parity is confirmed.
 
 ## Secret Rotation
 

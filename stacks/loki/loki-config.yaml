@@ -1,6 +1,8 @@
-# Monolithic (single-binary) Loki for kdk-lab. Storage is the vmpool NVMe array
-# on kdk-nas-01, mounted at /mnt/loki on kdk-dkr-01 (NFS over the storage NIC)
-# and bind-mounted here as /loki. Single writer, so filesystem/NFS is safe.
+# Monolithic (single-binary) Loki for kdk-lab on kdk-log-01 (VM 320). Storage
+# is the VM disk at /opt/kdk-lab/loki/data, bind-mounted here as /loki
+# (backed up by the PBS vzdump of VM 320). Single writer, local filesystem.
+# 3.5.5 -> 3.7.9 (2026-10): no key in this file changed; the 3.6/3.7 upgrade
+# notes only touch S3 (AWS SDK v2), Promtail removal and the Helm charts.
 auth_enabled: false
 
 server:
@@ -51,6 +53,10 @@ limits_config:
   ingestion_burst_size_mb: 32
   max_query_series: 5000
 
+# Rules come from git (stacks/loki/rules/ mounted read-only at /loki/rules/fake,
+# `fake` = the single-tenant id). `ruler.storage` is marked deprecated in 3.7 in
+# favour of top-level `ruler_storage`, but it is still the documented local
+# backend and is honoured; switch when the local example in the docs moves.
 ruler:
   storage:
     type: local
@@ -58,6 +64,11 @@ ruler:
       directory: /loki/rules
   rule_path: /loki/rules-tmp
   enable_api: true
+  # Alertmanager on kdk-mon-01, published on its VLAN-20 address (monitoring
+  # stack). Routed to Pushover by the source="loki" route in alertmanager.yml.
+  alertmanager_url: http://10.1.20.30:9093
+  enable_alertmanager_v2: true
+  external_url: https://grafana.kmkdp.com
 
 analytics:
   reporting_enabled: false

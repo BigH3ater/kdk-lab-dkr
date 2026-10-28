@@ -80,7 +80,7 @@ Public hostnames probed by `blackbox-http-app` on [[kdk-mon-01]]; alerts → Pus
 | Admin account | `kdkadmin`, key-only, NOPASSWD | ✅ | |
 | Timezone | America/Chicago | ✅ | CDT |
 | NTP | `ntp.kmkdp.com` primary | ⚠️ synced via public pools (timesyncd) | |
-| Syslog | `syslog.kmkdp.com:514` | ⚠️ no forward rule (cloud-init gap); receiver also absent | |
+| Syslog | `syslog.kmkdp.com:514` | ⚠️ receiver live on [[kdk-log-01]]; forwarder is a hand step | copy `hosts/_common/rsyslog.d/90-kdk-loki.conf` to `/etc/rsyslog.d/`, restart rsyslog (needs UniFi `192.168.191.20 → 10.1.20.21:514`) |
 
 ## Architecture
 

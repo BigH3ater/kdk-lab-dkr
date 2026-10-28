@@ -20,7 +20,7 @@ Deployment control plane and the lab's single pane of glass; every other stack i
 
 | Field | Value |
 |---|---|
-| Purpose | Deploys and monitors every stack on all five hosts from this repo |
+| Purpose | Deploys and monitors every stack on all six hosts from this repo |
 | Status | 🟢 Live — `curl https://komodo.kmkdp.com/version` returns 2.3.3, all servers green |
 | Host | [[kdk-dkr-01]] (10.1.20.20) |
 | Endpoint | `https://komodo.kmkdp.com` — local login `kdkadmin` (1P `komodo-admin`) |
@@ -35,7 +35,7 @@ Deployment control plane and the lab's single pane of glass; every other stack i
 curl -s https://komodo.kmkdp.com/version          # 2.3.3
 docker ps --filter label=komodo.skip --format '{{.Names}} {{.Status}}'   # core, ferretdb, postgres Up
 ```
-In the UI, Servers shows all five hosts (`kdk-dkr-01/-dmz-01/-02/-03`, `kdk-mon-01`) green.
+In the UI, Servers shows all six hosts (`kdk-dkr-01/-dmz-01/-02/-03`, `kdk-mon-01`, `kdk-log-01`) green.
 
 ## Troubleshooting
 
@@ -85,4 +85,4 @@ Rotate in 1P (`op item edit <item> --vault kdk-cluster ...`), then redeploy the 
 
 ## User Guide
 
-Log in at `komodo.kmkdp.com` with `kdkadmin`. Stacks lists every deployment with logs and a Deploy/Redeploy button; Servers is the health dashboard for all five hosts.
+Log in at `komodo.kmkdp.com` with `kdkadmin`. Stacks lists every deployment with logs and a Deploy/Redeploy button; Servers is the health dashboard for all six hosts.

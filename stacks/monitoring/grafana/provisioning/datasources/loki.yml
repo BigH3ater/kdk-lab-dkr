@@ -1,11 +1,18 @@
-# Loki lives on kdk-dkr-01 (RAM + NVMe storage NIC), reached cross-host.
+# Loki lives on kdk-log-01 (10.1.20.21, VM 320) since 2026-10, reached
+# cross-host on VLAN 20 (its nft allowlist admits 10.1.20.30 on :3100).
+# The uid keeps its historical `loki-dkr01` value on purpose: every Logs /
+# Containers dashboard references the datasource by uid, so renaming it would
+# break them. The old Loki on kdk-dkr-01 is not provisioned (its last 30 days
+# stay queryable there until it is removed on 2026-11-28).
+# Provisioned datasources load at Grafana start; this deploy recreates
+# grafana-ext anyway (environment change), so the new URL takes effect.
 apiVersion: 1
 datasources:
   - name: Loki
     uid: loki-dkr01
     type: loki
     access: proxy
-    url: http://10.1.20.20:3100
+    url: http://10.1.20.21:3100
     editable: false
     jsonData:
       maxLines: 1000
