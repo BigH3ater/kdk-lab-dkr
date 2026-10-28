@@ -1,6 +1,9 @@
 #!/bin/sh
 # Per-host container watchdog: pages Pushover when a container crashes
 # (die with a non-graceful exit code) or reports an unhealthy health status.
+# It also LOGS (never pages) container `create` and image `pull` events with the
+# image reference, so the Loki rules HostUnknownImageOnDmz and
+# RequestAppsContainerChange (stacks/loki/rules/) can see what got pulled/run.
 # Uses the Docker API (socket), so it is independent of the storage driver
 # that breaks cAdvisor name resolution on this host. NODE_NAME comes from the
 # container env; Pushover creds from the mounted /pushover.env.
@@ -37,10 +40,19 @@ page_limited() {   # $1 = state key, $2 = title, $3 = message
 }
 notify "kdk container watch online" "Docker-event watcher started on ${NODE_NAME}." -1
 while true; do
-  docker events --filter type=container --filter event=die --filter event=health_status \
-    --format '{{.Actor.Attributes.name}}|{{.Action}}|{{.Actor.Attributes.exitCode}}|{{index .Actor.Attributes "com.docker.compose.project"}}' 2>/dev/null |
-  while IFS='|' read -r name action code project; do
-    log "event name=$name action=$action code=$code project=$project"
+  # Same-key filters OR, different keys AND: (container|image) x (die|health_status|create|pull).
+  docker events --filter type=container --filter type=image \
+    --filter event=die --filter event=health_status --filter event=create --filter event=pull \
+    --format '{{.Actor.Attributes.name}}|{{.Action}}|{{.Actor.Attributes.exitCode}}|{{index .Actor.Attributes "com.docker.compose.project"}}|{{.Type}}|{{.Actor.Attributes.image}}|{{.Actor.ID}}' 2>/dev/null |
+  while IFS='|' read -r name action code project etype image actor; do
+    # Image pull: log the reference for Loki, nothing else (Actor.ID = the ref).
+    if [ "$etype" = "image" ]; then
+      log "event type=image action=$action image=$actor"
+      continue
+    fi
+    log "event name=$name action=$action code=$code project=$project image=$image"
+    # Container create: logged above for Loki, never paged.
+    [ "$action" = "create" ] && continue
     # Only alert on containers that are part of a long-running compose SERVICE.
     # Skip:
     #   - ad-hoc `docker run` (no compose project) -- diagnostics, one-off tools;
