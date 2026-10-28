@@ -23,7 +23,7 @@ DMZ ingress: Traefik terminates TLS and host-routes the public services, and clo
 | Purpose | Reverse proxy + tunnel for DMZ/public services |
 | Status | 🟢 Live — 443 serves; tunnel connected |
 | Host | [[kdk-dkr-dmz-01]] (192.168.191.20), published ports `80`/`443`; tunnel entrypoint `8443` on `proxy-dmz` only |
-| Images | `traefik:v3.7.16`, `cloudflare/cloudflared:2026.10.5` |
+| Images | `traefik:v3.7.16`, `cloudflare/cloudflared:2026.10.5` (pinned; Renovate proposes updates) |
 | Fixed IPs (`proxy-dmz` 10.211.2.0/24) | cloudflared `10.211.2.2`, traefik `10.211.2.3`; dynamic range `10.211.2.128/25` |
 | Deploy | Komodo stack `dmz-proxy` (git-linked, `op inject` pre_deploy) |
 | Cert | `kmkdp.com` + `*.kmkdp.com`, ACME DNS-01 via Cloudflare |

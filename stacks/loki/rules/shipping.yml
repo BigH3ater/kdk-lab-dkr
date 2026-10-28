@@ -1,0 +1,73 @@
+# Loki ruler rules (tenant `fake`), evaluated on kdk-log-01 and sent to the
+# Alertmanager on kdk-mon-01 (10.1.20.30:9093), which routes source="loki" to
+# Pushover. Every non-hidden file in this directory is loaded by the ruler.
+#
+# LokiShippingStalled: no log line at all from a host for 30 minutes. Each host
+# runs the observability-agent Alloy (Docker logs, label host=<NODE_NAME>) and
+# most also forward syslog (host = the syslog hostname), so silence means the
+# agent, the host or the path to kdk-log-01 is down. One rule per host so the
+# alert names the host even though absent_over_time has no series to carry it.
+groups:
+  - name: shipping
+    interval: 1m
+    rules:
+      - alert: LokiShippingStalled
+        expr: absent_over_time({host="kdk-dkr-01"}[30m])
+        for: 5m
+        labels:
+          severity: warning
+          source: loki
+          host: kdk-dkr-01
+        annotations:
+          summary: "No logs from kdk-dkr-01 in Loki for 30m"
+          description: "Check the alloy container on kdk-dkr-01 (observability-agent stack), its LOKI_HOST, and that it can reach 10.1.20.21:3100."
+      - alert: LokiShippingStalled
+        expr: absent_over_time({host="kdk-dkr-dmz-01"}[30m])
+        for: 5m
+        labels:
+          severity: warning
+          source: loki
+          host: kdk-dkr-dmz-01
+        annotations:
+          summary: "No logs from kdk-dkr-dmz-01 in Loki for 30m"
+          description: "Check the alloy container on kdk-dkr-dmz-01 (observability-agent stack), its LOKI_HOST, and that it can reach 10.1.20.21:3100."
+      - alert: LokiShippingStalled
+        expr: absent_over_time({host="kdk-dkr-02"}[30m])
+        for: 5m
+        labels:
+          severity: warning
+          source: loki
+          host: kdk-dkr-02
+        annotations:
+          summary: "No logs from kdk-dkr-02 in Loki for 30m"
+          description: "Check the alloy container on kdk-dkr-02 (observability-agent stack), its LOKI_HOST, and that it can reach 10.1.20.21:3100."
+      - alert: LokiShippingStalled
+        expr: absent_over_time({host="kdk-dkr-03"}[30m])
+        for: 5m
+        labels:
+          severity: warning
+          source: loki
+          host: kdk-dkr-03
+        annotations:
+          summary: "No logs from kdk-dkr-03 in Loki for 30m"
+          description: "Check the alloy container on kdk-dkr-03 (observability-agent stack), its LOKI_HOST, and that it can reach 10.1.20.21:3100."
+      - alert: LokiShippingStalled
+        expr: absent_over_time({host="kdk-mon-01"}[30m])
+        for: 5m
+        labels:
+          severity: warning
+          source: loki
+          host: kdk-mon-01
+        annotations:
+          summary: "No logs from kdk-mon-01 in Loki for 30m"
+          description: "Check the alloy container on kdk-mon-01 (observability-agent stack), its LOKI_HOST, and that it can reach 10.1.20.21:3100."
+      - alert: LokiShippingStalled
+        expr: absent_over_time({host="kdk-log-01"}[30m])
+        for: 5m
+        labels:
+          severity: warning
+          source: loki
+          host: kdk-log-01
+        annotations:
+          summary: "No logs from kdk-log-01 in Loki for 30m"
+          description: "Check the alloy container on kdk-log-01 (observability-agent stack), its LOKI_HOST, and that it can reach 10.1.20.21:3100."

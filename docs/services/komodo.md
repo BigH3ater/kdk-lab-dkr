@@ -5,7 +5,7 @@ stack: komodo
 tier: infra
 status: live
 storage: yes
-secrets: [komodo-db, komodo-passkey, komodo-jwt-secret, komodo-webhook-secret, komodo-admin]
+secrets: [komodo-db, komodo-passkey, komodo-jwt-secret, komodo-webhook-secret, komodo-admin, komodo-github-pat]
 updated: 2026-10-28
 tags: [homelab/stack, tier/infra, status/live]
 ---
@@ -20,11 +20,11 @@ Deployment control plane and the lab's single pane of glass; every other stack i
 
 | Field | Value |
 |---|---|
-| Purpose | Deploys and monitors every stack on all five hosts from this repo |
+| Purpose | Deploys and monitors every stack on all six hosts from this repo |
 | Status | 🟢 Live — UI behind Authelia SSO, all servers green |
 | Host | [[kdk-dkr-01]] (10.1.20.20) |
 | Endpoint | `https://komodo.kmkdp.com` — Authelia SSO (`internal-users`, 2FA), then local login `kdkadmin` (1P `komodo-admin`); self-registration closed |
-| Images | core `2.3.3`, ferretdb `2`, postgres-documentdb `17` |
+| Images | core `2.3.3`, ferretdb `2.7.0`, postgres-documentdb `17-0.107.0-ferretdb-2.7.0` (pinned 2026-10-28; `deploy = false`, so a bump applies on the next manual Deploy) |
 | Deploy | Komodo stack `komodo` (git-linked); Resource Sync reads `komodo/resources.toml` from main |
 | Storage | `/opt/kdk-lab/komodo/{postgres,ferretdb,syncs,backups}` on the VM disk |
 | Blast radius | No new deploys, redeploys, or drift-repair; running containers keep running |
@@ -38,7 +38,7 @@ sudo docker run --rm --network container:komodo-core-1 curlimages/curl:8.10.1 -s
 sudo docker exec komodo-core-1 env | grep -E '^KOMODO_(DISABLE_USER_REGISTRATION|ENABLE_NEW_USERS)='   # true / false
 docker ps --filter label=komodo.skip --format '{{.Names}} {{.Status}}'   # core, ferretdb, postgres Up
 ```
-In the UI, Servers shows all five hosts (`kdk-dkr-01/-dmz-01/-02/-03`, `kdk-mon-01`) green.
+In the UI, Servers shows all six hosts (`kdk-dkr-01/-dmz-01/-02/-03`, `kdk-mon-01`, `kdk-log-01`) green.
 
 ## Troubleshooting
 
@@ -70,7 +70,7 @@ No service dashboard. Host reachability via `blackbox-http-app` on [[kdk-mon-01]
 
 | Router | Match | Auth in front |
 |---|---|---|
-| `komodo` | everything on `komodo.kmkdp.com` (UI, `/auth`, `/user`, `/ws`, `/terminal`) | `forwardauth@file` (Authelia), then Komodo local login |
+| `komodo` | everything on `komodo.kmkdp.com` (UI, `/auth`, `/user`, `/ws`, `/terminal`) | `komodo-auth` (Authelia ForwardAuth forwarding only `Accept`+`Cookie`; the UI's `Authorization: Bearer` JWT header would otherwise be rejected by Authelia), then Komodo local login |
 | `komodo-api` | `/read`, `/write`, `/execute` **and** an `X-Api-Key` header | none at Traefik; Komodo checks key + secret |
 | `komodo-listener` | `/listener/...` (git webhooks) | none at Traefik; Komodo checks the HMAC (`komodo-webhook-secret`) |
 
@@ -98,9 +98,10 @@ Core and periphery must track the same release line; pin both to `2.3.3`.
 | `komodo-passkey` | Core↔periphery auth | 🔴 never on live alone | must update every periphery host's passkey in the same change |
 | `komodo-webhook-secret` | GitHub webhook HMAC | 🟢 self-service | yes — update the GitHub webhook too |
 | `komodo-admin` | Local admin login | 🟢 self-service | yes |
+| `komodo-github-pat` | Komodo git account `BigH3ater` (clones the private `network-sre-learning` repo) | 🟡 external party | yes — new fine-grained PAT in GitHub → 1Password + Komodo git account, PullStack, then revoke the old one (rotated 2026-10-28; target: Contents **read-only** on the named repos, with an expiry) |
 
 Rotate in 1P (`op item edit <item> --vault kdk-cluster ...`), then redeploy the stack so `op inject` re-renders `.env`.
 
 ## User Guide
 
-Open `komodo.kmkdp.com`, sign in at Authelia (`sso.kmkdp.com`, 2FA), then log in to Komodo with `kdkadmin`. There is no sign-up; new Komodo users are created by an admin and start disabled. Stacks lists every deployment with logs and a Deploy/Redeploy button; Servers is the health dashboard for all five hosts.
+Open `komodo.kmkdp.com`, sign in at Authelia (`sso.kmkdp.com`, 2FA), then log in to Komodo with `kdkadmin`. There is no sign-up; new Komodo users are created by an admin and start disabled. Stacks lists every deployment with logs and a Deploy/Redeploy button; Servers is the health dashboard for all six hosts.

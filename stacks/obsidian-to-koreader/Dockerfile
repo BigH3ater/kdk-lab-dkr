@@ -1,4 +1,4 @@
-FROM python:3.12-slim
+FROM python:3.12.16-slim
 # pandoc renders Markdown -> PDF via the weasyprint engine (needs cairo/pango).
 # ssh/sshpass copy the PDFs onto the tablet's dropbear for KOReader.
 RUN apt-get update && apt-get install -y --no-install-recommends \

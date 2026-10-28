@@ -8,9 +8,10 @@ this repo on each host and runs the stacks in `stacks/`. Komodo at
 |---|---|---|
 | kdk-dkr-01 (10.1.20.20) | VM 300 on kdk-hyp-01, GTX 1050 Ti | komodo, op-connect, proxy, docs, media, apps, backup |
 | kdk-dkr-dmz-01 (192.168.191.20) | VM on kdk-nas-01, Arc A380 | dmz-proxy, identity, dmz-apps, jellyfin, immich |
-| kdk-dkr-02 (10.1.30.21) | Pi 5 | home-assistant stack (adopted) |
-| kdk-dkr-03 (10.1.30.22) | Pi 5 | scrypted-homebridge stack (adopted) |
-| kdk-mon-01 (10.1.20.30) | Pi 5 | external monitoring stack (adopted) |
+| kdk-dkr-02 (10.1.30.21) | Pi 5 | home-assistant stack (git-linked; host-side HA config) |
+| kdk-dkr-03 (10.1.30.22) | Pi 5 | scrypted-homebridge stack (Scrypted only; Homebridge removed 2026-10-28) |
+| kdk-mon-01 (10.1.20.30) | Pi 5 | monitoring stack `monitoring-ext` (Prometheus, Alertmanager, Grafana) |
+| kdk-log-01 (10.1.20.21) | VM 320 on kdk-hyp-01 | loki (Loki + syslog receiver), agents |
 
 ## How deploys work
 
@@ -21,6 +22,10 @@ this repo on each host and runs the stacks in `stacks/`. Komodo at
    1Password Connect (`stacks/op-connect`, on kdk-dkr-01).
 
 Server and stack definitions are in `komodo/resources.toml` (Komodo Resource Sync).
+
+Standards/CI: every service follows the [compose hardening baseline](docs/reference/compose-baseline.md)
+(new stacks start from `stacks/_template`); the `compose-baseline` GitHub Action checks it
+and runs `docker compose config` on every PR.
 
 Docs: `docs/` is published as a Quartz site at `https://docs.kmkdp.com`
 (rebuilt on every push by the `docs` stack). Address registry: `docs/network.md`.

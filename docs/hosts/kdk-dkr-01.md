@@ -33,8 +33,8 @@ The internal Docker host: Komodo control plane, 1Password Connect, internal Trae
 | OS | Debian 13, kernel `6.12.107+deb13-amd64` (full kernel — required for the NVIDIA driver) |
 | Hardware | 12 vCPU / 47 GiB / 571 GB local-zfs · GTX 1050 Ti (hostpci) |
 | Managed by | cloud-init at build; Komodo periphery thereafter |
-| Runs | komodo, op-connect, proxy, docs, media, apps, backup-dkr-01, **loki** + Alloy syslog (:3100/:514), observability-agent, node-exporter |
-| Blast radius | All internal services + new deploys lab-wide; also lab log ingestion (Loki) |
+| Runs | komodo, op-connect, proxy, docs, media, apps, backup-dkr-01, observability-agent, node-exporter (Loki + syslog moved to [[kdk-log-01]] 2026-10; the old `loki`/`loki-syslog` containers stay until 2026-11-28) |
+| Blast radius | All internal services + new deploys lab-wide |
 
 ## Access
 
@@ -81,7 +81,7 @@ Host reachability via `blackbox-http-app` on [[kdk-mon-01]]; alerts → Pushover
 | Admin account | `kdkadmin`, key-only, NOPASSWD | ✅ | |
 | Timezone | America/Chicago | ✅ | CDT |
 | NTP | `ntp.kmkdp.com` primary | ⚠️ synced via public pools (timesyncd), not the internal server | |
-| Syslog | `syslog.kmkdp.com:514` | ⚠️ no forward rule set (cloud-init gap); receiver also absent | |
+| Syslog | `syslog.kmkdp.com:514` | ✅ forwarding to [[kdk-log-01]] since 2026-10-28 (rsyslog installed by hand; cloud-init now includes the package, PR #84) | copy `hosts/_common/rsyslog.d/90-kdk-loki.conf` to `/etc/rsyslog.d/`, restart rsyslog |
 
 ## Architecture
 

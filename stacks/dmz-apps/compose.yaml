@@ -24,7 +24,7 @@ services:
   # (Authelia) is configured in the app UI post-deploy; SECRET_KEY keeps Flask
   # sessions stable across restarts.
   libreseerr:
-    image: ghcr.io/zamnzim/libreseerr:latest
+    image: ghcr.io/zamnzim/libreseerr:v0.9.0
     container_name: libreseerr
     restart: unless-stopped
     env_file: [.env]                 # SECRET_KEY (op-injected)

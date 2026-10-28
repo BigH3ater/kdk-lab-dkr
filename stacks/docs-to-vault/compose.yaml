@@ -7,7 +7,7 @@
 # devices via the obsidian-headless sync. One-shot, run by a procedure after publish-docs.
 services:
   docs-to-vault:
-    image: alpine:3.20
+    image: alpine:3.20.10
     container_name: docs-to-vault
     restart: "no"
     entrypoint: ["/bin/sh","-c"]

@@ -12,7 +12,10 @@ See [Komodo GitOps](../komodo-gitops.md) for how the sync loop itself works.
 
 ## 1. Write the compose stack
 
-Create `stacks/<name>/compose.yaml`. Keep it to community images, pinned by
+Create `stacks/<name>/compose.yaml`, preferably by copying `stacks/_template`.
+It already meets the [compose hardening baseline](../reference/compose-baseline.md);
+check it with `python3 scripts/compose-baseline-check.py --stack <name>`. The short
+example below omits the baseline keys. Keep it to community images, pinned by
 tag/digest. A web-facing service joins the `proxy` network and carries Traefik
 labels; a headless one does not.
 

@@ -1,4 +1,4 @@
-FROM python:3.12-slim
+FROM python:3.12.16-slim
 # rmc/rmscene (.rm -> svg), cairosvg (svg -> png) needs cairo; ssh+sshpass reach
 # the tablet's dropbear (password auth). No node/chromium: diagrams render via the
 # pure-python topology_svg (kodiak_diagram), not mermaid.

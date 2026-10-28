@@ -9,7 +9,8 @@ Operations dashboard: [komodo.kmkdp.com](https://komodo.kmkdp.com) (Authelia SSO
 Security posture reports are kept in the Obsidian vault (`10.Homelab/Security/`) and are never committed: this repo is public (`docs/security/` is git-ignored).
 
 - [Network & addresses](network.md)
-- [Runbooks](runbooks/index.md) — deploy a service, add an alert, fix the DEE VM, Tdarr
+- [Runbooks](runbooks/index.md) — deploy a hardened service, add an alert or a Loki rule, rotate a secret, Renovate PRs, post-merge validation, security alerts, DEE VM, Tdarr
 - Processes: [Komodo GitOps](komodo-gitops.md) · [Backups](backups.md)
-- Hosts: [kdk-dkr-01](hosts/kdk-dkr-01.md) · [kdk-dkr-dmz-01](hosts/kdk-dkr-dmz-01.md) · [kdk-dkr-02](hosts/kdk-dkr-02.md) · [kdk-dkr-03](hosts/kdk-dkr-03.md) · [kdk-mon-01](hosts/kdk-mon-01.md)
+- [Reference](reference/index.md): [compose hardening baseline](reference/compose-baseline.md), [Docker IPAM plan](reference/docker-ipam.md)
+- Hosts: [kdk-dkr-01](hosts/kdk-dkr-01.md) · [kdk-dkr-dmz-01](hosts/kdk-dkr-dmz-01.md) · [kdk-dkr-02](hosts/kdk-dkr-02.md) · [kdk-dkr-03](hosts/kdk-dkr-03.md) · [kdk-mon-01](hosts/kdk-mon-01.md) · [kdk-log-01](hosts/kdk-log-01.md)
 - Services: see the [services index](services/index.md)

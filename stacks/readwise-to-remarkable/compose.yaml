@@ -13,26 +13,17 @@
 #
 # Prebuilt images (ghcr.io/bigh3ater/*, pinned by digest -- these are PRIVATE
 # packages; the host needs GHCR pull access or the packages made public). The
-# Readwise token is rendered from 1Password (.env.tpl -> op inject) into a shared
-# file that the token-consuming legs ([1],[2]) read at /secrets/readwise-token.
+# Readwise token is rendered by Komodo's pre_deploy (`op read` ->
+# ./secrets/readwise-token in the host clone, see komodo/resources.toml) and
+# bind-mounted read-only as the /secrets dir the token-consuming legs ([1],[2])
+# expect. It used to be a `secrets` one-shot sidecar, whose exited container
+# kept the stack "unhealthy" in Komodo forever (removed 2026-10-28; the stack's
+# --remove-orphans clears the old container). The dir (not the single file) is
+# mounted so an in-place re-render is always seen by the running container.
 # rmapi device auth lives in the shared ./config (.rmapi) and must be registered
 # ONCE against the live rmfakecloud -- see the runbook. Leg [3] needs no token.
 name: readwise-to-remarkable
 services:
-  # Render the Readwise token from the injected .env into a shared file, the
-  # same interface the prebuilt images expect (/secrets/readwise-token). Runs
-  # once per deploy; the legs wait for it to finish.
-  secrets:
-    image: alpine:3.20
-    restart: "no"
-    environment:
-      READWISE_TOKEN: ${READWISE_TOKEN:?set READWISE_TOKEN in .env (op inject from .env.tpl)}
-    entrypoint: ["/bin/sh", "-c"]
-    command:
-      - 'umask 077; printf "%s" "$$READWISE_TOKEN" > /secrets/readwise-token; chmod 644 /secrets/readwise-token; echo "readwise token rendered"'
-    volumes:
-      - rw-secrets:/secrets
-
   # leg [1] (readwise-to-remarkable: Readwise articles -> NATIVE reader via rmfakecloud)
   # RETIRED 2026-09-18 -> replaced by the readwise-koreader stack (articles -> EPUB files
   # in KOReader). Left disabled (not just stopped) so a redeploy can't re-enable it and
@@ -43,9 +34,6 @@ services:
   highlights:                        # leg [2]  device text highlights -> Readwise
     image: ghcr.io/bigh3ater/kdk-lab-rm-highlights@sha256:5cc75f4b0d97fb83ffedde8b31207329847c7d0eb9f3840c55886a636f281f37
     restart: unless-stopped
-    depends_on:
-      secrets:
-        condition: service_completed_successfully
     environment:
       RMAPI_HOST: http://rmfakecloud:3000
       RMAPI_CONFIG: /config/.rmapi
@@ -54,14 +42,11 @@ services:
       HOME: /tmp
     volumes:
       - /opt/kdk-lab/readwise-to-remarkable/config:/config
-      - rw-secrets:/secrets:ro
+      - ./secrets:/secrets:ro   # readwise-token, rendered by pre_deploy
     networks: [default, apps]
 
   # leg [3] (ebooks) RETIRED -> replaced by the book-sync stack (direct-SSH
   # reconcile of /mnt/media/books to the tablet, with delete). See stacks/book-sync.
-
-volumes:
-  rw-secrets: {}
 
 networks:
   default: {}
