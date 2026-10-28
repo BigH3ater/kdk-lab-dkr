@@ -113,6 +113,16 @@ other host sees it). On dkr-01 itself Core arrives from its bridge, so there it 
 `["10.1.20.20", "10.208.0.0/16"]`. Check: Komodo UI -> Servers shows all hosts OK;
 `sudo ss -lntp | grep 8120` shows the VLAN address only.
 
+**7. kdkadmin out of the `docker` group** (plan A2: the socket is root-equivalent;
+`sudo docker` keeps working, and the sessions/backup jobs already use it). The Pis
+never had it; both VMs do:
+
+```sh
+sudo gpasswd -d kdkadmin docker && id -nG kdkadmin     # no "docker"
+```
+
+Takes effect on the next login.
+
 ## kdk-dkr-02 only
 
 The `userland-proxy: false` pre-test: right after step 4, `nc -zv 127.0.0.1 1883` on the
