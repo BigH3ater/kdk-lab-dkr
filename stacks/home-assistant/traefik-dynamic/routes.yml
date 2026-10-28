@@ -12,7 +12,7 @@
 # the provider still retry-looped, so no label-based route was ever
 # discovered while the file-based ones issued certificates normally.
 #
-# Declaring all five here is the better design anyway for a five-service
+# Declaring all four here is the better design anyway for a five-service
 # stack with one operator: Traefik needs no docker socket at all (it was the
 # only root-equivalent surface in the proxy), routes are in one reviewable
 # file, and there is no discovery to debug. The cost is that a new service
@@ -39,14 +39,14 @@ http:
       tls:
         certresolver: cf
     scrypted:
-      # Cross-host: scrypted runs on kdk-dkr-02, network_mode: host. One
+      # Cross-host: scrypted runs on kdk-dkr-03, network_mode: host. One
       # Traefik serves both boards so there is a single ACME account, a single
       # cert store, and one Let's Encrypt rate-limit budget to reason about.
       #
-      # The trade, stated: kdk-dkr-01 becomes a dependency for reaching
-      # kdk-dkr-02's UI. It is NOT a dependency for scrypted working --
-      # cameras, HomeKit and Homebridge keep functioning if this board is
-      # down; only the browser path through this name stops.
+      # The trade, stated: kdk-dkr-02 becomes a dependency for reaching
+      # kdk-dkr-03's UI. It is NOT a dependency for scrypted working --
+      # cameras and HomeKit keep functioning if this board is down; only the
+      # browser path through this name stops.
       #
       # DNS-01 issues this certificate whether or not the backend is up, so
       # the name is valid before the scrypted stack is deployed. Until then
@@ -67,17 +67,6 @@ http:
       rule: "Host(`nodered.kmkdp.com`)"
       entrypoints: websecure
       service: nodered
-      tls:
-        certresolver: cf
-    homebridge:
-      # Homebridge's config UI, the second half of kdk-dkr-02's stack. It was
-      # published on :8581 with no route and no TLS, so the only way in was
-      # plaintext HTTP straight to the board -- and homebridge.kmkdp.com
-      # answered 10.1.20.10, a k3s control-plane node, by wildcard
-      # fallthrough rather than resolving anywhere useful.
-      rule: "Host(`homebridge.kmkdp.com`)"
-      entrypoints: websecure
-      service: homebridge
       tls:
         certresolver: cf
 
@@ -107,10 +96,3 @@ http:
       loadBalancer:
         servers:
           - url: "http://node-red:1880"
-    homebridge:
-      loadBalancer:
-        servers:
-          # host-networked on kdk-dkr-02, so this is the board's address and
-          # not a compose service name -- the same reason scrypted above uses
-          # an IP while zigbee/nodered/dockge use Docker's embedded DNS.
-          - url: "http://10.1.30.22:8581"
