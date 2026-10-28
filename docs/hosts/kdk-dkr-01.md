@@ -81,7 +81,7 @@ Host reachability via `blackbox-http-app` on [[kdk-mon-01]]; alerts → Pushover
 | Admin account | `kdkadmin`, key-only, NOPASSWD | ✅ | |
 | Timezone | America/Chicago | ✅ | CDT |
 | NTP | `ntp.kmkdp.com` primary | ⚠️ synced via public pools (timesyncd), not the internal server | |
-| Syslog | `syslog.kmkdp.com:514` | ⚠️ receiver live on [[kdk-log-01]]; forwarder is a hand step (`apt install rsyslog` first: the VMs were journald-only) | copy `hosts/_common/rsyslog.d/90-kdk-loki.conf` to `/etc/rsyslog.d/`, restart rsyslog |
+| Syslog | `syslog.kmkdp.com:514` | ✅ forwarding to [[kdk-log-01]] since 2026-10-28 (rsyslog installed by hand; cloud-init now includes the package, PR #84) | copy `hosts/_common/rsyslog.d/90-kdk-loki.conf` to `/etc/rsyslog.d/`, restart rsyslog |
 
 ## Architecture
 

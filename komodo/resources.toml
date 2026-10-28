@@ -571,8 +571,9 @@ executions = [
 # action (NOT a BatchDeployStackIfChanged stage: that execution type made the
 # 2.3.3 procedure sync loop "exit after max iterations", failing every RunSync
 # on 2026-09-21). DeployStackIfChanged compares deployed vs latest contents per
-# stack, so unrelated pushes leave one-shot/backup stacks alone. Public repo ->
-# Core polls/clones anonymously, no PAT needed.
+# stack, so unrelated pushes leave one-shot/backup stacks alone. Public repo, but
+# Core clones through the BigH3ater git-provider account (op://kdk-cluster/
+# komodo-github-pat, read-only) so pulls are not rate-limited anonymously.
 [[procedure.config.stage]]
 name = "deploy-changed"
 enabled = true
@@ -741,8 +742,7 @@ executions = [
 # container still references it; never PruneSystem (that adds --volumes).
 # Sunday 05:10 -- off the gitops-sync :00/:15/:30/:45 slots and the :05/:07/:20
 # jobs, after the 05:05 planner-service run and the 04:25 arr-upgrade-search.
-# Stage executions run in parallel (one per server). Add kdk-log-01 here once its
-# [[server]] exists.
+# Stage executions run in parallel (one per server), kdk-log-01 included.
 [[procedure]]
 tags = ["kdk-lab"]
 name = "prune-images"
@@ -761,6 +761,7 @@ executions = [
   { execution.type = "PruneImages", execution.params.server = "kdk-mon-01", enabled = true },
   { execution.type = "PruneImages", execution.params.server = "kdk-dkr-02", enabled = true },
   { execution.type = "PruneImages", execution.params.server = "kdk-dkr-03", enabled = true },
+  { execution.type = "PruneImages", execution.params.server = "kdk-log-01", enabled = true },
 ]
 
 # Radarr import-list guard: the IMDb Popular / Top 250 lists keep pushing

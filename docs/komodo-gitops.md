@@ -88,7 +88,7 @@ itself. Keep those out of the file.
    tags = ["kdk-lab"]
    name = "<name>"
    [stack.config]
-   server = "<server>"          # kdk-dkr-01 | kdk-dkr-dmz-01 | kdk-dkr-02 | kdk-dkr-03 | kdk-mon-01
+   server = "<server>"          # kdk-dkr-01 | kdk-dkr-dmz-01 | kdk-dkr-02 | kdk-dkr-03 | kdk-mon-01 | kdk-log-01
    repo = "BigH3ater/kdk-lab-dkr"
    run_directory = "stacks/<name>"
    webhook_enabled = true
@@ -168,7 +168,7 @@ denied, pull it on the Pi by hand and redeploy.
 Docker never deletes old images by itself. The `prune-images` Procedure
 (Sunday 05:10 America/Chicago) runs Komodo's `PruneImages` execution
 (`docker image prune -a -f`) on every `[[server]]`: kdk-dkr-01, kdk-dkr-dmz-01,
-kdk-mon-01, kdk-dkr-02, kdk-dkr-03 (add kdk-log-01 once its `[[server]]` exists).
+kdk-mon-01, kdk-dkr-02, kdk-dkr-03. kdk-log-01 has had a `[[server]]` since 2026-10-28 (PR #67) but is not in the stage yet: add it.
 
 - Removes every image that **no container references** — running or exited.
 - A one-shot's image (backup workers, `arr-*`, `planner-service`, …) **stays**:

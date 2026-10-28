@@ -83,7 +83,7 @@ ssh kdkadmin@10.1.30.22 'sudo docker ps --format "{{.Names}} {{.Status}}"'    # 
 
 ## Architecture
 
-Runs `scrypted v0.147.0` (`-noble-full`; upstream stopped `-jammy-*` tags at v0.123.58) on host networking for mDNS/HomeKit. 0.147.0 is the fix for GHSA-fgj8-7r76-h852 (unauthenticated admin RPC, ≤ 0.146.1). Periphery on `8120`. Scrypted's UI ports (10443/11080) should accept only the Pi Traefik on 10.1.30.21 (UniFi rule).
+Runs `scrypted v0.147.0` (`-noble-full`; upstream stopped `-jammy-*` tags at v0.123.58) on host networking for mDNS/HomeKit. 0.147.0 is the fix for GHSA-fgj8-7r76-h852 (unauthenticated admin RPC, ≤ 0.146.1). Periphery on `8120`. Scrypted's UI ports (10443/11080) are open to VLAN 30: the planned UniFi rule was dropped because dkr-02 and dkr-03 share the VLAN (a gateway rule cannot filter same-VLAN traffic).
 
 ### Storage map
 

@@ -84,7 +84,7 @@ This host **is** the observability. Prometheus jobs: `idrac`, `node-external`, `
 
 ## Architecture
 
-Containers: `prometheus-ext v3.7.3`, `grafana-ext 12.3.1`, `alertmanager-ext v0.28.1`, `blackbox-exporter v0.28.0`, `idrac-exporter 2.6.2`, and two `tigerblue77` fan controllers (`fanctl-hyp` → R720 BMC, `fanctl-nas` → R730xd BMC), plus the `observability-agent` (cAdvisor + Alloy). Alertmanager gossip `9094`, API `9093` (published on `10.1.20.30` for the Loki ruler on kdk-log-01); scrapers reach targets across the lab; the fan controllers steer the BMCs over IPMI as `idracrw`. Both **active**: R720 ~3000 RPM (20%), R730xd ~4800 RPM (20%). An 8h drive-temp watchdog on kdk-nas-01 (`/root/kdk-temp-watch.sh`) pages Pushover if the hottest HDD exceeds 44/48°C.
+Containers: `prometheus-ext v3.7.3`, `grafana-ext 12.3.1`, `alertmanager-ext v0.28.1`, `blackbox-exporter v0.28.0`, `idrac-exporter 2.6.2`, and two `tigerblue77` fan controllers (`fanctl-hyp` → R720 BMC, `fanctl-nas` → R730xd BMC), plus the `observability-agent` (cAdvisor + Alloy). Alertmanager gossip `9094`, API `9093` (published on `10.1.20.30` for the Loki ruler on kdk-log-01; UI via `https://alertmanager.kmkdp.com` behind Authelia); Grafana on `10.1.20.30:3000` with "Sign in with Authelia" (local admin kept as break-glass); scrapers reach targets across the lab; the fan controllers steer the BMCs over IPMI as `idracrw`. Both **active**: R720 ~3000 RPM (20%), R730xd ~4800 RPM (20%). An 8h drive-temp watchdog on kdk-nas-01 (`/root/kdk-temp-watch.sh`) pages Pushover if the hottest HDD exceeds 44/48°C.
 
 ### Storage map
 
