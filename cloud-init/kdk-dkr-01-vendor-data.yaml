@@ -8,6 +8,7 @@ timezone: America/Chicago
 package_update: true
 packages:
   - qemu-guest-agent
+  - rsyslog          # syslog forwarder to kdk-log-01 (hosts/_common/rsyslog.d); journald alone cannot forward
   - nfs-common
   - curl
   - ca-certificates
