@@ -79,10 +79,7 @@ services:
     # non-swarm compose does NOT content-hash `configs:`; a script-only edit
     # still needs `RestartStack observability-agent-<host>`. A compose.yaml
     # change (like this PR) does recreate the container.
-    # NOTE 2026-10-28: compose does NOT content-hash `configs:`; a script-only edit to
-# docker-event-watch.sh still needs `RestartStack observability-agent-*` (the
-# change in this PR recreates because compose.yaml itself changed).
-configs:
+    configs:
       - source: event-watch
         target: /watch.sh
     volumes:

@@ -87,8 +87,9 @@ def normalize(ref: str) -> tuple[str, str]:
 def tree_images(repo_dir: str) -> dict[tuple[str, str], set[str]]:
     """(repo, tag) -> stacks using it, from compose image: lines and Dockerfile FROMs."""
     found: dict[tuple[str, str], set[str]] = {}
-    files = [(p, IMAGE_RE) for p in glob.glob(f"{repo_dir}/stacks/*/compose.yaml")]
-    files += [(p, FROM_RE) for p in glob.glob(f"{repo_dir}/stacks/**/Dockerfile", recursive=True)]
+    # stacks/_template holds a placeholder image and is never deployed (same skip as renovate.json ignorePaths).
+    files = [(p, IMAGE_RE) for p in glob.glob(f"{repo_dir}/stacks/*/compose.yaml") if "/stacks/_template/" not in p]
+    files += [(p, FROM_RE) for p in glob.glob(f"{repo_dir}/stacks/**/Dockerfile", recursive=True) if "/stacks/_template/" not in p]
     for path, rx in files:
         stack = os.path.relpath(path, f"{repo_dir}/stacks").split(os.sep)[0]
         for ref in rx.findall(open(path, encoding="utf-8").read()):
