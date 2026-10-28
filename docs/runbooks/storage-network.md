@@ -21,6 +21,12 @@ seeded on build from `cloud-init/` in the repo. Current clients:
 - **kdk-dkr-01** — `/mnt/media`, `/mnt/backup`, `/mnt/dee-exchange`, `/mnt/loki`
 - **kdk-dkr-dmz-01** — `/mnt/media` (RO), `/mnt/backup`, `/mnt/appdata`
 
+Both VMs fence their storage NIC with nft table `inet kdk-storage`: the host may
+talk only NFS (+ ping) to `172.16.30.2`, nothing new comes in on `eth1`, and
+containers never route onto the storage net. See [Host firewall](host-firewall.md);
+if a mount hangs right after a fence change, check its counters first
+(`sudo nft list table inet kdk-storage`).
+
 ## ⚠️ Never put storage (or any LAN) inside `100.64.0.0/10`
 
 Tailscale's CGNAT range is `100.64.0.0/10` (100.64.0.0 – 100.127.255.255). Any lab

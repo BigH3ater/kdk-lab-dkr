@@ -1,0 +1,6 @@
+// Turns the daily apt timers on (update lists + run unattended-upgrades).
+// Debian's own default when the unattended-upgrades package is configured;
+// shipped so a host where it was never enabled gets it too.
+// Install: /etc/apt/apt.conf.d/20auto-upgrades (root:root 0644).
+APT::Periodic::Update-Package-Lists "1";
+APT::Periodic::Unattended-Upgrade "1";

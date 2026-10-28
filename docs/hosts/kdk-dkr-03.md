@@ -77,6 +77,11 @@ ssh kdkadmin@10.1.30.22 'sudo docker ps --format "{{.Names}} {{.Status}}"'    # 
 |---|---|---|---|
 | Hostname | `{site}-{role}-{nn}` | ✅ `kdk-dkr-03` | renamed from old Pi `kdk-dkr-02` |
 | Admin account | `kdkadmin`, key-only, NOPASSWD | ✅ | |
+| SSH hardening | `98-kdk-admin.conf` + kdkadmin key `from=` admin sources | ⚠️ drop-in present; ⏳ pending apply (2026-10-28) for the repo copy (adds `LoginGraceTime 20`) and the key `from=` | `hosts/README.md` |
+| Kernel sysctl | `90-kdk-hardening.conf` (ptrace_scope 1, kptr/dmesg restrict, no redirects, martians, sysrq 0) | ⏳ pending apply (2026-10-28) | |
+| Patching | unattended-upgrades: Debian + Raspberry Pi Foundation + Docker CE, reboot 04:30 | ⏳ pending apply (2026-10-28) | Pi Foundation origin missing today: kernel/libc/OpenSSL never auto-apply |
+| Docker daemon | `daemon.json`: log rotation 10m×3, `live-restore`, `no-new-privileges`, `userland-proxy: false`, `icc: false` | ⏳ pending apply (2026-10-28) | [[docker-daemon]]; never recreate `nut` as part of the rollout |
+| Host firewall | storage-net fence + DOCKER-USER unit (VMs with a storage NIC) | n/a | no storage NIC; `DOCKER-USER` empty |
 | Timezone | America/Chicago | ✅ | CDT |
 | NTP | `ntp.kmkdp.com` primary | ⚠️ synced via public pools (timesyncd) | |
 | Syslog | `syslog.kmkdp.com:514` | ⚠️ forwards (`*.* @@…:514`), but the receiver is absent | |

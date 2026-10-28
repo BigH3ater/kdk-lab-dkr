@@ -64,11 +64,33 @@ name resolves only through lab DNS, i.e. only on the LAN or the tailnet.
 
 | Symptom | Cause | Check / fix |
 |---|---|---|
-| Remote client reaches `10.1.20.20` (Komodo, Radarr…) but nothing on the DMZ, VLAN 1 or VLAN 30 | (a) Docker's nftables `FORWARD` policy DROP eats forwarded tailnet packets; tailscaled's rules are in iptables-legacy. (b) The gateway static route `100.64.0.0/10 → 10.1.20.20` is missing, so replies to the un-masqueraded client never come back | `sudo iptables -S DOCKER-USER` on dkr-01 must show `-i tailscale0 -j ACCEPT` and `-o tailscale0 -j ACCEPT`; the `docker-forward` sidecar in the subnet-router stack re-adds them every minute |
+| Remote client reaches `10.1.20.20` (Komodo, Radarr…) but nothing on the DMZ, VLAN 1 or VLAN 30 | (a) Docker's nftables `FORWARD` policy DROP eats forwarded tailnet packets; tailscaled's rules are in iptables-legacy. (b) The gateway static route `100.64.0.0/10 → 10.1.20.20` is missing, so replies to the un-masqueraded client never come back | `sudo iptables -S DOCKER-USER` on dkr-01 must start with `-i tailscale0 -j ACCEPT` and `-o tailscale0 -j ACCEPT`; the host unit `kdk-docker-user` (timer, every 5 min and on every Docker start) writes them -- `systemctl status kdk-docker-user.timer`, [Host firewall](runbooks/host-firewall.md). (Until security batch 7 a `docker-forward` sidecar in the subnet-router stack did this.) |
 | Everything via DERP ("direct connection not established") | Lab side has no inbound UDP; hotel/CGNAT on the client side | Fine functionally; throughput measured 2026-10-26 at ~21 Mbit/s from a 28 Mbit/s hotel link. A UDP 41641 forward to dkr-01 on the UniFi gateway would allow direct paths |
 | A new subnet is advertised but tailnet clients cannot reach it | ACL: the route needs an `autoApprovers.routes` entry for `tag:subnet-router` AND a `grants` dst for `autogroup:member` | Tailscale console → Access controls (API writes are guarded for the ops token) |
 | `tailscale-dns` exited after a dkr-01 reboot | Docker started it before tailscale0 existed; a failed start is not retried | fixed 2026-10-26: host network + `bind 100.66.29.117` + `restart: always`; check `docker ps -a \| grep tailscale-dns` |
 | Hotel/captive Wi-Fi: `dig @1.1.1.1` times out | Network blocks outbound port 53 | Tailnet DNS (100.100.100.100 → router forwarder) still works; use DoH for public lookups |
+
+## Owner checklist: UniFi and TrueNAS (security plan A1.7)
+
+Gateway and NAS settings no repo file can carry. The host-side half (nft storage fence,
+DOCKER-USER policy) is in [Host firewall](runbooks/host-firewall.md). Tick a row by
+changing its status in a PR, with the date.
+
+| # | Where | Change | Why | Status |
+|---|---|---|---|---|
+| 1 | UniFi policy | allow `192.168.191.20 → 10.1.20.21` tcp 3100 + tcp 514 | DMZ Alloy and rsyslog to kdk-log-01 instead of the storage net (security batch 2) | ☐ open |
+| 2 | UniFi policy | remove `192.168.191.20 → 10.1.20.20:514` once row 1 works | undocumented syslog hole (hosts report C-01); Loki left dkr-01 | ☐ open |
+| 3 | UniFi policy | keep `192.168.191.20 → 10.1.20.20` tcp 8080 (1Password Connect) and tcp 443 | deploy secret rendering; Seerr/Libreseerr → arr. The 443 rule is now scoped to those two containers on the host (DOCKER-USER) | ☐ confirm |
+| 4 | UniFi policy | allow `10.1.20.30 → 192.168.191.20` tcp 6360 only from VLAN 20 | mon-01's LDAPS certificate probe; nothing on dkr-01 still binds LDAP (plan K12) | ☐ open |
+| 5 | UniFi policy | `10.1.30.22` tcp 10443, 11080 (Scrypted UI) only from `10.1.30.21` | only the Pi Traefik fronts Scrypted (security batch 0) | ☐ open |
+| 6 | UniFi policy | Home Assistant `8123` only from `10.1.30.21`; go2rtc `18555` from VLAN 30 only | HA is reached through the Pi Traefik; WebRTC stays on the user VLAN | ☐ open |
+| 7 | UniFi port forwarding / UPnP | no forwards except optional `udp/41641 → 10.1.20.20` (Tailscale direct); UPnP off | nothing else may reach the lab from the WAN (Cloudflare edge report M-4) | ☐ confirm |
+| 8 | UniFi policy | DMZ egress: tcp/7844 to `198.41.192.0/24`, `198.41.200.0/24`, plus `api.cloudflare.com` and Let's Encrypt for the DMZ host | cloudflared tunnel + ACME DNS-01; first step towards a DMZ egress allowlist | ☐ open |
+| 9 | UniFi networks | delete VLAN 21 (`10.1.21.0/24`, k3s-era workers) and its rules | unused (plan A1.0) | ☐ open |
+| 10 | UniFi / SSH logs | identify SSH source `192.168.2.3`; if unknown, rotate `op://kdk-ops/kdkadmin-ssh-key` | seen on three hosts (hosts report L-05); not in the key's `from=` list | ☐ open |
+| 11 | TrueNAS → Shares → SMB / Network | SMB not offered on the storage bridge (`172.16.30.2:445` closed; bind SMB to `10.1.3.5`) | storage net is NFS-only; the DMZ VM could reach SMB (hosts report C-01) | ☐ open |
+| 12 | TrueNAS → Shares → NFS | per-host backup datasets (`tankz3/backup/dkr/<host>`) with `mapall` to an unprivileged user; dmz-01's export covers only its own subtree; the PBS datastore is not exported to `172.16.30.51` | a root compromise of the DMZ VM must not reach every VM backup (hosts report M-06) | ☐ open |
+| 13 | TrueNAS → Shares → NFS | each share's Authorized Networks/Hosts lists only the client(s) that mount it (`172.16.30.50`, `.51`) | export ACLs could not be read in the audit | ☐ confirm |
 
 ## DNS (AdGuard — live configuration, verified 2026-09-21)
 

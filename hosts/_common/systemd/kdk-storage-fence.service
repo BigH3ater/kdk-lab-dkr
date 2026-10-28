@@ -1,0 +1,24 @@
+# Loads /etc/nftables.d/kdk-storage.nft (table inet kdk-storage) on kdk-dkr-01
+# and kdk-dkr-dmz-01. Install: /etc/systemd/system/kdk-storage-fence.service
+# (root:root 0644). Deliberately not nftables.service: Debian's
+# /etc/nftables.conf begins with `flush ruleset`, which would also delete
+# Docker's NAT/filter rules.
+# Runbook: docs/runbooks/host-firewall.md (BigH3ater/kdk-lab-dkr).
+[Unit]
+Description=kdk storage-net fence (nft table inet kdk-storage)
+Documentation=https://github.com/BigH3ater/kdk-lab-dkr/blob/main/docs/runbooks/host-firewall.md
+# Same placement as Debian's nftables.service: loaded before any network is up.
+DefaultDependencies=no
+Wants=network-pre.target
+Before=network-pre.target shutdown.target
+Conflicts=shutdown.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/sbin/nft -f /etc/nftables.d/kdk-storage.nft
+ExecReload=/usr/sbin/nft -f /etc/nftables.d/kdk-storage.nft
+ExecStop=/usr/sbin/nft delete table inet kdk-storage
+
+[Install]
+WantedBy=sysinit.target

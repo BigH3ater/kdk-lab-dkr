@@ -1,0 +1,85 @@
+#!/usr/sbin/nft -f
+# kdk-dkr-dmz-01 storage-net fence + host guard (security plan A1.4; hosts report
+# C-01, H-09). Installed as /etc/nftables.d/kdk-storage.nft and loaded by
+# kdk-storage-fence.service (hosts/_common/systemd/). See
+# docs/runbooks/host-firewall.md for install, verify and rollback.
+#
+# The storage net 172.16.30.0/24 is a flat L2 shared with kdk-dkr-01 and the
+# Proxmox host. Before this file every DMZ container reached dkr-01's SSH,
+# Komodo Periphery, Loki and Traefik, the Proxmox UI and the NAS SMB service over
+# it. After it: the HOST talks NFS to the NAS and nothing else, nothing new comes
+# in on the storage NIC, and containers never touch the storage net at all.
+#
+# Own table, never `flush ruleset`: Docker's rules (iptables-nft, `ip filter` /
+# `ip nat`) and anything else stay untouched. The empty-table + delete pair
+# makes a reload replace only this table. Several base chains on one hook must
+# ALL accept a packet, so Docker's FORWARD/DOCKER-USER still apply after ours.
+# Do NOT `systemctl enable nftables`: Debian's /etc/nftables.conf starts with
+# `flush ruleset` and would wipe Docker's NAT.
+#
+# Forward-hook note: Docker DNATs published ports in prerouting (priority -100),
+# so this chain (priority -10) already sees the container address, not
+# 192.168.191.20. A container reaching a port PUBLISHED on 192.168.191.20 (for
+# example LDAPS 6360) is therefore bridge-to-bridge and never matches the
+# 192.168.191.0/24 rules below; those only catch other hosts on the DMZ segment
+# (the gateway, future DMZ hosts).
+
+define STORAGE_IF = "eth1"
+define NAS = 172.16.30.2
+define STORAGE_NET = 172.16.30.0/24
+define DMZ_NET = 192.168.191.0/24
+
+table inet kdk-storage {}
+delete table inet kdk-storage
+
+table inet kdk-storage {
+    # Host -> storage net: NFS (and the rpcbind port, harmless for v4.1) to the NAS
+    # only, plus ping (storage reachability checks). Replies to anything we
+    # opened are allowed; everything else on the storage NIC is dropped.
+    chain storage_out {
+        type filter hook output priority 0; policy accept;
+        oifname $STORAGE_IF ct state established,related accept
+        oifname $STORAGE_IF ip daddr $NAS meta l4proto { tcp, udp } th dport { 111, 2049 } accept
+        oifname $STORAGE_IF ip daddr $NAS icmp type echo-request accept
+        oifname $STORAGE_IF counter drop
+    }
+
+    # Storage net -> host: only replies (NFSv4.1 callbacks ride the client's own
+    # connection). Without this an output-only fence still answers a new inbound
+    # SYN, because the SYN-ACK already counts as `established`.
+    chain storage_in {
+        type filter hook input priority 0; policy accept;
+        iifname $STORAGE_IF ct state established,related accept
+        iifname $STORAGE_IF counter drop
+    }
+
+    chain fence_forward {
+        type filter hook forward priority -10; policy accept;
+        # Nothing is routed to or from the storage net: no published port is
+        # reachable on 172.16.30.51, no container egresses via eth1.
+        iifname $STORAGE_IF counter drop
+        oifname $STORAGE_IF counter drop
+        # Containers never touch storage (redundant with the line above; kept as
+        # the explicit rule the plan and the report name).
+        iifname "br-*" ip daddr $STORAGE_NET counter drop
+        # Containers do not open connections to other hosts on the DMZ segment.
+        # 6360 (LDAPS) stays open for safety: since security batch 5 every LDAP
+        # consumer reaches lldap on the internal identity_ldap network, and a
+        # published-port hit on 192.168.191.20:6360 is DNATed before this chain
+        # (see the note above), so this exception is not expected to match.
+        iifname "br-*" ip daddr $DMZ_NET tcp dport 6360 accept
+        iifname "br-*" ip daddr $DMZ_NET ct state new counter drop
+    }
+
+    # Containers -> this host's own services through the bridge gateway
+    # (10.211.x.1) or any host address (hosts report H-09). These are
+    # host-network listeners, so they are INPUT, not FORWARD: sshd, rpcbind,
+    # Komodo Periphery (runs as root), node_exporter, LLMNR. Published ports
+    # (Traefik 80/443, LDAPS 6360, cAdvisor 9280) are DNATed and are not affected
+    # here; the cAdvisor port is guarded in DOCKER-USER (kdk-docker-user.conf).
+    chain host_guard {
+        type filter hook input priority 0; policy accept;
+        iifname "br-*" ct state new tcp dport { 22, 111, 8120, 9100 } counter drop
+        iifname "br-*" ct state new udp dport { 111, 5355 } counter drop
+    }
+}
