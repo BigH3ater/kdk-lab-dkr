@@ -92,7 +92,7 @@ stack's server — moving the stack moved the record).
 | Admin portal reachable without login | public allowlist too broad / forwardauth missing | admin router has `middlewares=wizarr-auth` → `http://authelia:9091/api/authz/forward-auth` |
 | Invited user cannot log in via LDAP/SSO | invite not yet reconciled (no jellyfin-users group / default Jellyfin provider / not in Seerr) | wait for the next `:07/:22/:37/:52` `wizarr-sync` run, or run the Procedure now |
 | lldap create fails on invite | Wizarr < 2026.10.0 (no cn/sn, mixed-case uid) | image is `v2026.10.1`; check Wizarr logs for the lldap error |
-| 530/502 from the tunnel | CF public hostname missing/origin-server-name wrong | add `wizarr.kmkdp.com` → `https://traefik`, TLS origin server name = `wizarr.kmkdp.com` |
+| 530/502 from the tunnel | CF public hostname missing/origin-server-name wrong | add `wizarr.kmkdp.com` → `https://traefik:8443` (the `tunnel` entrypoint; only the `wizarr-public` router listens there, admin paths 404 off-LAN), TLS origin server name = `wizarr.kmkdp.com` |
 
 ## Dependencies
 

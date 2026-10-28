@@ -42,10 +42,16 @@ services:
       traefik.docker.network: "proxy-dmz"
       # ---- public invitee router: allowlisted paths only, no auth ----
       traefik.http.routers.wizarr-public.rule: "Host(`wizarr.kmkdp.com`) && (PathRegexp(`^/j(/.*)?$$`) || PathRegexp(`^/join(/.*)?$$`) || PathRegexp(`^/invitation/process(/.*)?$$`) || PathRegexp(`^/plex/callback(/.*)?$$`) || PathRegexp(`^/wizard(/.*)?$$`) || PathRegexp(`^/reset/.+$$`) || PathRegexp(`^/static(/.*)?$$`) || PathRegexp(`^/image-proxy(/.*)?$$`) || PathRegexp(`^/cinema-posters(/.*)?$$`) || PathRegexp(`^/favicon\\.ico$$`))"
+      # Public: LAN entrypoint + the cloudflared-only `tunnel` entrypoint.
+      traefik.http.routers.wizarr-public.entrypoints: "websecure,tunnel"
       traefik.http.routers.wizarr-public.priority: "100"
       traefik.http.routers.wizarr-public.service: "wizarr"
       # ---- admin router: everything else, behind Authelia ForwardAuth ----
       traefik.http.routers.wizarr-admin.rule: "Host(`wizarr.kmkdp.com`)"
+      # Admin stays LAN/tailnet-only even once wizarr.kmkdp.com is on the tunnel
+      # (tunnel requests for non-invitee paths get 404). Add ",tunnel" here only to
+      # allow remote admin (still behind Authelia).
+      traefik.http.routers.wizarr-admin.entrypoints: "websecure"
       traefik.http.routers.wizarr-admin.priority: "1"
       traefik.http.routers.wizarr-admin.service: "wizarr"
       traefik.http.routers.wizarr-admin.middlewares: "wizarr-auth"

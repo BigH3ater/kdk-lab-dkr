@@ -1,0 +1,33 @@
+# File-provider config for the DMZ Traefik (watched directory, see compose.yaml).
+#
+# strip-cf runs on the `websecure` (:443, LAN) entrypoint only. An empty value in
+# customRequestHeaders REMOVES the header (Traefik headers middleware docs), so a
+# LAN/tailnet/DMZ-container client can no longer hand Authelia, Jellyfin or the
+# access log a forged Cloudflare visitor IP or geo. The `tunnel` entrypoint
+# (cloudflared only) does not use it, so real Cf-* headers survive there.
+# X-Forwarded-For is NOT listed: Traefik already discards it from untrusted
+# peers (forwardedHeaders.trustedIPs) and rewrites it itself.
+http:
+  middlewares:
+    strip-cf:
+      headers:
+        customRequestHeaders:
+          Cf-Connecting-Ip: ""
+          Cf-Connecting-Ipv6: ""
+          Cf-Ipcountry: ""
+          Cf-Ipcity: ""
+          Cf-Ipcontinent: ""
+          Cf-Region: ""
+          Cf-Region-Code: ""
+          Cf-Iplatitude: ""
+          Cf-Iplongitude: ""
+          Cf-Postal-Code: ""
+          Cf-Metro-Code: ""
+          Cf-Timezone: ""
+          Cf-Ray: ""
+          Cf-Visitor: ""
+          Cf-Warp-Tag-Id: ""
+          Cf-Worker: ""
+          Cf-Access-Authenticated-User-Email: ""
+          Cf-Access-Jwt-Assertion: ""
+          True-Client-Ip: ""

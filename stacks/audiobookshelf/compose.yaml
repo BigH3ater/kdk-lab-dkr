@@ -32,6 +32,8 @@ services:
     labels:
       traefik.enable: "true"
       traefik.http.routers.audiobookshelf.rule: "Host(`audiobookshelf.kmkdp.com`)"
+      # LAN only: never on the Cloudflare tunnel entrypoint (docs/services/dmz-proxy.md).
+      traefik.http.routers.audiobookshelf.entrypoints: "websecure"
       traefik.http.services.audiobookshelf.loadbalancer.server.port: "80"
 networks:
   proxy-dmz:

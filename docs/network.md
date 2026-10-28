@@ -53,8 +53,24 @@ Clients join with `tailscale up --accept-routes` (DNS accepted by default). The 
 **not** masquerade (`--snat-subnet-routes=false`, 2026-10-26): lab hosts see the client's
 tailnet address (100.64.0.0/10) and reply via the UniFi static route `100.64.0.0/10 → 10.1.20.20`.
 That route is load-bearing — if it disappears, remote access dies while the router looks healthy. Only
-`sso.kmkdp.com` has a public DNS record (Cloudflare tunnel); every other `*.kmkdp.com`
-name resolves only through lab DNS, i.e. only on the LAN or the tailnet.
+the Cloudflare tunnel hostnames (`sso.kmkdp.com`, `jellyfin.kmkdp.com`) have public DNS records;
+every other `*.kmkdp.com` name resolves only through lab DNS, i.e. only on the LAN or the tailnet.
+
+### Public path (Cloudflare tunnel, since 2026-10-28)
+
+```
+visitor ─► Cloudflare edge (WAF/geo rules) ─► tunnel (outbound from cloudflared, TCP 7844)
+        ─► cloudflared 10.211.2.2 ─► https://traefik:8443  (DMZ Traefik 10.211.2.3, `tunnel` entrypoint;
+           8443 is not published, proxy-dmz only; trusts XFF only from 10.211.2.2, keeps Cf-*)
+        ─► app on proxy-dmz — only routers labelled entrypoints=websecure,tunnel (sso, jellyfin, wizarr-public)
+
+LAN / tailnet ─► 192.168.191.20:443 (`websecure`; XFF trusted only from 10.1.20.20 + 10.1.30.21,
+                 Cf-*/True-Client-Ip stripped) ─► any DMZ router
+```
+
+`proxy-dmz` is `10.211.2.0/24` with an explicit ipam block (`stacks/dmz-proxy/compose.yaml`):
+cloudflared `.2` and Traefik `.3` are pinned, other containers get `.128`–`.254`. Jellyfin known
+proxies and `IMMICH_TRUSTED_PROXIES` are `10.211.2.3/32`. See [[dmz-proxy]].
 
 | Symptom | Cause | Check / fix |
 |---|---|---|
@@ -91,7 +107,7 @@ auto-reconciliation.
 | reMarkable cloud domains (my/ping/tectonic/…, appspot hosts) | 10.1.20.20 (2 blackholed → 0.0.0.0) | rmfakecloud intercept |
 | host FQDNs (pve, pbs, truenas, kdk-*-NN) | per-host | infra |
 
-Public (Cloudflare tunnel → DMZ Traefik): sso, seerr, jellyfin, immich —
+Public (Cloudflare tunnel → DMZ Traefik `tunnel` entrypoint): sso, jellyfin (wizarr invitee paths when published) —
 **no internal A records exist in public DNS** (verified against 1.1.1.1/8.8.8.8),
 so DoH-using browsers simply fail closed off-LAN rather than leak.
 
