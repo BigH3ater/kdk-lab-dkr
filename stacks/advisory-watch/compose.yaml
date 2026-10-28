@@ -8,8 +8,10 @@
 # (host dir /opt/kdk-lab/advisory-watch, uid 1000). Pushes its lines to Loki on
 # the same host (job="advisory-watch"); the ruler pages via Alertmanager.
 # GITHUB_TOKEN is optional (lifts GitHub's 60 req/h anonymous limit; without it
-# the job waits out the limit): .env is rendered from .env.tpl only when the
-# host has /etc/komodo/op.env, else it stays empty (see komodo/resources.toml).
+# the job waits out the limit, ~1 h per 60 requests): .env is rendered from
+# .env.tpl only when the host has /etc/komodo/op.env; kdk-log-01 has none, so
+# the token comes from the host file /etc/kdk/github-advisory.env instead
+# (same pattern as /etc/kdk/pushover.env; see README "GitHub token").
 name: advisory-watch
 
 x-hardened: &hardened
@@ -33,7 +35,9 @@ services:
     init: true
     env_file:
       - path: .env
-        required: false     # GITHUB_TOKEN (optional), NVD_API_KEY (optional)
+        required: false     # rendered by op inject only on hosts with /etc/komodo/op.env
+      - path: /etc/kdk/github-advisory.env
+        required: false     # kdk-log-01 (no op): GITHUB_TOKEN=... delivered by hand, root 600
     environment:
       REPO: /repo
       STATE: /state/state.json

@@ -108,3 +108,15 @@ only advances after a clean fetch; nothing is saved if the Loki push fails
 (the job then sends a Pushover fallback and exits 2). Exit 1 = some source
 failed (others saved); docker-event-watch pages the non-zero exit. Delete the
 state file to re-run the 30-day first-run window.
+
+## GitHub token on kdk-log-01
+
+The host has no 1Password service account, so `.env` is always empty there and
+the token comes from `/etc/kdk/github-advisory.env` (`GITHUB_TOKEN=...`, root,
+mode 600, read by compose as `env_file`). Create the token once, on the laptop:
+
+1. GitHub → Settings → Developer settings → Fine-grained tokens: name
+   `kdk-advisory-watch`, **no repository access**, no permissions, expiry 1 year.
+2. `op item create --vault kdk-ops --category "API Credential" --title github-advisory-ro credential=<paste>`
+3. `printf 'GITHUB_TOKEN=%s\n' "$(op read op://kdk-ops/github-advisory-ro/credential)" | ssh kdkadmin@10.1.20.21 'sudo install -m 600 -o root -g root /dev/stdin /etc/kdk/github-advisory.env'`
+4. Next run (or `RunProcedure advisory-watch`) logs no `rate limited` line.
