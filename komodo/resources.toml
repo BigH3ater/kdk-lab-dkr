@@ -1114,13 +1114,8 @@ after = ["loki"]
 server = "kdk-dkr-01"
 repo = "BigH3ater/kdk-lab-dkr"
 run_directory = "stacks/observability-agent"
-<<<<<<< HEAD
-environment = "LOKI_HOST=10.1.20.20\nNODE_NAME=kdk-dkr-01\nBIND_IP=10.1.20.20"
-extra_args = ["--force-recreate"]
-=======
 pre_deploy.command = "sh -c 'echo AGENT_CONFIG_SHA=$(cat alloy/config.alloy docker-event-watch.sh | sha256sum | cut -c1-12) >> .env'"   # APPEND: Komodo renders LOKI_HOST/NODE_NAME into .env first; '>' wiped them (host=unknown, 2026-10-28)
-environment = "LOKI_HOST=10.1.20.21\nNODE_NAME=kdk-dkr-01"
->>>>>>> origin/main
+environment = "LOKI_HOST=10.1.20.21\nNODE_NAME=kdk-dkr-01\nBIND_IP=10.1.20.20"
 webhook_enabled = true
 
 [[stack]]
@@ -1132,13 +1127,8 @@ after = ["loki"]
 server = "kdk-dkr-dmz-01"
 repo = "BigH3ater/kdk-lab-dkr"
 run_directory = "stacks/observability-agent"
-<<<<<<< HEAD
-environment = "LOKI_HOST=172.16.30.50\nNODE_NAME=kdk-dkr-dmz-01\nBIND_IP=192.168.191.20"
-extra_args = ["--force-recreate"]
-=======
 pre_deploy.command = "sh -c 'echo AGENT_CONFIG_SHA=$(cat alloy/config.alloy docker-event-watch.sh | sha256sum | cut -c1-12) >> .env'"   # APPEND: Komodo renders LOKI_HOST/NODE_NAME into .env first; '>' wiped them (host=unknown, 2026-10-28)
-environment = "LOKI_HOST=10.1.20.21\nNODE_NAME=kdk-dkr-dmz-01"
->>>>>>> origin/main
+environment = "LOKI_HOST=10.1.20.21\nNODE_NAME=kdk-dkr-dmz-01\nBIND_IP=192.168.191.20"
 webhook_enabled = true
 
 [[stack]]
@@ -1150,12 +1140,8 @@ after = ["loki"]
 server = "kdk-mon-01"
 repo = "BigH3ater/kdk-lab-dkr"
 run_directory = "stacks/observability-agent"
-<<<<<<< HEAD
-environment = "LOKI_HOST=10.1.20.20\nNODE_NAME=kdk-mon-01\nBIND_IP=10.1.20.30"
-extra_args = ["--force-recreate"]
-=======
 pre_deploy.command = "sh -c 'echo AGENT_CONFIG_SHA=$(cat alloy/config.alloy docker-event-watch.sh | sha256sum | cut -c1-12) >> .env'"   # APPEND: Komodo renders LOKI_HOST/NODE_NAME into .env first; '>' wiped them (host=unknown, 2026-10-28)
-environment = "LOKI_HOST=10.1.20.21\nNODE_NAME=kdk-mon-01"
+environment = "LOKI_HOST=10.1.20.21\nNODE_NAME=kdk-mon-01\nBIND_IP=10.1.20.30"
 webhook_enabled = true
 
 [[stack]]
@@ -1168,8 +1154,7 @@ server = "kdk-log-01"
 repo = "BigH3ater/kdk-lab-dkr"
 run_directory = "stacks/observability-agent"
 pre_deploy.command = "sh -c 'echo AGENT_CONFIG_SHA=$(cat alloy/config.alloy docker-event-watch.sh | sha256sum | cut -c1-12) >> .env'"   # APPEND: Komodo renders LOKI_HOST/NODE_NAME into .env first; '>' wiped them (host=unknown, 2026-10-28)
-environment = "LOKI_HOST=10.1.20.21\nNODE_NAME=kdk-log-01"
->>>>>>> origin/main
+environment = "LOKI_HOST=10.1.20.21\nNODE_NAME=kdk-log-01\nBIND_IP=10.1.20.21"
 webhook_enabled = true
 
 [[stack]]
@@ -1181,13 +1166,8 @@ after = ["loki"]
 server = "kdk-dkr-02"
 repo = "BigH3ater/kdk-lab-dkr"
 run_directory = "stacks/observability-agent"
-<<<<<<< HEAD
-environment = "LOKI_HOST=10.1.20.20\nNODE_NAME=kdk-dkr-02\nBIND_IP=10.1.30.21"
-extra_args = ["--force-recreate"]
-=======
 pre_deploy.command = "sh -c 'echo AGENT_CONFIG_SHA=$(cat alloy/config.alloy docker-event-watch.sh | sha256sum | cut -c1-12) >> .env'"   # APPEND: Komodo renders LOKI_HOST/NODE_NAME into .env first; '>' wiped them (host=unknown, 2026-10-28)
-environment = "LOKI_HOST=10.1.20.21\nNODE_NAME=kdk-dkr-02"
->>>>>>> origin/main
+environment = "LOKI_HOST=10.1.20.21\nNODE_NAME=kdk-dkr-02\nBIND_IP=10.1.30.21"
 webhook_enabled = true
 
 [[stack]]
@@ -1199,13 +1179,8 @@ after = ["loki"]
 server = "kdk-dkr-03"
 repo = "BigH3ater/kdk-lab-dkr"
 run_directory = "stacks/observability-agent"
-<<<<<<< HEAD
-environment = "LOKI_HOST=10.1.20.20\nNODE_NAME=kdk-dkr-03\nBIND_IP=10.1.30.22"
-extra_args = ["--force-recreate"]
-=======
 pre_deploy.command = "sh -c 'echo AGENT_CONFIG_SHA=$(cat alloy/config.alloy docker-event-watch.sh | sha256sum | cut -c1-12) >> .env'"   # APPEND: Komodo renders LOKI_HOST/NODE_NAME into .env first; '>' wiped them (host=unknown, 2026-10-28)
-environment = "LOKI_HOST=10.1.20.21\nNODE_NAME=kdk-dkr-03"
->>>>>>> origin/main
+environment = "LOKI_HOST=10.1.20.21\nNODE_NAME=kdk-dkr-03\nBIND_IP=10.1.30.22"
 webhook_enabled = true
 
 # reMarkable <-> Readwise pipeline (migrated from the decommissioned dockge host).

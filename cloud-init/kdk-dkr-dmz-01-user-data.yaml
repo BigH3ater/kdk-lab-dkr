@@ -13,11 +13,7 @@ users:
       # (hosts/_common/authorized_keys.README.md).
       - from="10.1.30.188,10.1.20.20,100.64.0.0/10,192.168.3.0/24" ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIISxVOFP6r1EKbRDgtXctnqNII6EEypDpBax3LyOBxDb kdkadmin-ssh-key
 package_update: true
-<<<<<<< HEAD
-packages: [qemu-guest-agent, nfs-common, curl, ca-certificates, gnupg, rsync, nftables, unattended-upgrades]
-=======
-packages: [qemu-guest-agent, nfs-common, curl, ca-certificates, gnupg, rsync, rsyslog]
->>>>>>> origin/main
+packages: [qemu-guest-agent, nfs-common, curl, ca-certificates, gnupg, rsync, nftables, unattended-upgrades, rsyslog]
 write_files:
   - path: /etc/apt/sources.list.d/nonfree.sources
     content: |

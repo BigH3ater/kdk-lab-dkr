@@ -102,20 +102,14 @@ services:
       - "80:80"
       - "443:443"
     volumes:
-<<<<<<< HEAD
-      - /opt/kdk-lab/dmz-proxy/letsencrypt:/letsencrypt
-    networks: [proxy-dmz, sockproxy]
-    depends_on: [socket-proxy]
-=======
-      # Docker provider. Root + socket = host root on a Traefik RCE; the
-      # read-only socket proxy replaces this mount in a later PR (batch 7).
-      - /var/run/docker.sock:/var/run/docker.sock:ro
       - /opt/kdk-lab/dmz-proxy/letsencrypt:/letsencrypt
       - ./dynamic:/etc/traefik/dynamic:ro
     networks:
       proxy-dmz:
         ipv4_address: 10.211.2.3   # Jellyfin KnownProxies / IMMICH_TRUSTED_PROXIES depend on it
       identity_default: {}        # lldap UI router (users.kmkdp.com): lldap left proxy-dmz (plan A1.2)
+      sockproxy: {}               # docker provider via the read-only socket proxy (no docker.sock here)
+    depends_on: [socket-proxy]
     healthcheck:
       # Same address flag as above so the CLI dials 127.0.0.1:8080/ping.
       test: ["CMD", "traefik", "healthcheck", "--ping", "--entrypoints.traefik.address=127.0.0.1:8080"]
@@ -126,7 +120,6 @@ services:
     logging: &log
       driver: json-file
       options: { max-size: "10m", max-file: "3" }
->>>>>>> origin/main
 
   cloudflared:
     image: cloudflare/cloudflared:2026.10.5
@@ -143,8 +136,10 @@ services:
     command: ["tunnel", "--no-autoupdate", "--protocol", "http2", "--metrics", "127.0.0.1:20241", "run"]
     environment:
       TUNNEL_TOKEN: "${CLOUDFLARE_TUNNEL_TOKEN}"
-<<<<<<< HEAD
-    networks: [proxy-dmz]
+    networks:
+      proxy-dmz:
+        ipv4_address: 10.211.2.2   # the tunnel entrypoint trusts exactly this /32
+    logging: *log
 
   # Read-only Docker API for Traefik's docker provider (security batch 7). The
   # only docker.sock mount in this stack. Traefik v3.7 needs /version, /events,
@@ -182,21 +177,10 @@ services:
     logging:
       driver: json-file
       options: { max-size: "10m", max-file: "3" }
-=======
-    networks:
-      proxy-dmz:
-        ipv4_address: 10.211.2.2   # the tunnel entrypoint trusts exactly this /32
-    logging: *log
->>>>>>> origin/main
 
 networks:
   proxy-dmz:
     name: proxy-dmz
-<<<<<<< HEAD
-  # No gateway, no egress: only Traefik and the socket proxy.
-  sockproxy:
-    internal: true
-=======
     # Same /24 the network already had from the host pool (10.211.0.0/16, see
     # docs/reference/docker-ipam.md); now explicit so the two ingress containers
     # can be pinned. Dynamic addresses come from ip_range (.128-.254), so no
@@ -208,4 +192,6 @@ networks:
           gateway: 10.211.2.1
   identity_default:
     external: true       # created by stacks/identity
->>>>>>> origin/main
+  # No gateway, no egress: only Traefik and the socket proxy.
+  sockproxy:
+    internal: true

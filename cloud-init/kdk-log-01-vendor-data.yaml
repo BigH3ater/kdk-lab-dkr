@@ -37,6 +37,10 @@ write_files:
       AllowUsers kdkadmin
       MaxAuthTries 3
       LoginGraceTime 20
+      # VS Code Remote-SSH needs a local port forward; the admin account only.
+      # Match must stay last in this file.
+      Match User kdkadmin
+          AllowTcpForwarding local
 
   - path: /etc/nftables.conf
     permissions: "0755"

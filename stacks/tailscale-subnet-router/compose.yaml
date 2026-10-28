@@ -51,26 +51,3 @@ services:
       TZ: America/Chicago
     volumes:
       - /opt/kdk-lab/tailscale-subnet-router:/var/lib/tailscale
-<<<<<<< HEAD
-=======
-
-  docker-forward:
-    image: alpine:3.20.10
-    container_name: tailscale-docker-forward
-    restart: unless-stopped
-    network_mode: host
-    cap_add: [NET_ADMIN, NET_RAW]
-    depends_on: [tailscale]
-    command:
-      - sh
-      - -c
-      - |
-        apk add -q --no-cache iptables || exit 1
-        while :; do
-          for d in -i -o; do
-            iptables -C DOCKER-USER $$d tailscale0 -j ACCEPT 2>/dev/null \
-              || { iptables -I DOCKER-USER $$d tailscale0 -j ACCEPT && echo "added DOCKER-USER $$d tailscale0 ACCEPT"; }
-          done
-          sleep 60
-        done
->>>>>>> origin/main
