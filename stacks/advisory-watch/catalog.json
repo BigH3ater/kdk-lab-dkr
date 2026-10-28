@@ -187,7 +187,8 @@
       "github": "seerr-team/seerr"
     },
     "ghcr.io/tandoorrecipes/recipes": {
-      "github": "TandoorRecipes/recipes"
+      "github": "TandoorRecipes/recipes",
+      "note": "GHSA-c7mc-c9jr-38hf (2026-10) carries the malformed range 'recipes' upstream, so it stays Unknown/Medium by design; re-check when Tandoor fixes the advisory metadata."
     },
     "ghcr.io/unpoller/unpoller": {
       "github": "unpoller/unpoller",
@@ -234,19 +235,13 @@
       "tag_is_version": false
     },
     "instrumentisto/rsync-ssh": {
-      "nvd_cpe": [
-        "cpe:2.3:a:samba:rsync",
-        "cpe:2.3:a:openbsd:openssh"
-      ],
-      "confirm": true,
-      "note": "rsync + openssh client on alpine; floating `alpine` tag, verdict Unknown",
+      "note": "rsync + openssh client as Alpine packages: Trivy's weekly scan covers their CVEs; product-level NVD lookups were dropped 2026-10-28 (always Unknown, 9 Low per run). Tag alpineX.Y-rN is not a version.",
       "tag_is_version": false
     },
     "kdk/calibre": {
       "local": true,
       "base": "python",
-      "github": "kovidgoyal/calibre",
-      "note": "built from stacks/calibre/Dockerfile; calibre comes from Debian apt"
+      "note": "built from stacks/calibre/Dockerfile; calibre is a Debian apt package inside the image (Trivy covers it). kovidgoyal/calibre GHSA compare was dropped 2026-10-28: the local tag `latest` cannot be compared (always Unknown)."
     },
     "kdk/dashboard-mealplan": {
       "local": true,
@@ -321,7 +316,8 @@
     "postgres": {
       "nvd_cpe": "cpe:2.3:a:postgresql:postgresql",
       "feed": "https://www.postgresql.org/news.rss",
-      "note": "floating `16-alpine` tag: verdict Unknown; the feed is filtered to security releases"
+      "note": "tag is a full version since the 2026-10-28 pins; NVD stays product-level (Unknown). The news feed is filtered to core PostgreSQL release posts; extension posts (PostgreSQL Anonymizer etc.) are excluded (2026-10-28).",
+      "feed_filter": "(?i)^PostgreSQL (\\d+(\\.\\d+)+(, )?)+.*(released|security)"
     },
     "prom/alertmanager": {
       "github": "prometheus/alertmanager",
