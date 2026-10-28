@@ -28,6 +28,11 @@
 # Secrets: /opt/kdk-lab/home-assistant/secrets.env (root 600, host-managed
 # out-of-band like the authelia secret files -- dkr-02 has no op CLI). Holds
 # CF_DNS_API_TOKEN for Traefik's DNS-01 resolver.
+# Per-service env files beside it, same rules (root 600, host-managed), so no
+# container sees another's secret (the Cloudflare token stays out of Node-RED):
+#   node-red.env     NODE_RED_ADMIN_HASH, NODE_RED_CREDENTIAL_SECRET
+#   zigbee2mqtt.env  ZIGBEE2MQTT_CONFIG_FRONTEND_AUTH_TOKEN
+# A missing file fails the whole deploy -- create them before merging.
 name: home-assistant
 services:
   homeassistant:
@@ -78,6 +83,16 @@ services:
     # Ingress and HA's login; this restores an equivalent boundary.
     expose:
       - "8099"
+    # Settings layered over configuration.yaml by z2m's ZIGBEE2MQTT_CONFIG_<PATH>
+    # env overrides (never written back to the YAML). frontend.auth_token gates
+    # the frontend's WebSocket (/api): without the token it closes with 4401,
+    # so the UI loads but cannot read or change anything.
+    env_file:
+      # ZIGBEE2MQTT_CONFIG_FRONTEND_AUTH_TOKEN -- host-managed secret (header).
+      - /opt/kdk-lab/home-assistant/zigbee2mqtt.env
+    environment:
+      # The host YAML says debug, which logs every MQTT payload.
+      ZIGBEE2MQTT_CONFIG_ADVANCED_LOG_LEVEL: info
     devices:
       # The coordinator is a Sonoff, not a SkyConnect. By-id so a reboot that
       # renumbers ttyUSB* does not silently point z2m at the wrong dongle.
@@ -103,6 +118,11 @@ services:
     # this the container cannot mkdir /data/node_modules and exits 0 in a
     # loop, which reads as "restarting" rather than as a permissions fault.
     user: "1000:1000"
+    # adminAuth + credentialSecret for node-red/settings.js (copied into /data
+    # by pre_deploy). bcrypt hashes contain `$`: the value must be
+    # single-quoted in the env file or compose interpolates it away.
+    env_file:
+      - /opt/kdk-lab/home-assistant/node-red.env
     volumes:
       - /opt/kdk-lab/home-assistant/node-red:/data
       - /etc/localtime:/etc/localtime:ro

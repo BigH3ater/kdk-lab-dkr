@@ -29,11 +29,17 @@ INGRESS = {
 #   10.1.20.20       internal Traefik ingress (a removed repo service)
 #   192.168.191.20   DMZ Traefik ingress (a removed repo service)
 # The Pi-tier ingress IPs (10.1.30.x) are intentionally EXCLUDED: they carry
-# ADOPTED services (Home Assistant, Scrypted, Homebridge, Node-RED, Zigbee) that
+# ADOPTED services (Home Assistant, Scrypted, Node-RED, Zigbee) that
 # live outside this repo, plus (currently mis-pointed) host FQDNs. Never prune
 # host FQDNs (kdk-*) or the wildcard either.
 PRUNE_IPS = {"10.1.20.10", "10.1.20.20", "192.168.191.20"}
 PROTECT = {"*.kmkdp.com"}
+# Retired hostnames, deleted whatever their answer. The prune above never
+# touches the Pi-tier IPs, so a hand-added 10.1.30.x rewrite would otherwise
+# outlive its service. Once deleted the name falls through to the *.kmkdp.com
+# wildcard (internal Traefik, no router -> 404).
+#   homebridge  removed 2026-10-28 (zero accessories, UI setup never claimed)
+RETIRED = {"homebridge.kmkdp.com"}
 
 # Static rewrites NOT derived from Traefik labels: the reMarkable cloud domains
 # a device hits, redirected to rmfakecloud (kdk-dkr-01 internal Traefik) so the
@@ -150,7 +156,8 @@ def main():
     want = desired_records()
     if not want:
         raise SystemExit("no Host() records derived — refusing to reconcile (repo empty?)")
-    have = {r["domain"]: r["answer"] for r in (adg("/rewrite/list") or [])}
+    rewrites = adg("/rewrite/list") or []
+    have = {r["domain"]: r["answer"] for r in rewrites}
     added = updated = pruned = 0
 
     for domain, ip in sorted(want.items()):
@@ -167,11 +174,16 @@ def main():
             print(f"  ~ {domain} -> {ip} (was {cur})"); updated += 1
 
     for domain, ans in sorted(have.items()):
-        if (domain not in want and domain not in PROTECT
+        if (domain not in want and domain not in PROTECT and domain not in RETIRED
                 and domain.endswith(".kmkdp.com") and not domain.startswith("kdk-")
                 and ans in PRUNE_IPS):
             adg("/rewrite/delete", "POST", {"domain": domain, "answer": ans})
             print(f"  - {domain} (stale, was {ans})"); pruned += 1
+
+    for r in rewrites:
+        if r["domain"] in RETIRED and r["domain"] not in want:
+            adg("/rewrite/delete", "POST", {"domain": r["domain"], "answer": r["answer"]})
+            print(f"  - {r['domain']} (retired, was {r['answer']})"); pruned += 1
 
     print(f"DNS reconcile OK: {len(want)} desired, +{added} ~{updated} -{pruned}")
 
