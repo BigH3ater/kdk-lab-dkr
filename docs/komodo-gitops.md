@@ -67,8 +67,13 @@ itself. Keep those out of the file.
 
 ## Add or change a stack
 
-1. Add `stacks/<name>/compose.yaml` (secrets via `.env.tpl` + `op inject` in a
-   `pre_deploy` command, like the existing stacks).
+1. Start from the template: `cp -r stacks/_template stacks/<name>` (the
+   `x-hardened` anchor, an `internal: true` db network, Traefik labels, and
+   secrets via `.env.tpl` + `op inject` in a `pre_deploy` command). Then run
+   `python3 scripts/compose-baseline-check.py --stack <name>`. It must come back
+   clean, or every gap needs a documented skip/exception label; see
+   [Compose hardening baseline](reference/compose-baseline.md). The
+   `compose-baseline` GitHub Action runs the same check on the PR.
 2. Declare it in `komodo/resources.toml`:
    ```toml
    [[stack]]

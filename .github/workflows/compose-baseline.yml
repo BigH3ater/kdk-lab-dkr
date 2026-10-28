@@ -1,0 +1,51 @@
+# Compose hardening baseline (docs/reference/compose-baseline.md).
+#   baseline       -- scripts/compose-baseline-check.py against the committed
+#                     known-gap list: fails only on NEW gaps (a service that got
+#                     worse, or a new service that is not clean).
+#   compose-config -- `docker compose config -q` for every stack with placeholder
+#                     env files, so broken YAML never reaches main.
+name: compose-baseline
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: compose-baseline-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  baseline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      # PyYAML = fast path; without it the script falls back to `docker compose config`.
+      - name: Install PyYAML
+        run: python -m pip install pyyaml
+      - name: Check compose baseline
+        run: >-
+          python scripts/compose-baseline-check.py
+          --allow-known scripts/compose-baseline-known-gaps.txt --summary
+
+  compose-config:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      # Placeholder .env from each .env.tpl (op:// refs never resolved); host-managed
+      # env_file paths (e.g. /opt/kdk-lab/home-assistant/secrets.env) are created
+      # empty with sudo. Prints which stacks got placeholders or were skipped.
+      - name: Validate every stack with docker compose config
+        run: scripts/compose-config-check.sh --ci
