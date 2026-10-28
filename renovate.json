@@ -30,7 +30,8 @@
     "**/node_modules/**",
     "docs/**",
     "cloud-init/**",
-    "hosts/**"
+    "hosts/**",
+    "stacks/_template/**"
   ],
   "packageRules": [
     {
