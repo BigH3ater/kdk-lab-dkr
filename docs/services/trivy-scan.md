@@ -3,7 +3,7 @@ title: trivy-scan — weekly image vulnerability scan
 host: all compose hosts
 stack: trivy-scan
 tier: infra
-status: new
+status: live
 storage: yes
 secrets: []
 updated: 2026-10-28

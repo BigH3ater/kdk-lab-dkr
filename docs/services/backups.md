@@ -43,7 +43,7 @@ In Komodo, Procedure `nightly-backups` shows a recent successful run.
 | No new dumps | Procedure didn't run / stack failed | Komodo Procedure history; `docker logs <backup-container>` |
 | Offsite never runs | gated behind `offsite` profile | expected — Proton auth is in cooldown |
 | Offsite accumulates dead objects | crypt password changed without a purge | `rclone purge proton:kdk-lab-backup` before the first sync under a new password |
-| rclone can't read cached tokens | image newer than the login version | pin `rclone/rclone:1.75` (the version that did the interactive login) |
+| rclone can't read cached tokens | image newer than the login version | pin `rclone/rclone:1.75.2` (the version that did the interactive login) |
 
 ## Dependencies
 

@@ -5,7 +5,7 @@ stack: komodo
 tier: infra
 status: live
 storage: yes
-secrets: [komodo-db, komodo-passkey, komodo-jwt-secret, komodo-webhook-secret, komodo-admin]
+secrets: [komodo-db, komodo-passkey, komodo-jwt-secret, komodo-webhook-secret, komodo-admin, komodo-github-pat]
 updated: 2026-10-28
 tags: [homelab/stack, tier/infra, status/live]
 ---
@@ -24,7 +24,7 @@ Deployment control plane and the lab's single pane of glass; every other stack i
 | Status | 🟢 Live — UI behind Authelia SSO, all servers green |
 | Host | [[kdk-dkr-01]] (10.1.20.20) |
 | Endpoint | `https://komodo.kmkdp.com` — Authelia SSO (`internal-users`, 2FA), then local login `kdkadmin` (1P `komodo-admin`); self-registration closed |
-| Images | core `2.3.3`, ferretdb `2`, postgres-documentdb `17` |
+| Images | core `2.3.3`, ferretdb `2.7.0`, postgres-documentdb `17-0.107.0-ferretdb-2.7.0` (pinned 2026-10-28; `deploy = false`, so a bump applies on the next manual Deploy) |
 | Deploy | Komodo stack `komodo` (git-linked); Resource Sync reads `komodo/resources.toml` from main |
 | Storage | `/opt/kdk-lab/komodo/{postgres,ferretdb,syncs,backups}` on the VM disk |
 | Blast radius | No new deploys, redeploys, or drift-repair; running containers keep running |
@@ -98,6 +98,7 @@ Core and periphery must track the same release line; pin both to `2.3.3`.
 | `komodo-passkey` | Core↔periphery auth | 🔴 never on live alone | must update every periphery host's passkey in the same change |
 | `komodo-webhook-secret` | GitHub webhook HMAC | 🟢 self-service | yes — update the GitHub webhook too |
 | `komodo-admin` | Local admin login | 🟢 self-service | yes |
+| `komodo-github-pat` | Komodo git account `BigH3ater` (clones the private `network-sre-learning` repo) | 🟡 external party | yes — new fine-grained PAT in GitHub → 1Password + Komodo git account, PullStack, then revoke the old one (rotated 2026-10-28; target: Contents **read-only** on the named repos, with an expiry) |
 
 Rotate in 1P (`op item edit <item> --vault kdk-cluster ...`), then redeploy the stack so `op inject` re-renders `.env`.
 

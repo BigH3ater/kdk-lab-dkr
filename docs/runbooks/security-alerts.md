@@ -24,7 +24,9 @@ alerts come quietly (priority -1) at most once a day.
   ssh kdkadmin@10.1.20.30 'sudo docker exec alertmanager-ext amtool --alertmanager.url=http://127.0.0.1:9093 \
     silence add alertname=<Name> --duration=4h --comment="<why>"'
   ```
-  A permanent false positive is a rule fix (PR), not a long silence.
+  Or in the UI: `https://alertmanager.kmkdp.com` (Authelia) → Silences; the
+  Pushover link opens it. A permanent false positive is a rule fix (PR), not a
+  long silence. Adding or changing a rule: [Add a Loki alert rule](add-loki-alert-rule.md).
 - **Inferred wording** (`kdk_inferred: "true"` annotation): the log text was
   guessed from upstream docs, not seen here. When one fires, check the real line
   and tighten the regex; when you test one and it does not fire, fix the regex.
@@ -113,7 +115,7 @@ alerts come quietly (priority -1) at most once a day.
 
 ## Home Assistant
 
-`home-assistant.yml`: kdk-dkr-02 (HA, Node-RED, zigbee2mqtt, Mosquitto) and kdk-dkr-03 (Scrypted, Homebridge). Several rules need a config change before they can fire (noted in the file).
+`home-assistant.yml`: kdk-dkr-02 (HA, Node-RED, zigbee2mqtt, Mosquitto) and kdk-dkr-03 (Scrypted; Homebridge was removed 2026-10-28). Several rules need a config change before they can fire (noted in the file).
 
 | Alert | First checks |
 |---|---|
@@ -123,7 +125,7 @@ alerts come quietly (priority -1) at most once a day.
 | `NodeRedFlowsDeployed` (info), `NodeRedAuthFailures` | Expected when you deploy flows; failures = someone at the editor |
 | `ZigbeePermitJoinOrNewDevice` | Expected while pairing; otherwise disable permit-join in z2m and check the new device list |
 | `MosquittoAuthFailure` | A client with old credentials (after a rotation) or a probe on the LAN |
-| `ScryptedHomebridgeAuthEvent` | Scrypted / Homebridge UI: users and plugins |
+| `ScryptedHomebridgeAuthEvent` | Scrypted UI: users and plugins (the name predates the Homebridge removal) |
 
 ## Hosts
 
@@ -145,3 +147,12 @@ alerts come quietly (priority -1) at most once a day.
 | `AdvisoryNeedsReview` (info) | The tag is not comparable (`latest`, floating, wrapper, NVD/RSS item): read the advisory and decide by hand; pinning an exact tag makes the next run decide itself |
 | `TrivyFixableCritical` | Grafana → Security Advisories → Trivy table: which package (`top_pkg`, `top_fixed`)? A newer image tag usually carries the fix; for local `kdk/*` images rebuild on a current base |
 | `AdvisoryWatchSilent`, `TrivyScanSilent` | The weekly job did not report: Komodo → Procedures → run history; `docker logs advisory-watch` / `trivy-scan-report`. Fires once after the first deploy until the first run |
+
+## Shipping
+
+`shipping.yml`: one `LokiShippingStalled` rule per host (no `scope`/`runbook`
+labels; the `host` label names the silent host).
+
+| Alert | First checks |
+|---|---|
+| `LokiShippingStalled` | No line at all from that host for 30 min. On the host: `docker ps --filter name=alloy`, `docker logs alloy --tail 20`; `LOKI_HOST` must be `10.1.20.21`. Path: the host's IP must be in kdk-log-01's `log_clients_v4` set (`sudo nft list set inet kdk-input log_clients_v4`) and, for the DMZ, the UniFi rule `192.168.191.20 → 10.1.20.21:3100`. All hosts at once = kdk-log-01 or Loki down: `curl -s http://10.1.20.21:3100/ready` from mon-01 |

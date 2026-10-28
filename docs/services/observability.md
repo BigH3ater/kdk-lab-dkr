@@ -142,11 +142,11 @@ ssh kdkadmin@10.1.20.21 'sudo docker logs loki 2>&1 | grep -i -E "rule|ruler" | 
 
 ## Observability
 
-This *is* the observability. Prometheus jobs: `idrac`, `node-external` (11), `cadvisor` (5), `blackbox-icmp/-dns/-http-app`, `blackbox-service` (14 migrated `*.kmkdp.com`). Alert rules: `thermal.yml` (idrac-exporter), `service.yml` (host/container/endpoint/cert), `smart-home.yml`. All route to Pushover.
+This *is* the observability. Prometheus jobs: `idrac`, `node-external` (12), `cadvisor` (6, incl. kdk-log-01), `blackbox-icmp/-dns/-http-app`, `blackbox-service` (14 migrated `*.kmkdp.com`). Alert rules: `thermal.yml` (idrac-exporter), `service.yml` (host/container/endpoint/cert), `smart-home.yml`. All route to Pushover; Loki ruler alerts arrive at the same Alertmanager (`source="loki"`).
 
 ## Architecture
 
-`loki:3100` on kdk-log-01, published on `10.1.20.21` only and fenced by its nft allowlist, with an Alloy syslog receiver on `:514` tcp+udp (`syslog.kmkdp.com` → 10.1.20.21). The Loki ruler reads `stacks/loki/rules/` and sends to Alertmanager `10.1.20.30:9093`, which routes `source="loki"` to Pushover grouped by `alertname, host`. Each host runs cAdvisor (`:9280`) + Alloy (Docker log discovery → Loki). The three VMs (dkr-01, dmz-01, log-01) add node-exporter (`:9100`); the Pis have it as a package. Fan controllers reach the R720/R730xd BMCs by IPMI as `idracrw`. Container-state alerting is per-host: `docker-event-watch` tails the Docker events API and pages Pushover on a container crash (die with a non-graceful exit) or unhealthy status, and logs (never pages) every container `create` and image `pull` with its image reference for the Loki rules; its script is a compose `config`, so an edit recreates it; user-facing apps are also covered by `EndpointDown` (blackbox HTTPS probes of the 14 `*.kmkdp.com` services).
+`loki:3100` on kdk-log-01, published on `10.1.20.21` only and fenced by its nft allowlist, with an Alloy syslog receiver on `:514` tcp+udp (`syslog.kmkdp.com` → 10.1.20.21). The Loki ruler reads `stacks/loki/rules/` and sends to Alertmanager `10.1.20.30:9093`, which routes `source="loki"` to Pushover grouped by `alertname, host`. Each host runs cAdvisor (`:9280`) + Alloy (Docker log discovery → Loki). The three VMs (dkr-01, dmz-01, log-01) add node-exporter (`:9100`); the Pis have it as a package. Fan controllers reach the R720/R730xd BMCs by IPMI as `idracrw`. Container-state alerting is per-host: `docker-event-watch` tails the Docker events API and pages Pushover on a container crash (die with a non-graceful exit) or unhealthy status, and logs (never pages) every container `create` and image `pull` with its image reference for the Loki rules; its script is a compose `config` hashed into the `kdk.config-sha` label by the agent `pre_deploy`, so an edit recreates it (compose itself does not hash `configs:` content); the watcher sends a quiet "kdk container watch online" push each time it starts; user-facing apps are also covered by `EndpointDown` (blackbox HTTPS probes of the 14 `*.kmkdp.com` services).
 
 ## Configuration
 
@@ -154,7 +154,7 @@ This *is* the observability. Prometheus jobs: `idrac`, `node-external` (11), `ca
 |---|---|
 | `stacks/loki/` | Loki + syslog Alloy (git-linked to kdk-log-01); `rules/` = Loki ruler rules |
 | `stacks/observability-agent/`, `stacks/node-exporter/` | per-host agents |
-| `stacks/monitoring/` | mirror of the mon-01 stack (adopted, files-on-host — git-link deferred, see its README) |
+| `stacks/monitoring/` | the mon-01 stack, git-linked as Komodo stack `monitoring-ext` (`auto_pull = false`; secrets hand-rendered on the Pi, mon-01 has no `op`); `post_deploy` reloads Alertmanager |
 | `/opt/kdk-lab/loki/data` on kdk-log-01 | Loki data (VM disk). The old `/mnt/loki` NFS dataset on kdk-dkr-01 is released after 2026-11-28 |
 
 ## Secret Rotation

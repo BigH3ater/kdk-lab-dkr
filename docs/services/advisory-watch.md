@@ -3,7 +3,7 @@ title: advisory-watch — upstream advisories vs pinned images
 host: kdk-log-01
 stack: advisory-watch
 tier: infra
-status: new
+status: live
 storage: yes
 secrets: [github-advisory-ro]
 updated: 2026-10-28

@@ -21,7 +21,7 @@ Stack definitions live in `stacks/` in the repo; Komodo deploys them from git. O
 | [Seerr](seerr.md) | kdk-dkr-dmz-01 | https://seerr.kmkdp.com | dmz-apps |
 | [Wizarr](wizarr.md) | kdk-dkr-dmz-01 | https://wizarr.kmkdp.com | wizarr |
 | [Backups](backups.md) | both VMs | — | backup-* |
-| [Observability](observability.md) | kdk-mon-01 + kdk-dkr-01 | https://grafana.kmkdp.com (fallback http://10.1.20.30:3000) | monitoring, loki, observability-agent |
+| [Observability](observability.md) | kdk-mon-01 + kdk-log-01 | https://grafana.kmkdp.com (fallback http://10.1.20.30:3000) | monitoring, loki, observability-agent |
 | [advisory-watch](advisory-watch.md) | kdk-log-01 | — (weekly, Grafana → Security) | advisory-watch |
 | [trivy-scan](trivy-scan.md) | all compose hosts | — (weekly, Grafana → Security) | trivy-scan |
 | [NUT (UPS)](nut.md) | kdk-dkr-03 | 10.1.30.22:3493 (NUT; 10.1.3.62 on the UPS L2) | nut |
