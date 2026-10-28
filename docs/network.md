@@ -92,6 +92,11 @@ LAN / tailnet ─► 192.168.191.20:443 (`websecure`; XFF trusted only from 10.1
 cloudflared `.2` and Traefik `.3` are pinned, other containers get `.128`–`.254`. Jellyfin known
 proxies and `IMMICH_TRUSTED_PROXIES` are `10.211.2.3/32`. See [[dmz-proxy]].
 
+Public edge (Cloudflare tunnel: `sso`, `jellyfin`): `scripts/edge-probe.sh` checks the WAF rules,
+rate limit, HSTS, minimum TLS, apex and CAA from outside and prints a PASS/FAIL table
+(`--no-ratelimit` skips the login bursts). The rule expressions and dashboard steps are in the
+vault note *Cloudflare edge rules (2026-10)* (10.Homelab/Security), not in this repo.
+
 | Symptom | Cause | Check / fix |
 |---|---|---|
 | Remote client reaches `10.1.20.20` (Komodo, Radarr…) but nothing on the DMZ, VLAN 1 or VLAN 30 | (a) Docker's nftables `FORWARD` policy DROP eats forwarded tailnet packets; tailscaled's rules are in iptables-legacy. (b) The gateway static route `100.64.0.0/10 → 10.1.20.20` is missing, so replies to the un-masqueraded client never come back | `sudo iptables -S DOCKER-USER` on dkr-01 must start with `-i tailscale0 -j ACCEPT` and `-o tailscale0 -j ACCEPT`; the host unit `kdk-docker-user` (timer, every 5 min and on every Docker start) writes them -- `systemctl status kdk-docker-user.timer`, [Host firewall](runbooks/host-firewall.md). (Until security batch 7 a `docker-forward` sidecar in the subnet-router stack did this.) |
