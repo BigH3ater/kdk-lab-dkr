@@ -734,6 +734,13 @@ access_control:
         - 'komodo.kmkdp.com'
       subject:
         - ['group:internal-users']
+    # Alertmanager UI (file-provider route on the internal Traefik; it has no
+    # login of its own and can silence alerts).
+    - policy: two_factor
+      domain:
+        - 'alertmanager.kmkdp.com'
+      subject:
+        - ['group:internal-users']
     # Wizarr moved to the DMZ (Cloudflare tunnel). Only the admin Traefik router
     # carries ForwardAuth, so this rule gates the admin portal (/login, /api,
     # /admin, /setup, /settings, ...); the invitee paths (/j, /join, /wizard,

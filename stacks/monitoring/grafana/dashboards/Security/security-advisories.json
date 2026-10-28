@@ -1,0 +1,350 @@
+{
+ "id": null,
+ "uid": "security-advisories",
+ "title": "Security Advisories",
+ "description": "Weekly vulnerability signals: stacks/advisory-watch (upstream advisories vs the pinned tags, job=advisory-watch) and stacks/trivy-scan (per-image Trivy summary per host, job=trivy). Default range 7d = the last Monday run. Runbook: docs/runbooks/security-alerts.md#advisories",
+ "tags": [
+  "security",
+  "advisories",
+  "trivy"
+ ],
+ "timezone": "browser",
+ "schemaVersion": 39,
+ "version": 1,
+ "refresh": "",
+ "time": {
+  "from": "now-7d",
+  "to": "now"
+ },
+ "templating": {
+  "list": [
+   {
+    "name": "ds_loki",
+    "type": "datasource",
+    "query": "loki",
+    "label": "Loki datasource",
+    "hide": 0,
+    "regex": "",
+    "current": {
+     "selected": true,
+     "text": "loki-dkr01",
+     "value": "loki-dkr01"
+    }
+   },
+   {
+    "name": "verdict",
+    "label": "Verdict",
+    "type": "custom",
+    "multi": true,
+    "includeAll": true,
+    "allValue": "Vulnerable|Unknown",
+    "query": "Vulnerable,Unknown",
+    "current": {
+     "selected": true,
+     "text": [
+      "All"
+     ],
+     "value": [
+      "$__all"
+     ]
+    },
+    "options": []
+   },
+   {
+    "name": "severity",
+    "label": "Severity",
+    "type": "custom",
+    "multi": true,
+    "includeAll": true,
+    "allValue": ".*",
+    "query": "Critical,High,Medium,Low,Unknown",
+    "current": {
+     "selected": true,
+     "text": [
+      "Critical",
+      "High"
+     ],
+     "value": [
+      "Critical",
+      "High"
+     ]
+    },
+    "options": []
+   }
+  ]
+ },
+ "panels": [
+  {
+   "id": 1,
+   "title": "Advisories affecting pinned images (not Patched)",
+   "description": "One row per (image, tag, advisory) from the weekly advisory-watch run. Vulnerable = the pinned tag is inside the affected range; Unknown = not comparable (latest/floating/digest/NVD/RSS), decide by hand.",
+   "type": "table",
+   "gridPos": {
+    "x": 0,
+    "y": 0,
+    "w": 24,
+    "h": 12
+   },
+   "datasource": {
+    "type": "loki",
+    "uid": "${ds_loki}"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "loki",
+      "uid": "${ds_loki}"
+     },
+     "expr": "{job=\"advisory-watch\"} |= \"verdict=\" | logfmt | verdict!=\"Patched\" | verdict=~\"$verdict\" | severity=~\"$severity\"",
+     "queryType": "range",
+     "maxLines": 1000
+    }
+   ],
+   "transformations": [
+    {
+     "id": "extractFields",
+     "options": {
+      "source": "labels",
+      "format": "auto",
+      "replace": false,
+      "keepTime": true
+     }
+    },
+    {
+     "id": "organize",
+     "options": {
+      "includeByName": {
+       "Time": true,
+       "severity": true,
+       "verdict": true,
+       "image": true,
+       "tag": true,
+       "id": true,
+       "fixed_in": true,
+       "stacks": true,
+       "source": true,
+       "note": true,
+       "title": true,
+       "url": true
+      },
+      "indexByName": {
+       "Time": 0,
+       "severity": 1,
+       "verdict": 2,
+       "image": 3,
+       "tag": 4,
+       "id": 5,
+       "fixed_in": 6,
+       "stacks": 7,
+       "source": 8,
+       "note": 9,
+       "title": 10,
+       "url": 11
+      }
+     }
+    },
+    {
+     "id": "sortBy",
+     "options": {
+      "sort": [
+       {
+        "field": "severity",
+        "desc": true
+       }
+      ]
+     }
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "custom": {
+      "filterable": true
+     }
+    },
+    "overrides": [
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "url"
+      },
+      "properties": [
+       {
+        "id": "links",
+        "value": [
+         {
+          "title": "Open advisory",
+          "url": "${__value.raw}",
+          "targetBlank": true
+         }
+        ]
+       }
+      ]
+     }
+    ]
+   },
+   "options": {
+    "showHeader": true,
+    "cellHeight": "sm",
+    "footer": {
+     "show": true,
+     "reducer": [
+      "count"
+     ],
+     "countRows": true
+    }
+   }
+  },
+  {
+   "id": 2,
+   "title": "Trivy per-image summary (HIGH/CRITICAL)",
+   "description": "One row per running image per host from the weekly trivy-scan. fixable_* = a fixed package version exists; TrivyFixableCritical pages on fixable_critical > 0.",
+   "type": "table",
+   "gridPos": {
+    "x": 0,
+    "y": 12,
+    "w": 24,
+    "h": 12
+   },
+   "datasource": {
+    "type": "loki",
+    "uid": "${ds_loki}"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "loki",
+      "uid": "${ds_loki}"
+     },
+     "expr": "{job=\"trivy\"} |= \"image=\" | logfmt | status!=\"\"",
+     "queryType": "range",
+     "maxLines": 1000
+    }
+   ],
+   "transformations": [
+    {
+     "id": "extractFields",
+     "options": {
+      "source": "labels",
+      "format": "auto",
+      "replace": false,
+      "keepTime": true
+     }
+    },
+    {
+     "id": "organize",
+     "options": {
+      "includeByName": {
+       "Time": true,
+       "host": true,
+       "image": true,
+       "status": true,
+       "critical": true,
+       "fixable_critical": true,
+       "high": true,
+       "fixable_high": true,
+       "top_cve": true,
+       "top_pkg": true,
+       "top_fixed": true
+      },
+      "indexByName": {
+       "Time": 0,
+       "host": 1,
+       "image": 2,
+       "status": 3,
+       "critical": 4,
+       "fixable_critical": 5,
+       "high": 6,
+       "fixable_high": 7,
+       "top_cve": 8,
+       "top_pkg": 9,
+       "top_fixed": 10
+      }
+     }
+    },
+    {
+     "id": "sortBy",
+     "options": {
+      "sort": [
+       {
+        "field": "fixable_critical",
+        "desc": true
+       }
+      ]
+     }
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "custom": {
+      "filterable": true
+     }
+    },
+    "overrides": [
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "url"
+      },
+      "properties": [
+       {
+        "id": "links",
+        "value": [
+         {
+          "title": "Open advisory",
+          "url": "${__value.raw}",
+          "targetBlank": true
+         }
+        ]
+       }
+      ]
+     }
+    ]
+   },
+   "options": {
+    "showHeader": true,
+    "cellHeight": "sm",
+    "footer": {
+     "show": true,
+     "reducer": [
+      "count"
+     ],
+     "countRows": true
+    }
+   }
+  },
+  {
+   "id": 3,
+   "title": "Run summaries",
+   "type": "logs",
+   "gridPos": {
+    "x": 0,
+    "y": 24,
+    "w": 24,
+    "h": 6
+   },
+   "datasource": {
+    "type": "loki",
+    "uid": "${ds_loki}"
+   },
+   "description": "The summary line each job writes last (counts, source errors, scan exit).",
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "loki",
+      "uid": "${ds_loki}"
+     },
+     "expr": "{job=~\"advisory-watch|trivy\"} |= \"summary=1\"",
+     "queryType": "range"
+    }
+   ],
+   "options": {
+    "showTime": true,
+    "wrapLogMessage": true,
+    "sortOrder": "Descending"
+   }
+  }
+ ]
+}

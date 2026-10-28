@@ -24,7 +24,7 @@ Single sign-on for every `*.kmkdp.com` service; lives on the DMZ node so authent
 | Status | 🟢 Live — `sso.kmkdp.com` 200; login + TOTP works |
 | Host | [[kdk-dkr-dmz-01]] (192.168.191.20) |
 | Endpoints | `https://sso.kmkdp.com` (Authelia, public), `https://users.kmkdp.com` (LLDAP UI, LAN/tailnet, behind Authelia `group:lldap_admin`), LDAPS `lldap.kmkdp.com:6360` |
-| Images | authelia `4.39.28`, lldap `v0.6.3-alpine`, postgres `16-alpine`, redis `8-alpine` |
+| Images | authelia `4.39.28`, lldap `v0.6.3-alpine`, postgres `16.15-alpine`, redis `8.10.3-alpine`, traefik-certs-dumper `v2.11.4` (pinned 2026-10-28; Renovate proposes updates) |
 | Deploy | Komodo stack `identity` (git-linked, `op inject` pre_deploy) |
 | Storage | `/opt/kdk-lab/identity/{lldap,postgres,authelia-secrets}` (VM disk; `authelia-secrets` owned `8091:8091`), Redis volume `identity_redis-data` |
 | Blast radius | Every gated UI 500s; no logins lab-wide |

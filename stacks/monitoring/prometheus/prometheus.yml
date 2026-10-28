@@ -47,6 +47,7 @@ scrape_configs:
           - "10.1.20.20:9100"   # kdk-dkr-01  (VM)
           - "192.168.191.20:9100" # kdk-dkr-dmz-01 (VM)
           - "10.1.20.30:9100"   # kdk-mon-01  (this host)
+          - "10.1.20.21:9100"   # kdk-log-01  (VM, Loki)
           - "10.1.30.21:9100"   # kdk-dkr-02  (Pi, HA)
           - "10.1.30.22:9100"   # kdk-dkr-03  (Pi, HomeKit)
           - "10.1.1.100:9100"   # kdk-hyp-01  (Proxmox)
@@ -64,6 +65,7 @@ scrape_configs:
       - {targets: ["10.1.20.20:9280"], labels: {host: kdk-dkr-01}}
       - {targets: ["192.168.191.20:9280"], labels: {host: kdk-dkr-dmz-01}}
       - {targets: ["10.1.20.30:9280"], labels: {host: kdk-mon-01}}
+      - {targets: ["10.1.20.21:9280"], labels: {host: kdk-log-01}}
       - {targets: ["10.1.30.21:9280"], labels: {host: kdk-dkr-02}}
       - {targets: ["10.1.30.22:9280"], labels: {host: kdk-dkr-03}}
     metric_relabel_configs:
@@ -93,6 +95,7 @@ scrape_configs:
           - "10.1.1.1"          # gateway
           - "10.1.1.53"         # AdGuard VIP
           - "10.1.20.20"        # kdk-dkr-01
+          - "10.1.20.21"        # kdk-log-01
           - "192.168.191.20"    # kdk-dkr-dmz-01
     relabel_configs:
       - source_labels: [__address__]
@@ -124,7 +127,6 @@ scrape_configs:
       - targets:
           - "http://10.1.30.21:8123"    # Home Assistant  (kdk-dkr-02)
           - "http://10.1.30.22:11080"   # Scrypted        (kdk-dkr-03)
-          - "http://10.1.30.22:8581"    # Homebridge UI   (kdk-dkr-03)
           # Node-RED owns ALL Roborock automation — a dead editor endpoint means
           # no schedules/cleans fire. Not port-published; probe via the Pi Traefik.
           - "https://nodered.kmkdp.com"

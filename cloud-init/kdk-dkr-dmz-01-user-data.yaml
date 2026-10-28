@@ -11,7 +11,7 @@ users:
     ssh_authorized_keys:
       - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIISxVOFP6r1EKbRDgtXctnqNII6EEypDpBax3LyOBxDb kdkadmin-ssh-key
 package_update: true
-packages: [qemu-guest-agent, nfs-common, curl, ca-certificates, gnupg, rsync]
+packages: [qemu-guest-agent, nfs-common, curl, ca-certificates, gnupg, rsync, rsyslog]
 write_files:
   - path: /etc/apt/sources.list.d/nonfree.sources
     content: |

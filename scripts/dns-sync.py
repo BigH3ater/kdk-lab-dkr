@@ -42,6 +42,8 @@ STATIC = {
     "kdk-dkr-02.kmkdp.com":     "10.1.30.21",
     "kdk-dkr-03.kmkdp.com":     "10.1.30.22",
     "kdk-mon-01.kmkdp.com":     "10.1.20.30",
+    "kdk-log-01.kmkdp.com":     "10.1.20.21",
+    "syslog.kmkdp.com":         "10.1.20.21",   # Alloy syslog receiver on kdk-log-01
     "kdk-dns-01.kmkdp.com":     "10.1.1.120",
     "kdk-dns-02.kmkdp.com":     "10.1.1.121",
     "kdk-dns-03.kmkdp.com":     "10.1.1.122",

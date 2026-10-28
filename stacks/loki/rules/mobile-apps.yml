@@ -1,0 +1,110 @@
+# Mobile-app backends on kdk-dkr-dmz-01: Audiobookshelf, Immich, Tandoor.
+# Source: vault 10.Homelab/Security/mobile-apps-posture-2026-10.md section 7.
+# None of the three is on the tunnel yet (routers are websecure-only), so the
+# "FromInternet" rules are tripwires for the day a router gains `tunnel`.
+# "From the internet" = entryPointName="tunnel" (fallback
+# ClientAddr=~"10\\.211\\.2\\.2:.*"). RequestPath includes the query string.
+#
+# Runbook: docs/runbooks/security-alerts.md#mobile-apps
+groups:
+  - name: mobile-apps
+    interval: 1m
+    rules:
+      # ABS log strings are Inferred (none observed in the 24 h sample).
+      - alert: AbsLoginFailures
+        expr: |
+          sum(count_over_time({host="kdk-dkr-dmz-01", container="audiobookshelf"}
+            |~ "(?i)(failed login|invalid username|too many authentication)" [10m])) > 5
+        for: 0m
+        labels:
+          severity: warning
+          source: loki
+          scope: mobile-apps
+        annotations:
+          summary: "Audiobookshelf: more than 5 failed logins in 10m"
+          kdk_inferred: "true"
+          runbook: docs/runbooks/security-alerts.md#mobile-apps
+
+      - alert: AbsNewUserOrApiKey
+        expr: |
+          sum(count_over_time({host="kdk-dkr-dmz-01", container="audiobookshelf"}
+            |~ "(?i)(user created|new user|api key created|created api key)" [1h])) > 0
+        for: 0m
+        labels:
+          severity: warning
+          source: loki
+          scope: mobile-apps
+        annotations:
+          summary: "Audiobookshelf: a user or API key was created"
+          kdk_inferred: "true"
+          runbook: docs/runbooks/security-alerts.md#mobile-apps
+
+      - alert: ImmichLoginFailures
+        expr: |
+          sum(count_over_time({host="kdk-dkr-dmz-01", container="traefik"}
+            |= "immich.kmkdp.com" | json | RequestHost="immich.kmkdp.com"
+            | RequestPath=~"/api/auth/login(\\?.*)?" | DownstreamStatus="401" [10m])) > 5
+        for: 0m
+        labels:
+          severity: warning
+          source: loki
+          scope: mobile-apps
+        annotations:
+          summary: "Immich: more than 5 failed logins in 10m"
+          runbook: docs/runbooks/security-alerts.md#mobile-apps
+
+      - alert: ImmichAdminApiFromInternet
+        expr: |
+          sum(count_over_time({host="kdk-dkr-dmz-01", container="traefik"}
+            |= "immich.kmkdp.com" | json | entryPointName="tunnel" | RequestHost="immich.kmkdp.com"
+            | RequestPath=~"/api/(admin|system-config|api-keys|libraries).*" [15m])) > 0
+        for: 0m
+        labels:
+          severity: critical
+          source: loki
+          scope: mobile-apps
+        annotations:
+          summary: "Immich admin API reached through the tunnel"
+          runbook: docs/runbooks/security-alerts.md#mobile-apps
+
+      - alert: ImmichMassDownload
+        expr: |
+          sum(count_over_time({host="kdk-dkr-dmz-01", container="traefik"}
+            |= "immich.kmkdp.com" | json | RequestHost="immich.kmkdp.com"
+            | RequestPath=~"/api/(download|assets/.*/original).*" [15m])) > 500
+        for: 0m
+        labels:
+          severity: warning
+          source: loki
+          scope: mobile-apps
+        annotations:
+          summary: "Immich: more than 500 original/download requests in 15m (bulk export or a stolen session)"
+          runbook: docs/runbooks/security-alerts.md#mobile-apps
+
+      - alert: TandoorLoginFailures
+        expr: |
+          sum(count_over_time({host="kdk-dkr-dmz-01", container="traefik"}
+            |= "recipes.kmkdp.com" | json | RequestHost="recipes.kmkdp.com"
+            | RequestPath=~"/_allauth/browser/v1/auth/login(\\?.*)?" | DownstreamStatus=~"40[01]" [10m])) > 5
+        for: 0m
+        labels:
+          severity: warning
+          source: loki
+          scope: mobile-apps
+        annotations:
+          summary: "Tandoor: more than 5 failed logins in 10m"
+          runbook: docs/runbooks/security-alerts.md#mobile-apps
+
+      - alert: TandoorAdminFromInternet
+        expr: |
+          sum(count_over_time({host="kdk-dkr-dmz-01", container="traefik"}
+            |= "recipes.kmkdp.com" | json | entryPointName="tunnel" | RequestHost="recipes.kmkdp.com"
+            | RequestPath=~"/admin.*" [15m])) > 0
+        for: 0m
+        labels:
+          severity: critical
+          source: loki
+          scope: mobile-apps
+        annotations:
+          summary: "Tandoor /admin reached through the tunnel"
+          runbook: docs/runbooks/security-alerts.md#mobile-apps

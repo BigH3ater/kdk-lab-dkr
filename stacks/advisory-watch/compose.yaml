@@ -1,0 +1,53 @@
+# Weekly upstream-advisory check on kdk-log-01 (advisory-watch procedure,
+# Monday 07:03 America/Chicago). deploy=false + destroy_before_deploy: each run
+# is a fresh one-shot on a fresh repo clone. Logic in advisory_watch.py
+# (stdlib only), image -> upstream mapping in catalog.json, see README.md.
+#
+# Reads the whole repo (../../ = the Komodo clone root, as dns-reconcile does)
+# to parse every stacks/*/compose.yaml image tag. Writes only /state
+# (host dir /opt/kdk-lab/advisory-watch, uid 1000). Pushes its lines to Loki on
+# the same host (job="advisory-watch"); the ruler pages via Alertmanager.
+# GITHUB_TOKEN is optional (lifts GitHub's 60 req/h anonymous limit; without it
+# the job waits out the limit, ~1 h per 60 requests): .env is rendered from
+# .env.tpl only when the host has /etc/komodo/op.env; kdk-log-01 has none, so
+# the token comes from the host file /etc/kdk/github-advisory.env instead
+# (same pattern as /etc/kdk/pushover.env; see README "GitHub token").
+name: advisory-watch
+
+x-hardened: &hardened
+  security_opt: ["no-new-privileges:true"]
+  cap_drop: [ALL]
+  read_only: true
+  tmpfs: [/tmp]
+  restart: "no"
+  pids_limit: 64
+  mem_limit: 256m
+  logging:
+    driver: json-file
+    options: { max-size: "10m", max-file: "3" }
+
+services:
+  watch:
+    <<: *hardened
+    image: python:3.12.16-alpine
+    container_name: advisory-watch
+    user: "1000:1000"
+    init: true
+    env_file:
+      - path: .env
+        required: false     # rendered by op inject only on hosts with /etc/komodo/op.env
+      - path: /etc/kdk/github-advisory.env
+        required: false     # kdk-log-01 (no op): GITHUB_TOKEN=... delivered by hand, root 600
+    environment:
+      REPO: /repo
+      STATE: /state/state.json
+      LOKI_URL: "http://10.1.20.21:3100"
+      PUSHOVER_FILE: /pushover.env   # fallback only: used when the Loki push fails
+      FIRST_RUN_DAYS: "30"
+    entrypoint: ["python3", "-I", "/repo/stacks/advisory-watch/advisory_watch.py"]
+    volumes:
+      - ../../:/repo:ro
+      - /opt/kdk-lab/advisory-watch:/state
+      - /etc/kdk/pushover.env:/pushover.env:ro
+    labels:
+      kdk.baseline.skip: "healthcheck"   # one-shot

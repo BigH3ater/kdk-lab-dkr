@@ -12,13 +12,13 @@ vmid: none
 console: physical (Raspberry Pi 5); keyboard + HDMI
 standards: drifted
 secrets: []
-updated: 2026-09-12
+updated: 2026-10-28
 tags: [homelab/host, role/docker-host, status/live, tier/internal]
 ---
 
 # kdk-dkr-03 — HomeKit / Scrypted Pi
 
-A Raspberry Pi 5 running Scrypted and Homebridge for HomeKit. Renamed from the old Pi `kdk-dkr-02`; adopted into Komodo in place.
+A Raspberry Pi 5 running Scrypted (cameras + its own HomeKit bridge). Renamed from the old Pi `kdk-dkr-02`; adopted into Komodo in place. Homebridge was removed 2026-10-28: it served zero accessories and its UI setup was never claimed.
 
 **Related:** [[kdk-dkr-02]] · [[komodo]]
 
@@ -26,14 +26,14 @@ A Raspberry Pi 5 running Scrypted and Homebridge for HomeKit. Renamed from the o
 
 | Field | Value |
 |---|---|
-| Purpose | Scrypted (cameras) + Homebridge (HomeKit) |
-| Status | 🟢 Live — periphery active; both containers up (2026-09-12) |
+| Purpose | Scrypted (cameras, HomeKit bridge) |
+| Status | 🟢 Live — periphery active; scrypted up |
 | Host | Raspberry Pi 5 (bare metal) |
 | Address | `10.1.30.22` (VLAN 30) |
 | OS | Debian 13, kernel `6.18.34+rpt-rpi-2712 aarch64` |
 | Hardware | 4 cores / 7.9 GiB / 470 GB |
-| Endpoints | `scrypted / homebridge .kmkdp.com` (resolve to the Pi Traefik on [[kdk-dkr-02]], see [[network]]) |
-| Managed by | adopted Komodo stack `scrypted-homebridge` (files on host) |
+| Endpoints | `scrypted.kmkdp.com` (resolves to the Pi Traefik on [[kdk-dkr-02]], see [[network]]) |
+| Managed by | GitOps Komodo stack `scrypted-homebridge` (`stacks/scrypted-homebridge/`; name kept — a rename destroys and recreates the stack) |
 | Blast radius | HomeKit + camera integration offline; lab infra unaffected |
 
 ## Access
@@ -49,16 +49,16 @@ Admin: `kdkadmin`, key-only, `NOPASSWD:ALL`.
 
 ```bash
 ssh kdkadmin@10.1.30.22 'systemctl is-active periphery'                       # active
-ssh kdkadmin@10.1.30.22 'sudo docker ps --format "{{.Names}} {{.Status}}"'    # scrypted + homebridge Up
+ssh kdkadmin@10.1.30.22 'sudo docker ps --format "{{.Names}} {{.Status}}"'    # scrypted Up
 ```
 
 ## Troubleshooting
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| HomeKit accessories unresponsive | Homebridge container down | `docker restart homebridge` |
+| HomeKit accessories unresponsive | Scrypted container down | `docker restart scrypted` |
 | Cameras missing in HomeKit | Scrypted plugin/bridge issue | check the Scrypted management console |
-| HomeKit won't re-pair | mDNS/host-network conflict | verify Homebridge is on host networking |
+| HomeKit won't re-pair | mDNS/host-network conflict | verify Scrypted is on host networking |
 
 ## Dependencies
 
@@ -79,11 +79,11 @@ ssh kdkadmin@10.1.30.22 'sudo docker ps --format "{{.Names}} {{.Status}}"'    # 
 | Admin account | `kdkadmin`, key-only, NOPASSWD | ✅ | |
 | Timezone | America/Chicago | ✅ | CDT |
 | NTP | `ntp.kmkdp.com` primary | ⚠️ synced via public pools (timesyncd) | |
-| Syslog | `syslog.kmkdp.com:514` | ⚠️ forwards (`*.* @@…:514`), but the receiver is absent | |
+| Syslog | `syslog.kmkdp.com:514` | ✅ forwards (`*.* @@…:514`) to the receiver on [[kdk-log-01]] | restart rsyslog once after the DNS flip so the open TCP session re-resolves |
 
 ## Architecture
 
-Runs `scrypted v0.123.0` and `homebridge 2026-08-17` (both typically on host networking for mDNS/HomeKit). Periphery on `8120`. The adopted Komodo stack points at `/opt/kdk-lab/scrypted-homebridge`; the running containers also have separate `scrypted/` and `homebridge/` directories on disk.
+Runs `scrypted v0.147.0` (`-noble-full`; upstream stopped `-jammy-*` tags at v0.123.58) on host networking for mDNS/HomeKit. 0.147.0 is the fix for GHSA-fgj8-7r76-h852 (unauthenticated admin RPC, ≤ 0.146.1). Periphery on `8120`. Scrypted's UI ports (10443/11080) are open to VLAN 30: the planned UniFi rule was dropped because dkr-02 and dkr-03 share the VLAN (a gateway rule cannot filter same-VLAN traffic).
 
 ### Storage map
 
@@ -93,8 +93,9 @@ Runs `scrypted v0.123.0` and `homebridge 2026-08-17` (both typically on host net
 
 | Path | What it is |
 |---|---|
-| `/opt/kdk-lab/scrypted-homebridge/docker-compose.yml` | the adopted stack path |
-| `/opt/kdk-lab/{scrypted,homebridge}/` | per-app config/state on disk |
+| `stacks/scrypted-homebridge/compose.yaml` (repo) | the stack definition |
+| `/opt/kdk-lab/scrypted/volume` | Scrypted config/state on disk |
+| `/opt/kdk-lab/_archive/homebridge-2026-10-28` | archived Homebridge data (removed service) |
 
 ## Secret Rotation
 
@@ -106,4 +107,4 @@ Hostname/DNS/UniFi-alias renamed from the old `kdk-dkr-02` at adoption; service 
 
 ## Provisioning
 
-Bare-metal Raspberry Pi 5 imaged manually; stack predates the migration and was adopted. Rebuild: reflash, reinstall Docker + periphery, restore the Scrypted/Homebridge config (HomeKit accessories re-pair on a bridge identity change).
+Bare-metal Raspberry Pi 5 imaged manually; stack predates the migration and was adopted. Rebuild: reflash, reinstall Docker + periphery, restore the Scrypted config (HomeKit accessories re-pair on a bridge identity change).

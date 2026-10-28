@@ -30,7 +30,11 @@ There are three places an alert can come from. Pick by what you're alerting on.
 Every compose host runs `observability-agent`, whose `docker-event-watch`
 service tails the Docker event stream and pages on any compose service that
 dies with a non-graceful exit (not `0`/`143`) or reports `unhealthy`. New
-services are covered automatically. To get the *unhealthy* signal, give the
+services are covered automatically. A container Komodo recreates can exit 137
+(SIGKILL after the stop timeout) and page as "container down": that is a
+recreate, not a crash. The watcher also sends a quiet "kdk container watch
+online" when it starts, and logs (never pages) every `create` and image `pull`
+for the Loki rules. To get the *unhealthy* signal, give the
 service a `healthcheck:` in its compose. The watchdog deliberately ignores
 ad-hoc `docker run` containers (no compose project) and one-shot `backup-*`
 stacks, so those don't page from here.

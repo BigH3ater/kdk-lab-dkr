@@ -6,7 +6,7 @@
 name: tdarr-verify
 services:
   verify:
-    image: alpine:3.20
+    image: alpine:3.20.10
     restart: "no"
     network_mode: host
     entrypoint: ["/bin/sh", "/verify.sh"]

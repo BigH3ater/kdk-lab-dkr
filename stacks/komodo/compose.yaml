@@ -3,7 +3,7 @@
 name: komodo
 services:
   postgres:
-    image: ghcr.io/ferretdb/postgres-documentdb:17
+    image: ghcr.io/ferretdb/postgres-documentdb:17-0.107.0-ferretdb-2.7.0
     labels:
       komodo.skip:
     restart: unless-stopped
@@ -15,7 +15,7 @@ services:
       POSTGRES_DB: postgres
     networks: [default]
   ferretdb:
-    image: ghcr.io/ferretdb/ferretdb:2
+    image: ghcr.io/ferretdb/ferretdb:2.7.0
     labels:
       komodo.skip:
     restart: unless-stopped
@@ -39,7 +39,16 @@ services:
       # matching access_control rule (stacks/identity/authelia/configuration.yml),
       # default_policy is deny.
       traefik.http.routers.komodo.rule: "Host(`komodo.kmkdp.com`)"
-      traefik.http.routers.komodo.middlewares: "forwardauth@file"
+      # Komodo-specific ForwardAuth: the UI sends `Authorization: Bearer <jwt>`
+      # on every API call, and Authelia's forward-auth rejects any Authorization
+      # header whose scheme is not Basic (401) before it looks at the session
+      # cookie. Forward only Accept + Cookie to Authelia; Traefik still adds the
+      # X-Forwarded-* headers itself. Komodo validates the JWT afterwards.
+      traefik.http.routers.komodo.middlewares: "komodo-auth"
+      traefik.http.middlewares.komodo-auth.forwardauth.address: "https://sso.kmkdp.com/api/authz/forward-auth"
+      traefik.http.middlewares.komodo-auth.forwardauth.trustForwardHeader: "true"
+      traefik.http.middlewares.komodo-auth.forwardauth.authRequestHeaders: "Accept,Cookie"
+      traefik.http.middlewares.komodo-auth.forwardauth.authResponseHeaders: "Remote-User,Remote-Groups,Remote-Email,Remote-Name"
       traefik.http.routers.komodo.service: "komodo"
       # API-key automation bypasses SSO, but only for the key-authenticated
       # endpoints (/read, /write, /execute) AND only when an X-Api-Key header is

@@ -111,6 +111,9 @@ services:
     restart: unless-stopped
     command:
       - "--config.file=/etc/alertmanager/alertmanager.yml"
+      # Pushover's "Open Alertmanager" link and the API's alert URLs use this; without
+      # it Alertmanager advertises http://<container-id>:9093, which nothing can open.
+      - "--web.external-url=https://alertmanager.kmkdp.com"
       - "--storage.path=/alertmanager"
     volumes:
       - ./alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
@@ -126,7 +129,11 @@ services:
       # inline in alertmanager.yml; only the password is a secret file.
       - ./alertmanager/proton-bridge-smtp-password:/etc/alertmanager/proton-bridge-smtp-password:ro
       - alertmanager-data:/alertmanager
-    expose: ["9093"]
+    # Published on the VLAN-20 address (was `expose` only) so the Loki ruler on
+    # kdk-log-01 can deliver alerts. mon-01's DOCKER-USER allowlist (security
+    # batch 7) restricts :9093 to 10.1.20.21; until then it is VLAN-reachable.
+    ports:
+      - "10.1.20.30:9093:9093"
 
   # Fan control for the two PowerEdge BMCs. Reads temperatures over IPMI,
   # applies a curve with hysteresis, and sets fan speed with Dell's OEM
@@ -196,20 +203,45 @@ services:
     restart: unless-stopped
     environment:
       GF_SECURITY_ADMIN_PASSWORD: "${GRAFANA_ADMIN_PASSWORD}"
-      # No Authelia here on purpose. ForwardAuth lives in the cluster's
-      # ingress path; depending on it would put the auth tier between you
-      # and the dashboard you opened *because* the cluster is down.
+      # No Authelia ForwardAuth in front, on purpose: that would put the auth
+      # tier between you and the dashboard you opened *because* something is
+      # down. Authelia OIDC below is an ADDITIONAL login button; the local
+      # login form (admin, 1P grafana-admin) stays enabled as break-glass.
       GF_AUTH_ANONYMOUS_ENABLED: "false"
       GF_USERS_ALLOW_SIGN_UP: "false"
       # Public name via Traefik on kdk-dkr-01 (stacks/proxy/dynamic/grafana.yml).
-      # Only affects generated absolute links; direct http://10.1.20.30:3000 still works.
+      # Also the OIDC redirect base: https://grafana.kmkdp.com/login/generic_oauth.
       GF_SERVER_ROOT_URL: "https://grafana.kmkdp.com"
+      # Authelia OIDC, existing client `grafana` (stacks/identity/authelia/
+      # configuration.yml: client_secret_basic -> AuthStyle InHeader; scopes
+      # openid email profile groups). Groups/email come from the userinfo
+      # endpoint. Only LLDAP group internal-users may sign in, as Admin.
+      GF_AUTH_GENERIC_OAUTH_ENABLED: "true"
+      GF_AUTH_GENERIC_OAUTH_NAME: "Authelia"
+      GF_AUTH_GENERIC_OAUTH_CLIENT_ID: "grafana"
+      GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET: "${GRAFANA_OIDC_CLIENT_SECRET}"
+      GF_AUTH_GENERIC_OAUTH_SCOPES: "openid profile email groups"
+      GF_AUTH_GENERIC_OAUTH_AUTH_URL: "https://sso.kmkdp.com/api/oidc/authorization"
+      GF_AUTH_GENERIC_OAUTH_TOKEN_URL: "https://sso.kmkdp.com/api/oidc/token"
+      GF_AUTH_GENERIC_OAUTH_API_URL: "https://sso.kmkdp.com/api/oidc/userinfo"
+      GF_AUTH_GENERIC_OAUTH_AUTH_STYLE: "InHeader"
+      GF_AUTH_GENERIC_OAUTH_USE_PKCE: "true"
+      GF_AUTH_GENERIC_OAUTH_LOGIN_ATTRIBUTE_PATH: "preferred_username"
+      GF_AUTH_GENERIC_OAUTH_NAME_ATTRIBUTE_PATH: "name"
+      GF_AUTH_GENERIC_OAUTH_EMAIL_ATTRIBUTE_PATH: "email"
+      GF_AUTH_GENERIC_OAUTH_GROUPS_ATTRIBUTE_PATH: "groups"
+      GF_AUTH_GENERIC_OAUTH_ALLOWED_GROUPS: "internal-users"
+      GF_AUTH_GENERIC_OAUTH_ROLE_ATTRIBUTE_PATH: "contains(groups[*], 'internal-users') && 'Admin' || 'Viewer'"
+      GF_AUTH_GENERIC_OAUTH_ALLOW_SIGN_UP: "true"
+      GF_AUTH_GENERIC_OAUTH_AUTO_LOGIN: "false"
     volumes:
       - grafana-data:/var/lib/grafana
       - ./grafana/provisioning:/etc/grafana/provisioning:ro
       - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
     ports:
-      - "3000:3000"
+      # VLAN-20 address only (Traefik on kdk-dkr-01 proxies grafana.kmkdp.com
+      # here; http://10.1.20.30:3000 stays the outage fallback).
+      - "10.1.20.30:3000:3000"
 
 volumes:
   prometheus-data:

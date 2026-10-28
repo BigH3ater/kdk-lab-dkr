@@ -19,7 +19,7 @@
 name: arr-list-guard
 services:
   guard:
-    image: python:3.12-alpine
+    image: python:3.12.16-alpine
     restart: "no"
     network_mode: host
     environment:
