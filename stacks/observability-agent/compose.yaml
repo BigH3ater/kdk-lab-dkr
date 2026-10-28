@@ -21,11 +21,24 @@ services:
       # ...except the compose labels, so series carry stack/service like Loki does
       # (container_label_com_docker_compose_project / _service).
       - "--whitelisted_container_labels=com.docker.compose.project,com.docker.compose.service"
-    privileged: true
+    # Not privileged (security batch 7; hosts report H-04). cAdvisor reads
+    # container stats from the read-only /sys (cgroup v2) and /var/lib/docker +
+    # /var/lib/containerd mounts below; privileged mode is only needed for
+    # per-process metrics (--pid=host), which this stack does not collect.
+    privileged: false
+    cap_drop: [ALL]
+    cap_add:
+      - SYS_PTRACE   # read /proc/<pid>/... of other uids (container network stats)
+      - SYSLOG       # read /dev/kmsg for OOM events: the host sets kernel.dmesg_restrict=1
+    security_opt: ["no-new-privileges:true"]
+    read_only: true
+    tmpfs: [/tmp]
     devices:
-      - /dev/kmsg
+      - /dev/kmsg    # OOM kill events
     ports:
-      - "9280:8080"     # 8080 is taken by 1P Connect on kdk-dkr-01; publish on 9280 everywhere
+      # Host VLAN address only (BIND_IP per host in komodo/resources.toml); mon-01
+      # scrapes it. 8080 is taken by 1P Connect on kdk-dkr-01; publish on 9280 everywhere.
+      - "${BIND_IP:?set BIND_IP per host in komodo/resources.toml}:9280:8080"
     volumes:
       - /:/rootfs:ro
       - /var/run:/var/run:ro
@@ -33,6 +46,10 @@ services:
       - /var/lib/docker/:/var/lib/docker:ro
       - /var/lib/containerd/:/var/lib/containerd:ro   # snapshotter layers live here
       - /dev/disk/:/dev/disk:ro
+    labels:
+      # /var/run (ro) also exposes docker.sock and containerd.sock to cAdvisor,
+      # which reads container metadata from them (not via the socket proxy).
+      kdk.baseline.exception: "devices: /dev/kmsg for OOM events"
     logging: &log
       driver: json-file
       options: { max-size: "10m", max-file: "3" }
@@ -50,7 +67,10 @@ services:
       NODE_NAME: "${NODE_NAME:-unknown}"
     volumes:
       - ./alloy/config.alloy:/etc/alloy/config.alloy:ro
-      - /var/run/docker.sock:/var/run/docker.sock:ro
+    # Docker API via the read-only socket proxy (config.alloy: tcp://socket-proxy:2375);
+    # default = egress to Loki.
+    networks: [default, sockproxy]
+    depends_on: [socket-proxy]
     logging: *log
 
   # Container-state alerting: pages Pushover on a container crash (die with a
@@ -64,8 +84,60 @@ services:
     command: ["/watch.sh"]
     environment:
       NODE_NAME: "${NODE_NAME:-unknown}"
+      # `docker events` / `docker inspect` through the read-only socket proxy.
+      DOCKER_HOST: "tcp://socket-proxy:2375"
     volumes:
       - ./docker-event-watch.sh:/watch.sh:ro
-      - /var/run/docker.sock:/var/run/docker.sock:ro
       - /etc/kdk/pushover.env:/pushover.env:ro
+    # default = egress to Pushover (and apk at start); sockproxy = Docker API.
+    networks: [default, sockproxy]
+    depends_on: [socket-proxy]
     logging: *log
+
+  # Read-only Docker API for alloy and docker-event-watch (security batch 7;
+  # hosts report M-03). The only docker.sock mount in this stack. GET/HEAD only
+  # (POST=0: no create/start/stop/exec), and only these endpoints:
+  #   CONTAINERS  list/inspect/logs -- alloy discovery + log tailing, event-watch inspect
+  #   NETWORKS    list -- alloy's discovery.docker (Prometheus docker SD) lists
+  #               networks on every refresh and fails without it
+  #   EVENTS      event stream -- docker-event-watch
+  #   PING/VERSION  API negotiation
+  # Everything else stays at the image default 0. Note CONTAINERS also allows
+  # GET inspect, which shows container env: the proxy caps writes, not reads.
+  socket-proxy:
+    image: ghcr.io/tecnativa/docker-socket-proxy:v0.5.0@sha256:1f5038b54f06c3e18422902cf00ba21803d1c97805aae032e5e6673d532d3459
+    container_name: obs-socket-proxy
+    restart: unless-stopped
+    environment:
+      CONTAINERS: "1"
+      NETWORKS: "1"
+      EVENTS: "1"
+      PING: "1"
+      VERSION: "1"
+      POST: "0"
+      # The internal network has no IPv6; bind 0.0.0.0:2375 instead of [::].
+      DISABLE_IPV6: "1"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks: [sockproxy]
+    read_only: true
+    tmpfs: [/tmp, /run]   # the entrypoint renders /tmp/haproxy.cfg; HAProxy writes /run/haproxy.pid
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: [ALL]       # root owns docker.sock (0660 root:docker): no capability needed to open it
+    pids_limit: 128
+    mem_limit: 128m
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:2375/_ping"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    labels:
+      kdk.baseline.exception: "docker-sock: the one allowed socket consumer (socket proxy)"
+    logging: *log
+
+networks:
+  default: {}
+  # No gateway, no egress: only the proxy and its two consumers are on it.
+  sockproxy:
+    internal: true

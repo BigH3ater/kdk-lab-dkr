@@ -40,7 +40,7 @@ services:
       UP_UNIFI_CONTROLLER_0_SAVE_ROGUE: "true"
       UP_UNIFI_CONTROLLER_0_HASH_PII: "false"
     ports:
-      - "9130:9130"
+      - "10.1.20.20:9130:9130"   # VLAN 20 only; Prometheus on mon-01 scrapes it
     logging: *log
 
   adguard-exporter:
@@ -54,7 +54,7 @@ services:
       INTERVAL: "30s"
       SERVER_ADDR: ":9618"
     ports:
-      - "9618:9618"
+      - "10.1.20.20:9618:9618"   # VLAN 20 only
     logging: *log
 
   snmp-exporter:
@@ -70,5 +70,5 @@ services:
       # Directory mount, not a single file, so git's new inode is seen on deploy.
       - ./snmp:/etc/snmp_exporter:ro
     ports:
-      - "9116:9116"
+      - "10.1.20.20:9116:9116"   # VLAN 20 only
     logging: *log

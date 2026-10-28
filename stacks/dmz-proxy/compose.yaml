@@ -9,6 +9,9 @@ services:
     security_opt: ["no-new-privileges:true"]
     command:
       - "--providers.docker=true"
+      # Docker API via the read-only socket proxy below (security batch 7; edge
+      # report M-5): a Traefik RCE no longer means DMZ host root via the socket.
+      - "--providers.docker.endpoint=tcp://socket-proxy:2375"
       - "--providers.docker.exposedbydefault=false"
       - "--providers.docker.network=proxy-dmz"
       - "--entrypoints.web.address=:80"
@@ -50,9 +53,9 @@ services:
       - "80:80"
       - "443:443"
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
       - /opt/kdk-lab/dmz-proxy/letsencrypt:/letsencrypt
-    networks: [proxy-dmz]
+    networks: [proxy-dmz, sockproxy]
+    depends_on: [socket-proxy]
 
   cloudflared:
     image: cloudflare/cloudflared:2026.10.3
@@ -63,6 +66,47 @@ services:
     environment:
       TUNNEL_TOKEN: "${CLOUDFLARE_TUNNEL_TOKEN}"
     networks: [proxy-dmz]
+
+  # Read-only Docker API for Traefik's docker provider (security batch 7). The
+  # only docker.sock mount in this stack. Traefik v3.7 needs /version, /events,
+  # /containers/json and /containers/{id}/json: CONTAINERS + EVENTS + VERSION
+  # (+ PING); no NETWORKS. GET/HEAD only (POST=0); everything else default 0.
+  socket-proxy:
+    image: ghcr.io/tecnativa/docker-socket-proxy:v0.5.0@sha256:1f5038b54f06c3e18422902cf00ba21803d1c97805aae032e5e6673d532d3459
+    container_name: traefik-socket-proxy
+    restart: unless-stopped
+    environment:
+      CONTAINERS: "1"
+      EVENTS: "1"
+      PING: "1"
+      VERSION: "1"
+      POST: "0"
+      # The internal network has no IPv6; bind 0.0.0.0:2375 instead of [::].
+      DISABLE_IPV6: "1"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks: [sockproxy]
+    read_only: true
+    tmpfs: [/tmp, /run]   # the entrypoint renders /tmp/haproxy.cfg; HAProxy writes /run/haproxy.pid
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: [ALL]       # root owns docker.sock (0660 root:docker): no capability needed to open it
+    pids_limit: 128
+    mem_limit: 128m
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:2375/_ping"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    labels:
+      kdk.baseline.exception: "docker-sock: the one allowed socket consumer (socket proxy)"
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
 networks:
   proxy-dmz:
     name: proxy-dmz
+  # No gateway, no egress: only Traefik and the socket proxy.
+  sockproxy:
+    internal: true

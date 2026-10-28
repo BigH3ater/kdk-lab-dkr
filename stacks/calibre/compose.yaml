@@ -43,7 +43,10 @@ services:
     volumes:
       - /opt/kdk-lab/calibre/library:/library
     ports:
-      - "8081:8081"
+      # VLAN 20 address only: keeps the legacy http://10.1.20.20:8081/opds path
+      # for KOReader (and tailnet clients routed to 10.1.20.20); calibre.kmkdp.com
+      # goes through Traefik on the proxy network.
+      - "10.1.20.20:8081:8081"
     networks: [default, proxy]
     labels:
       traefik.enable: "true"

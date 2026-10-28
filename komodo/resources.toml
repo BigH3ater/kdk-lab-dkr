@@ -1027,6 +1027,7 @@ deploy = true
 server = "kdk-dkr-01"
 repo = "BigH3ater/kdk-lab-dkr"
 run_directory = "stacks/node-exporter"
+environment = "BIND_IP=10.1.20.20"   # node_exporter listens on the VLAN address only
 webhook_enabled = true
 
 [[stack]]
@@ -1037,6 +1038,7 @@ deploy = true
 server = "kdk-dkr-dmz-01"
 repo = "BigH3ater/kdk-lab-dkr"
 run_directory = "stacks/node-exporter"
+environment = "BIND_IP=192.168.191.20"   # not the storage NIC (plan K8)
 webhook_enabled = true
 
 # --force-recreate: the compose bind-mounts single files (a script / ups.conf);
@@ -1053,7 +1055,7 @@ after = ["loki"]
 server = "kdk-dkr-01"
 repo = "BigH3ater/kdk-lab-dkr"
 run_directory = "stacks/observability-agent"
-environment = "LOKI_HOST=10.1.20.20\nNODE_NAME=kdk-dkr-01"
+environment = "LOKI_HOST=10.1.20.20\nNODE_NAME=kdk-dkr-01\nBIND_IP=10.1.20.20"
 extra_args = ["--force-recreate"]
 webhook_enabled = true
 
@@ -1066,7 +1068,7 @@ after = ["loki"]
 server = "kdk-dkr-dmz-01"
 repo = "BigH3ater/kdk-lab-dkr"
 run_directory = "stacks/observability-agent"
-environment = "LOKI_HOST=172.16.30.50\nNODE_NAME=kdk-dkr-dmz-01"
+environment = "LOKI_HOST=172.16.30.50\nNODE_NAME=kdk-dkr-dmz-01\nBIND_IP=192.168.191.20"
 extra_args = ["--force-recreate"]
 webhook_enabled = true
 
@@ -1079,7 +1081,7 @@ after = ["loki"]
 server = "kdk-mon-01"
 repo = "BigH3ater/kdk-lab-dkr"
 run_directory = "stacks/observability-agent"
-environment = "LOKI_HOST=10.1.20.20\nNODE_NAME=kdk-mon-01"
+environment = "LOKI_HOST=10.1.20.20\nNODE_NAME=kdk-mon-01\nBIND_IP=10.1.20.30"
 extra_args = ["--force-recreate"]
 webhook_enabled = true
 
@@ -1092,7 +1094,7 @@ after = ["loki"]
 server = "kdk-dkr-02"
 repo = "BigH3ater/kdk-lab-dkr"
 run_directory = "stacks/observability-agent"
-environment = "LOKI_HOST=10.1.20.20\nNODE_NAME=kdk-dkr-02"
+environment = "LOKI_HOST=10.1.20.20\nNODE_NAME=kdk-dkr-02\nBIND_IP=10.1.30.21"
 extra_args = ["--force-recreate"]
 webhook_enabled = true
 
@@ -1105,7 +1107,7 @@ after = ["loki"]
 server = "kdk-dkr-03"
 repo = "BigH3ater/kdk-lab-dkr"
 run_directory = "stacks/observability-agent"
-environment = "LOKI_HOST=10.1.20.20\nNODE_NAME=kdk-dkr-03"
+environment = "LOKI_HOST=10.1.20.20\nNODE_NAME=kdk-dkr-03\nBIND_IP=10.1.30.22"
 extra_args = ["--force-recreate"]
 webhook_enabled = true
 
