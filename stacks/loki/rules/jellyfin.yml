@@ -1,0 +1,156 @@
+# Jellyfin on kdk-dkr-dmz-01 (source: vault 10.Homelab/Security/
+# jellyfin-posture-2026-10.md section 7.2). Write-path rules read the DMZ
+# Traefik access log for jellyfin.kmkdp.com; login and ffmpeg rules read the
+# Jellyfin text log. RequestPath includes the query string and label regexes
+# are fully anchored, so exact-path patterns end in `(\\?.*)?`. Requests from
+# the tunnel carry entryPointName="tunnel" (fallback:
+# ClientAddr=~"10\\.211\\.2\\.2:.*").
+#
+# Runbook: docs/runbooks/security-alerts.md#jellyfin
+groups:
+  - name: jellyfin
+    interval: 1m
+    rules:
+      # 1. AllowClientLogUpload is false, so any upload attempt is drift or a probe.
+      - alert: JellyfinClientLogUpload
+        expr: |
+          sum(count_over_time({host="kdk-dkr-dmz-01", container="traefik"}
+            |= "jellyfin.kmkdp.com" | json | RequestHost="jellyfin.kmkdp.com"
+            | RequestMethod="POST" | RequestPath=~"(?i)/clientlog/document.*" [15m])) > 0
+        for: 0m
+        labels:
+          severity: warning
+          source: loki
+          scope: jellyfin
+        annotations:
+          summary: "Jellyfin: POST to /ClientLog/Document (client log upload is disabled)"
+          runbook: docs/runbooks/security-alerts.md#jellyfin
+
+      # 2. No user holds EnableSubtitleManagement, so nobody should upload subtitles.
+      - alert: JellyfinSubtitleUpload
+        expr: |
+          sum(count_over_time({host="kdk-dkr-dmz-01", container="traefik"}
+            |= "jellyfin.kmkdp.com" | json | RequestHost="jellyfin.kmkdp.com"
+            | RequestMethod="POST" | RequestPath=~"(?i)/videos/[^/]+/subtitles([/?].*)?" [15m])) > 0
+        for: 0m
+        labels:
+          severity: warning
+          source: loki
+          scope: jellyfin
+        annotations:
+          summary: "Jellyfin: subtitle upload (no user should have subtitle management)"
+          runbook: docs/runbooks/security-alerts.md#jellyfin
+
+      # 3. LiveTV tuner / listing provider changes (a known SSRF/ffmpeg input path).
+      - alert: JellyfinLiveTvTunerChange
+        expr: |
+          sum(count_over_time({host="kdk-dkr-dmz-01", container="traefik"}
+            |= "jellyfin.kmkdp.com" | json | RequestHost="jellyfin.kmkdp.com"
+            | RequestMethod=~"POST|DELETE" | RequestPath=~"(?i)/livetv/(tunerhosts|listingproviders).*" [15m])) > 0
+        for: 0m
+        labels:
+          severity: warning
+          source: loki
+          scope: jellyfin
+        annotations:
+          summary: "Jellyfin: LiveTV tuner host or listing provider changed"
+          runbook: docs/runbooks/security-alerts.md#jellyfin
+
+      # 4. API key created or deleted.
+      - alert: JellyfinApiKeyChange
+        expr: |
+          sum(count_over_time({host="kdk-dkr-dmz-01", container="traefik"}
+            |= "jellyfin.kmkdp.com" | json | RequestHost="jellyfin.kmkdp.com"
+            | RequestMethod=~"POST|DELETE" | RequestPath=~"(?i)/auth/keys.*" [15m])) > 0
+        for: 0m
+        labels:
+          severity: warning
+          source: loki
+          scope: jellyfin
+        annotations:
+          summary: "Jellyfin: API key created or deleted"
+          runbook: docs/runbooks/security-alerts.md#jellyfin
+
+      # 5. User policy (admin flag / permissions) or user create/delete.
+      # Machine writes are excluded by source: anything on the proxy-dmz network
+      # (10.211.2.0/24; Wizarr, wizarr-sync) is ignored. Note wizarr-sync today
+      # calls http://jellyfin:8096 directly, so its 15-minute policy writes never
+      # pass Traefik at all; the exclusion keeps the rule quiet if it is ever
+      # pointed at the public URL. The `client` label is Cf-Connecting-Ip on the
+      # tunnel (set by Cloudflare, not forgeable) and ClientHost on the LAN.
+      - alert: JellyfinUserPolicyChange
+        expr: |
+          sum by (client) (count_over_time({host="kdk-dkr-dmz-01", container="traefik"}
+            |= "jellyfin.kmkdp.com" | json | RequestHost="jellyfin.kmkdp.com"
+            | RequestMethod=~"POST|DELETE" | RequestPath=~"(?i)/users(/new|/[^/]+/policy|/[^/]+)?(\\?.*)?"
+            | ClientHost != ip("10.211.2.0/24")
+            | label_format client="{{ if .request_Cf_Connecting_Ip }}{{ .request_Cf_Connecting_Ip }}{{ else }}{{ .ClientHost }}{{ end }}" [15m])) > 0
+        for: 0m
+        labels:
+          severity: warning
+          source: loki
+          scope: jellyfin
+        annotations:
+          summary: "Jellyfin: user created/deleted or user policy changed (from {{ $labels.client }})"
+          runbook: docs/runbooks/security-alerts.md#jellyfin
+
+      # 6. ffmpeg invoked with drawtext / lavfi / odd paths: the shape of the
+      # known Jellyfin ffmpeg argument-injection exploits. RE2 has no lookahead,
+      # so the config subdirs ffmpeg must never touch are listed instead.
+      - alert: JellyfinFfmpegSuspiciousArgs
+        expr: |
+          sum(count_over_time({host="kdk-dkr-dmz-01", container="jellyfin"} |~ "ffmpeg"
+            |~ "(?i)drawtext|-f lavfi|concat:|/etc/|/proc/|/root/|/config/(data|log|plugins)" [10m])) > 0
+        for: 0m
+        labels:
+          severity: critical
+          source: loki
+          scope: jellyfin
+        annotations:
+          summary: "Jellyfin started ffmpeg with drawtext/lavfi/system paths: possible argument injection"
+          runbook: docs/runbooks/security-alerts.md#jellyfin
+
+      # 7. Failed-login burst (brute force through the tunnel or the LAN).
+      - alert: JellyfinFailedLoginBurst
+        expr: |
+          sum(count_over_time({host="kdk-dkr-dmz-01", container="jellyfin"}
+            |~ "Authentication request for .* has been denied" [10m])) > 10
+        for: 0m
+        labels:
+          severity: warning
+          source: loki
+          scope: jellyfin
+        annotations:
+          summary: "Jellyfin: more than 10 denied logins in 10m"
+          runbook: docs/runbooks/security-alerts.md#jellyfin
+
+      # 8. Successful password login from the internet. Informational trail:
+      # correlate with {container="jellyfin"} |~ `Authentication request for "kdkadmin" has succeeded`.
+      - alert: JellyfinLoginFromInternet
+        expr: |
+          sum by (client) (count_over_time({host="kdk-dkr-dmz-01", container="traefik"}
+            |= "AuthenticateByName" | json | entryPointName="tunnel" | RequestHost="jellyfin.kmkdp.com"
+            | RequestMethod="POST" | RequestPath=~"(?i)/users/authenticatebyname(\\?.*)?" | DownstreamStatus="200"
+            | label_format client="{{ if .request_Cf_Connecting_Ip }}{{ .request_Cf_Connecting_Ip }}{{ else }}{{ .ClientHost }}{{ end }}" [5m])) > 0
+        for: 0m
+        labels:
+          severity: info
+          source: loki
+          scope: jellyfin
+        annotations:
+          summary: "Jellyfin: password login through the tunnel from {{ $labels.client }}"
+          runbook: docs/runbooks/security-alerts.md#jellyfin
+
+      # 9. Plugin install/update.
+      - alert: JellyfinPluginInstalled
+        expr: |
+          sum(count_over_time({host="kdk-dkr-dmz-01", container="jellyfin"}
+            |~ "(?i)plugin .* (installed|updated)|PluginInstalled|Installing plugin" [15m])) > 0
+        for: 0m
+        labels:
+          severity: warning
+          source: loki
+          scope: jellyfin
+        annotations:
+          summary: "Jellyfin: a plugin was installed or updated"
+          runbook: docs/runbooks/security-alerts.md#jellyfin

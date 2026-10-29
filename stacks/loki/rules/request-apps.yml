@@ -1,0 +1,158 @@
+# Request apps on kdk-dkr-dmz-01: Seerr (seerr.kmkdp.com) and Libreseerr
+# (libreseerr.kmkdp.com). Source: vault 10.Homelab/Security/
+# request-apps-posture-2026-10.md section 6 (items 1-9; item 7 is two rules).
+# Hosts are matched by RequestHost rather than router name (router names carry
+# the entrypoint prefix and change when a router gains `tunnel`). "From the
+# internet" = entryPointName="tunnel" (fallback ClientAddr=~"10\\.211\\.2\\.2:.*").
+#
+# Runbook: docs/runbooks/security-alerts.md#request-apps
+groups:
+  - name: request-apps
+    interval: 1m
+    rules:
+      # 1. Seerr's own failed sign-in log (per-IP only once trustProxy is on).
+      - alert: SeerrFailedLoginBurst
+        expr: |
+          sum(count_over_time({host="kdk-dkr-dmz-01", container="seerr"} |= "Failed sign-in attempt" [10m])) > 10
+        for: 0m
+        labels:
+          severity: warning
+          source: loki
+          scope: request-apps
+        annotations:
+          summary: "Seerr: more than 10 failed sign-ins in 10m"
+          runbook: docs/runbooks/security-alerts.md#request-apps
+
+      # 2. Seerr login POST failures at the edge, per client.
+      - alert: SeerrLoginFailuresPerClient
+        expr: |
+          sum by (client) (count_over_time({host="kdk-dkr-dmz-01", container="traefik"}
+            |= "seerr.kmkdp.com" | json | RequestHost="seerr.kmkdp.com"
+            | RequestMethod="POST" | RequestPath=~"/api/v1/auth/(jellyfin|local|plex).*"
+            | DownstreamStatus >= 400
+            | label_format client="{{ if .request_Cf_Connecting_Ip }}{{ .request_Cf_Connecting_Ip }}{{ else }}{{ .ClientHost }}{{ end }}" [10m])) > 5
+        for: 0m
+        labels:
+          severity: warning
+          source: loki
+          scope: request-apps
+        annotations:
+          summary: "Seerr: more than 5 failed login POSTs in 10m from {{ $labels.client }}"
+          runbook: docs/runbooks/security-alerts.md#request-apps
+
+      # 3. Seerr settings/user write from the internet (expect 0).
+      - alert: SeerrAdminWriteFromInternet
+        expr: |
+          sum(count_over_time({host="kdk-dkr-dmz-01", container="traefik"}
+            |= "seerr.kmkdp.com" | json | entryPointName="tunnel" | RequestHost="seerr.kmkdp.com"
+            | RequestMethod=~"POST|PUT|DELETE" | RequestPath=~"/api/v1/(settings|user)([/?].*)?"
+            | DownstreamStatus < 400 [10m])) > 0
+        for: 0m
+        labels:
+          severity: warning
+          source: loki
+          scope: request-apps
+        annotations:
+          summary: "Seerr: settings or user write succeeded through the tunnel"
+          runbook: docs/runbooks/security-alerts.md#request-apps
+
+      # 4. Seerr user created/imported or permissions changed (log text).
+      - alert: SeerrUserCreated
+        expr: |
+          sum(count_over_time({host="kdk-dkr-dmz-01", container="seerr"}
+            |~ "(?i)(import-from-jellyfin|created new user|user .* created|permissions? updated)" [1h])) > 0
+        for: 0m
+        labels:
+          severity: info
+          source: loki
+          scope: request-apps
+        annotations:
+          summary: "Seerr: a user was created/imported or permissions changed (wizarr-sync imports invitees)"
+          runbook: docs/runbooks/security-alerts.md#request-apps
+
+      # 5. Non-US traffic reaching Seerr/Libreseerr through the tunnel.
+      - alert: RequestAppsNonUSTraffic
+        expr: |
+          sum by (request_Cf_Ipcountry) (count_over_time({host="kdk-dkr-dmz-01", container="traefik"}
+            |= "seerr.kmkdp.com" | json | entryPointName="tunnel"
+            | RequestHost=~"(seerr|libreseerr)\\.kmkdp\\.com" | request_Cf_Ipcountry!~"US|-?" [10m])) > 0
+        for: 0m
+        labels:
+          severity: warning
+          source: loki
+          scope: request-apps
+        annotations:
+          summary: "Non-US request ({{ $labels.request_Cf_Ipcountry }}) reached Seerr/Libreseerr through the tunnel"
+          runbook: docs/runbooks/security-alerts.md#request-apps
+
+      # 6. Libreseerr local-login failures (the app does not log them; Traefik does).
+      - alert: LibreseerrLoginFailures
+        expr: |
+          sum(count_over_time({host="kdk-dkr-dmz-01", container="traefik"}
+            |= "libreseerr.kmkdp.com" | json | RequestHost="libreseerr.kmkdp.com"
+            | RequestPath=~"/api/auth/login(\\?.*)?" | DownstreamStatus="401" [10m])) > 5
+        for: 0m
+        labels:
+          severity: warning
+          source: loki
+          scope: request-apps
+        annotations:
+          summary: "Libreseerr: more than 5 failed logins in 10m"
+          runbook: docs/runbooks/security-alerts.md#request-apps
+
+      # 7a. Libreseerr auto-provisioned an OIDC account.
+      - alert: LibreseerrUserProvisioned
+        expr: |
+          sum(count_over_time({host="kdk-dkr-dmz-01", container="libreseerr"} |= "Auto-provisioned OIDC user" [1h])) > 0
+        for: 0m
+        labels:
+          severity: info
+          source: loki
+          scope: request-apps
+        annotations:
+          summary: "Libreseerr auto-provisioned an OIDC user"
+          runbook: docs/runbooks/security-alerts.md#request-apps
+
+      # 7b. Libreseerr account/config writes.
+      - alert: LibreseerrAdminWrite
+        expr: |
+          sum(count_over_time({host="kdk-dkr-dmz-01", container="traefik"}
+            |= "libreseerr.kmkdp.com" | json | RequestHost="libreseerr.kmkdp.com"
+            | RequestMethod=~"POST|PUT|DELETE" | RequestPath=~"/api/(users|config|oidc|ldap)([/?].*)?"
+            | DownstreamStatus < 400 [10m])) > 0
+        for: 0m
+        labels:
+          severity: info
+          source: loki
+          scope: request-apps
+        annotations:
+          summary: "Libreseerr users/config/OIDC/LDAP write (expected only while you administer it)"
+          runbook: docs/runbooks/security-alerts.md#request-apps
+
+      # 8. Seerr error rate.
+      - alert: SeerrErrorRate
+        expr: |
+          sum(count_over_time({host="kdk-dkr-dmz-01", container="seerr"} |= "[error]" [15m])) > 50
+        for: 0m
+        labels:
+          severity: warning
+          source: loki
+          scope: request-apps
+        annotations:
+          summary: "Seerr logged more than 50 errors in 15m"
+          runbook: docs/runbooks/security-alerts.md#request-apps
+
+      # 9. Image pull / container create / crash for the request apps on dmz-01
+      # (docker-event-watch logs `event ... action=<a> ... image=<ref>`).
+      - alert: RequestAppsContainerChange
+        expr: |
+          sum(count_over_time({host="kdk-dkr-dmz-01", container="docker-event-watch"}
+            |~ "seerr" |~ "action=(pull|create|die)" [10m])) > 0
+        for: 0m
+        labels:
+          severity: info
+          source: loki
+          scope: request-apps
+        annotations:
+          summary: "Seerr/Libreseerr image pulled, container recreated or crashed on kdk-dkr-dmz-01"
+          runbook: docs/runbooks/security-alerts.md#request-apps

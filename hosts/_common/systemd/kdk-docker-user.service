@@ -1,0 +1,22 @@
+# Rebuilds Docker's DOCKER-USER chain from /etc/default/kdk-docker-user.
+# Install: /etc/systemd/system/kdk-docker-user.service (root:root 0644), with
+# kdk-docker-user.timer and /usr/local/sbin/kdk-docker-user.sh.
+# Replaces the docker-forward sidecar of stacks/tailscale-subnet-router (which
+# re-asserted the tailscale0 ACCEPTs every 60 s from a container).
+# Runbook: docs/runbooks/host-firewall.md (BigH3ater/kdk-lab-dkr).
+[Unit]
+Description=kdk DOCKER-USER policy (rebuilds only the DOCKER-USER chain)
+Documentation=https://github.com/BigH3ater/kdk-lab-dkr/blob/main/docs/runbooks/host-firewall.md
+Wants=docker.service network-online.target
+After=docker.service network-online.target
+
+[Service]
+Type=oneshot
+# Not RemainAfterExit: the timer must be able to start it again.
+ExecStart=/usr/local/sbin/kdk-docker-user.sh
+# The script waits up to 30 s for Docker's FORWARD -> DOCKER-USER jump.
+TimeoutStartSec=90
+
+[Install]
+# Started with docker.service on every (re)start of Docker, and at boot.
+WantedBy=docker.service multi-user.target

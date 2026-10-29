@@ -18,8 +18,14 @@ The NFS/storage plane is a flat L2 on the NAS `bond1`/`br0` (802.3ad, jumbo MTU
 Client mounts are systemd `.mount` units (`/etc/systemd/system/mnt-*.mount`),
 seeded on build from `cloud-init/` in the repo. Current clients:
 
-- **kdk-dkr-01** — `/mnt/media`, `/mnt/backup`, `/mnt/dee-exchange`, `/mnt/loki`
+- **kdk-dkr-01** — `/mnt/media`, `/mnt/backup`, `/mnt/dee-exchange`, `/mnt/loki` (old Loki only; Loki moved to kdk-log-01's local disk 2026-10-28, mount released after 2026-11-28)
 - **kdk-dkr-dmz-01** — `/mnt/media` (RO), `/mnt/backup`, `/mnt/appdata`
+
+Both VMs fence their storage NIC with nft table `inet kdk-storage`: the host may
+talk only NFS (+ ping) to `172.16.30.2`, nothing new comes in on `eth1`, and
+containers never route onto the storage net. See [Host firewall](host-firewall.md);
+if a mount hangs right after a fence change, check its counters first
+(`sudo nft list table inet kdk-storage`).
 
 ## ⚠️ Never put storage (or any LAN) inside `100.64.0.0/10`
 

@@ -12,7 +12,7 @@ vmid: 23
 console: TrueNAS UI → Virtualization → kdkdkrdmz01 → Console
 standards: drifted
 secrets: []
-updated: 2026-09-12
+updated: 2026-10-28
 tags: [homelab/host, role/docker-host, status/live, tier/dmz]
 ---
 
@@ -78,9 +78,17 @@ Public hostnames probed by `blackbox-http-app` on [[kdk-mon-01]]; alerts → Pus
 |---|---|---|---|
 | Hostname | `{site}-{role}-{nn}` | ✅ `kdk-dkr-dmz-01` | |
 | Admin account | `kdkadmin`, key-only, NOPASSWD | ✅ | |
+| SSH hardening | `98-kdk-admin.conf` (no root login, no X11/TCP/agent forwarding, `AllowUsers kdkadmin`, `MaxAuthTries 3`) + kdkadmin key `from=` admin sources | ⏳ pending apply (2026-10-28) | Debian VM defaults today (X11/TCP forwarding on). `hosts/README.md` |
+| Kernel sysctl | `90-kdk-hardening.conf` (ptrace_scope 1, kptr/dmesg restrict, no redirects, martians, sysrq 0) | ⏳ pending apply (2026-10-28) | |
+| Patching | unattended-upgrades: Debian + Docker CE origins | ⏳ pending apply (2026-10-28) | no automatic reboot (public edge); kernel reboot pending since 2026-09 |
+| Docker daemon | `daemon.json`: log rotation 10m×3, `live-restore`, `no-new-privileges`, `userland-proxy: false`, `icc: false` | ⏳ pending apply (2026-10-28) | [[docker-daemon]] |
+| Host firewall | storage-net fence (`inet kdk-storage`) + DOCKER-USER unit | ⏳ pending apply (2026-10-28) | `MODE=enforce`; also blocks containers -> host SSH/Periphery (`host_guard`). [[host-firewall]] |
 | Timezone | America/Chicago | ✅ | CDT |
 | NTP | `ntp.kmkdp.com` primary | ⚠️ synced via public pools (timesyncd) | |
-| Syslog | `syslog.kmkdp.com:514` | ⚠️ no forward rule (cloud-init gap); receiver also absent | |
+| Syslog | `syslog.kmkdp.com:514` | ✅ forwarding to [[kdk-log-01]] since 2026-10-28 (rsyslog installed by hand; cloud-init now includes the package, PR #84) | copy `hosts/_common/rsyslog.d/90-kdk-loki.conf` to `/etc/rsyslog.d/`, restart rsyslog (needs UniFi `192.168.191.20 → 10.1.20.21:514`) |
+
+> VS Code Remote-SSH on any lab host: see `hosts/README.md` (the sshd baseline sets `AllowTcpForwarding local`).
+
 
 ## Architecture
 
@@ -91,9 +99,11 @@ VLAN 191 (DMZ). Traefik `80/443`, periphery `8120`. Outbound: cloudflared to Clo
 | Mount | Source | FS | Consumed by | Backup |
 |---|---|---|---|---|
 | `/mnt/media` (RO) | `172.16.30.2:/mnt/tankz3/media` | NFS | Jellyfin | tankz3 snapshots |
-| `/mnt/appdata` | `…/appdata` | NFS | Seerr, Immich library | snapshots |
+| `/mnt/appdata` | `…/appdata` | NFS | Seerr, Wizarr, Libreseerr, Immich library, Jellyfin metadata (`jellyfin/metadata`), ABS podcasts (`audiobookshelf/podcasts`) | snapshots |
 | `/mnt/backup` | `…/backup` | NFS | backup-dmz | snapshots |
-| `/opt/kdk-lab` | vmpool zvol | zfs | identity, immich, jellyfin config | nightly rsync + pg dumps → NAS; zvol replication |
+| `/opt/kdk-lab` | vmpool zvol | zfs | identity, immich, jellyfin config + DB, audiobookshelf config + metadata | nightly rsync + pg dumps → NAS; zvol replication |
+
+**Root disk.** `/dev/vda1` is only 59 GB and holds the OS, Docker images and `/opt/kdk-lab`. It hit 75 % (alert) on 2026-10-28; the fixes were moving the two growing write paths to `/mnt/appdata` (Jellyfin metadata 8.3 GB, ABS podcasts 7.5 GB) and the weekly `prune-images` Procedure (old image tags; see [Komodo GitOps](../komodo-gitops.md)). Keep only small state and SQLite DBs here; anything that grows with the library goes on the appdata NFS. Check: `ssh kdkadmin@192.168.191.20 'df -h /; sudo du -xsh /opt/kdk-lab/* | sort -h | tail'`.
 
 ## Configuration
 

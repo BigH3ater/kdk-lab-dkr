@@ -77,6 +77,8 @@ services:
     labels:
       traefik.enable: "true"
       traefik.http.routers.lldap.rule: "Host(`users.kmkdp.com`)"
+      # LAN only: never on the Cloudflare tunnel entrypoint (docs/services/dmz-proxy.md).
+      traefik.http.routers.lldap.entrypoints: "websecure"
       traefik.http.services.lldap.loadbalancer.server.port: "17170"
       # lldap is not on proxy-dmz any more: the DMZ Traefik reaches the UI on
       # identity_default (it joins that network in stacks/dmz-proxy).
@@ -133,7 +135,7 @@ services:
     networks: [default]
 
   postgres:
-    image: postgres:16-alpine
+    image: postgres:16.15-alpine
     container_name: authelia-postgres
     restart: unless-stopped
     # Data dir is already owned by uid 70 (the image's postgres user), so the
@@ -164,7 +166,7 @@ services:
     networks: [default]
 
   redis:
-    image: redis:8-alpine
+    image: redis:8.10.3-alpine
     container_name: authelia-redis
     restart: unless-stopped
     user: "999:999"
@@ -254,6 +256,8 @@ services:
     labels:
       traefik.enable: "true"
       traefik.http.routers.authelia.rule: "Host(`sso.kmkdp.com`)"
+      # Public: LAN entrypoint + the cloudflared-only `tunnel` entrypoint.
+      traefik.http.routers.authelia.entrypoints: "websecure,tunnel"
       traefik.http.services.authelia.loadbalancer.server.port: "9091"
 
 networks:

@@ -24,9 +24,10 @@ Media server on the DMZ node with Intel Arc A380 QSV transcode; public via the C
 | Status | 🟢 Live — login + playback work; plugins Active |
 | Host | [[kdk-dkr-dmz-01]], `/dev/dri` mapped (i915) |
 | Endpoint | `https://jellyfin.kmkdp.com` (LAN + Cloudflare tunnel) |
+| Edge | Five-rule Cloudflare design (admin-API block, anonymous-stream block, OIDC skip, bots, non-US) plus a credential-path rate limit; verify with `scripts/edge-probe.sh` |
 | Image | `lscr.io/linuxserver/jellyfin:12.3ubu2604-ls56` — 12.x line, pinned; server and plugins move together |
 | Deploy | Komodo stack `jellyfin` (git-linked) |
-| Storage | `/opt/kdk-lab/jellyfin/config` (byte-for-byte from k3s); library RO from `/mnt/media` |
+| Storage | `/opt/kdk-lab/jellyfin/config` on local disk (DB, cache, plugins; byte-for-byte from k3s); images/metadata on NFS `/mnt/appdata/jellyfin/metadata` → `/config/data/metadata`; library RO from `/mnt/media` |
 | Blast radius | No streaming; requests via Seerr still queue |
 
 ## Verify
@@ -74,11 +75,12 @@ Listens on `8096`, joins `proxy-dmz`. `/dev/dri` gives QSV. Library mounted read
 ## Configuration
 | LDAP-Auth plugin (dashboard, host-managed) | Server `lldap.kmkdp.com`, port 6360, SSL on, **SkipSslVerify off** (LE wildcard via lldap's certs-dumper, 2026-10-27); the name resolves through the `lldap.kmkdp.com` alias on the internal `identity_ldap` network, which the jellyfin service joins (lldap left `proxy-dmz` on 2026-10-28; the network is created by [[identity]], so deploy identity first); base `ou=people,dc=kmkdp,dc=com`; filter `(memberof=cn=jellyfin-users,ou=groups,dc=kmkdp,dc=com)`; create users from LDAP on |
 | SSO Authentication plugin (dashboard, host-managed) | K0lin fork 5.1.1, provider `authelia` → `https://sso.kmkdp.com`, client `jellyfin` (secret `op://kdk-cluster/jellyfin-oidc/password`), scopes `groups`+`email`, role claim `groups`, roles `jellyfin-users`/`lldap_admin`, admin role `lldap_admin`, default provider = the LDAP plugin; full field list in [[jellyfin-sso]] |
-| Networking (dashboard, host-managed) | Known proxies `10.211.2.0/24` (proxy-dmz: Traefik + cloudflared); LAN networks `10.1.1.0/24, 10.1.3.0/24, 10.1.20.0/24, 10.1.30.0/24, 192.168.191.0/24` (Tailscale clients arrive un-masqueraded as 100.64.0.0/10 since 2026-10-26 and are therefore remote; before that 10.1.20.0/24 had to be left out); auto discovery off; Internet streaming bitrate limit applies to remote clients (set 2026-10-26, raise for more remote viewers) |
+| Networking (dashboard, host-managed) | Known proxies `10.211.2.3/32` (the DMZ Traefik, pinned on proxy-dmz since 2026-10-28; was `10.211.2.0/24`, which let any proxy-dmz container forge `X-Forwarded-For` — set by the owner in Dashboard → Networking in the same window as the dmz-proxy redeploy; cloudflared `10.211.2.2` is not needed: the tunnel entrypoint passes Cloudflare's `X-Forwarded-For` through without appending its own hop); LAN networks `10.1.1.0/24, 10.1.3.0/24, 10.1.20.0/24, 10.1.30.0/24, 192.168.191.0/24` (Tailscale clients arrive un-masqueraded as 100.64.0.0/10 since 2026-10-26 and are therefore remote; before that 10.1.20.0/24 had to be left out); auto discovery off; Internet streaming bitrate limit applies to remote clients (set 2026-10-26, raise for more remote viewers) |
 
 | Path / setting | What it is |
 |---|---|
 | `/opt/kdk-lab/jellyfin/config` | jellyfin.db (users, watched), plugins, config |
+| `/mnt/appdata/jellyfin/metadata` → `/config/data/metadata` | posters/images/NFO metadata (8+ GB) on the rw appdata NFS since 2026-10-28, off the 59 GB root disk. Same in-container path, so no dashboard change. `1000:1000` (PUID/PGID). Regenerable: excluded from backup-dmz, tankz3 snapshots only. The DB (`/config/data/data`) stays local — never on NFS |
 | `stacks/jellyfin/plugins.yaml` | plugin GUIDs + pinned versions |
 | `tmpfs /config/cache/transcodes` | 6G RAM-disk scratch (`mode=1777`), excluded from backup — see [[jellyfin-transcoding]] |
 | `/opt/kdk-lab/jellyfin/config/encoding.xml` | Arc QSV/HDR encoding settings (host state, not in git) |

@@ -1,4 +1,4 @@
-FROM python:3.12-slim
+FROM python:3.12.16-slim
 # Tiny read-mostly sidecar: logs into Tandoor with the dashboard account (session auth,
 # since REST tokens are disabled), reads /api/meal-plan/, renders the week, and writes
 # back CookLog star ratings. requests handles the cookie/CSRF session; waitress serves it.

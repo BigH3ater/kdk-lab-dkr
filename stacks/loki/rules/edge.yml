@@ -1,0 +1,103 @@
+# Cloudflare edge + tunnel (source: vault 10.Homelab/Security/
+# cloudflare-edge-posture-2026-10.md section 7). Every selector reads the DMZ
+# Traefik's JSON access log ({host="kdk-dkr-dmz-01", container="traefik"} | json)
+# or cloudflared's own log. `| json` sanitises header keys, so
+# request_Cf-Connecting-Ip becomes request_Cf_Connecting_Ip.
+#
+# "From the internet" = `entryPointName="tunnel"`: since the two-entrypoint
+# split (dmz-proxy, PR #68) cloudflared is the only client of the :8443 `tunnel`
+# entrypoint. Equivalent fallback if that field is ever missing:
+#   ClientAddr=~"10\\.211\\.2\\.2:.*"   (cloudflared's pinned proxy-dmz address)
+# Never `request_Cf_Connecting_Ip!=""`: LAN lines carry "-" there.
+#
+# Runbook: docs/runbooks/security-alerts.md#edge
+groups:
+  - name: edge
+    interval: 1m
+    rules:
+      - alert: EdgeNonUSTraffic
+        expr: |
+          sum by (request_Cf_Ipcountry) (count_over_time({host="kdk-dkr-dmz-01", container="traefik"}
+            |= "tunnel" | json | entryPointName="tunnel" | request_Cf_Ipcountry!~"US|-?" [15m])) > 0
+        for: 0m
+        labels:
+          severity: warning
+          source: loki
+          scope: edge
+        annotations:
+          summary: "Non-US request reached the origin through the tunnel ({{ $labels.request_Cf_Ipcountry }}): the Cloudflare geo rule or a skip rule has a gap"
+          runbook: docs/runbooks/security-alerts.md#edge
+
+      - alert: EdgeAuthFailureBurst
+        expr: |
+          sum(count_over_time({host="kdk-dkr-dmz-01", container="traefik"}
+            |= "tunnel" | json | entryPointName="tunnel" | DownstreamStatus=~"40[13]"
+            | RequestPath!~"/api/authz/forward-auth.*" [5m])) > 60
+        for: 5m
+        labels:
+          severity: warning
+          source: loki
+          scope: edge
+        annotations:
+          summary: "More than 60 401/403 per 5m from tunnel traffic for 5m (credential stuffing or a scanner)"
+          runbook: docs/runbooks/security-alerts.md#edge
+
+      # Path set mirrors the Cloudflare "Block admin APIs" rule. /System/Endpoint,
+      # /System/Info, /System/Info/Public and /System/Ping are client paths the WAF
+      # lets through on purpose (jellyfin-web calls /System/Endpoint on every load),
+      # so they are not admin paths here either (false positive 2026-10-29).
+      - alert: EdgeJellyfinAdminPathHit
+        expr: |
+          sum(count_over_time({host="kdk-dkr-dmz-01", container="traefik"}
+            |= "tunnel" | json | entryPointName="tunnel" | RequestHost="jellyfin.kmkdp.com"
+            | RequestPath=~"(?i)^/(system/(configuration|logs|restart)|plugins|packages|repositories|scheduledtasks|devices|startup|environment|auth/keys|library/(virtualfolders|refresh)|users/[^/]+/(policy|password)).*" [5m])) > 0
+        for: 0m
+        labels:
+          severity: critical
+          source: loki
+          scope: edge
+        annotations:
+          summary: "A Jellyfin admin path reached the origin through the tunnel: the Cloudflare WAF block rule was bypassed or is missing"
+          runbook: docs/runbooks/security-alerts.md#edge
+
+      # Canary for the strip-cf middleware on the LAN entrypoint (PR #68). Traefik
+      # logs the request header map AFTER the middleware chain ran, so while
+      # strip-cf works a forged Cf-* header is removed before it is logged and
+      # this stays silent. It fires when strip-cf is missing from `websecure`
+      # (a label/flag regression) and a client sends Cf-* headers.
+      - alert: EdgeSpoofedCfHeaders
+        expr: |
+          sum(count_over_time({host="kdk-dkr-dmz-01", container="traefik"}
+            |= "Cf-Connecting-Ip" | json | entryPointName="websecure" | request_Cf_Connecting_Ip!~"-?" [5m])) > 0
+        for: 0m
+        labels:
+          severity: warning
+          source: loki
+          scope: edge
+        annotations:
+          summary: "Cf-Connecting-Ip seen on the LAN entrypoint (websecure): the strip-cf middleware is not applied there"
+          runbook: docs/runbooks/security-alerts.md#edge
+
+      - alert: CloudflaredOutdated
+        expr: |
+          sum(count_over_time({host="kdk-dkr-dmz-01", container="cloudflared"} |= "is outdated" [1h])) > 0
+        for: 0m
+        labels:
+          severity: info
+          source: loki
+          scope: edge
+        annotations:
+          summary: "cloudflared reports a newer release: bump the pinned tag in stacks/dmz-proxy (or merge the Renovate PR)"
+          runbook: docs/runbooks/security-alerts.md#edge
+
+      - alert: CloudflaredEdgeFlapping
+        expr: |
+          sum(count_over_time({host="kdk-dkr-dmz-01", container="cloudflared"} |= "Lost connection with the edge" [30m])) > 4
+        for: 0m
+        labels:
+          severity: warning
+          source: loki
+          scope: edge
+        annotations:
+          summary: "cloudflared lost its edge connection more than 4 times in 30m (WAN/ISP or Cloudflare side)"
+          runbook: docs/runbooks/security-alerts.md#edge

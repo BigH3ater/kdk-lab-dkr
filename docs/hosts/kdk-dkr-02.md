@@ -79,13 +79,18 @@ curl -s -o /dev/null -w '%{http_code}\n' https://homeassistant.kmkdp.com/     # 
 |---|---|---|---|
 | Hostname | `{site}-{role}-{nn}` | ✅ `kdk-dkr-02` | renamed from old Pi `kdk-dkr-01` |
 | Admin account | `kdkadmin`, key-only, NOPASSWD | ✅ | |
+| SSH hardening | `98-kdk-admin.conf` + kdkadmin key `from=` admin sources | ⚠️ drop-in present; ⏳ pending apply (2026-10-28) for the repo copy (adds `LoginGraceTime 20`) and the key `from=` | `hosts/README.md` |
+| Kernel sysctl | `90-kdk-hardening.conf` (ptrace_scope 1, kptr/dmesg restrict, no redirects, martians, sysrq 0) | ⏳ pending apply (2026-10-28) | |
+| Patching | unattended-upgrades: Debian + Raspberry Pi Foundation + Docker CE, reboot 04:30 | ⏳ pending apply (2026-10-28) | Pi Foundation origin missing today: kernel/libc/OpenSSL never auto-apply |
+| Docker daemon | `daemon.json`: log rotation 10m×3, `live-restore`, `no-new-privileges`, `userland-proxy: false`, `icc: false` | ⏳ pending apply (2026-10-28) | [[docker-daemon]]; pre-test mosquitto `127.0.0.1:1883` after the restart |
+| Host firewall | storage-net fence + DOCKER-USER unit (VMs with a storage NIC) | n/a | no storage NIC; `DOCKER-USER` empty |
 | Timezone | America/Chicago | ✅ | CDT |
 | NTP | `ntp.kmkdp.com` primary | ⚠️ synced via public pools (timesyncd) | |
-| Syslog | `syslog.kmkdp.com:514` | ⚠️ forwards (`*.* @@…:514`), but the receiver is absent | |
+| Syslog | `syslog.kmkdp.com:514` | ✅ forwards (`*.* @@…:514`) to the receiver on [[kdk-log-01]] | restart rsyslog once after the DNS flip so the open TCP session re-resolves |
 
 ## Architecture
 
-Runs its own `traefik:v3.3` on `80/443` for the home-automation names, plus `homeassistant 2026.8`, `zigbee2mqtt 2.9.2`, `node-red 4.1`, `mosquitto 2.0`, `dockge 1`. Periphery on `8120`. These names resolve to `10.1.30.21` (see [[network]]).
+Runs its own `traefik:v3.3.7` on `80/443` for the home-automation names, plus `homeassistant 2026.10.4`, `zigbee2mqtt 2.9.2` (frontend auth token), `node-red 4.1.12` (adminAuth, encrypted credentials), `mosquitto 2.0.22`, `dockge 1` (tags pinned 2026-10-28, Renovate proposes updates). Periphery on `8120`. These names resolve to `10.1.30.21` (see [[network]]).
 
 ### Storage map
 

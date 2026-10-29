@@ -1,0 +1,88 @@
+# Weekly vulnerability signals pushed straight to Loki (not via Alloy):
+#   job="advisory-watch"  stacks/advisory-watch, Monday 07:03 on kdk-log-01.
+#     One logfmt line per new advisory: image tag severity id verdict fixed_in url
+#     verdict = Vulnerable | Patched | Unknown (Unknown = the pinned tag could not
+#     be compared, e.g. `latest`, a floating `16-alpine`, a digest, or an RSS item).
+#   job="trivy"           stacks/trivy-scan, Monday 06:03 on every compose host.
+#     One logfmt line per running image: critical high fixable_critical fixable_high top_cve
+#
+# The line's own `severity` (Critical/High/...) is copied to adv_severity:
+# the rule label `severity` (warning/info, used for routing) overrides any
+# series label of the same name.
+#
+# Each run's lines land within minutes, so a 2h window fires the alert once per
+# run and resolves it two hours later (Alertmanager groups it into one page).
+#
+# Runbook: docs/runbooks/security-alerts.md#advisories
+groups:
+  - name: advisories
+    interval: 1m
+    rules:
+      - alert: AdvisoryPinnedImageVulnerable
+        expr: |
+          sum by (image, tag, id, adv_severity) (count_over_time({job="advisory-watch"} |= "verdict=Vulnerable"
+            | logfmt | verdict="Vulnerable" | severity=~"(?i)critical|high"
+            | label_format adv_severity="{{.severity}}" [2h])) > 0
+        for: 0m
+        labels:
+          severity: warning
+          source: loki
+          scope: advisories
+        annotations:
+          summary: "{{ $labels.image }}:{{ $labels.tag }} is affected by {{ $labels.id }} ({{ $labels.adv_severity }})"
+          runbook: docs/runbooks/security-alerts.md#advisories
+
+      - alert: AdvisoryNeedsReview
+        expr: |
+          sum by (image, tag, id, adv_severity) (count_over_time({job="advisory-watch"} |= "verdict=Unknown"
+            | logfmt | verdict="Unknown" | severity=~"(?i)critical|high"
+            | label_format adv_severity="{{.severity}}" [2h])) > 0
+        for: 0m
+        labels:
+          severity: info
+          source: loki
+          scope: advisories
+        annotations:
+          summary: "{{ $labels.id }} ({{ $labels.adv_severity }}) for {{ $labels.image }}: pinned tag {{ $labels.tag }} not comparable, check by hand"
+          runbook: docs/runbooks/security-alerts.md#advisories
+
+      - alert: TrivyFixableCritical
+        expr: |
+          sum by (host, image, top_cve) (count_over_time({job="trivy"} |= "fixable_critical="
+            | logfmt | fixable_critical > 0 [2h])) > 0
+        for: 0m
+        labels:
+          severity: warning
+          source: loki
+          scope: advisories
+        annotations:
+          summary: "{{ $labels.image }} on {{ $labels.host }} has a fixable CRITICAL vulnerability ({{ $labels.top_cve }})"
+          runbook: docs/runbooks/security-alerts.md#advisories
+
+      # The weekly jobs stopped reporting (procedure disabled, job failing before
+      # the push, or Loki unreachable from it). 8 days = one missed Monday.
+      # Fires right after the first deploy until the first run: start each job
+      # once by hand (Komodo -> Procedures -> Run) after merging.
+      - alert: AdvisoryWatchSilent
+        expr: |
+          absent_over_time({job="advisory-watch"}[8d])
+        for: 1h
+        labels:
+          severity: warning
+          source: loki
+          scope: advisories
+        annotations:
+          summary: "No advisory-watch output in Loki for 8 days"
+          runbook: docs/runbooks/security-alerts.md#advisories
+
+      - alert: TrivyScanSilent
+        expr: |
+          absent_over_time({job="trivy"}[8d])
+        for: 1h
+        labels:
+          severity: warning
+          source: loki
+          scope: advisories
+        annotations:
+          summary: "No trivy-scan output in Loki for 8 days"
+          runbook: docs/runbooks/security-alerts.md#advisories

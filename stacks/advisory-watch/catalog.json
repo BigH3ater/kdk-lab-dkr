@@ -1,0 +1,414 @@
+{
+  "_doc": "Image repository -> upstream advisory sources for stacks/advisory-watch. Keys are image references without tag/digest, docker.io/ and library/ stripped. Fields: github (owner/repo, GET /repos/{owner}/{repo}/security-advisories), osv {ecosystem, package} (POST api.osv.dev/v1/query with the pinned version), nvd_cpe (string or list, NVD CVE API 2.0), feed (RSS/Atom URL, security items only), local (built here; base = the catalog key of its FROM image), tag_is_version (default true; false for wrapper images whose tag is not the upstream product version, so the verdict stays Unknown), feed_filter (regex on feed item titles), confirm (mapping not verified by a human yet), note. scripts/advisory-catalog-check.py fails CI when an image in stacks/ has no entry. See stacks/advisory-watch/README.md.",
+  "images": {
+    "1password/connect-api": {
+      "github": "1Password/connect",
+      "confirm": true,
+      "note": "Connect server is closed source; the repo carries docs/examples, so advisories may only appear in 1Password release notes"
+    },
+    "1password/connect-sync": {
+      "github": "1Password/connect",
+      "confirm": true,
+      "note": "see 1password/connect-api"
+    },
+    "actualbudget/actual-server": {
+      "github": "actualbudget/actual",
+      "note": "monorepo; image tag = app release (YY.M.patch)"
+    },
+    "alpine": {
+      "feed": "https://alpinelinux.org/atom.xml",
+      "note": "base image; OS package CVEs come from trivy-scan, the feed only catches security point releases"
+    },
+    "aquasec/trivy": {
+      "github": "aquasecurity/trivy",
+      "osv": {
+        "ecosystem": "Go",
+        "package": "github.com/aquasecurity/trivy"
+      }
+    },
+    "busybox": {
+      "nvd_cpe": "cpe:2.3:a:busybox:busybox",
+      "note": "base/utility image; floating `stable` tag, verdict is always Unknown"
+    },
+    "chaptarr/chaptarr": {
+      "github": "Chaptarr/chaptarr",
+      "confirm": true,
+      "note": "Readarr fork; confirm it publishes GitHub advisories"
+    },
+    "cloudflare/cloudflared": {
+      "github": "cloudflare/cloudflared",
+      "note": "no OSV mapping: cloudflared's YYYY.M.P tags are not Go module versions"
+    },
+    "coredns/coredns": {
+      "github": "coredns/coredns",
+      "osv": {
+        "ecosystem": "Go",
+        "package": "github.com/coredns/coredns"
+      }
+    },
+    "cturra/ntp": {
+      "github": "cturra/docker-ntp",
+      "nvd_cpe": "cpe:2.3:a:tuxfamily:chrony",
+      "confirm": true,
+      "note": "image runs chrony; CPE vendor string to confirm",
+      "tag_is_version": false
+    },
+    "cyfershepard/jellystat": {
+      "github": "CyferShepard/Jellystat"
+    },
+    "ddvk/rmfakecloud": {
+      "github": "ddvk/rmfakecloud",
+      "osv": {
+        "ecosystem": "Go",
+        "package": "github.com/ddvk/rmfakecloud"
+      }
+    },
+    "docker": {
+      "github": "docker/cli",
+      "note": "docker:28-cli sidecars (docker-event-watch, backups); floating major tag, verdict Unknown"
+    },
+    "eclipse-mosquitto": {
+      "github": "eclipse-mosquitto/mosquitto",
+      "nvd_cpe": "cpe:2.3:a:eclipse:mosquitto"
+    },
+    "ghcr.io/advplyr/audiobookshelf": {
+      "github": "advplyr/audiobookshelf"
+    },
+    "ghcr.io/authelia/authelia": {
+      "github": "authelia/authelia",
+      "osv": {
+        "ecosystem": "Go",
+        "package": "github.com/authelia/authelia/v4"
+      }
+    },
+    "ghcr.io/bakito/adguardhome-sync": {
+      "github": "bakito/adguardhome-sync",
+      "osv": {
+        "ecosystem": "Go",
+        "package": "github.com/bakito/adguardhome-sync"
+      }
+    },
+    "ghcr.io/belphemur/obsidian-headless-sync-docker": {
+      "github": "Belphemur/obsidian-headless-sync-docker",
+      "confirm": true,
+      "note": "wraps the closed-source Obsidian headless sync; only the wrapper repo is watchable"
+    },
+    "ghcr.io/bigh3ater/kdk-lab-rm-highlights": {
+      "local": true,
+      "base": "python",
+      "confirm": true,
+      "note": "our own prebuilt image (digest-pinned); its base and packages are covered by trivy-scan"
+    },
+    "ghcr.io/ferretdb/ferretdb": {
+      "github": "FerretDB/FerretDB",
+      "osv": {
+        "ecosystem": "Go",
+        "package": "github.com/FerretDB/FerretDB/v2"
+      }
+    },
+    "ghcr.io/ferretdb/postgres-documentdb": {
+      "github": "FerretDB/documentdb",
+      "nvd_cpe": "cpe:2.3:a:postgresql:postgresql",
+      "tag_is_version": false
+    },
+    "ghcr.io/gethomepage/homepage": {
+      "github": "gethomepage/homepage"
+    },
+    "ghcr.io/google/cadvisor": {
+      "github": "google/cadvisor",
+      "osv": {
+        "ecosystem": "Go",
+        "package": "github.com/google/cadvisor"
+      }
+    },
+    "ghcr.io/haveagitgat/tdarr": {
+      "github": "HaveAGitGat/Tdarr",
+      "confirm": true,
+      "note": "closed source; the repo is the issue tracker, advisories unlikely"
+    },
+    "ghcr.io/haveagitgat/tdarr_node": {
+      "github": "HaveAGitGat/Tdarr",
+      "confirm": true,
+      "note": "see ghcr.io/haveagitgat/tdarr"
+    },
+    "ghcr.io/henrywhitaker3/adguard-exporter": {
+      "github": "henrywhitaker3/adguard-exporter",
+      "osv": {
+        "ecosystem": "Go",
+        "package": "github.com/henrywhitaker3/adguard-exporter"
+      }
+    },
+    "ghcr.io/home-assistant/home-assistant": {
+      "github": "home-assistant/core",
+      "osv": {
+        "ecosystem": "PyPI",
+        "package": "homeassistant"
+      }
+    },
+    "ghcr.io/immich-app/immich-machine-learning": {
+      "github": "immich-app/immich"
+    },
+    "ghcr.io/immich-app/immich-server": {
+      "github": "immich-app/immich"
+    },
+    "ghcr.io/immich-app/postgres": {
+      "github": "immich-app/base-images",
+      "nvd_cpe": "cpe:2.3:a:postgresql:postgresql",
+      "note": "Postgres 14 + VectorChord, digest-pinned",
+      "tag_is_version": false
+    },
+    "ghcr.io/koenkk/zigbee2mqtt": {
+      "github": "Koenkk/zigbee2mqtt",
+      "osv": {
+        "ecosystem": "npm",
+        "package": "zigbee2mqtt"
+      }
+    },
+    "ghcr.io/koush/scrypted": {
+      "github": "koush/scrypted",
+      "osv": {
+        "ecosystem": "npm",
+        "package": "@scrypted/server"
+      },
+      "confirm": true,
+      "note": "confirm the image tag tracks the @scrypted/server npm version"
+    },
+    "ghcr.io/moghtech/komodo-core": {
+      "github": "moghtech/komodo"
+    },
+    "ghcr.io/mrlhansen/idrac_exporter": {
+      "github": "mrlhansen/idrac_exporter",
+      "note": "no OSV mapping: v2 tags without a /v2 module path"
+    },
+    "ghcr.io/python-roborock/local_roborock_server": {
+      "github": "Python-roborock/local_roborock_server"
+    },
+    "ghcr.io/seerr-team/seerr": {
+      "github": "seerr-team/seerr"
+    },
+    "ghcr.io/tandoorrecipes/recipes": {
+      "github": "TandoorRecipes/recipes",
+      "note": "GHSA-c7mc-c9jr-38hf (2026-10) carries the malformed range 'recipes' upstream, so it stays Unknown/Medium by design; re-check when Tandoor fixes the advisory metadata."
+    },
+    "ghcr.io/unpoller/unpoller": {
+      "github": "unpoller/unpoller",
+      "note": "no OSV mapping: release tags are not the Go module's major version"
+    },
+    "ghcr.io/wizarrrr/wizarr": {
+      "github": "wizarrrr/wizarr"
+    },
+    "ghcr.io/zamnzim/libreseerr": {
+      "github": "zamnzim/Libreseerr"
+    },
+    "grafana/alloy": {
+      "github": "grafana/alloy",
+      "osv": {
+        "ecosystem": "Go",
+        "package": "github.com/grafana/alloy"
+      }
+    },
+    "grafana/grafana": {
+      "github": "grafana/grafana",
+      "note": "no OSV mapping: Grafana's v12 tags are +incompatible Go versions"
+    },
+    "grafana/loki": {
+      "github": "grafana/loki",
+      "osv": {
+        "ecosystem": "Go",
+        "package": "github.com/grafana/loki/v3"
+      }
+    },
+    "homebridge/homebridge": {
+      "github": "homebridge/homebridge",
+      "osv": {
+        "ecosystem": "npm",
+        "package": "homebridge"
+      },
+      "note": "image tag is a build date (homebridge/docker-homebridge); verdict Unknown",
+      "tag_is_version": false
+    },
+    "instantlinux/nut-upsd": {
+      "github": "networkupstools/nut",
+      "nvd_cpe": "cpe:2.3:a:networkupstools:network_ups_tools",
+      "confirm": true,
+      "note": "digest-pinned image (instantlinux/docker-tools); CPE string to confirm",
+      "tag_is_version": false
+    },
+    "instrumentisto/rsync-ssh": {
+      "note": "image repo for advisories (rarely any); tag alpineX.Y-rN is not a version so GHSA compares stay Unknown but there are none; rsync/openssh CVEs inside the image are caught by Trivy. Product-level NVD lookups dropped 2026-10-28 (always Unknown, 9 Low per run).",
+      "tag_is_version": false,
+      "github": "instrumentisto/rsync-ssh-docker-image"
+    },
+    "kdk/calibre": {
+      "local": true,
+      "base": "python",
+      "note": "built from stacks/calibre/Dockerfile; calibre is a Debian apt package inside the image (Trivy covers it). kovidgoyal/calibre GHSA compare was dropped 2026-10-28: the local tag `latest` cannot be compared (always Unknown)."
+    },
+    "kdk/dashboard-mealplan": {
+      "local": true,
+      "base": "python"
+    },
+    "kdk/koreader-highlights": {
+      "local": true,
+      "base": "python"
+    },
+    "kdk/obsidian-to-koreader": {
+      "local": true,
+      "base": "python"
+    },
+    "kdk/planner-service": {
+      "local": true,
+      "base": "python"
+    },
+    "kdk/readwise-koreader": {
+      "local": true,
+      "base": "python"
+    },
+    "kdk/remarkable-ocr": {
+      "local": true,
+      "base": "python"
+    },
+    "ldez/traefik-certs-dumper": {
+      "github": "ldez/traefik-certs-dumper",
+      "osv": {
+        "ecosystem": "Go",
+        "package": "github.com/ldez/traefik-certs-dumper/v2"
+      }
+    },
+    "lldap/lldap": {
+      "github": "lldap/lldap"
+    },
+    "lscr.io/linuxserver/bazarr": {
+      "github": "morpheus65535/bazarr"
+    },
+    "lscr.io/linuxserver/jellyfin": {
+      "github": "jellyfin/jellyfin"
+    },
+    "lscr.io/linuxserver/prowlarr": {
+      "github": "Prowlarr/Prowlarr"
+    },
+    "lscr.io/linuxserver/radarr": {
+      "github": "Radarr/Radarr"
+    },
+    "lscr.io/linuxserver/sabnzbd": {
+      "github": "sabnzbd/sabnzbd"
+    },
+    "lscr.io/linuxserver/sonarr": {
+      "github": "Sonarr/Sonarr"
+    },
+    "nandyalu/trailarr": {
+      "github": "nandyalu/trailarr"
+    },
+    "nginx": {
+      "github": "nginx/nginx",
+      "nvd_cpe": "cpe:2.3:a:f5:nginx"
+    },
+    "node": {
+      "github": "nodejs/node",
+      "feed": "https://nodejs.org/en/feed/vulnerability.xml"
+    },
+    "nodered/node-red": {
+      "github": "node-red/node-red",
+      "osv": {
+        "ecosystem": "npm",
+        "package": "node-red"
+      }
+    },
+    "postgres": {
+      "nvd_cpe": "cpe:2.3:a:postgresql:postgresql",
+      "feed": "https://www.postgresql.org/news.rss",
+      "note": "tag is a full version since the 2026-10-28 pins; NVD stays product-level (Unknown). The news feed is filtered to core PostgreSQL release posts; extension posts (PostgreSQL Anonymizer etc.) are excluded (2026-10-28).",
+      "feed_filter": "(?i)^PostgreSQL (\\d+(\\.\\d+)+(, )?)+.*(released|security)"
+    },
+    "prom/alertmanager": {
+      "github": "prometheus/alertmanager",
+      "osv": {
+        "ecosystem": "Go",
+        "package": "github.com/prometheus/alertmanager"
+      }
+    },
+    "prom/blackbox-exporter": {
+      "github": "prometheus/blackbox_exporter",
+      "osv": {
+        "ecosystem": "Go",
+        "package": "github.com/prometheus/blackbox_exporter"
+      }
+    },
+    "prom/node-exporter": {
+      "github": "prometheus/node_exporter",
+      "osv": {
+        "ecosystem": "Go",
+        "package": "github.com/prometheus/node_exporter"
+      }
+    },
+    "prom/prometheus": {
+      "github": "prometheus/prometheus",
+      "note": "no OSV mapping: the Go module is versioned v0.3xx, not 3.x"
+    },
+    "prom/snmp-exporter": {
+      "github": "prometheus/snmp_exporter",
+      "osv": {
+        "ecosystem": "Go",
+        "package": "github.com/prometheus/snmp_exporter"
+      }
+    },
+    "python": {
+      "github": "python/cpython",
+      "nvd_cpe": "cpe:2.3:a:python:python"
+    },
+    "rclone/rclone": {
+      "github": "rclone/rclone",
+      "osv": {
+        "ecosystem": "Go",
+        "package": "github.com/rclone/rclone"
+      }
+    },
+    "redis": {
+      "github": "redis/redis"
+    },
+    "shenxn/protonmail-bridge": {
+      "github": "ProtonMail/proton-bridge",
+      "note": "image from shenxn/protonmail-bridge-docker; tag N.N.N-B = bridge version + build"
+    },
+    "tailscale/tailscale": {
+      "github": "tailscale/tailscale",
+      "osv": {
+        "ecosystem": "Go",
+        "package": "tailscale.com"
+      }
+    },
+    "tecnativa/docker-socket-proxy": {
+      "github": "Tecnativa/docker-socket-proxy",
+      "nvd_cpe": "cpe:2.3:a:haproxy:haproxy"
+    },
+    "tigerblue77/dell_idrac_fan_controller": {
+      "github": "tigerblue77/Dell_iDRAC_fan_controller_Docker",
+      "nvd_cpe": "cpe:2.3:a:ipmitool_project:ipmitool",
+      "confirm": true,
+      "note": "shell + ipmitool; CPE string to confirm"
+    },
+    "traefik": {
+      "github": "traefik/traefik",
+      "osv": {
+        "ecosystem": "Go",
+        "package": "github.com/traefik/traefik/v3"
+      }
+    },
+    "valkey/valkey": {
+      "github": "valkey-io/valkey"
+    },
+    "vikunja/vikunja": {
+      "github": "go-vikunja/vikunja",
+      "osv": {
+        "ecosystem": "Go",
+        "package": "code.vikunja.io/api"
+      },
+      "confirm": true,
+      "note": "GitHub is a mirror (main forge is kolaente.dev); confirm the OSV module path. The OSV Go entries for code.vikunja.io/api mostly carry only an introduced event (no fixed), so the GHSA alias from go-vikunja/vikunja is authoritative for the verdict (source=osv+ghsa)"
+    },
+    "ghcr.io/tecnativa/docker-socket-proxy": {
+      "github": "Tecnativa/docker-socket-proxy",
+      "note": "HAProxy-based read-only Docker API proxy (security batch 7); HAProxy CVEs inside the image are Trivy's job"
+    }
+  }
+}

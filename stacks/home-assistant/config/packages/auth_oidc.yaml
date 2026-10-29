@@ -1,0 +1,33 @@
+# Home Assistant SSO (custom component auth_oidc, christiaangoossens/hass-oidc-auth
+# 1.2.x) against Authelia client `homeassistant` (stacks/identity/authelia/
+# configuration.yml: PKCE S256, client_secret_post, policy ha_access = group
+# ha-users, two_factor). Shipped from git by the Komodo pre_deploy copy into
+# /opt/kdk-lab/home-assistant/config/packages/; HA reads it at start, so a
+# change here needs an HA restart (not "Reload all YAML"). The client secret
+# stays in the host-managed /config/secrets.yaml (`oidc_client_secret`,
+# source op://kdk-cluster/homeassistant-oidc-client).
+#
+# Groups come from the LLDAP groups claim (Authelia scope `groups`):
+#   ha-users  -> may log in (anyone else is rejected by HA and by Authelia's
+#                ha_access policy)
+#   ha-admins -> HA administrator on login
+# automatic_user_linking is OFF (security plan A4 / HA audit H3): an OIDC
+# identity is linked to an HA user only by the one-time linking already done
+# for jmack and rach; a new SSO identity gets its own fresh HA profile unless
+# it is linked first with automatic_user_linking temporarily on
+# (docs/services/home-assistant.md, "Adding an SSO user"). The component's
+# newer `require_existing_user` option is not in the installed 1.2.1
+# (check_config rejects it); re-add it after the component is updated.
+auth_oidc:
+  client_id: homeassistant
+  client_secret: !secret oidc_client_secret
+  discovery_url: "https://sso.kmkdp.com/.well-known/openid-configuration"
+  display_name: "Mack House SSO"
+  features:
+    automatic_user_linking: false
+  claims:
+    username: "preferred_username"
+    groups: "groups"
+  roles:
+    user: ha-users
+    admin: ha-admins

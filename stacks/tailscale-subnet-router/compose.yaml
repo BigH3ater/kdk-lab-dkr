@@ -11,21 +11,24 @@
 # (op://kdk-cluster/tailscale-subnet-router/authkey, see .env.tpl). Node state
 # persists in the volume, so the key is only used at first registration.
 #
-# docker-forward sidecar (2026-10-26): the host is Debian 13 / Docker 29, whose
-# FORWARD chain (policy DROP) lives in nftables, while the tailscale image's
-# `iptables` is iptables-legacy -- tailscaled's ts-forward ACCEPT and the
-# MASQUERADE land in a table Docker's chain never consults, so every packet a
-# tailnet client sent to a subnet behind the router arrived on tailscale0 and
-# was dropped (only dkr-01 itself, local delivery, worked). DOCKER-USER is the
-# chain Docker reserves for operator rules and evaluates first; accepting
-# tailscale0 in/out there lets the router forward. Docker recreates DOCKER-USER
-# empty on every restart/reboot, so the sidecar re-asserts the two rules every
-# minute with the nft-backed iptables from alpine (same backend as the host).
+# Forwarding (2026-10-26, moved to the host 2026-10 by security batch 7): the
+# host is Debian 13 / Docker 29, whose FORWARD chain (policy DROP) lives in
+# nftables, while the tailscale image's `iptables` is iptables-legacy --
+# tailscaled's ts-forward ACCEPT and the MASQUERADE land in a table Docker's
+# chain never consults, so every packet a tailnet client sent to a subnet
+# behind the router arrived on tailscale0 and was dropped. The fix is
+# `-i tailscale0 -j ACCEPT` / `-o tailscale0 -j ACCEPT` at the top of
+# DOCKER-USER. A host unit now owns that chain: kdk-docker-user.service +
+# .timer (hosts/_common/, policy hosts/kdk-dkr-01/kdk-docker-user.conf with
+# TAILSCALE=1; runbook docs/runbooks/host-firewall.md). It replaced the
+# `docker-forward` sidecar that used to re-assert the two rules from this stack.
+# If remote access to VLAN 1/30/DMZ dies: `sudo iptables -S DOCKER-USER` on
+# dkr-01 must start with those two rules; `systemctl status kdk-docker-user`.
 name: tailscale-subnet-router
 services:
   tailscale:
     # Pin to a digest at first deploy (docker inspect after pull).
-    image: tailscale/tailscale:stable
+    image: tailscale/tailscale:v1.104.2
     container_name: tailscale-subnet-router
     hostname: kdk-subnet-router
     restart: unless-stopped
@@ -48,23 +51,3 @@ services:
       TZ: America/Chicago
     volumes:
       - /opt/kdk-lab/tailscale-subnet-router:/var/lib/tailscale
-
-  docker-forward:
-    image: alpine:3.20
-    container_name: tailscale-docker-forward
-    restart: unless-stopped
-    network_mode: host
-    cap_add: [NET_ADMIN, NET_RAW]
-    depends_on: [tailscale]
-    command:
-      - sh
-      - -c
-      - |
-        apk add -q --no-cache iptables || exit 1
-        while :; do
-          for d in -i -o; do
-            iptables -C DOCKER-USER $$d tailscale0 -j ACCEPT 2>/dev/null \
-              || { iptables -I DOCKER-USER $$d tailscale0 -j ACCEPT && echo "added DOCKER-USER $$d tailscale0 ACCEPT"; }
-          done
-          sleep 60
-        done

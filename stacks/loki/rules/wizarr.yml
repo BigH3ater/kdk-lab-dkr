@@ -1,0 +1,103 @@
+# Wizarr on kdk-dkr-dmz-01 (source: vault 10.Homelab/Security/
+# wizarr-posture-2026-10.md section 7). Two Traefik routers: wizarr-public
+# (allowlisted invitee paths, no auth; entrypoints websecure,tunnel) and
+# wizarr-admin (everything else behind Authelia; websecure only). Traefik logs
+# RouterName as "<entrypoint>-<router>@docker", so the rules match the router
+# suffix. RequestPath includes the query string; label regexes are anchored.
+#
+# Runbook: docs/runbooks/security-alerts.md#wizarr
+groups:
+  - name: wizarr
+    interval: 1m
+    rules:
+      # D1: invite-code guessing burst on /j or /join, per client. Wizarr has no
+      # rate limit of its own. `client` is Cf-Connecting-Ip on the tunnel (set by
+      # Cloudflare, not forgeable) and ClientHost on the LAN.
+      # Synthetic test: 31 x GET https://wizarr.kmkdp.com/j/x from the LAN.
+      - alert: WizarrInviteGuessBurst
+        expr: |
+          sum by (client) (count_over_time({host="kdk-dkr-dmz-01", container="traefik"}
+            |= "wizarr.kmkdp.com" | json | RequestHost="wizarr.kmkdp.com"
+            | RouterName=~".*wizarr-public@docker" | RequestPath=~"/(j/|join).*"
+            | label_format client="{{ if .request_Cf_Connecting_Ip }}{{ .request_Cf_Connecting_Ip }}{{ else }}{{ .ClientHost }}{{ end }}" [5m])) > 30
+        for: 0m
+        labels:
+          severity: warning
+          source: loki
+          scope: wizarr
+        annotations:
+          summary: "Wizarr: {{ $labels.client }} hit /j or /join more than 30 times in 5m (invite-code guessing)"
+          runbook: docs/runbooks/security-alerts.md#wizarr
+
+      # D2: the admin router answered a tunnel client with anything but a 302 to
+      # SSO. The admin router is LAN-only today, so ANY tunnel hit on it is a
+      # routing regression; if remote admin is ever enabled (",tunnel" on the
+      # router), a non-302 means the ForwardAuth was lost.
+      - alert: WizarrAdminRouterNon302
+        expr: |
+          sum(count_over_time({host="kdk-dkr-dmz-01", container="traefik"}
+            |= "wizarr-admin" | json | entryPointName="tunnel" | RequestHost="wizarr.kmkdp.com"
+            | RouterName=~".*wizarr-admin@docker" | DownstreamStatus!="302" [10m])) > 0
+        for: 0m
+        labels:
+          severity: critical
+          source: loki
+          scope: wizarr
+        annotations:
+          summary: "Wizarr admin router served a tunnel client without an SSO redirect"
+          runbook: docs/runbooks/security-alerts.md#wizarr
+
+      # D3: posture finding F1 tripwire. The invite flow touched an EXISTING
+      # lldap account (attribute update or password set).
+      - alert: WizarrLdapExistingUserTouched
+        expr: |
+          sum(count_over_time({host="kdk-dkr-dmz-01", container="wizarr"}
+            |~ "already exists, updating attributes|Updated LDAP user password" [5m])) > 0
+        for: 0m
+        labels:
+          severity: critical
+          source: loki
+          scope: wizarr
+        annotations:
+          summary: "Wizarr: an invite modified an existing lldap account (posture finding F1)"
+          runbook: docs/runbooks/security-alerts.md#wizarr
+
+      - alert: WizarrLdapUserCreated
+        expr: |
+          sum(count_over_time({host="kdk-dkr-dmz-01", container="wizarr"} |= "Created LDAP user with password" [15m])) > 0
+        for: 0m
+        labels:
+          severity: info
+          source: loki
+          scope: wizarr
+        annotations:
+          summary: "Wizarr created an lldap user (expected only right after you sent an invite)"
+          runbook: docs/runbooks/security-alerts.md#wizarr
+
+      # D4: admin login failures and admin/settings/API-key mutations.
+      - alert: WizarrAdminAuthFail
+        expr: |
+          sum(count_over_time({host="kdk-dkr-dmz-01", container="wizarr"} |= "AUTH FAIL" [10m])) > 3
+        for: 0m
+        labels:
+          severity: warning
+          source: loki
+          scope: wizarr
+        annotations:
+          summary: "Wizarr: more than 3 failed admin logins in 10m (behind Authelia, so the caller already passed SSO)"
+          runbook: docs/runbooks/security-alerts.md#wizarr
+
+      - alert: WizarrAdminMutation
+        expr: |
+          sum(count_over_time({host="kdk-dkr-dmz-01", container="traefik"}
+            |= "wizarr.kmkdp.com" | json | RequestHost="wizarr.kmkdp.com"
+            | RequestMethod=~"POST|PUT|DELETE" | RequestPath=~"/(settings|admin/accounts|api-keys|api/).*"
+            | DownstreamStatus=~"2..|3.." [10m])) > 0
+        for: 0m
+        labels:
+          severity: info
+          source: loki
+          scope: wizarr
+        annotations:
+          summary: "Wizarr admin/settings mutation (expected only while you are working in Wizarr)"
+          runbook: docs/runbooks/security-alerts.md#wizarr

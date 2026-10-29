@@ -1,0 +1,32 @@
+# Every image in stacks/ must be mapped to its upstream advisory sources in
+# stacks/advisory-watch/catalog.json, or the weekly advisory-watch job silently
+# skips it. scripts/advisory-catalog-check.py fails on a missing/invalid entry.
+name: advisory-catalog
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: advisory-catalog-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  catalog:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Check advisory catalog coverage
+        run: python scripts/advisory-catalog-check.py
+      - name: Compile the weekly jobs
+        run: python -m py_compile stacks/advisory-watch/advisory_watch.py stacks/trivy-scan/report.py

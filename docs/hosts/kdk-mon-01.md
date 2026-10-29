@@ -78,13 +78,19 @@ This host **is** the observability. Prometheus jobs: `idrac`, `node-external`, `
 |---|---|---|---|
 | Hostname | `{site}-{role}-{nn}` | ✅ `kdk-mon-01` | |
 | Admin account | `kdkadmin`, key-only, NOPASSWD | ✅ | |
+| SSH hardening | `98-kdk-admin.conf` + kdkadmin key `from=` admin sources | ⚠️ drop-in present; ⏳ pending apply (2026-10-28) for the repo copy (adds `LoginGraceTime 20`) and the key `from=` | `hosts/README.md` |
+| Kernel sysctl | `90-kdk-hardening.conf` (ptrace_scope 1, kptr/dmesg restrict, no redirects, martians, sysrq 0) | ⏳ pending apply (2026-10-28) | |
+| Patching | unattended-upgrades: Debian + Raspberry Pi Foundation + Docker CE, reboot 04:30 | ⏳ pending apply (2026-10-28) | Pi Foundation origin missing today: kernel/libc/OpenSSL never auto-apply |
+| Docker daemon | `daemon.json`: log rotation 10m×3, `live-restore`, `no-new-privileges`, `userland-proxy: false`, `icc: false` | ⏳ pending apply (2026-10-28) | [[docker-daemon]] |
+| Host firewall | storage-net fence + DOCKER-USER unit (VMs with a storage NIC) | n/a | no storage NIC; `DOCKER-USER` empty |
+| mDNS | avahi off (not used on mon-01) | ⏳ pending apply (2026-10-28) | `hosts/README.md` |
 | Timezone | America/Chicago | ✅ | CDT |
 | NTP | `ntp.kmkdp.com` primary | ⚠️ synced via public pools (timesyncd) | |
-| Syslog | `syslog.kmkdp.com:514` | ⚠️ forwards (rsyslog TCP), but the receiver is absent | |
+| Syslog | `syslog.kmkdp.com:514` | ✅ forwards (rsyslog TCP) to the receiver on [[kdk-log-01]] | restart rsyslog once after the DNS flip so the open TCP session re-resolves |
 
 ## Architecture
 
-Containers: `prometheus-ext v3.7.3`, `grafana-ext 12.3.1`, `alertmanager-ext v0.28.1`, `blackbox-exporter v0.28.0`, `idrac-exporter 2.6.2`, and two `tigerblue77` fan controllers (`fanctl-hyp` → R720 BMC, `fanctl-nas` → R730xd BMC), plus the `observability-agent` (cAdvisor + Alloy). Alertmanager gossip `9094`, API `9093`; scrapers reach targets across the lab; the fan controllers steer the BMCs over IPMI as `idracrw`. Both **active**: R720 ~3000 RPM (20%), R730xd ~4800 RPM (20%). An 8h drive-temp watchdog on kdk-nas-01 (`/root/kdk-temp-watch.sh`) pages Pushover if the hottest HDD exceeds 44/48°C.
+Containers: `prometheus-ext v3.7.3`, `grafana-ext 12.3.1`, `alertmanager-ext v0.28.1`, `blackbox-exporter v0.28.0`, `idrac-exporter 2.6.2`, and two `tigerblue77` fan controllers (`fanctl-hyp` → R720 BMC, `fanctl-nas` → R730xd BMC), plus the `observability-agent` (cAdvisor + Alloy). Alertmanager gossip `9094`, API `9093` (published on `10.1.20.30` for the Loki ruler on kdk-log-01; UI via `https://alertmanager.kmkdp.com` behind Authelia); Grafana on `10.1.20.30:3000` with "Sign in with Authelia" (local admin kept as break-glass); scrapers reach targets across the lab; the fan controllers steer the BMCs over IPMI as `idracrw`. Both **active**: R720 ~3000 RPM (20%), R730xd ~4800 RPM (20%). An 8h drive-temp watchdog on kdk-nas-01 (`/root/kdk-temp-watch.sh`) pages Pushover if the hottest HDD exceeds 44/48°C.
 
 ### Storage map
 

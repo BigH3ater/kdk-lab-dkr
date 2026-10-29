@@ -24,6 +24,12 @@ services:
       - /dev/dri:/dev/dri
     volumes:
       - /opt/kdk-lab/jellyfin/config:/config
+      # Images/metadata (8+ GB and growing) on the rw appdata NFS instead of the
+      # 59 GB root disk (moved 2026-10-28). Mounted AT Jellyfin's metadata path so
+      # no dashboard setting changes. The SQLite DB (data/data), cache and plugins
+      # stay local under /config -- never put the DB on NFS. Regenerable, so
+      # backup-dmz excludes it.
+      - /mnt/appdata/jellyfin/metadata:/config/data/metadata
       - /mnt/media/tv:/data/media/tv:ro
       - /mnt/media/movies:/data/media/movies:ro
     # Transcode scratch on a RAM disk. Mounted AT Jellyfin's real transcode temp
@@ -45,6 +51,8 @@ services:
     labels:
       traefik.enable: "true"
       traefik.http.routers.jellyfin.rule: "Host(`jellyfin.kmkdp.com`)"
+      # Public: LAN entrypoint + the cloudflared-only `tunnel` entrypoint.
+      traefik.http.routers.jellyfin.entrypoints: "websecure,tunnel"
       traefik.http.services.jellyfin.loadbalancer.server.port: "8096"
 networks:
   proxy-dmz:

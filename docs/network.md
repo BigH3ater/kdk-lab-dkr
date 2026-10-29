@@ -13,6 +13,7 @@ PR as any change that adds or moves an address.
 | kdk-hyp-01 | 10.1.1.100 | 10 | bare metal (R720) | — |
 | kdk-nas-01 | 10.1.3.5 (storage 172.16.30.2) | 1 | bare metal (R730xd) | — |
 | kdk-dkr-01 | 10.1.20.20 (storage 172.16.30.50) | 20 | VM on kdk-hyp-01 | 300 |
+| kdk-log-01 (Loki, syslog) | 10.1.20.21 (no storage NIC) | 20 | VM on kdk-hyp-01 | 320 |
 |  kdk-dkr-dmz-01 | 192.168.191.20 ( storage 172.16.30.51) | 191 | VM 23 on kdk-nas-01 | — |
 | kdk-dkr-02 (Pi, HA) | 10.1.30.21 | 30 | bare metal Pi 5 | — |
 | kdk-dkr-03 (Pi, HomeKit) | 10.1.30.22 | 30 | bare metal Pi 5 | — |
@@ -26,6 +27,19 @@ PR as any change that adds or moves an address.
 > wildcard to the internal Traefik (10.1.20.20), so a host without a record
 > silently "resolves" to the wrong box. Add new hosts here AND in `EXTRA`.
 
+VLAN 20 is a `/27`: gateway `.1`, kdk-dkr-01 `.20`, kdk-log-01 `.21`, kdk-mon-01 `.30`.
+
+## Inter-VLAN rules for the log host (UniFi)
+
+kdk-log-01 receives logs from every VLAN. Its own nft policy
+(`hosts/kdk-log-01/nftables.conf`) is the allowlist of record; the gateway needs
+these allows for the cross-VLAN senders (VLAN 20 senders are same-subnet):
+
+| Source | Destination | Ports | Why |
+|---|---|---|---|
+| `192.168.191.20` (DMZ) | `10.1.20.21` | tcp 3100, tcp 514 | dmz-01 Alloy pushes to Loki (no longer over the storage net); rsyslog forwarder |
+| `10.1.30.21`, `10.1.30.22` (Pis) | `10.1.20.21` | tcp 3100, tcp 514 | Pi Alloy pushes; Pi rsyslog → `syslog.kmkdp.com` |
+| `10.1.1.100`, `10.1.1.120`, `10.1.3.5` | `10.1.20.21` | tcp/udp 514, tcp 3100 | hypervisor, DNS origin and NAS syslog (when configured) |
 
 ## Storage network (NFS)
 
@@ -59,16 +73,59 @@ Clients join with `tailscale up --accept-routes` (DNS accepted by default). The 
 **not** masquerade (`--snat-subnet-routes=false`, 2026-10-26): lab hosts see the client's
 tailnet address (100.64.0.0/10) and reply via the UniFi static route `100.64.0.0/10 → 10.1.20.20`.
 That route is load-bearing — if it disappears, remote access dies while the router looks healthy. Only
-`sso.kmkdp.com` has a public DNS record (Cloudflare tunnel); every other `*.kmkdp.com`
-name resolves only through lab DNS, i.e. only on the LAN or the tailnet.
+the Cloudflare tunnel hostnames (`sso.kmkdp.com`, `jellyfin.kmkdp.com`) have public DNS records;
+every other `*.kmkdp.com` name resolves only through lab DNS, i.e. only on the LAN or the tailnet.
+
+### Public path (Cloudflare tunnel, since 2026-10-28)
+
+```
+visitor ─► Cloudflare edge (WAF/geo rules) ─► tunnel (outbound from cloudflared, TCP 7844)
+        ─► cloudflared 10.211.2.2 ─► https://traefik:8443  (DMZ Traefik 10.211.2.3, `tunnel` entrypoint;
+           8443 is not published, proxy-dmz only; trusts XFF only from 10.211.2.2, keeps Cf-*)
+        ─► app on proxy-dmz — only routers labelled entrypoints=websecure,tunnel (sso, jellyfin, wizarr-public)
+
+LAN / tailnet ─► 192.168.191.20:443 (`websecure`; XFF trusted only from 10.1.20.20 + 10.1.30.21,
+                 Cf-*/True-Client-Ip stripped) ─► any DMZ router
+```
+
+`proxy-dmz` is `10.211.2.0/24` with an explicit ipam block (`stacks/dmz-proxy/compose.yaml`):
+cloudflared `.2` and Traefik `.3` are pinned, other containers get `.128`–`.254`. Jellyfin known
+proxies and `IMMICH_TRUSTED_PROXIES` are `10.211.2.3/32`. See [[dmz-proxy]].
+
+Public edge (Cloudflare tunnel: `sso`, `jellyfin`): `scripts/edge-probe.sh` checks the WAF rules,
+rate limit, HSTS, minimum TLS, apex and CAA from outside and prints a PASS/FAIL table
+(`--no-ratelimit` skips the login bursts). The rule expressions and dashboard steps are in the
+vault note *Cloudflare edge rules (2026-10)* (10.Homelab/Security), not in this repo.
 
 | Symptom | Cause | Check / fix |
 |---|---|---|
-| Remote client reaches `10.1.20.20` (Komodo, Radarr…) but nothing on the DMZ, VLAN 1 or VLAN 30 | (a) Docker's nftables `FORWARD` policy DROP eats forwarded tailnet packets; tailscaled's rules are in iptables-legacy. (b) The gateway static route `100.64.0.0/10 → 10.1.20.20` is missing, so replies to the un-masqueraded client never come back | `sudo iptables -S DOCKER-USER` on dkr-01 must show `-i tailscale0 -j ACCEPT` and `-o tailscale0 -j ACCEPT`; the `docker-forward` sidecar in the subnet-router stack re-adds them every minute |
+| Remote client reaches `10.1.20.20` (Komodo, Radarr…) but nothing on the DMZ, VLAN 1 or VLAN 30 | (a) Docker's nftables `FORWARD` policy DROP eats forwarded tailnet packets; tailscaled's rules are in iptables-legacy. (b) The gateway static route `100.64.0.0/10 → 10.1.20.20` is missing, so replies to the un-masqueraded client never come back | `sudo iptables -S DOCKER-USER` on dkr-01 must start with `-i tailscale0 -j ACCEPT` and `-o tailscale0 -j ACCEPT`; the host unit `kdk-docker-user` (timer, every 5 min and on every Docker start) writes them -- `systemctl status kdk-docker-user.timer`, [Host firewall](runbooks/host-firewall.md). (Until security batch 7 a `docker-forward` sidecar in the subnet-router stack did this.) |
 | Everything via DERP ("direct connection not established") | Lab side has no inbound UDP; hotel/CGNAT on the client side | Fine functionally; throughput measured 2026-10-26 at ~21 Mbit/s from a 28 Mbit/s hotel link. A UDP 41641 forward to dkr-01 on the UniFi gateway would allow direct paths |
 | A new subnet is advertised but tailnet clients cannot reach it | ACL: the route needs an `autoApprovers.routes` entry for `tag:subnet-router` AND a `grants` dst for `autogroup:member` | Tailscale console → Access controls (API writes are guarded for the ops token) |
 | `tailscale-dns` exited after a dkr-01 reboot | Docker started it before tailscale0 existed; a failed start is not retried | fixed 2026-10-26: host network + `bind 100.66.29.117` + `restart: always`; check `docker ps -a \| grep tailscale-dns` |
 | Hotel/captive Wi-Fi: `dig @1.1.1.1` times out | Network blocks outbound port 53 | Tailnet DNS (100.100.100.100 → router forwarder) still works; use DoH for public lookups |
+
+## Owner checklist: UniFi and TrueNAS (security plan A1.7)
+
+Gateway and NAS settings no repo file can carry. The host-side half (nft storage fence,
+DOCKER-USER policy) is in [Host firewall](runbooks/host-firewall.md). Tick a row by
+changing its status in a PR, with the date.
+
+| # | Where | Change | Why | Status |
+|---|---|---|---|---|
+| 1 | UniFi policy | allow `192.168.191.20 → 10.1.20.21` tcp 3100 + tcp 514 | DMZ Alloy and rsyslog to kdk-log-01 instead of the storage net (security batch 2) | ☐ open |
+| 2 | UniFi policy | remove `192.168.191.20 → 10.1.20.20:514` once row 1 works | undocumented syslog hole (hosts report C-01); Loki left dkr-01 | ☐ open |
+| 3 | UniFi policy | keep `192.168.191.20 → 10.1.20.20` tcp 8080 (1Password Connect) and tcp 443 | deploy secret rendering; Seerr/Libreseerr → arr. The 443 rule is now scoped to those two containers on the host (DOCKER-USER) | ☐ confirm |
+| 4 | UniFi policy | allow `10.1.20.30 → 192.168.191.20` tcp 6360 only from VLAN 20 | mon-01's LDAPS certificate probe; nothing on dkr-01 still binds LDAP (plan K12) | ☐ open |
+| 5 | UniFi policy | `10.1.30.22` tcp 10443, 11080 (Scrypted UI) only from `10.1.30.21` | only the Pi Traefik fronts Scrypted (security batch 0) | ☐ open |
+| 6 | UniFi policy | Home Assistant `8123` only from `10.1.30.21`; go2rtc `18555` from VLAN 30 only | HA is reached through the Pi Traefik; WebRTC stays on the user VLAN | ☐ open |
+| 7 | UniFi port forwarding / UPnP | no forwards except optional `udp/41641 → 10.1.20.20` (Tailscale direct); UPnP off | nothing else may reach the lab from the WAN (Cloudflare edge report M-4) | ☐ confirm |
+| 8 | UniFi policy | DMZ egress: tcp/7844 to `198.41.192.0/24`, `198.41.200.0/24`, plus `api.cloudflare.com` and Let's Encrypt for the DMZ host | cloudflared tunnel + ACME DNS-01; first step towards a DMZ egress allowlist | ☐ open |
+| 9 | UniFi networks | delete VLAN 21 (`10.1.21.0/24`, k3s-era workers) and its rules | unused (plan A1.0) | ☐ open |
+| 10 | UniFi / SSH logs | identify SSH source `192.168.2.3`; if unknown, rotate `op://kdk-ops/kdkadmin-ssh-key` | seen on three hosts (hosts report L-05); not in the key's `from=` list | ☐ open |
+| 11 | TrueNAS → Shares → SMB / Network | SMB not offered on the storage bridge (`172.16.30.2:445` closed; bind SMB to `10.1.3.5`) | storage net is NFS-only; the DMZ VM could reach SMB (hosts report C-01) | ☐ open |
+| 12 | TrueNAS → Shares → NFS | per-host backup datasets (`tankz3/backup/dkr/<host>`) with `mapall` to an unprivileged user; dmz-01's export covers only its own subtree; the PBS datastore is not exported to `172.16.30.51` | a root compromise of the DMZ VM must not reach every VM backup (hosts report M-06) | ☐ open |
+| 13 | TrueNAS → Shares → NFS | each share's Authorized Networks/Hosts lists only the client(s) that mount it (`172.16.30.50`, `.51`) | export ACLs could not be read in the audit | ☐ confirm |
 
 ## DNS (AdGuard — live configuration, verified 2026-09-21)
 
@@ -92,12 +149,12 @@ auto-reconciliation.
 |---|---|---|
 | `*.kmkdp.com` | 10.1.20.20 | everything on internal Traefik (kdk-dkr-01) |
 | sso, seerr, jellyfin, immich, users, recipes, audiobookshelf, libreseerr .kmkdp.com | 192.168.191.20 | DMZ Traefik (kdk-dkr-dmz-01) |
-| homeassistant, zigbee, nodered, scrypted, homebridge .kmkdp.com | 10.1.30.21 / .22 | Pi Traefik (kdk-dkr-02; scrypted/homebridge on dkr-03 behind the dkr-02 answer is historical — both resolve 10.1.30.21) |
+| homeassistant, zigbee, nodered, scrypted .kmkdp.com | 10.1.30.21 | Pi Traefik (kdk-dkr-02; proxies scrypted across to dkr-03). homebridge.kmkdp.com retired 2026-10-28 — dns-reconcile deletes it (`RETIRED`), so it falls through to the wildcard |
 | ollama, kdk-tdarr-gpu-01 .kmkdp.com | 10.1.30.218 | GPU workstation |
 | reMarkable cloud domains (my/ping/tectonic/…, appspot hosts) | 10.1.20.20 (2 blackholed → 0.0.0.0) | rmfakecloud intercept |
 | host FQDNs (pve, pbs, truenas, kdk-*-NN) | per-host | infra |
 
-Public (Cloudflare tunnel → DMZ Traefik): sso, seerr, jellyfin, immich —
+Public (Cloudflare tunnel → DMZ Traefik `tunnel` entrypoint): sso, jellyfin (wizarr invitee paths when published) —
 **no internal A records exist in public DNS** (verified against 1.1.1.1/8.8.8.8),
 so DoH-using browsers simply fail closed off-LAN rather than leak.
 

@@ -64,6 +64,7 @@ bind-mounted. Dashboards are read-only in the UI; change them here.
 | Logs | Logs Explorer, Traffic Access Logs | Loki: Docker logs (`host`/`stack`/`container`), syslog, Traefik JSON access logs from kdk-dkr-01 and dmz-01 |
 | Network | UniFi Network, AdGuard Home, SNMP Interface Traffic | `unpoller`, `adguard`, `snmp` (stacks/net-exporters on kdk-dkr-01) |
 | Containers | Containers Overview, Stack Detail, Backups | `cadvisor` (per container, `host`/`stack`/`service` labels); Backups uses docker-event-watch exit codes in Loki |
+| Security | Security Advisories | Loki `{job="advisory-watch"}` (stacks/advisory-watch) and `{job="trivy"}` (stacks/trivy-scan), weekly |
 
 The ZFS, BMC, Node Exporter, UniFi, AdGuard, SNMP and Traffic dashboards are ported from the k3s-era ConfigMaps in
 `kdk-lab-old/apps/platform/monitoring-support/manifests/dashboards/`; their uids are
