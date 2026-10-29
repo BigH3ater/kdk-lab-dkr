@@ -110,3 +110,22 @@ Both entrypoints delete alias-named request headers (`aliasHeadersStrategy=delet
 ## User Guide
 
 N/A — headless ingress.
+
+## Real visitor address on the tunnel (cf-realip)
+
+Cloudflare's request-header transform "Remove X-Forwarded-For" was verified on
+2026-10-29 not to clear a client-supplied chain (`forged,visitor` still reached
+Traefik), and "Set" is refused on the free plan. So the DMZ Traefik enforces it:
+the vendored local plugin `stacks/dmz-proxy/plugins-local/` (cloudflarewarp
+v1.3.3, MIT, one Go file, loaded with `--experimental.localPlugins`, nothing
+downloaded at start) runs as the `tunnel` entrypoint middleware `cf-realip@file`
+(`dynamic/cf-realip.yml`). For requests whose TCP peer is cloudflared
+(`10.211.2.2/32`, `disableDefault: true`) it overwrites `X-Forwarded-For` and
+`X-Real-Ip` with `CF-Connecting-IP` and `X-Forwarded-Proto` from `Cf-Visitor`;
+any other peer gets `X-Is-Trusted: no` and the `Cf-*` headers removed. Authelia
+(regulation, access-control networks), Jellyfin (Known proxies `10.211.2.3/32`)
+and Immich therefore see the visitor address Cloudflare observed. The access log's
+`ClientHost` is captured before entrypoint middlewares run, so the Loki rules that
+key on a client use `request_Cf_Connecting_Ip` on the tunnel and `ClientHost` on
+the LAN (`label_format client=...`). Check: `curl -H 'X-Forwarded-For: 203.0.113.9'`
+through the edge, then the Authelia or Jellyfin log shows your public address.

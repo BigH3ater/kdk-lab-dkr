@@ -76,21 +76,22 @@ groups:
       # (10.211.2.0/24; Wizarr, wizarr-sync) is ignored. Note wizarr-sync today
       # calls http://jellyfin:8096 directly, so its 15-minute policy writes never
       # pass Traefik at all; the exclusion keeps the rule quiet if it is ever
-      # pointed at the public URL. ClientHost is the X-Forwarded-For client for
-      # tunnel traffic, so internet requests are never excluded by it.
+      # pointed at the public URL. The `client` label is Cf-Connecting-Ip on the
+      # tunnel (set by Cloudflare, not forgeable) and ClientHost on the LAN.
       - alert: JellyfinUserPolicyChange
         expr: |
-          sum by (ClientHost) (count_over_time({host="kdk-dkr-dmz-01", container="traefik"}
+          sum by (client) (count_over_time({host="kdk-dkr-dmz-01", container="traefik"}
             |= "jellyfin.kmkdp.com" | json | RequestHost="jellyfin.kmkdp.com"
             | RequestMethod=~"POST|DELETE" | RequestPath=~"(?i)/users(/new|/[^/]+/policy|/[^/]+)?(\\?.*)?"
-            | ClientHost != ip("10.211.2.0/24") [15m])) > 0
+            | ClientHost != ip("10.211.2.0/24")
+            | label_format client="{{ if .request_Cf_Connecting_Ip }}{{ .request_Cf_Connecting_Ip }}{{ else }}{{ .ClientHost }}{{ end }}" [15m])) > 0
         for: 0m
         labels:
           severity: warning
           source: loki
           scope: jellyfin
         annotations:
-          summary: "Jellyfin: user created/deleted or user policy changed (from {{ $labels.ClientHost }})"
+          summary: "Jellyfin: user created/deleted or user policy changed (from {{ $labels.client }})"
           runbook: docs/runbooks/security-alerts.md#jellyfin
 
       # 6. ffmpeg invoked with drawtext / lavfi / odd paths: the shape of the
@@ -127,16 +128,17 @@ groups:
       # correlate with {container="jellyfin"} |~ `Authentication request for "kdkadmin" has succeeded`.
       - alert: JellyfinLoginFromInternet
         expr: |
-          sum by (ClientHost) (count_over_time({host="kdk-dkr-dmz-01", container="traefik"}
+          sum by (client) (count_over_time({host="kdk-dkr-dmz-01", container="traefik"}
             |= "AuthenticateByName" | json | entryPointName="tunnel" | RequestHost="jellyfin.kmkdp.com"
-            | RequestMethod="POST" | RequestPath=~"(?i)/users/authenticatebyname(\\?.*)?" | DownstreamStatus="200" [5m])) > 0
+            | RequestMethod="POST" | RequestPath=~"(?i)/users/authenticatebyname(\\?.*)?" | DownstreamStatus="200"
+            | label_format client="{{ if .request_Cf_Connecting_Ip }}{{ .request_Cf_Connecting_Ip }}{{ else }}{{ .ClientHost }}{{ end }}" [5m])) > 0
         for: 0m
         labels:
           severity: info
           source: loki
           scope: jellyfin
         annotations:
-          summary: "Jellyfin: password login through the tunnel from {{ $labels.ClientHost }}"
+          summary: "Jellyfin: password login through the tunnel from {{ $labels.client }}"
           runbook: docs/runbooks/security-alerts.md#jellyfin
 
       # 9. Plugin install/update.
