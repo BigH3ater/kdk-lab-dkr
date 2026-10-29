@@ -66,6 +66,14 @@ services:
       # behind Traefik, so Jellyfin KnownProxies / IMMICH_TRUSTED_PROXIES need only
       # Traefik (10.211.2.3/32); with the append they would also have to trust .2.
       - "--entrypoints.tunnel.forwardedHeaders.notAppendXForwardedFor=true"
+      # Real visitor address on the tunnel: the vendored cloudflarewarp local
+      # plugin (plugins-local/, no download) rewrites X-Forwarded-For/X-Real-Ip
+      # from CF-Connecting-IP for requests from cloudflared. Cloudflare's
+      # "Remove X-Forwarded-For" transform does not clear a client-supplied
+      # chain (verified 2026-10-29), so without this a visitor could pick the
+      # address Authelia's regulation and Jellyfin see.
+      - "--entrypoints.tunnel.http.middlewares=cf-realip@file"
+      - "--experimental.localPlugins.cloudflarewarp.moduleName=github.com/BetterCorp/cloudflarewarp"
       - "--entrypoints.tunnel.http.aliasHeadersStrategy=delete"
       - "--entrypoints.tunnel.http.tls.certresolver=cf"
       - "--entrypoints.tunnel.http.tls.domains[0].main=kmkdp.com"
@@ -104,6 +112,7 @@ services:
     volumes:
       - /opt/kdk-lab/dmz-proxy/letsencrypt:/letsencrypt
       - ./dynamic:/etc/traefik/dynamic:ro
+      - ./plugins-local:/plugins-local:ro
     networks:
       proxy-dmz:
         ipv4_address: 10.211.2.3   # Jellyfin KnownProxies / IMMICH_TRUSTED_PROXIES depend on it

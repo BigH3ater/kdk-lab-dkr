@@ -11,21 +11,22 @@ groups:
     interval: 1m
     rules:
       # D1: invite-code guessing burst on /j or /join, per client. Wizarr has no
-      # rate limit of its own. ClientHost is the real client on both entrypoints
-      # (the X-Forwarded-For value from cloudflared on the tunnel).
+      # rate limit of its own. `client` is Cf-Connecting-Ip on the tunnel (set by
+      # Cloudflare, not forgeable) and ClientHost on the LAN.
       # Synthetic test: 31 x GET https://wizarr.kmkdp.com/j/x from the LAN.
       - alert: WizarrInviteGuessBurst
         expr: |
-          sum by (ClientHost) (count_over_time({host="kdk-dkr-dmz-01", container="traefik"}
+          sum by (client) (count_over_time({host="kdk-dkr-dmz-01", container="traefik"}
             |= "wizarr.kmkdp.com" | json | RequestHost="wizarr.kmkdp.com"
-            | RouterName=~".*wizarr-public@docker" | RequestPath=~"/(j/|join).*" [5m])) > 30
+            | RouterName=~".*wizarr-public@docker" | RequestPath=~"/(j/|join).*"
+            | label_format client="{{ if .request_Cf_Connecting_Ip }}{{ .request_Cf_Connecting_Ip }}{{ else }}{{ .ClientHost }}{{ end }}" [5m])) > 30
         for: 0m
         labels:
           severity: warning
           source: loki
           scope: wizarr
         annotations:
-          summary: "Wizarr: {{ $labels.ClientHost }} hit /j or /join more than 30 times in 5m (invite-code guessing)"
+          summary: "Wizarr: {{ $labels.client }} hit /j or /join more than 30 times in 5m (invite-code guessing)"
           runbook: docs/runbooks/security-alerts.md#wizarr
 
       # D2: the admin router answered a tunnel client with anything but a 302 to

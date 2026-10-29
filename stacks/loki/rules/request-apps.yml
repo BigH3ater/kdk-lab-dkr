@@ -26,17 +26,18 @@ groups:
       # 2. Seerr login POST failures at the edge, per client.
       - alert: SeerrLoginFailuresPerClient
         expr: |
-          sum by (ClientHost) (count_over_time({host="kdk-dkr-dmz-01", container="traefik"}
+          sum by (client) (count_over_time({host="kdk-dkr-dmz-01", container="traefik"}
             |= "seerr.kmkdp.com" | json | RequestHost="seerr.kmkdp.com"
             | RequestMethod="POST" | RequestPath=~"/api/v1/auth/(jellyfin|local|plex).*"
-            | DownstreamStatus >= 400 [10m])) > 5
+            | DownstreamStatus >= 400
+            | label_format client="{{ if .request_Cf_Connecting_Ip }}{{ .request_Cf_Connecting_Ip }}{{ else }}{{ .ClientHost }}{{ end }}" [10m])) > 5
         for: 0m
         labels:
           severity: warning
           source: loki
           scope: request-apps
         annotations:
-          summary: "Seerr: more than 5 failed login POSTs in 10m from {{ $labels.ClientHost }}"
+          summary: "Seerr: more than 5 failed login POSTs in 10m from {{ $labels.client }}"
           runbook: docs/runbooks/security-alerts.md#request-apps
 
       # 3. Seerr settings/user write from the internet (expect 0).

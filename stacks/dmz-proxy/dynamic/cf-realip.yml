@@ -1,0 +1,13 @@
+# Entrypoint middleware for `tunnel` (see compose: --entrypoints.tunnel.http.middlewares).
+# Trust only cloudflared's pinned address; disableDefault drops the plugin's
+# built-in list of Cloudflare public ranges (the edge never connects directly).
+# Requests from any other peer are passed through with X-Is-Trusted: no and the
+# Cf-* headers removed.
+http:
+  middlewares:
+    cf-realip:
+      plugin:
+        cloudflarewarp:
+          disableDefault: true
+          trustip:
+            - "10.211.2.2/32"
