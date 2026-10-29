@@ -152,6 +152,15 @@ touches `home-assistant`, `scrypted-homebridge`, `proxy`, `dmz-proxy`,
    Authelia login.
 4. Everything else: `renovate/internal-patch`, then the minors.
 
+**How `deploy-changed` decides (since 2026-10-29).** It reads HEAD from the
+GitHub API and, per stack, the list of files changed between the stack's
+deployed commit and HEAD (compare API). A stack is deployed only when a file
+under its `run_directory` changed; a `komodo/resources.toml` change deploys
+every stack not at HEAD (the patch does not say which stack it belongs to).
+Komodo's own `latest_hash` is only the fallback when GitHub is unreachable: it
+is a cache that lags HEAD after a burst of merges. The action lists stacks per
+server because `ListStacks` returns at most 50.
+
 **Not covered by an automatic deploy:**
 
 - `komodo` is `deploy = false` **and** excluded from the `deploy-changed` action
