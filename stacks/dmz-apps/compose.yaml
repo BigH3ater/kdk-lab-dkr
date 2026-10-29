@@ -1,7 +1,7 @@
 name: dmz-apps
 services:
   seerr:
-    image: ghcr.io/seerr-team/seerr:v3.5.1
+    image: ghcr.io/seerr-team/seerr:v3.5.1@sha256:d8fab675b55ad293ded98fd71efcfd46054cbad9746534ae1cc4794a88c0b3be
     container_name: seerr
     extra_hosts:
       - "sonarr.kmkdp.com:10.1.20.20"
@@ -24,7 +24,7 @@ services:
   # (Authelia) is configured in the app UI post-deploy; SECRET_KEY keeps Flask
   # sessions stable across restarts.
   libreseerr:
-    image: ghcr.io/zamnzim/libreseerr:v0.9.0
+    image: ghcr.io/zamnzim/libreseerr:v0.9.1@sha256:3fdf028cd0c17b14fa0f85b1c60dd6e6afec841c4e4b48a4a4a8115ac4a17db0
     container_name: libreseerr
     restart: unless-stopped
     env_file: [.env]                 # SECRET_KEY (op-injected)

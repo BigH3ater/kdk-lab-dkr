@@ -13,7 +13,7 @@
 name: jellyfin
 services:
   jellyfin:
-    image: lscr.io/linuxserver/jellyfin:12.3ubu2604-ls56
+    image: lscr.io/linuxserver/jellyfin:12.3ubu2604-ls56@sha256:4212ca390fbc6bd5002048d2d2ce2b8a5b1ad278ec4cbabe6519869117404308
     container_name: jellyfin
     restart: unless-stopped
     environment:
