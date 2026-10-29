@@ -61,8 +61,9 @@ Source: Wizarr's SSO docs (`docs.wizarr.dev/using-wizarr/single-sign-on-sso`),
 cross-checked against the public blueprint (`wizarrrr/wizarr`,
 `app/blueprints/public/routes.py`). **Never** allowlisted:
 
-- **`/login`** — with `DISABLE_BUILTIN_AUTH=true` it would sign every visitor in as
-  admin. We run `DISABLE_BUILTIN_AUTH=false` (Wizarr's own login stays as a second
+- **`/login`** — with `DISABLE_BUILTIN_AUTH=true` whoever reaches it is signed in as
+  admin, so it must never be on the public router. We run `DISABLE_BUILTIN_AUTH=true`
+  behind Authelia (group `wizarr-admin`, 2FA): the Authelia login is the admin login (second
   layer) **and** keep `/login` behind Authelia.
 - **`/api`** — invitations don't need it; keeping it private avoids exposing the API docs.
 - **`/setup`** — first-run setup is treated as **admin-only** here (behind Authelia),
@@ -105,7 +106,7 @@ stack's server — moving the stack moved the record).
 
 ## Observability
 
-No dashboard. `wizarr.kmkdp.com` probed by [[kdk-mon-01]]; the `wizarr-sync` run pages
+No dashboard and no blackbox probe yet (add `/j/TEST` 200 + `/admin` 302 when published); the `wizarr-sync` run pages
 Pushover on error (and on any change it made).
 
 ## Architecture
@@ -114,7 +115,7 @@ Single container on `proxy-dmz` (port 5690) and the internal `identity_ldap` net
 `lldap.kmkdp.com` resolves to lldap for LDAPS :6360 (since 2026-10-28; lldap is no longer on
 `proxy-dmz`, and [[identity]] creates the network, so deploy identity first). The DMZ Traefik host-routes two routers to
 it: `wizarr-public` (invitee allowlist, no auth, priority 100) and `wizarr-admin`
-(ForwardAuth → `authelia:9091`, priority 1). `DISABLE_BUILTIN_AUTH=false` keeps Wizarr's
+(ForwardAuth → `authelia:9091`, priority 1). `DISABLE_BUILTIN_AUTH=true`: the Authelia login is Wizarr's
 own admin login as a second layer behind Authelia. Data on `/mnt/appdata/wizarr`.
 
 ## Configuration
@@ -122,7 +123,7 @@ own admin login as a second layer behind Authelia. Data on `/mnt/appdata/wizarr`
 | Path / setting | What it is |
 |---|---|
 | `stacks/wizarr/compose.yaml` | image, volume, both Traefik routers + `wizarr-auth` middleware |
-| `DISABLE_BUILTIN_AUTH=false` | keep Wizarr's own login (second layer) |
+| `DISABLE_BUILTIN_AUTH=true` | proxy SSO: Authelia (group `wizarr-admin`, 2FA) is the admin login; Wizarr runs on the Traefik-only `wizarr-ingress` network so nothing else can reach `/login` |
 | Wizarr → Settings → LDAP | stored in Wizarr's DB (not git); see the table below |
 | `stacks/wizarr-sync/` | the invite-reconcile one-shot (below) |
 
