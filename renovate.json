@@ -68,6 +68,23 @@
       "groupSlug": "dmz-patch"
     },
     {
+      "description": "backup-* stacks use postgres only as the pg_dump client (newer client dumping an older server is supported): majors need no dashboard approval and never mix with the DB-server postgres PR.",
+      "matchFileNames": [
+        "stacks/backup-dkr-01/**",
+        "stacks/backup-dmz/**"
+      ],
+      "matchPackageNames": [
+        "postgres"
+      ],
+      "matchUpdateTypes": [
+        "major",
+        "minor"
+      ],
+      "groupName": "backup tools (pg_dump client)",
+      "groupSlug": "backup-tools",
+      "dependencyDashboardApproval": false
+    },
+    {
       "description": "Majors: one PR per package, only after ticking the box on the Dependency Dashboard.",
       "matchUpdateTypes": [
         "major"
@@ -143,6 +160,44 @@
       ],
       "groupName": null,
       "dependencyDashboardApproval": true
+    },
+    {
+      "description": "Immich database + cache: the tag follows Immich's own release compose (postgres 14-vectorchord, valkey 9); digest refreshes only, never a tag bump here.",
+      "matchDatasources": [
+        "docker"
+      ],
+      "matchPackageNames": [
+        "ghcr.io/immich-app/postgres",
+        "docker.io/valkey/valkey"
+      ],
+      "matchUpdateTypes": [
+        "major",
+        "minor",
+        "patch"
+      ],
+      "enabled": false
+    },
+    {
+      "description": "python base images (7 Dockerfiles + 7 one-shot compose jobs): stay on a release with wheels for every pinned package; 3.14+ is opened by hand after a test build.",
+      "matchDatasources": [
+        "docker"
+      ],
+      "matchPackageNames": [
+        "python"
+      ],
+      "allowedVersions": "<3.14"
+    },
+    {
+      "description": "GitHub Actions majors (actions/checkout, actions/setup-python): one grouped PR, no dashboard approval; CI-only, no container is touched.",
+      "matchManagers": [
+        "github-actions"
+      ],
+      "matchUpdateTypes": [
+        "major"
+      ],
+      "groupName": "github actions",
+      "groupSlug": "github-actions",
+      "dependencyDashboardApproval": false
     }
   ]
 }
