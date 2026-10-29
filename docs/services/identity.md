@@ -112,6 +112,7 @@ LLDAP serves **LDAPS on 6360** with the lab's **Let's Encrypt wildcard** (since 
 | `audiobookshelf` | `audiobookshelf_access` | `audiobookshelf-users` | S256 |
 | `immich` | `immich_access` | `immich-users` | off (owner decision; secret stored as pbkdf2 digest) |
 | `libreseerr` | `libreseerr_access` | `internal-users` | off (Authlib in v0.9.0 not confirmed to send a challenge) |
+| `jellyfin` | `jellyfin_access` | `jellyfin-users` or `lldap_admin` | S256 (the plugin's Duende OidcClient always sends it); secret stored as pbkdf2 digest; see [[jellyfin-sso]] |
 | `tandoor` | `two_factor` | none | S256 (enforced) |
 | `grafana` | `two_factor` | none | off (secret stored as pbkdf2 digest) |
 | `tailscale`, `cloudflare-access`, `vikunja`, `actual` | `two_factor` | none | off |
@@ -138,6 +139,7 @@ The `netbox` client and the dead `learn-k3s`, `swagger`, `grafana-embed` rules w
 | `authelia-app-secrets/storage_encryption_key` | encrypts TOTP/WebAuthn at rest | 🔴 never on live | paired with the Postgres DB — replacing it invalidates all 2FA |
 | `authelia-app-secrets/session_encryption_key` | session cookies | 🟢 self-service | yes — logs everyone out |
 | `authelia-app-secrets/oidc_hmac_secret` | OIDC signing | 🟡 breaks clients | rotate + reconfigure every OIDC client |
+| `jellyfin-oidc` → `authelia-app-secrets/jellyfin_client_secret` (digest) | Jellyfin SSO plugin client secret | 🟡 breaks Jellyfin SSO until both sides match | new value in 1P, re-hash into the file, `RestartStack identity services=[authelia]`, paste the plaintext into the plugin; see [[jellyfin-sso]] |
 | `authelia-postgres` | DB auth | 🟢 self-service | rotate DB + item together |
 | `lldap-admin` | lldap admin (break-glass), `wizarr-sync` GraphQL | 🟢 self-service | rotate in lldap + 1P; redeploy identity and run `wizarr-sync` once |
 | `lldap-authelia-bind` | Authelia's LDAP bind `uid=authelia-bind` | 🟢 self-service | set the new password on the lldap user, update 1P, redeploy identity |
@@ -149,7 +151,7 @@ The `netbox` client and the dead `learn-k3s`, `swagger`, `grafana-embed` rules w
 
 Users manage their profile and TOTP at `sso.kmkdp.com`; admins manage accounts and groups at `users.kmkdp.com` (SSO as a `lldap_admin` member, then the LLDAP login).
 
-Group memberships that grant app access: `internal-users` (arr apps, Komodo, Wizarr admin, Libreseerr), `dashboard-users` (home), `ha-users` (Home Assistant; `ha-admins` = HA admin role), `audiobookshelf-users`, `immich-users`, `jellyfin-users` (Jellyfin LDAP; Wizarr invitees via `wizarr-sync`).
+Group memberships that grant app access: `internal-users` (arr apps, Komodo, Wizarr admin, Libreseerr), `dashboard-users` (home), `ha-users` (Home Assistant; `ha-admins` = HA admin role), `audiobookshelf-users`, `immich-users`, `jellyfin-users` (Jellyfin LDAP and Jellyfin SSO; Wizarr invitees via `wizarr-sync`).
 
 ## Hand steps for the 2026-10-28 auth-boundary change
 

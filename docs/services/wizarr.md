@@ -194,3 +194,4 @@ and the wizard's **External URL** is `https://jellyfin.kmkdp.com` for what invit
 Admin: open `wizarr.kmkdp.com` (Authelia + Wizarr login), create an invite, send the
 `/j/<CODE>` link. The invitee opens the link, sets a username/password, and is onboarded
 to Jellyfin; within ~15 min `wizarr-sync` grants them LDAP/SSO login and a Seerr account.
+Once synced, invitees sign in to the Jellyfin web UI either with **Sign in with SSO** (Authelia, `jellyfin-users`) or with the username/password they chose (LDAP); TVs and phone apps use Quick Connect or that password. See [[jellyfin]] § SSO.

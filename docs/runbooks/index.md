@@ -13,6 +13,7 @@ illustrative.
 - [Troubleshoot the Windows DEE VM](windows-vm-dee.md) — the FastAPI DeeZy wrapper, its SMB mount, and the scheduled task.
 - [Troubleshoot Tdarr transcodes](tdarr-troubleshooting.md) — transcode/health errors, the DEE dependency, node flapping.
 - [Jellyfin transcoding (ramdisk + Arc QSV)](jellyfin-transcoding.md) — the RAM-disk transcode scratch and the Arc A380 QSV/HDR settings.
+- [Jellyfin SSO (Authelia OIDC)](jellyfin-sso.md) — install the SSO Authentication plugin, the `jellyfin` client secret, the login button, Quick Connect tests.
 - [Security alerts (Loki ruler)](security-alerts.md) — what each security page means, first checks, where the log line is, how to silence.
 - [Add a Loki alert rule](add-loki-alert-rule.md) — rule file shape, label conventions, test in Explore, verify the ruler load, fire, route, silence.
 - [Add a hardened stack](add-hardened-stack.md) — from `stacks/_template` to a merged PR: baseline check, catalog entry, DNS/Authelia, PR checklist.
