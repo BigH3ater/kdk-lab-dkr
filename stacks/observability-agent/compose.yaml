@@ -55,7 +55,7 @@ services:
       options: { max-size: "10m", max-file: "3" }
 
   alloy:
-    image: grafana/alloy:v1.10.0@sha256:1bc130e909116a4bf950eb5187a346007d3b796f96832b529acb14a64e41230f
+    image: grafana/alloy:v1.21.3@sha256:8ab871206bd2d8f89277f53abffee5f452a293980788d52f85fa183a87a505a4
     container_name: alloy
     # Recreate on config change: compose does not hash single-file bind mounts;
     # the Komodo pre_deploy writes AGENT_CONFIG_SHA (alloy/config.alloy +
