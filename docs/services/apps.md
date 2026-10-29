@@ -63,10 +63,10 @@ No dashboard. `ntp` (123/udp) and `proton-bridge` (25) are host-port; alerting â
 | ntp | `cturra/ntp` | `123/udp` |
 | adguardhome-sync | `bakito/adguardhome-sync:v0.9.2` | none (cron `*/15`) |
 | rmfakecloud | `ddvk/rmfakecloud:0.0.31` | `3000` (Traefik) |
-| proton-bridge | `shenxn/protonmail-bridge:3.9.1-1` | `10.1.20.20:25` |
+| proton-bridge | `shenxn/protonmail-bridge:3.19.0-1` | `10.1.20.20:25` |
 | roborock | `python-roborock/local_roborock_server:1.0.2` | `555`, `8881` |
 
-`proton-bridge` is the in-lab SMTP relay used by Authelia's notifier.
+`proton-bridge` is an in-lab Proton SMTP relay on `10.1.20.20:25`. **Nothing uses it today**: Alertmanager notifies through Pushover and Authelia's notifier sends through `submission://smtp.protonmail.ch:587` directly. The bridge has **no account logged in** (`Loading users count=0` in its session log, 2026-10-29); log one in with `sudo docker exec -it proton-bridge protonmail-bridge --cli` â†’ `login` before pointing anything at it. Its self-updates land on a `tmpfs` (PR #143): the image's own bridge binary runs at every start, and newer bridge builds come only through Renovate.
 
 ## Configuration
 
