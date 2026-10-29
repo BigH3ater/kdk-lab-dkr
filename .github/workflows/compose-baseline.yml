@@ -49,7 +49,7 @@ jobs:
       # major so "config -q" here means what it means on the hosts.
       - uses: docker/setup-compose-action@v2.4.0
         with:
-          version: v5.5.1
+          version: v5.6.1
       # Placeholder .env from each .env.tpl (op:// refs never resolved); host-managed
       # env_file paths (e.g. /opt/kdk-lab/home-assistant/secrets.env) are created
       # empty with sudo. Prints which stacks got placeholders or were skipped.
