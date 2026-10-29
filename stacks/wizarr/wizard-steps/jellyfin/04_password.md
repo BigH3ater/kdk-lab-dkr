@@ -12,6 +12,8 @@ You can reset it yourself in two minutes. The same password is used by all the a
 4. Open the link in the email and choose a new password.
 5. Sign in again on your devices with the new password.
 
-**Lost your phone or your second-factor app?** You cannot reset that yourself. Send a message to whoever invited you and they will reset it for you.
+![Reset password: the link under the sign-in box](/static/img/guide/sso-reset-password.png)
+
+**Lost the phone with your passkey or TOTP app?** You cannot reset that yourself. Send a message to whoever invited you and they will reset it for you.
 
 {{ widget:button url="https://sso.kmkdp.com" text="Go to the sign-in page" }}

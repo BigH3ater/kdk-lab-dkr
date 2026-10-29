@@ -6,7 +6,7 @@ title: "Welcome!"
 
 You have been invited to watch our movies and shows. This short guide takes about five minutes and shows you:
 
-1. how to set up your sign-in,
+1. how to set up your sign-in and its second step (2FA),
 2. which apps to install on your TV, phone or computer,
 3. what to do if you forget your password.
 
