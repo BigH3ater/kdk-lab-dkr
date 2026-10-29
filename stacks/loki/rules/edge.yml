@@ -42,11 +42,15 @@ groups:
           summary: "More than 60 401/403 per 5m from tunnel traffic for 5m (credential stuffing or a scanner)"
           runbook: docs/runbooks/security-alerts.md#edge
 
+      # Path set mirrors the Cloudflare "Block admin APIs" rule. /System/Endpoint,
+      # /System/Info, /System/Info/Public and /System/Ping are client paths the WAF
+      # lets through on purpose (jellyfin-web calls /System/Endpoint on every load),
+      # so they are not admin paths here either (false positive 2026-10-29).
       - alert: EdgeJellyfinAdminPathHit
         expr: |
           sum(count_over_time({host="kdk-dkr-dmz-01", container="traefik"}
             |= "tunnel" | json | entryPointName="tunnel" | RequestHost="jellyfin.kmkdp.com"
-            | RequestPath=~"(?i)^/(system/(configuration|logs|restart|endpoint)|plugins|packages|repositories|scheduledtasks|devices|startup|environment|auth/keys|library/(virtualfolders|refresh)|users/[^/]+/(policy|password)).*" [5m])) > 0
+            | RequestPath=~"(?i)^/(system/(configuration|logs|restart)|plugins|packages|repositories|scheduledtasks|devices|startup|environment|auth/keys|library/(virtualfolders|refresh)|users/[^/]+/(policy|password)).*" [5m])) > 0
         for: 0m
         labels:
           severity: critical
