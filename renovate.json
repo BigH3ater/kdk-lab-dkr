@@ -68,6 +68,13 @@
       "groupSlug": "dmz-patch"
     },
     {
+      "description": "Majors: one PR per package, only after ticking the box on the Dependency Dashboard.",
+      "matchUpdateTypes": [
+        "major"
+      ],
+      "dependencyDashboardApproval": true
+    },
+    {
       "description": "backup-* stacks use postgres only as the pg_dump client (newer client dumping an older server is supported): majors need no dashboard approval and never mix with the DB-server postgres PR.",
       "matchFileNames": [
         "stacks/backup-dkr-01/**",
@@ -83,13 +90,6 @@
       "groupName": "backup tools (pg_dump client)",
       "groupSlug": "backup-tools",
       "dependencyDashboardApproval": false
-    },
-    {
-      "description": "Majors: one PR per package, only after ticking the box on the Dependency Dashboard.",
-      "matchUpdateTypes": [
-        "major"
-      ],
-      "dependencyDashboardApproval": true
     },
     {
       "description": "Auth / edge components: extra label so they are reviewed with the identity stack in mind.",
@@ -178,14 +178,11 @@
       "enabled": false
     },
     {
-      "description": "python base images (7 Dockerfiles + 7 one-shot compose jobs): stay on a release with wheels for every pinned package; 3.14+ is opened by hand after a test build.",
-      "matchDatasources": [
-        "docker"
-      ],
-      "matchPackageNames": [
+      "description": "python base images (7 Dockerfiles + 7 one-shot compose jobs) and the CI python-version: stay on a release with wheels for every pinned package; 3.14+ is opened by hand after a test build.",
+      "allowedVersions": "<3.14",
+      "matchDepNames": [
         "python"
-      ],
-      "allowedVersions": "<3.14"
+      ]
     },
     {
       "description": "GitHub Actions majors (actions/checkout, actions/setup-python): one grouped PR, no dashboard approval; CI-only, no container is touched.",
