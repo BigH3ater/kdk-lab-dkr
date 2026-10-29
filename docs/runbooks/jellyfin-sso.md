@@ -43,8 +43,16 @@ The plaintext travels over ssh stdin. Authelia's own image hashes it on dmz-01, 
 the `$pbkdf2-sha512$…` digest is written to disk:
 
 ```bash
-op read op://kdk-cluster/jellyfin-oidc/password | ssh kdkadmin@192.168.191.20 'sudo docker run --rm -i ghcr.io/authelia/authelia:4.39.28 authelia crypto hash generate pbkdf2 --variant sha512 --password "$(cat)" | sed -n "s/^Digest: //p" | sudo install -m 400 -o 8091 -g 8091 /dev/stdin /opt/kdk-lab/identity/authelia-secrets/authelia-app-secrets/jellyfin_client_secret'
+# a. hash the plaintext inside Authelia (nothing printed), keep the digest in 1Password
+D=$(op read op://kdk-cluster/jellyfin-oidc/password | ssh kdkadmin@192.168.191.20 'sudo docker exec -i authelia authelia crypto hash generate pbkdf2 --variant sha512 --password "$(cat)"' | sed -n 's/^Digest: //p')
+op item edit --vault kdk-cluster authelia-app-secrets "jellyfin_client_secret=$D"
+# b. the host file comes from 1Password, like every other authelia-app-secrets file
+op read op://kdk-cluster/authelia-app-secrets/jellyfin_client_secret | ssh kdkadmin@192.168.191.20 'sudo install -m 400 -o 8091 -g 8091 /dev/stdin /opt/kdk-lab/identity/authelia-secrets/authelia-app-secrets/jellyfin_client_secret'
 ```
+
+Convention (from #70): `jellyfin-oidc/password` is the plaintext the plugin gets,
+`authelia-app-secrets/jellyfin_client_secret` is the pbkdf2 digest Authelia reads;
+the file on dmz-01 is installed from the latter, never written straight from a pipe.
 
 Check it. This prints only the mode, the owner and the public 15-character prefix:
 
