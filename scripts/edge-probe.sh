@@ -195,15 +195,16 @@ done
 
 # --- 8. rate limit (last: it blocks this IP on the matched paths for 10 s) ---
 burst() { # host path label
-  # Fire 15 POSTs in parallel, wait for the edge counter to sync, then send 6
+  # Fire 30 POSTs in parallel, wait for the edge counter to sync, then send 6
   # more one by one: the tail must contain a 429. Sequential-only bursts never
   # trip the rule on slow endpoints (Authelia hashes a bad password in ~1.2 s,
   # so 12 sequential attempts span ~15 s and no 10-s window holds >10), and a
-  # parallel burst alone ends before the per-PoP counter syncs (2026-10-29).
+  # parallel burst alone ends before the per-PoP counter syncs; 15 parallel was
+  # not enough on the Authelia path, 30 is (2026-10-29).
   local h=$1 p=$2 label=$3 hits=0 c i codes="" body
   if [ -z "${EDGE[$h]}" ]; then row SKIP "$label" "no A record"; return; fi
   body='{"Username":"edge-probe-nonexistent","Pw":"x","username":"edge-probe-nonexistent","password":"x"}'
-  for i in $(seq 1 15); do
+  for i in $(seq 1 30); do
     req POST "$h" "$p" -H 'Content-Type: application/json' --data "$body" >/dev/null 2>&1 &
   done
   wait
@@ -213,7 +214,7 @@ burst() { # host path label
     codes+="$c "
     [ "$c" = 429 ] && hits=$((hits+1))
   done
-  if [ $hits -gt 0 ]; then row PASS "$label" "$hits x 429 in the 6-request tail after a 15-request burst"
+  if [ $hits -gt 0 ]; then row PASS "$label" "$hits x 429 in the 6-request tail after a 30-request burst"
   else row FAIL "$label" "no 429 in the tail: ${codes% }"; fi
 }
 if [ "$RATELIMIT" = 1 ]; then
