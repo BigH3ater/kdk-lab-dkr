@@ -487,7 +487,17 @@ const SKIP = /^(backup-|komodo$)/;
 const NOTE = /^komodo$/;
 const tags: any[] = await komodo.read("ListTags", {});
 const tagId = tags.find((t) => t.name === TAG)?._id?.$oid ?? TAG;
-const stacks: any[] = await komodo.read("ListStacks", {});
+// ListStacks/ListFullStacks return at most 50 stacks (2026-10-29: 50 of 65, so
+// tailscale-*, trailarr, tandoor, wizarr*, tdarr-*, trivy-scan-* were never
+// deployed). List per server instead; every host is well under 50.
+const servers: any[] = await komodo.read("ListServers", {});
+const seen = new Set<string>();
+const stacks: any[] = [];
+for (const sv of servers) {
+  const part: any[] = await komodo.read("ListStacks", { query: { specific: { server_ids: [sv.id] } } });
+  for (const s of part) if (!seen.has(s.name)) { seen.add(s.name); stacks.push(s); }
+}
+console.log(`deploy-changed: ${stacks.length} stacks across ${servers.length} servers`);
 let fired = 0, behind: string[] = [];
 for (const s of stacks) {
   const tagged = (s.tags ?? []).some((t: string) => t === tagId || t === TAG);
