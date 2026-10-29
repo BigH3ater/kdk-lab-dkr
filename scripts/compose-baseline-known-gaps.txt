@@ -103,4 +103,4 @@ tdarr-remediate/remediate: no-new-privileges,cap_drop,read_only,pids_limit,mem_l
 tdarr-verify/verify: no-new-privileges,cap_drop,read_only,pids_limit,mem_limit,logging,healthcheck,host-net
 trailarr/trailarr: no-new-privileges,cap_drop,read_only,pids_limit,mem_limit,healthcheck
 wizarr-sync/sync: no-new-privileges,cap_drop,read_only,pids_limit,mem_limit,logging,healthcheck
-wizarr/wizarr: no-new-privileges,cap_drop,read_only,pids_limit,mem_limit,logging,healthcheck
+wizarr/wizarr: read_only

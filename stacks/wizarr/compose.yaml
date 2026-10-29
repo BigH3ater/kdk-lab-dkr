@@ -27,6 +27,23 @@ services:
     image: ghcr.io/wizarrrr/wizarr:v2026.10.1@sha256:08f2c6de534ec7d36d39a4f55b7c5c379021ca881dc519c702aad0ddafbdc67a
     container_name: wizarr
     restart: unless-stopped
+    # Compose baseline (security plan A3; wizarr posture W4). The image starts as
+    # root and drops to PUID/PGID, hence CHOWN/SETUID/SETGID; no read_only (it
+    # writes its session/cache dirs inside the image tree).
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: [ALL]
+    cap_add: [CHOWN, SETUID, SETGID]
+    mem_limit: 768m
+    pids_limit: 256
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:5690/health', timeout=5).status == 200 else 1)"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
     environment:
       PUID: "1000"
       PGID: "1000"
@@ -45,18 +62,24 @@ services:
       # served at /static/img/guide/<file> by Wizarr's static handler; /static
       # is on the public router, so invitees see them. Read-only, from git.
       - ./wizard-images:/app/app/static/img/guide:ro
-    # identity_ldap: LDAPS to lldap.kmkdp.com:6360 (alias on that internal network;
-    # lldap is no longer on proxy-dmz). Created by stacks/identity.
-    networks: [proxy-dmz, identity_ldap]
+    # Networks (wizarr posture W7, 2026-10-29): with DISABLE_BUILTIN_AUTH=true,
+    # any container that can reach wizarr:5690 and GET /login IS an admin, so
+    # Wizarr is no longer on proxy-dmz where nine peers could. `wizarr-ingress`
+    # is an internal network shared only with the DMZ Traefik (created by
+    # stacks/dmz-proxy); identity_ldap carries LDAPS to lldap.kmkdp.com:6360 and
+    # http://jellyfin:8096 (jellyfin is on it too). No internet egress: Wizarr
+    # needs none (version-manifest fetch fails quietly).
+    networks: [wizarr-ingress, identity_ldap]
     labels:
       traefik.enable: "true"
-      traefik.docker.network: "proxy-dmz"
+      traefik.docker.network: "wizarr-ingress"
       # ---- public invitee router: allowlisted paths only, no auth ----
       traefik.http.routers.wizarr-public.rule: "Host(`wizarr.kmkdp.com`) && (PathRegexp(`^/j(/.*)?$$`) || PathRegexp(`^/join(/.*)?$$`) || PathRegexp(`^/invitation/process(/.*)?$$`) || PathRegexp(`^/plex/callback(/.*)?$$`) || PathRegexp(`^/wizard(/.*)?$$`) || PathRegexp(`^/reset/.+$$`) || PathRegexp(`^/static(/.*)?$$`) || PathRegexp(`^/image-proxy(/.*)?$$`) || PathRegexp(`^/cinema-posters(/.*)?$$`) || PathRegexp(`^/favicon\\.ico$$`))"
       # Public: LAN entrypoint + the cloudflared-only `tunnel` entrypoint.
       traefik.http.routers.wizarr-public.entrypoints: "websecure,tunnel"
       traefik.http.routers.wizarr-public.priority: "100"
       traefik.http.routers.wizarr-public.service: "wizarr"
+      traefik.http.routers.wizarr-public.middlewares: "wizarr-ratelimit,wizarr-headers"
       # ---- admin router: everything else, behind Authelia ForwardAuth ----
       traefik.http.routers.wizarr-admin.rule: "Host(`wizarr.kmkdp.com`)"
       # Admin stays LAN/tailnet-only even once wizarr.kmkdp.com is on the tunnel
@@ -65,18 +88,29 @@ services:
       traefik.http.routers.wizarr-admin.entrypoints: "websecure"
       traefik.http.routers.wizarr-admin.priority: "1"
       traefik.http.routers.wizarr-admin.service: "wizarr"
-      traefik.http.routers.wizarr-admin.middlewares: "wizarr-auth"
+      traefik.http.routers.wizarr-admin.middlewares: "wizarr-auth,wizarr-headers"
       # ForwardAuth -> Authelia on proxy-dmz (container `authelia`, port 9091).
       # Mirrors the internal Traefik's forwardauth@file (stacks/proxy/dynamic),
       # but points straight at the container instead of sso.kmkdp.com.
       traefik.http.middlewares.wizarr-auth.forwardauth.address: "http://authelia:9091/api/authz/forward-auth"
       traefik.http.middlewares.wizarr-auth.forwardauth.trustForwardHeader: "true"
       traefik.http.middlewares.wizarr-auth.forwardauth.authResponseHeaders: "Remote-User,Remote-Groups,Remote-Name,Remote-Email"
+      # Rate limit on the public invitee paths at Traefik (wizarr posture W2):
+      # Cloudflare's rate limit covers the tunnel only; this covers LAN/tailnet
+      # too. depth 1 = the client address set by cf-realip / X-Forwarded-For.
+      traefik.http.middlewares.wizarr-ratelimit.ratelimit.average: "10"
+      traefik.http.middlewares.wizarr-ratelimit.ratelimit.burst: "30"
+      traefik.http.middlewares.wizarr-ratelimit.ratelimit.sourcecriterion.ipstrategy.depth: "1"
+      # Security headers (W5). No STS here: HSTS is zone-level at Cloudflare (K7).
+      traefik.http.middlewares.wizarr-headers.headers.frameDeny: "true"
+      traefik.http.middlewares.wizarr-headers.headers.contentTypeNosniff: "true"
+      traefik.http.middlewares.wizarr-headers.headers.referrerPolicy: "strict-origin-when-cross-origin"
+      traefik.http.middlewares.wizarr-headers.headers.customResponseHeaders.Server: ""
       # One service definition shared by both routers.
       traefik.http.services.wizarr.loadbalancer.server.port: "5690"
 
 networks:
-  proxy-dmz:
-    external: true
+  wizarr-ingress:
+    external: true       # created by stacks/dmz-proxy (internal: Traefik + Wizarr only)
   identity_ldap:
-    external: true
+    external: true       # created by stacks/identity

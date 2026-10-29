@@ -117,6 +117,7 @@ services:
       proxy-dmz:
         ipv4_address: 10.211.2.3   # Jellyfin KnownProxies / IMMICH_TRUSTED_PROXIES depend on it
       identity_default: {}        # lldap UI router (users.kmkdp.com): lldap left proxy-dmz (plan A1.2)
+      wizarr-ingress: {}          # Wizarr routers: Wizarr left proxy-dmz (wizarr posture W7)
       sockproxy: {}               # docker provider via the read-only socket proxy (no docker.sock here)
     depends_on: [socket-proxy]
     healthcheck:
@@ -201,6 +202,11 @@ networks:
           gateway: 10.211.2.1
   identity_default:
     external: true       # created by stacks/identity
+  # Wizarr's only ingress path: Traefik and the wizarr container, nothing else,
+  # no egress (with DISABLE_BUILTIN_AUTH=true, reaching wizarr:5690 is admin).
+  wizarr-ingress:
+    name: wizarr-ingress
+    internal: true
   # No gateway, no egress: only Traefik and the socket proxy.
   sockproxy:
     internal: true
