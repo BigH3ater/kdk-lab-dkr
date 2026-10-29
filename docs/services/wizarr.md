@@ -145,6 +145,13 @@ Settings → LDAP (stored in Wizarr's own DB, not in git):
 they are added. This is now reconciled automatically by `wizarr-sync` (below) — no manual
 `users.kmkdp.com` step.
 
+## Invitee guide (wizard steps)
+The pages an invitee sees after accepting live in Wizarr's database; their source text
+is `stacks/wizarr/wizard-steps/jellyfin/*.md` (welcome, sign-in at sso with 2FA, the
+approved apps per device with the server address, password reset via sso, "more to come"
+placeholders for Seerr / Libreseerr / Audiobookshelf, tips). Load and bundle them per
+`stacks/wizarr/wizard-steps/README.md`; attach the `household` bundle to every invite.
+
 ## Automation: wizarr-sync
 
 `stacks/wizarr-sync/` is an idempotent one-shot (python:3.12-alpine, stdlib only) run by

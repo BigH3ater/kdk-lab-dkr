@@ -58,6 +58,10 @@ services:
       DISABLE_BUILTIN_AUTH: "true"
     volumes:
       - /mnt/appdata/wizarr:/data/database
+      # Screenshots for the invitee wizard pages (stacks/wizarr/wizard-steps),
+      # served at /static/img/guide/<file> by Wizarr's static handler; /static
+      # is on the public router, so invitees see them. Read-only, from git.
+      - ./wizard-images:/app/app/static/img/guide:ro
     # Networks (wizarr posture W7, 2026-10-29): with DISABLE_BUILTIN_AUTH=true,
     # any container that can reach wizarr:5690 and GET /login IS an admin, so
     # Wizarr is no longer on proxy-dmz where nine peers could. `wizarr-ingress`
