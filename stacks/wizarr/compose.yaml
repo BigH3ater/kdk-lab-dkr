@@ -33,7 +33,7 @@ services:
       TZ: America/Chicago
       # Proxy SSO (Wizarr docs, "Single Sign-On"): the admin router sends every
       # non-invitee path through Authelia ForwardAuth, and Authelia only admits
-      # group:lldap_admin with 2FA (stacks/identity). Whoever reaches /login is
+      # group:wizarr-admin with 2FA (stacks/identity). Whoever reaches /login is
       # therefore already an authenticated admin, so Wizarr's own password
       # prompt is a second login with no extra security. /login is NOT on the
       # public router: with it public, every visitor would become admin.
