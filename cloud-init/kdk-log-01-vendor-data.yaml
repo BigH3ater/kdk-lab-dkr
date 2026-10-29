@@ -215,6 +215,6 @@ runcmd:
   # with neither passkeys nor core_public_keys, periphery accepts any caller.
   # HOME must be set: cloud-init runcmd has no HOME and the installer reads
   # os.environ["HOME"] (KeyError on the first build, 2026-10-28).
-  - curl -fsSL https://raw.githubusercontent.com/moghtech/komodo/v2.3.3/scripts/setup-periphery.py | HOME=/root python3 - --version v2.3.3
+  - curl -fsSL https://raw.githubusercontent.com/moghtech/komodo/v2.3.4/scripts/setup-periphery.py | HOME=/root python3 - --version v2.3.4
   - systemctl disable --now periphery
   - touch /var/lib/cloud/kdk-log-01-ready
