@@ -47,20 +47,22 @@ services:
     container_name: proton-bridge
     restart: unless-stopped
     ports: ["10.1.20.20:25:25/tcp"]
+    # The entrypoint never forwards SIGTERM to the bridge, so every stop is a
+    # SIGKILL after the grace period and the pid lock in the volume survives.
+    # In the next container that pid belongs to socat or cat, the bridge sees
+    # "another instance is already running" and exits 1 while socat keeps the
+    # container "Up" with nothing behind port 25 (2026-10-29 13:38Z/13:44Z).
+    # Clear the stale lock before handing over to the image's entrypoint.
+    entrypoint: ["bash", "-c", "unlink /root/.cache/protonmail/bridge-v3/bridge-v3.lock 2>/dev/null; exec bash /protonmail/entrypoint.sh \"$@\"", "--"]
+    volumes:
+      - /opt/kdk-lab/apps/proton-bridge:/root
     # Proton Bridge self-updates into updates/ inside the volume and the
     # launcher runs the newest copy at the next start; the image lacks the
     # libraries those builds need (2026-10-29: 3.26.0 wanted libfido2.so.1 ->
     # "Failed to launch", SMTP down from 04:27Z until the dir was moved aside).
     # A tmpfs over updates/ makes every start use the image's own binary.
-    # ...and read-only, because the bridge otherwise downloads the update onto
-    # the tmpfs and then exits to relaunch into it ("Failed to launch", 4 min
-    # after start, 2026-10-29 13:38Z). With the directory unwritable the
-    # updater fails to stage anything and the bridge keeps running.
-    volumes:
-      - /opt/kdk-lab/apps/proton-bridge:/root
-      - type: tmpfs
-        target: /root/.local/share/protonmail/bridge-v3/updates
-        read_only: true
+    tmpfs:
+      - /root/.local/share/protonmail/bridge-v3/updates
 
   roborock:
     image: ghcr.io/python-roborock/local_roborock_server:1.2.1@sha256:0f3d0dd05f14315273df5622d43008b2665c24b2fed79277822d4c9184eab158
