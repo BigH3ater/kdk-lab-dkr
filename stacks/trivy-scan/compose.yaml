@@ -37,7 +37,7 @@ x-hardened: &hardened
 services:
   socket-proxy:
     <<: *hardened
-    image: tecnativa/docker-socket-proxy:v0.5.0
+    image: tecnativa/docker-socket-proxy:v0.5.0@sha256:1f5038b54f06c3e18422902cf00ba21803d1c97805aae032e5e6673d532d3459
     container_name: trivy-scan-proxy
     # root: the socket is root:docker 0660. No capabilities needed (owner match).
     tmpfs: [/tmp, /run]      # rendered haproxy.cfg, pidfile
@@ -68,7 +68,7 @@ services:
 
   scan:
     <<: *hardened
-    image: aquasec/trivy:0.76.1
+    image: aquasec/trivy:0.76.1@sha256:790fd66d1697395d8693d1acaa1ea702406a20f109b6fc7bac8db623eca6c06c
     container_name: trivy-scan
     # root without capabilities: the named volumes are created root-owned and the
     # image has no non-root user; uid 0 can write them by owner match alone.
@@ -93,7 +93,7 @@ services:
 
   report:
     <<: *hardened
-    image: python:3.12.16-alpine
+    image: python:3.12.16-alpine@sha256:44bf3bcc455e0c9ccd912b78f39019b2f7e9d2f4fb47c6d6973c7638a99aff14
     container_name: trivy-scan-report
     user: "1000:1000"
     init: true

@@ -2,7 +2,7 @@
 name: apps
 services:
   ntp:
-    image: cturra/ntp:latest
+    image: cturra/ntp:latest@sha256:7224d4e7c7833aabbcb7dd70c46c8a8dcccda365314c6db047b9b10403ace3bc
     container_name: ntp
     restart: unless-stopped
     ports: ["10.1.20.20:123:123/udp"]   # ntp.kmkdp.com -> 10.1.20.20; VLAN address only
@@ -10,7 +10,7 @@ services:
       NTP_SERVERS: "time.cloudflare.com,0.pool.ntp.org,1.pool.ntp.org"
 
   adguardhome-sync:
-    image: ghcr.io/bakito/adguardhome-sync:v0.9.2
+    image: ghcr.io/bakito/adguardhome-sync:v0.9.5@sha256:8c5d65ef00b54cd8c2e78ccc70722ce322cf8ca5069b669e07c1e4edcd1836c7
     container_name: adguardhome-sync
     restart: unless-stopped
     command: run
@@ -28,7 +28,7 @@ services:
       RUN_ON_START: "true"
 
   rmfakecloud:
-    image: ddvk/rmfakecloud:0.0.31
+    image: ddvk/rmfakecloud:0.0.32@sha256:630a5c9e0b412a12e236c2a39034cf62fe1cde29a186d53a3459195ce8aaaf1f
     container_name: rmfakecloud
     restart: unless-stopped
     environment:
@@ -43,7 +43,7 @@ services:
     networks: [default, proxy]
 
   proton-bridge:
-    image: shenxn/protonmail-bridge:3.9.1-1
+    image: shenxn/protonmail-bridge:3.9.1-1@sha256:da19bf102b87fe6fe026b882f61ed3e5c11cc7e86d75b9fd3e2b8fe8b4247b43
     container_name: proton-bridge
     restart: unless-stopped
     ports: ["10.1.20.20:25:25/tcp"]
@@ -51,7 +51,7 @@ services:
       - /opt/kdk-lab/apps/proton-bridge:/root
 
   roborock:
-    image: ghcr.io/python-roborock/local_roborock_server:1.0.2
+    image: ghcr.io/python-roborock/local_roborock_server:1.0.2@sha256:86fa005391569f4419e9b3f891d2388b63a87bd16a2dbb412390e7819542339d
     container_name: roborock
     restart: unless-stopped
     # The vacuum (VLAN 30) and HA reach these routed, at api-slave.kmkdp.com ->

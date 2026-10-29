@@ -9,7 +9,7 @@
 name: backup-collect
 services:
   collect:
-    image: instrumentisto/rsync-ssh:alpine3.23-r3
+    image: instrumentisto/rsync-ssh:alpine3.23-r3@sha256:6cbad37c2fbdca4ac7ad9d1c1bb8990af9efd4dc76321b349935876cbb1e9e4a
     restart: "no"
     entrypoint: ["/bin/sh", "/collect.sh"]
     volumes:
@@ -19,7 +19,7 @@ services:
   # Forces DeployStack to block until the pulls finish (up -d doesn't wait for a
   # terminal one-shot); collect.sh always exits 0, so this always runs.
   gate:
-    image: busybox:1.36.1
+    image: busybox:1.36.1@sha256:73aaf090f3d85aa34ee199857f03fa3a95c8ede2ffd4cc2cdb5b94e566b11662
     restart: "no"
     depends_on:
       collect: { condition: service_completed_successfully }

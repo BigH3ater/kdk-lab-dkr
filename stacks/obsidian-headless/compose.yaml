@@ -17,7 +17,7 @@ services:
   sync:
     # Pin to a digest at first deploy (docker inspect after pull) — kept as a
     # moving tag only until we pull it once.
-    image: ghcr.io/belphemur/obsidian-headless-sync-docker:0.0.14
+    image: ghcr.io/belphemur/obsidian-headless-sync-docker:0.0.14@sha256:fe239b322426a060de9c2ded70aae23ff175e0b5d57d9a36dec11534b69bb719
     container_name: obsidian-headless
     restart: unless-stopped
     environment:

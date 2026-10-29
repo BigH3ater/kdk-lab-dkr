@@ -4,7 +4,7 @@
 name: op-connect
 services:
   connect-api:
-    image: 1password/connect-api:1.8.2
+    image: 1password/connect-api:1.8.4@sha256:0f74924c55c9156b8116f59f485223b2c2d30a5148d362562aa27838159bdffa
     container_name: onepassword-connect-api
     restart: unless-stopped
     ports: ["10.1.20.20:8080:8080"]
@@ -12,7 +12,7 @@ services:
       - /etc/kdk-lab/1password-credentials.json:/home/opuser/.op/1password-credentials.json:ro
       - data:/home/opuser/.op/data
   connect-sync:
-    image: 1password/connect-sync:1.8.2
+    image: 1password/connect-sync:1.8.4@sha256:ca34850f2a20ca302e688a9347cdb696f29ce3bfc011d2554eff338e315c9089
     container_name: onepassword-connect-sync
     restart: unless-stopped
     volumes:

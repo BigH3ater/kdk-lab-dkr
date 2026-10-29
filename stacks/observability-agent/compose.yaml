@@ -11,7 +11,7 @@ services:
     # snapshotter fix (google/cadvisor#3709). Docker on every host uses the
     # containerd image store, and v0.52.1 failed every container with "failed to
     # identify the read-write layer ID", so only the root cgroup was exported.
-    image: ghcr.io/google/cadvisor:v0.60.6
+    image: ghcr.io/google/cadvisor:v0.60.6@sha256:b8e7d1093144fd088f425ff003d75a4aa405de075db78dae3bc563730b1bd07a
     container_name: cadvisor
     restart: unless-stopped
     command:
@@ -55,7 +55,7 @@ services:
       options: { max-size: "10m", max-file: "3" }
 
   alloy:
-    image: grafana/alloy:v1.10.0
+    image: grafana/alloy:v1.10.0@sha256:1bc130e909116a4bf950eb5187a346007d3b796f96832b529acb14a64e41230f
     container_name: alloy
     # Recreate on config change: compose does not hash single-file bind mounts;
     # the Komodo pre_deploy writes AGENT_CONFIG_SHA (alloy/config.alloy +
@@ -82,7 +82,7 @@ services:
   # non-graceful exit) or unhealthy health status. Uses the Docker API, so it
   # works despite the containerd-snapshotter driver that breaks cAdvisor names.
   docker-event-watch:
-    image: docker:28.5.2-cli
+    image: docker:28.5.2-cli@sha256:625d9431a9f54c5a2bc90f24f0e1c3d55b1349fd857dd85035f98c2c9acbdd4d
     container_name: docker-event-watch
     # Recreate on config change: compose does not hash single-file bind mounts;
     # the Komodo pre_deploy writes AGENT_CONFIG_SHA (alloy/config.alloy +

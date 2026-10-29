@@ -3,7 +3,7 @@
 name: proxy
 services:
   traefik:
-    image: traefik:v3.7.16
+    image: traefik:v3.7.16@sha256:1336e85aaed293bd63d005086e0dd013b04078b26aaeb1c18b26a2f928af7e65
     container_name: traefik
     restart: unless-stopped
     security_opt: ["no-new-privileges:true"]

@@ -6,7 +6,7 @@
 name: backup-offsite
 services:
   offsite:
-    image: rclone/rclone:1.75.2
+    image: rclone/rclone:1.75.2@sha256:2687085f718d3c628f7fdfb77c52a1d344332aed543110bb88088f2c70d43eb5
     restart: "no"
     entrypoint: ["/bin/sh", "/offsite.sh"]
     volumes:
@@ -17,7 +17,7 @@ services:
   # verify stage runs AFTER .offsite-status is written (offsite.sh always exits
   # 0). Without this, verify runs while rclone is still uploading and false-fails.
   gate:
-    image: busybox:1.36.1
+    image: busybox:1.36.1@sha256:73aaf090f3d85aa34ee199857f03fa3a95c8ede2ffd4cc2cdb5b94e566b11662
     restart: "no"
     depends_on:
       offsite: { condition: service_completed_successfully }
