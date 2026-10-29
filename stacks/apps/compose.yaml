@@ -43,7 +43,7 @@ services:
     networks: [default, proxy]
 
   proton-bridge:
-    image: shenxn/protonmail-bridge:3.9.1-1@sha256:da19bf102b87fe6fe026b882f61ed3e5c11cc7e86d75b9fd3e2b8fe8b4247b43
+    image: shenxn/protonmail-bridge:3.19.0-1@sha256:3717b4441130675dc9131196de9f9c5287d2ea21b138d83b0486429e1737638a
     container_name: proton-bridge
     restart: unless-stopped
     ports: ["10.1.20.20:25:25/tcp"]
