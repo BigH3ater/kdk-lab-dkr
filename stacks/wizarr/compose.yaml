@@ -31,9 +31,14 @@ services:
       PUID: "1000"
       PGID: "1000"
       TZ: America/Chicago
-      # Keep Wizarr's built-in admin login as a second layer behind Authelia.
-      # (DISABLE_BUILTIN_AUTH=true would sign EVERY visitor to /login in as admin.)
-      DISABLE_BUILTIN_AUTH: "false"
+      # Proxy SSO (Wizarr docs, "Single Sign-On"): the admin router sends every
+      # non-invitee path through Authelia ForwardAuth, and Authelia only admits
+      # group:lldap_admin with 2FA (stacks/identity). Whoever reaches /login is
+      # therefore already an authenticated admin, so Wizarr's own password
+      # prompt is a second login with no extra security. /login is NOT on the
+      # public router: with it public, every visitor would become admin.
+      # Wizarr's native OIDC login is still "Planned" (V4 rewrite), 2026-10-29.
+      DISABLE_BUILTIN_AUTH: "true"
     volumes:
       - /mnt/appdata/wizarr:/data/database
     # identity_ldap: LDAPS to lldap.kmkdp.com:6360 (alias on that internal network;
