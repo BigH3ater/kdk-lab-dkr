@@ -828,10 +828,10 @@ access_control:
     # /invitation/process, /reset, /static, ...) are served by a higher-priority
     # public router with no auth and never reach Authelia. See stacks/wizarr.
     # Wizarr runs with DISABLE_BUILTIN_AUTH=true (proxy SSO): passing this rule
-    # IS the admin login, so only the directory admins may pass.
+    # IS the admin login. Dedicated LLDAP group `wizarr-admin` (2026-10-29).
     - policy: two_factor
       domain:
         - 'wizarr.kmkdp.com'
       subject:
-        - ['group:lldap_admin']
+        - ['group:wizarr-admin']
 ...

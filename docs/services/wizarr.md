@@ -25,7 +25,7 @@ the invitee paths are reachable without auth; the admin portal is behind Autheli
 | Field | Value |
 |---|---|
 | Purpose | Jellyfin invites + onboarding; creates lldap + Jellyfin accounts |
-| Status | 🟢 Live — invitee paths open; admin = Authelia login only (`DISABLE_BUILTIN_AUTH=true`, group `lldap_admin`, 2FA); Wizarr's native OIDC is still "Planned" upstream (V4) |
+| Status | 🟢 Live — invitee paths open; admin = Authelia login only (`DISABLE_BUILTIN_AUTH=true`, group `wizarr-admin`, 2FA); Wizarr's native OIDC is still "Planned" upstream (V4) |
 | Host | [[kdk-dkr-dmz-01]] (192.168.191.20) |
 | Endpoint | `https://wizarr.kmkdp.com` (public invitee paths; admin behind Authelia) |
 | Image | `ghcr.io/wizarrrr/wizarr:v2026.10.1` (lldap create needs ≥ 2026.10.0: sends cn/sn, lowercases uids) |

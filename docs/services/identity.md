@@ -151,7 +151,7 @@ The `netbox` client and the dead `learn-k3s`, `swagger`, `grafana-embed` rules w
 
 Users manage their profile and TOTP at `sso.kmkdp.com`; admins manage accounts and groups at `users.kmkdp.com` (SSO as a `lldap_admin` member, then the LLDAP login).
 
-Group memberships that grant app access: `internal-users` (arr apps, Komodo, Wizarr admin, Libreseerr), `dashboard-users` (home), `ha-users` (Home Assistant; `ha-admins` = HA admin role), `audiobookshelf-users`, `immich-users`, `jellyfin-users` (Jellyfin LDAP and Jellyfin SSO; Wizarr invitees via `wizarr-sync`).
+Group memberships that grant app access: `wizarr-admin` (Wizarr admin portal), `internal-users` (arr apps, Komodo, Wizarr admin, Libreseerr), `dashboard-users` (home), `ha-users` (Home Assistant; `ha-admins` = HA admin role), `audiobookshelf-users`, `immich-users`, `jellyfin-users` (Jellyfin LDAP and Jellyfin SSO; Wizarr invitees via `wizarr-sync`).
 
 ## Hand steps for the 2026-10-28 auth-boundary change
 
