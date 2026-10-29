@@ -553,7 +553,11 @@ for (const s of stacks) {
   const dep: string | undefined = st?.info?.deployed_hash;
   if (!dep) continue;                       // never deployed through Komodo: not ours to start
   let isBehind = false, why = "";
-  if (head) {
+  // A stack from another repo (network-sre-learning) has a deployed_hash the
+  // compare API cannot find in kdk-lab-dkr (404 -> "unknown" -> deployed every
+  // run, 2026-10-29). Those keep the latest_hash comparison.
+  const ownRepo = !st?.config?.repo || st.config.repo === REPO;
+  if (head && ownRepo) {
     if (head.startsWith(dep)) { skipped++; continue; }
     const files = await filesSince(dep);
     if (files === null) { isBehind = true; why = `${dep}->${head.slice(0, 7)} (compare unknown)`; }
