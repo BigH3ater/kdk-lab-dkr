@@ -3,7 +3,7 @@
 name: komodo
 services:
   postgres:
-    image: ghcr.io/ferretdb/postgres-documentdb:17-0.107.0-ferretdb-2.7.0
+    image: ghcr.io/ferretdb/postgres-documentdb:17-0.107.0-ferretdb-2.7.0@sha256:2386795ec2aa7ae559304361979f1dc5708d383ee9020ae63dadc2940dfe58f7
     labels:
       komodo.skip:
     restart: unless-stopped
@@ -15,7 +15,7 @@ services:
       POSTGRES_DB: postgres
     networks: [default]
   ferretdb:
-    image: ghcr.io/ferretdb/ferretdb:2.7.0
+    image: ghcr.io/ferretdb/ferretdb:2.7.0@sha256:5706414241eb84f0515512c37b46db0f1b1eac9e5ceb7e4c2523211c184b1985
     labels:
       komodo.skip:
     restart: unless-stopped
@@ -26,7 +26,7 @@ services:
       FERRETDB_POSTGRESQL_URL: postgres://${KOMODO_DB_USERNAME}:${KOMODO_DB_PASSWORD}@postgres:5432/postgres
     networks: [default]
   core:
-    image: ghcr.io/moghtech/komodo-core:2.3.3
+    image: ghcr.io/moghtech/komodo-core:2.3.4@sha256:91b2afd7b3bb2abea0ebd3046d65ec457eb1f3d505868d1d60cb0f8562490ef9
     # tini as PID 1 reaps the defunct `git` children Komodo forks for repo polling
     # (resource sync + stack update checks). Without it they accumulate as zombies
     # (2227 seen 2026-09-19) and inflate the host load number.

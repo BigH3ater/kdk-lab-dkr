@@ -33,7 +33,7 @@ services:
     # An invented `v0.9.0` failed the pull, and because compose pulls
     # atomically it took the other three images down with it -- the same
     # failure mode as the homebridge date-tag on 2026-08-24.
-    image: ghcr.io/mrlhansen/idrac_exporter:2.6.2
+    image: ghcr.io/mrlhansen/idrac_exporter:2.6.3@sha256:7a95f2862f9c1cd2b66c1704781bb7a709ea1fc17a1ae58cecb09fc81c829b91
     container_name: idrac-exporter
     restart: unless-stopped
     environment:
@@ -61,7 +61,7 @@ services:
   # "did this endpoint respond, and how fast". Paired with idrac-exporter it
   # covers both halves: is the box alive, and is it cooking.
   blackbox-exporter:
-    image: prom/blackbox-exporter:v0.28.0
+    image: prom/blackbox-exporter:v0.28.0@sha256:e753ff9f3fc458d02cca5eddab5a77e1c175eee484a8925ac7d524f04366c2fc
     container_name: blackbox-exporter
     restart: unless-stopped
     command: ["--config.file=/etc/blackbox/blackbox.yml"]
@@ -70,7 +70,7 @@ services:
     expose: ["9115"]
 
   prometheus:
-    image: prom/prometheus:v3.7.3
+    image: prom/prometheus:v3.7.3@sha256:49214755b6153f90a597adcbff0252cc61069f8ab69ce8411285cd4a560e8038
     container_name: prometheus-ext
     restart: unless-stopped
     command:
@@ -108,7 +108,7 @@ services:
   # NOT the right way to buy independence, is in ADR 0012. A genuinely
   # cluster-independent transport remains open on the Fix Hit List.
   alertmanager:
-    image: prom/alertmanager:v0.28.1
+    image: prom/alertmanager:v0.28.1@sha256:27c475db5fb156cab31d5c18a4251ac7ed567746a2483ff264516437a39b15ba
     container_name: alertmanager-ext
     restart: unless-stopped
     command:
@@ -165,7 +165,7 @@ services:
   # MONITORING_ONLY_MODE=false (a reviewed one-line change), which hands the
   # fans off BMC auto to the curve.
   fanctl-hyp:
-    image: tigerblue77/dell_idrac_fan_controller:v1.108
+    image: tigerblue77/dell_idrac_fan_controller:v1.108@sha256:880ad0a29a863451ff3bbf60fd64ed59bcd1bd4530a573fba179a4920972cdd8
     container_name: fanctl-hyp
     restart: unless-stopped
     environment:
@@ -182,7 +182,7 @@ services:
       MONITORING_ONLY_MODE: "false"
 
   fanctl-nas:
-    image: tigerblue77/dell_idrac_fan_controller:v1.108
+    image: tigerblue77/dell_idrac_fan_controller:v1.108@sha256:880ad0a29a863451ff3bbf60fd64ed59bcd1bd4530a573fba179a4920972cdd8
     container_name: fanctl-nas
     restart: unless-stopped
     environment:
@@ -200,7 +200,7 @@ services:
 
 
   grafana:
-    image: grafana/grafana:12.3.1
+    image: grafana/grafana:12.3.1@sha256:2175aaa91c96733d86d31cf270d5310b278654b03f5718c59de12a865380a31f
     container_name: grafana-ext
     restart: unless-stopped
     environment:

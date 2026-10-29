@@ -14,7 +14,7 @@
 name: arr-upgrade-search
 services:
   search:
-    image: python:3.12.16-alpine
+    image: python:3.12.16-alpine@sha256:44bf3bcc455e0c9ccd912b78f39019b2f7e9d2f4fb47c6d6973c7638a99aff14
     restart: "no"
     network_mode: host
     environment:

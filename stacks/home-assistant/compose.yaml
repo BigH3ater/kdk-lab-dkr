@@ -36,7 +36,7 @@
 name: home-assistant
 services:
   homeassistant:
-    image: ghcr.io/home-assistant/home-assistant:2026.10.4
+    image: ghcr.io/home-assistant/home-assistant:2026.10.4@sha256:23f4dfbb69ce76315dbc4de7915504f1c2dcecd7ca2648113a493a385972e133
     container_name: homeassistant
     # host, not bridge: mDNS/zeroconf for the Apple TVs, Lutron, Brother/IPP and
     # the thermostat, plus HA's own HomeKit bridge advertising on :21064.
@@ -52,7 +52,7 @@ services:
       - mosquitto
 
   mosquitto:
-    image: eclipse-mosquitto:2.0.22
+    image: eclipse-mosquitto:2.0.22@sha256:09b62ff32c2e7b64d4b431b9a89236073289b68db273de2b089edeb9b0d92b5c
     container_name: mosquitto
     restart: unless-stopped
     # 127.0.0.1 ONLY, never 0.0.0.0. A host-networked HA reaches it on loopback
@@ -71,7 +71,7 @@ services:
     # version 5, and 2.6.2 accepts at most 4 -- it crash-loops with
     # "unsupported version 5, expected one of undefined,2,3,4". Pinning below
     # the version that wrote the config is a downgrade, not a pin.
-    image: ghcr.io/koenkk/zigbee2mqtt:2.9.2
+    image: ghcr.io/koenkk/zigbee2mqtt:2.9.2@sha256:2a21bbf7a664a149024bbe1f776e3151f28ed9db15948270dcbffb89544a41f0
     container_name: zigbee2mqtt
     restart: unless-stopped
     # Bridge: it talks to a serial device and one broker. Nothing discovers it.
@@ -106,7 +106,7 @@ services:
       - mosquitto
 
   node-red:
-    image: nodered/node-red:4.1.12
+    image: nodered/node-red:4.1.12@sha256:c81912d66cb3639170484395ada550c94dfe0a56289cfaec3c8e6dec31f0d164
     container_name: node-red
     restart: unless-stopped
     # Reached through Traefik, not published on the segment -- same reasoning
@@ -130,7 +130,7 @@ services:
       - homeassistant
 
   traefik:
-    image: traefik:v3.7.16
+    image: traefik:v3.7.16@sha256:1336e85aaed293bd63d005086e0dd013b04078b26aaeb1c18b26a2f928af7e65
     container_name: traefik
     restart: unless-stopped
     # Native ACME with a Cloudflare DNS-01 solver, no certbot and no renewal

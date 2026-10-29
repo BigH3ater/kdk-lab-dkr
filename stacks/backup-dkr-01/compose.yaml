@@ -19,7 +19,7 @@ services:
   # below. Reaches the DB over the external jellystat_default network. Best-effort
   # (exit 0); backup-verify checks the dump is present + gzip-valid for today.
   pgdump-jellystat:
-    image: postgres:16.15-alpine
+    image: postgres:16.15-alpine@sha256:0cefaabd882e42bcb2a2f3dc56d3ce4770560ba62fd7f197f1a2e008fd5731ab
     restart: "no"
     env_file: [.env]
     environment:
@@ -33,7 +33,7 @@ services:
     networks: [jellystat_default]
 
   rsync:
-    image: instrumentisto/rsync-ssh:alpine3.23-r3
+    image: instrumentisto/rsync-ssh:alpine3.23-r3@sha256:6cbad37c2fbdca4ac7ad9d1c1bb8990af9efd4dc76321b349935876cbb1e9e4a
     restart: "no"
     depends_on:
       pgdump-jellystat: { condition: service_completed_successfully }
@@ -55,7 +55,7 @@ services:
       - /opt/kdk-lab:/src:ro
       - /mnt/backup/dkr:/dest
   gate:
-    image: busybox:1.36.1
+    image: busybox:1.36.1@sha256:73aaf090f3d85aa34ee199857f03fa3a95c8ede2ffd4cc2cdb5b94e566b11662
     restart: "no"
     depends_on:
       rsync: { condition: service_completed_successfully }

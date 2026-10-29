@@ -18,7 +18,7 @@ name: actual
 
 services:
   actual:
-    image: docker.io/actualbudget/actual-server:26.9.0   # current stable (verified 2026-09-20); do NOT use :latest
+    image: docker.io/actualbudget/actual-server:26.9.0@sha256:552beab3dec8c93d46b8b9245612d63c3f123b8a45063a474f53e229b17621d3   # current stable (verified 2026-09-20); do NOT use :latest
     container_name: actual
     restart: unless-stopped
     env_file: [.env]

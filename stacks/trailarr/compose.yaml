@@ -13,7 +13,7 @@
 name: trailarr
 services:
   trailarr:
-    image: nandyalu/trailarr:0.13.1
+    image: nandyalu/trailarr:0.13.1@sha256:9c8723e6ea5761c670466b534719c267f26564fd35500f1caa396f6ed6c06d1b
     container_name: trailarr
     restart: unless-stopped
     environment:

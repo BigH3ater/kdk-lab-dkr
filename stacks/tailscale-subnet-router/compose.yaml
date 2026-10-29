@@ -28,7 +28,7 @@ name: tailscale-subnet-router
 services:
   tailscale:
     # Pin to a digest at first deploy (docker inspect after pull).
-    image: tailscale/tailscale:v1.104.2
+    image: tailscale/tailscale:v1.104.4@sha256:ed6480b33c6eb67c9cbd203ed42b9fb57e361986725b6856def71b7a3d9e276c
     container_name: tailscale-subnet-router
     hostname: kdk-subnet-router
     restart: unless-stopped
