@@ -189,7 +189,9 @@ fi
 
 caa=$(doh "$APEX" CAA)
 for ca in letsencrypt.org pki.goog; do
-  if grep -q "issue \"$ca\"" <<<"$caa" && grep -q "issuewild \"$ca\"" <<<"$caa"; then row PASS "CAA issue+issuewild $ca" "present"
+  # Cloudflare rewrites the CAA entries of its Universal SSL CAs into the form
+  # `issue "pki.goog; cansignhttpexchanges=yes"`, so match the CA with optional parameters.
+  if grep -Eq "issue \"$ca(;[^\"]*)?\"" <<<"$caa" && grep -Eq "issuewild \"$ca(;[^\"]*)?\"" <<<"$caa"; then row PASS "CAA issue+issuewild $ca" "present"
   else row FAIL "CAA issue+issuewild $ca" "${caa:+not both present}${caa:-no CAA records}"; fi
 done
 
