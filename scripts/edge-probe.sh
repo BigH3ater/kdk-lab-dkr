@@ -14,7 +14,10 @@
 #
 # The rate-limit bursts POST a nonexistent user to the Jellyfin and Authelia
 # login endpoints (expect failed-login lines in Loki) and get this IP blocked
-# on those paths for 10 s; skip them with --no-ratelimit.
+# on those paths for 10 s. Since security batch 5 the Authelia burst also trips
+# Authelia's own IP regulation: the address you run from is banned from sso for
+# 5 minutes. Prefer --no-ratelimit; lift a ban on kdk-dkr-dmz-01 with
+# `sudo docker exec authelia authelia storage bans ip revoke <ip>`.
 #
 # What the checks verify: vault note "Cloudflare edge rules (2026-10)"
 # (10.Homelab/Security). Exits 1 if any row is FAIL. Needs curl >= 7.84.
