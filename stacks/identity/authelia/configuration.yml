@@ -219,12 +219,19 @@ storage:
     schema: 'public'
     username: 'authelia'
 notifier:
-  disable_startup_check: true
+  # Startup check on: Authelia connects to the bridge at boot and fails loudly
+  # if the relay is down (the old direct-to-Proton setup had it disabled).
+  disable_startup_check: false
   smtp:
-    address: 'submission://smtp.protonmail.ch:587'
+    # In-lab Proton Mail Bridge on kdk-dkr-01 (stacks/apps, account
+    # op://kdk-ops/proton-backup-account, 2026-10-29). Plain SMTP with STARTTLS;
+    # the bridge presents a self-signed certificate, hence skip_verify.
+    # Path: DMZ -> VLAN 20 needs the UniFi rule 192.168.191.20 -> 10.1.20.20:25
+    # and the DOCKER-USER exception for the authelia container (hosts/kdk-dkr-dmz-01).
+    address: 'smtp://10.1.20.20:25'
     timeout: '5 seconds'
-    username: 'noreply@kmkdp.com'
-    sender: 'noreply@kmkdp.com'
+    username: 'kdk.lab@pm.me'
+    sender: 'no-reply@kmkdp.com'
     identifier: 'kmkdp.com'
     subject: '[Authelia] {title}'
     startup_check_address: 'test@authelia.com'
@@ -233,7 +240,7 @@ notifier:
     disable_starttls: false
     tls:
       server_name: ''
-      skip_verify: false
+      skip_verify: true
       minimum_version: 'TLS1.2'
       maximum_version: 'TLS1.3'
 identity_providers:

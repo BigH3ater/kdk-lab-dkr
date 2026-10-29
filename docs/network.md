@@ -116,6 +116,7 @@ changing its status in a PR, with the date.
 | 1 | UniFi policy | allow `192.168.191.20 → 10.1.20.21` tcp 3100 + tcp 514 | DMZ Alloy and rsyslog to kdk-log-01 instead of the storage net (security batch 2) | ☐ open |
 | 2 | UniFi policy | remove `192.168.191.20 → 10.1.20.20:514` once row 1 works | undocumented syslog hole (hosts report C-01); Loki left dkr-01 | ☐ open |
 | 3 | UniFi policy | keep `192.168.191.20 → 10.1.20.20` tcp 8080 (1Password Connect) and tcp 443 | deploy secret rendering; Seerr/Libreseerr → arr. The 443 rule is now scoped to those two containers on the host (DOCKER-USER) | ☐ confirm |
+| 3b | UniFi policy | allow `192.168.191.20 → 10.1.20.20` tcp 25 | Authelia notifier → Proton Mail Bridge (2026-10-29); host side scoped to the authelia container in DOCKER-USER | ☐ open |
 | 4 | UniFi policy | allow `10.1.20.30 → 192.168.191.20` tcp 6360 only from VLAN 20 | mon-01's LDAPS certificate probe; nothing on dkr-01 still binds LDAP (plan K12) | ☐ open |
 | 5 | UniFi policy | `10.1.30.22` tcp 10443, 11080 (Scrypted UI) only from `10.1.30.21` | only the Pi Traefik fronts Scrypted (security batch 0) | ☐ open |
 | 6 | UniFi policy | Home Assistant `8123` only from `10.1.30.21`; go2rtc `18555` from VLAN 30 only | HA is reached through the Pi Traefik; WebRTC stays on the user VLAN | ☐ open |

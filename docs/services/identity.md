@@ -5,7 +5,7 @@ stack: identity
 tier: dmz
 status: live
 storage: yes
-secrets: [authelia-app-secrets, authelia-postgres, authelia-redis, lldap-admin, lldap-authelia-bind, lldap-app-secrets, proton-bridge-smtp-incluster]
+secrets: [authelia-app-secrets, authelia-postgres, authelia-redis, lldap-admin, lldap-authelia-bind, lldap-app-secrets, proton-bridge-smtp]
 updated: 2026-10-28
 tags: [homelab/stack, tier/dmz, status/live]
 ---
@@ -145,7 +145,7 @@ The `netbox` client and the dead `learn-k3s`, `swagger`, `grafana-embed` rules w
 | `lldap-authelia-bind` | Authelia's LDAP bind `uid=authelia-bind` | 🟢 self-service | set the new password on the lldap user, update 1P, redeploy identity |
 | `authelia-redis` | Redis `requirepass` (alphanumeric) | 🟢 self-service | update 1P, redeploy identity (Redis and Authelia recreate together; sessions survive) |
 | `lldap-app-secrets` (`jwt_secret`, `key_seed`) | LLDAP tokens/derivation | 🔴 `key_seed` never on live | changing `key_seed` invalidates stored secrets |
-| `proton-bridge-smtp-incluster` | notifier SMTP | 🟡 external party | rotate in Proton + 1P |
+| `proton-bridge-smtp` (kdk-cluster) | notifier SMTP: the in-lab Proton Mail Bridge on 10.1.20.20:25 (`stacks/apps`), username = the Proton account, sender `no-reply@kmkdp.com` | 🟡 bridge-generated | re-login the bridge (`info` prints the new password) → 1P → redeploy identity |
 
 ## User Guide
 
