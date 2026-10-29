@@ -22,7 +22,7 @@ x-logging: &logging
 
 services:
   lldap:
-    image: lldap/lldap:v0.6.3-alpine
+    image: lldap/lldap:v0.6.3-alpine@sha256:2a8454b668c1aba7157e832eab0e242e1e7eb5fb7591d7e7774ba05286511ca8
     container_name: lldap
     restart: unless-stopped
     security_opt: ["no-new-privileges:true"]
@@ -98,7 +98,7 @@ services:
   # procedure restarts the lldap service on the 1st and 15th (renewal happens 30 days
   # before expiry, so the served cert is never more than ~15 days behind).
   certs-dumper:
-    image: ldez/traefik-certs-dumper:v2.11.4
+    image: ldez/traefik-certs-dumper:v2.11.4@sha256:a34b27edf8e5e96a215035a6bfba00d769d2638f8444a5dd6dc27299d75f43c5
     container_name: lldap-certs-dumper
     restart: unless-stopped
     security_opt: ["no-new-privileges:true"]
@@ -135,7 +135,7 @@ services:
     networks: [default]
 
   postgres:
-    image: postgres:16.15-alpine
+    image: postgres:16.15-alpine@sha256:0cefaabd882e42bcb2a2f3dc56d3ce4770560ba62fd7f197f1a2e008fd5731ab
     container_name: authelia-postgres
     restart: unless-stopped
     # Data dir is already owned by uid 70 (the image's postgres user), so the
@@ -166,7 +166,7 @@ services:
     networks: [default]
 
   redis:
-    image: redis:8.10.3-alpine
+    image: redis:8.10.3-alpine@sha256:21090af93f8324db2f0f0f4f38a7c60369d47d917e000c3423d89d2ae2883537
     container_name: authelia-redis
     restart: unless-stopped
     user: "999:999"
@@ -201,7 +201,7 @@ services:
     networks: [default]
 
   authelia:
-    image: ghcr.io/authelia/authelia:4.39.28
+    image: ghcr.io/authelia/authelia:4.39.28@sha256:bd97cff4fcbf715b5ff1f9ae286afbe6033afce385302520b0368122d43a6f54
     container_name: authelia
     restart: unless-stopped
     depends_on: [lldap, postgres, redis]
