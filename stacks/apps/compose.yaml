@@ -51,7 +51,7 @@ services:
       - /opt/kdk-lab/apps/proton-bridge:/root
 
   roborock:
-    image: ghcr.io/python-roborock/local_roborock_server:1.0.2@sha256:86fa005391569f4419e9b3f891d2388b63a87bd16a2dbb412390e7819542339d
+    image: ghcr.io/python-roborock/local_roborock_server:1.2.1@sha256:0f3d0dd05f14315273df5622d43008b2665c24b2fed79277822d4c9184eab158
     container_name: roborock
     restart: unless-stopped
     # The vacuum (VLAN 30) and HA reach these routed, at api-slave.kmkdp.com ->
