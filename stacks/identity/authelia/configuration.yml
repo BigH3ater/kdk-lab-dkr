@@ -229,7 +229,10 @@ notifier:
     # Path: DMZ -> VLAN 20 needs the UniFi rule 192.168.191.20 -> 10.1.20.20:25
     # and the DOCKER-USER exception for the authelia container (hosts/kdk-dkr-dmz-01).
     address: 'smtp://10.1.20.20:25'
-    timeout: '5 seconds'
+    # The bridge encrypts and uploads to Proton before it acknowledges DATA:
+    # 5.5 s measured on 2026-10-29; at 5 s Authelia timed out on a mail that was
+    # delivered anyway and told the user it had failed.
+    timeout: '30 seconds'
     username: 'kdk.lab@pm.me'
     sender: 'no-reply@kmkdp.com'
     identifier: 'kmkdp.com'
