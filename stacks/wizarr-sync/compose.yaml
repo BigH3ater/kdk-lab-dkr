@@ -28,7 +28,7 @@ services:
       JELLYFIN_GROUP: "jellyfin-users"
       # Jellyfin LDAP plugin provider id (default is the built-in provider).
       LDAP_PROVIDER_ID: "Jellyfin.Plugin.LDAP_Auth.LdapAuthenticationProviderPlugin"
-      EXCLUDE_USERS: "admin,wizarr,jellyfin-bind"   # directory service accounts, never reconciled
+      EXCLUDE_USERS: "admin,wizarr,jellyfin-bind,authelia-bind"   # directory service accounts, never reconciled
     entrypoint: ["/bin/sh", "-c"]
     # ca-certificates for the HTTPS Pushover summary; everything else is internal HTTP.
     command:

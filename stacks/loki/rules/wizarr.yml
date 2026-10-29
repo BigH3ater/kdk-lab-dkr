@@ -74,17 +74,58 @@ groups:
           summary: "Wizarr created an lldap user (expected only right after you sent an invite)"
           runbook: docs/runbooks/security-alerts.md#wizarr
 
-      # D4: admin login failures and admin/settings/API-key mutations.
-      - alert: WizarrAdminAuthFail
+      # D4: admin logins (proxy SSO since 2026-10-29: Wizarr's own password path is
+      # dead, so "AUTH FAIL" never appears; a 2xx/3xx on /login through the admin
+      # router IS an admin session for whoever Authelia let through) and
+      # admin/settings/API-key mutations.
+      - alert: WizarrAdminLogin
         expr: |
-          sum(count_over_time({host="kdk-dkr-dmz-01", container="wizarr"} |= "AUTH FAIL" [10m])) > 3
+          sum by (client) (count_over_time({host="kdk-dkr-dmz-01", container="traefik"}
+            |= "wizarr.kmkdp.com" | json | RequestHost="wizarr.kmkdp.com"
+            | RequestPath=~"^/login(\\?.*)?$" | DownstreamStatus=~"2..|3.."
+            | label_format client="{{ if .request_Cf_Connecting_Ip }}{{ .request_Cf_Connecting_Ip }}{{ else }}{{ .ClientHost }}{{ end }}" [10m])) > 0
+        for: 0m
+        labels:
+          severity: info
+          source: loki
+          scope: wizarr
+        annotations:
+          summary: "Wizarr: admin login from {{ $labels.client }} (Authelia passed; Wizarr itself does no login)"
+          runbook: docs/runbooks/security-alerts.md#wizarr
+
+      # D5: an invite was accepted (the only write a stranger can do). Info, by client,
+      # so an accepted invite is visible next to the LDAP-created-user line.
+      - alert: WizarrInviteAccepted
+        expr: |
+          sum by (client) (count_over_time({host="kdk-dkr-dmz-01", container="traefik"}
+            |= "wizarr.kmkdp.com" | json | RequestHost="wizarr.kmkdp.com"
+            | RequestMethod="POST" | RequestPath=~"^/invitation/process.*" | DownstreamStatus=~"2..|3.."
+            | label_format client="{{ if .request_Cf_Connecting_Ip }}{{ .request_Cf_Connecting_Ip }}{{ else }}{{ .ClientHost }}{{ end }}" [10m])) > 0
+        for: 0m
+        labels:
+          severity: info
+          source: loki
+          scope: wizarr
+        annotations:
+          summary: "Wizarr: invite accepted from {{ $labels.client }}"
+          runbook: docs/runbooks/security-alerts.md#wizarr
+
+      # D6: admin paths requested over the tunnel. The admin router is websecure-only,
+      # so these are 404 at Traefik (or 403 at the Cloudflare edge before that); any hit
+      # is someone probing the public hostname for the admin portal.
+      - alert: EdgeWizarrAdminPathHit
+        expr: |
+          sum by (client) (count_over_time({host="kdk-dkr-dmz-01", container="traefik"}
+            | json | entryPointName="tunnel" | RequestHost="wizarr.kmkdp.com"
+            | RequestPath=~"^/(admin|api|login|logout|settings|setup|webauthn|activity|health)(/.*)?$"
+            | label_format client="{{ if .request_Cf_Connecting_Ip }}{{ .request_Cf_Connecting_Ip }}{{ else }}{{ .ClientHost }}{{ end }}" [10m])) > 0
         for: 0m
         labels:
           severity: warning
           source: loki
           scope: wizarr
         annotations:
-          summary: "Wizarr: more than 3 failed admin logins in 10m (behind Authelia, so the caller already passed SSO)"
+          summary: "Wizarr: admin path requested over the tunnel from {{ $labels.client }}"
           runbook: docs/runbooks/security-alerts.md#wizarr
 
       - alert: WizarrAdminMutation
