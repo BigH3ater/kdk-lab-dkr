@@ -189,29 +189,42 @@ fi
 
 caa=$(doh "$APEX" CAA)
 for ca in letsencrypt.org pki.goog; do
-  if grep -q "issue \"$ca\"" <<<"$caa" && grep -q "issuewild \"$ca\"" <<<"$caa"; then row PASS "CAA issue+issuewild $ca" "present"
+  # Cloudflare rewrites the CAA entries of its Universal SSL CAs into the form
+  # `issue "pki.goog; cansignhttpexchanges=yes"`, so match the CA with optional parameters.
+  if grep -Eq "issue \"$ca(;[^\"]*)?\"" <<<"$caa" && grep -Eq "issuewild \"$ca(;[^\"]*)?\"" <<<"$caa"; then row PASS "CAA issue+issuewild $ca" "present"
   else row FAIL "CAA issue+issuewild $ca" "${caa:+not both present}${caa:-no CAA records}"; fi
 done
 
 # --- 8. rate limit (last: it blocks this IP on the matched paths for 10 s) ---
 burst() { # host path label
-  local h=$1 p=$2 label=$3 hits=0 c i codes=""
+  # Fire 30 POSTs in parallel, wait for the edge counter to sync, then send 6
+  # more one by one: the tail must contain a 429. Sequential-only bursts never
+  # trip the rule on slow endpoints (Authelia hashes a bad password in ~1.2 s,
+  # so 12 sequential attempts span ~15 s and no 10-s window holds >10), and a
+  # parallel burst alone ends before the per-PoP counter syncs; 15 parallel was
+  # not enough on the Authelia path, 30 is (2026-10-29).
+  local h=$1 p=$2 label=$3 hits=0 c i codes="" body
   if [ -z "${EDGE[$h]}" ]; then row SKIP "$label" "no A record"; return; fi
-  for i in $(seq 1 12); do
-    c=$(code_of "$(req POST "$h" "$p" -H 'Content-Type: application/json' \
-          --data '{"Username":"edge-probe-nonexistent","Pw":"x","username":"edge-probe-nonexistent","password":"x"}')")
+  body='{"Username":"edge-probe-nonexistent","Pw":"x","username":"edge-probe-nonexistent","password":"x"}'
+  for i in $(seq 1 30); do
+    req POST "$h" "$p" -H 'Content-Type: application/json' --data "$body" >/dev/null 2>&1 &
+  done
+  wait
+  sleep 4
+  for i in $(seq 1 6); do
+    c=$(code_of "$(req POST "$h" "$p" -H 'Content-Type: application/json' --data "$body")")
     codes+="$c "
     [ "$c" = 429 ] && hits=$((hits+1))
   done
-  if [ $hits -gt 0 ]; then row PASS "$label" "$hits x 429 in 12 POSTs"
-  else row FAIL "$label" "no 429 in 12 POSTs: ${codes% }"; fi
+  if [ $hits -gt 0 ]; then row PASS "$label" "$hits x 429 in the 6-request tail after a 30-request burst"
+  else row FAIL "$label" "no 429 in the tail: ${codes% }"; fi
 }
 if [ "$RATELIMIT" = 1 ]; then
-  burst "$JF" /Users/AuthenticateByName "ratelimit 12x POST /Users/AuthenticateByName"
+  burst "$JF" /Users/AuthenticateByName "ratelimit burst+tail POST /Users/AuthenticateByName"
   sleep 11
-  burst "$JF" /users/authenticatebyname "ratelimit 12x POST /users/authenticatebyname (case)"
+  burst "$JF" /users/authenticatebyname "ratelimit burst+tail POST /users/authenticatebyname (case)"
   sleep 11
-  burst "$SSO" /api/firstfactor "ratelimit 12x POST $SSO/api/firstfactor"
+  burst "$SSO" /api/firstfactor "ratelimit burst+tail POST $SSO/api/firstfactor"
 else
   row SKIP "rate limit bursts" "--no-ratelimit"
 fi
