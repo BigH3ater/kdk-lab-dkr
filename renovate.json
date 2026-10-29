@@ -151,15 +151,14 @@
       "enabled": false
     },
     {
-      "description": "NUT digest refreshes: own PR, gated on the Dependency Dashboard.",
+      "description": "NUT digest refreshes: disabled entirely. A NUT recreate once shut down kdk-hyp-01; refresh the digest by hand, on a chosen day, with someone watching (docs/services/nut.md).",
       "matchPackageNames": [
         "instantlinux/nut-upsd"
       ],
       "matchUpdateTypes": [
         "digest"
       ],
-      "groupName": null,
-      "dependencyDashboardApproval": true
+      "enabled": false
     },
     {
       "description": "Immich database + cache: the tag follows Immich's own release compose (postgres 14-vectorchord, valkey 9); digest refreshes only, never a tag bump here.",
@@ -195,6 +194,25 @@
       "groupName": "github actions",
       "groupSlug": "github-actions",
       "dependencyDashboardApproval": false
+    },
+    {
+      "description": "postgres DB servers (identity, jellystat, tandoor): a major is a dump/restore, planned by hand (vault follow-up, pg 16 -> 18). No PR until the plan exists; minors/patches/digests still flow.",
+      "matchDatasources": [
+        "docker"
+      ],
+      "matchPackageNames": [
+        "postgres",
+        "docker.io/postgres"
+      ],
+      "matchFileNames": [
+        "stacks/identity/**",
+        "stacks/jellystat/**",
+        "stacks/tandoor/**"
+      ],
+      "matchUpdateTypes": [
+        "major"
+      ],
+      "enabled": false
     }
   ]
 }
