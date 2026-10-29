@@ -107,7 +107,7 @@ for p in /System/Configuration /system/CONFIGURATION /System/Configuration/encod
          /System/Logs /System/Restart /System/Shutdown /System/Info/Storage \
          /System/ActivityLog/Entries /ScheduledTasks /Plugins /Packages /Repositories \
          /Devices /Startup/Configuration /Environment/DefaultDirectoryBrowser /Auth/Keys \
-         /Library/VirtualFolders /Library/Refresh /Library/Media/Updated /Branding/Configuration \
+         /Library/VirtualFolders /Library/Refresh /Library/Media/Updated \
          /Backup /Users /Users/new "/Users/$ZERO/Policy" "/Users/$ZERO/Password" \
          "/Items/$ZERO/Refresh" "/Sessions/$ZERO/Command" "/Sessions/$ZERO/Message" \
          /LiveTv/TunerHosts; do
@@ -125,6 +125,7 @@ expect "$JF" "client GET /System/Info (needs a token)" GET /System/Info 401
 expect "$JF" "client GET /web/" GET /web/ '200|301|302'
 expect "$JF" "client GET /Items (no token)" GET /Items 401
 expect "$JF" "client GET /Branding/Css" GET /Branding/Css '!403'
+expect "$JF" "client GET /Branding/Configuration (login disclaimer, SSO button)" GET /Branding/Configuration '200'
 expect "$JF" "client GET /Items/<id>/Images/Primary (anon image)" GET "/Items/$ZERO/Images/Primary" '!403'
 expect "$JF" "client POST /QuickConnect/Initiate" POST /QuickConnect/Initiate '!403'
 expect "$JF" "client DELETE /Users/<id>/FavoriteItems/<id> (unfav)" DELETE "/Users/$ZERO/FavoriteItems/$ZERO" '!403'
