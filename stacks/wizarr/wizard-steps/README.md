@@ -48,9 +48,11 @@ a rebuild is an import instead of six pastes.
 
 Written for people who do not know what a server is: one idea per line, the exact
 address to type, which button to press, what they should see. No acronyms without
-the plain words next to them. Only the approved apps are listed (Neptune on iPhone/iPad,
+the plain words next to them. Only the approved apps are listed (Neptune on Apple TV/iPhone/iPad,
 the official Jellyfin app on Android and Roku, the browser with "Sign in with SSO");
 anything else is unsupported on purpose. Say "2FA" and "TOTP code", never
 "authenticator app" on its own: the readers do not know the term. Quick Connect is
-fine for these readers (the Apple TV add-account bug is tvOS-only, and guests have no
-Apple TV account here).
+fine on iPhone/iPad; on Apple TV the pages say username + password (Neptune's tvOS
+add-account via Quick Connect is broken as of 1.4.2, bug JyVW5M). The Apple section
+header uses the Apple logo glyph (U+F8FF): it renders on Apple devices and as a plain
+box elsewhere, which the owner accepted.

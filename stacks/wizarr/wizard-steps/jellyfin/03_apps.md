@@ -11,11 +11,12 @@ Use **only these apps**. They are the ones we support and have tested. In every 
 Signing in works two ways in the apps: **username and password**, or **Quick Connect** (the app shows a 6-digit code; you open https://jellyfin.kmkdp.com on another device where you are already signed in, go to your profile → Quick Connect, and type the code). Both are fine.
 
 |||
-### 🍎 iPhone and iPad
-**Neptune Media Player** from the App Store.
+###  Apple TV, iPhone and iPad
+**Neptune Media Player** from the App Store, on all three.
 
 1. Install Neptune, open it, choose **Add server** and type the address above.
-2. Sign in with your username and password, or use Quick Connect.
+2. **iPhone and iPad**: sign in with your username and password, or use Quick Connect.
+3. **Apple TV**: sign in with your username and password (type them with the Siri Remote or your iPhone's keyboard). Each person on a shared Apple TV adds their own account.
 
 [Neptune on the App Store](https://apps.apple.com/us/app/neptune-media-player/id6756797773){target=_blank}
 
