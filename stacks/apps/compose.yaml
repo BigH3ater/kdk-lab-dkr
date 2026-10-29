@@ -47,6 +47,13 @@ services:
     container_name: proton-bridge
     restart: unless-stopped
     ports: ["10.1.20.20:25:25/tcp"]
+    # The entrypoint never forwards SIGTERM to the bridge, so every stop is a
+    # SIGKILL after the grace period and the pid lock in the volume survives.
+    # In the next container that pid belongs to socat or cat, the bridge sees
+    # "another instance is already running" and exits 1 while socat keeps the
+    # container "Up" with nothing behind port 25 (2026-10-29 13:38Z/13:44Z).
+    # Clear the stale lock before handing over to the image's entrypoint.
+    entrypoint: ["bash", "-c", "unlink /root/.cache/protonmail/bridge-v3/bridge-v3.lock 2>/dev/null; exec bash /protonmail/entrypoint.sh \"$@\"", "--"]
     volumes:
       - /opt/kdk-lab/apps/proton-bridge:/root
     # Proton Bridge self-updates into updates/ inside the volume and the
