@@ -49,6 +49,13 @@ services:
     ports: ["10.1.20.20:25:25/tcp"]
     volumes:
       - /opt/kdk-lab/apps/proton-bridge:/root
+    # Proton Bridge self-updates into updates/ inside the volume and the
+    # launcher runs the newest copy at the next start; the image lacks the
+    # libraries those builds need (2026-10-29: 3.26.0 wanted libfido2.so.1 ->
+    # "Failed to launch", SMTP down from 04:27Z until the dir was moved aside).
+    # A tmpfs over updates/ makes every start use the image's own binary.
+    tmpfs:
+      - /root/.local/share/protonmail/bridge-v3/updates
 
   roborock:
     image: ghcr.io/python-roborock/local_roborock_server:1.2.1@sha256:0f3d0dd05f14315273df5622d43008b2665c24b2fed79277822d4c9184eab158
