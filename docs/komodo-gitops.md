@@ -101,7 +101,12 @@ itself. Keep those out of the file.
 ## Dependency updates (Renovate)
 
 Image versions are pinned to full tags in every `compose.yaml` and
-`Dockerfile`; nothing floats (`:latest`, `:stable`, `:3.20`). The Mend
+`Dockerfile`; nothing floats (`:latest`, `:stable`, `:3.20`) except four
+documented cases: `cturra/ntp:latest` (the image publishes no other tag;
+Renovate pins its digest), the Immich database and cache images
+(`ghcr.io/immich-app/postgres:14-vectorchord…`, `valkey:9`, both digest-pinned
+and copied from Immich's own release compose, tag bumps disabled), and the
+locally built `kdk/*:latest` images. The Mend
 Renovate GitHub App proposes the bumps; config is `renovate.json` at the repo
 root. Renovate never merges anything (`automerge: false`).
 
@@ -119,7 +124,11 @@ root. Renovate never merges anything (`automerge: false`).
 - **Minor** bumps: one PR per image (e.g. `renovate/python-3.x` covers every
   `python:` reference, compose and Dockerfile alike).
 - **Major** bumps (e.g. postgres 16 → 18, node-red 4 → 5) get no PR until you
-  tick the box next to them on the **Dependency Dashboard** issue.
+  tick the box next to them on the **Dependency Dashboard** issue. Two
+  exceptions need no tick: the `postgres` image in `backup-*` stacks (it is only
+  the `pg_dump` client; a newer client dumps an older server) and GitHub
+  Actions majors (CI only). `python` base images are capped at `<3.14` until a
+  test build proves the pinned packages have wheels for the newer release.
 - Auth/edge images (authelia, lldap, traefik, cloudflared) also get the
   `identity` label.
 - `docker:pinDigests` is on: the first run (and every digest refresh after it)
