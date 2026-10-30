@@ -1638,11 +1638,11 @@ executions = [
 # destroy_before_deploy = a fresh locked down+up each run), on kdk-log-01:
 #   cloudflare-watch         hourly  -> tunnel/SSL/zone-settings/firewall-events
 #   cloudflare-watch-weekly  Monday  -> rule + DNS sha drift (--weekly via env)
-# Each prints JSON lines to stdout; the host Alloy ships them to Loki
-# ({container="cloudflare-watch"} / {container="cloudflare-watch-weekly"}) and
-# stacks/loki/rules/cloudflare.yml pages. CFWATCH_SUFFIX keeps the two
-# container names distinct (two one-shots can't share a name on one host).
-# run_build = true (kdk/cloudflare-watch:latest, local Dockerfile). pre_deploy:
+# Each prints JSON lines to stdout and pushes them to Loki directly (LOKI_URL;
+# {job="cloudflare-watch", container="cloudflare-watch"/"cloudflare-watch-weekly"})
+# -- a one-shot exits before Alloy can scrape it -- and cloudflare.yml pages.
+# CFWATCH_SUFFIX keeps the two container names distinct (two one-shots can't
+# share a name on one host). Pinned python image (no local build). pre_deploy:
 # kdk-log-01 has no op.env, so .env (CF_API_TOKEN) renders only where op.env
 # exists; otherwise the token comes from /etc/kdk/cloudflare-watch.env (host).
 [[stack]]
@@ -1654,7 +1654,8 @@ server = "kdk-log-01"
 repo = "BigH3ater/kdk-lab-dkr"
 run_directory = "stacks/cloudflare-watch"
 destroy_before_deploy = true   # one locked down+up so the one-shot re-runs
-pre_deploy.command = "sh -c 'if [ -r /etc/komodo/op.env ]; then . /etc/komodo/op.env && op inject -f -i .env.tpl -o .env; else : > .env; fi'"
+# Append op-rendered vars; never clobber .env (see the weekly stack below).
+pre_deploy.command = "sh -c 'if [ -r /etc/komodo/op.env ]; then . /etc/komodo/op.env && op inject -f -i .env.tpl -o .env.op && cat .env.op >> .env; fi'"
 
 [[stack]]
 tags = ["kdk-lab"]
@@ -1666,7 +1667,12 @@ repo = "BigH3ater/kdk-lab-dkr"
 run_directory = "stacks/cloudflare-watch"
 destroy_before_deploy = true   # one locked down+up so the one-shot re-runs
 environment = "CFWATCH_MODE=weekly\nCFWATCH_SUFFIX=-weekly"
-pre_deploy.command = "sh -c 'if [ -r /etc/komodo/op.env ]; then . /etc/komodo/op.env && op inject -f -i .env.tpl -o .env; else : > .env; fi'"
+# Append op-rendered vars; never clobber .env. Komodo's Write-Environment stage
+# writes `environment` (CFWATCH_SUFFIX) to .env BEFORE pre_deploy, so overwriting
+# it here dropped the suffix and the weekly run reused the hourly container name
+# (Conflict: "/cloudflare-watch" already in use). No else branch: on kdk-log-01
+# (no op.env) .env is left exactly as Komodo wrote it.
+pre_deploy.command = "sh -c 'if [ -r /etc/komodo/op.env ]; then . /etc/komodo/op.env && op inject -f -i .env.tpl -o .env.op && cat .env.op >> .env; fi'"
 
 [[procedure]]
 tags = ["kdk-lab"]

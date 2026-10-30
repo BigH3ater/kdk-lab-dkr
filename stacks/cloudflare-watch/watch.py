@@ -1,9 +1,13 @@
 #!/usr/bin/env python3
 """Read-only Cloudflare edge watch for the kmkdp.com zone.
 
-Emits one JSON line per check to stdout. The host Alloy (observability-agent)
-ships this container's stdout to Loki as {container="cloudflare-watch"}; the
-Loki ruler (stacks/loki/rules/cloudflare.yml) pages through Alertmanager.
+Emits one JSON line per check to stdout AND pushes the same lines to Loki
+directly (LOKI_URL), labelled {job="cloudflare-watch", container="cloudflare-
+watch"|"cloudflare-watch-weekly", host=NODE_NAME}. The direct push is needed
+because this is a one-shot that exits in seconds, so the host Alloy's
+discovery.docker (running containers only) never scrapes it. The Loki ruler
+(stacks/loki/rules/cloudflare.yml) pages through Alertmanager. A push failure
+is logged to stderr and never changes the exit code.
 
 Two run modes, one per schedule:
   (default)   hourly checks: tunnel health, Universal SSL expiry, zone-setting
@@ -27,6 +31,7 @@ import json
 import os
 import re
 import sys
+import time
 import urllib.error
 import urllib.request
 from datetime import datetime, timezone
@@ -37,6 +42,12 @@ GRAPHQL = "https://api.cloudflare.com/client/v4/graphql"
 TOKEN = os.environ.get("CF_API_TOKEN", "").strip()
 ZONE_NAME = os.environ.get("CF_ZONE", "kmkdp.com").strip()
 STATE_PATH = os.environ.get("STATE", "/state/state.json")
+# Direct Loki push: this is a one-shot that exits in seconds, so Alloy's
+# discovery.docker (running containers only) never sees it. Every emitted line
+# is also pushed to Loki so {container="cloudflare-watch(-weekly)"} exists for
+# stacks/loki/rules/cloudflare.yml. Empty LOKI_URL disables the push.
+LOKI_URL = os.environ.get("LOKI_URL", "http://10.1.20.21:3100").strip()
+NODE_NAME = os.environ.get("NODE_NAME", "kdk-log-01").strip()
 # Hostnames whose proxied CNAMEs ride the tunnel; used by the probe fallback.
 TUNNEL_HOSTS = [h.strip() for h in os.environ.get(
     "TUNNEL_HOSTS", "sso.kmkdp.com,jellyfin.kmkdp.com").split(",") if h.strip()]
@@ -58,6 +69,13 @@ HSTS_MIN_MAX_AGE = 15552000
 WARN_CERT_DAYS = 14
 
 
+_LINES: list[str] = []   # every emitted JSON line, for the Loki push at the end
+
+
+def log(msg: str) -> None:
+    print(msg, file=sys.stderr, flush=True)
+
+
 def now_iso() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
@@ -66,7 +84,30 @@ def emit(check: str, status: str, mode: str, **fields) -> None:
     line = {"check": check, "status": status, "ts": now_iso(),
             "mode": mode, "zone": ZONE_NAME}
     line.update(fields)
-    print(json.dumps(line, sort_keys=True, separators=(",", ":")), flush=True)
+    text = json.dumps(line, sort_keys=True, separators=(",", ":"))
+    print(text, flush=True)
+    _LINES.append(text)
+
+
+def loki_push(url: str, container: str, lines: list[str]) -> None:
+    """Push the exact stdout lines to Loki with labels the rules select on.
+    Raises on failure; the caller logs it and never fails the run."""
+    base = time.time_ns()
+    body = {"streams": [{
+        "stream": {"job": "cloudflare-watch", "container": container, "host": NODE_NAME},
+        "values": [[str(base + i), ln] for i, ln in enumerate(lines)],
+    }]}
+    req = urllib.request.Request(
+        url.rstrip("/") + "/loki/api/v1/push", data=json.dumps(body).encode(),
+        headers={"Content-Type": "application/json"}, method="POST")
+    for attempt in range(3):
+        try:
+            urllib.request.urlopen(req, timeout=10).read()
+            return
+        except Exception:  # noqa: BLE001
+            if attempt == 2:
+                raise
+            time.sleep(3)
 
 
 class CFError(Exception):
@@ -408,6 +449,19 @@ def main() -> int:
             emit(name, "fail", mode, error=str(e), status_code=e.status_code)
         except Exception as e:  # noqa: BLE001
             emit(name, "fail", mode, error=f"{type(e).__name__}: {e}")
+
+    # Ship the lines to Loki. The container label matches the compose
+    # container_name (CFWATCH_SUFFIX) so cloudflare.yml selects them unchanged.
+    # A push failure is logged to stderr and never changes the exit code.
+    if LOKI_URL and _LINES:
+        container = "cloudflare-watch" + ("-weekly" if mode == "weekly" else "")
+        try:
+            loki_push(LOKI_URL, container, _LINES)
+        except Exception as e:  # noqa: BLE001
+            log(f'level=warn msg="loki push failed" container={container} '
+                f'lines={len(_LINES)} err="{type(e).__name__}: {e}"')
+    elif not LOKI_URL:
+        log("level=warn msg=\"loki push skipped: LOKI_URL unset\"")
     return 0
 
 

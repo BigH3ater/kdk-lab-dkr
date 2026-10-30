@@ -6,10 +6,12 @@
 #                                       container "cloudflare-watch-weekly"
 # Two one-shots on one host cannot share a container_name (the first run's
 # exited container keeps the name), so the weekly stack sets CFWATCH_SUFFIX via
-# its Komodo `environment`; both names are relabelled 1:1 by Alloy to
-# {container=...}. watch.py (stdlib only) emits one JSON line per check to
-# stdout; the host Alloy ships it to Loki, and stacks/loki/rules/cloudflare.yml
-# pages via Alertmanager. No web UI, no inbound port.
+# its Komodo `environment`. watch.py (stdlib only) emits one JSON line per check
+# to stdout AND pushes the same lines to Loki directly (LOKI_URL), labelled
+# {job="cloudflare-watch", container="cloudflare-watch(-weekly)", host=...} --
+# a one-shot exits in seconds, so Alloy's discovery.docker (running containers
+# only) never scrapes it. stacks/loki/rules/cloudflare.yml pages via
+# Alertmanager. No web UI, no inbound port.
 #
 # Token: op://kdk-cluster/cloudflare-monitor-ro/credential (Zone/DNS/Firewall/
 # SSL/Analytics Read, zone-scoped). kdk-log-01 has no op CLI/op.env, so .env is
@@ -51,6 +53,8 @@ services:
       CF_ZONE: "${CF_ZONE:-kmkdp.com}"
       CFWATCH_MODE: "${CFWATCH_MODE:-}"   # empty = hourly; "weekly" on the weekly stack
       STATE: /state/state.json
+      LOKI_URL: "${LOKI_URL:-http://10.1.20.21:3100}"   # direct push target
+      NODE_NAME: "${NODE_NAME:-kdk-log-01}"             # host label on the Loki stream
       PYTHONUNBUFFERED: "1"
     volumes:
       - ./watch.py:/watch.py:ro
