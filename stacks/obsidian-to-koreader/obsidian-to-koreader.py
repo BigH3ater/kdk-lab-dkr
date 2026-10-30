@@ -130,11 +130,32 @@ def _mermaid_td(src):
         out.append(ln)
     return "\n".join(out)
 
+# WeasyPrint cannot draw HTML inside SVG <foreignObject>, which is how Mermaid renders
+# labels by default, so every label came out blank (2026-10-30). This init directive
+# makes Mermaid emit plain SVG <text> labels, and the neutral theme renders in clean
+# greys on e-ink. Prepended to every diagram before it goes to Kroki.
+MERMAID_INIT = os.environ.get("MERMAID_INIT",
+    '%%{init: {"theme": "neutral", "htmlLabels": false, "flowchart": {"htmlLabels": false}}}%%')
+
+def _mermaid_for_pdf(src):
+    """Orientation rewrite (_mermaid_td) plus the PDF-safe init directive."""
+    src2=_mermaid_td(src)
+    if not MERMAID_INIT:
+        return src2
+    # Mermaid YAML front matter (--- ... ---) must stay on the first line: put the
+    # directive right after it instead of in front of it.
+    lines=src2.splitlines()
+    if lines and lines[0].strip()=="---":
+        for i in range(1,len(lines)):
+            if lines[i].strip()=="---":
+                return "\n".join(lines[:i+1]+[MERMAID_INIT]+lines[i+1:])
+    return MERMAID_INIT+"\n"+src2
+
 def _render_mermaid(src):
     """POST a Mermaid diagram to Kroki and return an ![](svg) image reference, or fall
     back to the diagram source (fenced, with a one-line note) if Kroki errors. Never
     raises -- a bad diagram must not fail the whole note."""
-    src2=_mermaid_td(src)
+    src2=_mermaid_for_pdf(src)
     try:
         d=BUILD/"mermaid"; d.mkdir(parents=True, exist_ok=True)
         sha=hashlib.sha256(src2.encode("utf-8")).hexdigest()[:16]

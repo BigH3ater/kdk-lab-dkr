@@ -158,6 +158,22 @@ def test_mermaid_rewrite():
     return failures
 
 
+def test_mermaid_pdf_init():
+    """Every diagram sent to Kroki carries the init directive that turns HTML labels off
+    (WeasyPrint renders <foreignObject> labels blank) on top of the LR->TD rewrite."""
+    print("\n== test 4: Mermaid PDF-safe init directive ==")
+    with tempfile.TemporaryDirectory() as d:
+        vault, state = _mkvault(d)
+        m = load_module(vault, state)
+        out = m._mermaid_for_pdf("flowchart LR\n  A --> B")
+        fm = m._mermaid_for_pdf("---\ntitle: x\n---\nflowchart LR\n  A --> B")
+    first, rest = out.split("\n", 1)
+    ok = first.startswith("%%{init:") and '"htmlLabels": false' in first and rest.startswith("flowchart TD")
+    fl = fm.splitlines()
+    ok = ok and fl[0] == "---" and fl[2] == "---" and fl[3].startswith("%%{init:") and fl[4] == "flowchart TD"
+    print("  ", repr(out[:110]), " ok=", ok)
+    return 0 if ok else 1
+
 def test_mermaid_fallback():
     print("\n== test 4: Mermaid fallback when Kroki is unreachable ==")
     failures = 0
@@ -181,7 +197,7 @@ def test_mermaid_fallback():
 
 def main():
     failures = (test_image_encoding() + test_hierarchy()
-                + test_mermaid_rewrite() + test_mermaid_fallback())
+                + test_mermaid_rewrite() + test_mermaid_pdf_init() + test_mermaid_fallback())
     if failures:
         print(f"\nSELFTEST FAILED: {failures} case(s)")
         sys.exit(1)
