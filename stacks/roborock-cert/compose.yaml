@@ -48,6 +48,11 @@ services:
       - "--domains=api-slave.kmkdp.com"
       - "--path=/data"
       - "--renew-days=30"
+      # Propagation checks must bypass the lab resolver: AdGuard rewrites *.kmkdp.com
+      # (incl. _acme-challenge.api-slave) to 10.1.20.20 and never returns the TXT, so
+      # the recursive check timed out on the first run (2026-10-30). Ask Cloudflare.
+      - "--dns.resolvers=1.1.1.1:53"
+      - "--dns.resolvers=1.0.0.1:53"
       - "--deploy-hook=sh /hook.sh"
     volumes:
       - /opt/kdk-lab/apps/roborock/lego:/data   # ACME account + issued cert state (root). NOT /lego: that is the lego binary in the image (first run 2026-10-30 failed: mount dir onto file)
