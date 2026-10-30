@@ -70,5 +70,7 @@ jobs:
       - uses: actions/setup-python@v7
         with:
           python-version: "3.13"
+      - name: Install PyYAML
+        run: python -m pip install pyyaml
       - name: cloud-init copies match hosts/
         run: python scripts/check-host-files-sync.py
