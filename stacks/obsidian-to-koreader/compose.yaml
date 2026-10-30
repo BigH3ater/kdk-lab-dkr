@@ -24,6 +24,7 @@ services:
       RM_HOST_LAN: "10.1.30.245"          # VLAN 30, DHCP-reserved
       RM_USER: root
       PANDOC_ENGINE: weasyprint           # Phase 1 renderer decision (bake-off in README)
+      PDF_PAGE_SIZE: "180mm 240mm"        # Paper Pro screen (1620x2160 @ ~229ppi); not A4
       QUEUE_SUBDIR: _remarkable           # vault folder holding queue/ + done/ for the plugin
       MAX_PDF_MB: "40"                    # per-PDF size guard
     entrypoint: ["/bin/sh","-c",". /pushover.env 2>/dev/null; exec python /app/obsidian-to-koreader.py"]
