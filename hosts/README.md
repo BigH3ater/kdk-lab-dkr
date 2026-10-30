@@ -20,6 +20,8 @@ onto the host. The two VM cloud-init files carry the same files so a rebuild get
 | `<host>/kdk-docker-user.conf` | `/etc/default/kdk-docker-user` | dkr-01, dmz-01 |
 | `_common/systemd/kdk-docker-user.{service,timer}` | `/etc/systemd/system/` | dkr-01, dmz-01 |
 | `kdk-dkr-03/kdk-ups-l2.nmconnection` | NetworkManager (see `docs/hosts/kdk-dkr-03.md`) | dkr-03 |
+| `kdk-hyp-01/kdk-template-backup.sh` | `/usr/local/sbin/kdk-template-backup.sh` (0755) | hyp-01 (PVE host, not a Docker host) |
+| `kdk-hyp-01/kdk-template-backup.cron` | `/etc/cron.d/kdk-template-backup` | hyp-01 |
 
 All files are `root:root 0644` unless noted. References: `docs/reference/docker-daemon.md`
 (daemon.json), `docs/runbooks/host-firewall.md` (storage fence + DOCKER-USER).

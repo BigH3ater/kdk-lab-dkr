@@ -75,17 +75,34 @@ Creds from `/etc/kdk/pushover.env` (already on every host).
 
 The base VM template is **VM 9000** (`debian13-cloudinit`; VMs are built with
 `qm clone 9000` + `--cicustom`). Because it isn't reconstructable from Git, it
-belongs offsite.
+belongs offsite. PBS (`kdk-pbs-01`) also backs it up nightly, but PBS is on-site.
 
-**Automated.** kdk-hyp-01 mounts the same `tankz3/backup` dataset at
-`/mnt/pve/backups` (== dkr-01's `/mnt/backup`), so a monthly cron dumps VM 9000
-straight into the offsite tree and the `offsite` stage ships it:
+**Automated, from the PVE host.** A monthly cron on kdk-hyp-01 dumps VM 9000
+straight into the shared backup tree (`tankz3/backup`, == dkr-01's
+`/mnt/backup`) and the `offsite` stage ships it:
 
-- `/usr/local/sbin/kdk-template-backup.sh` on kdk-hyp-01 —
-  `vzdump 9000 --mode stop --compress zstd --dumpdir /mnt/pve/backups/dkr/pve-templates`,
-  keeps the newest 2 dumps.
-- `/etc/cron.d/kdk-template-backup` — `0 4 1 * *` (1st of the month, 04:00).
+- `hosts/kdk-hyp-01/kdk-template-backup.sh` → `/usr/local/sbin/kdk-template-backup.sh`:
+  mounts `172.16.30.2:/mnt/tankz3/backup` on `/mnt/pve/backups` **on demand over
+  the storage network** (NFSv4.1, `soft`, 60 s mount timeout), refuses to run if
+  `dkr/pve-templates/` is not there (so it can never fill the local disk), then
+  `vzdump 9000 --mode stop --compress zstd --dumpdir /mnt/pve/backups/dkr/pve-templates`
+  under a 30 min `timeout`, keeps the newest 2 dumps, and unmounts. `flock` keeps
+  runs from overlapping.
+- `hosts/kdk-hyp-01/kdk-template-backup.cron` → `/etc/cron.d/kdk-template-backup`,
+  `0 4 1 * *` (1st of the month, 04:00), log `/var/log/kdk-template-backup.log`.
 
 This is the one backup component that lives on the PVE host, not in Komodo (PVE
-host config isn't a Komodo periphery). A dump is ~283 MB (template disk is 95%
-sparse). `backup-verify` warns if no dump is < 40 days old.
+host config isn't a Komodo periphery), so it is applied by hand from `hosts/`
+(see `hosts/README.md`). A dump is ~283 MB (template disk is 95% sparse).
+`backup-verify` warns if no dump is < 40 days old.
+
+Why on demand: hyp-01 used to carry a permanent hard NFS mount of the NAS's old
+address (`10.1.1.110`). After the storage network was renumbered to
+`172.16.30.0/24` that mount went stale, the 2026-10-01 run hung on it for 25 days
+(until the 10-26 reboot) and no offsite dump existed after 2026-09-14. A soft,
+on-demand mount fails loudly instead.
+
+Run it by hand (after an install, or to check): `sudo /usr/local/sbin/kdk-template-backup.sh`,
+then `sudo ls -la /mnt/backup/dkr/pve-templates/` on dkr-01 shows today's
+`vzdump-qemu-9000-*.vma.zst`.
+
