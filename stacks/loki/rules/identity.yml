@@ -11,7 +11,7 @@ groups:
     rules:
       # Failed first factor / TOTP / WebAuthn (Authelia prefixes them "Unsuccessful").
       # Authelia's JSON log carries no user-agent, so the lab's edge probe (UA
-      # kdk-edge-probe/1, source 160.32.56.178) cannot be excluded by UA here.
+      # kdk-edge-probe/1, from the lab's public address) cannot be excluded by UA here.
       # The probe POSTs /api/firstfactor with no credentials, which Authelia logs
       # as `Unsuccessful 1FA authentication attempt by user ''` (empty user) — the
       # only thing that tripped this in 7d. Dropping the empty-user attempts keeps

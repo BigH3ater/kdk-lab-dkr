@@ -60,8 +60,8 @@ Loki ruler rules live in `stacks/loki/rules/*.yml` (only `.yml` files there: the
 |---|---|---|---|---|
 | `EdgeNonUSTraffic` | `edge.yml` | warning | Non-US request reached the origin through the tunnel (…): the Cloudflare geo rule or a skip rule has a gap | [edge](../runbooks/security-alerts.md#edge) |
 | `EdgeAuthFailureBurst` | `edge.yml` | warning | More than 60 401/403 per 5m from tunnel traffic for 5m (credential stuffing or a scanner) | [edge](../runbooks/security-alerts.md#edge) |
-| `EdgeJellyfinAdminPathHit` | `edge.yml` | critical | A Jellyfin admin path answered 2xx through the tunnel: the Cloudflare WAF block rule was bypassed or is missing | [edge](../runbooks/security-alerts.md#edge) |
-| `EdgeJellyfinAdminPathProbe` | `edge.yml` | info | A Jellyfin admin path was probed (and rejected) through the tunnel by a non-lab client | [edge](../runbooks/security-alerts.md#edge) |
+| `EdgeJellyfinAdminPathHit` | `edge.yml` | critical | A Jellyfin admin path reached the origin through the tunnel: the Cloudflare WAF block rule was bypassed or is missing | [edge](../runbooks/security-alerts.md#edge) |
+| `EdgeJellyfinAdminPathProbe` | `edge.yml` | warning | The lab's edge probe reached a Jellyfin admin path through the tunnel: the Cloudflare block rule is missing that path | [edge](../runbooks/security-alerts.md#edge) |
 | `EdgeSpoofedCfHeaders` | `edge.yml` | warning | Cf-Connecting-Ip seen on the LAN entrypoint (websecure): the strip-cf middleware is not applied there | [edge](../runbooks/security-alerts.md#edge) |
 | `CloudflaredOutdated` | `edge.yml` | info | cloudflared reports a newer release: bump the pinned tag in stacks/dmz-proxy (or merge the Renovate PR) | [edge](../runbooks/security-alerts.md#edge) |
 | `CloudflaredEdgeFlapping` | `edge.yml` | warning | cloudflared lost its edge connection more than 4 times in 30m (WAN/ISP or Cloudflare side) | [edge](../runbooks/security-alerts.md#edge) |
