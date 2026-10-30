@@ -49,8 +49,9 @@ services:
     labels:
       traefik.enable: "true"
       # More specific than the Homepage router -> wins for /guides/*. StripPrefix so
-      # nginx sees /index.html etc. Guide pages use RELATIVE links so they resolve
-      # back under /guides/ after the strip.
+      # nginx sees /index.html etc. Guide pages use relative links + <base href="/guides/">
+      # so assets/links resolve back under /guides/ after the strip -- even if the browser
+      # lands on /guides without the trailing slash (StripPrefix does not add one).
       traefik.http.routers.guides.rule: "Host(`home.kmkdp.com`) && PathPrefix(`/guides`)"
       traefik.http.routers.guides.priority: "10"
       traefik.http.routers.guides.middlewares: "forwardauth@file,guides-strip"

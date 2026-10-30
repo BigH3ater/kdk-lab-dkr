@@ -61,7 +61,7 @@ ratings remain available by opening the recipe page (each meal deep-links there)
 | Path / setting | What it is |
 |---|---|
 | `stacks/dashboard/config/*.yaml` | Homepage services/bookmarks/widgets/settings (git-tracked) |
-| `stacks/dashboard/guides/*.html` | Family how-to pages (relative links; served under `/guides`) |
+| `stacks/dashboard/guides/*.html` | Family how-to pages (served under `/guides`; each sets `<base href="/guides/">` so relative links survive the StripPrefix; `nav.js` = guides sidebar) |
 | `stacks/dashboard/mealplan/app.py` | Tandoor session read + rating write-back |
 | `stacks/dashboard/.env.tpl` | op refs (Vikunja JWT, widget API keys, Tandoor creds, ICS URL) |
 
