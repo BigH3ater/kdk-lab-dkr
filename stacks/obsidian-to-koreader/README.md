@@ -68,6 +68,11 @@ Pushover on failure. `RM_PW` is op-injected (`op://kdk-cluster/remarkable-device
   built without that user. Verify with
   `docker run --rm --user 1000:1000 --entrypoint sh kdk/obsidian-to-koreader:latest -c 'id; ssh -o BatchMode=yes -o ConnectTimeout=3 root@127.0.0.1 true'`
   — `id` must resolve to `app` and ssh must give a *connection* error, not "No user exists".
+- **A request fails with `pandoc failed: pandoc: .: openTempFile: permission denied`.**
+  pandoc writes its temp files in the current working directory; unprivileged (uid 1000) that
+  would be the root-owned image WORKDIR. `render_pdf()` runs pandoc with `cwd=/state/build`
+  (writable) and `TMPDIR=/tmp`, and the image sets `WORKDIR /tmp`. If you see this, the image
+  predates that fix or `/state` is not owned by 1000 (pre_deploy chowns it).
 
 ## Renderer: WeasyPrint (Phase 1 decision)
 

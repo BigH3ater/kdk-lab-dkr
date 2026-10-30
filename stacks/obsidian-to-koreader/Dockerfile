@@ -16,7 +16,9 @@ RUN groupadd -g 1000 app \
 # pydyf -> 'super' object has no attribute 'transform'). These versions were resolved
 # together from an unpinned install and verified rendering all vault sections.
 RUN pip install --no-cache-dir weasyprint==70.0 pydyf==0.12.1
-WORKDIR /app
 COPY obsidian-to-koreader.py /app/obsidian-to-koreader.py
+# Default CWD = /tmp (writable by the unprivileged uid 1000) so any tool that writes scratch
+# in the CWD does not hit the root-owned /app. render_pdf also passes cwd=/state/build.
+WORKDIR /tmp
 ENV PYTHONUNBUFFERED=1 HOME=/tmp
 ENTRYPOINT ["python","/app/obsidian-to-koreader.py"]
