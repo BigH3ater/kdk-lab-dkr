@@ -348,6 +348,11 @@ after = ["dmz-proxy"]
 server = "kdk-dkr-dmz-01"
 repo = "BigH3ater/kdk-lab-dkr"
 run_directory = "stacks/audiobookshelf"
+# uid 1000 == kdkadmin; the compose runs ABS as 1000:1000 under a read_only
+# rootfs, but config + metadata are owned root:root. Periphery runs pre_deploy
+# as root on the host, so chown them here (idempotent; metadata is ~4 MB) ahead
+# of the first hardened deploy. The podcasts NFS dir is already 1000:1000.
+pre_deploy.command = "sh -c 'chown -R 1000:1000 /opt/kdk-lab/audiobookshelf/config /opt/kdk-lab/audiobookshelf/metadata'"
 webhook_enabled = true
 
 # Wizarr on the DMZ: Jellyfin invite manager, internet-facing via the Cloudflare

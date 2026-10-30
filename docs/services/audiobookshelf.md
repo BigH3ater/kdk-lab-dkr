@@ -23,7 +23,7 @@ Audiobook + podcast server on the DMZ node; LAN/Tailscale only — its router is
 | Purpose | Audiobooks (Chaptarr-managed, read-only) and podcasts (RSS auto-download) |
 | Host | [[kdk-dkr-dmz-01]] |
 | Endpoint | `https://audiobookshelf.kmkdp.com` (native `/audiobookshelf` base path) |
-| Image | `ghcr.io/advplyr/audiobookshelf` (pinned in `stacks/audiobookshelf/compose.yaml`) |
+| Image | `ghcr.io/advplyr/audiobookshelf:2.37.2` (digest-pinned in `stacks/audiobookshelf/compose.yaml`) |
 | Deploy | Komodo stack `audiobookshelf` (git-linked) |
 | Storage | config + metadata (SQLite DB) local in `/opt/kdk-lab/audiobookshelf`; audiobooks RO from `/mnt/media/books/audiobook`; podcasts rw on NFS `/mnt/appdata/audiobookshelf/podcasts` |
 | Blast radius | No audiobook/podcast streaming; progress sync pauses |
@@ -40,6 +40,7 @@ ssh kdkadmin@192.168.191.20 'ls /mnt/appdata/audiobookshelf/podcasts | head'    
 | Symptom | Cause | Fix |
 |---|---|---|
 | New podcast episodes fail to download | `/mnt/appdata` NFS not mounted or not writable by the container user | `findmnt /mnt/appdata`; NAS dir is `1000:1000` (works as root today and as uid 1000 after hardening) |
+| New Chaptarr audiobooks never appear in the library | the library watcher does not fire for writes made on the NFS **server** (Chaptarr writes `/data/media/books/audiobook` on kdk-dkr-01 → the same `tankz3/media` dataset ABS mounts read-only); inotify events are not delivered to dmz-01, and the `audiobooks` library has no scheduled scan (`autoScanCronExpression` unset) | set a scan schedule on the library (Settings → Libraries → audiobooks → Schedule automatic scans) or trigger a manual scan / `POST /api/libraries/<id>/scan` after an import; a server restart also re-scans |
 | Client assets 404 at the bare domain | base path changed | keep `ROUTER_BASE_PATH=/audiobookshelf` (see compose comment) |
 
 ## Configuration

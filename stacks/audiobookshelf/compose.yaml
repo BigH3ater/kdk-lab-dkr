@@ -6,16 +6,41 @@
 # podcasts, tankz3) because ABS must WRITE them (RSS auto-download), the DMZ media
 # mount is read-only, and the 59 GB root disk was filling up (7.5 GB of episodes,
 # moved 2026-10-28). config + metadata (the SQLite DB) stay on local disk. Official upstream
-# image (runs as root, listens on :80). dns-reconcile points
+# image (listens on :80). dns-reconcile points
 # audiobookshelf.kmkdp.com at the DMZ Traefik (192.168.191.20) from the Host label.
 name: audiobookshelf
+
+# Baseline for every service (docs/reference/compose-baseline.md). The service
+# merges it with `<<: *hardened` and overrides only what it needs.
+x-hardened: &hardened
+  security_opt: ["no-new-privileges:true"]
+  cap_drop: [ALL]
+  read_only: true
+  tmpfs: [/tmp]
+  restart: unless-stopped
+  pids_limit: 256
+  mem_limit: 1g
+  logging:
+    driver: json-file
+    options: { max-size: "10m", max-file: "3" }
+
 services:
   audiobookshelf:
+    <<: *hardened
     image: ghcr.io/advplyr/audiobookshelf:2.37.2@sha256:b897c33f05972fb1bf484f7487bc878fa91ec8691335c1db6e2929c3a7658efa
     container_name: audiobookshelf
-    restart: unless-stopped
+    # The image runs as root but does not need to. uid 1000 == kdkadmin on the
+    # host, which already owns the rw podcasts NFS dir (/mnt/appdata/audiobookshelf/
+    # podcasts, kdkadmin:kdkadmin). REQUIRED host pre-step before this deploys:
+    #   sudo chown -R 1000:1000 /opt/kdk-lab/audiobookshelf/{config,metadata}
+    # (they are root:root today; without the chown uid 1000 cannot write the DB).
+    user: "1000:1000"
     environment:
       TZ: America/Chicago
+      # Give node/ffmpeg a writable HOME under the read_only rootfs. /tmp is the
+      # tmpfs mounted below, so any cache written to $HOME stays in RAM and does
+      # not need a rootfs write.
+      HOME: /tmp
       # ABS is HARD-BUILT for the /audiobookshelf base path: index.js defaults
       # ROUTER_BASE_PATH to '/audiobookshelf' and the client assets are baked with
       # that prefix (base href + all /_nuxt, /api, icon URLs) with NO runtime
@@ -30,6 +55,14 @@ services:
       - /opt/kdk-lab/audiobookshelf/metadata:/metadata
       - /mnt/media/books/audiobook:/audiobooks:ro   # Chaptarr-managed, read-only
       - /mnt/appdata/audiobookshelf/podcasts:/podcasts   # rw NFS (media NFS is ro); ABS writes here
+    healthcheck:
+      # /healthcheck answers 200 at container root even with ROUTER_BASE_PATH set
+      # (request-prefix middleware); wget ships in the image.
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/healthcheck"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
     networks: [proxy-dmz]
     labels:
       traefik.enable: "true"
