@@ -1,7 +1,8 @@
 #!/bin/sh
 # Tdarr transcode/health validation + alerting. Runs hourly (tdarr-verify
 # procedure) on kdk-dkr-01 and pages Pushover on:
-#   * DEE wrapper down (kdk-dee-01:8484 /healthz) -- dependency for all
+#   * DEE wrapper down (kdk-dee-01/-02:8484 /healthz; both single-slot wrappers
+#     behind dee-lb are probed) -- dependency for all
 #     lossless-audio (DTS-HD MA / TrueHD) transcodes; its 2026-09-11 outage
 #     silently failed ~78 files. Correlated: if transcode errors are ALSO rising
 #     while DEE is down, the alert names that exact scenario.
@@ -27,7 +28,8 @@
 # spam). Baselines persist in /kdk/tdarr-verify.count as "te=.. he=.. iso=..".
 apk add --no-cache curl jq >/dev/null 2>&1 || true
 . /kdk/pushover.env
-DEE="http://10.1.1.130:8484/healthz"
+DEE1="http://10.1.1.130:8484/healthz"   # kdk-dee-01
+DEE2="http://10.1.1.131:8484/healthz"   # kdk-dee-02
 TDARR="http://localhost:8266"
 STATE=/kdk/tdarr-verify.count
 THRESH=${TDARR_ERR_THRESHOLD:-1}
@@ -37,18 +39,26 @@ LAST=/tmp/last-run; if [ -f "$STATE" ]; then touch -r "$STATE" "$LAST"; else tou
 add_prob() { PROB="$PROB\n- $1"; }
 add_warn() { WARN="$WARN\n- $1"; }
 
-# 1. DEE wrapper health
-dee=$(curl -s -m 10 -w '\n%{http_code}' "$DEE" 2>/dev/null)
-deecode=$(printf '%s' "$dee" | tail -1)
-deebody=$(printf '%s' "$dee" | sed '$d')
-DEE_DOWN=0
-if [ "$deecode" != "200" ]; then
-  DEE_DOWN=1; add_prob "DEE wrapper DOWN (kdk-dee-01:8484 /healthz http=$deecode) -- restart the dee-wrapper task on kdk-dee-01"
-elif ! printf '%s' "$deebody" | grep -q '"status":"ok"'; then
-  DEE_DOWN=1; add_prob "DEE wrapper unhealthy: $deebody"
-elif printf '%s' "$deebody" | grep -q '"exchange_reachable":false'; then
-  DEE_DOWN=1; add_prob "DEE dee-exchange share unreachable: $deebody"
-fi
+# 1. DEE wrapper health -- both single-slot wrappers behind dee-lb. A dead second
+#    slot still pages (add_prob); DEE_DOWN (the transcode-correlation flag used in
+#    section 3) is set only when NO slot is up, i.e. the flow has no DEE capacity.
+DEE_DOWN=0; dee_up=0
+check_dee() {  # $1 = host label, $2 = /healthz url
+  r=$(curl -s -m 10 -w '\n%{http_code}' "$2" 2>/dev/null)
+  code=$(printf '%s' "$r" | tail -1); body=$(printf '%s' "$r" | sed '$d')
+  if [ "$code" != "200" ]; then
+    add_prob "DEE wrapper DOWN ($1:8484 /healthz http=$code) -- restart the dee-wrapper task on $1"
+  elif ! printf '%s' "$body" | grep -q '"status":"ok"'; then
+    add_prob "DEE wrapper unhealthy ($1): $body"
+  elif printf '%s' "$body" | grep -q '"exchange_reachable":false'; then
+    add_prob "DEE dee-exchange share unreachable ($1): $body"
+  else
+    dee_up=$((dee_up + 1))
+  fi
+}
+check_dee "kdk-dee-01" "$DEE1"
+check_dee "kdk-dee-02" "$DEE2"
+[ "$dee_up" -eq 0 ] && DEE_DOWN=1
 
 # 2. One file-DB dump -> transcode-error / health-error / iso counts + samples
 resp=$(curl -s -m 90 -X POST "$TDARR/api/v2/cruddb" -H 'content-type: application/json' \

@@ -178,6 +178,27 @@ scrape_configs:
       - target_label: __address__
         replacement: blackbox-exporter:9115
 
+  # --- DEE wrapper health (two single-slot encode VMs behind dee-lb) --------
+  # Raw-IP /healthz on each Dolby-encoder VM. The lossless-audio Tdarr path
+  # depends on these; /healthz stays 200 + JSON while a wrapper is mid-encode,
+  # so the probe does not flap during a job. BOTH slots probed so a dead second
+  # slot alerts (mirrors stacks/tdarr-verify). http_app treats 2xx as UP.
+  - job_name: blackbox-dee
+    metrics_path: /probe
+    params: {module: [http_app]}
+    static_configs:
+      - targets:
+          - "http://10.1.1.130:8484/healthz"   # kdk-dee-01
+          - "http://10.1.1.131:8484/healthz"   # kdk-dee-02
+        labels: {tier: media}
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox-exporter:9115
+
   # --- network exporters on kdk-dkr-01 (stacks/net-exporters) --------------
   - job_name: unpoller
     scrape_interval: 60s          # unpoller polls the controller once per scrape

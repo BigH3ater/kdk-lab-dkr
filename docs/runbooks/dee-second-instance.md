@@ -17,6 +17,13 @@ the DEE-bound time (ETA ~2026-11-03). GPU is idle (0 %); this is audio-only.
 > licensed DEE VM is worth it, or clone it just to drain the backlog and shut it
 > down after.
 
+> **Status (2026-10-30):** kdk-dee-02 (10.1.1.131) is cloned and online. The
+> Dolby licence go/no-go **PASSED** — one real DD+ encode ran on kdk-dee-02 via
+> `POST /encode` (HTTP 200, ~21 s, valid E-AC-3 5.1 output), so the clone's
+> licence works on the new hardware. `stacks/dee-lb` fronts both slots at
+> `10.1.20.20:8484` and the Tdarr flow points at the raw LB IP. Registration,
+> DNS, flow and monitoring land in PR `feat/dee-lb-rollout` (attended deploy).
+
 ## Facts (read-only, 2026-10-30)
 
 | Field | kdk-dee-01 (source) | Source |
@@ -156,9 +163,15 @@ sanctioned sync script):
 ```
 # stacks/media/tdarr-flows/hevc-pipeline.json, step dee1:
 -  const WRAPPER = { host: '10.1.1.130', port: 8484 };
-+  const WRAPPER = { host: 'dee-lb.kmkdp.com', port: 8484 };
++  const WRAPPER = { host: '10.1.20.20', port: 8484 };   // dee-lb IP, not the name
 scripts/tdarr-flow-sync.sh import     # pushes via cruddb + restarts tdarr
 ```
+
+Use the **raw LB IP `10.1.20.20`** (HAProxy's bind on kdk-dkr-01), **not**
+`dee-lb.kmkdp.com`: the flow addressed DEE by IP before, and a raw IP means a
+DNS outage or the `*.kmkdp.com` search-domain wildcard can never silently break
+encoding. The `dee-lb.kmkdp.com` name is still published (step 4) for humans and
+curl smoke tests.
 
 Because the flow uses a **raw IP** today, this one-line edit is strictly simpler
 and lower-risk than re-IPing the two DEE VMs to put the LB on 10.1.1.130. The two
