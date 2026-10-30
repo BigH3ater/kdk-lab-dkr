@@ -1,7 +1,7 @@
 ---
 title: Komodo GitOps (Resource Sync)
 tags: [homelab/process, komodo, gitops]
-updated: 2026-10-28
+updated: 2026-10-29
 ---
 
 # Komodo GitOps — Resource Sync
@@ -240,6 +240,115 @@ accounts = [{ username = "<gh-user>", token = "ghp_..." }]
 …then set the sync's `git_account` to that user and enable Managed Mode.
 **Not yet set up** — no write token exists (`git_providers: []`). Tracked in
 [[backlog]]. Until then, the repo is authored here and Komodo syncs it read-only.
+
+## Secrets in update logs (open)
+
+> ⚠️ **Open security issue.** Every `DeployStack` update records a **Compose
+> Config** log stage, and Komodo also stores the stack's "merged config" shown
+> in the UI. Both are the output of `docker compose … config` — the compose
+> spec with **every value interpolated**. For our stacks that means the
+> `op inject`-rendered `.env` values (API keys, DB passwords, JWT secrets) are
+> written **in cleartext** into the update log and the UI config view. Anyone
+> with Komodo read access, and anyone with the Core MongoDB/FerretDB on disk,
+> can read every stack secret from update history. See the rotate-a-secret
+> runbook's "Things that leak" note.
+
+**Verified 2026-10-29** (read-only, names only): a recent `DeployStack` update had the stages `Set Git Remote, Checkout branch, Git pull, Latest Commit, Pre Deploy, Compose Config, Compose Pull, Compose Down, Compose Up`; its `Compose Config` stdout (923 bytes, a one-container stack) carried `ADGUARD_PASSWORD` with its cleartext value.
+
+**Why Komodo does not redact these.** Komodo only blanks secret values it
+*knows about*. On the periphery (`bin/periphery/src/api/compose.rs`,
+`ComposeUp`) it runs `docker compose -p … -f … config`, then sanitizes the
+captured stdout against a set of **secret replacers** before pushing the
+`Compose Config` log and storing the merged config. Those replacers come only
+from values Komodo itself interpolated via its `${{ … }}` syntax — Komodo
+Variables marked secret, periphery-config `secrets`, and core-config `secrets`
+(`lib/interpolate`). **Our secrets never pass through Komodo**: `op inject`
+renders `.env` on the host and docker compose reads it via `env_file`. Komodo
+never sees those values, so they are never in the replacer set, so the
+`config` output is logged verbatim. ([entities/variable.rs `is_secret`](https://github.com/moghtech/komodo/blob/main/client/core/rs/src/entities/variable.rs),
+[configuration/variables.md](https://github.com/moghtech/komodo/blob/main/docsite/docs/configuration/variables.md),
+[interpolate lib](https://github.com/moghtech/komodo/blob/main/lib/interpolate/src/lib.rs))
+
+**There is no pure-config fix (verified against Komodo 2.3.x source).** Checked
+the stack and core config schemas and the periphery deploy path:
+
+- No stack or core option skips the Compose Config stage, suppresses the log,
+  or runs `docker compose config --no-interpolate`. The `config` command is
+  hard-coded in `ComposeUp` and the (replacer-sanitised) log is always pushed.
+- `skip_secret_interp` does **not** help. It only skips Komodo's own
+  interpolation of stack fields (`environment`, `file_contents`, `extra_args`,
+  …). We put no secrets in those fields, and it does nothing to docker
+  compose's interpolation of `env_file` during `config`.
+- `empty_or_redacted` applies to **core config** fields only, not to the stack
+  compose output.
+
+**The only redaction path is to make secret values known to Komodo**, i.e. move
+them off `op inject` → `.env`/`env_file` and into a mechanism Komodo
+interpolates and redacts. Best fit: **Komodo Variables with `is_secret = true`**
+(hidden in updates/logs, and withheld from non-admin reads). This is a
+**secrets migration, not a config toggle** — deliberately **not yet
+implemented**. Note Komodo does **not** encrypt variable values at rest ("the
+security of these variables comes down to the security of the database"), so
+this trades a cleartext-in-logs exposure for a cleartext-in-DB one; it is an
+improvement only because the DB is better protected than read-scoped update
+history, and because `is_secret` also hides the value from non-admin API reads.
+
+### Migration plan (per stack, 1Password stays source of truth)
+
+1. **Keep 1Password authoritative.** Do not hand-type secrets into the Komodo
+   UI. Add a sync step that reads each secret from `op` and pushes it to a
+   Komodo Variable via the API, e.g. a script run from a host with the `op`
+   session:
+
+   ```sh
+   # pseudo — one line per secret; NEVER echo the value
+   val=$(op read "op://kdk-cluster/<item>/<field>")
+   curl -s https://komodo.kmkdp.com/write \
+     -H "X-Api-Key: $KEY" -H "X-Api-Secret: $SECRET" \
+     -H 'Content-Type: application/json' \
+     -d "$(jq -n --arg n "<STACK>_<NAME>" --arg v "$val" \
+          '{type:"UpdateVariableValue",params:{name:$n,value:$v}}')"
+   # first-time create: CreateVariable with {name,value,is_secret:true,description}
+   # then UpdateVariableIsSecret true  (or `km update variable <n> <v> --secret true`)
+   ```
+
+   Variables are global, so namespace them per stack (`DASHBOARD_VIKUNJA_JWT`).
+   Declaring `[[variable]]` in `resources.toml` is fine for **non-secret** values
+   only — never commit a secret value, so `is_secret` variables are created via
+   the API/CLI and left out of the synced toml.
+
+2. **Consume them in the stack via `${{ NAME }}`**, which Komodo interpolates
+   (and redacts). Two shapes:
+   - set the stack's `environment` (Komodo-managed env) in `resources.toml`
+     using `${{ DASHBOARD_VIKUNJA_JWT }}`, dropping those keys from `.env.tpl`; or
+   - keep `env_file` but reference `${{ … }}` inside a Komodo-managed
+     `file_contents`/`environment` block rather than the op-rendered `.env`.
+   Either way the value Komodo substitutes is in the replacer set, so the
+   `Compose Config` stage and merged config show it blanked.
+
+3. **Retire the `op inject` line** for the migrated keys once the Variable path
+   is proven: drop them from `.env.tpl` and, when a stack has no remaining
+   templated secret, remove its `pre_deploy` `op inject` command.
+
+4. **Per-stack rollout, low-risk first.** Start with a stack that has one or two
+   non-destructive secrets (`dashboard`, or a one-shot like `arr-list-guard`
+   — though that one has no secrets today), confirm a deploy's `Compose Config`
+   stage no longer contains the key's value, then work through the rest.
+
+5. **Verify (read-only, never print values):** after a hand deploy of the
+   migrated stack,
+   ```sh
+   # count env-key NAMES in the Compose Config stage — expect the value blanked
+   # ListUpdates {query:{operation:"DeployStack"}} -> GetUpdate <id>; grep the
+   # "Compose Config" log for '<KEY>=' NAME only, never the value.
+   ssh kdkadmin@<host> 'sudo docker exec <ctr> env | grep -c "^<KEY>="'   # still 1
+   ```
+   i.e. the container still receives its env, but the update log shows the value
+   as `<REDACTED>` / blank.
+
+Until this lands, **treat all Komodo update logs and the Core database as
+secret-bearing** (host file perms, network isolation, no screenshots of the
+config view in issues/PRs). Tracked in [[backlog]].
 
 ## Current sync config
 
