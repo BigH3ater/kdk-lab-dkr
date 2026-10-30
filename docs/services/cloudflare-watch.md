@@ -21,7 +21,7 @@ Two one-shots on [[kdk-log-01]] that read the `kmkdp.com` Cloudflare zone with a
 | Field | Value |
 |---|---|
 | Runs | `cloudflare-watch` hourly at `:17`; `cloudflare-watch-weekly` Monday 07:10 America/Chicago. Both: procedure → stack (deploy=false, destroy_before_deploy) on [[kdk-log-01]] |
-| Image | `kdk/cloudflare-watch:latest` (local `Dockerfile`, `python:3.12-slim`, stdlib only), uid 1000, read-only, no caps, 128 MB |
+| Image | `python:3.12.16-alpine` (pinned, Renovate-managed; `watch.py` bind-mounted read-only, stdlib only, no local build), uid 1000, read-only, no caps, 128 MB |
 | Output | Loki `{container="cloudflare-watch"}` (hourly) and `{container="cloudflare-watch-weekly"}` (weekly); one JSON line per check (`check`, `status`, `ts`, `mode`, `zone`, fields) |
 | State | `/opt/kdk-lab/cloudflare-watch/state.json` (weekly rule + DNS shas) |
 | Checks | hourly: `tunnel`, `edge_cert`, `zone_settings`, `firewall_events`; weekly: `rule_drift` |

@@ -244,10 +244,6 @@
       "base": "python",
       "note": "built from stacks/calibre/Dockerfile; calibre is a Debian apt package inside the image (Trivy covers it). kovidgoyal/calibre GHSA compare was dropped 2026-10-28: the local tag `latest` cannot be compared (always Unknown)."
     },
-    "kdk/cloudflare-watch": {
-      "local": true,
-      "base": "python"
-    },
     "kdk/dashboard-mealplan": {
       "local": true,
       "base": "python"
