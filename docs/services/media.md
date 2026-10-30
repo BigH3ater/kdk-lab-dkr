@@ -84,12 +84,44 @@ Wizarr left the media stack on 2026-10-27 for its own internet-facing DMZ stack
 and the `wizarr-sync` invite-reconcile automation now live in
 [Wizarr](wizarr.md).
 
+### Trailarr
+
+`stacks/trailarr` on kdk-dkr-01 (`nandyalu/trailarr`, `/opt/kdk-lab/trailarr:/config`,
+`trailarr.kmkdp.com` behind `forwardauth@file`). It keeps its own web login
+(default `admin` / `trailarr`); ours is `op://kdk-ops/trailarr-admin`. Its Radarr and
+Sonarr connections hold copies of their API keys (connections 1 and 2).
+
+Reset the login (forgotten password): Trailarr hashes `WEBUI_PASSWORD` once at
+start-up and stores only the hash, so apply it from a one-off container and never
+put it in compose:
+
+```bash
+IMG=$(grep -oE "nandyalu/trailarr:[^ ]+" stacks/trailarr/compose.yaml)
+op read op://kdk-ops/trailarr-admin/password | tr -d '\n' | sed 's/^/WEBUI_PASSWORD=/' | ssh kdkadmin@10.1.20.20 "
+  sudo install -m 600 -o root -g root /dev/stdin /root/trailarr-pwreset.env
+  sudo docker stop trailarr
+  sudo docker run -d --name trailarr-pwreset --env-file /root/trailarr-pwreset.env -e PUID=1000 -e PGID=1000 -e TZ=America/Chicago \
+    -v /opt/kdk-lab/trailarr:/config -v /mnt/media:/data/media --network none $IMG
+  sleep 40; sudo docker logs trailarr-pwreset 2>&1 | grep -c 'Application startup complete'   # 1
+  sudo docker stop trailarr-pwreset; sudo docker rm trailarr-pwreset; sudo shred -u /root/trailarr-pwreset.env
+  sudo docker start trailarr"
+```
+
+Check: `POST /api/v1/auth/login` with `{"username":"admin","password":…}` from
+inside the container returns 200 and a `trailarr_session` cookie. After an arr
+API-key rotation, update both connections with `PUT /api/v1/connections/<id>`
+(body = the connection's `name, arr_type, url, external_url, monitor_new_media,
+path_mappings` plus the new `api_key`) using that cookie, then
+`GET /api/v1/connections/<id>/refresh`; the log shows `Trailarr refreshed the data
+from 'Radarr'` / `'Sonarr'` instead of `could not read the media data`.
+
 ## Secret Rotation
 
 | Secret (1P item) | Used for | Class | Rotate live? |
 |---|---|---|---|
 | `kdk-dee-01-api-token` | Tdarr DEE wrapper auth | 🟢 self-service | yes — rotate + redeploy |
-| arr API keys | app-to-app auth | 🟢 self-service | regenerate in each app UI; update consumers (Prowlarr, Seerr, Bazarr) |
+| arr API keys | app-to-app auth | 🟢 self-service | regenerate in each app UI; update consumers (Prowlarr, Seerr, Bazarr, Trailarr, Libreseerr for Chaptarr); arr-upgrade-search / arr-list-guard / tdarr-remediate read `config.xml` and need nothing |
+| `kdk-ops/trailarr-admin` | Trailarr web login | 🟢 self-service | one-off `WEBUI_PASSWORD` start (see Trailarr above) |
 
 ## User Guide
 
