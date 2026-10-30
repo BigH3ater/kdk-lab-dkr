@@ -1,0 +1,6 @@
+# /etc/default/prometheus-node-exporter on kdk-mon-01 (Debian package, host
+# service). Listen on the VLAN 20 address only: Prometheus on this host scrapes
+# 10.1.20.30:9100 (job node-external) and nothing needs *:9100 (plan A1.5).
+# Apply by hand: sudo install -m 644 hosts/kdk-mon-01/prometheus-node-exporter /etc/default/prometheus-node-exporter
+#                sudo systemctl restart prometheus-node-exporter && ss -lntp | grep 9100
+ARGS="--web.listen-address=10.1.20.30:9100"
