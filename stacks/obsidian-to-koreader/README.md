@@ -58,6 +58,17 @@ SSH/scp to the tablet, **tailnet first** (`RM_HOST_TAILNET`, the kernel-mode Tai
 happens when it is awake; probe is SSH (ICMP is filtered). Read-only on vault content;
 Pushover on failure. `RM_PW` is op-injected (`op://kdk-cluster/remarkable-device/password`).
 
+## Troubleshooting
+
+- **Every run logs "tablet asleep; skipping" even though the tablet's port 22 is open, and
+  `ssh`/`sshpass` inside the container print `No user exists for uid 1000` and return
+  immediately.** OpenSSH's client refuses to run for a uid that has no `/etc/passwd` entry,
+  so `pick_host()` never gets a login and treats the tablet as asleep. The image bakes a
+  matching `app` user (uid/gid 1000) for this reason; if you see this symptom, the image was
+  built without that user. Verify with
+  `docker run --rm --user 1000:1000 --entrypoint sh kdk/obsidian-to-koreader:latest -c 'id; ssh -o BatchMode=yes -o ConnectTimeout=3 root@127.0.0.1 true'`
+  — `id` must resolve to `app` and ssh must give a *connection* error, not "No user exists".
+
 ## Renderer: WeasyPrint (Phase 1 decision)
 
 Markdown → PDF is host-side. Obsidian syntax is normalised **before** pandoc, so the feature

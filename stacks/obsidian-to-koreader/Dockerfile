@@ -6,6 +6,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       libcairo2 libpango-1.0-0 libpangocairo-1.0-0 libgdk-pixbuf-2.0-0 \
       shared-mime-info fonts-dejavu-core \
     && rm -rf /var/lib/apt/lists/*
+# The container runs unprivileged as 1000:1000 (compose). OpenSSH's client refuses to
+# run for a uid with no passwd entry ("No user exists for uid 1000") and returns at once,
+# so pick_host() would see every probe fail and treat the tablet as asleep. Bake a
+# matching passwd/group entry (home /tmp = the writable HOME, no login shell).
+RUN groupadd -g 1000 app \
+    && useradd -u 1000 -g 1000 -d /tmp -s /usr/sbin/nologin app
 # weasyprint + a MATCHING pydyf (pinning weasyprint alone let pip pull an incompatible
 # pydyf -> 'super' object has no attribute 'transform'). These versions were resolved
 # together from an unpinned install and verified rendering all vault sections.
