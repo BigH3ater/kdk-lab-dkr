@@ -100,6 +100,15 @@ built locally.
 
 ## User Guide
 
-Add the OPDS catalog `https://calibre.kmkdp.com/opds` in KOReader (on the LAN or
-over Tailscale). Books that Chaptarr downloads into `/mnt/media/books/ebook` are
-imported automatically within 15 minutes.
+Books that Chaptarr downloads into `/mnt/media/books/ebook` are imported
+automatically within 15 minutes and then show up in the OPDS catalog.
+
+**Add the catalog in KOReader (reMarkable) once:** top menu → the search/globe
+icon → **OPDS catalog** → **＋** (add) → set **URL** to `http://10.1.20.20:8081/opds`
+and a name like `Calibre`, leave username/password blank, save. Then open it and
+**long-press a book → Download** — files land under `books/` on the tablet.
+
+Use the LAN/tailnet address `http://10.1.20.20:8081/opds` (what the tablet's DNS
+resolves and what the vault channel uses). `https://calibre.kmkdp.com/opds` also
+works (valid `*.kmkdp.com` cert, no SSO), but plain HTTP over LAN/Tailscale avoids
+any client-side TLS-validation quirks.
