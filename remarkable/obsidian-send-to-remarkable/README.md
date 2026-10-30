@@ -10,8 +10,14 @@ SSH (tailnet first, LAN fallback), and moves the request to `_remarkable/done/` 
 status line, which the plugin reads back to show the last result.
 
 So nothing on your desktop needs the tablet password, the lab network, or an API
-endpoint. If the tablet is asleep, the request waits in the queue and is delivered on
-the next run.
+endpoint.
+
+**How long does it take?** A lab-side *watcher* polls the queue continuously, so once the
+request has synced to the lab mirror (Obsidian Sync) and the tablet is **awake**, delivery
+usually lands **within a few seconds to ~20 s**. If the tablet is **asleep** the request
+waits in the queue and the watcher retries (backing off to a probe every few minutes); it is
+delivered as soon as the tablet is awake. A scheduled job also sweeps the queue every 6 h as a
+fallback if the watcher is ever down — so nothing is ever lost.
 
 ## Features
 
@@ -19,7 +25,11 @@ the next run.
 - **Command "Send whole vault to reMarkable"**.
 - **Folder right-click → "Send folder to reMarkable"** (and note right-click → "Send note…").
 - **Settings:** queue folder, done folder, default mode (combined vs per-note), optional
-  target subfolder under the tablet's `books/Homelab`.
+  target subfolder under the tablet's `books/kodiak-codex`.
+- Delivered PDFs **mirror your vault's folder tree** under `books/kodiak-codex` (a note at
+  `1. Projects/foo/Bench Layout.md` lands at
+  `books/kodiak-codex/1. Projects/foo/Bench Layout.pdf`, real name and all), unless you set a
+  target subfolder.
 - A **Notice** confirming each queued request.
 - **Command "Show last reMarkable result"** — reads the newest file in the done folder.
 
@@ -64,11 +74,13 @@ This plugin installs by **copying the folder** — no release zip, no npm needed
 
 1. Open a note and click the tablet ribbon icon (or run **Send active note to reMarkable**).
    You should see a "Queued …" notice and a new file under `_remarkable/queue/`.
-2. Wait for the vault to sync, then for the lab job's next run (every 6 h, or an admin can
-   run the Komodo `obsidian-to-koreader` procedure for an immediate push). The request moves
-   to `_remarkable/done/`.
+2. Wait for the vault to sync; the lab-side watcher then delivers within seconds (if the
+   tablet is awake). The request moves to `_remarkable/done/`. (If the watcher is ever down,
+   the 6-hourly job sweeps the queue; an admin can also run the Komodo `obsidian-to-koreader`
+   procedure by hand to force a sweep.)
 3. Run **Show last reMarkable result** to see `ok` and the delivered PDF path, or the error.
-4. On the tablet, open KOReader → `books/Homelab` to read it.
+4. On the tablet, open KOReader → `books/kodiak-codex` (and into the matching vault
+   subfolder) to read it.
 
 ## Build from source (optional)
 

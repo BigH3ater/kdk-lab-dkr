@@ -1,39 +1,96 @@
+# obsidian-to-koreader: render Obsidian vault notes to PDF and push them onto the tablet
+# for KOReader. ONE locally-built image, TWO services sharing the same code:
+#   * obsidian-to-koreader          -- the scheduled one-shot (Komodo procedure, every 6 h):
+#                                      drains the queue as a fallback, then reconciles the
+#                                      whole tree (SYNC_FOLDERS per-note + sections combined).
+#   * obsidian-to-koreader-watcher  -- a long-running watcher: polls the queue and delivers a
+#                                      "Send to reMarkable" request within seconds.
+# A /state lock keeps the two from processing the same request twice. Mermaid blocks render
+# to SVG via the internal stacks/kroki service over the external `kroki_default` network.
+# See README.md and docs/services/obsidian-to-koreader.md.
+
+# Shared hardening baseline (docs/reference/compose-baseline.md).
+x-hardened: &hardened
+  user: "1000:1000"                   # SAME owner as the vault mirror + obsidian-headless
+  security_opt: ["no-new-privileges:true"]
+  cap_drop: [ALL]
+  read_only: true                     # the only writable paths are the volumes below + tmpfs
+  tmpfs: [/tmp]                        # HOME, XDG cache and pandoc TMPDIR all live here
+  pids_limit: 256
+  mem_limit: 1g                        # WeasyPrint rendering a whole section can spike
+  logging:
+    driver: json-file
+    options: { max-size: "10m", max-file: "3" }
+  env_file: [.env]                     # RM_PW (op-injected)
+  # Vault CONTENT is mounted read-only: the renderer never writes a note. The ONE writable
+  # vault path is the request queue (_remarkable/), a nested read-write mount, so a processed
+  # request can move from queue/ to done/. Docker applies the more specific mount, so
+  # everything except _remarkable/ stays read-only.
+  volumes:
+    - /opt/kdk-lab/obsidian/vault:/vault:ro
+    - /opt/kdk-lab/obsidian/vault/_remarkable:/vault/_remarkable:rw
+    - /opt/kdk-lab/obsidian-to-koreader:/state
+    - /etc/kdk/pushover.env:/pushover.env:ro
+  entrypoint: ["/bin/sh","-c",". /pushover.env 2>/dev/null; exec python /app/obsidian-to-koreader.py"]
+  networks: [kroki]                    # reach the Kroki service; outbound (SSH/Pushover) via NAT
+
+# Shared environment. MODE picks the behaviour per service.
+x-env: &env
+  VAULT_DIR: /vault
+  STATE_DIR: /state
+  HOME: /tmp                          # writable home for the unprivileged user
+  XDG_CACHE_HOME: /tmp/.cache         # WeasyPrint/fontconfig cache (writable)
+  RM_DEST: /home/root/books/kodiak-codex   # KOReader subfolder = the vault's name (books stay separate)
+  RM_DEST_OLD: /home/root/books/Homelab    # one-time rename source (mv on first run, never deleted)
+  # Transport is tried in order: tailnet first (reachable off-LAN), then LAN.
+  # ICMP is filtered on the tablet, so reachability is probed with SSH, not ping.
+  RM_HOST_TAILNET: "100.103.233.103"  # tailnet node remarkable-pp (kernel-mode Tailscale)
+  RM_HOST_LAN: "10.1.30.245"          # VLAN 30, DHCP-reserved
+  RM_USER: root
+  PANDOC_ENGINE: weasyprint           # Phase 1 renderer decision (bake-off in README)
+  PDF_PAGE_SIZE: "180mm 240mm"        # Paper Pro screen (1620x2160 @ ~229ppi); not A4
+  QUEUE_SUBDIR: _remarkable           # vault folder holding queue/ + done/ for the plugin
+  MAX_PDF_MB: "40"                    # per-PDF size guard
+  SYNC_FOLDERS: "20.Work"             # standing per-note sync (comma-separated vault folders)
+  KROKI_URL: "http://kroki:8000"      # internal stacks/kroki service (Mermaid -> SVG)
+  MERMAID_FORCE_TD: "1"               # rewrite wide (LR/RL) flowcharts to top-down for the tablet
+  POLL_SECONDS: "20"                  # watcher queue poll interval
+  SLEEP_BACKOFF_MAX: "300"            # watcher: probe an asleep tablet at most this often
+
 services:
   obsidian-to-koreader:
+    <<: *hardened
     build: .
     image: kdk/obsidian-to-koreader:latest
     container_name: obsidian-to-koreader
-    restart: "no"                       # one-shot; run periodically by the procedure
-    # Run unprivileged as uid:gid 1000 -- the SAME owner as the vault mirror and the
-    # obsidian-headless sync agent (PUID/PGID 1000). Everything this job writes under
-    # _remarkable/ (done/, and the queue-file removal) and /state is then owned like the
-    # rest of the vault, so the bidirectional sync agent can fully manage those files.
-    # pre_deploy (runs as root) pre-creates _remarkable/{queue,done} as 1000 and chowns
-    # /state, so the dirs exist with the right owner before this container starts.
-    user: "1000:1000"
-    env_file: [.env]                    # RM_PW (op-injected)
+    restart: "no"                     # one-shot; run periodically by the Komodo procedure
     environment:
-      VAULT_DIR: /vault
-      STATE_DIR: /state
-      HOME: /tmp                        # writable home for the unprivileged user
-      XDG_CACHE_HOME: /tmp/.cache       # WeasyPrint/fontconfig cache (writable)
-      RM_DEST: /home/root/books/Homelab   # KOReader subfolder for vault PDFs (books stay separate)
-      # Transport is tried in order: tailnet first (reachable off-LAN), then LAN.
-      # ICMP is filtered on the tablet, so reachability is probed with SSH, not ping.
-      RM_HOST_TAILNET: "100.103.233.103"  # tailnet node remarkable-pp (kernel-mode Tailscale)
-      RM_HOST_LAN: "10.1.30.245"          # VLAN 30, DHCP-reserved
-      RM_USER: root
-      PANDOC_ENGINE: weasyprint           # Phase 1 renderer decision (bake-off in README)
-      PDF_PAGE_SIZE: "180mm 240mm"        # Paper Pro screen (1620x2160 @ ~229ppi); not A4
-      QUEUE_SUBDIR: _remarkable           # vault folder holding queue/ + done/ for the plugin
-      MAX_PDF_MB: "40"                    # per-PDF size guard
-    entrypoint: ["/bin/sh","-c",". /pushover.env 2>/dev/null; exec python /app/obsidian-to-koreader.py"]
-    volumes:
-      # Vault CONTENT is mounted read-only: the renderer never writes a note. The ONE
-      # writable path is the request queue (_remarkable/), a nested read-write mount, so
-      # the job can move a processed request from queue/ to done/. Docker applies the more
-      # specific mount, so everything except _remarkable/ stays read-only.
-      - /opt/kdk-lab/obsidian/vault:/vault:ro
-      - /opt/kdk-lab/obsidian/vault/_remarkable:/vault/_remarkable:rw
-      - /opt/kdk-lab/obsidian-to-koreader:/state
-      - /etc/kdk/pushover.env:/pushover.env:ro
+      <<: *env
+      MODE: oneshot
+    labels:
+      # A one-shot container exits as soon as it finishes; there is no long-running process
+      # to health-check (the watcher below carries the healthcheck for this image).
+      kdk.baseline.skip: "healthcheck"
+
+  obsidian-to-koreader-watcher:
+    <<: *hardened
+    image: kdk/obsidian-to-koreader:latest   # same image the one-shot builds
+    container_name: obsidian-to-koreader-watcher
+    restart: unless-stopped
+    environment:
+      <<: *env
+      MODE: watch
+    healthcheck:
+      # the watcher touches /state/watcher.heartbeat every poll; stale > 2 min = unhealthy.
+      test: ["CMD-SHELL", "python3 -c \"import os,time,sys; sys.exit(0 if time.time()-os.path.getmtime('/state/watcher.heartbeat')<120 else 1)\""]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    # No depends_on: the watcher and the one-shot start independently; the /state queue lock
+    # keeps them from processing the same request twice (so neither has to wait for the other).
+
+networks:
+  kroki:
+    external: true
+    name: kroki_default               # created by stacks/kroki (deploy kroki first)

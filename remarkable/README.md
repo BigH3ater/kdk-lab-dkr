@@ -33,6 +33,11 @@ act on the tablet whenever it's reachable:
   ride back out via `koreader-highlights`. It SSH-probes the tailnet node
   (`remarkable-pp` / `100.103.233.103`) first, then the LAN (`10.1.30.245`) — so delivery
   works from anywhere, not only on home Wi-Fi. See `docs/services/readwise-koreader.md`.
+- **Vault notes → KOReader:** `obsidian-to-koreader` renders Obsidian notes to PDF and
+  mirrors them into `/home/root/books/kodiak-codex/<vault path>` (the vault's folder tree).
+  A "Send to reMarkable" tap is picked up by a watcher within seconds; a scheduled job also
+  keeps selected folders (e.g. `20.Work`) and the other sections in sync every 6 h. Tailnet
+  first, LAN fallback. See `docs/services/obsidian-to-koreader.md`.
 - **Books (send + remove):** `rmapi` against rmfakecloud (internal/LAN).
 - **Templates:** `rmtemplate` (Paper Pro template CLI).
 

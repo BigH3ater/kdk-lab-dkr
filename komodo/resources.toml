@@ -1164,18 +1164,34 @@ executions = [
   { execution.type = "DeployStack", execution.params.stack = "docs-to-vault", enabled = true },
 ]
 
-# Obsidian vault -> PDFs -> tablet (/home/root/books/Homelab) for KOReader. Two modes in
-# one one-shot run: (1) request-driven "Vault channel" -- the Send-to-reMarkable Obsidian
-# plugin drops JSON requests into the vault's _remarkable/queue/ (carried to the lab mirror
-# by Obsidian Sync, no network/token), rendered and pushed, then moved to _remarkable/done/
-# with a status line; (2) when the queue is empty, the unchanged scheduled whole-section
-# reconcile (so nothing regresses). Transport is tailnet-first (remarkable-pp) then LAN,
-# opportunistic. A plugin "send" shows up on the next scheduled run below (no Komodo API
-# call from the plugin); run the procedure by hand for an immediate push.
+# Kroki: internal diagram renderer (core + mermaid companion), always-on. It CREATES the
+# `kroki_default` docker network that obsidian-to-koreader joins as external, so it must be
+# deployed BEFORE obsidian-to-koreader on first bring-up (and this resources.toml change must
+# land via the gitops sync before either hand-deploy, or Komodo has no `kroki` stack yet).
+# Images are pulled (auto_pull default); no secrets, so no pre_deploy. See docs/services/kroki.md.
+[[stack]]
+tags = ["kdk-lab"]
+name = "kroki"
+[stack.config]
+server = "kdk-dkr-01"
+repo = "BigH3ater/kdk-lab-dkr"
+run_directory = "stacks/kroki"
+
+# Obsidian vault -> PDFs -> tablet (/home/root/books/kodiak-codex) for KOReader. ONE image,
+# TWO services: (1) a long-running WATCHER that polls _remarkable/queue/ and delivers a
+# "Send to reMarkable" request within seconds; (2) the scheduled one-shot below (this stack's
+# DeployStack), which drains the queue as a fallback if the watcher is down and then
+# reconciles the whole tree -- SYNC_FOLDERS (default 20.Work) per-note + every other
+# top-level section combined. A /state lock stops the two processing the same request twice.
+# Requests arrive via Obsidian Sync (no network/token). PDFs mirror the vault folder tree.
+# Mermaid blocks render to SVG via the kroki stack above over kroki_default -- so deploy
+# kroki FIRST. destroy_before_deploy recreates both services each scheduled run (watcher gap
+# is seconds; the one-shot is the fallback). RM_DEST was renamed from books/Homelab; the
+# first run migrates the old folder once (mv, keeping .sdr, never deleting).
 [[stack]]
 tags = ["kdk-lab"]
 name = "obsidian-to-koreader"
-deploy = false   # run by the obsidian-to-koreader Procedure
+deploy = false   # the one-shot is run by the obsidian-to-koreader Procedure; the watcher stays up
 [stack.config]
 server = "kdk-dkr-01"
 repo = "BigH3ater/kdk-lab-dkr"

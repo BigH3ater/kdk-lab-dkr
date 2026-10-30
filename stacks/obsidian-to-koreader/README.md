@@ -1,7 +1,22 @@
 # obsidian-to-koreader
 
 Render Obsidian vault notes to PDF and put them on the reMarkable for KOReader —
-the "read your notes/docs on the tablet" loop. Two modes in one one-shot run:
+the "read your notes/docs on the tablet" loop. ONE locally-built image runs as **two
+compose services** sharing the same code:
+
+- **`obsidian-to-koreader-watcher`** — a long-running watcher (`restart: unless-stopped`)
+  that polls the request queue and delivers a "Send to reMarkable" tap **within seconds**.
+- **`obsidian-to-koreader`** — the scheduled one-shot (Komodo procedure, every 6 h) that
+  drains the queue as a **fallback** (if the watcher is down) and then runs the **whole-tree
+  reconcile** (standing per-note sync of `SYNC_FOLDERS` + a combined PDF per other section).
+
+A `/state` lock (`fcntl.flock` on `queue.lock`) keeps the watcher and the one-shot from ever
+processing the same request twice. `MODE` (`watch` / `oneshot`) selects the behaviour.
+
+Everything is delivered into a folder tree that **mirrors the vault**: a note at
+`1. Projects/foo/Bench Layout.md` lands at
+`RM_DEST/1. Projects/foo/Bench Layout.pdf` — the **real name with spaces is kept** (KOReader
+shows names as-is). Combined-mode PDFs go **inside the folder they cover**.
 
 ## 1. Vault channel (request-driven — the "Send to reMarkable" plugin)
 
@@ -12,13 +27,15 @@ existing headless **Obsidian Sync**, the plugin needs **no network access, endpo
 token** — the vault *is* the transport. Each run:
 
 1. reads every `queue/*.json`, renders the requested **scope** to PDF(s),
-2. pushes them to KOReader under `RM_DEST` (`/home/root/books/Homelab`) over SSH, then
+2. pushes them to KOReader under `RM_DEST` (`/home/root/books/kodiak-codex`) over SSH, then
 3. moves the request to `_remarkable/done/<id>.json` with a `status` line, which the plugin
    reads back (through the same sync) to show the last result.
 
-If the tablet is **asleep**, requests are **left in `queue/`** and retried next run (nothing
-is lost). The only vault path this job writes is `_remarkable/` (a nested read-write mount);
-all other vault content is mounted **read-only**.
+If the tablet is **asleep**, requests are **left in `queue/`** and retried — the watcher
+backs off (probing the asleep tablet at most every `SLEEP_BACKOFF_MAX` seconds, default 5 min,
+not every poll) and delivers as soon as the tablet is awake; nothing is lost. The only vault
+path this job writes is `_remarkable/` (a nested read-write mount); all other vault content is
+mounted **read-only**.
 
 The container runs **unprivileged as `1000:1000`** — the same owner as the vault mirror and
 the `obsidian-headless` sync agent — so the request files and the delivered `done/` records
@@ -35,28 +52,76 @@ uid 1000 anyway.
 | `scope` | `note` \| `folder` \| `vault` | what to send |
 | `path` | vault-relative path | the note (`*.md`) or folder; ignored for `vault` |
 | `mode` | `combined` \| `per-note` | one PDF, or one PDF per note/section (folder/vault) |
-| `target_subdir` | string (optional) | extra subfolder under `RM_DEST` |
+| `target_subdir` | string (optional) | deliver flat into this subfolder under `RM_DEST` (keeping the real name) **instead of** mirroring the vault tree |
 | `id`, `created`, `source` | metadata | `id` defaults to the filename stem |
 
-`path` is resolved inside the vault and anything escaping it is refused. A scope matching no
-notes, an oversize PDF (`> MAX_PDF_MB`) or a render error is recorded per request as
-`status: failed`/`partial` in `done/` (and paged via Pushover).
+Delivery mirrors the vault tree by default (`RM_DEST/<vault dir>/<note name>.pdf`); a combined
+PDF goes inside the folder it covers (`RM_DEST/<folder>/<folder>.pdf`). `path` is resolved
+inside the vault and anything escaping it is refused. A scope matching no notes, an oversize
+PDF (`> MAX_PDF_MB`) or a render error is recorded per request as `status: failed`/`partial`
+in `done/` (and paged via Pushover). A `done/` record's `delivered` list holds the full tablet
+paths, e.g. `/home/root/books/kodiak-codex/1. Projects/garage-gladiator-husky/Bench Layout.pdf`.
 
-## 2. Scheduled whole-section sync (the default — unchanged)
+## 2. Scheduled whole-tree reconcile (the one-shot default)
 
-When the queue is **empty**, every run reconciles each top-level vault **section** matching
-`SECTION_REGEX` (default numbered domains `00.Inbox`, `10.Homelab`, …) into one PDF per
-section under `RM_DEST`, exactly as this stack always has: rebuild changed sections (by
-content hash), remove PDFs for deleted sections, skip a section over the size guard. So
-**nothing regresses** when the plugin is not in use.
+The scheduled one-shot reconciles the whole tablet tree every 6 h (and is the fallback that
+drains the queue if the watcher is down):
+
+- **`SYNC_FOLDERS` (standing per-note sync, default `20.Work`)** — a comma-separated list of
+  vault folders mirrored **note-by-note** into the tree (`RM_DEST/<vault path>/<note>.pdf`).
+  Only notes whose content hash changed are re-rendered (a per-note hash is kept in the state
+  file); a tablet PDF whose source note disappeared is removed (its `.sdr` highlight sidecar is
+  **left in place**).
+- **Every other top-level section** matching `SECTION_REGEX` (default numbered domains
+  `00.Inbox`, `10.Homelab`, …) → one **combined** PDF at `RM_DEST/<section>/<section>.pdf`
+  (rebuilt by content hash, removed when the section is deleted, skipped over the size guard).
+  A section that `SYNC_FOLDERS` already mirrors per-note is **not** also dumped combined.
+
+So nothing regresses when the plugin is not in use, and the work section stays mirrored
+note-by-note without a tap.
+
+### Migrations (first run, one-time)
+
+On the first reconcile the job performs two idempotent migrations, logged and never
+destructive:
+
+1. **Folder rename** — if `RM_DEST_OLD` (`/home/root/books/Homelab`) exists and `RM_DEST`
+   (`/home/root/books/kodiak-codex`) does not, it `mv`s the old folder over (keeping any `.sdr`
+   sidecars). It never deletes.
+2. **Flat → tree** — it removes the old **flat** PDFs sitting directly under `RM_DEST` (the old
+   per-section dumps and one-off sends such as `Bench-Layout.pdf`), leaving `.sdr` sidecars and
+   subdirectories, then rebuilds everything into the mirrored tree. Tracked by a `layout`
+   marker in the state file so it runs once.
+
+## Environment knobs
+
+Set in `compose.yaml` (shared `x-env` anchor); the two services differ only in `MODE`.
+
+| Env | Default | Meaning |
+|---|---|---|
+| `MODE` | `oneshot` | `watch` = the long-running watcher; `oneshot` = the scheduled fallback + reconcile |
+| `RM_DEST` | `/home/root/books/kodiak-codex` | tablet root for the mirrored vault tree |
+| `RM_DEST_OLD` | `/home/root/books/Homelab` | one-time rename source (`mv` on first run; never deleted; empty disables) |
+| `SYNC_FOLDERS` | `20.Work` | comma-separated vault folders mirrored note-by-note every scheduled run |
+| `KROKI_URL` | `http://kroki:8000` | internal Kroki service for Mermaid → SVG |
+| `MERMAID_FORCE_TD` | `1` | rewrite wide (`LR`/`RL`) flowcharts to top-down for the narrow page |
+| `POLL_SECONDS` | `20` | watcher queue poll interval |
+| `SLEEP_BACKOFF_MAX` | `300` | watcher: probe an asleep tablet at most this often (seconds) |
+| `PDF_PAGE_SIZE`, `MAX_PDF_MB`, `SECTION_REGEX`, `RM_HOST_*`, `RM_USER` | — | as before (device page size, size guard, which sections, tablet addresses) |
 
 ## Transport
 
-SSH/scp to the tablet, **tailnet first** (`RM_HOST_TAILNET`, the kernel-mode Tailscale node
+SSH to the tablet, **tailnet first** (`RM_HOST_TAILNET`, the kernel-mode Tailscale node
 `remarkable-pp` = `100.103.233.103`, reachable off-LAN) then **LAN** (`RM_HOST_LAN`,
 `10.1.30.245`). Opportunistic: the tablet sleeps and drops Wi-Fi/tailnet, so delivery only
 happens when it is awake; probe is SSH (ICMP is filtered). Read-only on vault content;
 Pushover on failure. `RM_PW` is op-injected (`op://kdk-cluster/remarkable-device/password`).
+
+Files are copied with **`cat`-over-SSH** (`ssh … "cat > <shlex-quoted path>"`), not `scp`:
+the remote path is a single shell-quoted argument, so names with spaces, apostrophes and
+unicode land correctly on the tablet's shell regardless of its scp protocol (modern scp uses
+SFTP and would pass the path literally; dropbear's legacy SCP shell-parses it). `mkdir -p` and
+`rm -f` are shell-quoted the same way.
 
 ## Troubleshooting
 
@@ -77,6 +142,11 @@ Pushover on failure. `RM_PW` is op-injected (`op://kdk-cluster/remarkable-device
   file is missing.** KOReader's file browser was open on the folder before the delivery and is
   showing a cached listing. Leave and re-enter the folder, or restart KOReader (verified by the
   owner 2026-10-30). Same for Readwise deliveries.
+- **The vault's folder on the tablet is `books/kodiak-codex` (renamed from `books/Homelab`
+  2026-10-30).** The first reconcile `mv`s the old folder over once (keeping `.sdr` sidecars,
+  never deleting) and then mirrors the vault tree underneath it, so open KOReader →
+  `books/kodiak-codex` and browse into the matching vault subfolder. `books/Readwise` and other
+  book libraries are untouched.
 - **A page shows as two half-screens / "cut off" in KOReader.** The PDF page is larger than the
   screen (e.g. an older A4 render). New PDFs are sized to the panel (`PDF_PAGE_SIZE`); for an
   existing document use KOReader zoom mode *fit page* (tap top of screen → zoom) and *set as
@@ -109,8 +179,9 @@ pin ever become painful (Phase 2).
 | `![[image.png/.svg]]` embeds | resolved vault-wide → **percent-encoded** absolute `![]()` | yes (WeasyPrint; SVG rasterised natively). Paths with spaces/unicode are `%`-encoded — a bare path is truncated at the first space by pandoc's reader, silently dropping the image; Typst needs `--root=/` |
 | `![[other note]]` (note embeds) | dropped | no (by design — avoids recursion/bloat) |
 | `> [!type] Title` callouts | → `> **TYPE — Title**` blockquote | yes, as a labelled blockquote (no colour/icon) |
+| ` ```mermaid ` blocks | rendered to **SVG at build time via Kroki** (`KROKI_URL`, POST to `/mermaid/svg`), embedded like an image; wide `flowchart/graph LR\|RL` → `TD` and `direction LR\|RL` → `TB` for the narrow page (`MERMAID_FORCE_TD=1`) | yes, as an SVG. If Kroki is unreachable/errors, falls back to the diagram **source** (fenced) with a one-line note — never fails the note. Mermaid 11 syntax (quote labels with `@ ( ) { } #`) |
 | ` ```dataview ` blocks | → `*[Dataview query — renders only in Obsidian]*` | placeholder only (dynamic; headless-blind) |
-| `%% comments %%` | stripped | removed |
+| `%% comments %%` | stripped (but **not** inside a Mermaid block — those are parked before stripping, so Mermaid `%%` comments survive) | removed |
 | standard Markdown (headings, lists, tables, code, images) | pandoc | yes |
 
 Bake-off page counts: project note 20 pp (2.1 MB, SVGs embedded), reading index 4 pp,

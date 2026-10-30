@@ -63,6 +63,14 @@
         "package": "github.com/ddvk/rmfakecloud"
       }
     },
+    "yuzutech/kroki": {
+      "github": "yuzutech/kroki",
+      "note": "Kroki core (Vert.x). Internal-only diagram renderer used by obsidian-to-koreader; no ingress"
+    },
+    "yuzutech/kroki-mermaid": {
+      "github": "yuzutech/kroki",
+      "note": "Kroki Mermaid companion (headless Chromium); versioned and released with the kroki core repo"
+    },
     "docker": {
       "github": "docker/cli",
       "note": "docker:28-cli sidecars (docker-event-watch, backups); floating major tag, verdict Unknown"
