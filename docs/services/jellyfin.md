@@ -6,7 +6,7 @@ tier: dmz
 status: live
 storage: yes
 secrets: [jellyfin-oidc]
-updated: 2026-10-28
+updated: 2026-10-30
 tags: [homelab/stack, tier/dmz, status/live]
 ---
 
@@ -104,6 +104,68 @@ Added in batch 5b (2026-10-28). Install and settings: [[jellyfin-sso]].
 | `kdk-cluster/jellyfin-oidc` (`password`) | SSO plugin client secret (plaintext in the plugin config; pbkdf2 digest in Authelia's `jellyfin_client_secret`) | 🟡 SSO breaks until both sides match | yes: regenerate in 1P, re-run the hash step in [[jellyfin-sso]], `RestartStack identity services=[authelia]`, paste the new plaintext into the plugin. Password and Quick Connect logins are unaffected meanwhile |
 
 User passwords are LLDAP's (LDAP plugin).
+
+## Backup and restore
+
+Jellyfin's state lives on local disk at `/opt/kdk-lab/jellyfin/config` (bind-mounted to `/config`); only the artwork/metadata tree is on NFS (`/mnt/appdata/jellyfin/metadata` → `/config/data/metadata`). The config dir is captured by the DMZ backup chain, so a restore can rebuild users, API keys, plugin settings and the library without touching the metadata cache.
+
+**The database.** On this 12.x line the library is **not** a separate `library.db` — it is consolidated into `config/data/data/jellyfin.db` (~110 MB), which holds **users, API keys, devices, activity and the full library/metadata index**. `playback_reporting.db` sits beside it. There is no standalone `library.db` to back up.
+
+### What is backed up
+
+- **Nightly (on-site):** the `backup-dmz` stack's `rsync` service mirrors `/opt/kdk-lab/` → `/mnt/backup/dkr/kdk-dkr-dmz-01/state/` on the NAS (NFS), run at 03:20 by the `nightly-backups` procedure and gated so the deploy blocks until it finishes. A `.last-backup` marker is touched on success; `backup-verify` is the single Pushover alert source.
+- **Off-site:** `backup-offsite` (on [[kdk-dkr-01]]) packs each host's NAS tree into one `tar.zst` (`pack.sh`) and `rclone`s it to the Proton Drive crypt remote.
+- **In scope for Jellyfin (verified present and current in both the on-site tree and the off-site pack):** `config/data/data/jellyfin.db` (+ `-wal`/`-shm`), `playback_reporting.db`, every `config/data/plugins/configurations/*.xml` **including `LDAP-Auth.xml` and `SSO-Auth.xml`** (these embed auth secrets — treat the backup as sensitive), and `config/system.xml`, `network.xml`, `encoding.xml`, `branding.xml`.
+
+### Excluded on purpose (regenerable)
+
+| Path | Why |
+|---|---|
+| `config/data/metadata` | Downloaded artwork/metadata, re-fetchable (~6.5 G); also lives on NFS, not local disk. Dropped by the rsync *and* the off-site `pack.sh`. |
+| `config/data/transcodes` | Transient transcode scratch. |
+| `config/cache` | Regenerable cache. |
+
+### Consistency caveat (live SQLite copy)
+
+The rsync runs while Jellyfin is up, so `jellyfin.db` is copied in WAL mode. The `-wal` and `-shm` files are copied alongside it, but the three files are read non-atomically, so a copy taken across a WAL checkpoint could in theory be torn. Two consequences:
+
+- A **strict read-only** open of the raw backup fails (`unable to open database file`, SQLite error 14): read-only mode cannot build the WAL index without write access. A real restore does not hit this — Jellyfin opens the DB read-write on start and replays the WAL cleanly.
+- Jellyfin's own scheduled database backup (which would write a consistent archive to `config/data/data/SQLiteBackups/`) is **not enabled** — that directory is empty.
+
+**Mitigation, if a stronger guarantee is ever needed:** enable Jellyfin's scheduled *Back up* task, or add an atomic snapshot step before the rsync (`sqlite3 jellyfin.db "VACUUM INTO '/…/jellyfin-snapshot.db'"`) and back up the snapshot instead of the live file. Not currently required — the latest copy verified clean (below).
+
+### Restore procedure
+
+On [[kdk-dkr-dmz-01]] (`sudo docker` for every command):
+
+```bash
+# 1. Quiesce the DB (never copy over a running instance)
+sudo docker stop jellyfin
+
+# 2. Restore from the on-site NAS copy. Bring -wal/-shm from the SAME snapshot
+#    so the WAL replays; preserve ownership.
+S=/mnt/backup/dkr/kdk-dkr-dmz-01/state/jellyfin/config/data/data
+D=/opt/kdk-lab/jellyfin/config/data/data
+sudo cp -p "$S"/jellyfin.db "$S"/jellyfin.db-wal "$S"/jellyfin.db-shm "$D"/
+
+# 3. Start — Jellyfin opens the DB read-write and replays the WAL
+sudo docker start jellyfin
+```
+
+From the off-site archive instead, extract first (on [[kdk-dkr-01]], which has `zstd`):
+`zstd -dc /mnt/backup/dkr/offsite/kdk-dkr-dmz-01-<DATE>.tar.zst | tar -xf - <member-path>`.
+
+To restore plugin or server settings only, copy the relevant `*.xml` back the same way (stop/copy/start).
+
+### Restore test (2026-10-30)
+
+The 03:00 on-site copy of `jellyfin.db` (plus `-wal`/`-shm`) was copied to a throwaway dir and opened with `sqlite3` in a pinned `alpine` container (the live backup was never modified):
+
+- `PRAGMA integrity_check` → **ok** (WAL replayed on open).
+- Counts: **3 users (1 administrator), 3 API keys, 15 devices.**
+- Compared against the live server (`GET /Users`, `GET /Auth/Keys`): the user list and admin flag **match exactly**; all 3 backed-up API keys are present live. The live server had 2 additional API keys created after the 03:00 snapshot — expected, since the backup RPO is nightly (~24 h).
+
+Takeaway: the backup opens, is internally consistent, and reproduces production users and keys. Changes made during the day (new users, API keys, watch state) are only captured at the next 03:20 run.
 
 ## User Guide
 
