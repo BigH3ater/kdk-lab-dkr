@@ -1,0 +1,46 @@
+# Komodo deploy provenance: a DeployStack/RestartStack that a HUMAN ran, rather
+# than the gitops path (repo push -> gitops-sync procedure -> deploy-changed
+# action). A manual deploy is how a host ends up running something the repo does
+# not describe, so it is worth a quiet note after the fact (not an alarm).
+#
+# SIGNAL: Komodo Core (container komodo-core-1 on kdk-dkr-01) logs one line per
+# /execute call:
+#   `... EXECUTE REQUEST api="Execute" task_id="..." method="DeployStack" user_id="..." username="Action"`
+# The deploy-changed action authenticates with its own API key and logs
+# username="Action"; a person (kdkadmin via the Komodo UI/API) logs their own
+# username. So "manual deploy" == a DeployStack/RestartStack line whose username
+# is NOT "Action". Confirmed 2026-10-30: over 24 h, 256 DeployStack lines total,
+# of which the only non-"Action" ones were kdkadmin's hand deploys.
+#
+# The log line carries ANSI colour codes between `method` and its value, so the
+# filter matches the QUOTED VALUE (`"DeployStack"`), not `method="DeployStack"`,
+# and likewise excludes the quoted `"Action"` username. The regexp stage pulls
+# the method into a label for the summary (the quotes survive the ANSI codes).
+#
+# Scheduled procedures (nightly-backups) deploy the backup-* stacks via the
+# procedure operator, which also logs as "Action" and so does not page here.
+#
+# Runbook: docs/runbooks/pushover-alerts.md#komodo-manual-deploy
+groups:
+  - name: komodo
+    interval: 1m
+    rules:
+      - alert: KomodoManualDeploy
+        expr: |
+          sum by (method) (count_over_time({host="kdk-dkr-01", container="komodo-core-1"}
+            |= "EXECUTE REQUEST" |~ `"(DeployStack|RestartStack)"` != `"Action"`
+            | regexp `"(?P<method>DeployStack|RestartStack)"` [10m])) > 0
+        for: 0m
+        labels:
+          severity: info
+          source: loki
+          scope: komodo
+        annotations:
+          summary: "Komodo {{ $labels.method }} run by hand on kdk-dkr-01 (outside the gitops path)"
+          description: >-
+            A person ran {{ $labels.method }} in the last 10m rather than letting
+            a repo push reconcile the fleet. Expected while you deploy by hand;
+            otherwise confirm the stack's files match the repo so the next
+            gitops-sync does not revert it. See the operator in
+            `docker logs komodo-core-1` (the username field).
+          runbook: docs/runbooks/pushover-alerts.md#komodo-manual-deploy
