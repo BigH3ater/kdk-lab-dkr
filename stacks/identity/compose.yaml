@@ -136,7 +136,7 @@ services:
     networks: [default]
 
   postgres:
-    image: postgres:16.15-alpine@sha256:0cefaabd882e42bcb2a2f3dc56d3ce4770560ba62fd7f197f1a2e008fd5731ab
+    image: postgres:18.6-alpine@sha256:10a5c69a83035ab5239f5620d708520e8b28f5aa1f2b20143e6024532edadfb5   # PG16->18 major: dump/restore per docs/runbooks/postgres-major-upgrade.md; attended window only (SSO outage)
     container_name: authelia-postgres
     restart: unless-stopped
     # Data dir is already owned by uid 70 (the image's postgres user), so the
@@ -162,6 +162,12 @@ services:
       POSTGRES_DB: authelia
       POSTGRES_USER: authelia
       POSTGRES_PASSWORD: "${AUTHELIA_POSTGRES_PASSWORD}"
+      # PG18 moved the image default PGDATA to /var/lib/postgresql/18/docker and its
+      # declared VOLUME to /var/lib/postgresql; pin PGDATA back to the 16 path so our
+      # host bind mount at /var/lib/postgresql/data stays authoritative (else PG18
+      # initdb's a fresh empty cluster in an anonymous volume -- silent data loss).
+      # The fresh dir is created chown 70:70 in the window (service runs user: "70:70").
+      PGDATA: /var/lib/postgresql/data
     volumes:
       - /opt/kdk-lab/identity/postgres:/var/lib/postgresql/data
     networks: [default]
