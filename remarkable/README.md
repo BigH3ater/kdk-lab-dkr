@@ -1,19 +1,30 @@
 # reMarkable Paper Pro — device notes & scripts
 
-Scripts and notes for the tablet (`Codex Linux`, Yocto scarthgap, systemd,
-hostname `imx8mm-ferrari`).
+Scripts and notes for the tablet (`Codex Linux` 5.7.126, Yocto scarthgap,
+build 2026-06-12, kernel `6.12.49`, systemd, hostname `imx8mm-ferrari`).
 
-## Architecture: lab-side SSH (not Tailscale)
+## Architecture: Tailscale (kernel mode) + opportunistic LAN SSH
 
-The tablet's kernel has **no `/dev/net/tun`**, so Tailscale can only run in
-userspace mode — which does **not** route the device's traffic or set its DNS, so
-`xochitl`'s native rmfakecloud sync can't traverse the tailnet. Tailscale on the
-tablet bought almost nothing, so it was **removed 2026-09-17** (node deregistered,
-daemon stopped/disabled).
+The tablet **is** on the tailnet. Tailscale runs in **kernel mode** via the
+**Vellum** homebrew framework (`/home/root/.vellum/bin/tailscale[d]`), as node
+`remarkable-pp` (`100.103.233.103`). The kernel **does** have `/dev/net/tun`
+(char device `10, 200`, world-rw) and the `tun.ko` module loads
+(`modprobe tun` → `rc=0`; `/proc/misc` lists `200 tun`), so kernel mode works and
+the device's **own** traffic is routed — not just inbound connections (which is
+all userspace mode would have given).
 
-Instead the reMarkable pipeline runs **lab-side, opportunistically** — jobs that
-act on the tablet whenever it's reachable on home Wi-Fi (it's an
-awake-only/opportunistic device anyway):
+> **History:** userspace-only Tailscale was **removed 2026-09-17** under the old
+> firmware (which lacked a usable `/dev/net/tun`); it was **re-added via Vellum
+> and confirmed running in kernel mode on 2026-10-30** (live SSH probe).
+
+Even so, **LAN `root@10.1.30.245` (VLAN 30) stays the primary path**: the tablet
+is an awake-only/opportunistic device and drops Wi-Fi (and the tailnet) when it
+sleeps, so device I/O still happens only when the tablet is awake. The tablet
+**filters ICMP**, so probe reachability with **SSH, not `ping`** (`ping` reports
+100% loss even while SSH is up).
+
+The reMarkable pipeline runs **lab-side, opportunistically** — jobs that
+act on the tablet whenever it's reachable:
 
 - **Highlights/annotations → Obsidian:** `remarks` against files pulled over SSH,
   writing Markdown into the headless "Kodiak Codex" vault.
