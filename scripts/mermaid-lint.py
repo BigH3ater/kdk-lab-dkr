@@ -18,7 +18,8 @@ from pathlib import Path
 
 BLOCK = re.compile(r"```mermaid[^\n]*\n(.*?)```", re.S)
 EDGE_LABEL = re.compile(r"\|([^|\n]*)\|")
-NODE_TEXT = re.compile(r"[A-Za-z0-9_]+(\[\(|\[\[|\(\(|\{\{|\[|\(|\{|>)([^\]\)\}\n]*)")
+# A quoted label is taken whole ("..."), so ( ) inside quotes never cuts it short.
+NODE_TEXT = re.compile(r'[A-Za-z0-9_]+(\[\(|\[\[|\(\(|\{\{|\[|\(|\{|>)("[^"\n]*"|[^\]\)\}\n]*)')
 RISKY = re.compile(r"[@(){}#]")
 
 
