@@ -10,15 +10,33 @@
 #              library, de-duping by title/author. This is what turns Chaptarr's raw
 #              output folder into a browsable Calibre library.
 #
+# IMPORT ROUTES THROUGH THE RUNNING SERVER (http://calibre-server:8081), NOT the
+# library path directly. calibredb and calibre-server are two programs that must
+# not open the same library at once: when `import` wrote metadata.db directly while
+# `server` held the library, calibre's own guard fired ("Another calibre program is
+# running ... calibredb can connect directly to a running calibre Content server")
+# and, worse, books added on disk never appeared in OPDS because the long-running
+# server kept serving its cached view until a restart (Make It Stick sat on disk,
+# invisible to KOReader, 2026-10-30). Adding through the server updates its live
+# copy, so OPDS reflects new books immediately and only one process writes the DB.
+#
 # Reach it at https://calibre.kmkdp.com (Traefik router, NO Authelia — KOReader's
 # OPDS client can't do SSO and the LAN is the gate, same exposure as the old raw
 # port) or the legacy tailnet path http://10.1.20.20:8081/opds. OPDS catalog URL
 # for KOReader: https://calibre.kmkdp.com/opds. Library at /opt/kdk-lab/calibre/library.
 name: calibre
 
-x-img: &img
+# Compose hardening baseline (docs/reference/compose-baseline.md). Services merge
+# it with `<<: *hardened` and override only what they need.
+x-hardened: &hardened
   image: kdk/calibre:latest
+  security_opt: ["no-new-privileges:true"]
+  cap_drop: [ALL]            # calibre-server + calibredb need no kernel capabilities
+  read_only: true            # rootfs locked; the library volume and tmpfs stay writable
+  tmpfs: [/tmp]              # HOME=/tmp — calibre's config/cache + conversion scratch
   restart: unless-stopped
+  pids_limit: 256
+  mem_limit: 512m
   environment: &env
     TZ: America/Chicago
   logging:
@@ -27,7 +45,7 @@ x-img: &img
 
 services:
   server:
-    <<: *img
+    <<: *hardened
     # Only this service builds the image; `import` reuses the tag. Compose stamps
     # each build with com.docker.compose.service, so two services building the
     # same tag produce two image IDs and whichever finishes last recreates the
@@ -48,6 +66,13 @@ services:
       # goes through Traefik on the proxy network.
       - "10.1.20.20:8081:8081"
     networks: [default, proxy]
+    healthcheck:
+      # OPDS answers 200 (no curl/wget in the image; calibre ships python3).
+      test: ["CMD", "python3", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8081/opds', timeout=5).status == 200 else 1)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
     labels:
       traefik.enable: "true"
       traefik.docker.network: "proxy"
@@ -67,27 +92,42 @@ services:
         exec calibre-server --port 8081 --listen-on 0.0.0.0 /library
 
   import:
-    <<: *img
+    <<: *hardened
     container_name: calibre-import
     # The loop's `sh` is PID 1 otherwise and ignores SIGTERM, so every stop ran
     # out the 10 s grace and was SIGKILLed (137 = paged as a crash). tini
     # forwards TERM, the shell exits 143, and the event watcher ignores that.
     init: true
+    mem_limit: 1g             # calibredb add extracts metadata/covers; headroom over the 512m default
     environment:
       <<: *env
+      # Add through the running server, never the library path (see header).
+      SERVER: http://calibre-server:8081/
       INCOMING: /incoming
       INTERVAL: "900"
     volumes:
-      - /opt/kdk-lab/calibre/library:/library
       # Chaptarr's ebook root (host /mnt/media/books/ebook = Chaptarr /data/media/books/ebook).
+      # No /library mount: import talks to the server over HTTP and never touches the DB on disk.
       - /mnt/media/books/ebook:/incoming:ro
+    depends_on:
+      # The server must be serving before calibredb can add through it.
+      server: { condition: service_healthy }
+    healthcheck:
+      # Liveness of the sidecar loop: each pass stamps /tmp/heartbeat; fail if it
+      # is missing or older than two intervals (loop wedged / calibredb hung).
+      test: ["CMD", "python3", "-c", "import time,sys,os; p='/tmp/heartbeat'; sys.exit(0 if os.path.exists(p) and time.time()-float(open(p).read().strip()) < 1900 else 1)"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
     entrypoint:
       - /bin/sh
       - -c
       - |
         while true; do
-          echo "[calibre-import] $$(date '+%F %T') scanning $$INCOMING";
-          calibredb add --with-library /library --automerge ignore -r "$$INCOMING" 2>&1 | tail -n 5 || true;
+          echo "[calibre-import] $$(date '+%F %T') scanning $$INCOMING -> $$SERVER";
+          date +%s > /tmp/heartbeat;
+          calibredb add --with-library "$$SERVER" --automerge ignore -r "$$INCOMING" 2>&1 | tail -n 5 || true;
           sleep "$$INTERVAL";
         done
 
