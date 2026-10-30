@@ -47,6 +47,7 @@ services:
       # itself. Komodo validates the JWT afterwards.
       traefik.http.routers.komodo.middlewares: "komodo-auth"
       traefik.http.middlewares.komodo-auth.forwardauth.address: "https://sso.kmkdp.com/api/authz/forward-auth"
+      traefik.http.middlewares.komodo-auth.forwardauth.maxResponseBodySize: "1048576"   # Traefik 3.7: bound the auth response (was unbounded, warned at start)
       traefik.http.middlewares.komodo-auth.forwardauth.trustForwardHeader: "true"
       traefik.http.middlewares.komodo-auth.forwardauth.authRequestHeaders: "Accept,Cookie"
       traefik.http.middlewares.komodo-auth.forwardauth.authResponseHeaders: "Remote-User,Remote-Groups,Remote-Email,Remote-Name"

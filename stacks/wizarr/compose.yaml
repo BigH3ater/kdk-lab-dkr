@@ -93,6 +93,7 @@ services:
       # Mirrors the internal Traefik's forwardauth@file (stacks/proxy/dynamic),
       # but points straight at the container instead of sso.kmkdp.com.
       traefik.http.middlewares.wizarr-auth.forwardauth.address: "http://authelia:9091/api/authz/forward-auth"
+      traefik.http.middlewares.wizarr-auth.forwardauth.maxResponseBodySize: "1048576"   # Traefik 3.7: bound the auth response (was unbounded, warned at start)
       traefik.http.middlewares.wizarr-auth.forwardauth.trustForwardHeader: "true"
       traefik.http.middlewares.wizarr-auth.forwardauth.authResponseHeaders: "Remote-User,Remote-Groups,Remote-Name,Remote-Email"
       # Rate limit on the public invitee paths at Traefik (wizarr posture W2):

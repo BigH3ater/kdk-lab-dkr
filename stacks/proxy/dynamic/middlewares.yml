@@ -4,6 +4,9 @@ http:
       forwardAuth:
         address: "https://sso.kmkdp.com/api/authz/forward-auth"
         trustForwardHeader: true
+        # Traefik 3.7 warns when unset (unbounded auth response). Authelia's
+        # forward-auth answers are headers plus a tiny body; 1 MiB is generous.
+        maxResponseBodySize: 1048576
         authResponseHeaders:
           - Remote-User
           - Remote-Groups
