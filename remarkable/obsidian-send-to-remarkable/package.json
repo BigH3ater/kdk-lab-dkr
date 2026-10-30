@@ -1,0 +1,20 @@
+{
+  "name": "obsidian-send-to-remarkable",
+  "version": "0.1.0",
+  "description": "Send an Obsidian note, folder, or the whole vault to the reMarkable via a vault-synced request queue.",
+  "main": "main.js",
+  "scripts": {
+    "dev": "node esbuild.config.mjs",
+    "build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production"
+  },
+  "keywords": ["obsidian", "remarkable"],
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "20.14.9",
+    "builtin-modules": "3.3.0",
+    "esbuild": "0.21.5",
+    "obsidian": "1.7.2",
+    "tslib": "2.6.3",
+    "typescript": "5.4.5"
+  }
+}

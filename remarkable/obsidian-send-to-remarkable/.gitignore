@@ -1,0 +1,4 @@
+# Build inputs only — main.js IS committed so the owner can copy the folder into
+# .obsidian/plugins/ (no release zip, no npm needed to install).
+node_modules/
+*.js.map
