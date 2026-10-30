@@ -1,0 +1,37 @@
+# dee-lb: HAProxy in front of the DEE wrapper VMs (kdk-dee-01 10.1.1.130, kdk-dee-02
+# 10.1.1.131) so the Tdarr flow's one DEE endpoint gets two encode slots.
+# Each wrapper is single-slot -> `maxconn 1` per backend, `leastconn`, health GET /healthz,
+# long client/server timeouts (an Atmos encode holds the POST open ~2 h) and a 2 h queue so
+# a request waits for a free slot instead of falling back. Runbook:
+# docs/runbooks/dee-second-instance.md. Register in komodo/resources.toml only after the
+# kdk-dee-02 licence go/no-go passes (runbook step "go/no-go").
+#
+# The config is mounted as a DIRECTORY (./config), not a single file: a single-file bind
+# pins the old inode after a git pull, so an edit would only apply on recreate (2026-10-30
+# Alertmanager lesson, docs/komodo-gitops.md).
+name: dee-lb
+services:
+  haproxy:
+    image: haproxy:3.0.7-alpine@sha256:7965ed622cc3be1311e9fc52c70a3f509b6bdcd9601f2b83e4eac05c3f8d829b
+    container_name: dee-lb
+    restart: unless-stopped
+    user: "99:99"                       # image's haproxy user; binds unprivileged ports only
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: [ALL]
+    read_only: true
+    tmpfs: [/tmp, /var/run]
+    pids_limit: 128
+    mem_limit: 128m
+    ports:
+      - "10.1.20.20:8484:8484"          # flow endpoint (dee-lb.kmkdp.com:8484)
+      - "127.0.0.1:8405:8405"           # HAProxy stats page (per-backend up/down)
+    volumes:
+      - ./config:/usr/local/etc/haproxy:ro
+    healthcheck:
+      test: ["CMD", "haproxy", "-c", "-q", "-f", "/usr/local/etc/haproxy/haproxy.cfg"]
+      interval: 60s
+      timeout: 5s
+      retries: 3
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
