@@ -41,7 +41,7 @@ A small VM that holds the lab's logs: Loki plus the Alloy syslog receiver. It ha
 | Path | How | Use when |
 |---|---|---|
 | Console | Proxmox → VM 320 → Console | SSH down, or the nft policy locked you out |
-| SSH | `ssh kdkadmin@10.1.20.21` | from `10.1.30.0/24`, the tailnet (`100.64.0.0/10`) or `192.168.3.0/24` only |
+| SSH | `ssh kdkadmin@10.1.20.21` | from `10.1.30.0/24`, the tailnet (`100.64.0.0/10`) or `192.168.2.0/24` only |
 
 Admin: `kdkadmin`, key-only, `NOPASSWD:ALL`. sshd also refuses root, forwarding and every other user.
 
@@ -99,7 +99,7 @@ VLAN 20 only. Inbound is default-deny on `eth0`; allowed new connections:
 
 | Port | From | Service |
 |---|---|---|
-| tcp 22 | `10.1.30.0/24`, `100.64.0.0/10`, `192.168.3.0/24` | sshd |
+| tcp 22 | `10.1.30.0/24`, `100.64.0.0/10`, `192.168.2.0/24` | sshd |
 | tcp 3100 | `10.1.20.20`, `10.1.20.30`, `10.1.30.21`, `10.1.30.22`, `192.168.191.20`, `10.1.1.100`, `10.1.1.120`, `10.1.3.5` | Loki push + query |
 | tcp/udp 514 | same list | Alloy syslog (container port 1514) |
 | tcp 8120 | `10.1.20.20` | Komodo periphery |

@@ -102,7 +102,7 @@ LLDAP serves **LDAPS on 6360** with the lab's **Let's Encrypt wildcard** (since 
 - **Elevated session:** adding/removing TOTP or WebAuthn needs the second factor (`require_second_factor: true`).
 - **WebAuthn:** FIDO MDS3 metadata validation on (`cache_policy: strict` → Authelia needs egress at start). A passkey rejected by MDS falls back to TOTP.
 - **Bypass rules:** `sso.kmkdp.com`; exactly `^/ping$` on sonarr/radarr/prowlarr (blackbox probes, anonymous `{"status":"OK"}`). Bazarr, SABnzbd and Tdarr are still probed on `/` (no confirmed anonymous health path).
-- **Named network** `definitions.network.internal` = VLANs 1/3/20/30, DMZ, tailnet `100.64.0.0/10`, WireGuard break-glass `192.168.3.0/24`. No rule uses it yet.
+- **Named network** `definitions.network.internal` = VLANs 1/3/20/30, DMZ, tailnet `100.64.0.0/10`, WireGuard break-glass `192.168.2.0/24`. No rule uses it yet.
 
 **OIDC clients and who may use them.**
 
