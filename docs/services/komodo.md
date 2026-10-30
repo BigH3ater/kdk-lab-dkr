@@ -6,7 +6,7 @@ tier: infra
 status: live
 storage: yes
 secrets: [komodo-db, komodo-passkey, komodo-jwt-secret, komodo-webhook-secret, komodo-admin, komodo-github-pat]
-updated: 2026-10-28
+updated: 2026-10-30
 tags: [homelab/stack, tier/infra, status/live]
 ---
 
@@ -24,7 +24,7 @@ Deployment control plane and the lab's single pane of glass; every other stack i
 | Status | 🟢 Live — UI behind Authelia SSO, all servers green |
 | Host | [[kdk-dkr-01]] (10.1.20.20) |
 | Endpoint | `https://komodo.kmkdp.com` — Authelia SSO (`internal-users`, 2FA), then local login `kdkadmin` (1P `komodo-admin`); self-registration closed |
-| Images | core `2.3.3`, ferretdb `2.7.0`, postgres-documentdb `17-0.107.0-ferretdb-2.7.0` (pinned 2026-10-28; `deploy = false`, so a bump applies on the next manual Deploy) |
+| Images | core `2.3.4`, ferretdb `2.7.0`, postgres-documentdb `17-0.107.0-ferretdb-2.7.0` (pinned 2026-10-28; `deploy = false`, so a bump applies on the next manual Deploy) |
 | Deploy | Komodo stack `komodo` (git-linked); Resource Sync reads `komodo/resources.toml` from main |
 | Storage | `/opt/kdk-lab/komodo/{postgres,ferretdb,syncs,backups}` on the VM disk |
 | Blast radius | No new deploys, redeploys, or drift-repair; running containers keep running |
@@ -34,7 +34,7 @@ Deployment control plane and the lab's single pane of glass; every other stack i
 ```bash
 curl -s -o /dev/null -w '%{http_code} %{redirect_url}\n' https://komodo.kmkdp.com/   # 302 https://sso.kmkdp.com/...
 # version, from kdk-dkr-01 (bypasses Traefik):
-sudo docker run --rm --network container:komodo-core-1 curlimages/curl:8.10.1 -s http://127.0.0.1:9120/version   # 2.3.3
+sudo docker run --rm --network container:komodo-core-1 curlimages/curl:8.10.1 -s http://127.0.0.1:9120/version   # 2.3.4
 sudo docker exec komodo-core-1 env | grep -E '^KOMODO_(DISABLE_USER_REGISTRATION|ENABLE_NEW_USERS)='   # true / false
 docker ps --filter label=komodo.skip --format '{{.Names}} {{.Status}}'   # core, ferretdb, postgres Up
 ```
@@ -44,7 +44,7 @@ In the UI, Servers shows all six hosts (`kdk-dkr-01/-dmz-01/-02/-03`, `kdk-mon-0
 
 | Problem | Cause | Command to validate |
 |---|---|---|
-| Core pulled 1.19.5 with a v1 UI | `latest` tag lags; must pin | `docker inspect ghcr.io/moghtech/komodo-core:2.3.3 --format '{{.Id}}'` |
+| Core pulled 1.19.5 with a v1 UI | `latest` tag lags; must pin | `docker inspect ghcr.io/moghtech/komodo-core:2.3.4 --format '{{.Id}}'` |
 | A stack won't pick up a config change (e.g. new `pre_deploy`) | Sync not applied | Run `RunSync` before `DeployStack` in the UI |
 | Server shows offline | Periphery down on that host | `ssh kdkadmin@<host> systemctl is-active periphery` → `active` |
 | UI returns 403 after SSO login | No Authelia `access_control` rule for `komodo.kmkdp.com`, or Authelia still on old config | rule exists in `stacks/identity/authelia/configuration.yml`; `RestartStack identity services=[authelia]` |
@@ -87,7 +87,7 @@ Komodo Actions (`gitops-reconcile`, `deploy-changed`) call `http://localhost:912
 | `KOMODO_HOST` | `https://komodo.kmkdp.com` (must match the ingress host) |
 | `KOMODO_DISABLE_USER_REGISTRATION` / `KOMODO_ENABLE_NEW_USERS` | `true` / `false`: no self-signup; any new user starts disabled |
 
-Core and periphery must track the same release line; pin both to `2.3.3`.
+Core and periphery must track the same release line; pin both to `2.3.4`.
 
 ## Secret Rotation
 

@@ -6,7 +6,7 @@ tier: dmz
 status: live
 storage: yes
 secrets: [immich-postgres]
-updated: 2026-10-28
+updated: 2026-10-30
 tags: [homelab/stack, tier/dmz, status/live]
 ---
 
@@ -24,7 +24,7 @@ Photo and video backup, LAN/tailnet only (router on the DMZ Traefik's `websecure
 | Status | 🟢 Live — web loads; mobile app reaches it off-LAN |
 | Host | [[kdk-dkr-dmz-01]] |
 | Endpoint | `https://immich.kmkdp.com` |
-| Images | server + ML `v3.0.0`, valkey `9`, postgres `14-vectorchord` (digest-pinned) |
+| Images | server + ML `v3.3.5`, valkey `9`, postgres `14-vectorchord` (digest-pinned) |
 | Deploy | Komodo stack `immich` (git-linked, `op inject` pre_deploy) |
 | Storage | library `/mnt/appdata/immich` (NFS); postgres `/opt/kdk-lab/immich/postgres` (VM disk, nightly dump) |
 | Blast radius | No photo access/upload; nothing else affected (segmented) |

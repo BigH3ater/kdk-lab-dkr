@@ -6,7 +6,7 @@ tier: infra
 status: live
 storage: yes
 secrets: [1password-credentials.json]
-updated: 2026-09-12
+updated: 2026-10-30
 tags: [homelab/stack, tier/infra, status/live]
 ---
 
@@ -23,7 +23,7 @@ Unmetered secrets path for every stack's `op inject` pre-deploy; reads the `kdk-
 | Purpose | Local Connect API so stacks render `.env` from `op://` refs without metered SA calls |
 | Status | 🟢 Live — `/heartbeat` returns `.` |
 | Host | [[kdk-dkr-01]], bound `10.1.20.20:8080` (bearer token only) |
-| Images | connect-api + connect-sync `1.8.2` |
+| Images | connect-api + connect-sync `1.8.4` |
 | Deploy | Komodo stack `op-connect` (git-linked) |
 | Storage | credentials file + a `data` volume (encrypted vault replica) |
 | Blast radius | Secret-rendering stacks can't deploy; running containers unaffected |

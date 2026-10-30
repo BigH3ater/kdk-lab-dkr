@@ -1,7 +1,7 @@
 ---
 title: Komodo GitOps (Resource Sync)
 tags: [homelab/process, komodo, gitops]
-updated: 2026-10-29
+updated: 2026-10-30
 ---
 
 # Komodo GitOps — Resource Sync
@@ -212,7 +212,7 @@ denied, pull it on the Pi by hand and redeploy.
 Docker never deletes old images by itself. The `prune-images` Procedure
 (Sunday 05:10 America/Chicago) runs Komodo's `PruneImages` execution
 (`docker image prune -a -f`) on every `[[server]]`: kdk-dkr-01, kdk-dkr-dmz-01,
-kdk-mon-01, kdk-dkr-02, kdk-dkr-03. kdk-log-01 has had a `[[server]]` since 2026-10-28 (PR #67) but is not in the stage yet: add it.
+kdk-mon-01, kdk-dkr-02, kdk-dkr-03, and kdk-log-01 (added to the stage after its `[[server]]` landed 2026-10-28, PR #67) — all six.
 
 - Removes every image that **no container references** — running or exited.
 - A one-shot's image (backup workers, `arr-*`, `planner-service`, …) **stays**:
@@ -238,8 +238,12 @@ accounts = [{ username = "<gh-user>", token = "ghp_..." }]
 ```
 
 …then set the sync's `git_account` to that user and enable Managed Mode.
-**Not yet set up** — no write token exists (`git_providers: []`). Tracked in
-[[backlog]]. Until then, the repo is authored here and Komodo syncs it read-only.
+**Managed Mode is not enabled.** A git provider *does* exist in Core — the
+`BigH3ater` account backed by `komodo-github-pat`, used to clone the private
+`network-sre-learning` repo — so `git_providers` is **not** empty. But that PAT
+is scoped to Contents **read-only**, so there is no write token for commit-back.
+Tracked in [[backlog]]. Until a write-scoped token is added, the repo is
+authored here and Komodo syncs it read-only.
 
 ## Secrets in update logs (open)
 

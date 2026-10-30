@@ -12,7 +12,7 @@ vmid: 320
 console: Proxmox → VM 320 → Console
 standards: compliant
 secrets: []
-updated: 2026-10-28
+updated: 2026-10-30
 tags: [homelab/host, role/log-host, status/live, tier/internal]
 ---
 
@@ -27,13 +27,13 @@ A small VM that holds the lab's logs: Loki plus the Alloy syslog receiver. It ha
 | Field | Value |
 |---|---|
 | Purpose | Log storage and search (Loki), syslog intake, log-based alerts (Loki ruler) |
-| Status | 🟢 Live since 2026-10-28 (PR #67, fix #84) — built by `scripts/create-vm-kdk-log-01.sh` (security plan B1); logs from all six hosts, ruler 10 groups / 69 rules |
+| Status | 🟢 Live since 2026-10-28 (PR #67, fix #84) — built by `scripts/create-vm-kdk-log-01.sh` (security plan B1); logs from all six hosts, ruler 11 groups / 76 rules |
 | Host | VM 320 on kdk-hyp-01 |
 | Address | `10.1.20.21/27` (VLAN 20), gw `10.1.20.1`, DNS `10.1.1.53`. No storage-net NIC |
 | OS | Debian 13 (template 9000) |
 | Hardware | 4 vCPU / 8 GiB / 200 GiB on `local-zfs` |
 | Managed by | cloud-init at build (`cloud-init/kdk-log-01-vendor-data.yaml`); Komodo periphery thereafter |
-| Runs | **loki** (Loki 3.7.9 `:3100` + Alloy syslog `:514` tcp/udp), observability-agent, node-exporter, the weekly `advisory-watch` and `trivy-scan-log01` one-shots |
+| Runs | **loki** (Loki 3.7.9 `:3100` + Alloy syslog `:514` tcp/udp), observability-agent, node-exporter, the hourly `cloudflare-watch` (+ weekly `cloudflare-watch-weekly`), and the weekly `advisory-watch` and `trivy-scan-log01` one-shots |
 | Blast radius | No log ingestion or log search lab-wide; Loki alerts (`LokiShippingStalled`) stop. Senders buffer (Alloy WAL, rsyslog disk queue) and catch up |
 
 ## Access
@@ -53,7 +53,7 @@ ssh kdkadmin@10.1.20.21 'systemctl is-active periphery nftables rsyslog docker' 
 ssh kdkadmin@10.1.20.21 'sudo nft list table inet kdk-input | head -5'
 ssh kdkadmin@10.1.20.21 'docker info | grep -A2 "Default Address Pools"'          # 10.213.0.0/16 /24
 curl -s http://10.1.20.21:3100/ready                                 # ready (from an allowed source)
-curl -s http://10.1.20.21:3100/loki/api/v1/rules | grep -c 'alert:'   # 69 (10 groups)
+curl -s http://10.1.20.21:3100/loki/api/v1/rules | grep -c 'alert:'   # 76 (11 groups)
 ```
 
 ## Troubleshooting

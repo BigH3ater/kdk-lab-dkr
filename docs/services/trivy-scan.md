@@ -6,8 +6,8 @@ tier: infra
 status: live
 storage: yes
 secrets: []
-updated: 2026-10-28
-tags: [homelab/stack, tier/infra, status/new, security]
+updated: 2026-10-30
+tags: [homelab/stack, tier/infra, status/live, security]
 ---
 
 # trivy-scan — weekly image vulnerability scan
