@@ -20,6 +20,16 @@ server drops its in-memory copy — verified the API persists flow updates).
 After editing the flow in the tdarr UI instead, run `export` and commit so
 the repo copy doesn't go stale.
 
+If the nodes end up overlapping in the flow editor (the two resolution
+branches drawn on top of each other, labels unreadable), re-layout the graph
+with `python3 scripts/tdarr-flow-layout.py` and then push it with
+`scripts/tdarr-flow-sync.sh import`. The script (stdlib only) recomputes
+**only** the node `position` values — ranking nodes by longest path from the
+Input node, keeping the `<=1440p` and `4K+` branches in separate vertical
+lanes with the shared head/tail centered and the error/hold nodes in a
+right-hand column — and asserts no node overlaps and that nothing but the
+coordinates changed, so it's safe to re-run after any flow edit.
+
 ## What the flow does with the hard cases (2026-10-25)
 
 - **Dolby Vision profile 5/7 remuxes are no longer held.** The old DV gate
