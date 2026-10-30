@@ -27,7 +27,7 @@ services:
     command: >
       sh -c 'pg_dump -h jellystat-db -U jellystat jfstat
       | gzip > /dest/jellystat-$$(date +%F).sql.gz
-      && ls -t /dest/jellystat-*.sql.gz | tail -n +15 | xargs -r rm; exit 0'
+      && ls -t /dest/jellystat-*.sql.gz | tail -n +16 | xargs -r rm; exit 0'
     volumes:
       - /mnt/backup/dkr/kdk-dkr-01/pgdump:/dest
     networks: [jellystat_default]

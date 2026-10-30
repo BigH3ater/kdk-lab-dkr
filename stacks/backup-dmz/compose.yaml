@@ -15,7 +15,7 @@ services:
     command: >
       sh -c 'pg_dump -h authelia-postgres -U authelia authelia
       | gzip > /dest/authelia-$$(date +%F).sql.gz
-      && ls -t /dest/authelia-*.sql.gz | tail -n +15 | xargs -r rm; exit 0'
+      && ls -t /dest/authelia-*.sql.gz | tail -n +16 | xargs -r rm; exit 0'
     volumes:
       - /mnt/backup/dkr/kdk-dkr-dmz-01/pgdump:/dest
     networks: [identity_default]
@@ -28,7 +28,7 @@ services:
     command: >
       sh -c 'pg_dump -h immich-postgres -U immich immich
       | gzip > /dest/immich-$$(date +%F).sql.gz
-      && ls -t /dest/immich-*.sql.gz | tail -n +15 | xargs -r rm; exit 0'
+      && ls -t /dest/immich-*.sql.gz | tail -n +16 | xargs -r rm; exit 0'
     volumes:
       - /mnt/backup/dkr/kdk-dkr-dmz-01/pgdump:/dest
     networks: [immich_internal]
@@ -46,7 +46,7 @@ services:
     command: >
       sh -c 'pg_dump -h tandoor-db -U tandoor tandoor
       | gzip > /dest/tandoor-$$(date +%F).sql.gz
-      && ls -t /dest/tandoor-*.sql.gz | tail -n +15 | xargs -r rm; exit 0'
+      && ls -t /dest/tandoor-*.sql.gz | tail -n +16 | xargs -r rm; exit 0'
     volumes:
       - /mnt/backup/dkr/kdk-dkr-dmz-01/pgdump:/dest
     networks: [tandoor_default]
