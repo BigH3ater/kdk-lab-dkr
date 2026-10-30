@@ -87,6 +87,11 @@
       description: Movies & TV (own login)
       widget:
         type: jellyfin
+        # Jellyfin >= 10.12 / 12.x: v1 endpoints use the /emby/ prefix + ?api_key=
+        # query auth, which Jellyfin 12.3.0 answers 404/401. version 2 uses the
+        # non-/emby paths (Items/Counts, Sessions) with header auth (Authorization:
+        # MediaBrowser Token=...), so no secret is placed in the request URL/logs.
+        version: 2
         url: https://jellyfin.kmkdp.com
         key: '{{HOMEPAGE_VAR_JELLYFIN_KEY}}'
         enableBlocks: true

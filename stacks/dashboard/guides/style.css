@@ -53,7 +53,25 @@ font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--ash);te
 #kodiak-sidebar li a.active,#kodiak-sidebar li a[aria-current=page]{color:var(--paper);
 background:var(--ink-surface);box-shadow:inset 3px 0 0 var(--ember)}
 @media(min-width:960px){body{padding-left:224px}}
-@media(max-width:959px){#kodiak-sidebar{display:none}}
+
+/* Mobile (<960px): top bar with a menu button that toggles the sidebar as an
+   off-canvas overlay. Desktop keeps the fixed sidebar (top bar + backdrop hidden). */
+#kodiak-topbar,#kodiak-backdrop{display:none}
+@media(max-width:959px){
+  body{padding-left:0}
+  #kodiak-topbar{display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:50;
+    margin:0 -16px;padding:10px 16px;background:#161311;border-bottom:1px solid var(--ink-hairline)}
+  #kodiak-topbar .ks-brand{display:flex;align-items:center;gap:8px;color:var(--ember);
+    font-weight:600;font-size:15px;text-decoration:none}
+  #kodiak-topbar .ks-brand span{color:var(--paper)}
+  #kodiak-menu{margin-left:auto;display:inline-flex;align-items:center;justify-content:center;
+    min-width:44px;height:44px;padding:0 10px;background:transparent;border:1px solid var(--ink-hairline);
+    border-radius:9px;color:var(--paper);font-size:20px;line-height:1;cursor:pointer}
+  #kodiak-menu:hover,#kodiak-menu:focus-visible{color:var(--ember);border-color:var(--ember)}
+  #kodiak-sidebar{display:none;top:0;width:min(84vw,300px);z-index:60}
+  body.ks-open #kodiak-sidebar{display:block}
+  body.ks-open #kodiak-backdrop{display:block;position:fixed;inset:0;z-index:55;background:rgba(0,0,0,.5)}
+}
 
 /* ---- Components the guide pages use (index grid, cards, buttons) ---- */
 .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; margin: 16px 0; }
