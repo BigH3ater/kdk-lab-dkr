@@ -199,6 +199,17 @@ Every other stack has no such label: after a config-only merge, run
 first deploy after it merges recreates the labelled service once (the label
 appears for the first time).
 
+**Single-file bind mounts pin a stale inode even with a reload.** A config
+mounted as a single file (`./dir/file.yml:/etc/app/file.yml:ro`) is only picked
+up on container **recreate**: git's checkout replaces the file with a new inode,
+the bind mount keeps pointing at the old one, and even an in-place reload
+(`POST /-/reload`, `SIGHUP`) re-reads the stale content. Mount the **whole
+directory** (`./dir:/etc/app:ro`) so the reload sees the new file, or carry a
+content-SHA label (above) so the edit forces a recreate. Alertmanager hit this
+on 2026-10-30: the `email-ops` receiver stayed dead through the post_deploy
+reload until the container was recreated by hand — fixed by moving it to a
+directory mount (`stacks/monitoring/compose.yaml`), as Prometheus already does.
+
 **NUT is excluded.** `stacks/nut/` never gets a version PR; a digest refresh
 of `instantlinux/nut-upsd` waits for a Dependency Dashboard tick. A NUT
 recreate once shut down kdk-hyp-01: only approve it with a person watching.

@@ -118,18 +118,22 @@ services:
       - "--web.external-url=https://alertmanager.kmkdp.com"
       - "--storage.path=/alertmanager"
     volumes:
-      - ./alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
-      # Pushover credentials (user_key + app token) from 1Password item
-      # kdk-cluster/pushover-kdk-lab, written 0600 owned by nobody:65534.
-      - ./alertmanager/pushover-user-key:/etc/alertmanager/pushover-user-key:ro
-      - ./alertmanager/pushover-app-token:/etc/alertmanager/pushover-app-token:ro
-      # Proton Bridge SMTP password (smtp_auth_password_file), same
-      # compose_secret_files op-inject path. This board no longer runs a
-      # bridge of its own: it submits through the IN-CLUSTER relay over
-      # smtp-relay.kmkdp.com:25, so this is the same credential the cluster
-      # uses (ADR 0012). The username is the account address and lives
-      # inline in alertmanager.yml; only the password is a secret file.
-      - ./alertmanager/proton-bridge-smtp-password:/etc/alertmanager/proton-bridge-smtp-password:ro
+      # Whole directory, not single files: git replaces alertmanager.yml with a
+      # new inode on every pull and a single-file bind mount pins the old one, so
+      # the post_deploy /-/reload in komodo/resources.toml re-reads stale content
+      # and a config edit only goes live on a hand recreate (the email-ops
+      # receiver was dead until 15:19Z on 2026-10-30 for exactly this). With the
+      # directory mounted the reload picks up receiver and route edits on deploy.
+      # The config stays /etc/alertmanager/alertmanager.yml and the three secret
+      # files resolve at the same absolute paths inside the container.
+      #
+      # The secret files (pushover-user-key, pushover-app-token,
+      # proton-bridge-smtp-password) are NOT in git: the monitoring-ext pre_deploy
+      # in komodo/resources.toml installs them into ./alertmanager/ at 0400 uid
+      # 65534 (= the alertmanager user) before every up. Mounting the directory
+      # exposes exactly those files plus alertmanager.yml -- nothing else lives in
+      # ./alertmanager/.
+      - ./alertmanager:/etc/alertmanager:ro
       - alertmanager-data:/alertmanager
     # Published on the VLAN-20 address (was `expose` only) so the Loki ruler on
     # kdk-log-01 can deliver alerts. mon-01's DOCKER-USER allowlist (security

@@ -124,7 +124,7 @@ and, if a new route is needed, a route in the Alertmanager config there. A
 `severity: critical` rule is e-mailed automatically; no routing change needed.
 Keep `kdk-mon-01` lean; heavy collectors belong on `kdk-dkr-01`.
 
-The three Prometheus rule files each carry a `scope` label (= the file) and a
+Each Prometheus rule group carries a `scope` label (= the group) and a
 `runbook` annotation pointing at the matching section below.
 
 ## Service and host alerts
@@ -165,6 +165,31 @@ idrac-exporter (Redfish), independent of any fan controller.
 | `HostInletTempHigh` | Inlet air above 30C for 10m — ambient/room cooling issue |
 | `FanUnhealthy` | A chassis fan reports a non-OK health status |
 | `FansPinnedHigh` | Peak fan speed above 10000 RPM for 20m. Expected while the fan controller is in monitoring-only mode; otherwise sustained load or stopped fan control |
+
+## Alerting pipeline
+
+`stacks/monitoring/prometheus/rules/alerting-pipeline.yml` (`scope:
+alerting-pipeline`). Watches the alerting path itself — the gap that let
+Alertmanager's :9093 publish disappear for ~1.5 h on 2026-10-30 with nothing
+noticing. Prometheus pages these via its internal `alertmanager:9093` target, so
+the page still gets out when the published host-port is what broke.
+
+| Alert | First checks |
+|---|---|
+| `AlertmanagerDown` (critical) | Prometheus cannot scrape Alertmanager on 10.1.20.30:9093 for 5m; kdk-log-01's ruler delivers here, so log alerts are dropped. Check the `alertmanager-ext` port publish and `docker ps` on kdk-mon-01 |
+| `LokiRulerCannotNotify` (critical) | `loki_prometheus_notifications_errors_total` on kdk-log-01 rising 10m; the ruler's log alerts are not reaching :9093. Check the published :9093 and kdk-log-01 → kdk-mon-01 reachability |
+| `LokiRulerNoAlertmanager` (critical) | The ruler discovered zero Alertmanagers 10m. Check `alertmanager_url` in `stacks/loki/loki-config.yaml` and that 10.1.20.30:9093 is published and reachable |
+| `LokiRulerConfigReloadFailed` | The ruler rejected its `rules/` directory, so recent edits are not active. `docker logs loki` on kdk-log-01 for the parse error |
+
+## Containers
+
+`stacks/monitoring/prometheus/rules/service.yml`, `containers` group (`scope:
+containers`). Kernel OOM-kills of individual containers, from cAdvisor's
+`container_oom_events_total`.
+
+| Alert | First checks |
+|---|---|
+| `ContainerOOMKilled` | A container hit its `mem_limit` and the kernel OOM killer fired (host stayed up). Check the container's memory ceiling and the workload that ballooned (for `tdarr-node`: a software-decoded 4K source or a DEE remux) |
 
 ## Alerting standard
 
