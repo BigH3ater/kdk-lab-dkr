@@ -57,11 +57,20 @@ Immich, Authelia, Tandoor and Jellystat Postgres are **not** in the archives;
 they are dumped with `pg_dump` (`stacks/backup-dmz`, `stacks/backup-dkr-01`) and
 the dated `.sql.gz` dumps go offsite as-is (few, single files).
 
-**Versioning:** `--backup-dir proton-crypt:_archive/<date>` keeps a dated copy of
-anything deleted or overwritten, so the offsite is point-in-time recoverable, not
-a pure destructive mirror. Yesterday's archives land there too. Transfer flags
-are conservative for Proton's flaky API: `--transfers 2 --checkers 4
---retries 3 --low-level-retries 10 --protondrive-replace-existing-draft=true`.
+**Versioning is local, not remote.** The offsite is a plain `rclone sync` mirror
+with **no `--backup-dir`** (a backup-dir prefix would overlap the sync root and
+abort with exit 7). Generational history lives on the NAS instead: `pack` keeps
+the newest 3 archives per host and each `pg_dump` keeps 15. The sync scope is set
+by `--filter` rules (all `--filter`, never mixed `--include`/`--exclude`, so the
+order is deterministic). Transfer flags are conservative for Proton's flaky API:
+`--transfers 2 --checkers 4 --retries 3 --low-level-retries 10
+--protondrive-replace-existing-draft=true`.
+
+**Proton session:** rclone runs against the writable host config
+`/opt/kdk-lab/backup/rclone/rclone.conf` so the logged-in session
+(`client_access_token`/`client_refresh_token`, …) persists between passes and
+nights; it logs in from the stored `otp_secret_key` only when the session is
+dead. Reseeding by hand: see `stacks/backup-offsite/README.md`.
 
 ## The nightly pipeline
 
