@@ -109,6 +109,12 @@ services:
       NODE_NAME: "${NODE_NAME:-unknown}"
       # `docker events` / `docker inspect` through the read-only socket proxy.
       DOCKER_HOST: "tcp://socket-proxy:2375"
+      # Deploy-noise guards (see docker-event-watch.sh header):
+      #   a 137/143 die is paged only if no `start` for the same name arrives
+      #   within DIE_GRACE seconds (a Komodo recreate cancels it); the startup
+      #   "watch online" ping is log-only unless ONLINE_PAGE=1.
+      EVENT_WATCH_DIE_GRACE: "${EVENT_WATCH_DIE_GRACE:-90}"
+      EVENT_WATCH_ONLINE_PAGE: "${EVENT_WATCH_ONLINE_PAGE:-0}"
     # The script is a compose `config`, not a bind mount, so the file ships with
     # the compose project. CAUTION (verified 2026-10-27 on the identity stack):
     # non-swarm compose does NOT content-hash `configs:`; a script-only edit
