@@ -1,0 +1,76 @@
+# kroki: internal diagram-rendering service on kdk-dkr-01. A unified HTTP API that turns
+# plain-text diagram source into images. Used ONLY in-cluster, over the shared docker
+# network `kroki_default`, by stacks/obsidian-to-koreader (it POSTs Mermaid blocks to
+# http://kroki:8000/mermaid/svg at PDF build time). No Traefik router, no published port,
+# no ingress -- nothing outside this host's docker networks can reach it.
+#
+# `core` delegates Mermaid rendering to the `mermaid` companion (headless Chromium), reached
+# by KROKI_MERMAID_HOST. Only Mermaid is wired up; the BPMN/Excalidraw companions are not
+# deployed (not needed). Images are pulled (pinned tag + @sha256 digest; Renovate keeps them
+# current -- both are in stacks/advisory-watch/catalog.json).
+#
+# First-deploy order: this stack creates the `kroki_default` network, so deploy it BEFORE
+# obsidian-to-koreader (which joins that network as external). See komodo/resources.toml.
+
+# Shared hardening baseline (docs/reference/compose-baseline.md). Services merge it with
+# `<<: *hardened` and override only what they need.
+x-hardened: &hardened
+  security_opt: ["no-new-privileges:true"]
+  cap_drop: [ALL]            # neither service needs a Linux capability
+  restart: unless-stopped
+  logging:
+    driver: json-file
+    options: { max-size: "10m", max-file: "3" }
+
+services:
+  kroki:
+    <<: *hardened
+    image: yuzutech/kroki:0.34.0@sha256:1314e60e6dd813cd00c90cb22007a05fdb92edf43259dfae71abbe89429ea36a
+    container_name: kroki
+    init: true                 # reap short-lived render children, forward SIGTERM
+    read_only: true            # Java fat-jar writes only scratch -> tmpfs /tmp
+    tmpfs: [/tmp]
+    pids_limit: 256
+    mem_limit: 1g
+    environment:
+      KROKI_MERMAID_HOST: mermaid          # delegate Mermaid to the companion (port 8002)
+      # Keep Kroki's attack surface minimal: it only ever renders trusted vault diagrams.
+      KROKI_SAFE_MODE: secure
+    healthcheck:
+      # /health returns 200 when the API is up. Assumes wget in the core image; if the first
+      # deploy shows "unhealthy" with wget missing, swap for the tool the image ships (the
+      # service still serves either way -- nothing depends_on its health).
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:8000/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
+    depends_on:
+      mermaid: { condition: service_started }
+
+  mermaid:
+    <<: *hardened
+    image: yuzutech/kroki-mermaid:0.34.0@sha256:b12882a8ec4ab91831f795194640f3b61ffd90af523ec221c11a68f8a70ef3a1
+    container_name: kroki-mermaid
+    init: true                 # headless Chromium spawns children -> tini reaps them
+    tmpfs: [/tmp]
+    shm_size: 256m             # Chromium needs a larger /dev/shm than the 64m default
+    pids_limit: 512            # Chromium fans out into many processes/threads
+    mem_limit: 1g
+    # read_only is NOT set: the headless Chromium (puppeteer) that renders Mermaid writes
+    # profile/crashpad/cache dirs across the rootfs with no single env to relocate them.
+    labels:
+      kdk.baseline.skip: "read_only"   # headless Chromium needs a writable rootfs (see above)
+    healthcheck:
+      # node is guaranteed present (node image); any status < 500 means the companion is up.
+      test: ["CMD-SHELL", "node -e \"require('http').get('http://localhost:8002/',r=>process.exit(r.statusCode<500?0:1)).on('error',()=>process.exit(1))\""]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+# Named explicitly so the renderer can join it as an external network by a stable name,
+# independent of the compose project name.
+networks:
+  default:
+    name: kroki_default

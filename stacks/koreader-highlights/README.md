@@ -14,7 +14,7 @@ Ingest KOReader highlights from the reMarkable into the Obsidian vault.
 Opportunistic (tablet-awake); Pushover on failure. This is the ingest leg of the KOReader
 reading loop — reading + highlighting happen on-device in KOReader. Books reach KOReader from
 `calibre` (ebooks the tablet pulls on-device over OPDS, replacing the retired `book-sync` push)
-and `obsidian-to-koreader` (vault sections delivered as PDFs under `books/Homelab`); the
+and `obsidian-to-koreader` (vault notes delivered as PDFs under `books/kodiak-codex`); the
 `readwise-koreader` article job that fed `books/Readwise` was retired 2026-10-29. Highlights from
 any of these land here.
 

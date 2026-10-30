@@ -286,7 +286,7 @@ class SendToRemarkableSettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName("Target subfolder (optional)")
-      .setDesc("Extra subfolder under the tablet's books/Homelab for the delivered PDFs. Leave empty to deliver directly under books/Homelab.")
+      .setDesc("Extra subfolder under the tablet's books/kodiak-codex for the delivered PDFs. Leave empty to mirror the note's vault folder under books/kodiak-codex.")
       .addText((t) =>
         t
           .setPlaceholder("(none)")

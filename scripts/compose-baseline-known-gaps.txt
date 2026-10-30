@@ -83,7 +83,6 @@ observability-agent/alloy: no-new-privileges,cap_drop,read_only,pids_limit,mem_l
 observability-agent/cadvisor: pids_limit,mem_limit,healthcheck
 observability-agent/docker-event-watch: no-new-privileges,cap_drop,read_only,pids_limit,mem_limit,healthcheck
 obsidian-headless/sync: no-new-privileges,cap_drop,read_only,pids_limit,mem_limit,logging,healthcheck
-obsidian-to-koreader/obsidian-to-koreader: no-new-privileges,cap_drop,read_only,pids_limit,mem_limit,logging,healthcheck
 op-connect/connect-api: no-new-privileges,cap_drop,read_only,pids_limit,mem_limit,logging,healthcheck
 op-connect/connect-sync: no-new-privileges,cap_drop,read_only,pids_limit,mem_limit,logging,healthcheck
 proxy/traefik: cap_drop,read_only,pids_limit,mem_limit,healthcheck
