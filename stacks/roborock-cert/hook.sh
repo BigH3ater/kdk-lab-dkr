@@ -6,10 +6,10 @@
 # only at start, so the roborock-cert-refresh procedure restarts the roborock
 # service after this stack runs. Not compose-interpolated (a real file), so no $$.
 set -e
-CRT=/lego/certificates/api-slave.kmkdp.com.crt
-KEY=/lego/certificates/api-slave.kmkdp.com.key
+CRT=/data/certificates/api-slave.kmkdp.com.crt
+KEY=/data/certificates/api-slave.kmkdp.com.key
 cp "$CRT" /tls/tls.crt
 cp "$KEY" /tls/tls.key
 chmod 0644 /tls/tls.crt
 chmod 0600 /tls/tls.key
-touch /lego/.renewed
+touch /data/.renewed
