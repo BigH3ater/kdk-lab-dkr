@@ -9,9 +9,10 @@
 # visitor could have created its admin account. The stack and directory keep
 # the old name -- renaming a Komodo stack destroys and recreates it.
 #
-# Scrypted is alone on this board on purpose: it was OOMKilled repeatedly on a
+# Scrypted is the only heavy application on this board on purpose (the
+# observability agents and nut-upsd are its only, light, neighbours): it was OOMKilled repeatedly on a
 # Pi 5 8 GiB during the k3s era and its limit was raised 2 GiB -> 4 GiB in
-# response. A board with no neighbour makes that 4 GiB a ceiling rather than
+# response. With no other heavy neighbour that 4 GiB is a ceiling rather than
 # a competition.
 name: scrypted-homebridge
 

@@ -17,7 +17,7 @@ ForwardAuth** (`forwardauth@file`) — admin/stats tooling, so it sits behind SS
 arr apps, not on the DMZ tunnel. Resolves only on the LAN/tailnet (lab DNS).
 
 - Stack: `stacks/jellystat/compose.yaml` — image `cyfershepard/jellystat` (pinned `1.1.12`).
-- Own **PostgreSQL 16** (`postgres:16.15-alpine`), db `jfstat`, user `jellystat` — data at
+- Own **PostgreSQL 18** (`postgres:18.6-alpine`, migrated from 16 by dump/restore, 2026-10), db `jfstat`, user `jellystat` — data at
   `/opt/kdk-lab/jellystat/postgres` (excluded from the raw rsync; pg_dumped by
   `backup-dkr-01`, see [[backups]]).
 - In-app backup dir `/opt/kdk-lab/jellystat/backup-data` — plain files, swept by the
@@ -68,7 +68,7 @@ ssh kdkadmin@10.1.20.20 'ls -t /mnt/backup/dkr/kdk-dkr-01/pgdump | head'   # jel
 |---|---|---|
 | Needs | [[traefik]] (internal Traefik, `proxy` network) | no ingress / TLS |
 | Needs | [[identity]] (Authelia, `sso.kmkdp.com`) | no auth → no access |
-| Needs | `jellystat-db` (own Postgres 16) | app cannot start |
+| Needs | `jellystat-db` (own Postgres 18) | app cannot start |
 | Needs | [[jellyfin]] (`jellyfin.kmkdp.com`) + an API key | no data to report on |
 | Feeds | [[backups]] (`backup-dkr-01` pg_dump + rsync) | no Postgres restore point |
 
@@ -79,7 +79,7 @@ No dedicated dashboard. Container health via Komodo / `docker ps`; logs ship to 
 
 ## Architecture
 
-Two containers from `stacks/jellystat/compose.yaml`: `jellystat-db` (`postgres:16.15-alpine`,
+Two containers from `stacks/jellystat/compose.yaml`: `jellystat-db` (`postgres:18.6-alpine`, `PGDATA` pinned to `/var/lib/postgresql/data`,
 db `jfstat`) on the stack default network only, and `jellystat` on both `default` and the
 external `proxy` network. `jellystat` depends on `jellystat-db` being healthy
 (`pg_isready`). Jellystat signs session tokens with `JWT_SECRET`; both the DB password
