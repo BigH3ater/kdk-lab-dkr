@@ -180,6 +180,20 @@ parallel instead of one blocking — **no Tdarr worker-limit change needed**.
 
 See `stacks/dee-lb/compose.yaml` + `stacks/dee-lb/config/haproxy.cfg`.
 
+**Container egress allowlist (load-bearing).** dkr-01 runs the DOCKER-USER policy in
+enforce mode (`docs/runbooks/host-firewall.md`). HAProxy runs in a bridge container, so
+each DEE backend needs its own `allow_dst <ip> tcp 8484` line in
+`hosts/kdk-dkr-01/kdk-docker-user.conf`. Without it the host's own `curl` works but
+HAProxy marks the backend `DOWN (L4TOUT)` (2026-10-30: kdk-dee-02 sat down for this
+reason). After the PR merges, install the file on the host and re-run the policy:
+
+```sh
+# laptop, repo root
+ssh kdkadmin@10.1.20.20 'sudo install -m 644 /dev/stdin /etc/default/kdk-docker-user && sudo systemctl start kdk-docker-user.service' < hosts/kdk-dkr-01/kdk-docker-user.conf
+ssh kdkadmin@10.1.20.20 'curl -s "http://127.0.0.1:8405/;csv" | awk -F, '"'"'$1=="dee_pool"{print $2, $18}'"'"''
+# expect: dee01 UP / dee02 UP within ~10 s (the health-check interval)
+```
+
 ## 7. Monitoring
 
 - **tdarr-verify** already probes DEE `/healthz` hourly, but only
