@@ -32,7 +32,7 @@ A Raspberry Pi 5 running the standalone monitoring stack so alerting survives a 
 | Address | `10.1.20.30` (VLAN 20) |
 | OS | Debian 13, kernel `6.18.34+rpt-rpi-2712 aarch64` |
 | Hardware | 4 cores / 7.9 GiB / 470 GB |
-| Managed by | adopted Komodo stack `monitoring-ext` (files on host, `/opt/kdk-lab/monitoring`) |
+| Managed by | git-linked Komodo stack `monitoring-ext` (`stacks/monitoring`, project `monitoring`). The pre-Komodo `/opt/kdk-lab/monitoring/docker-compose.yml` and its boot unit `compose-monitoring.service` resurrected the old stack after the 2026-10-30 04:31 reboot; the unit is disabled and the file retired (`.retired-docker-compose.yml-20261030`). The config subdirs there are still bind-mounted by the git stack |
 | Blast radius | No metrics, no uptime alerting, and BMC fans revert to firmware control |
 
 ## Access

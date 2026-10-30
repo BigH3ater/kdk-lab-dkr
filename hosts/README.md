@@ -159,3 +159,17 @@ at its default (false); the Unix-socket mode is refused by the Pi sshd. A `Match
 block cannot do this on Debian (drop-ins are included at the top of sshd_config).
 Key auth comes from the 1Password agent via `IdentityAgent ~/.1password/agent.sock`
 in `~/.ssh/config`.
+
+## Legacy boot units (removed 2026-10-30)
+
+Before Komodo, each Pi started its stack with a `compose-<stack>.service` systemd unit
+(`docker compose up -d --remove-orphans` in `/opt/kdk-lab/<stack>`). Those units were left
+enabled after the stacks moved to Komodo, and because they used the same compose project
+name, the first unattended-upgrades reboot (2026-10-30 04:31, all three Pis) relaunched the
+OLD compose files over the Komodo-managed containers: mon-01 lost the Alertmanager publish
+and ran old images for ~1.5 h, dkr-03 got Scrypted v0.123 and homebridge back. Fixed by
+`systemctl disable compose-monitoring.service` (mon-01), `compose-scrypted-homebridge.service`
+(dkr-03), `compose-home-assistant.service` (dkr-02, had no compose file left and failed
+harmlessly), retiring the legacy compose files and redeploying from Komodo. Rule: a host
+may not carry any compose unit or compose file outside the Komodo clone; check with
+`systemctl list-unit-files | grep -E '^compose'` after adopting a stack.
