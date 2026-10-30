@@ -668,6 +668,20 @@ enabled = true
 executions = [
   { execution.type = "DeployStack", execution.params.stack = "roborock-cert", enabled = true },
 ]
+
+[[procedure]]
+tags = ["kdk-lab"]
+name = "roborock-cert-apply"
+# Second half of the Roborock cert cycle: restart the roborock server so it loads the
+# tls.crt/tls.key the lego deploy hook wrote. Runs 30 min after roborock-cert-refresh
+# because DeployStack returns as soon as the one-shot is started, not when it finishes
+# (the first run restarted roborock while lego was still waiting on DNS).
+[procedure.config]
+schedule_format = "Cron"
+schedule = "0 10 5 1,15 * *"
+schedule_enabled = true
+schedule_timezone = "America/Chicago"
+failure_alert = true
 [[procedure.config.stage]]
 name = "restart-roborock"
 enabled = true
