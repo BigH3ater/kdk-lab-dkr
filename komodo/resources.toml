@@ -1653,7 +1653,6 @@ deploy = false   # run hourly by the cloudflare-watch procedure
 server = "kdk-log-01"
 repo = "BigH3ater/kdk-lab-dkr"
 run_directory = "stacks/cloudflare-watch"
-run_build = true               # local Dockerfile -> kdk/cloudflare-watch:latest
 destroy_before_deploy = true   # one locked down+up so the one-shot re-runs
 pre_deploy.command = "sh -c 'if [ -r /etc/komodo/op.env ]; then . /etc/komodo/op.env && op inject -f -i .env.tpl -o .env; else : > .env; fi'"
 
@@ -1665,7 +1664,6 @@ deploy = false   # run weekly by the cloudflare-watch-weekly procedure
 server = "kdk-log-01"
 repo = "BigH3ater/kdk-lab-dkr"
 run_directory = "stacks/cloudflare-watch"
-run_build = true               # same image as cloudflare-watch
 destroy_before_deploy = true   # one locked down+up so the one-shot re-runs
 environment = "CFWATCH_MODE=weekly\nCFWATCH_SUFFIX=-weekly"
 pre_deploy.command = "sh -c 'if [ -r /etc/komodo/op.env ]; then . /etc/komodo/op.env && op inject -f -i .env.tpl -o .env; else : > .env; fi'"

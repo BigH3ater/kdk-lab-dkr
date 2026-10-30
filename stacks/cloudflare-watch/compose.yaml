@@ -33,10 +33,13 @@ x-hardened: &hardened
 services:
   watch:
     <<: *hardened
-    build: .
-    image: kdk/cloudflare-watch:latest
+    # Same pinned base as the other python one-shots (arr-list-guard, advisory-watch):
+    # no local build. Komodo's deploy runs `compose pull` after `compose build`,
+    # and a locally built kdk/* tag fails that pull (first run 2026-10-29 23:36).
+    image: python:3.12.16-alpine@sha256:44bf3bcc455e0c9ccd912b78f39019b2f7e9d2f4fb47c6d6973c7638a99aff14
     container_name: cloudflare-watch${CFWATCH_SUFFIX:-}
     user: "1000:1000"
+    entrypoint: ["python3", "-I", "/watch.py"]
     init: true
     env_file:
       - path: .env
@@ -48,7 +51,9 @@ services:
       CF_ZONE: "${CF_ZONE:-kmkdp.com}"
       CFWATCH_MODE: "${CFWATCH_MODE:-}"   # empty = hourly; "weekly" on the weekly stack
       STATE: /state/state.json
+      PYTHONUNBUFFERED: "1"
     volumes:
+      - ./watch.py:/watch.py:ro
       - /opt/kdk-lab/cloudflare-watch:/state   # weekly rule/DNS shas (uid 1000)
     labels:
       kdk.baseline.skip: "healthcheck"   # one-shot
