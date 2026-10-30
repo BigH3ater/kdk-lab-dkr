@@ -6,6 +6,15 @@
 // express. NEVER introduce a hex outside the Kodiak palette here.
 // ==========================================================================
 
+// Pull in Quartz's own base stylesheet FIRST. Quartz compiles index.css by
+// importing THIS file (quartz/styles/custom.scss) as its entry point — base.scss
+// is not imported anywhere else, so stock custom.scss begins with this @use.
+// Without it, base.scss never compiles and the whole page grid (.page >
+// #quartz-body: the left/centre/right named grid areas, the sidebars and the
+// responsive breakpoints) is missing, collapsing every page into one column.
+// @use must be the first statement in the file. Keep this line on any overlay.
+@use "./base.scss";
+
 :root {
   // Kodiak tokens not surfaced through Quartz's colour config.
   --kdk-terminal-bg: #161311;
