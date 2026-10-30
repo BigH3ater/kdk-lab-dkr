@@ -20,6 +20,7 @@ backup-dkr-01/rsync: no-new-privileges,cap_drop,read_only,pids_limit,mem_limit,l
 backup-dmz/gate: no-new-privileges,cap_drop,read_only,pids_limit,mem_limit,logging,healthcheck
 backup-dmz/pgdump-authelia: no-new-privileges,cap_drop,read_only,pids_limit,mem_limit,logging,healthcheck
 backup-dmz/pgdump-immich: no-new-privileges,cap_drop,read_only,pids_limit,mem_limit,logging,healthcheck
+backup-dmz/pgdump-tandoor: no-new-privileges,cap_drop,read_only,pids_limit,mem_limit,logging,healthcheck
 backup-dmz/rsync: no-new-privileges,cap_drop,read_only,pids_limit,mem_limit,logging,image-pin,healthcheck
 backup-offsite/gate: no-new-privileges,cap_drop,read_only,pids_limit,mem_limit,logging,healthcheck
 backup-offsite/offsite: no-new-privileges,cap_drop,read_only,pids_limit,mem_limit,logging,healthcheck

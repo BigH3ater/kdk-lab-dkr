@@ -31,8 +31,8 @@ The offsite `rclone sync` (`stacks/backup-offsite/offsite.sh`) excludes:
 | `**/sabnzbd/logs/**` | logs |
 | `_archive/**` | the dated version history (see below) |
 
-Immich and Authelia Postgres are **not** rsynced; they are dumped with `pg_dump`
-(`stacks/backup-dmz`) and the dumps go offsite instead.
+Immich, Authelia and Tandoor Postgres are **not** rsynced; they are dumped with
+`pg_dump` (`stacks/backup-dmz`) and the dumps go offsite instead.
 
 **Versioning:** `--backup-dir proton-crypt:_archive/<date>` keeps a dated copy of
 anything deleted or overwritten, so the offsite is point-in-time recoverable, not
@@ -45,7 +45,7 @@ a pure destructive mirror.
 | Stage | Stack | Host | Does |
 |---|---|---|---|
 | stage-dkr-01 | `backup-dkr-01` | dkr-01 | rsync `/opt/kdk-lab` → `tankz3/backup/dkr/kdk-dkr-01/` |
-| stage-dmz | `backup-dmz` | dmz-01 | `pg_dump` authelia + immich, rsync app state |
+| stage-dmz | `backup-dmz` | dmz-01 | `pg_dump` authelia + immich + tandoor, rsync app state |
 | stage-collect | `backup-collect` | dkr-01 | SSH-pull `/opt/kdk-lab` from dkr-02, dkr-03, mon-01 (not on the storage net) |
 | offsite | `backup-offsite` | dkr-01 | `rclone sync` whole tree → Proton (encrypted) |
 | verify | `backup-verify` | dkr-01 | validate everything, alert Pushover on failure |
