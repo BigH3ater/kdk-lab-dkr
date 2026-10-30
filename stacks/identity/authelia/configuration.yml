@@ -754,7 +754,7 @@ identity_providers:
 # Named networks for access_control / OIDC policy rules (4.39: definitions.network).
 # Not referenced by any rule yet -- defined for later network-scoped rules. Matches
 # the first X-Forwarded-For address, so only meaningful with the batch-3 trusted-XFF
-# lists on the DMZ Traefik. 192.168.3.0/24 = WireGuard break-glass (admin source).
+# lists on the DMZ Traefik. 192.168.2.0/24 = WireGuard break-glass (admin source).
 definitions:
   network:
     internal:
@@ -764,7 +764,7 @@ definitions:
       - '10.1.30.0/24'
       - '192.168.191.0/24'
       - '100.64.0.0/10'
-      - '192.168.3.0/24'
+      - '192.168.2.0/24'
 access_control:
   default_policy: 'deny'
   rules:

@@ -11,7 +11,7 @@ users:
     ssh_authorized_keys:
       # from=: admin workstation, dkr-01 (backup-collect), tailnet, WireGuard
       # (hosts/_common/authorized_keys.README.md).
-      - from="10.1.30.0/24,10.1.20.20,100.64.0.0/10,192.168.3.0/24" ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIISxVOFP6r1EKbRDgtXctnqNII6EEypDpBax3LyOBxDb kdkadmin-ssh-key
+      - from="10.1.30.0/24,10.1.20.20,100.64.0.0/10,192.168.2.0/24" ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIISxVOFP6r1EKbRDgtXctnqNII6EEypDpBax3LyOBxDb kdkadmin-ssh-key
 package_update: true
 packages: [qemu-guest-agent, nfs-common, curl, ca-certificates, gnupg, rsync, nftables, unattended-upgrades, rsyslog]
 write_files:
