@@ -31,7 +31,7 @@ table inet kdk-storage {}
 delete table inet kdk-storage
 
 table inet kdk-storage {
-    # Host -> storage net: NFS (media, backup, dee-exchange, loki mounts) and
+    # Host -> storage net: NFS (media, backup, dee-exchange mounts) and
     # ping to the NAS only. `stacks/storage-health` (host network) pings the NAS
     # and connects to 2049 every hour; both stay allowed.
     chain storage_out {

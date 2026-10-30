@@ -18,7 +18,7 @@ The NFS/storage plane is a flat L2 on the NAS `bond1`/`br0` (802.3ad, jumbo MTU
 Client mounts are systemd `.mount` units (`/etc/systemd/system/mnt-*.mount`),
 seeded on build from `cloud-init/` in the repo. Current clients:
 
-- **kdk-dkr-01** — `/mnt/media`, `/mnt/backup`, `/mnt/dee-exchange`, `/mnt/loki` (old Loki only; Loki moved to kdk-log-01's local disk 2026-10-28, mount released after 2026-11-28)
+- **kdk-dkr-01** — `/mnt/media`, `/mnt/backup`, `/mnt/dee-exchange` (`/mnt/loki` released 2026-10-29: Loki runs on kdk-log-01's local disk since 2026-10-28; the `vmpool/loki` NFS share is deleted, the dataset is kept until the owner destroys it)
 - **kdk-dkr-dmz-01** — `/mnt/media` (RO), `/mnt/backup`, `/mnt/appdata`
 - **kdk-hyp-01** — `/mnt/pve/backups` mounted **on demand** (soft NFSv4.1) by
   `/usr/local/sbin/kdk-template-backup.sh` for the monthly VM 9000 dump, then

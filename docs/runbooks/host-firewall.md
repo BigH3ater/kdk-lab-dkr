@@ -215,3 +215,9 @@ If the compose half of batch 7 is already merged on dkr-01, the sidecar is gone:
 two manual rules above last until the next reboot or Docker restart. Either re-enable
 the unit with `TAILSCALE=1` and an empty exception list in `MODE=log`, or revert the
 sidecar removal (`git revert` of that hunk, Komodo deploys it).
+
+## Enforce history
+
+| Host | MODE=enforce since | Evidence before the switch |
+|---|---|---|
+| kdk-dkr-01 | 2026-10-29 23:02 CDT | 3 days in `log` mode: 26 `kdk-du-would-drop` lines, all late `ACK`/`FIN`/`PSH` segments from containers back to scrape/HA clients after the conntrack entry expired (no `SYN`), i.e. nothing a container needed. After the switch: 0 drops in the first minutes, every dkr-01 Prometheus target up, Alloy still shipping. |
