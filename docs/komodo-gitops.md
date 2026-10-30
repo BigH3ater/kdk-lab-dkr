@@ -177,7 +177,27 @@ server because `ListStacks` returns at most 50.
   next deploy.
 - A PR that only changes a file mounted through compose `configs:` (or a
   single-file bind mount) does not change the compose spec, so the deploy does
-  not restart anything. Run **`RestartStack`** for that stack in Komodo.
+  not restart anything. Run **`RestartStack`** for that stack in Komodo — unless
+  the stack carries a config-SHA label (see below).
+
+**Config files and recreation.** Compose does not content-hash a `configs: file:`
+entry or a single-file bind mount (it bind-mounts the file read-only and the
+service config-hash captures only the file reference, not its bytes — see
+`docker/compose` `create.go`/`reconcile.go`). So editing a mounted config file is a
+no-op `up -d` and the container keeps the old config. Three stacks close this by
+hashing their config files in `pre_deploy` and carrying the digest in a
+`kdk.config-sha` label, which changes with the content and forces a recreate:
+
+| Stack | Label(s) | Files hashed |
+|---|---|---|
+| `loki` | `kdk.rules-sha`, `kdk.config-sha` (loki), `kdk.config-sha` (syslog/alloy) | `rules/*.yml`, `loki-config.yaml`, `alloy/syslog.alloy` |
+| `identity` | `kdk.config-sha` (authelia only) | `authelia/configuration.yml`, `authelia/configuration.webauthn.yml` |
+| `nut` | *pending* — PR `fix/nut-config-sha` | `ups.conf` — ⚠️ a recreate can shut a client host down, so it lands in its own **attended** PR, not this one (see [[nut]]) |
+
+Every other stack has no such label: after a config-only merge, run
+**`RestartStack`** for it in Komodo. When you add a config SHA to a stack, the
+first deploy after it merges recreates the labelled service once (the label
+appears for the first time).
 
 **NUT is excluded.** `stacks/nut/` never gets a version PR; a digest refresh
 of `instantlinux/nut-upsd` waits for a Dependency Dashboard tick. A NUT

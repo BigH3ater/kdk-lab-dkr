@@ -232,7 +232,12 @@ after = ["dmz-proxy"]
 server = "kdk-dkr-dmz-01"
 repo = "BigH3ater/kdk-lab-dkr"
 run_directory = "stacks/identity"
-pre_deploy.command = "sh -c '. /etc/komodo/op.env && op inject -f -i .env.tpl -o .env'"
+# pre_deploy renders .env from .env.tpl (op inject OVERWRITES .env), THEN appends
+# AUTHELIA_CONFIG_SHA = sha256 over every git-mounted Authelia config file, so the
+# authelia `kdk.config-sha` label changes with the content and a config-only merge
+# recreates authelia on its own (loki uses the same trick). Append-after-inject
+# matters: op inject -o .env truncates the file.
+pre_deploy.command = "sh -c '. /etc/komodo/op.env && op inject -f -i .env.tpl -o .env && echo AUTHELIA_CONFIG_SHA=$(sha256sum authelia/configuration.yml authelia/configuration.webauthn.yml | sha256sum | cut -c1-12) >> .env'"
 webhook_enabled = true
 
 [[stack]]
