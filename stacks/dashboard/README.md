@@ -13,7 +13,8 @@ services that carry their own login (most now Authelia OIDC, incl. Home Assistan
 
 ## Config (all git-tracked)
 - `config/` — Homepage YAML (`settings`, `services`, `bookmarks`, `widgets`, `custom.css`).
-- `guides/` — static HTML guides. Served under `/guides` via Traefik StripPrefix; each page sets `<base href="/guides/">` so relative links/assets resolve under the prefix even without a trailing slash. `nav.js` renders the guides sidebar (current page marked, Back to home link).
+- `guides/` — static HTML guides. Served under `/guides` via Traefik StripPrefix; each page sets `<base href="/guides/">` so relative links/assets resolve under the prefix even without a trailing slash. `nav.js` renders the guides sidebar (current page marked, Back to home link) and, below 960px, a top-bar menu button that toggles it as an overlay.
+- `guides.nginx.conf` — mounted read-only over the container's `default.conf`; sends `Cache-Control: no-cache` for HTML and a short `max-age` + `must-revalidate` for css/js so guide edits show up without a hard refresh. Single-file bind mount → conf edits need a container recreate to apply.
 - `mealplan/` — the sidecar (`Dockerfile` + `app.py`).
 - `.env.tpl` — op refs, injected at deploy (`pre_deploy`).
 

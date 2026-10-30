@@ -38,5 +38,46 @@
     '<a class="ks-brand" href="index.html">' + BEAR + "<span>Guides</span></a>" +
     '<a class="ks-home" href="' + HOME + '">&larr; The Mack House</a>' +
     "<ul>" + items + "</ul>";
+
+  // --- Mobile nav (<960px): a top bar whose button toggles the sidebar. ---
+  // The sidebar is the same element on every screen size; CSS hides it off
+  // the top bar below 960px and reveals it when <body> has the ks-open class.
+  var bar = document.createElement("div");
+  bar.id = "kodiak-topbar";
+  bar.innerHTML =
+    '<a class="ks-brand" href="index.html">' + BEAR + "<span>Guides</span></a>" +
+    '<button id="kodiak-menu" type="button" aria-label="Guides menu"' +
+    ' aria-controls="kodiak-sidebar" aria-expanded="false">☰</button>';
+
+  var backdrop = document.createElement("div");
+  backdrop.id = "kodiak-backdrop";
+
+  document.body.insertBefore(bar, document.body.firstChild);
   document.body.appendChild(nav);
+  document.body.appendChild(backdrop);
+
+  var btn = bar.querySelector("#kodiak-menu");
+  function setOpen(open) {
+    document.body.classList.toggle("ks-open", open);
+    btn.setAttribute("aria-expanded", open ? "true" : "false");
+    if (open) {
+      var first = nav.querySelector("a");
+      if (first) { first.focus(); }
+    } else {
+      btn.focus();
+    }
+  }
+  btn.addEventListener("click", function () {
+    setOpen(!document.body.classList.contains("ks-open"));
+  });
+  backdrop.addEventListener("click", function () { setOpen(false); });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && document.body.classList.contains("ks-open")) {
+      setOpen(false);
+    }
+  });
+  // Tapping any sidebar link closes the overlay (it navigates anyway).
+  nav.addEventListener("click", function (e) {
+    if (e.target.closest("a")) { setOpen(false); }
+  });
 })();

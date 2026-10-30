@@ -45,6 +45,10 @@ services:
     restart: unless-stopped
     volumes:
       - ./guides:/usr/share/nginx/html:ro
+      # Cache policy so family guide edits show up without a hard refresh
+      # (no-cache on HTML, short must-revalidate on css/js). Single-file bind
+      # mount: future edits to the conf need a container recreate to apply.
+      - ./guides.nginx.conf:/etc/nginx/conf.d/default.conf:ro
     networks: [default, proxy]
     labels:
       traefik.enable: "true"
