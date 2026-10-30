@@ -66,8 +66,18 @@ services:
     restart: unless-stopped
     command: ["--config.file=/etc/blackbox/blackbox.yml"]
     volumes:
+      # Single-file bind mount: git swaps blackbox.yml's inode on pull and
+      # blackbox reads it only at start (the stack's post_deploy /-/reload hits
+      # prometheus:9090 and alertmanager:9093 only -- blackbox :9115 is expose-
+      # only and unreachable from the host). So a config edit needs a recreate.
+      # Prometheus and Alertmanager use whole-directory mounts because they
+      # auto-reload; blackbox instead carries the kdk.config-sha label below
+      # (BLACKBOX_CONFIG_SHA = sha256(blackbox.yml) from the Komodo pre_deploy),
+      # which changes with content and forces the recreate on deploy.
       - ./blackbox/blackbox.yml:/etc/blackbox/blackbox.yml:ro
     expose: ["9115"]
+    labels:
+      kdk.config-sha: "${BLACKBOX_CONFIG_SHA:-unset}"
 
   prometheus:
     image: prom/prometheus:v3.15.1@sha256:fa3302279710be2f21a8301ec17a8b4f2301fd829bd113839b3b6b02b6f191a2
