@@ -1,0 +1,72 @@
+# Watch the alerting pipeline itself. On 2026-10-30 Alertmanager's :9093 publish
+# was gone for ~1.5 h (a stale legacy compose unit relaunched old containers,
+# hosts/README.md "Legacy boot units") and the Loki ruler on kdk-log-01 could
+# not deliver a single alert -- and nothing noticed, because nothing watched the
+# watcher. These rules close that gap from both ends: the Prometheus side (is
+# Alertmanager answering on the published port?) and the Loki side (is the ruler
+# successfully handing alerts off?).
+#
+# These page via Prometheus's INTERNAL alertmanager target (`alertmanager:9093`
+# on the compose network), which survives a missing host-port publish, so the
+# page still gets out when the published :9093 is what broke. If Alertmanager is
+# truly down, Prometheus buffers and delivers on recovery; Grafana shows it
+# throughout.
+groups:
+  - name: alerting-pipeline
+    rules:
+      # The published :9093 (what kdk-log-01's ruler and amtool from log-01 use)
+      # is unreachable. This is the direct detector for the 2026-10-30 incident.
+      - alert: AlertmanagerDown
+        expr: up{job="alertmanager"} == 0
+        for: 5m
+        labels: {severity: critical, source: external-monitor}
+        annotations:
+          summary: "Alertmanager published :9093 is unreachable from kdk-mon-01"
+          description: >-
+            Prometheus cannot scrape Alertmanager on 10.1.20.30:9093 for 5m. The
+            Loki ruler on kdk-log-01 delivers log-rule alerts to this exact
+            address, so they are being dropped. Check the alertmanager-ext port
+            publish (a stale compose unit removed it on 2026-10-30) and
+            `docker ps` on kdk-mon-01.
+
+      # The ruler cannot reach ANY Alertmanager: its configured AM is down,
+      # mis-addressed, or firewalled. loki_prometheus_notifications_errors_total
+      # climbs when sends fail; discovered==0 means it has no AM at all.
+      - alert: LokiRulerCannotNotify
+        expr: rate(loki_prometheus_notifications_errors_total{job="loki"}[10m]) > 0
+        for: 10m
+        labels: {severity: critical, source: external-monitor}
+        annotations:
+          summary: "Loki ruler is failing to deliver alerts to Alertmanager"
+          description: >-
+            loki_prometheus_notifications_errors_total on kdk-log-01 has been
+            rising for 10m: the ruler's log-based alerts (stacks/loki/rules/) are
+            not reaching Alertmanager on 10.1.20.30:9093. This is the signal that
+            went unseen for 1.5 h on 2026-10-30. Check the published :9093 and
+            kdk-log-01 -> kdk-mon-01 reachability.
+
+      - alert: LokiRulerNoAlertmanager
+        expr: loki_prometheus_notifications_alertmanagers_discovered{job="loki"} == 0
+        for: 10m
+        labels: {severity: critical, source: external-monitor}
+        annotations:
+          summary: "Loki ruler has no Alertmanager to send to"
+          description: >-
+            The Loki ruler on kdk-log-01 discovered zero Alertmanagers for 10m;
+            every log-based alert will be silently dropped. Check the ruler's
+            alertmanager_url in stacks/loki/loki-config.yaml and that
+            10.1.20.30:9093 is published and reachable.
+
+      # The ruler process is up but its last rule-group reload failed, so new or
+      # edited rules in stacks/loki/rules/ are NOT loaded (the file broke the
+      # parse). Catches a bad rule shipping without a visible error.
+      - alert: LokiRulerConfigReloadFailed
+        expr: loki_ruler_config_last_reload_successful{job="loki"} == 0
+        for: 10m
+        labels: {severity: warning, source: external-monitor}
+        annotations:
+          summary: "Loki ruler failed to load its rules on kdk-log-01"
+          description: >-
+            loki_ruler_config_last_reload_successful is 0: the ruler rejected the
+            current rules/ directory, so recent rule edits are not active. Check
+            `docker logs loki` on kdk-log-01 for the parse error.
