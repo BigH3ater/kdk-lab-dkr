@@ -34,6 +34,10 @@ RM_USER = os.environ.get("RM_USER", "root")
 RM_PW   = os.environ.get("RM_PW", "")
 MAX_MB  = float(os.environ.get("MAX_PDF_MB", "40"))
 ENGINE  = os.environ.get("PANDOC_ENGINE", "weasyprint")   # Phase 1 renderer decision
+# Render for the DEVICE screen, not paper. The Paper Pro panel is 1620x2160 px at ~229 ppi
+# = ~180x240 mm (3:4); an A4 PDF shows each page as two half-screens in KOReader. Make the
+# page size env-configurable so a reMarkable 2 or true paper output can be chosen later.
+PAGE_SIZE = os.environ.get("PDF_PAGE_SIZE", "180mm 240mm")
 # only these top-level sections (regex) in the scheduled default run; default = numbered domains
 SECTION_RE = re.compile(os.environ.get("SECTION_REGEX", r"^\d\d[-.]"))
 # Tablet addresses, tried in order: tailnet first (reachable off-LAN), then LAN. A single
@@ -93,7 +97,12 @@ def clean_md(text):
         name = pathlib.Path(tgt).name
         if pathlib.Path(tgt).suffix.lower() in IMG_EXT:
             hit = _IMG.get(name)
-            return f"![]({hit.as_posix()})" if hit else ""  # resolved image, else drop
+            # Percent-encode the path (keep "/"). pandoc's markdown reader stops a bare URL
+            # at the first space, so most vault paths ("1. Projects", "3. Resources", ...)
+            # would silently lose the image; the %20-encoded form survives the reader and is
+            # a valid URL WeasyPrint decodes back to the real file. WeasyPrint rasterises SVG
+            # natively; PNG/JPG embeds use the same encoded path.
+            return f"![]({urllib.parse.quote(hit.as_posix(), safe='/')})" if hit else ""
         return ""                                        # embed of another note -> drop
     text = re.sub(r"!\[\[([^\]]+)\]\]", _embed, text)    # image embeds -> md image; note embeds dropped
     out=[]                                               # callout header -> bold label (renders as blockquote)
@@ -119,11 +128,28 @@ def tree_markdown(root):
         parts.append(note_markdown(md))
     return "".join(parts)
 
+def _device_css():
+    # e-ink-friendly CSS injected into the HTML head (overrides pandoc's default template).
+    # No @page headers/footers (WeasyPrint adds none by default).
+    return (
+        "<style>\n"
+        f"@page {{ size: {PAGE_SIZE}; margin: 9mm 9mm 11mm 9mm; }}\n"
+        "html { font-size: 12.5pt; }\n"
+        "body { line-height: 1.4; max-width: none; margin: 0; padding: 0; }\n"
+        "img, svg { max-width: 100%; height: auto; page-break-inside: avoid; }\n"
+        "table { font-size: 0.9em; word-break: break-word; border-collapse: collapse; }\n"
+        "pre, code { white-space: pre-wrap; word-break: break-word; }\n"
+        "h1, h2, h3, h4, h5, h6 { page-break-after: avoid; }\n"
+        "</style>\n"
+    )
+
 def render_pdf(name, md_text, out_pdf):
     BUILD.mkdir(parents=True, exist_ok=True)   # writable scratch (uid 1000 owns /state)
     src=BUILD/f"{name}.md"; src.write_text(md_text, encoding="utf-8")
+    hdr=BUILD/f"{name}.device.html"; hdr.write_text(_device_css(), encoding="utf-8")
     cmd=["pandoc", str(src), "-o", str(out_pdf), f"--pdf-engine={ENGINE}",
-         "--metadata", f"title={name}", "-V", "papersize=a5", "--resource-path", str(VAULT)]
+         "--metadata", f"title={name}", "--resource-path", str(VAULT),
+         "--include-in-header", str(hdr)]   # device page size + e-ink CSS (PDF_PAGE_SIZE)
     # pandoc writes its temp files in the CWD; the image WORKDIR (/app) is root-owned and
     # the container runs as uid 1000, so run from the writable build dir and point TMPDIR at
     # /tmp (openTempFile would otherwise fail: permission denied). All cmd paths are absolute.

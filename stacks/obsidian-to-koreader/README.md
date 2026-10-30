@@ -73,6 +73,14 @@ Pushover on failure. `RM_PW` is op-injected (`op://kdk-cluster/remarkable-device
   would be the root-owned image WORKDIR. `render_pdf()` runs pandoc with `cwd=/state/build`
   (writable) and `TMPDIR=/tmp`, and the image sets `WORKDIR /tmp`. If you see this, the image
   predates that fix or `/state` is not owned by 1000 (pre_deploy chowns it).
+- **A PDF is delivered (the `done/` record is `ok`) but KOReader says it cannot open it / the
+  file is missing.** KOReader's file browser was open on the folder before the delivery and is
+  showing a cached listing. Leave and re-enter the folder, or restart KOReader (verified by the
+  owner 2026-10-30). Same for Readwise deliveries.
+- **A page shows as two half-screens / "cut off" in KOReader.** The PDF page is larger than the
+  screen (e.g. an older A4 render). New PDFs are sized to the panel (`PDF_PAGE_SIZE`); for an
+  existing document use KOReader zoom mode *fit page* (tap top of screen → zoom) and *set as
+  default*.
 
 ## Renderer: WeasyPrint (Phase 1 decision)
 
@@ -98,15 +106,27 @@ pin ever become painful (Phase 2).
 |---|---|---|
 | YAML frontmatter | stripped | removed (intentional) |
 | `[[note]]` / `[[note\|alias]]` wikilinks | → plain text / alias text | yes, as text (no intra-PDF anchor) |
-| `![[image.png/.svg]]` embeds | resolved vault-wide → absolute `![]()` | yes (WeasyPrint); Typst needs `--root=/` |
+| `![[image.png/.svg]]` embeds | resolved vault-wide → **percent-encoded** absolute `![]()` | yes (WeasyPrint; SVG rasterised natively). Paths with spaces/unicode are `%`-encoded — a bare path is truncated at the first space by pandoc's reader, silently dropping the image; Typst needs `--root=/` |
 | `![[other note]]` (note embeds) | dropped | no (by design — avoids recursion/bloat) |
 | `> [!type] Title` callouts | → `> **TYPE — Title**` blockquote | yes, as a labelled blockquote (no colour/icon) |
 | ` ```dataview ` blocks | → `*[Dataview query — renders only in Obsidian]*` | placeholder only (dynamic; headless-blind) |
 | `%% comments %%` | stripped | removed |
 | standard Markdown (headings, lists, tables, code, images) | pandoc | yes |
 
-Bake-off page counts (A5): project note 20 pp (2.1 MB, SVGs embedded), reading index 4 pp,
+Bake-off page counts: project note 20 pp (2.1 MB, SVGs embedded), reading index 4 pp,
 homelab index 1 pp — all well under the 40 MB guard.
+
+### Page sizing for the device
+
+PDFs are rendered **for the Paper Pro screen, not for paper**: an A4/A5 page shows up in
+KOReader as two half-screens ("cut off"). `render_pdf()` injects e-ink CSS (via pandoc
+`--include-in-header`) with `@page { size: <PDF_PAGE_SIZE>; margin: 9mm 9mm 11mm 9mm }`,
+`PDF_PAGE_SIZE` defaulting to **`180mm 240mm`** (the panel is 1620×2160 px at ~229 ppi, 3:4),
+base font 12.5 pt / line-height 1.4, `img,svg { max-width:100%; height:auto; page-break-inside:avoid }`,
+`table { font-size:0.9em; word-break:break-word }`, headings `page-break-after:avoid`, and no
+`@page` headers/footers. Set `PDF_PAGE_SIZE` (e.g. the reMarkable 2 panel, or `A4` for true
+paper) in compose to change it. **If a document still shows as halves in KOReader**, use zoom
+mode *fit page* (tap the top of the screen → zoom) and *set as default*.
 
 > **Not live-validated in the bake-off sandbox:** the WeasyPrint *image-embed* render was not
 > re-run here because pandoc segfaults under the dev laptop's Docker Desktop VM (an
