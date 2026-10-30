@@ -36,8 +36,10 @@ exposure as the legacy raw `:8081`).
 ## Verify
 
 ```bash
-ssh kdkadmin@10.1.20.20 'docker ps --filter name=calibre --format "{{.Names}} {{.Status}}"'   # calibre-server + calibre-import Up
+ssh kdkadmin@10.1.20.20 'docker ps --filter name=calibre --format "{{.Names}} {{.Status}}"'   # both Up (healthy)
 curl -s -o /dev/null -w '%{http_code}\n' https://calibre.kmkdp.com/opds                        # 200 (no SSO redirect)
+# served catalog size (through the server) == books on disk; they must match:
+ssh kdkadmin@10.1.20.20 'docker exec calibre-server calibredb --with-library http://localhost:8081/ list | tail -n +2 | wc -l'
 ```
 
 ## Troubleshooting
@@ -47,6 +49,7 @@ curl -s -o /dev/null -w '%{http_code}\n' https://calibre.kmkdp.com/opds         
 | `calibre-import exited 137` on every deploy | two services building the same tag, or missing `init` on the loop | handled in compose (`provenance: false`, `init: true`); `docker logs calibre-import` |
 | OPDS empty | no books imported yet / wrong source | `docker logs calibre-import` — it scans `/mnt/media/books/ebook` every 900 s |
 | 502 at the URL | `calibre-server` not up | `docker logs calibre-server`; server port is 8081 |
+| book is in `/mnt/media/books/ebook` but never shows in OPDS | the long-running `calibre-server` serves a cached view; a book that `calibre-import` added **directly to the library on disk** is invisible until the server restarts (and two processes writing the same library can corrupt `metadata.db`) | **fixed**: `calibre-import` now adds *through* the running server from localhost (shares its netns; `--with-library http://localhost:8081/`, server `--enable-local-write`), so OPDS reflects new books immediately. If a stale book predates this change, restart the server once: `docker restart calibre-server`. Confirm on disk vs served: `calibredb --with-library http://localhost:8081/ list \| wc -l` |
 
 ## Dependencies
 
@@ -67,10 +70,19 @@ Two services from one locally-built image (`kdk/calibre`): `calibre-server` runs
 `calibre-server --port 8081` (web reader + OPDS at `/opds`) on both `default` and
 the external `proxy` network, published on `10.1.20.20:8081`; `calibre-import`
 runs a loop that `calibredb add --automerge ignore` every `INTERVAL` (900 s) from
-`/mnt/media/books/ebook` (mounted `:ro`) into the library, de-duping by
-title/author. Only `server` builds the image (`import` reuses the tag) to avoid
-two image IDs recreating each other on every deploy. Default network pinned to
-`10.208.22.0/24` (see [docker-ipam](../reference/docker-ipam.md)).
+`/mnt/media/books/ebook` (mounted `:ro`), de-duping by title/author. The import
+adds **through the running server**, not the library path on disk, so only one
+process writes `metadata.db` and OPDS reflects new books immediately. Calibre only
+accepts unauthenticated writes from localhost, so the import **shares the server's
+network namespace** (`network_mode: service:server`) and adds via
+`http://localhost:8081/`, with the server started `--enable-local-write`; a
+cross-container add returns `Forbidden`. The import carries no `/library` mount and
+`depends_on: server` being healthy. Only `server` builds the image (`import`
+reuses the tag) to avoid two image IDs recreating each other on every deploy.
+Both services meet the [compose baseline](../reference/compose-baseline.md)
+(`no-new-privileges`, `cap_drop: [ALL]`, `read_only` + `tmpfs`, `pids_limit`,
+`mem_limit`, healthchecks). Default network pinned to `10.208.22.0/24`
+(see [docker-ipam](../reference/docker-ipam.md)).
 
 ## Configuration
 
@@ -88,6 +100,15 @@ built locally.
 
 ## User Guide
 
-Add the OPDS catalog `https://calibre.kmkdp.com/opds` in KOReader (on the LAN or
-over Tailscale). Books that Chaptarr downloads into `/mnt/media/books/ebook` are
-imported automatically within 15 minutes.
+Books that Chaptarr downloads into `/mnt/media/books/ebook` are imported
+automatically within 15 minutes and then show up in the OPDS catalog.
+
+**Add the catalog in KOReader (reMarkable) once:** top menu → the search/globe
+icon → **OPDS catalog** → **＋** (add) → set **URL** to `http://10.1.20.20:8081/opds`
+and a name like `Calibre`, leave username/password blank, save. Then open it and
+**long-press a book → Download** — files land under `books/` on the tablet.
+
+Use the LAN/tailnet address `http://10.1.20.20:8081/opds` (what the tablet's DNS
+resolves and what the vault channel uses). `https://calibre.kmkdp.com/opds` also
+works (valid `*.kmkdp.com` cert, no SSO), but plain HTTP over LAN/Tailscale avoids
+any client-side TLS-validation quirks.

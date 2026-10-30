@@ -25,8 +25,6 @@ backup-offsite/gate: no-new-privileges,cap_drop,read_only,pids_limit,mem_limit,l
 backup-offsite/offsite: no-new-privileges,cap_drop,read_only,pids_limit,mem_limit,logging,healthcheck
 backup-offsite/pack: read_only,healthcheck
 backup-verify/verify: no-new-privileges,cap_drop,read_only,pids_limit,mem_limit,logging,healthcheck
-calibre/import: no-new-privileges,cap_drop,read_only,pids_limit,mem_limit,healthcheck
-calibre/server: no-new-privileges,cap_drop,read_only,pids_limit,mem_limit,healthcheck
 dashboard/guides: no-new-privileges,cap_drop,read_only,pids_limit,mem_limit,healthcheck
 dashboard/homepage: no-new-privileges,cap_drop,read_only,pids_limit,mem_limit,healthcheck
 dashboard/mealplan: no-new-privileges,cap_drop,read_only,pids_limit,mem_limit,healthcheck
