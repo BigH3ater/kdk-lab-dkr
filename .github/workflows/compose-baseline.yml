@@ -4,6 +4,10 @@
 #                     worse, or a new service that is not clean).
 #   compose-config -- `docker compose config -q` for every stack with placeholder
 #                     env files, so broken YAML never reaches main.
+#   host-files     -- scripts/check-host-files-sync.py: the two VM cloud-init
+#                     files carry the same host baseline files as hosts/ (a
+#                     hosts/ edit without --write would otherwise ship a rebuilt
+#                     VM without it; #146 slipped through this way).
 name: compose-baseline
 
 on:
@@ -55,3 +59,16 @@ jobs:
       # empty with sudo. Prints which stacks got placeholders or were skipped.
       - name: Validate every stack with docker compose config
         run: scripts/compose-config-check.sh --ci
+
+  host-files:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+      - name: cloud-init copies match hosts/
+        run: python scripts/check-host-files-sync.py
