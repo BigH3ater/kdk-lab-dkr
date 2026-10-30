@@ -1,0 +1,25 @@
+services:
+  readwise-koreader:
+    build: .
+    image: kdk/readwise-koreader:latest
+    container_name: readwise-koreader
+    restart: "no"                       # one-shot; run periodically by the procedure
+    env_file: [.env]                    # READWISE_TOKEN + RM_PW (op-injected)
+    environment:
+      STATE_DIR: /state
+      RM_BOOKS_DIR: /home/root/books/Readwise   # KOReader library subfolder (files)
+      # tailnet node (remarkable-pp) first, LAN fallback -- the script SSH-probes
+      # each in turn (ICMP is filtered, so liveness is an SSH echo, never ping).
+      RM_HOST: "100.103.233.103"
+      RM_HOST_FALLBACK: "10.1.30.245"
+      RM_USER: root
+      LOCATIONS: "new,later,shortlist"
+      TAG: remarkable
+      # one-shot: push a summary line straight to Loki (Alloy only scrapes running
+      # containers, and this exits in seconds). Loki moved to kdk-log-01 in 2026-10.
+      LOKI_URL: "http://10.1.20.21:3100"
+      NODE_NAME: kdk-dkr-01
+    entrypoint: ["/bin/sh","-c",". /pushover.env 2>/dev/null; exec python /app/readwise-koreader.py"]
+    volumes:
+      - /opt/kdk-lab/readwise-koreader:/state
+      - /etc/kdk/pushover.env:/pushover.env:ro
