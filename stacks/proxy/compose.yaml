@@ -27,6 +27,21 @@ services:
       - "--certificatesresolvers.cf.acme.dnschallenge.provider=cloudflare"
       - "--certificatesresolvers.cf.acme.email=admin@kmkdp.com"
       - "--certificatesresolvers.cf.acme.storage=/letsencrypt/acme.json"
+      # Second resolver, own ACME account + storage, for the ONE dedicated
+      # (non-wildcard) cert this Traefik issues: api-slave.kmkdp.com for the
+      # Roborock local server (stacks/proxy/dynamic/roborock-cert.yml). It must
+      # be separate from `cf`: Traefik will not request a cert for a sub-domain
+      # the `cf` store's *.kmkdp.com wildcard already covers, so a router on `cf`
+      # would be served the wildcard and change the CN the vacuum validates. Same
+      # Cloudflare DNS-01 provider + CF_DNS_API_TOKEN.
+      # Its store lives in a SEPARATE host dir (/letsencrypt-roborock, not
+      # /letsencrypt) so the apps-stack certs-dumper can bind only this dir and
+      # never sees acme.json with the *.kmkdp.com wildcard private key. Traefik
+      # (root here) creates the dir's acme.json on first use.
+      - "--certificatesresolvers.cfroborock.acme.dnschallenge=true"
+      - "--certificatesresolvers.cfroborock.acme.dnschallenge.provider=cloudflare"
+      - "--certificatesresolvers.cfroborock.acme.email=admin@kmkdp.com"
+      - "--certificatesresolvers.cfroborock.acme.storage=/letsencrypt-roborock/acme.json"
       - "--api.dashboard=true"
       - "--log.level=INFO"
       # JSON access log to stdout -> Alloy -> Loki ({container="traefik"} | json),
@@ -45,6 +60,11 @@ services:
       - "10.1.20.20:443:443"
     volumes:
       - /opt/kdk-lab/proxy/letsencrypt:/letsencrypt
+      # Separate store for the cfroborock resolver, isolated so the apps-stack
+      # certs-dumper never binds the wildcard key in /letsencrypt. Same plain
+      # writable bind style as /letsencrypt (traefik runs as root, no read_only);
+      # Docker creates the host dir root-owned on first start.
+      - /opt/kdk-lab/proxy/letsencrypt-roborock:/letsencrypt-roborock
       - ./dynamic:/etc/traefik/dynamic:ro
     networks: [proxy, sockproxy]
     depends_on: [socket-proxy]

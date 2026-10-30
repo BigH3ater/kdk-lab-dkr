@@ -627,6 +627,30 @@ executions = [
   { execution.type = "RestartStack", execution.params.stack = "identity", execution.params.services = ["lldap"], enabled = true },
 ]
 
+# Same pattern as identity-ldaps-refresh for the Roborock local server: the
+# apps-stack certs-dumper keeps /opt/kdk-lab/apps/roborock/tls current with the
+# dedicated api-slave.kmkdp.com cert from Traefik's cfroborock resolver, but the
+# roborock server reads cert_file/key_file only at start, so restart just the
+# roborock service twice a month to pick up a renewed cert (issued 30 days before
+# expiry) within ~15 days. 04:40 is after the vacuum's nightly MQTT reconnect
+# (~03:45) and well before the first clean (08:30); a brief restart just drops and
+# re-establishes that MQTT session, which the vacuum does routinely.
+[[procedure]]
+tags = ["kdk-lab"]
+name = "roborock-cert-refresh"
+[procedure.config]
+schedule_format = "Cron"
+schedule = "0 40 4 1,15 * *"
+schedule_enabled = true
+schedule_timezone = "America/Chicago"
+failure_alert = true
+[[procedure.config.stage]]
+name = "restart-roborock"
+enabled = true
+executions = [
+  { execution.type = "RestartStack", execution.params.stack = "apps", execution.params.services = ["roborock"], enabled = true },
+]
+
 [[procedure]]
 tags = ["kdk-lab"]
 name = "gitops-sync"

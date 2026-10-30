@@ -6,7 +6,7 @@ tier: internal
 status: live
 storage: yes
 secrets: [kdk-dns-adguard-home-admin, rmfakecloud-app]
-updated: 2026-09-12
+updated: 2026-10-29
 tags: [homelab/stack, tier/internal, status/live]
 ---
 
@@ -43,6 +43,25 @@ curl -s -o /dev/null -w '%{http_code}\n' https://remarkable.kmkdp.com/   # 200
 | AdGuard replicas drift | sync creds wrong or origin down | `docker logs adguardhome-sync` shows auth/connection error |
 | reMarkable won't sync | `STORAGE_URL` mismatch | must be `https://remarkable.kmkdp.com` |
 | Roborock devices offline | TLS/config not migrated | check `/opt/kdk-lab/apps/roborock/{config.toml,tls}` present |
+| Roborock cert stale / `TLSCertExpiringSoon` for `api-slave` | `cfroborock` ACME renewal failing, dumper not writing, or roborock not restarted since renewal | `docker logs roborock-certs-dumper`; `python3 -c "import json;d=json.load(open('/opt/kdk-lab/proxy/letsencrypt-roborock/acme.json'));print([ (c['domain']) for v in d.values() for c in (v.get('Certificates') or []) ])"` (domains only); `echo \| openssl s_client -connect 10.1.20.20:555 -servername api-slave.kmkdp.com 2>/dev/null \| openssl x509 -noout -subject -dates`; run procedure `roborock-cert-refresh` |
+
+## Roborock TLS certificate
+
+The vacuum (VLAN 30, internet blocked) opens TLS to `api-slave.kmkdp.com:555` on the roborock container and validates the cert, so an expired cert = vacuum offline. It must stay a **dedicated `CN=api-slave.kmkdp.com`** cert (the vacuum is not trusted to accept a `*.kmkdp.com` wildcard SAN). It auto-renews now:
+
+1. The **internal Traefik** (`stacks/proxy`) has a second ACME resolver, `cfroborock`, with its own store in a **separate host directory**, `/opt/kdk-lab/proxy/letsencrypt-roborock/acme.json` (not the main `/opt/kdk-lab/proxy/letsencrypt/` that holds the `*.kmkdp.com` wildcard private key). The store is separated precisely so the `certs-dumper` below can bind only this directory and never gains access to the wildcard key. A file-provider router (`stacks/proxy/dynamic/roborock-cert.yml`) for `Host(\`api-slave.kmkdp.com\`)` with `tls.certResolver=cfroborock` makes it obtain + renew that one cert via Cloudflare DNS-01. A separate resolver is required because Traefik will not issue a sub-domain cert the `cf` store's `*.kmkdp.com` wildcard already covers. DNS-01 means Traefik never has to be reachable on that name; nothing legitimate hits it on `:443`.
+2. The **`certs-dumper` sidecar** in this stack (`roborock-certs-dumper`, same `ldez/traefik-certs-dumper` image as [[identity]]'s) binds **only** `/opt/kdk-lab/proxy/letsencrypt-roborock` (read-only, mounted at `/acme`), reads `/acme/acme.json` and copies the cert into `/opt/kdk-lab/apps/roborock/tls/{tls.crt,tls.key}` (the names `config.toml` `[tls] mode="provided"` points at), root-owned `0644`/`0600`. It waits for the first issuance before touching the files, so the hand-copied cert is never clobbered prematurely.
+3. The roborock server reads the cert only at start, so the **`roborock-cert-refresh`** Komodo procedure (`komodo/resources.toml`, cron `0 40 4 1,15`) restarts the `roborock` service on the 1st + 15th. Renewal happens 30 days before expiry, so the served cert is never more than ~15 days behind.
+
+Verify (read-only, from `kdk-dkr-01`):
+
+```bash
+docker logs roborock-certs-dumper 2>&1 | tail
+echo | openssl s_client -connect 10.1.20.20:555 -servername api-slave.kmkdp.com 2>/dev/null \
+  | openssl x509 -noout -subject -dates          # CN=api-slave.kmkdp.com, notAfter advances after renewal+restart
+```
+
+Alerting: `api-slave.kmkdp.com:555/healthz` is probed by `job="blackbox-http-app"`; `TLSCertExpiringSoon` now matches `job=~"blackbox-.*"` (was `blackbox-service` only, which never covered it) and warns at 14 days. **Rollback:** `git revert` the change; the dedicated cert keeps renewing while the previous hand-copied cert is valid until 2026-11-28.
 
 ## Dependencies
 
@@ -64,7 +83,8 @@ No dashboard. `ntp` (123/udp) and `proton-bridge` (25) are host-port; alerting �
 | adguardhome-sync | `bakito/adguardhome-sync:v0.9.2` | none (cron `*/15`) |
 | rmfakecloud | `ddvk/rmfakecloud:0.0.31` | `3000` (Traefik) |
 | proton-bridge | `shenxn/protonmail-bridge:3.19.0-1` | `10.1.20.20:25` |
-| roborock | `python-roborock/local_roborock_server:1.0.2` | `555`, `8881` |
+| roborock | `python-roborock/local_roborock_server:1.2.1` | `555`, `8881` |
+| certs-dumper | `ldez/traefik-certs-dumper:v2.11.4` | none (writes roborock `/tls`) |
 
 `proton-bridge` is an in-lab Proton SMTP relay on `10.1.20.20:25`. **Authelia's notifier sends through it** (`smtp://10.1.20.20:25`, STARTTLS with `skip_verify`, sender `no-reply@kmkdp.com`; `stacks/identity/authelia/configuration.yml`, 2026-10-29) — this replaced the old direct `submission://smtp.protonmail.ch:587`, and Authelia's `disable_startup_check` is now `false`, so it checks the relay at boot and fails loudly if it is down. Alertmanager still notifies through Pushover, not mail. The relay needs a Proton account logged in; if its session log shows `Loading users count=0`, log one in with `sudo docker exec -it proton-bridge protonmail-bridge --cli` → `login`. Its self-updates land on a `tmpfs` (PR #143): the image's own bridge binary runs at every start, and newer bridge builds come only through Renovate.
 
