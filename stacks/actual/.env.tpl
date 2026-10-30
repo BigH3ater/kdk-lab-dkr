@@ -4,6 +4,6 @@
 # server password / SimpleFIN token are set in-app, not here.
 #
 # Create the op item first (writable vault): the plaintext at
-#   op://kdk-cluster/authelia-app-secrets/actual_oidc_plaintext
+#   1Password item kdk-cluster/authelia-app-secrets, field actual_oidc_plaintext
 # and generate the Authelia hash from that same plaintext (see docs/services/actual.md).
 ACTUAL_OPENID_CLIENT_SECRET="{{ op://kdk-cluster/authelia-app-secrets/actual_oidc_plaintext }}"

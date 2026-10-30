@@ -78,6 +78,11 @@ itself. Keep those out of the file.
 1. Start from the template: `cp -r stacks/_template stacks/<name>` (the
    `x-hardened` anchor, an `internal: true` db network, Traefik labels, and
    secrets via `.env.tpl` + `op inject` in a `pre_deploy` command). Then run
+   `op inject` rewrites EVERY `op://` URI in the template, comments included: a
+   URI in a comment is resolved (and its value lands in `.env`) or, if the text
+   after it is parsed as part of the field name, the deploy fails at pre_deploy
+   (wizarr-sync, 2026-10-30). Describe items in words in comments; keep URIs only
+   on real assignments.
    `python3 scripts/compose-baseline-check.py --stack <name>`. It must come back
    clean, or every gap needs a documented skip/exception label; see
    [Compose hardening baseline](reference/compose-baseline.md). The
