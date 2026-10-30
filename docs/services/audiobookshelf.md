@@ -12,7 +12,7 @@ tags: [homelab/stack, tier/dmz, status/live]
 
 # Audiobookshelf
 
-Audiobook + podcast server on the DMZ node; public via the Cloudflare tunnel. Login is ABS's own auth or Authelia OIDC (client `audiobookshelf`), no ForwardAuth (it would break the mobile apps).
+Audiobook + podcast server on the DMZ node; LAN/Tailscale only — its router is on the DMZ Traefik's `websecure` entrypoint, not the Cloudflare tunnel (publishing planned). Login is ABS's own auth or Authelia OIDC (client `audiobookshelf`), no ForwardAuth (it would break the mobile apps).
 
 **Related:** [[kdk-dkr-dmz-01]] · [[dmz-proxy]] · [[identity]] · [[media]]
 

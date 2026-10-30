@@ -12,7 +12,7 @@ tags: [homelab/stack, tier/internal, status/live]
 
 # Docs site
 
-This site: `docs/` in the repo, built with Quartz and served by nginx; the Komodo webhook rebuilds it on every push to main.
+This site: `docs/` in the repo, built with Quartz and served by nginx. A push does **not** rebuild it — the `publish-docs` Procedure does (DestroyStack + DeployStack of the `docs` stack, every 6h at `xx:05`, or run on demand), because a plain `up -d` leaves the resident one-shot builder untouched.
 
 **Related:** [[kdk-dkr-01]] · [[traefik]] · [[komodo]]
 
@@ -25,7 +25,7 @@ This site: `docs/` in the repo, built with Quartz and served by nginx; the Komod
 | Host | [[kdk-dkr-01]] |
 | Endpoint | `https://docs.kmkdp.com` (ForwardAuth-gated) |
 | Images | builder `node:24.22.1-bookworm-slim` + Quartz `v4.5.2`, server `nginx:1.29.8-alpine` |
-| Deploy | Komodo stack `docs` (git-linked); builder runs once per deploy |
+| Deploy | Komodo stack `docs` (git-linked); the resident builder re-runs only on a destroy+deploy (the `publish-docs` Procedure), not on a plain `up -d` |
 | Storage | shared `site` volume (built output); source is the repo clone |
 | Blast radius | Docs offline; no operational impact |
 
@@ -41,7 +41,7 @@ docker logs docs-builder-1 2>&1 | grep BUILD-DONE # present after a successful b
 | Problem | Cause | Command to validate |
 |---|---|---|
 | Site shows stale content | builder didn't rerun | `docker logs docs-builder-1 | tail` — expect a recent `BUILD-DONE` |
-| Build fails on push | Quartz/markdown error | `docker logs docs-builder-1` shows the failing file |
+| Build fails on rebuild | Quartz/markdown error | `docker logs docs-builder-1` shows the failing file |
 | 404 after a rename | link points at a deleted basename | fix the `[[wikilink]]` or relative link |
 
 ## Dependencies
@@ -49,7 +49,7 @@ docker logs docs-builder-1 2>&1 | grep BUILD-DONE # present after a successful b
 | Direction | Thing | What breaks without it |
 |---|---|---|
 | Needs | [[traefik]] | ingress + TLS + ForwardAuth |
-| Needs | [[komodo]] webhook | no rebuild on push |
+| Needs | [[komodo]] `publish-docs` Procedure | no 6-hourly rebuild (a push alone does not rebuild) |
 
 ## Observability
 
@@ -69,4 +69,4 @@ The builder clones Quartz, copies `../../docs` from the repo into `content`, bui
 
 ## User Guide
 
-Browse `docs.kmkdp.com` (behind SSO). Edit a `.md` under `docs/`, push to main, and the webhook redeploys the stack, which rebuilds the site.
+Browse `docs.kmkdp.com` (behind SSO). Edit a `.md` under `docs/` and push to main; the change ships with the next rebuild — the `publish-docs` Procedure (every 6h), or run that Procedure in Komodo to publish now. A push on its own does not rebuild the site.

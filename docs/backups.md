@@ -40,7 +40,7 @@ a pure destructive mirror.
 
 ## The nightly pipeline
 
-`nightly-backups` Procedure (03:00 America/Chicago), five sequential stages:
+`nightly-backups` Procedure (03:20 America/Chicago — `:20` avoids the `gitops-sync` `:00/:15/:30/:45` slots), five sequential stages:
 
 | Stage | Stack | Host | Does |
 |---|---|---|---|
