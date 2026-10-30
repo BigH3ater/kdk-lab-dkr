@@ -65,7 +65,7 @@ media/radarr: no-new-privileges,cap_drop,read_only,pids_limit,mem_limit,healthch
 media/sabnzbd: no-new-privileges,cap_drop,read_only,pids_limit,mem_limit,healthcheck
 media/sonarr: no-new-privileges,cap_drop,read_only,pids_limit,mem_limit,healthcheck
 media/tdarr: no-new-privileges,cap_drop,read_only,pids_limit,mem_limit,healthcheck
-media/tdarr-node: no-new-privileges,cap_drop,read_only,pids_limit,mem_limit,healthcheck
+media/tdarr-node: no-new-privileges,cap_drop,read_only,healthcheck
 monitoring/alertmanager: no-new-privileges,cap_drop,read_only,pids_limit,mem_limit,logging,healthcheck
 monitoring/blackbox-exporter: no-new-privileges,cap_drop,read_only,pids_limit,mem_limit,logging,healthcheck
 monitoring/fanctl-hyp: no-new-privileges,cap_drop,read_only,pids_limit,mem_limit,logging,healthcheck

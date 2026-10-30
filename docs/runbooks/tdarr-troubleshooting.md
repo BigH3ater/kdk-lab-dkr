@@ -84,6 +84,33 @@ If that's not `status: ok`, fix DEE first — see
 files. The `tdarr-verify` alert text already correlates the two: it says whether
 the transcode-error rise coincides with DEE being down.
 
+## OOM — node killed, not just the job
+
+On 2026-10-28 07:57 the node container (`media-tdarr-node-1`) grew to ~43 GB RSS
+on the 47 GB `kdk-dkr-01` host and the kernel OOM-killed it, so the whole node
+went down mid-transcode instead of just the one runaway job. The usual culprits
+are a **software-decoded 4K source** (AV1 branch, `hardwareDecoding=false`) or a
+**DEE remux** with `-max_interleave_delta 0` (ffmpeg buffers until both streams
+are ready).
+
+The node now has `mem_limit: 24g` / `memswap_limit: 24g` (swap off for the
+cgroup) and `pids_limit: 4096` in `stacks/media/compose.yaml`, so a runaway
+encode hits the cgroup limit and the kernel kills *that ffmpeg* — the job fails
+and the flow holds the file — while the host and the node stay up.
+
+An OOM kill is visible as the Prometheus alert **`ContainerOOMKilled`**
+(`stacks/monitoring/prometheus/rules/service.yml`, from cAdvisor
+`container_oom_events_total`). If it fires for `tdarr-node` repeatedly, a single
+title genuinely needs more than 24 GB (very large 4K software decode) — raise
+`mem_limit` for that run, or route the title to a lower-memory path, rather than
+removing the cap.
+
+```sh
+# confirm the limit is applied on the host (read-only)
+ssh kdkadmin@10.1.20.20 'sudo docker inspect media-tdarr-node-1 \
+  --format "mem={{.HostConfig.Memory}} swap={{.HostConfig.MemorySwap}} pids={{.HostConfig.PidsLimit}}"'
+```
+
 ## Single-worker concurrency (Atmos preservation)
 
 The DEE wrapper is **single-slot**. With more than one transcode worker, a
