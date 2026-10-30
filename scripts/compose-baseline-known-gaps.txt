@@ -11,7 +11,6 @@ apps/rmfakecloud: no-new-privileges,cap_drop,read_only,pids_limit,mem_limit,logg
 apps/roborock: no-new-privileges,cap_drop,read_only,pids_limit,mem_limit,logging,healthcheck
 arr-list-guard/guard: no-new-privileges,cap_drop,read_only,pids_limit,mem_limit,logging,healthcheck,host-net
 arr-upgrade-search/search: no-new-privileges,cap_drop,read_only,pids_limit,mem_limit,logging,healthcheck,host-net
-audiobookshelf/audiobookshelf: no-new-privileges,cap_drop,read_only,pids_limit,mem_limit,logging,healthcheck
 backup-collect/collect: no-new-privileges,cap_drop,read_only,pids_limit,mem_limit,logging,healthcheck
 backup-collect/gate: no-new-privileges,cap_drop,read_only,pids_limit,mem_limit,logging,healthcheck
 backup-dkr-01/gate: no-new-privileges,cap_drop,read_only,pids_limit,mem_limit,logging,healthcheck
