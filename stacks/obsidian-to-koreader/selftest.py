@@ -195,9 +195,31 @@ def test_mermaid_fallback():
     return failures
 
 
+def test_section_exclude():
+    print("\n== test 6: SECTION_EXCLUDE keeps 90.Meta off the tablet ==")
+    failures = 0
+    with tempfile.TemporaryDirectory() as d:
+        vault, state = _mkvault(d)
+        for sec in ("10.Homelab", "20.Work", "90.Meta", "1. Projects"):
+            (vault / sec).mkdir()
+            (vault / sec / "n.md").write_text("# n\n")
+        m = load_module(vault, state)
+        got = [s.name for s in m._sections()]
+        want = ["10.Homelab", "20.Work"]
+        ok = got == want
+        print(("  ok  " if ok else "  FAIL"), "sections:", got)
+        failures += 0 if ok else 1
+        jobs = [j[0] for j in m._jobs_for({"scope": "vault", "mode": "per-note"})]
+        ok = "90.Meta" not in jobs and jobs == want
+        print(("  ok  " if ok else "  FAIL"), "vault request sections:", jobs)
+        failures += 0 if ok else 1
+    return failures
+
+
 def main():
     failures = (test_image_encoding() + test_hierarchy()
-                + test_mermaid_rewrite() + test_mermaid_pdf_init() + test_mermaid_fallback())
+                + test_mermaid_rewrite() + test_mermaid_pdf_init() + test_mermaid_fallback()
+                + test_section_exclude())
     if failures:
         print(f"\nSELFTEST FAILED: {failures} case(s)")
         sys.exit(1)
