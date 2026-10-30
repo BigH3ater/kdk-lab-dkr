@@ -59,6 +59,15 @@ jobs:
       # empty with sudo. Prints which stacks got placeholders or were skipped.
       - name: Validate every stack with docker compose config
         run: scripts/compose-config-check.sh --ci
+      # op inject expands op:// URIs in COMMENTS too: a URI without a field breaks the
+      # pre_deploy ("invalid secret reference"), a resolvable one writes the secret into
+      # .env. Broke wizarr-sync (#201) and the dashboard (2026-10-30). URIs only on
+      # real assignments; describe items in words in comments.
+      - name: No op:// URIs in template comments
+        run: |
+          if grep -nE '^[[:space:]]*#.*op://' $(git ls-files 'stacks/**/*.tpl' 'stacks/*/*.tpl'); then
+            echo "::error::op:// URI inside a comment in a template (see lines above)"; exit 1
+          fi
 
   host-files:
     runs-on: ubuntu-latest
