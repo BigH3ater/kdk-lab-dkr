@@ -12,9 +12,12 @@
   "devDependencies": {
     "@types/node": "20.14.9",
     "builtin-modules": "3.3.0",
-    "esbuild": "0.21.5",
+    "esbuild": "0.25.12",
     "obsidian": "1.7.2",
     "tslib": "2.6.3",
     "typescript": "5.4.5"
+  },
+  "overrides": {
+    "moment": "2.31.0"
   }
 }
