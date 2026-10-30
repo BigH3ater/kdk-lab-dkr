@@ -26,7 +26,7 @@ services that carry their own login (most now Authelia OIDC, incl. Home Assistan
   minted in each app for the Homepage stat widgets (field `password`).
 - `op://kdk-cluster/dashboard-tandoor-rw/{username,password}` — dedicated Tandoor account
   for the meal-plan sidecar (**P2**); must be **added to the "Mack House" space** in Tandoor.
-- `op://kdk-cluster/proton-calendar-ics/url` — reused from planner-service (calendar widget, **P3**).
+- `op://kdk-cluster/proton-calendar-ics/url` — household calendar widget (**P3**).
 
 If a key isn't ready, comment out its line in `.env.tpl` **and** its widget block in
 `config/services.yaml` to bring the rest up; `siteMonitor` up/down health needs no key.

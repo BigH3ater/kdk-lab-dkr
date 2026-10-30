@@ -86,7 +86,6 @@ obsidian-headless/sync: no-new-privileges,cap_drop,read_only,pids_limit,mem_limi
 obsidian-to-koreader/obsidian-to-koreader: no-new-privileges,cap_drop,read_only,pids_limit,mem_limit,logging,healthcheck
 op-connect/connect-api: no-new-privileges,cap_drop,read_only,pids_limit,mem_limit,logging,healthcheck
 op-connect/connect-sync: no-new-privileges,cap_drop,read_only,pids_limit,mem_limit,logging,healthcheck
-planner-service/planner-service: no-new-privileges,cap_drop,read_only,pids_limit,mem_limit,logging,healthcheck
 proxy/traefik: cap_drop,read_only,pids_limit,mem_limit,healthcheck
 readwise-koreader/readwise-koreader: no-new-privileges,cap_drop,read_only,pids_limit,mem_limit,logging,healthcheck
 readwise-to-remarkable/highlights: no-new-privileges,cap_drop,read_only,pids_limit,mem_limit,logging,healthcheck

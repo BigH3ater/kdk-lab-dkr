@@ -1,6 +1,6 @@
 # Always-on headless Obsidian Sync node on kdk-dkr-01. Keeps a local copy of the
 # NEW vault continuously synced via the user's Obsidian Sync subscription, so lab
-# services (planner-service, book-sync) can read/write the vault files at
+# services (docs-to-vault, koreader-highlights, remarkable-ocr, …) can read/write the vault files at
 # /opt/kdk-lab/obsidian/vault and have changes propagate to all devices.
 #
 # The host is on the tailnet, so the vault dir is reachable to the other lab

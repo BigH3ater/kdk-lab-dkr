@@ -32,7 +32,7 @@ VIKUNJA_TOKEN_JMACK={{ op://kdk-cluster/vikunja-api-rw/credential }}
 # VIKUNJA_TOKEN_RACH <- 1P item kdk-cluster/vikunja-api-rach field password (uncomment once rach has minted hers)
 
 # ---- P3: household calendar (Proton "Share via link" ICS) ---------------------
-# Reused from planner-service (kdk-ops, read-only). The calendar widget in
+# Proton "Share via link" ICS (op://kdk-cluster/proton-calendar-ics, read-only). The calendar widget in
 # config/services.yaml reads this via the HOMEPAGE_VAR_ICS_URL variable.
 HOMEPAGE_VAR_ICS_URL={{ op://kdk-cluster/proton-calendar-ics/url }}
 
