@@ -47,6 +47,33 @@ rmfakecloud stays **internal (LAN)**; the tablet syncs with it on home Wi-Fi.
 - **USB:** `root@10.11.99.1`.
 - The tablet drops Wi-Fi when asleep — all device I/O is opportunistic.
 
+## Managing software on the tablet: reManager is the standard (owner rule 2026-10-30)
+
+All software on the tablet (mods, apps, OS settings) is managed with
+**[reManager](https://github.com/rmitchellscott/reManager)**, a desktop app that drives
+the **Vellum** package manager over SSH (Flathub `io.scottlabs.reManager`, Homebrew cask
+`remanager`). It installs, upgrades and removes Vellum packages with dependency
+resolution (this is how xovi, AppLoad, KOReader and Tailscale are on the device), toggles
+reMarkable auto-updates, switches OS versions, sets the timezone, and offers a terminal, a
+file browser (including "set as sleep screen"), and backup/restore.
+
+- Do **not** install or change tablet software with ad-hoc SSH commands or scripts; use
+  reManager. Anything the lab builds for the device is packaged for Vellum's index so it
+  installs the same way.
+- Lab jobs only move **content** over SSH: `readwise-koreader` and the
+  `obsidian-to-koreader` channel deliver EPUB/PDF files into `/home/root/books/`,
+  `koreader-highlights` collects `.sdr` highlights, `remarkable-ocr` collects notebooks,
+  `planner-service` pushes the planner document. None of them changes software.
+
+### Launching sideloaded apps (xovi + AppLoad)
+
+xovi is unloaded after every reboot. Press the power button **three times within two
+seconds** (`xovi-tripletap`, config in `/home/root/xovi-tripletap/config`): the UI
+restarts for a few seconds with xovi loaded and AppLoad adds an **Applications** entry to
+the main menu (hamburger on My files) listing **KOReader** (library root `/home/root/books`)
+and **rmd**. Verify from SSH with `grep -c xovi /proc/$(pidof xochitl)/maps` (non-zero =
+loaded); manual start is `/home/root/xovi/start`. Verified 2026-10-30.
+
 ## Filesystem persistence model (IMPORTANT for any on-device change)
 
 Rootfs `/` is **read-only**, and **`/etc` and `/var/lib` are overlay-on-tmpfs**
