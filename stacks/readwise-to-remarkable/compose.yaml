@@ -1,7 +1,7 @@
 # reMarkable <-> Readwise pipeline, migrated from the decommissioned dockge host
 # (/opt/stacks/readwise-to-remarkable). Talks to the LIVE rmfakecloud (apps stack)
 # over the shared apps_default network:
-#   [1] readwise-to-remarkable  RETIRED (below) -> replaced by the readwise-koreader
+#   [1] readwise-to-remarkable  RETIRED (below) -> replaced by the readwise-koreader job, itself retired 2026-10-29; see
 #       stack (Readwise articles -> EPUB files in KOReader, so they're highlighted in
 #       KOReader and ingested to Obsidian via .sdr). It filtered the SAME 'remarkable'
 #       tag and pushed to the NATIVE reader, so leaving it live double-delivered every

@@ -1013,7 +1013,6 @@ executions = [
 name = "sync"
 enabled = true
 executions = [
-  { execution.type = "DeployStack", execution.params.stack = "readwise-koreader", enabled = true },
 ]
 
 # KOReader highlights -> Obsidian: pull .sdr sidecars from the tablet, parse the Lua,
