@@ -32,6 +32,11 @@ services:
       - /mnt/backup/dkr/kdk-dkr-01/pgdump:/dest
     networks: [jellystat_default]
 
+  # NOTE: rsync's destination is /dest/kdk-dkr-01/ itself (the DMZ stage syncs into a
+  # state/ subdir), so the delete pass used to remove the pgdump/ directory the
+  # jellystat dump had just written: every scheduled run ended with 'pgdump jellystat
+  # missing' while hand runs worked (2026-10-29/30). `--exclude 'pgdump/'` keeps it
+  # (rsync never deletes excluded paths on the receiver without --delete-excluded).
   rsync:
     image: instrumentisto/rsync-ssh:alpine3.23-r3@sha256:6cbad37c2fbdca4ac7ad9d1c1bb8990af9efd4dc76321b349935876cbb1e9e4a
     restart: "no"
@@ -46,6 +51,7 @@ services:
           --exclude 'komodo/postgres' --exclude 'jellystat/postgres' \
           --exclude 'proxy/letsencrypt' \
           --exclude 'stacks/' --exclude 'backup/' \
+          --exclude 'pgdump/' \
           /src/ /dest/kdk-dkr-01/
         rc=$$?
         # 0 ok; 24 = "file vanished" (live SQLite/media) is benign.
