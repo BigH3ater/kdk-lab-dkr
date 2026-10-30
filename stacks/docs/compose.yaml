@@ -53,6 +53,12 @@ services:
       traefik.enable: "true"
       traefik.http.routers.docs.rule: "Host(`docs.kmkdp.com`)"
       traefik.http.services.docs.loadbalancer.server.port: "80"
+      # Recreate nginx on an nginx.conf change. It is a single-file bind mount:
+      # nginx reads it only at start and git swaps the file's inode on pull, so a
+      # normal `up -d` keeps the old config (it only self-heals on the 6-hourly
+      # publish-docs destroy+deploy). DOCS_NGINX_SHA = sha256(nginx.conf) from the
+      # Komodo pre_deploy changes with content and forces the recreate on deploy.
+      kdk.config-sha: "${DOCS_NGINX_SHA:-unset}"
     volumes:
       - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
       - site:/site:ro
