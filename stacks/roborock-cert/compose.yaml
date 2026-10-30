@@ -46,10 +46,10 @@ services:
       - "--email=admin@kmkdp.com"
       - "--dns=cloudflare"
       - "--domains=api-slave.kmkdp.com"
-      - "--path=/lego"
+      - "--path=/data"
       - "--renew-days=30"
       - "--deploy-hook=sh /hook.sh"
     volumes:
-      - /opt/kdk-lab/apps/roborock/lego:/lego   # ACME account + issued cert state (root)
+      - /opt/kdk-lab/apps/roborock/lego:/data   # ACME account + issued cert state (root). NOT /lego: that is the lego binary in the image (first run 2026-10-30 failed: mount dir onto file)
       - /opt/kdk-lab/apps/roborock/tls:/tls     # the deploy hook writes tls.crt/tls.key the roborock server reads
       - ./hook.sh:/hook.sh:ro
