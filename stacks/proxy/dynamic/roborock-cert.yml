@@ -1,0 +1,48 @@
+# api-slave.kmkdp.com -> a dedicated Let's Encrypt cert for the Roborock local
+# server (stacks/apps, service `roborock`, kdk-dkr-01 :555). 2026-10-29.
+#
+# WHY A DEDICATED CERT (not the wildcard): the vacuum (VLAN 30, internet
+# blocked) opens TLS to api-slave.kmkdp.com:555 and validates it. The cert it
+# has always been handed is CN=api-slave.kmkdp.com (SAN api-slave.kmkdp.com),
+# hand-copied 2026-08-30, expiring 2026-11-28, renewed by nobody. We keep the
+# SAME CN so the embedded TLS client cannot notice the swap -- we do NOT bet on
+# the vacuum accepting a `*.kmkdp.com` wildcard SAN.
+#
+# WHY A SEPARATE RESOLVER (`cfroborock`, not `cf`): the `cf` resolver's store
+# already holds the `*.kmkdp.com` wildcard, and Traefik will NOT request a
+# certificate for a sub-domain a stored wildcard already covers -- a router on
+# `cf` for api-slave.kmkdp.com would just be served the wildcard, changing the
+# CN. `cfroborock` has its own empty store (/letsencrypt/acme-roborock.json,
+# defined in stacks/proxy/compose.yaml), so it issues a fresh dedicated cert.
+#
+# DNS-01 (Cloudflare) means Traefik never has to be reachable on this name, so
+# this router exists ONLY to make the resolver obtain+renew the cert. Nothing
+# legitimate hits api-slave.kmkdp.com on :443 (the vacuum and HA use :555 on the
+# roborock container directly); the harmless backend below is only a valid
+# service reference so the router is enabled. The apps-stack `certs-dumper`
+# sidecar copies the issued cert out of acme-roborock.json into the files the
+# roborock server reads (/opt/kdk-lab/apps/roborock/tls/{tls.crt,tls.key}).
+#
+# dns-reconcile does not read file-provider routes (only compose Traefik
+# labels), so this adds no AdGuard record: api-slave.kmkdp.com keeps falling
+# through the *.kmkdp.com wildcard rewrite to 10.1.20.20.
+http:
+  routers:
+    roborock-cert:
+      rule: "Host(`api-slave.kmkdp.com`)"
+      entrypoints: websecure
+      service: roborock-cert
+      tls:
+        certResolver: cfroborock
+  services:
+    roborock-cert:
+      loadBalancer:
+        serversTransport: roborock-insecure
+        servers:
+          - url: "https://10.1.20.20:555"
+  serversTransports:
+    # The roborock server on :555 presents the api-slave cert; Traefik would
+    # reach it by IP (SNI/host mismatch), so skip verify. Only used if someone
+    # actually hits api-slave.kmkdp.com:443, which nothing does.
+    roborock-insecure:
+      insecureSkipVerify: true

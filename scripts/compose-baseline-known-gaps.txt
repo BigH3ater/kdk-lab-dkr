@@ -5,6 +5,7 @@
 # silence a regression -- use a documented skip/exception label.
 actual/actual: no-new-privileges,cap_drop,read_only,pids_limit,mem_limit,healthcheck
 apps/adguardhome-sync: no-new-privileges,cap_drop,read_only,pids_limit,mem_limit,logging,healthcheck
+apps/certs-dumper: healthcheck
 apps/ntp: no-new-privileges,cap_drop,read_only,pids_limit,mem_limit,logging,image-pin,healthcheck
 apps/proton-bridge: no-new-privileges,cap_drop,read_only,pids_limit,mem_limit,logging,healthcheck
 apps/rmfakecloud: no-new-privileges,cap_drop,read_only,pids_limit,mem_limit,logging,healthcheck
