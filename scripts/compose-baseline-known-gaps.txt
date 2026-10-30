@@ -24,6 +24,7 @@ backup-dmz/pgdump-tandoor: no-new-privileges,cap_drop,read_only,pids_limit,mem_l
 backup-dmz/rsync: no-new-privileges,cap_drop,read_only,pids_limit,mem_limit,logging,healthcheck
 backup-offsite/gate: no-new-privileges,cap_drop,read_only,pids_limit,mem_limit,logging,healthcheck
 backup-offsite/offsite: no-new-privileges,cap_drop,read_only,pids_limit,mem_limit,logging,healthcheck
+backup-offsite/pack: read_only,healthcheck
 backup-verify/verify: no-new-privileges,cap_drop,read_only,pids_limit,mem_limit,logging,healthcheck
 calibre/import: no-new-privileges,cap_drop,read_only,pids_limit,mem_limit,healthcheck
 calibre/server: no-new-privileges,cap_drop,read_only,pids_limit,mem_limit,healthcheck

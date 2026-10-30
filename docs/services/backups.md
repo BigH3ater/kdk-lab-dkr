@@ -12,7 +12,7 @@ tags: [homelab/stack, tier/infra, status/live]
 
 # Backups
 
-Nightly app-state backups run as one-shot stacks that a Komodo Procedure redeploys on a schedule; local NAS is armed, and encrypted offsite to Proton runs every night (it does not yet complete the full delta inside its window — open operational item).
+Nightly app-state backups run as one-shot stacks that a Komodo Procedure redeploys on a schedule; local NAS is armed, and encrypted offsite to Proton runs every night. The offsite stage now **packs one `tar.zst` per host** before uploading, so rclone ships a handful of large objects instead of thousands of small files the Proton API could not keep up with.
 
 **Related:** [[kdk-dkr-01]] · [[kdk-dkr-dmz-01]] · [[komodo]]
 
@@ -21,7 +21,7 @@ Nightly app-state backups run as one-shot stacks that a Komodo Procedure redeplo
 | Field | Value |
 |---|---|
 | Purpose | pg dumps + `/opt/kdk-lab` rsync to the NAS, then selected sets offsite |
-| Status | 🟢 Local NAS live (nightly 03:20) · 🟡 offsite runs nightly but has not yet fully caught up (each pass hits `--max-duration 25m`) |
+| Status | 🟢 Local NAS live (nightly 03:20) · 🟢 offsite packs per-host `tar.zst` then syncs `offsite/` + `pve-templates/` + `*/pgdump/` to Proton |
 | Hosts | [[kdk-dkr-01]] (`backup-dkr-01`), [[kdk-dkr-dmz-01]] (`backup-dmz`) |
 | Deploy | Komodo Procedure `nightly-backups` redeploys both stacks (`deploy = false` otherwise) |
 | Destinations | `/mnt/backup/dkr/<host>` (NFS tankz3) → Proton Drive (crypt) |
@@ -41,7 +41,8 @@ In Komodo, Procedure `nightly-backups` shows a recent successful run.
 | Problem | Cause | Command to validate |
 |---|---|---|
 | No new dumps | Procedure didn't run / stack failed | Komodo Procedure history; `docker logs <backup-container>` |
-| Offsite pass exits `rc=10` | the pass hit `--max-duration 25m` before the whole delta synced | expected today — the next nightly pass resumes; `rc=0` in `/mnt/backup/dkr/.offsite-status` means the tree is fully in sync |
+| Offsite pass exits `rc=10` | the pass hit `--max-duration 25m` before the (now much smaller) delta synced | the next pass resumes; with per-host archives a clean night should reach `rc=0` in one or two passes. `rc=0` in `/mnt/backup/dkr/.offsite-status` means fully in sync |
+| Offsite pack wrote nothing / `tar` failed | `apk add tar zstd` could not reach the Alpine CDN, or a host dir was absent | `docker logs` the `backup-offsite-pack-*` container; `sudo ls -la /mnt/backup/dkr/offsite/` shows today's `<host>-*.tar.zst` |
 | Offsite accumulates dead objects | crypt password changed without a purge | `rclone purge proton:kdk-lab-backup` before the first sync under a new password |
 | rclone can't read cached tokens | image newer than the login version | pin `rclone/rclone:1.75.2` (the version that did the interactive login) |
 
@@ -59,7 +60,7 @@ No dashboard. Success is visible in the Komodo Procedure run history.
 
 ## Architecture
 
-Three layers: (1) ZFS snapshots — vmpool covers the DMZ VM zvol, tankz3 covers bulk + backup datasets; (2) VM-level — vzdump of VM 300 and VM 320 (kdk-log-01: Loki data lives on its disk, no app-level backup) to PBS, TrueNAS zvol replication of the DMZ VM; (3) app-level — the two backup stacks. `backup-dmz` runs `pg_dump` for Authelia, Immich and Tandoor (keeps 15) then rsyncs state; `backup-dkr-01` runs `pg_dump` for Jellystat (keeps 15, into `kdk-dkr-01/pgdump`) then rsyncs `/opt/kdk-lab` (excluding scratch + the live Postgres cluster dirs `komodo/postgres` and `jellystat/postgres`), then the separate `backup-offsite` stage runs `rclone sync` of the whole backup tree to Proton (encrypted, in ≤25-min passes). `backup-verify` checks all four pg dumps are present + gzip-valid for the day.
+Three layers: (1) ZFS snapshots — vmpool covers the DMZ VM zvol, tankz3 covers bulk + backup datasets; (2) VM-level — vzdump of VM 300 and VM 320 (kdk-log-01: Loki data lives on its disk, no app-level backup) to PBS, TrueNAS zvol replication of the DMZ VM; (3) app-level — the two backup stacks. `backup-dmz` runs `pg_dump` for Authelia, Immich and Tandoor (keeps 15) then rsyncs state; `backup-dkr-01` runs `pg_dump` for Jellystat (keeps 15, into `kdk-dkr-01/pgdump`) then rsyncs `/opt/kdk-lab` (excluding scratch + the live Postgres cluster dirs `komodo/postgres` and `jellystat/postgres`), then the separate `backup-offsite` stage first **packs one `tar.zst` per host** (`pack.sh`: GNU tar + zstd, excluding caches/logs/clones/creds, newest 3 kept locally) into `/mnt/backup/dkr/offsite/`, then runs `rclone sync` of only `offsite/` + `pve-templates/` + each host's `pgdump/` to Proton (encrypted, in ≤25-min passes). Packing first turns thousands of small files into a few large objects, which the Proton API handles without the 502/422/empty-upload churn that stopped the old whole-tree sync from finishing. `backup-verify` checks all four pg dumps are present + gzip-valid for the day.
 
 DMZ data that lives on `/mnt/appdata` instead of `/opt/kdk-lab` (Seerr, Wizarr, Libreseerr, Jellyfin metadata, Audiobookshelf podcasts) is **not** in the nightly rsync or offsite: it is covered by tankz3 snapshots only. The Jellyfin metadata and podcasts are regenerable (re-scan / re-download from the feeds), so that is deliberate.
 
@@ -68,7 +69,8 @@ DMZ data that lives on `/mnt/appdata` instead of `/opt/kdk-lab` (Seerr, Wizarr, 
 | Path / setting | What it is |
 |---|---|
 | `stacks/backup-dkr-01/compose.yaml` | Jellystat pg dump + rsync of `/opt/kdk-lab` to the NAS |
-| `stacks/backup-offsite/compose.yaml` | separate stage: `rclone sync` of the whole backup tree to Proton (crypt), `--max-duration 25m` per pass, writes `.offsite-status` |
+| `stacks/backup-offsite/compose.yaml` | separate stage: `pack` service builds per-host `tar.zst`, then `offsite` service `rclone sync`s `offsite/` + `pve-templates/` + `*/pgdump/` to Proton (crypt), `--max-duration 25m` per pass, writes `.offsite-status` |
+| `stacks/backup-offsite/pack.sh` | builds `/mnt/backup/dkr/offsite/<host>-YYYY-MM-DD.tar.zst` per host (excludes caches/logs/clones/creds/pgdump), keeps newest 3 |
 | `stacks/backup-dmz/compose.yaml` | Authelia + Immich + Tandoor pg dumps + rsync of `/opt/kdk-lab` (excludes live Postgres dirs, certs, clones, Jellyfin metadata/cache/transcodes, `audiobookshelf/podcasts`) |
 | `/opt/kdk-lab/backup/rclone/rclone.conf` | `proton` + `proton-crypt` remotes |
 | Procedure `nightly-backups` | schedule `0 20 3 * * *` (03:20 daily, `Cron` format) |
@@ -92,10 +94,11 @@ index are in that disk image; a restore loses at most the day since the last dum
 
 ## Offsite status (2026-10-30)
 
-Encrypted offsite to Proton runs **every night** as the `backup-offsite` stage of the `nightly-backups` Procedure — there is **no** profile gate. `offsite.sh` runs `rclone sync /data proton-crypt:` in passes capped at `--max-duration 25m` each (Proton kills long-lived token refreshes, so each pass logs in fresh and runs short), then writes `/mnt/backup/dkr/.offsite-status` with rclone's exit code and always exits 0 so the verify stage still runs.
+Encrypted offsite to Proton runs **every night** as the `backup-offsite` stage of the `nightly-backups` Procedure — there is **no** profile gate. The stage now packs before it uploads: the `pack` service writes one `tar.zst` per host into `/mnt/backup/dkr/offsite/`, then `offsite.sh` runs `rclone sync` of only `offsite/` + `pve-templates/` + `*/pgdump/` in passes capped at `--max-duration 25m` each (Proton kills long-lived token refreshes, so each pass logs in fresh and runs short), then writes `/mnt/backup/dkr/.offsite-status` with rclone's exit code and always exits 0 so the verify stage still runs.
 
-**Open operational item:** the delta is larger than one 25-min pass can clear, so passes currently exit `rc=10` (hit `--max-duration`) and the next night resumes where the last stopped — the full tree is **not yet** fully in sync. `rc=0` in `.offsite-status` is the signal that it has finally caught up.
+**Why the change:** the old whole-tree `rclone sync` never finished a night — thousands of churny small files against Proton's flaky API alternated `rc=10` (hit `--max-duration`) and `rc=2` (API errors: `502` block uploads, `422 already exists`, `400 empty`, "no response" on listings, plus `Can't follow symlink` on proton-bridge sockets). Packing cuts the Proton object count by ~3 orders of magnitude, so a clean night should reach `rc=0` in one or two passes. `rc=0` in `.offsite-status` is the signal it is fully in sync.
 
 ```bash
-ssh kdkadmin@10.1.20.20 'cat /mnt/backup/dkr/.offsite-status'   # rc=0 = fully synced; rc=10 = pass hit --max-duration, resumes next night
+ssh kdkadmin@10.1.20.20 'sudo ls -la /mnt/backup/dkr/offsite/'   # today's per-host <host>-YYYY-MM-DD.tar.zst
+ssh kdkadmin@10.1.20.20 'cat /mnt/backup/dkr/.offsite-status'    # rc=0 = fully synced; rc=10 = pass hit --max-duration, resumes next night
 ```
