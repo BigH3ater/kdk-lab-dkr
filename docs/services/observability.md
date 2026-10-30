@@ -6,7 +6,7 @@ tier: infra
 status: live
 storage: yes
 secrets: [pushover-kdk-lab, kdk-lab-idrac-fanctl-admin]
-updated: 2026-10-28
+updated: 2026-10-29
 tags: [homelab/stack, tier/infra, status/live]
 ---
 
@@ -45,7 +45,7 @@ ssh kdkadmin@10.1.20.30 'sudo docker logs --tail 3 fanctl-hyp'        # temps lo
 | Problem | Cause | Command to validate |
 |---|---|---|
 | Logs missing from a host (`LokiShippingStalled`) | that host's Alloy down, wrong LOKI_HOST, or its IP not allowed by kdk-log-01's nft / UniFi | `docker logs alloy` on the host; every host uses `LOKI_HOST=10.1.20.21` |
-| "timestamp too old" in Alloy | one-time replay of pre-existing container logs | benign; new logs still ingest |
+| "timestamp too old" / "entry too far behind" after an Alloy recreate | before 2026-10-29 Alloy kept positions in the container FS (`--storage.path` unset → cwd-relative `data-alloy/`), so a recreate replayed every container log | fixed: positions now persist on the `alloy-data` volume (see Architecture); a first-ever start still does one benign replay |
 | DMZ host metrics/logs absent | DMZ→internal path | node/cadvisor pulled over LAN→DMZ; Alloy pushes via the UniFi rule `192.168.191.20 → 10.1.20.21:3100` |
 | `FansPinnedHigh` firing | that BMC on auto (loud) | expected only if a controller is monitoring-only/stopped |
 | Per-container panels empty | cAdvisor older than v0.55 can't read containers under the containerd-snapshotter image store (`failed to identify the read-write layer ID`) | runs `ghcr.io/google/cadvisor:v0.60.6` (gcr.io stops at v0.55.1) with `/var/lib/containerd` mounted; `count by (host) (container_memory_usage_bytes{name!=""})` should be > 0 on every host. Crash/unhealthy alerting is still `docker-event-watch`, not cAdvisor |
@@ -146,7 +146,7 @@ This *is* the observability. Prometheus jobs: `idrac`, `node-external` (12), `ca
 
 ## Architecture
 
-`loki:3100` on kdk-log-01, published on `10.1.20.21` only and fenced by its nft allowlist, with an Alloy syslog receiver on `:514` tcp+udp (`syslog.kmkdp.com` → 10.1.20.21). The Loki ruler reads `stacks/loki/rules/` and sends to Alertmanager `10.1.20.30:9093`, which routes `source="loki"` to Pushover grouped by `alertname, host`. Each host runs cAdvisor (`:9280`) + Alloy (Docker log discovery → Loki). The three VMs (dkr-01, dmz-01, log-01) add node-exporter (`:9100`); the Pis have it as a package. Fan controllers reach the R720/R730xd BMCs by IPMI as `idracrw`. Container-state alerting is per-host: `docker-event-watch` tails the Docker events API and pages Pushover on a container crash (die with a non-graceful exit) or unhealthy status, and logs (never pages) every container `create` and image `pull` with its image reference for the Loki rules; its script is a compose `config` hashed into the `kdk.config-sha` label by the agent `pre_deploy`, so an edit recreates it (compose itself does not hash `configs:` content); the watcher sends a quiet "kdk container watch online" push each time it starts; user-facing apps are also covered by `EndpointDown` (blackbox HTTPS probes of the 14 `*.kmkdp.com` services).
+`loki:3100` on kdk-log-01, published on `10.1.20.21` only and fenced by its nft allowlist, with an Alloy syslog receiver on `:514` tcp+udp (`syslog.kmkdp.com` → 10.1.20.21). The Loki ruler reads `stacks/loki/rules/` and sends to Alertmanager `10.1.20.30:9093`, which routes `source="loki"` to Pushover grouped by `alertname, host`. Each host runs cAdvisor (`:9280`) + Alloy (Docker log discovery → Loki); that Alloy pins `--storage.path=/var/lib/alloy/data` to a named `alloy-data` volume, so its `loki.source.docker` positions (`positions.yml`) persist across a `--force-recreate` and the agent resumes tailing instead of replaying old lines (which Loki rejects as "entry too far behind"). Only positions are written there — `loki.write` has no WAL enabled, so none is kept. The three VMs (dkr-01, dmz-01, log-01) add node-exporter (`:9100`); the Pis have it as a package. Fan controllers reach the R720/R730xd BMCs by IPMI as `idracrw`. Container-state alerting is per-host: `docker-event-watch` tails the Docker events API and pages Pushover on a container crash (die with a non-graceful exit) or unhealthy status, and logs (never pages) every container `create` and image `pull` with its image reference for the Loki rules; its script is a compose `config` hashed into the `kdk.config-sha` label by the agent `pre_deploy`, so an edit recreates it (compose itself does not hash `configs:` content); the watcher sends a quiet "kdk container watch online" push each time it starts; user-facing apps are also covered by `EndpointDown` (blackbox HTTPS probes of the 14 `*.kmkdp.com` services).
 
 ## Configuration
 
