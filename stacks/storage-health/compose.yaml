@@ -5,7 +5,7 @@
 # its shell $variables). host-net to ping/connect the NAS over the storage NIC.
 #
 # The host /mnt is bind-mounted with slave propagation so the NFS submounts
-# (media/backup/dee-exchange/loki) appear inside the container; a `timeout stat`
+# (media/backup/dee-exchange) appear inside the container; a `timeout stat`
 # on each detects a hung mount without ever hanging container startup (the parent
 # /mnt is a local dir, so the bind itself never blocks).
 name: storage-health
@@ -17,7 +17,7 @@ services:
     entrypoint: ["/bin/sh", "/verify.sh"]
     environment:
       NAS_IP: "172.16.30.2"
-      NFS_MOUNTS: "media backup dee-exchange loki"
+      NFS_MOUNTS: "media backup dee-exchange"   # /mnt/loki released 2026-10-29 (Loki on kdk-log-01)
     volumes:
       - /etc/kdk:/kdk
       - ./verify.sh:/verify.sh:ro
