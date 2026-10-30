@@ -105,6 +105,7 @@ Set in `compose.yaml` (shared `x-env` anchor); the two services differ only in `
 | `SYNC_FOLDERS` | `20.Work` | comma-separated vault folders mirrored note-by-note every scheduled run |
 | `KROKI_URL` | `http://kroki:8000` | internal Kroki service for Mermaid → SVG |
 | `MERMAID_FORCE_TD` | `1` | rewrite wide (`LR`/`RL`) flowcharts to top-down for the narrow page |
+| `MERMAID_INIT` | neutral theme, `htmlLabels: false` | Mermaid init directive prepended to every diagram. WeasyPrint cannot draw HTML inside SVG `<foreignObject>` (Mermaid's default label method), so labels rendered blank until this was added (2026-10-30). Empty disables it. |
 | `POLL_SECONDS` | `20` | watcher queue poll interval |
 | `SLEEP_BACKOFF_MAX` | `300` | watcher: probe an asleep tablet at most this often (seconds) |
 | `PDF_PAGE_SIZE`, `MAX_PDF_MB`, `SECTION_REGEX`, `RM_HOST_*`, `RM_USER` | — | as before (device page size, size guard, which sections, tablet addresses) |
