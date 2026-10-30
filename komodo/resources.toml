@@ -1196,7 +1196,14 @@ executions = [
   { execution.type = "DeployStack", execution.params.stack = "docs-to-vault", enabled = true },
 ]
 
-# Vault sections -> per-section PDFs -> tablet (/home/root/books/Homelab) for KOReader.
+# Obsidian vault -> PDFs -> tablet (/home/root/books/Homelab) for KOReader. Two modes in
+# one one-shot run: (1) request-driven "Vault channel" -- the Send-to-reMarkable Obsidian
+# plugin drops JSON requests into the vault's _remarkable/queue/ (carried to the lab mirror
+# by Obsidian Sync, no network/token), rendered and pushed, then moved to _remarkable/done/
+# with a status line; (2) when the queue is empty, the unchanged scheduled whole-section
+# reconcile (so nothing regresses). Transport is tailnet-first (remarkable-pp) then LAN,
+# opportunistic. A plugin "send" shows up on the next scheduled run below (no Komodo API
+# call from the plugin); run the procedure by hand for an immediate push.
 [[stack]]
 tags = ["kdk-lab"]
 name = "obsidian-to-koreader"
@@ -1208,7 +1215,12 @@ run_directory = "stacks/obsidian-to-koreader"
 auto_pull = false
 run_build = true
 destroy_before_deploy = true
-pre_deploy.command = "sh -c '. /etc/komodo/op.env && op inject -f -i .env.tpl -o .env'"
+# As root on the host: create the vault request queue (_remarkable/{queue,done}) owned
+# 1000:1000 so the uid-1000 sync agent can write the plugin's queue files there and manage
+# the renderer's done/ files (idempotent; also fixes a pre-existing root:root dir). Chown
+# the state dir so the now-unprivileged container can write its state/build. Then op-inject
+# the tablet password.
+pre_deploy.command = "sh -c 'install -d -o 1000 -g 1000 /opt/kdk-lab/obsidian/vault/_remarkable /opt/kdk-lab/obsidian/vault/_remarkable/queue /opt/kdk-lab/obsidian/vault/_remarkable/done && chown -R 1000:1000 /opt/kdk-lab/obsidian-to-koreader && . /etc/komodo/op.env && op inject -f -i .env.tpl -o .env'"
 
 [[procedure]]
 tags = ["kdk-lab"]

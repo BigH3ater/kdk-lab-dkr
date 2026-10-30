@@ -14,6 +14,7 @@ Stack definitions live in `stacks/` in the repo; Komodo deploys them from git. O
 | [Media stack](media.md) | kdk-dkr-01 | per-app | media |
 | [Apps](apps.md) | kdk-dkr-01 | various | apps |
 | [Calibre](calibre.md) | kdk-dkr-01 | https://calibre.kmkdp.com | calibre |
+| [Obsidian to reMarkable](obsidian-to-koreader.md) | kdk-dkr-01 | — (SSH to tablet) | obsidian-to-koreader |
 | [Trailarr](trailarr.md) | kdk-dkr-01 | https://trailarr.kmkdp.com | trailarr |
 | [net-exporters](net-exporters.md) | kdk-dkr-01 | — (scraped by kdk-mon-01) | net-exporters |
 | [Traefik DMZ + tunnel](dmz-proxy.md) | kdk-dkr-dmz-01 | — | dmz-proxy |
