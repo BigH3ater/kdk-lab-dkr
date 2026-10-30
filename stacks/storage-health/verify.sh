@@ -15,7 +15,7 @@ apk add --no-cache curl iputils netcat-openbsd >/dev/null 2>&1 || true
 . /kdk/pushover.env
 
 NAS_IP="${NAS_IP:-172.16.30.2}"
-NFS_MOUNTS="${NFS_MOUNTS:-media backup dee-exchange loki}"
+NFS_MOUNTS="${NFS_MOUNTS:-media backup dee-exchange}"
 PROB=""
 add_prob() { PROB="$PROB\n- $1"; }
 
