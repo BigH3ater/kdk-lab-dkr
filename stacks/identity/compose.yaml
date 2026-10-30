@@ -89,6 +89,7 @@ services:
       # them go through this router.
       traefik.http.routers.lldap.middlewares: "lldap-auth"
       traefik.http.middlewares.lldap-auth.forwardauth.address: "http://authelia:9091/api/authz/forward-auth"
+      traefik.http.middlewares.lldap-auth.forwardauth.maxResponseBodySize: "1048576"   # Traefik 3.7: bound the auth response (was unbounded, warned at start)
       traefik.http.middlewares.lldap-auth.forwardauth.trustForwardHeader: "true"
       traefik.http.middlewares.lldap-auth.forwardauth.authResponseHeaders: "Remote-User,Remote-Groups,Remote-Name,Remote-Email"
 
