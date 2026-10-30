@@ -86,9 +86,10 @@ compose + `.env`; see [[komodo-gitops]]):
 
 - kdk-dkr-01 (periphery `stack_dir` = `/opt/kdk-lab/stacks`): jellystat →
   `/opt/kdk-lab/stacks/jellystat/stacks/jellystat/`
-- kdk-dkr-dmz-01 (older periphery default `/etc/komodo/stacks`): tandoor →
-  `/etc/komodo/stacks/tandoor/stacks/tandoor/`, identity →
-  `/etc/komodo/stacks/identity/stacks/identity/`
+- kdk-dkr-dmz-01 (periphery `stack_dir` = `/opt/kdk-lab/stacks`, same as
+  kdk-dkr-01 — **not** the older `/etc/komodo/stacks` default; verified live
+  2026-10-30): tandoor → `/opt/kdk-lab/stacks/tandoor/stacks/tandoor/`, identity →
+  `/opt/kdk-lab/stacks/identity/stacks/identity/`
 
 Confirm the exact path on the host before you lean on it:
 `ssh kdkadmin@<host> 'sudo -n ls -d /opt/kdk-lab/stacks/<stack>/stacks/<stack> /etc/komodo/stacks/<stack>/stacks/<stack> 2>/dev/null'`.
@@ -121,6 +122,19 @@ ssh kdkadmin@<host> 'sudo -n ls -t <dumpdir>/<db>-*.sql.gz 2>/dev/null | head -1
 
 Announce the window. For **identity**, tell the household SSO is down; for
 tandoor/jellystat the single service is down.
+
+> **Per-stack step-1 notes (verified live 2026-10-30):**
+> - **jellystat dump glob.** The nightly dump is named after the *stack*, not the
+>   db: it is `jellystat-*.sql.gz`, **not** `jfstat-*.sql.gz` — the
+>   `pgdump-jellystat` sidecar writes `/dest/jellystat-$(date +%F).sql.gz`. So for
+>   jellystat the recent-dump check is
+>   `ls -t <dumpdir>/jellystat-*.sql.gz`. tandoor (`tandoor-*`) and identity
+>   (`authelia-*`) do match the generic `<db>-*.sql.gz` as written.
+> - **tandoor has no db healthcheck.** `tandoor-db` has **no** container
+>   healthcheck (jellystat-db and authelia-postgres both do), so `docker ps` shows
+>   it as `Up …` with no `(healthy)` — that is normal. Prove readiness with
+>   `pg_isready -U tandoor -d tandoor`, not a health status, in both step 1 and the
+>   step-4 post-deploy check.
 
 ### 2. Fresh pre-migration dump with the PG18 client
 
@@ -168,8 +182,21 @@ Each stack gets its **own small PR** (one `compose.yaml`) that:
   jellystat's `jellystat-db` and tandoor's `db` set env via `env_file`/literals —
   add an `environment:` block with `PGDATA`.)
 
+  **Why `PGDATA` is mandatory here (don't drop it).** PG18 moved the image's
+  default `PGDATA` to `/var/lib/postgresql/18/docker` and its declared `VOLUME` to
+  `/var/lib/postgresql`; PG16 used `/var/lib/postgresql/data`, which is exactly
+  where all three stacks bind-mount the host data dir. Pinning `PGDATA` back to
+  `/var/lib/postgresql/data` keeps that host bind mount authoritative. Without the
+  pin, PG18 `initdb`s a fresh empty cluster inside an *anonymous* volume, the bind
+  mount stays empty, and the app comes up on a **blank** database — silent data
+  loss, not a crash (this is the one PG18 failure mode that does *not* announce
+  itself). Also stated in §0; repeated here so the deployer sees it at the exact
+  moment of the change.
+
 Merge it, then **do not wait for the 15-minute loop** — deploy immediately so the
-work is attended:
+work is attended. (The attended per-stack helper script runs steps 1–3, then
+**pauses at this step 4** for the manual PR merge + Komodo deploy, and resumes on
+Enter — running steps 5–6 — only once you confirm the 18 server is up.)
 
 - Komodo UI → **Stacks → `<stack>` → Deploy** (or Komodo → Procedures → Execute
   `gitops-sync`). Komodo pulls HEAD into `<clone>`, re-renders `.env`, and runs
@@ -284,7 +311,7 @@ logins and 2FA are intact.
 | `<db>` / `<user>` | `jfstat` / `jellystat` | `tandoor` / `tandoor` | `authelia` / `authelia` |
 | `<datadir>` | `/opt/kdk-lab/jellystat/postgres` | `/opt/kdk-lab/tandoor/postgres` | `/opt/kdk-lab/identity/postgres` |
 | `<dumpdir>` | `/mnt/backup/dkr/kdk-dkr-01/pgdump` | `/mnt/backup/dkr/kdk-dkr-dmz-01/pgdump` | `/mnt/backup/dkr/kdk-dkr-dmz-01/pgdump` |
-| `<clone>` | `/opt/kdk-lab/stacks/jellystat/stacks/jellystat` | `/etc/komodo/stacks/tandoor/stacks/tandoor` | `/etc/komodo/stacks/identity/stacks/identity` |
+| `<clone>` | `/opt/kdk-lab/stacks/jellystat/stacks/jellystat` | `/opt/kdk-lab/stacks/tandoor/stacks/tandoor` | `/opt/kdk-lab/stacks/identity/stacks/identity` |
 | `<appsvc>` | `jellystat` | `web` | `authelia` |
 | db compose service | `jellystat-db` | `db` | `postgres` |
 | `<PWVAR>` (`.env` key) | `POSTGRES_PASSWORD` | `POSTGRES_PASSWORD` | `AUTHELIA_POSTGRES_PASSWORD` |
