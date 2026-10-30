@@ -91,6 +91,15 @@ and the `wizarr-sync` invite-reconcile automation now live in
 (default `admin` / `trailarr`); ours is `op://kdk-ops/trailarr-admin`. Its Radarr and
 Sonarr connections hold copies of their API keys (connections 1 and 2).
 
+Policy since 2026-10-29: **every** movie and series gets a trailer. All Trailarr
+media is monitored (bulk: `POST /api/v1/media/batch_update` `{"media_ids": [...],
+"action": "monitor"}`; new items are monitored by the connection setting), and
+Radarr **Create empty movie folders** / Sonarr **Create empty series folders** are
+on, so a title that is not downloaded yet still has a folder for its trailer.
+Both trailer profiles take the video list from TMDB with YouTube search off: a
+title whose TMDB page lists no video of type "trailer" waits (log line `waits for
+TMDB to list a video`). Trailers land in `<title>/trailers/`; Tdarr ignores them.
+
 Reset the login (forgotten password): Trailarr hashes `WEBUI_PASSWORD` once at
 start-up and stores only the hash, so apply it from a one-off container and never
 put it in compose:
