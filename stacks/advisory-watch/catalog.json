@@ -63,14 +63,6 @@
         "package": "github.com/ddvk/rmfakecloud"
       }
     },
-    "yuzutech/kroki": {
-      "github": "yuzutech/kroki",
-      "note": "Kroki core (Vert.x). Internal-only diagram renderer used by obsidian-to-koreader; no ingress"
-    },
-    "yuzutech/kroki-mermaid": {
-      "github": "yuzutech/kroki",
-      "note": "Kroki Mermaid companion (headless Chromium); versioned and released with the kroki core repo"
-    },
     "docker": {
       "github": "docker/cli",
       "note": "docker:28-cli sidecars (docker-event-watch, backups); floating major tag, verdict Unknown"
@@ -251,6 +243,10 @@
         "package": "github.com/grafana/loki/v3"
       }
     },
+    "haproxy": {
+      "github": "haproxy/haproxy",
+      "nvd_cpe": "cpe:2.3:a:haproxy:haproxy"
+    },
     "homebridge/homebridge": {
       "github": "homebridge/homebridge",
       "osv": {
@@ -417,6 +413,14 @@
       },
       "confirm": true,
       "note": "GitHub is a mirror (main forge is kolaente.dev); confirm the OSV module path. The OSV Go entries for code.vikunja.io/api mostly carry only an introduced event (no fixed), so the GHSA alias from go-vikunja/vikunja is authoritative for the verdict (source=osv+ghsa)"
+    },
+    "yuzutech/kroki": {
+      "github": "yuzutech/kroki",
+      "note": "Kroki core (Vert.x). Internal-only diagram renderer used by obsidian-to-koreader; no ingress"
+    },
+    "yuzutech/kroki-mermaid": {
+      "github": "yuzutech/kroki",
+      "note": "Kroki Mermaid companion (headless Chromium); versioned and released with the kroki core repo"
     }
   }
 }
