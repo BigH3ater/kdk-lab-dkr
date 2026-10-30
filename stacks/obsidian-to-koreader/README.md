@@ -20,6 +20,14 @@ If the tablet is **asleep**, requests are **left in `queue/`** and retried next 
 is lost). The only vault path this job writes is `_remarkable/` (a nested read-write mount);
 all other vault content is mounted **read-only**.
 
+The container runs **unprivileged as `1000:1000`** — the same owner as the vault mirror and
+the `obsidian-headless` sync agent — so the request files and the delivered `done/` records
+are owned like the rest of the vault and the bidirectional Obsidian Sync can manage them.
+`pre_deploy` (root) pre-creates `_remarkable/{queue,done}` as `1000:1000` and chowns `/state`,
+so the dirs exist with the right owner before the one-shot runs. Either order works: if the
+desktop plugin creates `_remarkable/queue/` first, it arrives through the headless sync as
+uid 1000 anyway.
+
 ### Request schema (`_remarkable/queue/<id>.json`)
 
 | Field | Values | Meaning |

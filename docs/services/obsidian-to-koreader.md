@@ -14,7 +14,8 @@ tags: [homelab/service, tier/internal, status/live, remarkable, obsidian]
 
 Renders Obsidian vault notes to PDF and pushes them onto the **reMarkable Paper
 Pro** for KOReader, under `/home/root/books/Homelab`. One-shot container on
-**kdk-dkr-01**, run periodically by a Komodo procedure. Two modes in one run:
+**kdk-dkr-01** (runs unprivileged as `1000:1000`, the vault mirror's owner), run
+periodically by a Komodo procedure. Two modes in one run:
 
 - **Vault channel (request-driven):** the
   [`obsidian-send-to-remarkable`](../../remarkable/obsidian-send-to-remarkable/)
@@ -84,7 +85,11 @@ One locally-built image (`python:3.12-slim` + pandoc + WeasyPrint + openssh/sshp
 `obsidian-to-koreader.py` runs once: process the request queue, else run the
 scheduled section reconcile. The vault is mounted **read-only** for content; the
 only writable vault path is `_remarkable/` (a nested read-write mount) so a
-processed request can move from `queue/` to `done/`. Obsidian syntax is normalised
+processed request can move from `queue/` to `done/`. The container runs
+**unprivileged as `1000:1000`** (the vault mirror's owner); `pre_deploy` (root)
+pre-creates `_remarkable/{queue,done}` as `1000:1000` and chowns `/state` so the
+files the job writes are owned like the rest of the vault and Obsidian Sync can
+manage them. Obsidian syntax is normalised
 before pandoc (wikilinks → text, callouts → labelled blockquotes, image embeds →
 resolved absolute paths, note embeds dropped, Dataview → placeholder, `%%`
 comments stripped). Delivery is SSH/scp, tailnet (`100.103.233.103`) first then LAN
@@ -114,7 +119,8 @@ clobber the Obsidian original. The tablet copies are treated as read-plus-annota
 
 | Path / setting | What it is |
 |---|---|
-| `stacks/obsidian-to-koreader/compose.yaml` | service, RO vault + RW `_remarkable/` mounts, `RM_HOST_TAILNET`/`RM_HOST_LAN`, `PANDOC_ENGINE`, `MAX_PDF_MB` |
+| `stacks/obsidian-to-koreader/compose.yaml` | service (`user: 1000:1000`), RO vault + RW `_remarkable/` mounts, `RM_HOST_TAILNET`/`RM_HOST_LAN`, `PANDOC_ENGINE`, `MAX_PDF_MB` |
+| Komodo `pre_deploy` | root: `install -d -o 1000` the queue dirs + chown `/state`, then `op inject` |
 | `stacks/obsidian-to-koreader/.env.tpl` | `RM_PW` (op-injected) |
 | `/opt/kdk-lab/obsidian/vault/_remarkable/{queue,done}` | the plugin's request channel (synced from the desktop vault) |
 | `/opt/kdk-lab/obsidian-to-koreader` | state (`obsidian-to-koreader.json`) + build scratch |

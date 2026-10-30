@@ -1164,7 +1164,12 @@ run_directory = "stacks/obsidian-to-koreader"
 auto_pull = false
 run_build = true
 destroy_before_deploy = true
-pre_deploy.command = "sh -c '. /etc/komodo/op.env && op inject -f -i .env.tpl -o .env'"
+# As root on the host: create the vault request queue (_remarkable/{queue,done}) owned
+# 1000:1000 so the uid-1000 sync agent can write the plugin's queue files there and manage
+# the renderer's done/ files (idempotent; also fixes a pre-existing root:root dir). Chown
+# the state dir so the now-unprivileged container can write its state/build. Then op-inject
+# the tablet password.
+pre_deploy.command = "sh -c 'install -d -o 1000 -g 1000 /opt/kdk-lab/obsidian/vault/_remarkable /opt/kdk-lab/obsidian/vault/_remarkable/queue /opt/kdk-lab/obsidian/vault/_remarkable/done && chown -R 1000:1000 /opt/kdk-lab/obsidian-to-koreader && . /etc/komodo/op.env && op inject -f -i .env.tpl -o .env'"
 
 [[procedure]]
 tags = ["kdk-lab"]

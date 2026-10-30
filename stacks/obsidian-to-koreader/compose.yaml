@@ -4,10 +4,19 @@ services:
     image: kdk/obsidian-to-koreader:latest
     container_name: obsidian-to-koreader
     restart: "no"                       # one-shot; run periodically by the procedure
+    # Run unprivileged as uid:gid 1000 -- the SAME owner as the vault mirror and the
+    # obsidian-headless sync agent (PUID/PGID 1000). Everything this job writes under
+    # _remarkable/ (done/, and the queue-file removal) and /state is then owned like the
+    # rest of the vault, so the bidirectional sync agent can fully manage those files.
+    # pre_deploy (runs as root) pre-creates _remarkable/{queue,done} as 1000 and chowns
+    # /state, so the dirs exist with the right owner before this container starts.
+    user: "1000:1000"
     env_file: [.env]                    # RM_PW (op-injected)
     environment:
       VAULT_DIR: /vault
       STATE_DIR: /state
+      HOME: /tmp                        # writable home for the unprivileged user
+      XDG_CACHE_HOME: /tmp/.cache       # WeasyPrint/fontconfig cache (writable)
       RM_DEST: /home/root/books/Homelab   # KOReader subfolder for vault PDFs (books stay separate)
       # Transport is tried in order: tailnet first (reachable off-LAN), then LAN.
       # ICMP is filtered on the tablet, so reachability is probed with SSH, not ping.
