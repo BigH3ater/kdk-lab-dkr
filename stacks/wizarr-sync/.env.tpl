@@ -6,7 +6,8 @@
 # the mounted /etc/kdk/pushover.env. See docs/services/wizarr.md.
 #
 # The Jellyfin key is a DEDICATED per-consumer key (Jellyfin App=wizarr-sync), not
-# the old shared op://kdk-cluster/jellyfin/api-key. The owner mints it (one op
+# the 1Password item kdk-cluster/jellyfin (field api-key), which is Wizarr's own
+# media-server key. The owner mints it (one op
 # helper, run with their personal op session) into 1P item jellyfin-api-wizarr-sync
 # BEFORE this merges; the old shared key is revoked only after wizarr-sync and the
 # Homepage widget are verified on their new keys. See the PR for the helper + steps.
