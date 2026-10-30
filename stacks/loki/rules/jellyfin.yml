@@ -78,12 +78,18 @@ groups:
       # pass Traefik at all; the exclusion keeps the rule quiet if it is ever
       # pointed at the public URL. The `client` label is Cf-Connecting-Ip on the
       # tunnel (set by Cloudflare, not forgeable) and ClientHost on the LAN.
+      # Exclude the lab's edge probe (UA kdk-edge-probe/1), whose POSTs to
+      # /Users/AuthenticateByName take a 400 and made up most of the 7d matches,
+      # and require DownstreamStatus=~"2.." so only a change the server actually
+      # applied counts — a rejected (4xx/5xx) attempt is not a completed change.
+      # Real completed user/policy changes (any other UA, 2xx) stay in scope.
       - alert: JellyfinUserPolicyChange
         expr: |
           sum by (client) (count_over_time({host="kdk-dkr-dmz-01", container="traefik"}
             |= "jellyfin.kmkdp.com" | json | RequestHost="jellyfin.kmkdp.com"
             | RequestMethod=~"POST|DELETE" | RequestPath=~"(?i)/users(/new|/[^/]+/policy|/[^/]+)?(\\?.*)?"
             | ClientHost != ip("10.211.2.0/24")
+            | request_User_Agent!~"kdk-edge-probe.*" | DownstreamStatus=~"2.."
             | label_format client="{{ if .request_Cf_Connecting_Ip }}{{ .request_Cf_Connecting_Ip }}{{ else }}{{ .ClientHost }}{{ end }}" [15m])) > 0
         for: 0m
         labels:

@@ -10,10 +10,18 @@ groups:
     interval: 1m
     rules:
       # Failed first factor / TOTP / WebAuthn (Authelia prefixes them "Unsuccessful").
+      # Authelia's JSON log carries no user-agent, so the lab's edge probe (UA
+      # kdk-edge-probe/1, from the lab's public address) cannot be excluded by UA here.
+      # The probe POSTs /api/firstfactor with no credentials, which Authelia logs
+      # as `Unsuccessful 1FA authentication attempt by user ''` (empty user) — the
+      # only thing that tripped this in 7d. Dropping the empty-user attempts keeps
+      # every real failed login (those carry a username, so they are not excluded)
+      # and is robust to the probe's source IP changing.
       - alert: AutheliaFailedLoginBurst
         expr: |
           sum by (remote_ip) (count_over_time({host="kdk-dkr-dmz-01", container="authelia"}
-            |= "Unsuccessful" | json | msg=~"Unsuccessful .*" [15m])) > 10
+            |= "Unsuccessful" | json | msg=~"Unsuccessful .*"
+            | msg!~"Unsuccessful .*by user ''.*" [15m])) > 10
         for: 0m
         labels:
           severity: warning

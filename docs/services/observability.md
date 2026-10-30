@@ -23,7 +23,7 @@ Metrics + alerting live on the independent monitor [[kdk-mon-01]]; logs live on 
 | Field | Value |
 |---|---|
 | Metrics/alerts | Prometheus + Alertmanager (→ Pushover for all; **critical also → email** via the Proton bridge) + Grafana on [[kdk-mon-01]]. Standard: [alerting](../runbooks/pushover-alerts.md#the-standard) |
-| Logs | Loki 3.7.9 on [[kdk-log-01]] (`10.1.20.21`), storage on the VM disk (`/opt/kdk-lab/loki/data`, PBS vzdump of VM 320), 30-day retention; ruler: 12 rule files / 77 alerts (`stacks/loki/rules/`, see Alert rules) → Alertmanager |
+| Logs | Loki 3.7.9 on [[kdk-log-01]] (`10.1.20.21`), storage on the VM disk (`/opt/kdk-lab/loki/data`, PBS vzdump of VM 320), 30-day retention; ruler: 12 rule files / 78 alerts (`stacks/loki/rules/`, see Alert rules) → Alertmanager |
 | Collection | per-host `observability-agent` (cAdvisor + Alloy + **docker-event-watch**); `node-exporter` on the two VMs |
 | Weekly security jobs | [[advisory-watch]] (upstream advisories vs pinned tags, kdk-log-01) and [[trivy-scan]] (Trivy on every host), both into Loki; Grafana → Security → Security Advisories |
 | Fan control | two `tigerblue77` containers on [[kdk-mon-01]]; `fanctl-hyp` **active** (R720 ~3000 RPM, 20%), `fanctl-nas` **active** (R730xd ~4800 RPM, 20%) |
@@ -36,7 +36,7 @@ Metrics + alerting live on the independent monitor [[kdk-mon-01]]; logs live on 
 curl -s http://10.1.20.21:3100/ready                                  # ready (Loki; from an allowlisted source)
 curl -s http://10.1.20.30:9090/api/v1/targets | grep -c '"up"'        # cadvisor/node/blackbox targets up
 curl -sG http://10.1.20.21:3100/loki/api/v1/label/host/values         # every host present (6)
-curl -s http://10.1.20.21:3100/loki/api/v1/rules | grep -c 'alert:'    # 77 (12 groups, see Alert rules)
+curl -s http://10.1.20.21:3100/loki/api/v1/rules | grep -c 'alert:'    # 78 (12 groups, see Alert rules)
 ssh kdkadmin@10.1.20.30 'sudo docker logs --tail 3 fanctl-hyp'        # temps logged, profile applied
 ```
 
@@ -62,6 +62,7 @@ Loki ruler rules live in `stacks/loki/rules/*.yml` (only `.yml` files there: the
 | `EdgeNonUSTraffic` | `edge.yml` | warning | Non-US request reached the origin through the tunnel (…): the Cloudflare geo rule or a skip rule has a gap | [edge](../runbooks/security-alerts.md#edge) |
 | `EdgeAuthFailureBurst` | `edge.yml` | warning | More than 60 401/403 per 5m from tunnel traffic for 5m (credential stuffing or a scanner) | [edge](../runbooks/security-alerts.md#edge) |
 | `EdgeJellyfinAdminPathHit` | `edge.yml` | critical | A Jellyfin admin path reached the origin through the tunnel: the Cloudflare WAF block rule was bypassed or is missing | [edge](../runbooks/security-alerts.md#edge) |
+| `EdgeJellyfinAdminPathProbe` | `edge.yml` | warning | The lab's edge probe reached a Jellyfin admin path through the tunnel: the Cloudflare block rule is missing that path | [edge](../runbooks/security-alerts.md#edge) |
 | `EdgeSpoofedCfHeaders` | `edge.yml` | warning | Cf-Connecting-Ip seen on the LAN entrypoint (websecure): the strip-cf middleware is not applied there | [edge](../runbooks/security-alerts.md#edge) |
 | `CloudflaredOutdated` | `edge.yml` | info | cloudflared reports a newer release: bump the pinned tag in stacks/dmz-proxy (or merge the Renovate PR) | [edge](../runbooks/security-alerts.md#edge) |
 | `CloudflaredEdgeFlapping` | `edge.yml` | warning | cloudflared lost its edge connection more than 4 times in 30m (WAN/ISP or Cloudflare side) | [edge](../runbooks/security-alerts.md#edge) |
@@ -85,7 +86,9 @@ Loki ruler rules live in `stacks/loki/rules/*.yml` (only `.yml` files there: the
 | `WizarrAdminRouterNon302` | `wizarr.yml` | critical | Wizarr admin router served a tunnel client without an SSO redirect | [wizarr](../runbooks/security-alerts.md#wizarr) |
 | `WizarrLdapExistingUserTouched` | `wizarr.yml` | critical | Wizarr: an invite modified an existing lldap account (posture finding F1) | [wizarr](../runbooks/security-alerts.md#wizarr) |
 | `WizarrLdapUserCreated` | `wizarr.yml` | info | Wizarr created an lldap user (expected only right after you sent an invite) | [wizarr](../runbooks/security-alerts.md#wizarr) |
-| `WizarrAdminAuthFail` | `wizarr.yml` | warning | Wizarr: more than 3 failed admin logins in 10m (behind Authelia, so the caller already passed SSO) | [wizarr](../runbooks/security-alerts.md#wizarr) |
+| `WizarrAdminLogin` | `wizarr.yml` | info | Wizarr admin login (Authelia passed; Wizarr itself does no login) from … | [wizarr](../runbooks/security-alerts.md#wizarr) |
+| `WizarrInviteAccepted` | `wizarr.yml` | info | Wizarr: invite accepted from … | [wizarr](../runbooks/security-alerts.md#wizarr) |
+| `EdgeWizarrAdminPathHit` | `wizarr.yml` | warning | Wizarr: admin path requested over the tunnel from … | [wizarr](../runbooks/security-alerts.md#wizarr) |
 | `WizarrAdminMutation` | `wizarr.yml` | info | Wizarr admin/settings mutation (expected only while you are working in Wizarr) | [wizarr](../runbooks/security-alerts.md#wizarr) |
 | `SeerrFailedLoginBurst` | `request-apps.yml` | warning | Seerr: more than 10 failed sign-ins in 10m | [request-apps](../runbooks/security-alerts.md#request-apps) |
 | `SeerrLoginFailuresPerClient` | `request-apps.yml` | warning | Seerr: more than 5 failed login POSTs in 10m from … | [request-apps](../runbooks/security-alerts.md#request-apps) |

@@ -119,11 +119,23 @@ groups:
           summary: "Mosquitto rejected a client (not authorised / bad credentials)"
           runbook: docs/runbooks/security-alerts.md#home-assistant
 
-      # Strings are Inferred; confirm after the next Scrypted/Homebridge upgrade.
+      # Scrypted/Homebridge own-account auth + admin actions. Strings are still
+      # INFERRED: a 7d review (2026-10-30) found NO real Scrypted management-console
+      # login/auth line — every match was the @scrypted/unifi-protect plugin failing
+      # to log in to the cameras ("a Unifi Protect Plugin Login failed. Check
+      # credentials.", "message: 'Login failed. Check credentials.'") and the per-camera
+      # "[Room] Snapshot failed, falling back to prebuffer RPCResultError: login failed"
+      # lines — camera credentials, not a Scrypted user login. Those are excluded here
+      # (check-credentials / snapshot / prebuffer / unifi-protect / RPCResultError), so
+      # the rule now matches only Scrypted's own login/credential failures and admin
+      # actions (user created/added, plugin install / installNpm). Promote (confirm the
+      # real login string) or delete by the inferred deadline ~2026-11-27.
       - alert: ScryptedHomebridgeAuthEvent
         expr: |
           sum by (container) (count_over_time({host="kdk-dkr-03", container=~"scrypted|homebridge"}
-            |~ "(?i)login failed|invalid (password|credentials)|user (created|added)|installNpm|plugin install" [10m])) > 0
+            |~ "(?i)login failed|invalid (password|credentials)|user (created|added)|installNpm|plugin install"
+            != "Check credentials"
+            !~ "(?i)snapshot|prebuffer|unifi.?protect|rpcresulterror" [10m])) > 0
         for: 0m
         labels:
           severity: warning

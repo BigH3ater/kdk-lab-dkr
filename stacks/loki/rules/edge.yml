@@ -28,11 +28,17 @@ groups:
           summary: "Non-US request reached the origin through the tunnel ({{ $labels.request_Cf_Ipcountry }}): the Cloudflare geo rule or a skip rule has a gap"
           runbook: docs/runbooks/security-alerts.md#edge
 
+      # The lab's own synthetic probe (UA `kdk-edge-probe/1`, scripts/edge-probe.sh)
+      # POSTs /api/firstfactor through the tunnel and takes a 401 every run; its
+      # rate-limit burst was the only thing that tripped this in 7d. Excluding the
+      # probe UA keeps real credential-stuffing/scanner 401/403 bursts (any other
+      # UA) fully in scope.
       - alert: EdgeAuthFailureBurst
         expr: |
           sum(count_over_time({host="kdk-dkr-dmz-01", container="traefik"}
             |= "tunnel" | json | entryPointName="tunnel" | DownstreamStatus=~"40[13]"
-            | RequestPath!~"/api/authz/forward-auth.*" [5m])) > 60
+            | RequestPath!~"/api/authz/forward-auth.*"
+            | request_User_Agent!~"kdk-edge-probe.*" [5m])) > 60
         for: 5m
         labels:
           severity: warning
@@ -46,11 +52,18 @@ groups:
       # /System/Info, /System/Info/Public and /System/Ping are client paths the WAF
       # lets through on purpose (jellyfin-web calls /System/Endpoint on every load),
       # so they are not admin paths here either (false positive 2026-10-29).
+      # Status-agnostic by design: an admin path reaching the origin AT ALL means
+      # the Cloudflare edge block rule was missing or wrong for that path, which is
+      # exactly what this critical is for — Jellyfin answering 401/405 is not a
+      # reason to stay quiet. The only exclusion is the lab's own edge probe
+      # (kdk-edge-probe/1), which deliberately hits these paths to canary the WAF
+      # and is surfaced separately by EdgeJellyfinAdminPathProbe (warning) below.
       - alert: EdgeJellyfinAdminPathHit
         expr: |
           sum(count_over_time({host="kdk-dkr-dmz-01", container="traefik"}
             |= "tunnel" | json | entryPointName="tunnel" | RequestHost="jellyfin.kmkdp.com"
-            | RequestPath=~"(?i)^/(system/(configuration|logs|restart)|plugins|packages|repositories|scheduledtasks|devices|startup|environment|auth/keys|library/(virtualfolders|refresh)|users/[^/]+/(policy|password)).*" [5m])) > 0
+            | RequestPath=~"(?i)^/(system/(configuration|logs|restart)|plugins|packages|repositories|scheduledtasks|devices|startup|environment|auth/keys|library/(virtualfolders|refresh)|users/[^/]+/(policy|password)).*"
+            | request_User_Agent!~"kdk-edge-probe.*" [5m])) > 0
         for: 0m
         labels:
           severity: critical
@@ -58,6 +71,26 @@ groups:
           scope: edge
         annotations:
           summary: "A Jellyfin admin path reached the origin through the tunnel: the Cloudflare WAF block rule was bypassed or is missing"
+          runbook: docs/runbooks/security-alerts.md#edge
+
+      # The lab's own edge-probe canary for the same WAF block rule: it hits these
+      # admin paths on purpose, so when ITS request reaches the origin (any status)
+      # the Cloudflare block rule is missing that path. Warning, not critical: it
+      # must be visible even when nobody is reading the probe's PASS/FAIL table, but
+      # it is the lab testing itself, so it does not need the pager tier.
+      - alert: EdgeJellyfinAdminPathProbe
+        expr: |
+          sum(count_over_time({host="kdk-dkr-dmz-01", container="traefik"}
+            |= "tunnel" | json | entryPointName="tunnel" | RequestHost="jellyfin.kmkdp.com"
+            | RequestPath=~"(?i)^/(system/(configuration|logs|restart)|plugins|packages|repositories|scheduledtasks|devices|startup|environment|auth/keys|library/(virtualfolders|refresh)|users/[^/]+/(policy|password)).*"
+            | request_User_Agent=~"kdk-edge-probe.*" [5m])) > 0
+        for: 0m
+        labels:
+          severity: warning
+          source: loki
+          scope: edge
+        annotations:
+          summary: "The lab's edge probe reached a Jellyfin admin path through the tunnel: the Cloudflare block rule is missing that path"
           runbook: docs/runbooks/security-alerts.md#edge
 
       # Canary for the strip-cf middleware on the LAN entrypoint (PR #68). Traefik

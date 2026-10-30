@@ -8,9 +8,10 @@ groups:
       - alert: IdracExporterDown
         expr: up{job="idrac"} == 0
         for: 5m
-        labels: {severity: warning, source: external-monitor}
+        labels: {severity: warning, source: external-monitor, scope: thermal}
         annotations:
-          summary: "iDRAC metrics for {{ $labels.instance }} are unavailable"
+          summary: "thermal: iDRAC metrics unavailable ({{ $labels.instance }})"
+          runbook: docs/runbooks/pushover-alerts.md#thermal-alerts
           description: >-
             Prometheus cannot scrape the BMC via idrac-exporter for 5m; fan and
             temperature alerting for this host is blind until it recovers.
@@ -18,17 +19,19 @@ groups:
       - alert: HostCpuTempHigh
         expr: idrac_sensors_temperature{name=~"CPU.*Temp"} > 82
         for: 5m
-        labels: {severity: warning, source: external-monitor}
+        labels: {severity: warning, source: external-monitor, scope: thermal}
         annotations:
-          summary: "{{ $labels.instance_name }} {{ $labels.name }} is {{ $value }}C"
+          summary: "thermal: {{ $labels.name }} high {{ $value }}C ({{ $labels.instance_name }})"
+          runbook: docs/runbooks/pushover-alerts.md#thermal-alerts
           description: "CPU temperature above 82C for 5m on {{ $labels.instance_name }} ({{ $labels.model }})."
 
       - alert: HostCpuTempCritical
         expr: idrac_sensors_temperature{name=~"CPU.*Temp"} > 92
         for: 2m
-        labels: {severity: critical, source: external-monitor}
+        labels: {severity: critical, source: external-monitor, scope: thermal}
         annotations:
-          summary: "{{ $labels.instance_name }} {{ $labels.name }} CRITICAL {{ $value }}C"
+          summary: "thermal: {{ $labels.name }} CRITICAL {{ $value }}C ({{ $labels.instance_name }})"
+          runbook: docs/runbooks/pushover-alerts.md#thermal-alerts
           description: >-
             CPU above 92C on {{ $labels.instance_name }}. If a fan controller is
             managing this BMC, release fans to auto now:
@@ -37,17 +40,19 @@ groups:
       - alert: HostInletTempHigh
         expr: idrac_sensors_temperature{name=~".*Inlet.*"} > 30
         for: 10m
-        labels: {severity: warning, source: external-monitor}
+        labels: {severity: warning, source: external-monitor, scope: thermal}
         annotations:
-          summary: "{{ $labels.instance_name }} inlet {{ $value }}C"
+          summary: "thermal: inlet {{ $value }}C ({{ $labels.instance_name }})"
+          runbook: docs/runbooks/pushover-alerts.md#thermal-alerts
           description: "Inlet air above 30C for 10m — ambient/room cooling issue on {{ $labels.instance_name }}."
 
       - alert: FanUnhealthy
         expr: idrac_sensors_fan_health != 0
         for: 5m
-        labels: {severity: warning, source: external-monitor}
+        labels: {severity: warning, source: external-monitor, scope: thermal}
         annotations:
-          summary: "{{ $labels.instance_name }} {{ $labels.name }} reports not-OK"
+          summary: "thermal: {{ $labels.name }} reports not-OK ({{ $labels.instance_name }})"
+          runbook: docs/runbooks/pushover-alerts.md#thermal-alerts
           description: "A chassis fan on {{ $labels.instance_name }} reports a non-OK health status."
 
       # Fans stuck loud: either heavy load, or fan control is not active.
@@ -56,9 +61,10 @@ groups:
       - alert: FansPinnedHigh
         expr: max by (instance_name) (idrac_sensors_fan_speed) > 10000
         for: 20m
-        labels: {severity: warning, source: external-monitor}
+        labels: {severity: warning, source: external-monitor, scope: thermal}
         annotations:
-          summary: "{{ $labels.instance_name }} fans pinned high ({{ $value }} RPM)"
+          summary: "thermal: fans pinned high {{ $value }} RPM ({{ $labels.instance_name }})"
+          runbook: docs/runbooks/pushover-alerts.md#thermal-alerts
           description: >-
             Peak fan speed above 10000 RPM for 20m. Expected while the fan
             controller is in monitoring-only mode; otherwise indicates sustained
