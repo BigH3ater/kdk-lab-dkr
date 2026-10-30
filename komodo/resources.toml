@@ -1603,3 +1603,72 @@ executions = [
   { execution.type = "DeployStack", execution.params.stack = "trivy-scan-dkr03", enabled = true },
   { execution.type = "DeployStack", execution.params.stack = "trivy-scan-log01", enabled = true },
 ]
+
+# ---- cloudflare-watch: read-only Cloudflare edge watch (kmkdp.com zone) ----
+# Two one-shot stacks share stacks/cloudflare-watch (deploy=false,
+# destroy_before_deploy = a fresh locked down+up each run), on kdk-log-01:
+#   cloudflare-watch         hourly  -> tunnel/SSL/zone-settings/firewall-events
+#   cloudflare-watch-weekly  Monday  -> rule + DNS sha drift (--weekly via env)
+# Each prints JSON lines to stdout; the host Alloy ships them to Loki
+# ({container="cloudflare-watch"} / {container="cloudflare-watch-weekly"}) and
+# stacks/loki/rules/cloudflare.yml pages. CFWATCH_SUFFIX keeps the two
+# container names distinct (two one-shots can't share a name on one host).
+# run_build = true (kdk/cloudflare-watch:latest, local Dockerfile). pre_deploy:
+# kdk-log-01 has no op.env, so .env (CF_API_TOKEN) renders only where op.env
+# exists; otherwise the token comes from /etc/kdk/cloudflare-watch.env (host).
+[[stack]]
+tags = ["kdk-lab"]
+name = "cloudflare-watch"
+deploy = false   # run hourly by the cloudflare-watch procedure
+[stack.config]
+server = "kdk-log-01"
+repo = "BigH3ater/kdk-lab-dkr"
+run_directory = "stacks/cloudflare-watch"
+run_build = true               # local Dockerfile -> kdk/cloudflare-watch:latest
+destroy_before_deploy = true   # one locked down+up so the one-shot re-runs
+pre_deploy.command = "sh -c 'if [ -r /etc/komodo/op.env ]; then . /etc/komodo/op.env && op inject -f -i .env.tpl -o .env; else : > .env; fi'"
+
+[[stack]]
+tags = ["kdk-lab"]
+name = "cloudflare-watch-weekly"
+deploy = false   # run weekly by the cloudflare-watch-weekly procedure
+[stack.config]
+server = "kdk-log-01"
+repo = "BigH3ater/kdk-lab-dkr"
+run_directory = "stacks/cloudflare-watch"
+run_build = true               # same image as cloudflare-watch
+destroy_before_deploy = true   # one locked down+up so the one-shot re-runs
+environment = "CFWATCH_MODE=weekly\nCFWATCH_SUFFIX=-weekly"
+pre_deploy.command = "sh -c 'if [ -r /etc/komodo/op.env ]; then . /etc/komodo/op.env && op inject -f -i .env.tpl -o .env; else : > .env; fi'"
+
+[[procedure]]
+tags = ["kdk-lab"]
+name = "cloudflare-watch"
+[procedure.config]
+schedule_format = "Cron"
+# Hourly at :17 -- off the gitops-sync :00/:15/:30/:45 slots.
+schedule = "0 17 * * * *"
+schedule_enabled = true
+schedule_timezone = "America/Chicago"
+[[procedure.config.stage]]
+name = "watch"
+enabled = true
+executions = [
+  { execution.type = "DeployStack", execution.params.stack = "cloudflare-watch", enabled = true },
+]
+
+[[procedure]]
+tags = ["kdk-lab"]
+name = "cloudflare-watch-weekly"
+[procedure.config]
+schedule_format = "Cron"
+# Monday 07:10 -- off the gitops-sync :00/:15/:30/:45 slots.
+schedule = "0 10 7 * * Mon"
+schedule_enabled = true
+schedule_timezone = "America/Chicago"
+[[procedure.config.stage]]
+name = "watch"
+enabled = true
+executions = [
+  { execution.type = "DeployStack", execution.params.stack = "cloudflare-watch-weekly", enabled = true },
+]

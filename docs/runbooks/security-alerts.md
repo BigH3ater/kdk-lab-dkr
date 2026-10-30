@@ -156,3 +156,19 @@ labels; the `host` label names the silent host).
 | Alert | First checks |
 |---|---|
 | `LokiShippingStalled` | No line at all from that host for 30 min. On the host: `docker ps --filter name=alloy`, `docker logs alloy --tail 20`; `LOKI_HOST` must be `10.1.20.21`. Path: the host's IP must be in kdk-log-01's `log_clients_v4` set (`sudo nft list set inet kdk-input log_clients_v4`) and, for the DMZ, the UniFi rule `192.168.191.20 → 10.1.20.21:3100`. All hosts at once = kdk-log-01 or Loki down: `curl -s http://10.1.20.21:3100/ready` from mon-01 |
+
+## Cloudflare watch
+
+`cloudflare.yml`: [cloudflare-watch](../services/cloudflare-watch.md), a
+read-only edge watch for the `kmkdp.com` zone on [[kdk-log-01]]. Hourly lines
+land on `{container="cloudflare-watch"}`, the weekly line on
+`{container="cloudflare-watch-weekly"}`. Each alert names the watch line's
+`check`/`drift` fields to open in Grafana → Explore → Loki.
+
+| Alert | First checks |
+|---|---|
+| `CloudflareTunnelUnhealthy` | The tunnel was not `healthy` on 2+ hourly checks. Cloudflare dashboard → Zero Trust → Networks → Tunnels; `docker logs cloudflared` on kdk-dkr-dmz-01; `curl -I https://sso.kmkdp.com`. Two runs = not a blip |
+| `CloudflareEdgeCertExpiring` | Universal SSL edge cert under 14 days (`days_left` in the summary). Normally Cloudflare auto-renews; check the zone's SSL/TLS → Edge Certificates for a stuck validation |
+| `CloudflareZoneSettingDrift` | A zone setting left the expected policy. Open the latest `check="zone_settings"` line, read `drift` (e.g. `min_tls_version='1.1' want '1.2'`); fix in the Cloudflare dashboard or update `EXPECTED_SETTINGS` in `watch.py` if the change was intended |
+| `CloudflareRuleDrift` | The weekly `rule_drift` sha changed: a custom-firewall / rate-limit rule or a DNS record was edited. Review the change in the Cloudflare dashboard (Security → WAF, DNS). Intended? It is now the new baseline — the next weekly run records it and the alert resolves |
+| `CloudflareWatchMissing` | No hourly output for 3h: Komodo → Procedures → `cloudflare-watch` run history; `docker logs cloudflare-watch`; confirm `/etc/kdk/cloudflare-watch.env` exists (token). Fires once after the first deploy until the first run |

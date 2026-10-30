@@ -23,7 +23,7 @@ Metrics + alerting live on the independent monitor [[kdk-mon-01]]; logs live on 
 | Field | Value |
 |---|---|
 | Metrics/alerts | Prometheus + Alertmanager (→ Pushover) + Grafana on [[kdk-mon-01]] |
-| Logs | Loki 3.7.9 on [[kdk-log-01]] (`10.1.20.21`), storage on the VM disk (`/opt/kdk-lab/loki/data`, PBS vzdump of VM 320), 30-day retention; ruler: 10 rule files / 69 alerts (`stacks/loki/rules/`, see Alert rules) → Alertmanager |
+| Logs | Loki 3.7.9 on [[kdk-log-01]] (`10.1.20.21`), storage on the VM disk (`/opt/kdk-lab/loki/data`, PBS vzdump of VM 320), 30-day retention; ruler: 11 rule files / 76 alerts (`stacks/loki/rules/`, see Alert rules) → Alertmanager |
 | Collection | per-host `observability-agent` (cAdvisor + Alloy + **docker-event-watch**); `node-exporter` on the two VMs |
 | Weekly security jobs | [[advisory-watch]] (upstream advisories vs pinned tags, kdk-log-01) and [[trivy-scan]] (Trivy on every host), both into Loki; Grafana → Security → Security Advisories |
 | Fan control | two `tigerblue77` containers on [[kdk-mon-01]]; `fanctl-hyp` **active** (R720 ~3000 RPM, 20%), `fanctl-nas` **active** (R730xd ~4800 RPM, 20%) |
@@ -36,7 +36,7 @@ Metrics + alerting live on the independent monitor [[kdk-mon-01]]; logs live on 
 curl -s http://10.1.20.21:3100/ready                                  # ready (Loki; from an allowlisted source)
 curl -s http://10.1.20.30:9090/api/v1/targets | grep -c '"up"'        # cadvisor/node/blackbox targets up
 curl -sG http://10.1.20.21:3100/loki/api/v1/label/host/values         # every host present (6)
-curl -s http://10.1.20.21:3100/loki/api/v1/rules | grep -c 'alert:'    # 69 (10 groups, see Alert rules)
+curl -s http://10.1.20.21:3100/loki/api/v1/rules | grep -c 'alert:'    # 76 (11 groups, see Alert rules)
 ssh kdkadmin@10.1.20.30 'sudo docker logs --tail 3 fanctl-hyp'        # temps logged, profile applied
 ```
 
@@ -122,13 +122,18 @@ Loki ruler rules live in `stacks/loki/rules/*.yml` (only `.yml` files there: the
 | `AdvisoryWatchSilent` | `advisories.yml` | warning | No advisory-watch output in Loki for 8 days | [advisories](../runbooks/security-alerts.md#advisories) |
 | `TrivyScanSilent` | `advisories.yml` | warning | No trivy-scan output in Loki for 8 days | [advisories](../runbooks/security-alerts.md#advisories) |
 | `LokiShippingStalled` | `shipping.yml` | warning | No log line from a host for 30m (one rule per host) | Troubleshooting above |
+| `CloudflareTunnelUnhealthy` | `cloudflare.yml` | warning | Cloudflare tunnel for kmkdp.com reported unhealthy on 2+ hourly checks | [cloudflare-watch](../runbooks/security-alerts.md#cloudflare-watch) |
+| `CloudflareEdgeCertExpiring` | `cloudflare.yml` | warning | Cloudflare edge cert for kmkdp.com expiring (… days left) | [cloudflare-watch](../runbooks/security-alerts.md#cloudflare-watch) |
+| `CloudflareZoneSettingDrift` | `cloudflare.yml` | warning | A Cloudflare zone setting for kmkdp.com drifted from policy | [cloudflare-watch](../runbooks/security-alerts.md#cloudflare-watch) |
+| `CloudflareRuleDrift` | `cloudflare.yml` | warning | Cloudflare custom/rate-limit rules or DNS records for kmkdp.com changed since last week | [cloudflare-watch](../runbooks/security-alerts.md#cloudflare-watch) |
+| `CloudflareWatchMissing` | `cloudflare.yml` | warning | No cloudflare-watch output in Loki for 3h (hourly check silent) | [cloudflare-watch](../runbooks/security-alerts.md#cloudflare-watch) |
 
 Not in Loki: long-lived HA tokens (`ha_llat_count`, Prometheus on kdk-mon-01). Rules marked *inferred wording* match log text that was not yet observed in this lab; confirm with one test event and tighten.
 
 Check after a deploy:
 
 ```bash
-curl -s http://10.1.20.21:3100/loki/api/v1/rules | grep -c 'alert:'          # 69
+curl -s http://10.1.20.21:3100/loki/api/v1/rules | grep -c 'alert:'          # 76
 ssh kdkadmin@10.1.20.21 'sudo docker logs loki 2>&1 | grep -i -E "rule|ruler" | grep -i -E "err|fail" | tail'   # empty
 ```
 
