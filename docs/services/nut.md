@@ -76,9 +76,7 @@ imminent), `CHRG` while charging.
   (`upsc eaton-5px@10.1.30.22`) and that `monuser`'s password matches the
   server. On Proxmox: `journalctl -u nut-monitor`.
 - **Shuts down too early / too late** — tune `stacks/nut/ups.conf`
-  (`override.battery.runtime.low`). Merging the change recreates upsd (the
-  `kdk.config-sha` label picks up the new `ups.conf`), so merge it **attended** —
-  see the danger note under the 2026-10-26 incident.
+  (`override.battery.runtime.low`), then redeploy the stack.
 - upsd runs on [[kdk-dkr-03]], a Pi that is **not** a guest of
   [[kdk-hyp-01]], so it keeps reporting while Proxmox shuts down. The clients
   are still **secondary** and shut down on LB independently.
@@ -100,22 +98,10 @@ draw 170 W → 23 W by 21:10. TrueNAS (upsmon 2.8.0, no CAL rule) only logged
 branch is gated only by `commstate == 0`, i.e. the first failed poll — in 2.8.1 and in
 upstream master. `DEADTIME` only promotes a dead on-battery UPS to low-battery.
 
-**Fix (landed).** (1) `--force-recreate` removed from the Komodo stack; (2) a
-`kdk.config-sha` label on `upsd` = `sha256(ups.conf)` from the Komodo `pre_deploy`
-recreates upsd **only** on a deliberate `ups.conf` merge, while unrelated merges stay a
-no-op (compose does NOT content-hash a `configs: file:` — the earlier "content-hashed"
-assumption was wrong, so edits had silently not been applying); (3) `SERVER: primary`
-restored, hyp-01 `nut-monitor` and the TrueNAS UPS service re-enabled.
-
-> [!danger] A `ups.conf` merge recreates upsd — watch the UPS
-> The recreate trigger is deliberate, but a recreate is still a recreate: during a
-> battery self-test or a network blip it can shut kdk-hyp-01 down (this incident).
-> Merge any `ups.conf` change — and the **first** deploy after the `kdk.config-sha`
-> label was introduced, which recreates upsd once — only with a person watching the
-> UPS, ready to `systemctl disable --now nut-monitor` on hyp-01 and stop the TrueNAS
-> UPS service first. Rollback is `git revert`.
-
-**Rule: never restart upsd without a reason** — the
+**Fix (landed).** (1) `--force-recreate` removed from the Komodo stack; (2) `ups.conf`
+is a compose `config` (content-hashed) so real edits still recreate the container while
+unrelated merges are a no-op; (3) `SERVER: primary` restored, hyp-01 `nut-monitor` and the
+TrueNAS UPS service re-enabled. **Rule: never restart upsd without a reason** — the
 clients cannot distinguish a restart from a dead UPS, and during a self-test or on
 battery they will shut down on the spot.
 

@@ -192,7 +192,7 @@ hashing their config files in `pre_deploy` and carrying the digest in a
 |---|---|---|
 | `loki` | `kdk.rules-sha`, `kdk.config-sha` (loki), `kdk.config-sha` (syslog/alloy) | `rules/*.yml`, `loki-config.yaml`, `alloy/syslog.alloy` |
 | `identity` | `kdk.config-sha` (authelia only) | `authelia/configuration.yml`, `authelia/configuration.webauthn.yml` |
-| `nut` | `kdk.config-sha` (upsd only) | `ups.conf` — ⚠️ a recreate can shut a client host down; merge a `nut` config change only with a person watching (see [[nut]]) |
+| `nut` | *pending* — PR `fix/nut-config-sha` | `ups.conf` — ⚠️ a recreate can shut a client host down, so it lands in its own **attended** PR, not this one (see [[nut]]) |
 
 Every other stack has no such label: after a config-only merge, run
 **`RestartStack`** for it in Komodo. When you add a config SHA to a stack, the
