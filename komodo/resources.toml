@@ -93,9 +93,12 @@ repo = "BigH3ater/kdk-lab-dkr"
 run_directory = "stacks/docs"
 # DOCS_NGINX_SHA feeds the nginx service's kdk.config-sha label so an nginx.conf
 # edit recreates nginx on deploy (single-file bind mount; otherwise it only self-
-# heals on the 6-hourly publish-docs destroy+deploy). docs has no secrets, so the
-# .env here holds only this hash; `>` is fine (nothing else to preserve).
-pre_deploy.command = "sh -c 'echo DOCS_NGINX_SHA=$(sha256sum nginx.conf | cut -c1-12) > .env'"
+# heals on the 6-hourly publish-docs destroy+deploy). APPEND (>>): Komodo's "Write
+# Environment File" stage writes .env BEFORE pre_deploy, so `>` would wipe any
+# Komodo-managed env (convention, see cloudflare-watch / #178). docs has no
+# Komodo env today, and a duplicate line on a re-deploy is harmless -- compose
+# takes the last value.
+pre_deploy.command = "sh -c 'echo DOCS_NGINX_SHA=$(sha256sum nginx.conf | cut -c1-12) >> .env'"
 webhook_enabled = true
 
 [[stack]]
@@ -1459,10 +1462,13 @@ server = "kdk-dkr-01"
 repo = "BigH3ater/kdk-lab-dkr"
 run_directory = "stacks/tailscale-dns"
 # TAILSCALE_DNS_COREFILE_SHA feeds the coredns kdk.config-sha label so a Corefile
-# edit recreates CoreDNS on deploy (single-file bind mount, no reload plugin). The
-# stack has no secrets, so `>` .env holds only this hash. ATTENDED: a recreate is
-# a brief tailnet-DNS blip -- merge with a person watching, like tailscale-*.
-pre_deploy.command = "sh -c 'echo TAILSCALE_DNS_COREFILE_SHA=$(sha256sum Corefile | cut -c1-12) > .env'"
+# edit recreates CoreDNS on deploy (single-file bind mount, no reload plugin).
+# APPEND (>>): Komodo's "Write Environment File" stage writes .env BEFORE
+# pre_deploy, so `>` would wipe any Komodo-managed env (convention, see
+# cloudflare-watch / #178); duplicate lines on a re-deploy are harmless, compose
+# takes the last value. ATTENDED: a recreate is a brief tailnet-DNS blip -- merge
+# with a person watching, like tailscale-*.
+pre_deploy.command = "sh -c 'echo TAILSCALE_DNS_COREFILE_SHA=$(sha256sum Corefile | cut -c1-12) >> .env'"
 webhook_enabled = true
 
 # ---- adopted stacks (files already on the Pi hosts; adopt, don't redeploy) ----
