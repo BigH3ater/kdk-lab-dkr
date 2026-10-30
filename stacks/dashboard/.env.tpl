@@ -14,10 +14,13 @@ VIKUNJA_SERVICE_JWTSECRET={{ op://kdk-cluster/vikunja-app/jwt_secret }}
 # `password` field of the named kdk-cluster item. If one isn't ready yet, comment out
 # BOTH this line AND its widget block in config/services.yaml to let P1 deploy, then
 # add it back. (siteMonitor up/down health needs no key and always works.)
-# P1b: HOMEPAGE_VAR_JELLYFIN_KEY <- 1P item kdk-cluster/jellyfin-api-ro field password (uncomment as a real line once the item exists)
 # P1b: HOMEPAGE_VAR_SEERR_KEY <- 1P item kdk-cluster/seerr-api-ro field password (uncomment as a real line once the item exists)
 # P1b: HOMEPAGE_VAR_ABS_KEY <- 1P item kdk-cluster/audiobookshelf-api-ro field password (uncomment as a real line once the item exists)
 HOMEPAGE_VAR_VIKUNJA_KEY={{ op://kdk-cluster/vikunja-api-ro/password }}
+# Jellyfin read-only widget key (Jellyfin App=homepage-ro). Item jellyfin-api-ro is
+# minted by the owner's op helper (see the PR); must exist in 1P BEFORE this merges
+# or op inject fails and the stack won't deploy.
+HOMEPAGE_VAR_JELLYFIN_KEY={{ op://kdk-cluster/jellyfin-api-ro/password }}
 
 # ---- P2b: per-user Vikunja tokens (task write-back attributed via SSO) --------
 # Each household member mints their own full-permission token in Vikunja and it
