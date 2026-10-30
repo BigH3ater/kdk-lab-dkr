@@ -38,3 +38,6 @@ If a key isn't ready, comment out its line in `.env.tpl` **and** its widget bloc
   CookLog entries under the shared account with the rater's name in the comment (per-user
   ratings still available by opening the recipe page). See `mealplan/app.py` header.
 - Deploy is standard GitOps: register in `komodo/resources.toml`, push, run `gitops-sync`.
+# Cache busting
+
+The HTML references `style.css?v=<commit>` and `nav.js?v=<commit>`; bump the value (any new string) whenever either file changes so browsers that still hold an old copy fetch the new one on their next page load. The nginx headers (`guides.nginx.conf`) keep HTML at no-cache and css/js at five minutes, but a copy cached before 2026-10-30 had no headers at all and lived on heuristics, which is why the first sidebar fix did not show without a hard refresh.
