@@ -76,4 +76,4 @@ groups:
         labels: {severity: warning, source: external-monitor}
         annotations:
           summary: "TLS cert for {{ $labels.instance }} expires in under 14 days"
-          description: "ACME renewal for {{ $labels.instance }} may be failing — check the cf resolver (api-slave.kmkdp.com uses cfroborock + the apps certs-dumper)."
+          description: "ACME renewal for {{ $labels.instance }} may be failing — check the Traefik cf resolver (most names) or the roborock-cert lego one-shot (api-slave.kmkdp.com)."
