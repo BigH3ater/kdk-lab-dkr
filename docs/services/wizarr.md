@@ -163,7 +163,7 @@ kdk-dkr-dmz-01. For every Wizarr `user` row with `is_ldap_user=1` it:
    nothing else. (lldap admin password `op://kdk-cluster/lldap-admin/password`.)
 2. **Jellyfin** — if the account's `AuthenticationProviderId` is not the LDAP plugin
    (`Jellyfin.Plugin.LDAP_Auth.LdapAuthenticationProviderPlugin`), sets it with a full
-   `POST /Users/{id}/Policy` round-trip. (API key `op://kdk-cluster/jellyfin/api-key`.)
+   `POST /Users/{id}/Policy` round-trip. (API key `op://kdk-cluster/jellyfin-api-wizarr-sync/api-key` — a dedicated per-consumer Jellyfin key, App=`wizarr-sync`.)
 3. **Seerr** — if no Seerr user has that Jellyfin user id, calls
    `POST /api/v1/user/import-from-jellyfin` `{"jellyfinUserIds":[id]}`. (Seerr API key read
    read-only from `/mnt/appdata/jellyseerr/settings.json` `main.apiKey`.)

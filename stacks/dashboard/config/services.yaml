@@ -85,6 +85,12 @@
       href: https://jellyfin.kmkdp.com/
       siteMonitor: https://jellyfin.kmkdp.com/
       description: Movies & TV (own login)
+      widget:
+        type: jellyfin
+        url: https://jellyfin.kmkdp.com
+        key: '{{HOMEPAGE_VAR_JELLYFIN_KEY}}'
+        enableBlocks: true
+        enableNowPlaying: true
   - Audiobookshelf:
       icon: audiobookshelf
       href: https://audiobookshelf.kmkdp.com/
