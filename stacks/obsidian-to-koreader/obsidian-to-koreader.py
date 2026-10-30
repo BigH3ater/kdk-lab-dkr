@@ -120,10 +120,15 @@ def tree_markdown(root):
     return "".join(parts)
 
 def render_pdf(name, md_text, out_pdf):
+    BUILD.mkdir(parents=True, exist_ok=True)   # writable scratch (uid 1000 owns /state)
     src=BUILD/f"{name}.md"; src.write_text(md_text, encoding="utf-8")
     cmd=["pandoc", str(src), "-o", str(out_pdf), f"--pdf-engine={ENGINE}",
          "--metadata", f"title={name}", "-V", "papersize=a5", "--resource-path", str(VAULT)]
-    r=subprocess.run(cmd, capture_output=True, timeout=1200)
+    # pandoc writes its temp files in the CWD; the image WORKDIR (/app) is root-owned and
+    # the container runs as uid 1000, so run from the writable build dir and point TMPDIR at
+    # /tmp (openTempFile would otherwise fail: permission denied). All cmd paths are absolute.
+    env={**os.environ, "TMPDIR": "/tmp"}
+    r=subprocess.run(cmd, capture_output=True, timeout=1200, cwd=str(BUILD), env=env)
     if r.returncode!=0 or not out_pdf.exists() or out_pdf.stat().st_size==0:
         raise RuntimeError(f"pandoc failed: {r.stderr.decode(errors='replace')[-400:]}")
 
