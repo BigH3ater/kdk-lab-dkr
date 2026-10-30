@@ -29,13 +29,18 @@
       '<div class="ks-brand">' + BEAR + "<span>Mack House</span></div>" +
       '<ul>' +
       LINKS.map(
-        ([label, href]) =>
-          '<li><a href="' + href + '"' +
+        ([label, href]) => {
           // home.* stays same-tab; homeassistant.* too — Kodiak-themed HA reads as
-          // part of the same app (OIDC via Authelia, no second login).
-          (href.startsWith("https://home.kmkdp.com") || href.startsWith("https://homeassistant.kmkdp.com")
-            ? "" : ' target="_blank" rel="noopener"') +
-          ">" + label + "</a></li>"
+          // part of the same app (OIDC via Authelia, no second login). Compare the
+          // parsed hostname exactly: startsWith() on the URL string would also match
+          // look-alikes like home.kmkdp.com.evil.test (CodeQL js/incomplete-url-substring-sanitization).
+          let host = "";
+          try { host = new URL(href).hostname; } catch (e) {}
+          const sameTab = host === "home.kmkdp.com" || host === "homeassistant.kmkdp.com";
+          return '<li><a href="' + href + '"' +
+            (sameTab ? "" : ' target="_blank" rel="noopener"') +
+            ">" + label + "</a></li>";
+        }
       ).join("") +
       "</ul>";
     document.body.appendChild(nav);

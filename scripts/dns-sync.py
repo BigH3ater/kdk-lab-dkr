@@ -84,7 +84,9 @@ def traefik_hosts():
             "true")
         r = ssh(ssh_ip, cmd)
         for dom in HOST_RE.findall(r.stdout):
-            if dom.endswith("kmkdp.com") and answer != wildcard:
+            # Exact-suffix match on a dot boundary: endswith("kmkdp.com") alone would
+            # also accept look-alikes like "evilkmkdp.com" (CodeQL py/incomplete-url-substring-sanitization).
+            if (dom == "kmkdp.com" or dom.endswith(".kmkdp.com")) and answer != wildcard:
                 desired[dom] = answer
         if not r.stdout.strip():
             print(f"  WARN: no routes read on {ssh_ip}: {r.stderr.strip()[:80]}", file=sys.stderr)

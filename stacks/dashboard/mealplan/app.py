@@ -31,6 +31,7 @@ import requests
 import urllib3
 urllib3.disable_warnings()
 from flask import Flask, request, Response, redirect
+from markupsafe import escape  # HTML-escape any value rendered into a page (CodeQL py/reflective-xss)
 from waitress import serve
 
 TANDOOR_URL = os.environ.get("TANDOOR_URL", "https://recipes.kmkdp.com").rstrip("/")
@@ -246,9 +247,9 @@ def render_week(plan: list[dict], today: datetime.date, mon: datetime.date, rate
         is_today = " today" if d == today else ""
         parts = [f'<div class="day{is_today}"><div class="dow">{d.strftime("%a %-d")}</div>']
         for e in by_day.get(iso, []):
-            mt = f'<div class="mt">{e["meal_type"]}</div>' if e["meal_type"] else ""
+            mt = f'<div class="mt">{escape(e["meal_type"])}</div>' if e["meal_type"] else ""
             if e["url"]:
-                name = f'<a href="{e["url"]}" target="_top">{e["title"]}</a>'
+                name = f'<a href="{escape(e["url"])}" target="_top">{escape(e["title"])}</a>'
                 cur = rated.get(e["recipe_id"], 0)
                 star_btns = []
                 for n in range(1, 6):
@@ -259,10 +260,10 @@ def render_week(plan: list[dict], today: datetime.date, mon: datetime.date, rate
                 rate = (
                     f'<form class="rate" method="post" action="rate">'
                     f'<input type="hidden" name="recipe_id" value="{e["recipe_id"]}">'
-                    f'{stars}<span class="as">as {rater}</span></form>'
+                    f'{stars}<span class="as">as {escape(rater)}</span></form>'
                 )
             else:
-                name = e["title"]
+                name = escape(e["title"])
                 rate = ""
             parts.append(f'<div class="meal">{mt}{name}{rate}</div>')
         parts.append("</div>")
@@ -284,9 +285,10 @@ def mealplan_json():
     mon, sun = _week_bounds(today)
     try:
         return Response(json.dumps(fetch_plan(mon, sun)), mimetype="application/json")
-    except Exception as e:
+    except Exception:
+        # Do not leak the exception/stack text to the client (CodeQL py/stack-trace-exposure).
         log.exception("mealplan.json failed")
-        return Response(json.dumps({"error": str(e)}), status=502, mimetype="application/json")
+        return Response(json.dumps({"error": "meal plan unavailable"}), status=502, mimetype="application/json")
 
 
 @app.get("/")
