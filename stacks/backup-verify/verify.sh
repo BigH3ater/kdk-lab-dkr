@@ -48,7 +48,7 @@ fi
 
 # 4. Proxmox cloud-init template (monthly) -> warn only
 if [ -z "$(find /dest/pve-templates -type f -mtime -40 2>/dev/null | head -1)" ]; then
-  add_warn "pve-template: no VM 9000 vzdump < 40d (wire the PVE cron)"
+  add_warn "pve-template: no VM 9000 vzdump < 40d (see /var/log/kdk-template-backup.log on kdk-hyp-01)"
 fi
 
 push() {

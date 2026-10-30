@@ -1,6 +1,7 @@
 # Cloudflare edge watch (source: stacks/cloudflare-watch, kdk-log-01). watch.py
-# prints one JSON line per check; the host Alloy ships this container's stdout
-# to Loki, so every selector reads {container="cloudflare-watch"} | json
+# prints one JSON line per check and pushes each line straight to Loki's push API
+# (watch.py loki_push; Alloy never sees a one-shot that has already exited), so
+# every selector reads {container="cloudflare-watch"} | json
 # (hourly: tunnel, edge_cert, zone_settings, firewall_events) or
 # {container="cloudflare-watch-weekly"} | json (weekly: rule_drift). The two
 # one-shots need distinct container names on one host, hence two streams.

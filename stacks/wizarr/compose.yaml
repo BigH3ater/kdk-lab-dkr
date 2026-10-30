@@ -1,8 +1,8 @@
 # Wizarr on the DMZ node (kdk-dkr-dmz-01), internet-facing via the Cloudflare
 # tunnel. Moved here from stacks/media (kdk-dkr-01) so the owner can publish
 # wizarr.kmkdp.com, but ONLY the invitee paths are reachable without auth: the
-# admin portal sits behind Authelia ForwardAuth (and keeps Wizarr's own login as
-# a second layer, DISABLE_BUILTIN_AUTH=false).
+# admin portal sits behind Authelia ForwardAuth, which is the only admin login
+# (DISABLE_BUILTIN_AUTH=true; see the environment block for why).
 #
 # Two routers share one service (port 5690):
 #   wizarr-public  Host + invitee-path allowlist (PathRegexp), NO auth, priority 100.
