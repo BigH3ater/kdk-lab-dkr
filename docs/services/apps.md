@@ -66,7 +66,7 @@ No dashboard. `ntp` (123/udp) and `proton-bridge` (25) are host-port; alerting �
 | proton-bridge | `shenxn/protonmail-bridge:3.19.0-1` | `10.1.20.20:25` |
 | roborock | `python-roborock/local_roborock_server:1.0.2` | `555`, `8881` |
 
-`proton-bridge` is an in-lab Proton SMTP relay on `10.1.20.20:25`. **Nothing uses it today**: Alertmanager notifies through Pushover and Authelia's notifier sends through `submission://smtp.protonmail.ch:587` directly. The bridge has **no account logged in** (`Loading users count=0` in its session log, 2026-10-29); log one in with `sudo docker exec -it proton-bridge protonmail-bridge --cli` → `login` before pointing anything at it. Its self-updates land on a `tmpfs` (PR #143): the image's own bridge binary runs at every start, and newer bridge builds come only through Renovate.
+`proton-bridge` is an in-lab Proton SMTP relay on `10.1.20.20:25`. **Authelia's notifier sends through it** (`smtp://10.1.20.20:25`, STARTTLS with `skip_verify`, sender `no-reply@kmkdp.com`; `stacks/identity/authelia/configuration.yml`, 2026-10-29) — this replaced the old direct `submission://smtp.protonmail.ch:587`, and Authelia's `disable_startup_check` is now `false`, so it checks the relay at boot and fails loudly if it is down. Alertmanager still notifies through Pushover, not mail. The relay needs a Proton account logged in; if its session log shows `Loading users count=0`, log one in with `sudo docker exec -it proton-bridge protonmail-bridge --cli` → `login`. Its self-updates land on a `tmpfs` (PR #143): the image's own bridge binary runs at every start, and newer bridge builds come only through Renovate.
 
 ## Configuration
 

@@ -21,7 +21,7 @@ Nightly app-state backups run as one-shot stacks that a Komodo Procedure redeplo
 | Field | Value |
 |---|---|
 | Purpose | pg dumps + `/opt/kdk-lab` rsync to the NAS, then selected sets offsite |
-| Status | 🟢 Local NAS live (nightly 03:00) · 🟡 offsite gated (Proton auth cooldown) |
+| Status | 🟢 Local NAS live (nightly 03:20) · 🟡 offsite gated (Proton auth cooldown) |
 | Hosts | [[kdk-dkr-01]] (`backup-dkr-01`), [[kdk-dkr-dmz-01]] (`backup-dmz`) |
 | Deploy | Komodo Procedure `nightly-backups` redeploys both stacks (`deploy = false` otherwise) |
 | Destinations | `/mnt/backup/dkr/<host>` (NFS tankz3) → Proton Drive (crypt) |
@@ -70,7 +70,7 @@ DMZ data that lives on `/mnt/appdata` instead of `/opt/kdk-lab` (Seerr, Wizarr, 
 | `stacks/backup-dkr-01/compose.yaml` | rsync + gated rclone offsite |
 | `stacks/backup-dmz/compose.yaml` | Authelia + Immich + Tandoor pg dumps + rsync of `/opt/kdk-lab` (excludes live Postgres dirs, certs, clones, Jellyfin metadata/cache/transcodes, `audiobookshelf/podcasts`) |
 | `/opt/kdk-lab/backup/rclone/rclone.conf` | `proton` + `proton-crypt` remotes |
-| Procedure `nightly-backups` | schedule `0 0 3 * * *` (03:00 daily) |
+| Procedure `nightly-backups` | schedule `0 20 3 * * *` (03:20 daily, `Cron` format) |
 
 Restore: rsync/untar back from `/mnt/backup`, `psql < dump`.
 
