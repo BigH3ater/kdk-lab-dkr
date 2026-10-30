@@ -112,6 +112,7 @@
         "docker"
       ],
       "matchPackageNames": [
+        "ghcr.io/linuxserver/**",
         "lscr.io/linuxserver/**"
       ],
       "versioning": "regex:^v?(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)(\\.(?<build>\\d+))?-ls(?<revision>\\d+)$"
@@ -122,6 +123,7 @@
         "docker"
       ],
       "matchPackageNames": [
+        "ghcr.io/linuxserver/jellyfin",
         "lscr.io/linuxserver/jellyfin"
       ],
       "versioning": "regex:^(?<major>\\d+)\\.(?<minor>\\d+)(\\.(?<patch>\\d+))?(?<compatibility>ubu\\d+)-ls(?<revision>\\d+)$"

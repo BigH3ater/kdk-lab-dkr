@@ -278,22 +278,22 @@
     "lldap/lldap": {
       "github": "lldap/lldap"
     },
-    "lscr.io/linuxserver/bazarr": {
+    "ghcr.io/linuxserver/bazarr": {
       "github": "morpheus65535/bazarr"
     },
-    "lscr.io/linuxserver/jellyfin": {
+    "ghcr.io/linuxserver/jellyfin": {
       "github": "jellyfin/jellyfin"
     },
-    "lscr.io/linuxserver/prowlarr": {
+    "ghcr.io/linuxserver/prowlarr": {
       "github": "Prowlarr/Prowlarr"
     },
-    "lscr.io/linuxserver/radarr": {
+    "ghcr.io/linuxserver/radarr": {
       "github": "Radarr/Radarr"
     },
-    "lscr.io/linuxserver/sabnzbd": {
+    "ghcr.io/linuxserver/sabnzbd": {
       "github": "sabnzbd/sabnzbd"
     },
-    "lscr.io/linuxserver/sonarr": {
+    "ghcr.io/linuxserver/sonarr": {
       "github": "Sonarr/Sonarr"
     },
     "nandyalu/trailarr": {
