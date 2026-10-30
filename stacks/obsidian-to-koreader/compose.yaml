@@ -33,6 +33,7 @@ x-hardened: &hardened
     - /etc/kdk/pushover.env:/pushover.env:ro
   entrypoint: ["/bin/sh","-c",". /pushover.env 2>/dev/null; exec python /app/obsidian-to-koreader.py"]
   networks: [kroki]                    # reach the Kroki service; outbound (SSH/Pushover) via NAT
+  dns_search: .                       # resolve `kroki` on the docker network, never via the kmkdp.com search domain (AdGuard wildcard)
 
 # Shared environment. MODE picks the behaviour per service.
 x-env: &env

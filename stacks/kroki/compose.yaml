@@ -32,6 +32,11 @@ services:
     tmpfs: [/tmp]
     pids_limit: 256
     mem_limit: 1g
+    # No search domain: the hosts' resolv.conf carries `search kmkdp.com`, AdGuard rewrites
+    # *.kmkdp.com to 10.1.20.20, and Kroki's Vert.x/Netty resolver appends the search domain
+    # to the single-label `mermaid` before trying it as-is, so it called mermaid.kmkdp.com
+    # (Traefik) and got "Connection refused" (2026-10-30). `.` = no search list.
+    dns_search: .
     environment:
       KROKI_MERMAID_HOST: mermaid          # delegate Mermaid to the companion (port 8002)
       # Keep Kroki's attack surface minimal: it only ever renders trusted vault diagrams.
