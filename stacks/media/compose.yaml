@@ -189,6 +189,17 @@ services:
     <<: *common
     image: ghcr.io/haveagitgat/tdarr_node:3.04.00@sha256:05bbccf0f20c8b79e21424b553149a85f5bac588a9392986feaa440517bf491f
     runtime: nvidia
+    # Memory ceiling for the transcode node. 2026-10-28 07:57 a runaway encode
+    # (software-decoded 4K / DEE `-max_interleave_delta 0` remux) grew to ~43 GB
+    # RSS on this 47 GB host and the kernel OOM-killed it, taking the node down
+    # instead of just the one job. Cap it so a runaway hits the cgroup limit and
+    # the kernel kills the offending ffmpeg (the job fails, flow holds the file),
+    # not the host. memswap_limit == mem_limit disables swap for the cgroup, so a
+    # runaway is killed rather than thrashing. OOM of the node is alerted by the
+    # Prometheus rule ContainerOOMKilled (stacks/monitoring/prometheus/rules/).
+    mem_limit: 24g
+    memswap_limit: 24g
+    pids_limit: 4096
     environment:
       <<: *env
       nodeName: kdk-tdarr-nvenc-01
