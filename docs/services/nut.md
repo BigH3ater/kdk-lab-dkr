@@ -76,7 +76,9 @@ imminent), `CHRG` while charging.
   (`upsc eaton-5px@10.1.30.22`) and that `monuser`'s password matches the
   server. On Proxmox: `journalctl -u nut-monitor`.
 - **Shuts down too early / too late** — tune `stacks/nut/ups.conf`
-  (`override.battery.runtime.low`), then redeploy the stack.
+  (`override.battery.runtime.low`). Merging the change recreates upsd (the
+  `kdk.config-sha` label picks up the new `ups.conf`), so merge it **attended** —
+  see the danger note under the 2026-10-26 incident.
 - upsd runs on [[kdk-dkr-03]], a Pi that is **not** a guest of
   [[kdk-hyp-01]], so it keeps reporting while Proxmox shuts down. The clients
   are still **secondary** and shut down on LB independently.
@@ -98,10 +100,33 @@ draw 170 W → 23 W by 21:10. TrueNAS (upsmon 2.8.0, no CAL rule) only logged
 branch is gated only by `commstate == 0`, i.e. the first failed poll — in 2.8.1 and in
 upstream master. `DEADTIME` only promotes a dead on-battery UPS to low-battery.
 
-**Fix (landed).** (1) `--force-recreate` removed from the Komodo stack; (2) `ups.conf`
-is a compose `config` (content-hashed) so real edits still recreate the container while
-unrelated merges are a no-op; (3) `SERVER: primary` restored, hyp-01 `nut-monitor` and the
-TrueNAS UPS service re-enabled. **Rule: never restart upsd without a reason** — the
+**Fix (landed).** (1) `--force-recreate` removed from the Komodo stack; (2) a
+`kdk.config-sha` label on `upsd` = `sha256(ups.conf)` from the Komodo `pre_deploy`
+recreates upsd **only** on a deliberate `ups.conf` merge, while unrelated merges stay a
+no-op (compose does NOT content-hash a `configs: file:` — the earlier "content-hashed"
+assumption was wrong, so edits had silently not been applying); (3) `SERVER: primary`
+restored, hyp-01 `nut-monitor` and the TrueNAS UPS service re-enabled.
+
+> [!danger] A `ups.conf` merge recreates upsd — attended merge only
+> The recreate trigger is deliberate, but a recreate is still a recreate: during a
+> battery self-test or a network blip it can shut kdk-hyp-01 down (this incident).
+> As of 2026-10-29 kdk-hyp-01's `nut-monitor` is **enabled and active** in `secondary`
+> mode (`MONITOR eaton-5px@10.1.30.22:3493 1 … secondary`), so the one-time upsd
+> recreate this label introduces — and every later `ups.conf` merge — still carries the
+> 2026-10-26 risk window. Merge only with a person running this procedure:
+>
+> 1. On kdk-hyp-01: `sudo systemctl stop nut-monitor`.
+> 2. Confirm the UPS is not calibrating: `upsc eaton-5px@10.1.30.22 ups.status` — it must
+>    **not** contain `CAL` (ideally `OL` / `OL CHRG`). If it shows `CAL`, wait for the
+>    self-test to finish before merging.
+> 3. Merge the PR and wait for the `gitops-sync` tick (≤15 min) to recreate upsd.
+> 4. Confirm upsd answers again: `upsc eaton-5px@10.1.30.22 ups.status`.
+> 5. On kdk-hyp-01: `sudo systemctl start nut-monitor`.
+>
+> (If the TrueNAS UPS service has been re-enabled, stop/start it the same way.) Rollback
+> is `git revert`.
+
+**Rule: never restart upsd without a reason** — the
 clients cannot distinguish a restart from a dead UPS, and during a self-test or on
 battery they will shut down on the spot.
 

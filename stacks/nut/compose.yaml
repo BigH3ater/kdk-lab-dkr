@@ -51,24 +51,34 @@ services:
       # the incident below; primary restored once the trigger was removed.
       SERVER: primary
     # Custom driver config (low-battery safety margin). The image copies
-    # /etc/nut/local/ups.conf over its generated one. Delivered as a compose
-    # `config`, NOT a bind mount: compose hashes the file CONTENT into the
-    # service config, so an edit to ups.conf recreates the container and an
-    # unrelated merge does not. (A bind mount needed --force-recreate to pick
-    # up edits, and that recreated upsd on EVERY gitops merge -- six times on
-    # 2026-10-26 alone. One of those landed while the UPS was running its
-    # monthly battery self-test: upsmon 2.8.1 on kdk-hyp-01 lost upsd for one
-    # poll while the status carried CAL, hit NUT's "last known to be
-    # calibrating and not communicating, assuming dead" rule -- which is NOT
-    # gated by DEADTIME, in 2.8.1 or upstream master -- and shut Proxmox down
-    # with kdk-dkr-01 and kdk-dns-01 on it, UPS on line at 100 %.) Rule: never
-    # restart upsd without a reason; the clients cannot tell a restart from a
-    # dead UPS.
+    # /etc/nut/local/ups.conf over its generated one, delivered as a compose
+    # `config`. CORRECTION (verified in docker/compose create.go + reconcile.go):
+    # compose does NOT hash the file CONTENT -- a `configs: file:` is a read-only
+    # bind mount and the service config-hash captures only the file reference, so
+    # an edit to ups.conf ALONE is a no-op `up -d` and does NOT recreate upsd.
+    # Recreation is driven instead by the `kdk.config-sha` label below, which the
+    # Komodo pre_deploy sets to sha256(ups.conf): a DELIBERATE ups.conf merge
+    # changes the label and recreates upsd; an unrelated merge does not.
+    #
+    # >>> DANGER <<< recreating upsd can shut a client host down. On 2026-10-26 a
+    # --force-recreate landed while the UPS ran its monthly battery self-test:
+    # upsmon 2.8.1 on kdk-hyp-01 lost upsd for one poll while the status carried
+    # CAL, hit NUT's "last known to be calibrating and not communicating, assuming
+    # dead" rule -- NOT gated by DEADTIME in 2.8.1 or upstream master -- and shut
+    # Proxmox down with kdk-dkr-01 and kdk-dns-01 on it, UPS on line at 100 %.
+    # Rule: never restart upsd without a reason; the clients cannot tell a restart
+    # from a dead UPS. So only merge a ups.conf change -- and the FIRST deploy after
+    # this label is introduced, which recreates upsd once -- with a person watching
+    # the UPS state and ready to disable the clients. See docs/services/nut.md.
     configs:
       - source: ups-conf
         target: /etc/nut/local/ups.conf
     ports:
       - "3493:3493"
+    labels:
+      # Recreate upsd ONLY on a deliberate ups.conf change (see the DANGER note
+      # above). NUT_CONFIG_SHA = sha256(ups.conf) from the Komodo pre_deploy.
+      kdk.config-sha: "${NUT_CONFIG_SHA:-unset}"
 configs:
   ups-conf:
     file: ./ups.conf
