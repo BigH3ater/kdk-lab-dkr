@@ -99,7 +99,7 @@ Planned exceptions:
 | `host-net` | home-assistant, scrypted-homebridge, NUT, tailscale subnet router + DNS, node-exporter, net-exporters, observability-agent, and one-shots that need the host network (they move to bridge where they can) |
 | `privileged` | none once the sweep is done: HA → `cap_add: [NET_ADMIN, NET_RAW]`, cAdvisor → `SYS_PTRACE` + devices |
 | `devices` | `/dev/dri` (jellyfin, tdarr), `/dev/ttyUSB*` (zigbee2mqtt), the UPS USB device (NUT), `/dev/net/tun` (tailscale) |
-| `docker-sock` | the per-host socket proxy only; the `docker:28-cli` sidecars until they move to the proxy |
+| `docker-sock` | the per-host socket proxy only; the `docker:29-cli` sidecars until they move to the proxy |
 
 ## Choosing `cap_add`
 

@@ -6,13 +6,13 @@ tier: internal
 status: live
 storage: yes
 secrets: [kdk-dns-adguard-home-admin, rmfakecloud-app]
-updated: 2026-10-29
+updated: 2026-10-30
 tags: [homelab/stack, tier/internal, status/live]
 ---
 
 # Apps stack
 
-Small internal utilities on kdk-dkr-01: time, AdGuard replication, reMarkable cloud, a Proton SMTP bridge, and the Roborock local server.
+Small internal utilities on kdk-dkr-01: time, AdGuard replication, reMarkable cloud, a Proton SMTP bridge, and the Roborock local server (plus a `certs-dumper` sidecar that writes Roborock's TLS cert) â€” six services in all.
 
 **Related:** [[kdk-dkr-01]] Â· [[traefik]]
 
@@ -80,8 +80,8 @@ No dashboard. `ntp` (123/udp) and `proton-bridge` (25) are host-port; alerting â
 | Service | Image | Port |
 |---|---|---|
 | ntp | `cturra/ntp` | `123/udp` |
-| adguardhome-sync | `bakito/adguardhome-sync:v0.9.2` | none (cron `*/15`) |
-| rmfakecloud | `ddvk/rmfakecloud:0.0.31` | `3000` (Traefik) |
+| adguardhome-sync | `bakito/adguardhome-sync:v0.9.5` | none (cron `*/15`) |
+| rmfakecloud | `ddvk/rmfakecloud:0.0.32` | `3000` (Traefik) |
 | proton-bridge | `shenxn/protonmail-bridge:3.19.0-1` | `10.1.20.20:25` |
 | roborock | `python-roborock/local_roborock_server:1.2.1` | `555`, `8881` |
 | certs-dumper | `ldez/traefik-certs-dumper:v2.11.4` | none (writes roborock `/tls`) |
@@ -92,7 +92,7 @@ No dashboard. `ntp` (123/udp) and `proton-bridge` (25) are host-port; alerting â
 
 | Path / setting | What it is |
 |---|---|
-| `stacks/apps/compose.yaml` | All five services |
+| `stacks/apps/compose.yaml` | All six services (`certs-dumper` is a TLS sidecar for roborock) |
 | AdGuard origin/replicas | `10.1.1.120` â†’ `.121`/`.122` |
 | `/opt/kdk-lab/apps/roborock/` | `config.toml` + `tls/` (migrated from k8s Secrets) |
 

@@ -13,6 +13,9 @@ Stack definitions live in `stacks/` in the repo; Komodo deploys them from git. O
 | [1Password Connect](op-connect.md) | kdk-dkr-01 | 10.1.20.20:8080 (token) | op-connect |
 | [Media stack](media.md) | kdk-dkr-01 | per-app | media |
 | [Apps](apps.md) | kdk-dkr-01 | various | apps |
+| [Calibre](calibre.md) | kdk-dkr-01 | https://calibre.kmkdp.com | calibre |
+| [Trailarr](trailarr.md) | kdk-dkr-01 | https://trailarr.kmkdp.com | trailarr |
+| [net-exporters](net-exporters.md) | kdk-dkr-01 | — (scraped by kdk-mon-01) | net-exporters |
 | [Traefik DMZ + tunnel](dmz-proxy.md) | kdk-dkr-dmz-01 | — | dmz-proxy |
 | [Identity](identity.md) | kdk-dkr-dmz-01 | https://sso.kmkdp.com | identity |
 | [Jellyfin](jellyfin.md) | kdk-dkr-dmz-01 | https://jellyfin.kmkdp.com | jellyfin |

@@ -121,7 +121,7 @@ recreated with the new rules (a few seconds of no ingestion; senders buffer).
 # expected hash: run in the repo
 (cd stacks/loki && sha256sum rules/*.yml | sha256sum | cut -c1-12)
 ssh kdkadmin@10.1.20.21 'sudo docker inspect loki --format "{{index .Config.Labels \"kdk.rules-sha\"}}"'   # same 12 chars
-ssh kdkadmin@10.1.20.30 'curl -s http://10.1.20.21:3100/loki/api/v1/rules | grep -c "alert:"'                # old count + new rules (69 on 2026-10-28)
+ssh kdkadmin@10.1.20.30 'curl -s http://10.1.20.21:3100/loki/api/v1/rules | grep -c "alert:"'                # old count + new rules (76 on 2026-10-30)
 ssh kdkadmin@10.1.20.21 'sudo docker logs loki --since 10m 2>&1 | grep -i rule | grep -i -E "err|fail"'       # empty
 ```
 

@@ -12,7 +12,7 @@ vmid: 300
 console: Proxmox → VM 300 → Console
 standards: drifted
 secrets: []
-updated: 2026-09-12
+updated: 2026-10-30
 tags: [homelab/host, role/docker-host, status/live, tier/internal]
 ---
 
@@ -33,7 +33,7 @@ The internal Docker host: Komodo control plane, 1Password Connect, internal Trae
 | OS | Debian 13, kernel `6.12.107+deb13-amd64` (full kernel — required for the NVIDIA driver) |
 | Hardware | 12 vCPU / 47 GiB / 571 GB local-zfs · GTX 1050 Ti (hostpci) |
 | Managed by | cloud-init at build; Komodo periphery thereafter |
-| Runs | komodo, op-connect, proxy, docs, media, apps, backup-dkr-01, observability-agent, node-exporter (Loki + syslog moved to [[kdk-log-01]] 2026-10; the old `loki`/`loki-syslog` containers stay until 2026-11-28) |
+| Runs | komodo, op-connect, proxy, docs, dashboard, media, apps, actual, jellystat, calibre, trailarr, net-exporters, tailscale-subnet-router, tailscale-dns, obsidian-headless, readwise-to-remarkable, backup-dkr-01, observability-agent, node-exporter — plus scheduled one-shots (backup, arr/tdarr, vault pipelines). Representative, not exhaustive; `komodo/resources.toml` is the source of truth. (Loki + syslog moved to [[kdk-log-01]] 2026-10; the old `loki`/`loki-syslog` containers stay until 2026-11-28) |
 | Blast radius | All internal services + new deploys lab-wide |
 
 ## Access
@@ -83,7 +83,7 @@ Host reachability via `blackbox-http-app` on [[kdk-mon-01]]; alerts → Pushover
 | Kernel sysctl | `90-kdk-hardening.conf` (ptrace_scope 1, kptr/dmesg restrict, no redirects, martians, sysrq 0) | ⏳ pending apply (2026-10-28) | |
 | Patching | unattended-upgrades: Debian + Docker CE origins | ⏳ pending apply (2026-10-28) | no automatic reboot (tailnet router) |
 | Docker daemon | `daemon.json`: log rotation 10m×3, `live-restore`, `no-new-privileges`, `userland-proxy: false`, `icc: false` | ⏳ pending apply (2026-10-28) | [[docker-daemon]] |
-| Host firewall | storage-net fence (`inet kdk-storage`) + DOCKER-USER unit | ⏳ pending apply (2026-10-28) | `MODE=log` for 7 days, then enforce; replaces the `docker-forward` sidecar. [[host-firewall]] |
+| Host firewall | storage-net fence (`inet kdk-storage`) + DOCKER-USER unit | ✅ enforced (2026-10-29) | `MODE=enforce` since 2026-10-29 23:02 CDT after 3 days in `log` mode; replaces the `docker-forward` sidecar. [[host-firewall]] |
 | Timezone | America/Chicago | ✅ | CDT |
 | NTP | `ntp.kmkdp.com` primary | ⚠️ synced via public pools (timesyncd), not the internal server | |
 | Syslog | `syslog.kmkdp.com:514` | ✅ forwarding to [[kdk-log-01]] since 2026-10-28 (rsyslog installed by hand; cloud-init now includes the package, PR #84) | copy `hosts/_common/rsyslog.d/90-kdk-loki.conf` to `/etc/rsyslog.d/`, restart rsyslog |

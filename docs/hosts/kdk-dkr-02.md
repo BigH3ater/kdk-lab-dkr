@@ -12,13 +12,13 @@ vmid: none
 console: physical (Raspberry Pi 5); keyboard + HDMI
 standards: drifted
 secrets: []
-updated: 2026-09-12
+updated: 2026-10-30
 tags: [homelab/host, role/docker-host, status/live, tier/internal]
 ---
 
 # kdk-dkr-02 — home-automation Pi
 
-A Raspberry Pi 5 running the Home Assistant stack (HA, Zigbee2MQTT, Node-RED, Mosquitto, Dockge) behind its own Traefik. Renamed from the old Pi `kdk-dkr-01`; adopted into Komodo in place.
+A Raspberry Pi 5 running the Home Assistant stack (HA, Zigbee2MQTT, Node-RED, Mosquitto) behind its own Traefik. Renamed from the old Pi `kdk-dkr-01`; adopted into Komodo in place. (Dockge was removed 2026-09-20 — the stack is GitOps-managed, no web manager.)
 
 **Related:** [[kdk-dkr-03]] · [[komodo]]
 
@@ -32,7 +32,7 @@ A Raspberry Pi 5 running the Home Assistant stack (HA, Zigbee2MQTT, Node-RED, Mo
 | Address | `10.1.30.21` (VLAN 30) |
 | OS | Debian 13, kernel `6.18.34+rpt-rpi-2712 aarch64` |
 | Hardware | 4 cores / 7.9 GiB / 470 GB |
-| Endpoints | `homeassistant / zigbee / nodered / dockge .kmkdp.com` (this host's Traefik) |
+| Endpoints | `homeassistant / zigbee / nodered .kmkdp.com` (this host's Traefik) |
 | Managed by | adopted Komodo stack `home-assistant` (files on host, `/opt/kdk-lab/home-assistant`) |
 | Blast radius | Home automation offline; lab infra unaffected |
 
@@ -42,7 +42,7 @@ A Raspberry Pi 5 running the Home Assistant stack (HA, Zigbee2MQTT, Node-RED, Mo
 |---|---|---|
 | Console | physical keyboard + HDMI | SSH down |
 | SSH | `ssh kdkadmin@10.1.30.21` | normal operation |
-| Web | `https://dockge.kmkdp.com` | manage the stack |
+| Web | `https://homeassistant.kmkdp.com` | Home Assistant UI (stack managed via GitOps, no web manager) |
 
 Admin: `kdkadmin`, key-only, `NOPASSWD:ALL`.
 
@@ -50,7 +50,7 @@ Admin: `kdkadmin`, key-only, `NOPASSWD:ALL`.
 
 ```bash
 ssh kdkadmin@10.1.30.21 'systemctl is-active periphery'                       # active
-ssh kdkadmin@10.1.30.21 'sudo docker ps --format "{{.Names}} {{.Status}}"'    # 6 containers Up
+ssh kdkadmin@10.1.30.21 'sudo docker ps --format "{{.Names}} {{.Status}}"'    # 5 containers Up
 curl -s -o /dev/null -w '%{http_code}\n' https://homeassistant.kmkdp.com/     # 200/302
 ```
 
@@ -90,7 +90,7 @@ curl -s -o /dev/null -w '%{http_code}\n' https://homeassistant.kmkdp.com/     # 
 
 ## Architecture
 
-Runs its own `traefik:v3.3.7` on `80/443` for the home-automation names, plus `homeassistant 2026.10.4`, `zigbee2mqtt 2.9.2` (frontend auth token), `node-red 4.1.12` (adminAuth, encrypted credentials), `mosquitto 2.0.22`, `dockge 1` (tags pinned 2026-10-28, Renovate proposes updates). Periphery on `8120`. These names resolve to `10.1.30.21` (see [[network]]).
+Runs its own `traefik:v3.7.16` on `80/443` for the home-automation names, plus `homeassistant 2026.10.4`, `zigbee2mqtt 2.14.2` (frontend auth token), `node-red 5.0.9` (adminAuth, encrypted credentials), `mosquitto 2.0.22` (five containers; Dockge removed 2026-09-20). Periphery on `8120`. These names resolve to `10.1.30.21` (see [[network]]).
 
 ### Storage map
 

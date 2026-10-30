@@ -6,7 +6,7 @@ tier: internal
 status: live
 storage: yes
 secrets: []
-updated: 2026-09-12
+updated: 2026-10-30
 tags: [homelab/stack, tier/internal, status/live]
 ---
 
@@ -24,7 +24,7 @@ This site: `docs/` in the repo, built with Quartz and served by nginx. A push do
 | Status | 🟢 Live — `curl https://docs.kmkdp.com/healthz` returns `ok` |
 | Host | [[kdk-dkr-01]] |
 | Endpoint | `https://docs.kmkdp.com` (ForwardAuth-gated) |
-| Images | builder `node:24.22.1-bookworm-slim` + Quartz `v4.5.2`, server `nginx:1.29.8-alpine` |
+| Images | builder `node:26.13.0-bookworm-slim` + Quartz `v4.5.2`, server `nginx:1.31.8-alpine` |
 | Deploy | Komodo stack `docs` (git-linked); the resident builder re-runs only on a destroy+deploy (the `publish-docs` Procedure), not on a plain `up -d` |
 | Storage | shared `site` volume (built output); source is the repo clone |
 | Blast radius | Docs offline; no operational impact |

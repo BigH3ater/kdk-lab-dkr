@@ -3,10 +3,10 @@ title: Jellystat
 host: kdk-dkr-01
 stack: jellystat
 tier: internal
-status: planned
+status: live
 secrets: [jellystat]
-updated: 2026-10-27
-tags: [homelab/service, tier/internal, status/planned, media, stats]
+updated: 2026-10-30
+tags: [homelab/service, tier/internal, status/live, media, stats]
 ---
 
 # Jellystat (jellystat.kmkdp.com)
@@ -66,7 +66,7 @@ ssh kdkadmin@10.1.20.20 'ls -t /mnt/backup/dkr/kdk-dkr-01/pgdump | head'   # jel
 
 | Direction | Thing | What breaks without it |
 |---|---|---|
-| Needs | [[proxy]] (internal Traefik, `proxy` network) | no ingress / TLS |
+| Needs | [[traefik]] (internal Traefik, `proxy` network) | no ingress / TLS |
 | Needs | [[identity]] (Authelia, `sso.kmkdp.com`) | no auth → no access |
 | Needs | `jellystat-db` (own Postgres 16) | app cannot start |
 | Needs | [[jellyfin]] (`jellyfin.kmkdp.com`) + an API key | no data to report on |
