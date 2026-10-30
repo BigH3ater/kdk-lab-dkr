@@ -49,7 +49,7 @@ ssh kdkadmin@10.1.20.20 'docker exec calibre-server calibredb --with-library htt
 | `calibre-import exited 137` on every deploy | two services building the same tag, or missing `init` on the loop | handled in compose (`provenance: false`, `init: true`); `docker logs calibre-import` |
 | OPDS empty | no books imported yet / wrong source | `docker logs calibre-import` — it scans `/mnt/media/books/ebook` every 900 s |
 | 502 at the URL | `calibre-server` not up | `docker logs calibre-server`; server port is 8081 |
-| book is in `/mnt/media/books/ebook` but never shows in OPDS | the long-running `calibre-server` serves a cached view; a book that `calibre-import` added **directly to the library on disk** is invisible until the server restarts (and two processes writing the same library can corrupt `metadata.db`) | **fixed**: `calibre-import` now adds *through* the running server (`calibredb add --with-library http://calibre-server:8081/`), so OPDS reflects new books immediately. If a stale book predates this change, restart the server once: `docker restart calibre-server`. Confirm on disk vs served: `calibredb --with-library http://localhost:8081/ list \| wc -l` |
+| book is in `/mnt/media/books/ebook` but never shows in OPDS | the long-running `calibre-server` serves a cached view; a book that `calibre-import` added **directly to the library on disk** is invisible until the server restarts (and two processes writing the same library can corrupt `metadata.db`) | **fixed**: `calibre-import` now adds *through* the running server from localhost (shares its netns; `--with-library http://localhost:8081/`, server `--enable-local-write`), so OPDS reflects new books immediately. If a stale book predates this change, restart the server once: `docker restart calibre-server`. Confirm on disk vs served: `calibredb --with-library http://localhost:8081/ list \| wc -l` |
 
 ## Dependencies
 
@@ -71,9 +71,12 @@ Two services from one locally-built image (`kdk/calibre`): `calibre-server` runs
 the external `proxy` network, published on `10.1.20.20:8081`; `calibre-import`
 runs a loop that `calibredb add --automerge ignore` every `INTERVAL` (900 s) from
 `/mnt/media/books/ebook` (mounted `:ro`), de-duping by title/author. The import
-adds **through the running server** (`--with-library http://calibre-server:8081/`),
-not the library path on disk, so only one process writes `metadata.db` and OPDS
-reflects new books immediately; it therefore carries no `/library` mount and
+adds **through the running server**, not the library path on disk, so only one
+process writes `metadata.db` and OPDS reflects new books immediately. Calibre only
+accepts unauthenticated writes from localhost, so the import **shares the server's
+network namespace** (`network_mode: service:server`) and adds via
+`http://localhost:8081/`, with the server started `--enable-local-write`; a
+cross-container add returns `Forbidden`. The import carries no `/library` mount and
 `depends_on: server` being healthy. Only `server` builds the image (`import`
 reuses the tag) to avoid two image IDs recreating each other on every deploy.
 Both services meet the [compose baseline](../reference/compose-baseline.md)
