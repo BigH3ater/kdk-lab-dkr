@@ -28,6 +28,11 @@ act on the tablet whenever it's reachable:
 
 - **Highlights/annotations → Obsidian:** `remarks` against files pulled over SSH,
   writing Markdown into the headless "Kodiak Codex" vault.
+- **Readwise articles → KOReader:** `readwise-koreader` (revived 2026-10-30) mirrors
+  Reader docs tagged `remarkable` as EPUBs into `/home/root/books/Readwise`; highlights
+  ride back out via `koreader-highlights`. It SSH-probes the tailnet node
+  (`remarkable-pp` / `100.103.233.103`) first, then the LAN (`10.1.30.245`) — so delivery
+  works from anywhere, not only on home Wi-Fi. See `docs/services/readwise-koreader.md`.
 - **Books (send + remove):** `rmapi` against rmfakecloud (internal/LAN).
 - **Templates:** `rmtemplate` (Paper Pro template CLI).
 

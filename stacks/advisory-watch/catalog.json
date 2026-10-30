@@ -281,6 +281,11 @@
       "local": true,
       "base": "python"
     },
+    "kdk/readwise-koreader": {
+      "local": true,
+      "base": "python",
+      "note": "built from stacks/readwise-koreader/Dockerfile; calibre is a Debian apt package inside the image (Trivy covers it), like kdk/calibre."
+    },
     "kdk/planner-service": {
       "local": true,
       "base": "python"
