@@ -308,6 +308,18 @@ identity_providers:
         key: {{ secret "/secrets/authelia-app-secrets/oidc_issuer_private_key" | mindent 10 "|" | msquote }}
     cors:
       allowed_origins_from_client_redirect_uris: false
+    # Claims policies (escape hatch, Authelia docs "Restore Functionality Prior to
+    # Claims Parameter"). Libreseerr v0.9.1 reads the user name from the ID Token
+    # claims that Authlib hands back (app.py: token.get("userinfo")) and only
+    # calls the UserInfo endpoint when that is empty, so with the default policy
+    # it never sees preferred_username and falls back to `sub`: every SSO login
+    # created a user named by its UUID (2026-09-18, 2026-10-29). Copy ONLY
+    # preferred_username into the ID Token for that one client until upstream
+    # queries UserInfo.
+    claims_policies:
+      libreseerr:
+        id_token: ['preferred_username']
+
     clients:
       - client_id: 'tailscale'
         client_name: 'Tailscale'
@@ -379,6 +391,7 @@ identity_providers:
         response_types:
           - 'code'
         authorization_policy: 'libreseerr_access'
+        claims_policy: 'libreseerr'
         consent_mode: 'auto'
         # PKCE stays OFF: Libreseerr's Authlib client only sends a code_challenge when
         # code_challenge_method is set in its client_kwargs, which is not confirmed

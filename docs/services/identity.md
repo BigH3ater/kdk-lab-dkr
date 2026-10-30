@@ -178,3 +178,7 @@ Before merge (in this order):
 After merge: deploy order **identity → dmz-proxy → jellyfin → wizarr** (the latter three need `identity_ldap` / `identity_default` to exist), then `RestartStack identity services=[authelia]` if Komodo did not recreate Authelia. Home Assistant host config (`auth_oidc:` in `/opt/kdk-lab/home-assistant/config/configuration.yaml`, not in git): set `features.automatic_user_linking: false` and `roles: {user: ha-users, admin: ha-admins}`, then restart HA. See [[home-assistant]].
 
 Rollback: revert the PR and redeploy identity, dmz-proxy, jellyfin and wizarr. Leave the `8091` ownership as it is; root reads it too.
+
+## Claims policies
+
+`identity_providers.oidc.claims_policies.libreseerr` copies `preferred_username` into the ID Token for client `libreseerr` only. Libreseerr reads the ID Token claims instead of the UserInfo endpoint, so without it SSO users are named by their `sub` UUID. Remove the policy once Libreseerr queries UserInfo (upstream bug).
