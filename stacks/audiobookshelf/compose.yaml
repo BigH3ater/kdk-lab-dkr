@@ -37,6 +37,10 @@ services:
     user: "1000:1000"
     environment:
       TZ: America/Chicago
+      # Give node/ffmpeg a writable HOME under the read_only rootfs. /tmp is the
+      # tmpfs mounted below, so any cache written to $HOME stays in RAM and does
+      # not need a rootfs write.
+      HOME: /tmp
       # ABS is HARD-BUILT for the /audiobookshelf base path: index.js defaults
       # ROUTER_BASE_PATH to '/audiobookshelf' and the client assets are baked with
       # that prefix (base href + all /_nuxt, /api, icon URLs) with NO runtime
