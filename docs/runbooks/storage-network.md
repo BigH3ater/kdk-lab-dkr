@@ -20,6 +20,9 @@ seeded on build from `cloud-init/` in the repo. Current clients:
 
 - **kdk-dkr-01** — `/mnt/media`, `/mnt/backup`, `/mnt/dee-exchange`, `/mnt/loki` (old Loki only; Loki moved to kdk-log-01's local disk 2026-10-28, mount released after 2026-11-28)
 - **kdk-dkr-dmz-01** — `/mnt/media` (RO), `/mnt/backup`, `/mnt/appdata`
+- **kdk-hyp-01** — `/mnt/pve/backups` mounted **on demand** (soft NFSv4.1) by
+  `/usr/local/sbin/kdk-template-backup.sh` for the monthly VM 9000 dump, then
+  released; no permanent mount, no fstab or PVE storage entry (`docs/backups.md`).
 
 Both VMs fence their storage NIC with nft table `inet kdk-storage`: the host may
 talk only NFS (+ ping) to `172.16.30.2`, nothing new comes in on `eth1`, and

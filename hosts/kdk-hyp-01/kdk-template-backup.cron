@@ -1,0 +1,3 @@
+# Installs to /etc/cron.d/kdk-template-backup on kdk-hyp-01 (root:root 0644).
+# 04:00 on the 1st of the month; the script mounts the backup dataset on demand.
+0 4 1 * * root /usr/local/sbin/kdk-template-backup.sh >>/var/log/kdk-template-backup.log 2>&1
