@@ -35,6 +35,13 @@ PEND, DONE, FAIL = QUEUE/"pending", QUEUE/"done", QUEUE/"failed"
 STATE = QUEUE/"state.json"
 
 def log(*a): print(datetime.datetime.now().strftime("%F %T"), *a, flush=True)
+def ensure_queue_dirs():
+    # The queue is a bind-mounted host dir (durable). Its pending/done/failed
+    # subdirs are never created elsewhere; without them the first PNG write dies
+    # with CAIRO_STATUS_WRITE_ERROR (cairo's fopen can't create the file). mkdir
+    # is idempotent and never deletes, so the durable queue semantics are kept.
+    for d in (PEND, DONE, FAIL):
+        d.mkdir(parents=True, exist_ok=True)
 def load_state(): 
     try: return json.loads(STATE.read_text())
     except Exception: return {}
@@ -134,7 +141,13 @@ def enqueue():
                 # done so we don't re-render it every run; it re-enqueues if written on
                 # (the md5 changes).
                 state.setdefault(md5,{})["done"]=time.time(); log("skip blank",page[:8],f"strokes={sc}"); continue
-            svg_to_png(svg, PEND/f"{md5}.png")
+            try:
+                svg_to_png(svg, PEND/f"{md5}.png")
+            except Exception as e:
+                # one unconvertible page (bad/oversized SVG) must not abort the
+                # whole batch; drop any partial PNG and skip so the rest enqueue.
+                (PEND/f"{md5}.png").unlink(missing_ok=True)
+                log("enqueue: svg->png failed, skipping",page[:8],f"{type(e).__name__}: {e}"); continue
         (PEND/f"{md5}.json").write_text(json.dumps(
             {"notebook":nb,"section":SECTION.get(nb,DEFAULT_SECTION),"page":page,"doc":doc,
              "md5":md5,"ts":time.time()}))
@@ -191,6 +204,7 @@ def drain():
     save_state(state); log(f"drain: {n} page(s) processed"); return n, failed
 
 def main(mode):
+    ensure_queue_dirs()
     if mode in ("run","enqueue"): enqueue()
     failed=[]
     if mode in ("run","drain"): _, failed = drain()
