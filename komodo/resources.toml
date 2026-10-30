@@ -1145,7 +1145,14 @@ executions = [
   { execution.type = "DeployStack", execution.params.stack = "docs-to-vault", enabled = true },
 ]
 
-# Vault sections -> per-section PDFs -> tablet (/home/root/books/Homelab) for KOReader.
+# Obsidian vault -> PDFs -> tablet (/home/root/books/Homelab) for KOReader. Two modes in
+# one one-shot run: (1) request-driven "Vault channel" -- the Send-to-reMarkable Obsidian
+# plugin drops JSON requests into the vault's _remarkable/queue/ (carried to the lab mirror
+# by Obsidian Sync, no network/token), rendered and pushed, then moved to _remarkable/done/
+# with a status line; (2) when the queue is empty, the unchanged scheduled whole-section
+# reconcile (so nothing regresses). Transport is tailnet-first (remarkable-pp) then LAN,
+# opportunistic. A plugin "send" shows up on the next scheduled run below (no Komodo API
+# call from the plugin); run the procedure by hand for an immediate push.
 [[stack]]
 tags = ["kdk-lab"]
 name = "obsidian-to-koreader"

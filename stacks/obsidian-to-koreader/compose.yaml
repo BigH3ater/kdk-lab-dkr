@@ -8,12 +8,22 @@ services:
     environment:
       VAULT_DIR: /vault
       STATE_DIR: /state
-      RM_DEST: /home/root/books/Homelab   # KOReader subfolder for vault PDFs
-      RM_HOST: "10.1.30.245"
+      RM_DEST: /home/root/books/Homelab   # KOReader subfolder for vault PDFs (books stay separate)
+      # Transport is tried in order: tailnet first (reachable off-LAN), then LAN.
+      # ICMP is filtered on the tablet, so reachability is probed with SSH, not ping.
+      RM_HOST_TAILNET: "100.103.233.103"  # tailnet node remarkable-pp (kernel-mode Tailscale)
+      RM_HOST_LAN: "10.1.30.245"          # VLAN 30, DHCP-reserved
       RM_USER: root
-      MAX_PDF_MB: "40"                    # per-section size guard
+      PANDOC_ENGINE: weasyprint           # Phase 1 renderer decision (bake-off in README)
+      QUEUE_SUBDIR: _remarkable           # vault folder holding queue/ + done/ for the plugin
+      MAX_PDF_MB: "40"                    # per-PDF size guard
     entrypoint: ["/bin/sh","-c",". /pushover.env 2>/dev/null; exec python /app/obsidian-to-koreader.py"]
     volumes:
-      - /opt/kdk-lab/obsidian/vault:/vault:ro       # read-only: never writes the vault
+      # Vault CONTENT is mounted read-only: the renderer never writes a note. The ONE
+      # writable path is the request queue (_remarkable/), a nested read-write mount, so
+      # the job can move a processed request from queue/ to done/. Docker applies the more
+      # specific mount, so everything except _remarkable/ stays read-only.
+      - /opt/kdk-lab/obsidian/vault:/vault:ro
+      - /opt/kdk-lab/obsidian/vault/_remarkable:/vault/_remarkable:rw
       - /opt/kdk-lab/obsidian-to-koreader:/state
       - /etc/kdk/pushover.env:/pushover.env:ro
