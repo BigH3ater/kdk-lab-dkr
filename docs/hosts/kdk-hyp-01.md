@@ -94,24 +94,25 @@ This is the Cloudflare DNS plugin reporting that its zone lookup for
 
 ### Fix (owner)
 
-The lab's shared ACME token lives in 1Password at
-`kdk-cluster/cloudflare-dns-acme-hosts`. Give the Proxmox plugin a token that
-is **valid** and scoped **Zone:DNS:Edit + Zone:Read** on `kmkdp.com` (adding
-Zone:Read to the shared token is additive and does not affect the other
-consumers — Traefik on the container hosts, the Pi, `roborock-cert` lego).
-Then, on `kdk-hyp-01`, write the token to a root-only file and update the
-plugin:
+Use the shared ACME token (`op://kdk-cluster/cloudflare-dns-acme-hosts/credential`,
+Zone → DNS → Edit on kmkdp.com, also used by Traefik and roborock-cert) and **pin the
+zone id** in the plugin data, so `dns_cf` skips the zone listing and the token needs no
+extra Zone:Read scope. The zone id is not a secret: Cloudflare dashboard → kmkdp.com →
+Overview → "Zone ID" (right column).
 
-```
-umask 077
-read -rs CF_NEW                                   # paste token; not echoed
-printf 'CF_Token=%s\n' "$CF_NEW" > /root/cf-acme.data
-sudo pvenode acme plugin set cloudflare --api cf --data /root/cf-acme.data
-shred -u /root/cf-acme.data; unset CF_NEW
-sudo pvenode acme cert order --force              # re-issue now
-sudo pvenode cert info | grep -A1 pveproxy-ssl    # confirm new notafter
+From the laptop (the secret leaves 1Password only on the ssh stdin and lands in a
+root-only temp file that is shredded right after):
+
+```bash
+ZONE_ID=<kmkdp.com zone id from the dashboard>
+op read "op://kdk-cluster/cloudflare-dns-acme-hosts/credential" | ssh kdkadmin@10.1.1.100 "
+  set -e; umask 077; f=\$(sudo mktemp)
+  printf 'CF_Token=%s\\nCF_Zone_ID=%s\\n' \"\$(cat)\" '$ZONE_ID' | sudo tee \$f >/dev/null
+  sudo pvenode acme plugin set cloudflare --api cf --data \$f
+  sudo shred -u \$f
+  sudo pvenode acme cert order --force"
 ```
 
-(If you prefer to keep a DNS:Edit-only token, instead pin the zone by adding a
-`CF_Zone_ID=<kmkdp.com zone id>` line to the data file so `dns_cf` skips the
-zone listing.)
+Verify: `ssh kdkadmin@10.1.1.100 'sudo pvenode cert info' | grep -A2 pveproxy-ssl` shows a
+`notafter` about 90 days out, and the next nightly `acmerenew` task is OK. If the shared
+token is ever rolled, repeat the same command; Proxmox keeps its own copy of the token.
