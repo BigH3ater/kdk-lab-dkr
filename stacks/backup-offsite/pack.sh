@@ -24,29 +24,32 @@ OUT=/data/offsite
 apk add --no-cache tar zstd >/dev/null 2>&1 || { echo "pack: apk add tar zstd failed"; exit 0; }
 mkdir -p "$OUT"
 
-# Dropped from every host archive. backup/ = rclone.conf (the Proton creds
-# themselves -- must never go offsite); stacks/ = Komodo clones (already on
-# GitHub); pgdump/ already ships as its own single files; the rest is cache,
+# Dropped from every host archive, read by `tar -X` (patterns are matched by
+# tar itself, so NOT shell-globbed here). backup/ = rclone.conf (the Proton
+# creds themselves -- must never go offsite); stacks/ = Komodo clones (already
+# on GitHub); pgdump/ already ships as its own single files; the rest is cache,
 # logs, artwork and other regenerable churn (mirrors offsite.sh's old exclude
-# set). tar ignores a pattern that matches nothing, so one list covers all hosts.
-EXCLUDES="
---exclude=*/backup
---exclude=*/stacks
---exclude=*/pgdump
---exclude=*/lost+found
---exclude=*/node_modules
---exclude=*cache*
---exclude=*/Definitions
---exclude=*/MediaCover
---exclude=*/metadata
---exclude=*/transcodes
---exclude=*/logs
---exclude=*.log
---exclude=*/Tdarr/DB2/JobReports
---exclude=*/tandoor/staticfiles
---exclude=*/audiobookshelf/podcasts
---exclude=*/proton-bridge/*/updates
-"
+# set). GNU tar wildcards cross '/', so */metadata drops that dir at any depth;
+# a pattern that matches nothing is ignored, so one list covers every host.
+EXFILE=/tmp/pack-excludes
+cat > "$EXFILE" <<'EOF'
+*/backup
+*/stacks
+*/pgdump
+*/lost+found
+*/node_modules
+*cache*
+*/Definitions
+*/MediaCover
+*/metadata
+*/transcodes
+*/logs
+*.log
+*/Tdarr/DB2/JobReports
+*/tandoor/staticfiles
+*/audiobookshelf/podcasts
+*/proton-bridge/*/updates
+EOF
 
 for host in kdk-dkr-01 kdk-dkr-dmz-01 kdk-dkr-02 kdk-dkr-03 kdk-mon-01; do
   [ -d "/data/$host" ] || { echo "pack: $host missing, skip"; continue; }
@@ -56,7 +59,7 @@ for host in kdk-dkr-01 kdk-dkr-dmz-01 kdk-dkr-02 kdk-dkr-03 kdk-mon-01; do
   # --warning=no-file-ignored silences the "socket ignored" notices (bridge
   # .gnupg sockets); --ignore-failed-read keeps going if a live file vanishes.
   # zstd -T0 uses all cores; level 3 keeps memory tiny (fits mem_limit).
-  tar --use-compress-program="zstd -T0 -3 -q" $EXCLUDES \
+  tar --use-compress-program="zstd -T0 -3 -q" -X "$EXFILE" \
       --warning=no-file-ignored --ignore-failed-read \
       -cf "$tmp" -C /data "$host"
   rc=$?
