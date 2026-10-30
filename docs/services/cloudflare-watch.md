@@ -12,7 +12,7 @@ tags: [homelab/stack, tier/infra, status/new, security]
 
 # cloudflare-watch — read-only Cloudflare edge watch
 
-Two one-shots on [[kdk-log-01]] that read the `kmkdp.com` Cloudflare zone with a zone-scoped read-only token and print one JSON line per check to stdout. The host Alloy ships stdout to Loki and `stacks/loki/rules/cloudflare.yml` pages. It answers "is the edge still configured and healthy the way we left it?" — tunnel up, Universal SSL valid, TLS/HSTS policy intact, and nobody changed the WAF rules or DNS without us noticing.
+Two one-shots on [[kdk-log-01]] that read the `kmkdp.com` Cloudflare zone with a zone-scoped read-only token and print one JSON line per check to stdout, then push the same lines to Loki directly (`LOKI_URL`). The direct push is required because each run exits in seconds, so the host Alloy's `discovery.docker` (running containers only) never scrapes it — the same gap advisory-watch and trivy-scan avoid by pushing. `stacks/loki/rules/cloudflare.yml` pages. It answers "is the edge still configured and healthy the way we left it?" — tunnel up, Universal SSL valid, TLS/HSTS policy intact, and nobody changed the WAF rules or DNS without us noticing.
 
 **Related:** [[observability]] · [[dmz-proxy]] · [[kdk-log-01]] · [security alerts runbook](../runbooks/security-alerts.md#cloudflare-watch)
 
@@ -22,7 +22,7 @@ Two one-shots on [[kdk-log-01]] that read the `kmkdp.com` Cloudflare zone with a
 |---|---|
 | Runs | `cloudflare-watch` hourly at `:17`; `cloudflare-watch-weekly` Monday 07:10 America/Chicago. Both: procedure → stack (deploy=false, destroy_before_deploy) on [[kdk-log-01]] |
 | Image | `python:3.12.16-alpine` (pinned, Renovate-managed; `watch.py` bind-mounted read-only, stdlib only, no local build), uid 1000, read-only, no caps, 128 MB |
-| Output | Loki `{container="cloudflare-watch"}` (hourly) and `{container="cloudflare-watch-weekly"}` (weekly); one JSON line per check (`check`, `status`, `ts`, `mode`, `zone`, fields) |
+| Output | stdout + a direct Loki push (`LOKI_URL`, default `http://10.1.20.21:3100`) with labels `{job="cloudflare-watch", container="cloudflare-watch"` (hourly) `/ "cloudflare-watch-weekly"` (weekly)`, host="kdk-log-01"}`; one JSON line per check (`check`, `status`, `ts`, `mode`, `zone`, fields). A push failure is logged to stderr and never changes the exit code |
 | State | `/opt/kdk-lab/cloudflare-watch/state.json` (weekly rule + DNS shas) |
 | Checks | hourly: `tunnel`, `edge_cert`, `zone_settings`, `firewall_events`; weekly: `rule_drift` |
 | Alerts | `CloudflareTunnelUnhealthy`, `CloudflareEdgeCertExpiring`, `CloudflareZoneSettingDrift`, `CloudflareRuleDrift`, `CloudflareWatchMissing` (all warning) |
@@ -49,22 +49,23 @@ CF_API_TOKEN=$(op read op://kdk-cluster/cloudflare-monitor-ro/credential) \
 | `firewall_events available=false reason=graphql_forbidden` | expected: this token/plan cannot read zone GraphQL analytics | none — it is a benign `warn`, not alerted |
 | `tunnel source=probe` lines | the account `cfd_tunnel` scope was denied; script fell back to the HTTPS probe | grant the token account-level `Cloudflare Tunnel:Read`, or accept the probe |
 | `rule_drift status=warn state_saved=false` | the state dir is not writable by uid 1000 | `ssh kdkadmin@10.1.20.21 'ls -ld /opt/kdk-lab/cloudflare-watch'` (want `1000:1000`) |
-| `CloudflareWatchMissing` fires | first run not done yet, or the procedure is disabled/failing | Komodo → Procedures → `cloudflare-watch` → run history |
+| `level=warn msg="loki push failed"` on stderr | the run worked but the Loki push did not (Loki down, `LOKI_URL` wrong). Non-fatal: the run still exits 0 | `ssh kdkadmin@10.1.20.21 'curl -s http://10.1.20.21:3100/ready'` |
+| `CloudflareWatchMissing` fires | first run not done yet, the procedure is disabled/failing, or the push is failing | Komodo → Procedures → `cloudflare-watch` → run history; `docker logs cloudflare-watch` for a push-failed warning |
 
 ## Dependencies
 
 | Direction | Thing | What breaks without it |
 |---|---|---|
-| Needs | Loki + Alloy on kdk-log-01, internet egress (`api.cloudflare.com`), the read-only token | no output / all checks fail |
+| Needs | Loki on kdk-log-01 (direct push to `10.1.20.21:3100`), internet egress (`api.cloudflare.com`), the read-only token | no lines in Loki (push failure is non-fatal) / all checks fail |
 | Needed by | the edge posture (tunnel, SSL, WAF, DNS) is otherwise only checked by hand | drift or an expiring cert goes unseen |
 
 ## Observability
 
-Lines land in Loki under `{container="cloudflare-watch"}` and `{container="cloudflare-watch-weekly"}`. The five rules in `stacks/loki/rules/cloudflare.yml` are listed in [Observability → Alert rules](observability.md#alert-rules). firewall_events is deliberately not alerted (GraphQL analytics is forbidden for this token).
+Lines are pushed straight to Loki (job `cloudflare-watch`) and land under `{container="cloudflare-watch"}` and `{container="cloudflare-watch-weekly"}`. The five rules in `stacks/loki/rules/cloudflare.yml` are listed in [Observability → Alert rules](observability.md#alert-rules). firewall_events is deliberately not alerted (GraphQL analytics is forbidden for this token).
 
 ## Architecture
 
-`watch.py` is stdlib-only (`urllib` + `json` + `hashlib`), baked into a local image. The hourly stack runs the four edge checks; the weekly stack runs the same script with `CFWATCH_MODE=weekly` (equivalent to `--weekly`) for the rule/DNS sha drift check, keeping its own state in `/opt/kdk-lab/cloudflare-watch/state.json`. The two stacks share `stacks/cloudflare-watch/` and the image but use distinct container names (`CFWATCH_SUFFIX`), because two one-shots cannot share a `container_name` on one host.
+`watch.py` is stdlib-only (`urllib` + `json` + `hashlib`), run by the pinned `python:3.12-slim` image with the script bind-mounted (no local build). Each run prints its lines to stdout and also pushes them to Loki directly, because a one-shot that exits in seconds is never scraped by Alloy's running-container discovery. The hourly stack runs the four edge checks; the weekly stack runs the same script with `CFWATCH_MODE=weekly` (equivalent to `--weekly`) for the rule/DNS sha drift check, keeping its own state in `/opt/kdk-lab/cloudflare-watch/state.json`. The two stacks share `stacks/cloudflare-watch/` and the image but use distinct container names (`CFWATCH_SUFFIX`), because two one-shots cannot share a `container_name` on one host.
 
 ## Configuration
 
@@ -74,6 +75,7 @@ Lines land in Loki under `{container="cloudflare-watch"}` and `{container="cloud
 | `watch.py` `HSTS_MIN_MAX_AGE` (15552000) / `WARN_CERT_DAYS` (14) | HSTS min max-age; edge-cert warn threshold |
 | `TUNNEL_HOSTS` (sso,jellyfin) | hostnames probed only if the account tunnel scope is denied |
 | `CF_ZONE` (kmkdp.com) | the zone to read; `CFWATCH_MODE=weekly` switches to the weekly check |
+| `LOKI_URL` (http://10.1.20.21:3100) / `NODE_NAME` (kdk-log-01) | direct Loki push target and the `host` stream label; empty `LOKI_URL` disables the push |
 | `.env.tpl` | `CF_API_TOKEN=op://kdk-cluster/cloudflare-monitor-ro/credential`, rendered only where `/etc/komodo/op.env` exists |
 
 ## Secret Rotation

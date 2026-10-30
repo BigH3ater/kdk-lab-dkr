@@ -3,7 +3,10 @@
 Read-only watch of the Cloudflare edge for the `kmkdp.com` zone, on
 [kdk-log-01]. Two one-shot Komodo stacks share this directory and image; each
 run of `watch.py` (stdlib only: `urllib` + `json` + `hashlib`) prints one JSON
-line per check to stdout. The host Alloy ships stdout to Loki, and
+line per check to stdout and pushes the same lines to Loki directly (`LOKI_URL`,
+job `cloudflare-watch`). The direct push is required because a one-shot exits in
+seconds, before Alloy's running-container discovery can scrape it; a push
+failure is logged to stderr and never changes the exit code.
 `stacks/loki/rules/cloudflare.yml` alerts through Alertmanager → Pushover.
 
 | Stack | Schedule | Mode | Container / Loki stream |
@@ -53,13 +56,15 @@ sudo docker compose run --rm watch             # hourly checks
 sudo CFWATCH_MODE=weekly docker compose run --rm watch   # weekly check
 ```
 
-Or from a laptop with `op`, against the real API, no container:
+Or from a laptop with `op`, against the real API, no container. Set `LOKI_URL=`
+to skip the push (the laptop cannot reach `10.1.20.21:3100`); otherwise it just
+logs one `loki push failed` warning to stderr and still exits 0:
 
 ```bash
 CF_API_TOKEN=$(op read op://kdk-cluster/cloudflare-monitor-ro/credential) \
-  CF_ZONE=kmkdp.com STATE=/tmp/cfwatch.json python3 stacks/cloudflare-watch/watch.py
+  CF_ZONE=kmkdp.com STATE=/tmp/cfwatch.json LOKI_URL= python3 stacks/cloudflare-watch/watch.py
 CF_API_TOKEN=$(op read op://kdk-cluster/cloudflare-monitor-ro/credential) \
-  CF_ZONE=kmkdp.com STATE=/tmp/cfwatch.json python3 stacks/cloudflare-watch/watch.py --weekly
+  CF_ZONE=kmkdp.com STATE=/tmp/cfwatch.json LOKI_URL= python3 stacks/cloudflare-watch/watch.py --weekly
 ```
 
 ## Secret
