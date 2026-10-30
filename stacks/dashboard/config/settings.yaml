@@ -8,8 +8,11 @@ headerStyle: clean
 hideVersion: true
 disableCollapse: false
 statusStyle: dot          # compact up/down dots for siteMonitor health
+target: _blank            # service tiles open in a new tab (launcher, not nav)
 
-# Order + styling of the service groups (must match the names in services.yaml).
+# Order + styling of the groups. The functional board (iframes + calendar) stays
+# full-width on top; the service directory below is multi-column tiles. Names must
+# match the groups in services.yaml exactly.
 layout:
   This Week:
     style: row
@@ -20,6 +23,30 @@ layout:
   Household Calendar:
     style: row
     columns: 2   # weekly agenda (events visible) + clickable monthly
+  Media:
+    style: column
+    columns: 4
+  Requests & books:
+    style: column
+    columns: 4
+  Photos & recipes:
+    style: column
+    columns: 4
+  Home:
+    style: column
+    columns: 4
+  Identity & access:
+    style: column
+    columns: 4
+  Infrastructure:
+    style: column
+    columns: 4
+  Monitoring & logs:
+    style: column
+    columns: 4
+  Docs & notes:
+    style: column
+    columns: 4
 
 # Quick links shown in the header.
 quicklaunch:

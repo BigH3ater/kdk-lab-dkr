@@ -1,4 +1,17 @@
-# Homepage services -- Mack family dashboard (functional board; nav in sidebar).
+# Homepage services -- Mack family dashboard.
+#
+# Two parts, top to bottom:
+#   1. The functional board (This Week / Tasks / Household Calendar) -- iframes and
+#      the calendar widget, the day-to-day surface.
+#   2. A full service directory (Media ... Docs & notes) -- one tile per lab service
+#      with a siteMonitor up/down dot. Every *.kmkdp.com Traefik router host and the
+#      management appliances live here so nothing is "hidden" behind the sidebar.
+#
+# All hosts resolve on lab DNS and answer from kdk-dkr-01 (LAN/Tailscale only; a 302
+# to sso.kmkdp.com is Authelia doing its job). Tiles open in a new tab (settings
+# target: _blank); siteMonitor pings the LAN-reachable URL. Icons are dashboard-icons
+# slugs (homarr-labs/dashboard-icons) with mdi- fallbacks where no brand icon exists.
+
 - This Week:
   - Meal Plan:
       icon: mdi-silverware-fork-knife
@@ -59,3 +72,205 @@
           color: amber
           params:
             showName: true
+
+# ---------------------------------------------------------------------------
+# Service directory -- one tile per lab surface, grouped. siteMonitor only
+# (no stat widgets: those need per-service API keys the owner must mint first;
+# see the PR body / .env.tpl for the wishlist).
+# ---------------------------------------------------------------------------
+
+- Media:
+  - Jellyfin:
+      icon: jellyfin
+      href: https://jellyfin.kmkdp.com/
+      siteMonitor: https://jellyfin.kmkdp.com/
+      description: Movies & TV (own login)
+  - Audiobookshelf:
+      icon: audiobookshelf
+      href: https://audiobookshelf.kmkdp.com/
+      siteMonitor: https://audiobookshelf.kmkdp.com/
+      description: Audiobooks & podcasts (own login)
+  - Jellystat:
+      icon: jellystat
+      href: https://jellystat.kmkdp.com/
+      siteMonitor: https://jellystat.kmkdp.com/
+      description: Jellyfin watch statistics (SSO)
+  - Radarr:
+      icon: radarr
+      href: https://radarr.kmkdp.com/
+      siteMonitor: https://radarr.kmkdp.com/
+      description: Movie library manager (SSO)
+  - Sonarr:
+      icon: sonarr
+      href: https://sonarr.kmkdp.com/
+      siteMonitor: https://sonarr.kmkdp.com/
+      description: TV library manager (SSO)
+  - Bazarr:
+      icon: bazarr
+      href: https://bazarr.kmkdp.com/
+      siteMonitor: https://bazarr.kmkdp.com/
+      description: Subtitles for movies & TV (SSO)
+  - Prowlarr:
+      icon: prowlarr
+      href: https://prowlarr.kmkdp.com/
+      siteMonitor: https://prowlarr.kmkdp.com/
+      description: Indexer manager for the *arrs (SSO)
+  - SABnzbd:
+      icon: sabnzbd
+      href: https://sabnzbd.kmkdp.com/
+      siteMonitor: https://sabnzbd.kmkdp.com/
+      description: Usenet downloader (SSO)
+  - Tdarr:
+      icon: tdarr
+      href: https://tdarr.kmkdp.com/
+      siteMonitor: https://tdarr.kmkdp.com/
+      description: Library transcode / health automation (SSO)
+  - Trailarr:
+      icon: trailarr
+      href: https://trailarr.kmkdp.com/
+      siteMonitor: https://trailarr.kmkdp.com/
+      description: Downloads trailers for the library (SSO)
+
+- Requests & books:
+  - Request TV & Movies:
+      icon: jellyseerr
+      href: https://seerr.kmkdp.com/
+      siteMonitor: https://seerr.kmkdp.com/
+      description: Ask for a new film or show (own login)
+  - Request Books:
+      icon: mdi-book-search-outline
+      href: https://libreseerr.kmkdp.com/
+      siteMonitor: https://libreseerr.kmkdp.com/
+      description: Ask for a new ebook or audiobook (own login)
+  - Chaptarr:
+      icon: chaptarr
+      href: https://chaptarr.kmkdp.com/
+      siteMonitor: https://chaptarr.kmkdp.com/
+      description: Ebook & audiobook library manager (SSO)
+  - Calibre:
+      icon: calibre-web
+      href: https://calibre.kmkdp.com/
+      siteMonitor: https://calibre.kmkdp.com/
+      description: Ebook library & OPDS catalog (own login)
+  - Wizarr:
+      icon: wizarr
+      href: https://wizarr.kmkdp.com/admin
+      siteMonitor: https://wizarr.kmkdp.com/
+      description: Media invites & onboarding admin (SSO)
+
+- Photos & recipes:
+  - Immich:
+      icon: immich
+      href: https://immich.kmkdp.com/
+      siteMonitor: https://immich.kmkdp.com/
+      description: Family photo & video library (own login)
+  - Recipes:
+      icon: tandoor-recipes
+      href: https://recipes.kmkdp.com/
+      siteMonitor: https://recipes.kmkdp.com/
+      description: Tandoor recipes, meal plan & shopping (own login)
+
+- Home:
+  - Home Assistant:
+      icon: home-assistant
+      href: https://homeassistant.kmkdp.com/
+      siteMonitor: https://homeassistant.kmkdp.com/
+      description: Home automation & controls (OIDC)
+  - Scrypted:
+      icon: mdi-cctv
+      href: https://scrypted.kmkdp.com/
+      siteMonitor: https://scrypted.kmkdp.com/
+      description: Cameras & HomeKit bridge (own login)
+  - Zigbee2MQTT:
+      icon: zigbee2mqtt
+      href: https://zigbee.kmkdp.com/
+      siteMonitor: https://zigbee.kmkdp.com/
+      description: Zigbee device management (own login)
+  - Node-RED:
+      icon: node-red
+      href: https://nodered.kmkdp.com/
+      siteMonitor: https://nodered.kmkdp.com/
+      description: Automation flows (own login)
+  - Budget:
+      icon: actual-budget
+      href: https://budget.kmkdp.com/
+      siteMonitor: https://budget.kmkdp.com/
+      description: Household budget (Actual, OIDC)
+  - Tasks:
+      icon: vikunja
+      href: https://tasks.kmkdp.com/
+      siteMonitor: https://tasks.kmkdp.com/
+      description: Household chores & lists (OIDC)
+
+- Identity & access:
+  - Single Sign-On:
+      icon: authelia
+      href: https://sso.kmkdp.com/
+      siteMonitor: https://sso.kmkdp.com/
+      description: Authelia login portal & 2FA
+  - Users (LLDAP):
+      icon: lldap
+      href: https://users.kmkdp.com/
+      siteMonitor: https://users.kmkdp.com/
+      description: Directory accounts & groups (SSO)
+
+- Infrastructure:
+  - Komodo:
+      icon: komodo
+      href: https://komodo.kmkdp.com/
+      siteMonitor: https://komodo.kmkdp.com/
+      description: Container & stack deploys (SSO)
+  - Proxmox:
+      icon: proxmox
+      href: https://10.1.1.100:8006/
+      siteMonitor: https://10.1.1.100:8006/
+      description: kdk-hyp-01 virtualization (own login)
+  - Proxmox Backup:
+      icon: proxmox-backup-server
+      href: https://10.1.1.102:8007/
+      siteMonitor: https://10.1.1.102:8007/
+      description: kdk-pbs-01 backup server (own login)
+  - TrueNAS:
+      icon: truenas
+      href: https://10.1.3.5/
+      siteMonitor: https://10.1.3.5/
+      description: kdk-nas-01 storage (own login)
+  - UniFi:
+      icon: unifi
+      href: https://10.1.3.1/
+      siteMonitor: https://10.1.3.1/
+      description: Network controller (own login)
+  - AdGuard Home:
+      icon: adguard-home
+      href: http://10.1.1.120/
+      siteMonitor: http://10.1.1.120/
+      description: DNS filtering & rewrites — edit origin kdk-dns-01 (own login)
+
+- Monitoring & logs:
+  - Grafana:
+      icon: grafana
+      href: https://grafana.kmkdp.com/
+      siteMonitor: https://grafana.kmkdp.com/
+      description: Dashboards & logs — query Loki here via Explore (own login)
+  - Prometheus:
+      icon: prometheus
+      href: http://10.1.20.30:9090/
+      siteMonitor: http://10.1.20.30:9090/
+      description: Metrics store on kdk-mon-01 (no auth, VLAN 20 only)
+  - Alertmanager:
+      icon: alertmanager
+      href: https://alertmanager.kmkdp.com/
+      siteMonitor: https://alertmanager.kmkdp.com/
+      description: Alert routing & silences (SSO)
+
+- Docs & notes:
+  - Docs:
+      icon: mdi-book-open-variant
+      href: https://docs.kmkdp.com/
+      siteMonitor: https://docs.kmkdp.com/
+      description: Homelab documentation site (SSO)
+  - reMarkable Cloud:
+      icon: mdi-tablet
+      href: https://remarkable.kmkdp.com/
+      siteMonitor: https://remarkable.kmkdp.com/
+      description: rmfakecloud sync & handwriting (own login)
