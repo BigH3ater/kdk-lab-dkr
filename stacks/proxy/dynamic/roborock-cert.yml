@@ -12,15 +12,17 @@
 # already holds the `*.kmkdp.com` wildcard, and Traefik will NOT request a
 # certificate for a sub-domain a stored wildcard already covers -- a router on
 # `cf` for api-slave.kmkdp.com would just be served the wildcard, changing the
-# CN. `cfroborock` has its own empty store (/letsencrypt/acme-roborock.json,
-# defined in stacks/proxy/compose.yaml), so it issues a fresh dedicated cert.
+# CN. `cfroborock` has its own empty store in a SEPARATE host dir
+# (/opt/kdk-lab/proxy/letsencrypt-roborock/acme.json, defined in
+# stacks/proxy/compose.yaml) -- separate so the apps certs-dumper can bind only
+# that dir and never the wildcard key -- so it issues a fresh dedicated cert.
 #
 # DNS-01 (Cloudflare) means Traefik never has to be reachable on this name, so
 # this router exists ONLY to make the resolver obtain+renew the cert. Nothing
 # legitimate hits api-slave.kmkdp.com on :443 (the vacuum and HA use :555 on the
 # roborock container directly); the harmless backend below is only a valid
 # service reference so the router is enabled. The apps-stack `certs-dumper`
-# sidecar copies the issued cert out of acme-roborock.json into the files the
+# sidecar copies the issued cert out of that store into the files the
 # roborock server reads (/opt/kdk-lab/apps/roborock/tls/{tls.crt,tls.key}).
 #
 # dns-reconcile does not read file-provider routes (only compose Traefik

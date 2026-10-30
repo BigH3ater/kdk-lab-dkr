@@ -84,7 +84,10 @@ services:
 
   # Keeps /opt/kdk-lab/apps/roborock/tls/{tls.crt,tls.key} equal to the dedicated
   # api-slave.kmkdp.com cert that the internal Traefik's `cfroborock` resolver
-  # obtains + renews via Cloudflare DNS-01 (stacks/proxy). Same image/tag/hardening
+  # obtains + renews via Cloudflare DNS-01 (stacks/proxy). It binds ONLY the
+  # cfroborock store dir (/opt/kdk-lab/proxy/letsencrypt-roborock, read-only), so
+  # this container never has access to the main /letsencrypt acme.json that holds
+  # the *.kmkdp.com wildcard private key. Same image/tag/hardening
   # as identity's lldap certs-dumper. No docker socket: the roborock server does
   # not reload cert files, so the roborock-cert-refresh procedure restarts the
   # roborock service on the 1st + 15th (renewal is 30 days before expiry, so the
@@ -94,9 +97,9 @@ services:
     container_name: roborock-certs-dumper
     restart: unless-stopped
     security_opt: ["no-new-privileges:true"]
-    # Runs as root but changes nothing's ownership: it reads acme-roborock.json
-    # (root 0600) and writes root-owned 0644/0600 files into /tls (also root), so
-    # no capability is needed -- drop them all.
+    # Runs as root but changes nothing's ownership: it reads the cfroborock
+    # acme.json (root 0600) and writes root-owned 0644/0600 files into /tls (also
+    # root), so no capability is needed -- drop them all.
     cap_drop: [ALL]
     read_only: true
     tmpfs: [/w]                       # dump staging + the refresh script; rootfs stays read-only
@@ -114,7 +117,7 @@ services:
     # one $ past Komodo/compose interpolation (same as identity's dumper).
     command:
       - |
-        SRC=/acme/acme-roborock.json
+        SRC=/acme/acme.json
         C=/w/dump/api-slave.kmkdp.com/certificate.crt
         K=/w/dump/api-slave.kmkdp.com/privatekey.key
         mkdir -p /w/dump
@@ -132,7 +135,7 @@ services:
           sleep 3600
         done
     volumes:
-      - /opt/kdk-lab/proxy/letsencrypt:/acme:ro   # the internal Traefik's ACME stores (cross-stack host bind)
+      - /opt/kdk-lab/proxy/letsencrypt-roborock:/acme:ro   # ONLY the cfroborock store (no wildcard key); cross-stack host bind
       - /opt/kdk-lab/apps/roborock/tls:/tls       # writes tls.crt/tls.key the roborock server reads
     networks: [default]
 
