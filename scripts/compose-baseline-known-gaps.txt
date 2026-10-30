@@ -5,7 +5,6 @@
 # silence a regression -- use a documented skip/exception label.
 actual/actual: no-new-privileges,cap_drop,read_only,pids_limit,mem_limit,healthcheck
 apps/adguardhome-sync: no-new-privileges,cap_drop,read_only,pids_limit,mem_limit,logging,healthcheck
-apps/certs-dumper: healthcheck
 apps/ntp: no-new-privileges,cap_drop,read_only,pids_limit,mem_limit,logging,healthcheck
 apps/proton-bridge: no-new-privileges,cap_drop,read_only,pids_limit,mem_limit,logging,healthcheck
 apps/rmfakecloud: no-new-privileges,cap_drop,read_only,pids_limit,mem_limit,logging,healthcheck
@@ -90,6 +89,7 @@ planner-service/planner-service: no-new-privileges,cap_drop,read_only,pids_limit
 proxy/traefik: cap_drop,read_only,pids_limit,mem_limit,healthcheck
 readwise-to-remarkable/highlights: no-new-privileges,cap_drop,read_only,pids_limit,mem_limit,logging,healthcheck
 remarkable-ocr/remarkable-ocr: no-new-privileges,cap_drop,read_only,pids_limit,mem_limit,logging,healthcheck
+roborock-cert/lego: healthcheck
 scrypted-homebridge/scrypted: no-new-privileges,cap_drop,read_only,pids_limit,mem_limit,logging,healthcheck,host-net
 storage-health/verify: no-new-privileges,cap_drop,read_only,pids_limit,mem_limit,logging,healthcheck,host-net
 tailscale-dns/coredns: no-new-privileges,cap_drop,read_only,pids_limit,mem_limit,logging,restart,healthcheck,host-net

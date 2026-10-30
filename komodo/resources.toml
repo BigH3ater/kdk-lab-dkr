@@ -120,6 +120,20 @@ run_directory = "stacks/apps"
 pre_deploy.command = "sh -c '. /etc/komodo/op.env && op inject -f -i .env.tpl -o .env'"
 webhook_enabled = true
 
+# Roborock dedicated-cert lego one-shot. Run on the 1st/15th by the
+# roborock-cert-refresh Procedure (stage 1); destroy_before_deploy so each run
+# re-creates the container and re-runs lego. Not deployed on gitops-sync.
+[[stack]]
+tags = ["kdk-lab"]
+name = "roborock-cert"
+deploy = false   # run on the 1st/15th by the roborock-cert-refresh Procedure
+[stack.config]
+server = "kdk-dkr-01"
+repo = "BigH3ater/kdk-lab-dkr"
+run_directory = "stacks/roborock-cert"
+destroy_before_deploy = true
+pre_deploy.command = "sh -c '. /etc/komodo/op.env && op inject -f -i .env.tpl -o .env'"
+
 # NUT (Network UPS Tools) server for the Eaton 5PX 1500 (network NMC 10.1.3.63,
 # netxml-ups, read-only/anonymous). upsd :3493 for Home Assistant's NUT client.
 # NUT runs on kdk-dkr-03 (Pi, VLAN 30) because that host has a tagged VLAN 1
@@ -627,14 +641,18 @@ executions = [
   { execution.type = "RestartStack", execution.params.stack = "identity", execution.params.services = ["lldap"], enabled = true },
 ]
 
-# Same pattern as identity-ldaps-refresh for the Roborock local server: the
-# apps-stack certs-dumper keeps /opt/kdk-lab/apps/roborock/tls current with the
-# dedicated api-slave.kmkdp.com cert from Traefik's cfroborock resolver, but the
-# roborock server reads cert_file/key_file only at start, so restart just the
-# roborock service twice a month to pick up a renewed cert (issued 30 days before
-# expiry) within ~15 days. 04:40 is after the vacuum's nightly MQTT reconnect
-# (~03:45) and well before the first clean (08:30); a brief restart just drops and
-# re-establishes that MQTT session, which the vacuum does routinely.
+# Roborock local server cert, twice a month. Stage 1 deploys the roborock-cert
+# one-shot (destroy_before_deploy, so the lego container re-runs each time): lego
+# obtains the api-slave.kmkdp.com cert on the first run and renews it when within
+# 30 days of expiry, else no-ops; its deploy hook writes /opt/kdk-lab/apps/roborock
+# /tls/{tls.crt,tls.key}. Stage 2 restarts the roborock service so the server (it
+# reads the cert only at start) picks the new file up. The restart always runs:
+# on no-renewal cycles it is a harmless reload of the same cert, and on the one
+# renewal cycle the new cert is served within ~15 days (the next 1st/15th restart),
+# the same "renewal is 30 days ahead" margin identity-ldaps-refresh relies on.
+# 04:40 is after the vacuum's nightly MQTT reconnect (~03:45) and before the first
+# clean (08:30); the restart just drops and re-establishes the vacuum's MQTT
+# session, which it does routinely (~1 min).
 [[procedure]]
 tags = ["kdk-lab"]
 name = "roborock-cert-refresh"
@@ -644,6 +662,12 @@ schedule = "0 40 4 1,15 * *"
 schedule_enabled = true
 schedule_timezone = "America/Chicago"
 failure_alert = true
+[[procedure.config.stage]]
+name = "issue-cert"
+enabled = true
+executions = [
+  { execution.type = "DeployStack", execution.params.stack = "roborock-cert", enabled = true },
+]
 [[procedure.config.stage]]
 name = "restart-roborock"
 enabled = true

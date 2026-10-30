@@ -1,0 +1,55 @@
+# One-shot Let's Encrypt client for the Roborock local server's dedicated
+# api-slave.kmkdp.com certificate (stacks/apps service `roborock`, :555/:8881).
+# Run on the 1st + 15th by the roborock-cert-refresh Komodo procedure
+# (deploy=false, destroy_before_deploy=true in komodo/resources.toml).
+#
+# WHY lego AND NOT TRAEFIK (what PR #176 tried and why it failed): the internal
+# Traefik's ACME provider skips any domain already covered by a certificate in
+# its single, global TLS store -- a wildcard included -- no matter which
+# resolver or storage file holds it. The lab's *.kmkdp.com wildcard covers
+# api-slave.kmkdp.com, so a second resolver (`cfroborock`) never issued a
+# dedicated cert: its acme.json stayed 0 bytes and the vacuum kept being handed
+# the wildcard (CN=kmkdp.com). lego is a self-contained ACME client with no such
+# store, so it issues the dedicated CN=api-slave.kmkdp.com cert the VLAN-30
+# vacuum validates. Same Cloudflare DNS-01 as Traefik -- DNS-01 needs no inbound
+# reachability on the name.
+name: roborock-cert
+services:
+  lego:
+    image: goacme/lego:v5.6.0@sha256:6f1583fc026a455ea46a7a5858c576105bb69c2e2de69db391cab7f14750350c
+    container_name: roborock-cert-lego
+    restart: "no"                     # one-shot: obtain/renew, run the deploy hook, exit
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: [ALL]                   # root entrypoint, but only reads/writes its own binds
+    read_only: true
+    tmpfs: [/tmp]                     # rootfs read-only; state lives on the /lego + /tls binds
+    pids_limit: 64
+    mem_limit: 128m
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+    environment:
+      # lego's Cloudflare DNS-01 token (DNS:Edit). CLOUDFLARE_DNS_API_TOKEN is
+      # lego's documented alias for CF_DNS_API_TOKEN; same 1Password item Traefik
+      # uses (op inject via .env.tpl, like every other stack here).
+      CLOUDFLARE_DNS_API_TOKEN: "${CLOUDFLARE_DNS_API_TOKEN}"
+    # lego v5: `run` is ONE idempotent command -- it OBTAINS on the first run
+    # (no stored cert resource yet) and RENEWS when the cert is within
+    # --renew-days of expiry, otherwise does nothing and exits 0. v5 removed the
+    # separate `renew` command and renamed the flags: it is --renew-days (not
+    # --days) and --deploy-hook (not --renew-hook/--run-hook). The deploy hook
+    # fires only when a cert is actually written, so no rate-limit risk on the
+    # no-op runs. Image entrypoint is `/lego`, so these are its args.
+    command:
+      - run
+      - "--accept-tos"
+      - "--email=admin@kmkdp.com"
+      - "--dns=cloudflare"
+      - "--domains=api-slave.kmkdp.com"
+      - "--path=/lego"
+      - "--renew-days=30"
+      - "--deploy-hook=sh /hook.sh"
+    volumes:
+      - /opt/kdk-lab/apps/roborock/lego:/lego   # ACME account + issued cert state (root)
+      - /opt/kdk-lab/apps/roborock/tls:/tls     # the deploy hook writes tls.crt/tls.key the roborock server reads
+      - ./hook.sh:/hook.sh:ro

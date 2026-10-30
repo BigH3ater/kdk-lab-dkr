@@ -76,68 +76,12 @@ services:
     volumes:
       - /opt/kdk-lab/apps/roborock:/data
       - /opt/kdk-lab/apps/roborock/config.toml:/app/config.toml:ro
-      # tls.crt/tls.key (config.toml [tls] mode="provided") are kept current by
-      # the certs-dumper sidecar below. The server reads them only at start, so a
-      # renewed cert lands on the next restart (roborock-cert-refresh procedure,
+      # tls.crt/tls.key (config.toml [tls] mode="provided") are issued + renewed
+      # by the separate `roborock-cert` stack's lego one-shot (see
+      # docs/services/apps.md). The server reads them only at start, so a renewed
+      # cert lands on the next restart (roborock-cert-refresh procedure,
       # komodo/resources.toml, 1st + 15th). Was hand-copied 2026-08-30 (exp 11-28).
       - /opt/kdk-lab/apps/roborock/tls:/tls:ro
-
-  # Keeps /opt/kdk-lab/apps/roborock/tls/{tls.crt,tls.key} equal to the dedicated
-  # api-slave.kmkdp.com cert that the internal Traefik's `cfroborock` resolver
-  # obtains + renews via Cloudflare DNS-01 (stacks/proxy). It binds ONLY the
-  # cfroborock store dir (/opt/kdk-lab/proxy/letsencrypt-roborock, read-only), so
-  # this container never has access to the main /letsencrypt acme.json that holds
-  # the *.kmkdp.com wildcard private key. Same image/tag/hardening
-  # as identity's lldap certs-dumper. No docker socket: the roborock server does
-  # not reload cert files, so the roborock-cert-refresh procedure restarts the
-  # roborock service on the 1st + 15th (renewal is 30 days before expiry, so the
-  # served cert is never more than ~15 days behind). See docs/services/apps.md.
-  certs-dumper:
-    image: ldez/traefik-certs-dumper:v2.11.4@sha256:a34b27edf8e5e96a215035a6bfba00d769d2638f8444a5dd6dc27299d75f43c5
-    container_name: roborock-certs-dumper
-    restart: unless-stopped
-    security_opt: ["no-new-privileges:true"]
-    # Runs as root but changes nothing's ownership: it reads the cfroborock
-    # acme.json (root 0600) and writes root-owned 0644/0600 files into /tls (also
-    # root), so no capability is needed -- drop them all.
-    cap_drop: [ALL]
-    read_only: true
-    tmpfs: [/w]                       # dump staging + the refresh script; rootfs stays read-only
-    pids_limit: 64
-    mem_limit: 128m
-    logging:
-      driver: json-file
-      options: { max-size: "10m", max-file: "3" }
-    entrypoint: ["/bin/sh", "-c"]
-    # traefik-certs-dumper writes <dest>/<domain>/{certificate.crt,privatekey.key}
-    # under --domain-subdir, but the roborock server wants /tls/tls.crt + tls.key,
-    # so each pass copies into place. A one-shot `file` dump + copy on a poll loop
-    # (not --watch): a 60-day cert needs no sub-second reaction, and the loop keeps
-    # the copy logic plain shell instead of a single-exec --post-hook. $$ escapes
-    # one $ past Komodo/compose interpolation (same as identity's dumper).
-    command:
-      - |
-        SRC=/acme/acme.json
-        C=/w/dump/api-slave.kmkdp.com/certificate.crt
-        K=/w/dump/api-slave.kmkdp.com/privatekey.key
-        mkdir -p /w/dump
-        # Never clobber the valid hand-copied cert before Traefik has issued the
-        # dedicated one: wait for the resolver to create + populate its store.
-        while [ ! -s "$$SRC" ]; do echo "waiting for $$SRC (cfroborock not issued yet)"; sleep 15; done
-        while true; do
-          /usr/bin/traefik-certs-dumper file --version v2 --source "$$SRC" --dest /w/dump --domain-subdir || true
-          if [ -s "$$C" ] && [ -s "$$K" ]; then
-            cp "$$C" /tls/tls.crt
-            cp "$$K" /tls/tls.key
-            chmod 0644 /tls/tls.crt
-            chmod 0600 /tls/tls.key
-          fi
-          sleep 3600
-        done
-    volumes:
-      - /opt/kdk-lab/proxy/letsencrypt-roborock:/acme:ro   # ONLY the cfroborock store (no wildcard key); cross-stack host bind
-      - /opt/kdk-lab/apps/roborock/tls:/tls       # writes tls.crt/tls.key the roborock server reads
-    networks: [default]
 
 networks:
   default: {}
