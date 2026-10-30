@@ -139,8 +139,16 @@ run_directory = "stacks/nut"
 # behind-HEAD stack on each merge, and force-recreate turned that no-op `up -d`
 # into an upsd restart six times a day. upsmon clients treat a lost upsd during
 # a battery self-test as a dead UPS and shut down (kdk-hyp-01, 2026-10-26 21:02).
-# ups.conf edits still deploy: it is a compose `config` (content-hashed).
-pre_deploy.command = "sh -c 'cp -f /opt/kdk-lab/nut/.env .env'"
+# ups.conf edits do NOT auto-apply through compose: a `configs: file:` is a
+# read-only bind mount and compose's config-hash ignores file CONTENT (verified in
+# docker/compose create.go + reconcile.go), so an edit alone is a no-op `up -d`.
+# The pre_deploy copies the host .env, THEN appends NUT_CONFIG_SHA = sha256(ups.conf);
+# the upsd `kdk.config-sha` label carries it, so a DELIBERATE ups.conf merge recreates
+# upsd while unrelated merges stay a no-op.
+# >>> DANGER <<< recreating upsd can shut kdk-hyp-01 down (2026-10-26). Only merge a
+# ups.conf change -- and the FIRST deploy after this label lands, which recreates upsd
+# once -- with a person watching the UPS. See docs/services/nut.md.
+pre_deploy.command = "sh -c 'cp -f /opt/kdk-lab/nut/.env .env && echo NUT_CONFIG_SHA=$(sha256sum ups.conf | cut -c1-12) >> .env'"
 webhook_enabled = true
 
 # AdGuard DNS reconciler (one-shot, run by the gitops-sync procedure's "dns"
