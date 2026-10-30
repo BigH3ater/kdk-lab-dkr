@@ -1,7 +1,7 @@
 ---
 title: Backups
 tags: [homelab/process, backups, komodo, proton]
-updated: 2026-09-14
+updated: 2026-10-30
 ---
 
 # Backups
@@ -19,24 +19,48 @@ Two independent layers protect kdk-lab:
 
 ## What goes offsite (and what must not)
 
-Proton holds **only application state + the Proxmox cloud-init template**.
-The offsite `rclone sync` (`stacks/backup-offsite/offsite.sh`) excludes:
+Proton holds **only application state + the Proxmox cloud-init template**. The
+offsite stage runs in two steps (`stacks/backup-offsite/`):
 
-| Excluded | Why |
+1. **pack** (`pack.sh`) — writes **one `tar.zst` per host per night** to
+   `/mnt/backup/dkr/offsite/<host>-YYYY-MM-DD.tar.zst`, built from
+   `/mnt/backup/dkr/<host>/` with the regenerable + must-never-leave paths
+   dropped (see below). GNU tar + zstd (`-T0`, level 3) are `apk`-added at
+   runtime (same pattern as `backup-verify`'s `curl`). The newest **3** archives
+   per host are kept locally; older ones are deleted.
+2. **offsite** (`offsite.sh`) — `rclone sync` ships **only** `offsite/**`,
+   `pve-templates/**` and each host's `*/pgdump/**` to the crypt remote.
+
+**Why pack first:** the old offsite pushed the raw tree — thousands of churny
+small files (prowlarr `Definitions/*.yml`, bazarr logs, caches) — and no pass
+ever finished: Proton's API chokes on small-file **volume**, not bytes (`502` on
+block uploads, `422 already exists`, `400 empty`, "no response" on listings),
+so passes alternated exit 10 (hit `--max-duration`) / exit 2 (API errors).
+Shipping a handful of large archives cuts the Proton object count by ~3 orders
+of magnitude. GNU tar stores symlinks as symlinks and skips sockets (so the
+proton-bridge `.gnupg` sockets no longer error).
+
+The `pack` archives drop (one exclude list, applied to every host):
+
+| Dropped from the archive | Why |
 |---|---|
-| `**/stacks/**` | Komodo repo clones — already on GitHub |
-| `**/backup/**` | `rclone.conf` — the Proton creds themselves; never ship to Proton |
-| `**/jellyfin/**/metadata`, `/cache`, `/transcodes` | 6.3 GB of re-fetchable artwork (the real Jellyfin DB is `data/data`) |
-| `**/MediaCover/**` | radarr/sonarr poster cache — regenerable |
-| `**/sabnzbd/logs/**` | logs |
-| `_archive/**` | the dated version history (see below) |
+| `*/backup` | `rclone.conf` — the Proton creds themselves; never ship to Proton |
+| `*/stacks` | Komodo repo clones — already on GitHub |
+| `*/pgdump` | ships separately as its own single `.sql.gz` files |
+| `*cache*`, `*/metadata`, `*/transcodes`, `*/MediaCover` | re-fetchable artwork / cache |
+| `*/Definitions` | prowlarr indexer defs — refetched on start |
+| `*/logs`, `*.log`, `*/Tdarr/DB2/JobReports`, `*/node_modules`, `*/lost+found` | logs / scratch / regenerable |
+| `*/tandoor/staticfiles`, `*/audiobookshelf/podcasts`, `*/proton-bridge/*/updates` | regenerable |
 
-Immich, Authelia and Tandoor Postgres are **not** rsynced; they are dumped with
-`pg_dump` (`stacks/backup-dmz`) and the dumps go offsite instead.
+Immich, Authelia, Tandoor and Jellystat Postgres are **not** in the archives;
+they are dumped with `pg_dump` (`stacks/backup-dmz`, `stacks/backup-dkr-01`) and
+the dated `.sql.gz` dumps go offsite as-is (few, single files).
 
 **Versioning:** `--backup-dir proton-crypt:_archive/<date>` keeps a dated copy of
 anything deleted or overwritten, so the offsite is point-in-time recoverable, not
-a pure destructive mirror.
+a pure destructive mirror. Yesterday's archives land there too. Transfer flags
+are conservative for Proton's flaky API: `--transfers 2 --checkers 4
+--retries 3 --low-level-retries 10 --protondrive-replace-existing-draft=true`.
 
 ## The nightly pipeline
 
@@ -47,7 +71,7 @@ a pure destructive mirror.
 | stage-dkr-01 | `backup-dkr-01` | dkr-01 | rsync `/opt/kdk-lab` → `tankz3/backup/dkr/kdk-dkr-01/` |
 | stage-dmz | `backup-dmz` | dmz-01 | `pg_dump` authelia + immich + tandoor, rsync app state |
 | stage-collect | `backup-collect` | dkr-01 | SSH-pull `/opt/kdk-lab` from dkr-02, dkr-03, mon-01 (not on the storage net) |
-| offsite | `backup-offsite` | dkr-01 | `rclone sync` whole tree → Proton (encrypted) |
+| offsite | `backup-offsite` | dkr-01 | `pack` one `tar.zst` per host, then `rclone sync` `offsite/` + `pve-templates/` + `*/pgdump/` → Proton (encrypted) |
 | verify | `backup-verify` | dkr-01 | validate everything, alert Pushover on failure |
 
 The staging + offsite stages are **best-effort** (their containers exit 0 even on
