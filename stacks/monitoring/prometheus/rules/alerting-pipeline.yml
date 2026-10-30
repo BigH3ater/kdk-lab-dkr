@@ -19,9 +19,10 @@ groups:
       - alert: AlertmanagerDown
         expr: up{job="alertmanager"} == 0
         for: 5m
-        labels: {severity: critical, source: external-monitor}
+        labels: {severity: critical, source: external-monitor, scope: alerting-pipeline}
         annotations:
           summary: "Alertmanager published :9093 is unreachable from kdk-mon-01"
+          runbook: docs/runbooks/pushover-alerts.md#alerting-pipeline
           description: >-
             Prometheus cannot scrape Alertmanager on 10.1.20.30:9093 for 5m. The
             Loki ruler on kdk-log-01 delivers log-rule alerts to this exact
@@ -35,9 +36,10 @@ groups:
       - alert: LokiRulerCannotNotify
         expr: rate(loki_prometheus_notifications_errors_total{job="loki"}[10m]) > 0
         for: 10m
-        labels: {severity: critical, source: external-monitor}
+        labels: {severity: critical, source: external-monitor, scope: alerting-pipeline}
         annotations:
           summary: "Loki ruler is failing to deliver alerts to Alertmanager"
+          runbook: docs/runbooks/pushover-alerts.md#alerting-pipeline
           description: >-
             loki_prometheus_notifications_errors_total on kdk-log-01 has been
             rising for 10m: the ruler's log-based alerts (stacks/loki/rules/) are
@@ -48,9 +50,10 @@ groups:
       - alert: LokiRulerNoAlertmanager
         expr: loki_prometheus_notifications_alertmanagers_discovered{job="loki"} == 0
         for: 10m
-        labels: {severity: critical, source: external-monitor}
+        labels: {severity: critical, source: external-monitor, scope: alerting-pipeline}
         annotations:
           summary: "Loki ruler has no Alertmanager to send to"
+          runbook: docs/runbooks/pushover-alerts.md#alerting-pipeline
           description: >-
             The Loki ruler on kdk-log-01 discovered zero Alertmanagers for 10m;
             every log-based alert will be silently dropped. Check the ruler's
@@ -63,9 +66,10 @@ groups:
       - alert: LokiRulerConfigReloadFailed
         expr: loki_ruler_config_last_reload_successful{job="loki"} == 0
         for: 10m
-        labels: {severity: warning, source: external-monitor}
+        labels: {severity: warning, source: external-monitor, scope: alerting-pipeline}
         annotations:
           summary: "Loki ruler failed to load its rules on kdk-log-01"
+          runbook: docs/runbooks/pushover-alerts.md#alerting-pipeline
           description: >-
             loki_ruler_config_last_reload_successful is 0: the ruler rejected the
             current rules/ directory, so recent rule edits are not active. Check

@@ -70,9 +70,10 @@ groups:
       - alert: ContainerOOMKilled
         expr: increase(container_oom_events_total{name!=""}[15m]) > 0
         for: 0m
-        labels: {severity: warning, source: external-monitor}
+        labels: {severity: warning, source: external-monitor, scope: containers}
         annotations:
           summary: "{{ $labels.service }} OOM-killed on {{ $labels.host }}"
+          runbook: docs/runbooks/pushover-alerts.md#containers
           description: >-
             The kernel OOM killer fired for container {{ $labels.name }}
             (stack {{ $labels.stack }}) on {{ $labels.host }}. A single job hit
