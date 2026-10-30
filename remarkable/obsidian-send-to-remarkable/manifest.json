@@ -1,0 +1,10 @@
+{
+  "id": "obsidian-send-to-remarkable",
+  "name": "Send to reMarkable",
+  "version": "0.1.0",
+  "minAppVersion": "1.5.0",
+  "description": "Send the active note, a folder, or the whole vault to the reMarkable by dropping a request into the vault's _remarkable/queue/ folder. The kdk-lab obsidian-to-koreader job renders and pushes the PDFs. No network access, endpoint or token.",
+  "author": "kdk-lab",
+  "authorUrl": "https://github.com/BigH3ater/kdk-lab-dkr",
+  "isDesktopOnly": true
+}
