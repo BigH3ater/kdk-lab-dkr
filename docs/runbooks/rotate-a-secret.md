@@ -66,9 +66,34 @@ echo "hash bytes: ${#HASH}"
 op item edit node-red-admin --vault kdk-cluster "hash[password]=$HASH"
 ```
 
-Authelia client secrets: `authelia crypto hash generate pbkdf2` inside the
-`authelia` container, same pattern; the plaintext goes to the client app, the
-hash to Authelia's secret file.
+Authelia client secrets: the plaintext goes to the client app, the pbkdf2
+digest to Authelia's secret file **and** the matching `authelia-app-secrets`
+field. `authelia crypto hash generate` cannot read stdin (`--password` only, which
+lands in the host's argv), so build the digest on the laptop and let Authelia
+check it. Authelia (go-crypt) encodes salt and key in the **crypt base64
+alphabet** (`+` becomes `.`, no padding); a standard-base64 digest is rejected at
+startup and Authelia crash-loops (2026-10-29: 3 min SSO outage).
+
+```bash
+op read op://kdk-cluster/<app>-oidc/password | tr -d '\n' | python3 -c '
+import sys,os,hashlib,base64
+pw=sys.stdin.read().encode(); salt=os.urandom(16); it=310000
+dk=hashlib.pbkdf2_hmac("sha512",pw,salt,it,64)
+ab64=lambda x: base64.b64encode(x).decode().rstrip("=").replace("+",".")
+print("$pbkdf2-sha512$%d$%s$%s"%(it,ab64(salt),ab64(dk)))' > /tmp/<app>.digest
+# prove it before it touches Authelia (dummy or real password, never echoed):
+op read op://kdk-cluster/<app>-oidc/password | ssh kdkadmin@192.168.191.20 \
+  "P=\$(cat); sudo docker run --rm --entrypoint authelia \$(sudo docker inspect authelia --format '{{.Config.Image}}') \
+   crypto hash validate '$(cat /tmp/<app>.digest)' --password \"\$P\""   # -> The password matches the digest.
+op item edit authelia-app-secrets --vault kdk-cluster "<app>_client_secret=$(cat /tmp/<app>.digest)"
+op read op://kdk-cluster/authelia-app-secrets/<app>_client_secret | tr -d '\n' \
+  | ssh kdkadmin@192.168.191.20 'sudo install -m 600 -o 8091 -g 8091 /dev/stdin /opt/kdk-lab/identity/authelia-secrets/authelia-app-secrets/<app>_client_secret'
+# then the plaintext into the app, and RestartStack identity (service authelia)
+```
+
+Stdin gotcha: a script fed as a heredoc (`python3 - <<EOF`) owns stdin, so
+`sys.stdin.read()` returns nothing and you write an empty value (Libreseerr
+2026-10-29). Pipe the value into `python3 -c '...'` or stage the script in a file.
 
 ## 4. Verify without printing the value
 
@@ -103,3 +128,11 @@ check the old one fails (401).
 | `vikunja-api-ro` | new token in the Vikunja UI → Node-RED nodes + HA `/config/.vikunja_token` + 1Password, old token revoked |
 | `komodo-github-pat` | new fine-grained PAT → 1Password + the Komodo git account; PullStack OK, old token 401 |
 | `authelia-app-secrets/grafana_oidc_plaintext` | captured from the Authelia secret file into 1Password, then written to mon-01's `.env` from `op read` |
+
+## Examples from 2026-10-29
+
+| Secret | Pattern |
+|---|---|
+| `kdk-ops/libreseerr-admin` | new value in 1Password (owner's personal `op` session: the service account cannot write `kdk-ops`), werkzeug scrypt hash via `docker exec -i`, `users.json` rewritten with the container stopped ([Seerr page](../services/seerr.md#libreseerr-admin-reset)) |
+| `kdk-ops/trailarr-admin` | `op item create`, applied once through `WEBUI_PASSWORD` on a one-off container ([Media page](../services/media.md#trailarr)) |
+| `kdk-cluster/libreseerr-oidc` + `authelia-app-secrets/libreseerr_client_secret` | plaintext item, digest built locally in crypt base64 and validated with `authelia crypto hash validate`, file from `op read`, Libreseerr `config.json`, Authelia restart |

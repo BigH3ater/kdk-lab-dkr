@@ -74,6 +74,36 @@ Edit `settings.json` only with Seerr stopped (it rewrites the file on shutdown).
 
 N/A — no credential of its own; holds arr API keys inside `settings.json` (rotate those in the arr apps, then update here).
 
+### Libreseerr admin reset
+
+Libreseerr (`stacks/dmz-apps`, `/mnt/appdata/libreseerr:/app/data`) keeps users in
+`users.json` with werkzeug scrypt hashes and reloads the file on every request.
+Local admin credential: `op://kdk-ops/libreseerr-admin`. To reset it: new value in
+1Password first, then
+
+```bash
+op read op://kdk-ops/libreseerr-admin/password | tr -d '\n' | ssh kdkadmin@192.168.191.20 '
+  H=$(sudo docker exec -i libreseerr python3 -c "import sys; from werkzeug.security import generate_password_hash; print(generate_password_hash(sys.stdin.read()))")
+  sudo docker stop libreseerr
+  sudo env H="$H" python3 -c "
+import json,os; h=os.environ[\"H\"]; p=\"/mnt/appdata/libreseerr/users.json\"; us=json.load(open(p))
+[u.update(password_hash=h) for u in us if u[\"username\"]==\"admin\"]
+json.dump(us,open(p+\".tmp\",\"w\"),indent=2); os.replace(p+\".tmp\",p)"
+  sudo docker start libreseerr'
+```
+
+Check: `POST /api/auth/login` (not `/api/login`) inside the container returns
+`{"role":"admin","success":true}`. Pass the hash through the environment or a
+file, never as stdin to a heredoc script (that produced an empty hash once).
+
+OIDC users: Libreseerr reads the ID Token claims and only asks UserInfo when they
+are empty, so Authelia carries a `claims_policies.libreseerr` entry that copies
+`preferred_username` into the ID Token for this client ([identity](identity.md#claims-policies)).
+Without it every SSO login created a user named by its `sub` UUID. OIDC settings
+(issuer, client id/secret, `auto_create_users`) live in `config.json` → `oidc`; the
+client secret plaintext is `op://kdk-cluster/libreseerr-oidc/password`, its digest
+`authelia-app-secrets/libreseerr_client_secret` (rotation: [rotate-a-secret](../runbooks/rotate-a-secret.md)).
+
 ## User Guide
 
 Users log in at `seerr.kmkdp.com` with their Jellyfin account and request titles; approved requests flow to Sonarr/Radarr for download.
