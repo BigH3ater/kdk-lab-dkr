@@ -1,27 +1,60 @@
 ---
-title: Add a Pushover alert
+title: Alerting standard (Pushover + email)
 ---
 
-# Add a Pushover alert
+# Alerting standard (Pushover + email)
 
-All hosts push to the same Pushover application. Credentials live at
-`/etc/kdk/pushover.env` on every compose host (out of git):
+> This page was "Add a Pushover alert"; it is now the lab's alerting standard
+> and still covers how to add one. Inbound links to `pushover-alerts.md` are
+> unchanged.
 
-```sh
-PUSHOVER_TOKEN=...
-PUSHOVER_USER=...
-```
+## The standard
 
-The canonical send is a single form POST — priority `-1` quiet, `0` normal,
-`1` high:
+**Channels.** Two transports, both terminating at Alertmanager on
+[[kdk-mon-01]] (`stacks/monitoring/alertmanager/alertmanager.yml`):
 
-```sh
-. /pushover.env
-curl -s -o /dev/null --max-time 10 https://api.pushover.net/1/messages.json \
-  --form-string token="$PUSHOVER_TOKEN" --form-string user="$PUSHOVER_USER" \
-  --form-string title="kdk <what>" --form-string message="<detail>" \
-  --form-string priority="1"
-```
+| Channel | Gets | Why |
+|---|---|---|
+| **Pushover** | **every** alert, firing and resolved | SaaS, shares no failure domain with the lab; the channel that must always work |
+| **Email** | **`severity=critical` only**, additionally | a second, durable record of the things that matter most. Through the in-lab Proton bridge (`10.1.20.20:25`); it is **not** a digest |
+
+There is no daily digest and email never replaces Pushover. A critical alert is
+delivered to **both** (the `email-ops` receiver carries a Pushover config and an
+email config), so email going down never loses a page.
+
+**Severity.** Every rule carries one:
+
+| `severity` | Meaning | Routing |
+|---|---|---|
+| `critical` | something is broken or unsafe now; act | Pushover (high) **+ email** |
+| `warning` | degraded or suspicious; look soon | Pushover (high) |
+| `info` | expected while you work on X; a quiet record | Pushover **quiet** (priority -1, repeat 24 h) |
+
+**`source` label.** Set on every rule; Alertmanager routes on it:
+
+- `source: loki` — a log-based rule evaluated by the Loki ruler on
+  [[kdk-log-01]] (`stacks/loki/rules/*.yml`).
+- `source: external-monitor` — a metric rule on kdk-mon-01's Prometheus
+  (`stacks/monitoring/prometheus/rules/*.yml`).
+
+**Where rules live and how routing picks them up.**
+
+| Kind | Lives in | Evaluated by | Delivered to AM |
+|---|---|---|---|
+| Metric threshold/`up` | `stacks/monitoring/prometheus/rules/*.yml` | Prometheus (kdk-mon-01) | internal `alertmanager:9093` |
+| Log pattern (LogQL) | `stacks/loki/rules/*.yml` | Loki ruler (kdk-log-01) | published `10.1.20.30:9093` |
+
+The alerting pipeline watches itself: `stacks/monitoring/prometheus/rules/alerting-pipeline.yml`
+pages (`AlertmanagerDown`, `LokiRulerCannotNotify`, `LokiRulerNoAlertmanager`,
+`LokiRulerConfigReloadFailed`) if the published :9093 or the Loki ruler's
+delivery path breaks — the gap that hid a 1.5 h outage on 2026-10-30
+(hosts/README.md "Legacy boot units").
+
+**How to add a rule:** a metric rule → section **C** below; a log rule →
+[Add a Loki alert rule](add-loki-alert-rule.md). Pick `severity` from the table,
+always set `source`, and give a `runbook` annotation.
+
+---
 
 There are three places an alert can come from. Pick by what you're alerting on.
 
@@ -83,9 +116,12 @@ mechanics.
 
 Rate/threshold alerts over Prometheus metrics (CPU, disk, memory, scrape-down)
 are Alertmanager's job, not a shell POST. That stack (`stacks/monitoring` on
-`kdk-mon-01`) reads Pushover as secret **files**
-(`alertmanager/pushover-user-key`, `pushover-app-token`), not the env file — add
-a rule to its Prometheus rules and a route in the Alertmanager config there.
+`kdk-mon-01`) reads Pushover **and** the Proton bridge SMTP password as secret
+**files** (`alertmanager/pushover-user-key`, `pushover-app-token`,
+`proton-bridge-smtp-password`), not the env file — add a rule to its Prometheus
+rules (`stacks/monitoring/prometheus/rules/*.yml`, `source: external-monitor`)
+and, if a new route is needed, a route in the Alertmanager config there. A
+`severity: critical` rule is e-mailed automatically; no routing change needed.
 Keep `kdk-mon-01` lean; heavy collectors belong on `kdk-dkr-01`.
 
 The three Prometheus rule files each carry a `scope` label (= the file) and a
@@ -132,19 +168,32 @@ idrac-exporter (Redfish), independent of any fan controller.
 
 ## Alerting standard
 
-The lab's alerting standard — the severity ladder, the required `severity` /
-`source` / `scope` labels and `summary` / `runbook` annotations, the `for`
-minimums and the Alertmanager grouping/repeat targets — is being introduced by
-the `feat/alerting-email-and-komodo` change; see that PR for the authoritative
-text. Until it lands, follow the per-rule conventions in
-[Add a Loki alert rule](add-loki-alert-rule.md) (labels `severity`, `source`,
-`scope`; annotations `summary`, `runbook`). `LokiShippingStalled` carries `host`
-instead of `scope` by design (`absent_over_time` has no series to carry it).
+The severity ladder, the required `severity` / `source` / `scope` labels and
+`summary` / `runbook` annotations, the `for` minimums and the Alertmanager
+grouping/repeat targets are defined once in [The standard](#the-standard)
+above. Per-rule conventions for new Loki rules are in
+[Add a Loki alert rule](add-loki-alert-rule.md). `LokiShippingStalled` carries
+`host` instead of `scope` by design (`absent_over_time` has no series to carry it).
+
+## Komodo manual deploy
+
+`KomodoManualDeploy` (`stacks/loki/rules/komodo.yml`, `severity: info`) is a
+quiet note that a **person** ran `DeployStack`/`RestartStack` instead of letting
+a repo push reconcile the fleet through gitops-sync. The signal is Komodo Core's
+`EXECUTE REQUEST … method="DeployStack" … username="…"` log line
+(`container="komodo-core-1"` on kdk-dkr-01): the gitops `deploy-changed` action
+authenticates as `username="Action"`, so a line whose method is a deploy and
+whose username is **not** `"Action"` is a hand deploy. Heuristic limits, stated
+honestly: it keys on the username string, so a future non-human automation that
+authenticates as a named user would also show here, and a hand deploy whose
+operator somehow logged as `"Action"` would be missed. Expected while you deploy
+by hand; otherwise make the stack's on-host files match the repo so the next
+gitops tick does not revert your change.
 
 ## Test it
 
-Fire a one-off from the host to confirm creds and reachability before relying on
-the logic:
+Fire a one-off Pushover from the host to confirm creds and reachability before
+relying on the logic:
 
 ```sh
 ssh kdkadmin@<host> "set -a; . /etc/kdk/pushover.env; \
@@ -154,3 +203,17 @@ ssh kdkadmin@<host> "set -a; . /etc/kdk/pushover.env; \
 ```
 
 A `200` means delivered. Use priority `-1` for tests so it doesn't buzz.
+
+To test the Alertmanager routing end-to-end (both channels), post a fake alert
+and watch for a Pushover **and**, when `severity=critical`, an email:
+
+```sh
+# critical -> Pushover + email ; expires on its own
+ssh kdkadmin@10.1.20.30 'sudo docker exec alertmanager-ext amtool \
+  --alertmanager.url=http://127.0.0.1:9093 alert add RouteTest \
+  source=external-monitor severity=critical \
+  --annotation=summary="route test" --end=$(date -u -d +5min +%FT%TZ)'
+```
+
+`amtool check-config /etc/alertmanager/alertmanager.yml` (inside the container)
+validates a config change before it is deployed.

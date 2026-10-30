@@ -7,7 +7,21 @@
 # Uses the Docker API (socket), so it is independent of the storage driver
 # that breaks cAdvisor name resolution on this host. NODE_NAME comes from the
 # container env; Pushover creds from the mounted /pushover.env.
+#
+# Deploy-noise guards (2026-10-30):
+#   - A die with exit 137 (SIGKILL) or 143 (SIGTERM) is how Komodo recreates or
+#     stops a container, so it is NOT paged immediately. Instead it is deferred
+#     for EVENT_WATCH_DIE_GRACE seconds and the page is cancelled if a `start`
+#     for the SAME container name arrives in time (a recreate). A 137/143 that
+#     does NOT come back still pages -- the service went down and stayed down.
+#     Every other non-zero exit (a real crash) pages at once, as before.
+#   - The "kdk container watch online" startup ping is log-only unless
+#     EVENT_WATCH_ONLINE_PAGE=1; it fired once per host on every deploy wave.
 set -u
+# Grace window (seconds) to wait for a recreate `start` before paging a 137/143
+# die. busybox date/read only; state lives in /tmp like the rate-limit state.
+GRACE="${EVENT_WATCH_DIE_GRACE:-90}"
+WATCH_ONLINE_PAGE="${EVENT_WATCH_ONLINE_PAGE:-0}"
 apk add --no-cache curl >/dev/null 2>&1 || true
 . /pushover.env
 log() { echo "$(date '+%F %T') $*" >&2; }   # stderr = unbuffered, visible in docker logs
@@ -38,11 +52,35 @@ page_limited() {   # $1 = state key, $2 = title, $3 = message
     log "  rate-limited: $1 (suppressed $((n + 1)) since last page)"
   fi
 }
-notify "kdk container watch online" "Docker-event watcher started on ${NODE_NAME}." -1
+# Defer a 137/143 die: record it, wait GRACE in the background, then page only
+# if no `start` for the same name arrived AFTER the die (i.e. it was not a
+# recreate and the service stayed down). Backgrounded so the event loop keeps
+# reading, like the unhealthy debounce below.
+defer_die() {   # $1 = container name, $2 = exit code
+  dname="$1"; dcode="$2"; dts=$(date +%s)
+  echo "$dts" > "/tmp/die-${dname}"
+  ( sleep "$GRACE"
+    st=0; [ -f "/tmp/start-${dname}" ] && read -r st < "/tmp/start-${dname}"
+    if [ "${st:-0}" -ge "$dts" ]; then
+      log "  die grace: ${dname} restarted within ${GRACE}s (code ${dcode}) -- recreate, no page"
+    else
+      page_limited "die-${dname}" "kdk container down: ${NODE_NAME}" \
+        "${dname} exited (code ${dcode}) on ${NODE_NAME} and did not restart within ${GRACE}s"
+    fi
+  ) &
+}
+if [ "$WATCH_ONLINE_PAGE" = "1" ]; then
+  notify "kdk container watch online" "Docker-event watcher started on ${NODE_NAME}." -1
+else
+  log "kdk container watch online on ${NODE_NAME} (startup ping log-only; set EVENT_WATCH_ONLINE_PAGE=1 to page)"
+fi
 while true; do
-  # Same-key filters OR, different keys AND: (container|image) x (die|health_status|create|pull).
+  # Same-key filters OR, different keys AND:
+  #   (container|image) x (die|start|health_status|create|pull).
+  # `start` is tracked so a just-seen 137/143 die can be recognised as a recreate.
   docker events --filter type=container --filter type=image \
-    --filter event=die --filter event=health_status --filter event=create --filter event=pull \
+    --filter event=die --filter event=start --filter event=health_status \
+    --filter event=create --filter event=pull \
     --format '{{.Actor.Attributes.name}}|{{.Action}}|{{.Actor.Attributes.exitCode}}|{{index .Actor.Attributes "com.docker.compose.project"}}|{{.Type}}|{{.Actor.Attributes.image}}|{{.Actor.ID}}' 2>/dev/null |
   while IFS='|' read -r name action code project etype image actor; do
     # Image pull: log the reference for Loki, nothing else (Actor.ID = the ref).
@@ -64,10 +102,15 @@ while true; do
       backup-*) log "  ignore: one-shot backup stack ($project)"; continue ;;
     esac
     case "$action" in
+      start)
+        # Remember the restart so a 137/143 die just seen for this name is
+        # recognised as a recreate and its deferred page is cancelled.
+        date +%s > "/tmp/start-${name}" 2>/dev/null || true ;;
       die)
-        # 0 = clean exit, 143 = SIGTERM (graceful stop / redeploy) -> ignore.
         case "${code:-0}" in
-          0|143) : ;;
+          0) : ;;        # clean exit
+          137|143)       # SIGKILL / SIGTERM: how Komodo recreates/stops -> defer
+            defer_die "$name" "$code" ;;
           *) page_limited "die-${name}" "kdk container down: ${NODE_NAME}" \
                "${name} exited (code ${code}) on ${NODE_NAME}" ;;
         esac ;;

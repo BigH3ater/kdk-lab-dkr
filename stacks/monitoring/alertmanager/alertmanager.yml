@@ -1,16 +1,35 @@
 # Out-of-cluster Alertmanager on kdk-mon-01.
 #
-# Alerting transport is Pushover (SaaS) -- cluster-independent by design, so a
-# full outage of the (now-retiring) k3s cluster does not silence alerts. The
-# previous ntfy webhook (ntfy.kmkdp.com) and the in-cluster SMTP relay
-# (smtp-relay.kmkdp.com -> the k3s proton-bridge) were BOTH cluster-dependent
-# and are retired with it. ntfy is gone entirely; email can be re-added later
-# if proton-bridge lands in the kdk-lab-dkr apps stack.
+# TWO transports, per the alerting standard (docs/runbooks/pushover-alerts.md):
+#   - Pushover (SaaS): EVERY alert, firing and resolved. Cluster-independent by
+#     design, so an outage of the rest of the estate never silences paging.
+#   - Email (critical only): severity=critical is ALSO e-mailed to the owner,
+#     through the in-lab Proton SMTP bridge on kdk-dkr-01 (10.1.20.20:25). This
+#     is a second, durable record of the things that matter most -- it is NOT a
+#     digest and NOT a replacement for Pushover.
 #
-# Credentials come from 1Password item kdk-cluster/pushover-kdk-lab
-# (user_key, api_token), written 0600 as pushover-user-key / pushover-app-token
-# (owned by the container's nobody:65534 so the receiver can read them). Never
-# committed.
+# SECRETS (never committed; hand-rendered on kdk-mon-01, see compose.yaml):
+#   - Pushover user_key + app token: 1Password kdk-cluster/pushover-kdk-lab,
+#     written 0600 as pushover-user-key / pushover-app-token (owned by the
+#     container's nobody:65534 so the receiver can read them).
+#   - Proton bridge SMTP password: 1Password kdk-cluster/proton-bridge-smtp
+#     (field `password`), written 0600 as proton-bridge-smtp-password (same
+#     owner). The SMTP username is the Proton account address, NOT a secret --
+#     it is committed inline below (smtp_auth_username), matching the identical
+#     value in stacks/identity/authelia/configuration.yml.
+#
+# The bridge speaks plain SMTP with STARTTLS and presents a self-signed cert,
+# so insecure_skip_verify is required (same as Authelia's notifier, apps.md).
+# The bridge runs on kdk-dkr-01, so this e-mail leg shares a failure domain
+# with that host; Pushover does not. That is the accepted trade: mail is the
+# bonus channel for criticals, Pushover is the one that must always work.
+
+global:
+  smtp_smarthost: '10.1.20.20:25'
+  smtp_from: 'no-reply@kmkdp.com'
+  smtp_auth_username: 'kdk.lab@pm.me'
+  smtp_auth_password_file: /etc/alertmanager/proton-bridge-smtp-password
+  smtp_require_tls: true
 
 route:
   receiver: pushover
@@ -19,16 +38,26 @@ route:
   group_interval: 5m
   repeat_interval: 4h
   routes:
+    # CRITICAL (any source, Loki or Prometheus): high-priority Pushover AND an
+    # e-mail to the owner. The `email-ops` receiver carries BOTH notifiers, so a
+    # critical is never e-mail-only and never Pushover-only -- it is the single
+    # home for criticals, matched first so nothing below can steal it.
+    - matchers: ['severity="critical"']
+      receiver: email-ops
+      group_by: ["alertname", "host"]
+      group_wait: 30s
+      group_interval: 5m
+      repeat_interval: 1h
     # Loki ruler alerts (stacks/loki/rules/, sent from kdk-log-01 to
-    # 10.1.20.30:9093). Grouped per host so one silent host is one page.
+    # 10.1.20.30:9093) that are NOT critical. Grouped per host so one silent
+    # host is one page.
     - matchers: ['source="loki"']
       receiver: pushover
       group_by: ["alertname", "host"]
       repeat_interval: 4h
       routes:
-        # severity=info Loki rules (stacks/loki/rules/*: "expected while you work
-        # in X", cloudflared outdated, advisories to review) go out quietly
-        # (Pushover priority -1) and repeat at most daily.
+        # severity=info Loki rules ("expected while you work in X", advisories
+        # to review) go out quietly (Pushover priority -1) and repeat daily.
         - matchers: ['severity="info"']
           receiver: pushover-quiet
           repeat_interval: 24h
@@ -61,3 +90,39 @@ receivers:
           {{ end }}
         url_title: 'Open Alertmanager'
         html: false
+
+  # CRITICAL receiver: Pushover (so every alert still reaches Pushover) PLUS an
+  # e-mail to the owner's mailbox. admin@kmkdp.com is the lab's administrative
+  # inbox (the ACME/LLDAP/roborock-cert contact used across the repo); change it
+  # here if a dedicated ops mailbox is created.
+  - name: email-ops
+    pushover_configs:
+      - user_key_file: /etc/alertmanager/pushover-user-key
+        token_file: /etc/alertmanager/pushover-app-token
+        send_resolved: true
+        priority: '{{ if eq .Status "firing" }}1{{ else }}0{{ end }}'
+        title: '[{{ .Status | toUpper }}] {{ .CommonLabels.alertname }} ({{ .Alerts | len }})'
+        message: >-
+          {{ range .Alerts }}{{ if .Annotations.summary }}{{ .Annotations.summary }}{{ else }}{{ .Labels.alertname }}{{ end }}
+          {{ if .Annotations.description }}{{ .Annotations.description }}{{ end }}
+          {{ end }}
+        url_title: 'Open Alertmanager'
+        html: false
+    email_configs:
+      - to: 'admin@kmkdp.com'
+        send_resolved: true
+        require_tls: true
+        tls_config:
+          # Proton bridge presents a self-signed cert on STARTTLS (apps.md).
+          insecure_skip_verify: true
+        headers:
+          Subject: '[CRITICAL] {{ .CommonLabels.alertname }} ({{ .Alerts | len }}) — kdk-lab'
+        html: ''
+        text: >-
+          {{ range .Alerts }}{{ .Status | toUpper }}: {{ if .Annotations.summary }}{{ .Annotations.summary }}{{ else }}{{ .Labels.alertname }}{{ end }}
+          {{ if .Annotations.description }}
+          {{ .Annotations.description }}{{ end }}
+          {{ if .Annotations.runbook }}runbook: {{ .Annotations.runbook }}{{ end }}
+          labels: {{ range .Labels.SortedPairs }}{{ .Name }}={{ .Value }} {{ end }}
+          {{ end }}
+          Open Alertmanager: https://alertmanager.kmkdp.com

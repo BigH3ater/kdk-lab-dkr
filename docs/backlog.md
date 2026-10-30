@@ -31,6 +31,26 @@ one and store it (e.g. `op://kdk-ops/github-kdk-lab-dkr-rw`), then:
 
 ---
 
+## Migrate the DB servers to PostgreSQL 18
+
+**Status:** 🟡 ready (plan written) · **Filed:** 2026-10-30
+
+- [ ] Migrate `jellystat`, `tandoor` and `identity` PostgreSQL from 16 → 18,
+      one stack per attended window, following
+      [docs/runbooks/postgres-major-upgrade.md](runbooks/postgres-major-upgrade.md)
+      (order: jellystat → tandoor → identity; identity is SSO, announce the outage).
+- [ ] After all three are on 18 and verified, re-enable the `postgres` majors
+      Renovate rule for `stacks/{identity,jellystat,tandoor}/**` (`enabled: true`;
+      see the runbook's "Re-enable the Renovate rule").
+
+The migration is a logical dump/restore (not an in-place tag bump): a bare tag
+change crash-loops the server on a 16 data dir, and PG18 moved its default
+`PGDATA`, so each stack needs the data dir moved aside, a fresh init, a restore,
+and `PGDATA` pinned. Immich's PG14-vectorchord DB is **out of scope** (tracks
+Immich upstream). See [[komodo-gitops]] and [[backups]].
+
+---
+
 ## Recently completed
 
 - **AdGuard DNS from Traefik labels (2026-09-15).** DNS is now derived from each

@@ -58,6 +58,28 @@ groups:
   # cAdvisor cannot resolve container names under the containerd-snapshotter
   # storage driver on these hosts.
 
+  - name: containers
+    rules:
+      # A container was OOM-killed by the kernel cgroup limit. cAdvisor v0.60.6
+      # (reads /dev/kmsg) exports container_oom_events_total with the compose
+      # stack/service labels; the prometheus.yml metric_relabel renames them to
+      # stack/service and adds host. Motivated by media/tdarr-node, which got a
+      # mem_limit after a runaway encode OOM-killed it on kdk-dkr-01 (47 GB host,
+      # ~43 GB RSS) on 2026-10-28: with the limit the job dies, not the host, and
+      # this makes that kill visible instead of a silent node restart.
+      - alert: ContainerOOMKilled
+        expr: increase(container_oom_events_total{name!=""}[15m]) > 0
+        for: 0m
+        labels: {severity: warning, source: external-monitor}
+        annotations:
+          summary: "{{ $labels.service }} OOM-killed on {{ $labels.host }}"
+          description: >-
+            The kernel OOM killer fired for container {{ $labels.name }}
+            (stack {{ $labels.stack }}) on {{ $labels.host }}. A single job hit
+            the container mem_limit and was killed; the host stayed up. Check the
+            container's memory ceiling and the workload that ballooned (for
+            tdarr-node: a software-decoded 4K source or a DEE remux).
+
   - name: endpoints
     rules:
       - alert: EndpointDown
