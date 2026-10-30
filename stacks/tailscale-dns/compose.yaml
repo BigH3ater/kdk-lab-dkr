@@ -19,5 +19,14 @@ services:
     restart: always
     network_mode: host
     command: ["-conf", "/Corefile"]
+    # Recreate CoreDNS on a Corefile change. The Corefile is a single-file bind
+    # mount with no `reload` plugin, so CoreDNS reads it only at start and git
+    # swaps the file's inode on pull -- a normal `up -d` keeps the old forwarder
+    # config. TAILSCALE_DNS_COREFILE_SHA = sha256(Corefile) from the Komodo
+    # pre_deploy changes with content and forces the recreate. ATTENDED change:
+    # a recreate is a brief tailnet-DNS blip (clients re-resolve), so merge it
+    # with eyes on, like the other tailscale-* stacks.
+    labels:
+      kdk.config-sha: "${TAILSCALE_DNS_COREFILE_SHA:-unset}"
     volumes:
       - ./Corefile:/Corefile:ro

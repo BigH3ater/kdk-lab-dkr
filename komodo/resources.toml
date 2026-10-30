@@ -91,6 +91,11 @@ after = ["proxy"]
 server = "kdk-dkr-01"
 repo = "BigH3ater/kdk-lab-dkr"
 run_directory = "stacks/docs"
+# DOCS_NGINX_SHA feeds the nginx service's kdk.config-sha label so an nginx.conf
+# edit recreates nginx on deploy (single-file bind mount; otherwise it only self-
+# heals on the 6-hourly publish-docs destroy+deploy). docs has no secrets, so the
+# .env here holds only this hash; `>` is fine (nothing else to preserve).
+pre_deploy.command = "sh -c 'echo DOCS_NGINX_SHA=$(sha256sum nginx.conf | cut -c1-12) > .env'"
 webhook_enabled = true
 
 [[stack]]
@@ -369,7 +374,12 @@ run_directory = "stacks/dashboard"
 auto_pull = false  # mealplan image is built locally (no registry) -> skip compose pull
 run_build = true
 webhook_enabled = true
-pre_deploy.command = "sh -c '. /etc/komodo/op.env && op inject -f -i .env.tpl -o .env && op inject -f -i vikunja-config.yml.tpl -o vikunja-config.yml && chmod 644 vikunja-config.yml'"
+# The two config-SHA echoes run AFTER op inject -o .env (which truncates the file)
+# so they append, not get wiped. DASHBOARD_GUIDES_SHA / DASHBOARD_VIKUNJA_SHA feed
+# the kdk.config-sha labels on the guides (nginx) and vikunja services, so a
+# guides.nginx.conf or (rendered) vikunja-config.yml change recreates just that
+# container instead of silently keeping the stale single-file bind mount.
+pre_deploy.command = "sh -c '. /etc/komodo/op.env && op inject -f -i .env.tpl -o .env && op inject -f -i vikunja-config.yml.tpl -o vikunja-config.yml && chmod 644 vikunja-config.yml && echo DASHBOARD_GUIDES_SHA=$(sha256sum guides.nginx.conf | cut -c1-12) >> .env && echo DASHBOARD_VIKUNJA_SHA=$(sha256sum vikunja-config.yml | cut -c1-12) >> .env'"
 
 # ---- procedures ----
 [[procedure]]
@@ -1448,6 +1458,11 @@ after = ["tailscale-subnet-router"]
 server = "kdk-dkr-01"
 repo = "BigH3ater/kdk-lab-dkr"
 run_directory = "stacks/tailscale-dns"
+# TAILSCALE_DNS_COREFILE_SHA feeds the coredns kdk.config-sha label so a Corefile
+# edit recreates CoreDNS on deploy (single-file bind mount, no reload plugin). The
+# stack has no secrets, so `>` .env holds only this hash. ATTENDED: a recreate is
+# a brief tailnet-DNS blip -- merge with a person watching, like tailscale-*.
+pre_deploy.command = "sh -c 'echo TAILSCALE_DNS_COREFILE_SHA=$(sha256sum Corefile | cut -c1-12) > .env'"
 webhook_enabled = true
 
 # ---- adopted stacks (files already on the Pi hosts; adopt, don't redeploy) ----
