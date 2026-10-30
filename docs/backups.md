@@ -47,8 +47,9 @@ The `pack` archives drop (one exclude list, applied to every host):
 | `*/backup` | `rclone.conf` — the Proton creds themselves; never ship to Proton |
 | `*/stacks` | Komodo repo clones — already on GitHub |
 | `*/pgdump` | ships separately as its own single `.sql.gz` files |
-| `*cache*`, `*/metadata`, `*/transcodes`, `*/MediaCover` | re-fetchable artwork / cache |
-| `*/Definitions` | prowlarr indexer defs — refetched on start |
+| `*/cache`, `*/Cache`, `*/.cache`, `*/__pycache__` | dirs literally named cache (kept narrow so homebridge `cachedAccessories`, HA `unifiprotect_cache` and arr `cache.db` survive) |
+| `*/jellyfin/config/data/metadata`, `*/jellyfin/config/data/transcodes` | 6.5 GB of re-fetchable Jellyfin artwork (the real DB `config/data/data` is kept; ABS's own `metadata/` is kept) |
+| `*/MediaCover`, `*/Definitions` | radarr/sonarr poster cache; prowlarr indexer defs — refetched on start |
 | `*/logs`, `*.log`, `*/Tdarr/DB2/JobReports`, `*/node_modules`, `*/lost+found` | logs / scratch / regenerable |
 | `*/tandoor/staticfiles`, `*/audiobookshelf/podcasts`, `*/proton-bridge/*/updates` | regenerable |
 

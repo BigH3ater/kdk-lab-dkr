@@ -25,12 +25,20 @@ apk add --no-cache tar zstd >/dev/null 2>&1 || { echo "pack: apk add tar zstd fa
 mkdir -p "$OUT"
 
 # Dropped from every host archive, read by `tar -X` (patterns are matched by
-# tar itself, so NOT shell-globbed here). backup/ = rclone.conf (the Proton
-# creds themselves -- must never go offsite); stacks/ = Komodo clones (already
-# on GitHub); pgdump/ already ships as its own single files; the rest is cache,
-# logs, artwork and other regenerable churn (mirrors offsite.sh's old exclude
-# set). GNU tar wildcards cross '/', so */metadata drops that dir at any depth;
-# a pattern that matches nothing is ignored, so one list covers every host.
+# tar itself, so NOT shell-globbed here). GNU tar wildcards cross '/', so a
+# pattern like */cache drops a dir named `cache` at any depth; a pattern that
+# matches nothing is ignored, so one list covers every host. Patterns are kept
+# SPECIFIC on purpose: an earlier `*cache*` / `*/metadata` would have eaten real
+# state -- homebridge `cachedAccessories` + `IdentifierCache.json` (HomeKit
+# re-pair), HA `unifiprotect_cache`, arr `cache.db`, and Audiobookshelf's own
+# `metadata/` (which holds ABS backups + covers). So:
+#   backup/  = rclone.conf (the Proton creds themselves -- must never go offsite)
+#   stacks/  = Komodo repo clones (already on GitHub)
+#   pgdump/  = already ships as its own single .sql.gz files
+#   caches   = only dirs literally named cache/.cache/Cache/__pycache__
+#   jellyfin config/data/{metadata,transcodes} = re-fetchable artwork (6.5 G);
+#              the real Jellyfin DB (config/data/data) is kept
+#   the rest = logs, art, node_modules and other regenerable churn
 EXFILE=/tmp/pack-excludes
 cat > "$EXFILE" <<'EOF'
 */backup
@@ -38,11 +46,14 @@ cat > "$EXFILE" <<'EOF'
 */pgdump
 */lost+found
 */node_modules
-*cache*
+*/cache
+*/Cache
+*/.cache
+*/__pycache__
 */Definitions
 */MediaCover
-*/metadata
-*/transcodes
+*/jellyfin/config/data/metadata
+*/jellyfin/config/data/transcodes
 */logs
 *.log
 */Tdarr/DB2/JobReports
@@ -51,6 +62,9 @@ cat > "$EXFILE" <<'EOF'
 */proton-bridge/*/updates
 EOF
 
+# Only these explicit host dirs are packed (each via `tar -C /data <host>`), so
+# the archive never recurses /data/offsite (our own output) or /data/_archive
+# (rclone's backup-dir) -- both are siblings of the host dirs, not under one.
 for host in kdk-dkr-01 kdk-dkr-dmz-01 kdk-dkr-02 kdk-dkr-03 kdk-mon-01; do
   [ -d "/data/$host" ] || { echo "pack: $host missing, skip"; continue; }
   tmp="$OUT/.$host-$DATE.tar.zst.partial"
