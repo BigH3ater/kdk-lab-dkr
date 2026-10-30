@@ -18,6 +18,7 @@ Stack definitions live in `stacks/` in the repo; Komodo deploys them from git. O
 | [Jellyfin](jellyfin.md) | kdk-dkr-dmz-01 | https://jellyfin.kmkdp.com | jellyfin |
 | [Audiobookshelf](audiobookshelf.md) | kdk-dkr-dmz-01 | https://audiobookshelf.kmkdp.com | audiobookshelf |
 | [Immich](immich.md) | kdk-dkr-dmz-01 | https://immich.kmkdp.com | immich |
+| [Tandoor](tandoor.md) | kdk-dkr-dmz-01 | https://recipes.kmkdp.com | tandoor |
 | [Seerr](seerr.md) | kdk-dkr-dmz-01 | https://seerr.kmkdp.com | dmz-apps |
 | [Wizarr](wizarr.md) | kdk-dkr-dmz-01 | https://wizarr.kmkdp.com | wizarr |
 | [Backups](backups.md) | both VMs | — | backup-* |

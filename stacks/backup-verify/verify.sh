@@ -24,9 +24,9 @@ for h in kdk-dkr-01 kdk-dkr-dmz-01 kdk-dkr-02 kdk-dkr-03 kdk-mon-01; do
 done
 
 # 2. pg dumps for today: present, non-empty, gzip-valid.
-#    DMZ host: authelia + immich. dkr-01 host: jellystat.
+#    DMZ host: authelia + immich + tandoor. dkr-01 host: jellystat.
 today=$(date +%F)
-for db in authelia immich; do
+for db in authelia immich tandoor; do
   f="/dest/kdk-dkr-dmz-01/pgdump/$db-$today.sql.gz"
   if [ ! -s "$f" ]; then add_prob "pgdump $db missing/empty ($today)"
   elif ! gzip -t "$f" 2>/dev/null; then add_prob "pgdump $db corrupt (gzip -t failed)"; fi

@@ -33,18 +33,38 @@ services:
       - /mnt/backup/dkr/kdk-dkr-dmz-01/pgdump:/dest
     networks: [immich_internal]
 
+  # Tandoor's PostgreSQL. Its /opt/kdk-lab/tandoor/postgres cluster dir is torn/
+  # unsafe to rsync (same reason as authelia/immich), so it is excluded from the
+  # rsync below and captured here instead. Reaches the DB over the external
+  # tandoor_default network. Password reuses the tandoor stack's 1Password item
+  # (no new secret). Best-effort (exit 0); backup-verify checks the dump.
+  pgdump-tandoor:
+    image: postgres:18.6-alpine@sha256:10a5c69a83035ab5239f5620d708520e8b28f5aa1f2b20143e6024532edadfb5
+    restart: "no"
+    environment:
+      PGPASSWORD: "${TANDOOR_POSTGRES_PASSWORD}"
+    command: >
+      sh -c 'pg_dump -h tandoor-db -U tandoor tandoor
+      | gzip > /dest/tandoor-$$(date +%F).sql.gz
+      && ls -t /dest/tandoor-*.sql.gz | tail -n +15 | xargs -r rm; exit 0'
+    volumes:
+      - /mnt/backup/dkr/kdk-dkr-dmz-01/pgdump:/dest
+    networks: [tandoor_default]
+
   rsync:
     image: instrumentisto/rsync-ssh:alpine3.23-r3@sha256:6cbad37c2fbdca4ac7ad9d1c1bb8990af9efd4dc76321b349935876cbb1e9e4a
     restart: "no"
     depends_on:
       pgdump-authelia: { condition: service_completed_successfully }
       pgdump-immich: { condition: service_completed_successfully }
+      pgdump-tandoor: { condition: service_completed_successfully }
     entrypoint: /bin/sh
     command:
       - -c
       - |
         rsync -a --delete \
           --exclude 'immich/postgres' --exclude 'identity/postgres' \
+          --exclude 'tandoor/postgres' \
           --exclude 'dmz-proxy/letsencrypt' --exclude 'stacks/' \
           --exclude 'jellyfin/config/data/metadata' \
           --exclude 'jellyfin/config/cache' \
@@ -69,4 +89,6 @@ networks:
   identity_default:
     external: true
   immich_internal:
+    external: true
+  tandoor_default:
     external: true
