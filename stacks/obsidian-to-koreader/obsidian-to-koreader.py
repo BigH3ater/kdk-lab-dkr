@@ -57,6 +57,15 @@ ENGINE  = os.environ.get("PANDOC_ENGINE", "weasyprint")   # Phase 1 renderer dec
 PAGE_SIZE = os.environ.get("PDF_PAGE_SIZE", "180mm 240mm")
 # only these top-level sections (regex) in the scheduled default run; default = numbered domains
 SECTION_RE = re.compile(os.environ.get("SECTION_REGEX", r"^\d\d[-.]"))
+# top-level sections never sent, even though they match SECTION_REGEX (comma-separated);
+# 90.Meta holds templates and vault plumbing, not reading material.
+SECTION_EXCLUDE = {f.strip().strip("/") for f in
+                   os.environ.get("SECTION_EXCLUDE", "90.Meta").split(",") if f.strip()}
+
+def _sections():
+    """Top-level vault sections that are sent: match SECTION_REGEX, not in SECTION_EXCLUDE."""
+    return [d for d in sorted(VAULT.iterdir())
+            if d.is_dir() and SECTION_RE.match(d.name) and d.name not in SECTION_EXCLUDE]
 # Standing per-note sync: comma-separated vault-relative folders mirrored note-by-note
 # into the tablet tree on every scheduled run (hash-gated). Default = the work section.
 SYNC_FOLDERS = [f.strip().strip("/") for f in
@@ -335,7 +344,7 @@ def _jobs_for(req):
     rel_dir mirrors the vault tree; name is the real note/folder name (kept with spaces)."""
     scope=req.get("scope","note"); mode=req.get("mode","combined")
     if scope=="vault":
-        secs=[d for d in sorted(VAULT.iterdir()) if d.is_dir() and SECTION_RE.match(d.name)]
+        secs=_sections()
         if mode=="combined":
             return [("", "Vault", "".join(tree_markdown(s) for s in secs))]
         # per-note == per-section: one combined PDF inside each section folder
@@ -498,7 +507,7 @@ def reconcile_sections(state, failed):
     section that SYNC_FOLDERS already mirrors per-note (to avoid a duplicate dump)."""
     tracked=state.setdefault("sections",{})
     covered={sf for sf in SYNC_FOLDERS if "/" not in sf}   # whole top-level sections
-    sections=[d for d in sorted(VAULT.iterdir()) if d.is_dir() and SECTION_RE.match(d.name)]
+    sections=_sections()
     log(f"{len(sections)} section(s): {[s.name for s in sections]}; per-note: {sorted(covered)}")
     built=skipped=removed=0; seen=set()
     for sec in sections:

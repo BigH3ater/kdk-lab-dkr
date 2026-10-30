@@ -53,6 +53,7 @@ x-env: &env
   QUEUE_SUBDIR: _remarkable           # vault folder holding queue/ + done/ for the plugin
   MAX_PDF_MB: "40"                    # per-PDF size guard
   SYNC_FOLDERS: "20.Work"             # standing per-note sync (comma-separated vault folders)
+  SECTION_EXCLUDE: "90.Meta"          # top-level sections never sent (templates/plumbing)
   KROKI_URL: "http://kroki:8000"      # internal stacks/kroki service (Mermaid -> SVG)
   MERMAID_FORCE_TD: "1"               # rewrite wide (LR/RL) flowcharts to top-down for the tablet
   POLL_SECONDS: "20"                  # watcher queue poll interval

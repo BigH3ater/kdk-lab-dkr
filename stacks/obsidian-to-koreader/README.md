@@ -76,6 +76,9 @@ drains the queue if the watcher is down):
   `00.Inbox`, `10.Homelab`, …) → one **combined** PDF at `RM_DEST/<section>/<section>.pdf`
   (rebuilt by content hash, removed when the section is deleted, skipped over the size guard).
   A section that `SYNC_FOLDERS` already mirrors per-note is **not** also dumped combined.
+  Sections in `SECTION_EXCLUDE` (default `90.Meta`, templates and vault plumbing) are never
+  sent, by the schedule or by a whole-vault request; a PDF already on the tablet for one is
+  removed on the next scheduled run (its `.sdr` stays).
 
 So nothing regresses when the plugin is not in use, and the work section stays mirrored
 note-by-note without a tap.
@@ -108,6 +111,7 @@ Set in `compose.yaml` (shared `x-env` anchor); the two services differ only in `
 | `MERMAID_INIT` | neutral theme, `htmlLabels: false` | Mermaid init directive prepended to every diagram. WeasyPrint cannot draw HTML inside SVG `<foreignObject>` (Mermaid's default label method), so labels rendered blank until this was added (2026-10-30). Empty disables it. |
 | `POLL_SECONDS` | `20` | watcher queue poll interval |
 | `SLEEP_BACKOFF_MAX` | `300` | watcher: probe an asleep tablet at most this often (seconds) |
+| `SECTION_EXCLUDE` | `90.Meta` | top-level sections never sent, even when they match `SECTION_REGEX` |
 | `PDF_PAGE_SIZE`, `MAX_PDF_MB`, `SECTION_REGEX`, `RM_HOST_*`, `RM_USER` | — | as before (device page size, size guard, which sections, tablet addresses) |
 
 ## Transport
