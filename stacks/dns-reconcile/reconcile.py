@@ -111,6 +111,11 @@ EXTRA = {
     # The Pi rsyslog forwarders (`@@syslog.kmkdp.com:514`) follow this name.
     "kdk-log-01.kmkdp.com": "10.1.20.21",
     "syslog.kmkdp.com": "10.1.20.21",
+    # Second Dolby-encoder VM (kdk-dee-02) + the HAProxy that fronts both DEE
+    # slots. dee-lb answers on kdk-dkr-01 (10.1.20.20:8484); the Tdarr flow uses
+    # the raw LB IP, but the name is published for humans / curl smoke tests.
+    "kdk-dee-02.kmkdp.com": "10.1.1.131",
+    "dee-lb.kmkdp.com":     "10.1.20.20",
 }
 
 

@@ -44,7 +44,7 @@ docker exec media-tdarr-node-1 nvidia-smi -L                                # GT
 | SABnzbd returns 403 to arr | Host header not whitelisted | `grep host_whitelist /opt/kdk-lab/media/sabnzbd/sabnzbd.ini` includes `sabnzbd` |
 | Seerr can't reach Sonarr/Radarr API | DMZ→internal firewall closed | operator must open `192.168.191.20 → 10.1.20.20:443` |
 | Tdarr idle with jobs queued | staged jobs pinned to dead nodes / 0 workers | clear StagedJSONDB; set transcode workers to 1 |
-| Transcode drops Atmos to native E-AC3 | DEE wrapper 503 (single slot) | keep exactly 1 transcode worker on the node |
+| Transcode drops Atmos to native E-AC3 | both DEE slots busy or down (503 from `dee-lb`) | check both wrappers' /healthz + HAProxy stats on `127.0.0.1:8405` (kdk-dkr-01); the flow waits up to 1 h for a slot before the native E-AC3 fallback |
 | Transcode error "Subtitle codec 94213 is not supported" | MP4 source with tx3g subs, container step not conforming | both MKV steps in the flow have `forceConform=true`; re-queue |
 | AV1 file stays AV1 / 4K remux keeps foreign audio | flow bypass (bitrate gate / old DV hold) | `scripts/tdarr-flow-sync.sh diff` shows repo flow == live (see tdarr runbook) |
 | Hindi/Tamil/Telugu movie appears in Radarr (or gets downloaded) | IMDb Popular / Top 250 import lists carry Indian titles; Radarr cannot filter IMDb lists by language | `arr-list-guard` procedure (every 6 h) removes untagged, file-less ones with an exclusion; already-downloaded ones are reported, delete by hand. Want one? request it in Seerr (tagged) |
@@ -55,7 +55,7 @@ docker exec media-tdarr-node-1 nvidia-smi -L                                # GT
 |---|---|---|
 | Needs | [[traefik]] + [[identity]] | ingress and ForwardAuth |
 | Needs | `/mnt/media` (NFS, kdk-nas-01) | no library or staging access |
-| Needs | [[kdk-dee-01]] wrapper | Dolby Atmos audio conversion in Tdarr |
+| Needs | [[kdk-dee-01]] + kdk-dee-02 wrappers, fronted by `dee-lb` (HAProxy, `10.1.20.20:8484`) | Dolby Atmos audio conversion in Tdarr — two single-slot encode VMs, `leastconn`, `maxconn 1` each |
 | Needed by | [[jellyfin]], [[seerr]] | library content and request fulfilment |
 
 ## Observability
