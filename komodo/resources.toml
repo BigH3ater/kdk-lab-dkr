@@ -1511,7 +1511,12 @@ auto_pull = false  # images already local; Docker Hub rate-limits the Pi (regist
 # = the alertmanager user) and installed into the clone here before every up.
 # rmdir only removes an EMPTY placeholder directory, so a real file is never
 # clobbered by mistake; install fails loudly if a source file is missing.
-pre_deploy.command = "sh -c 'cp -f /opt/kdk-lab/monitoring/.env .env && for f in pushover-app-token pushover-user-key proton-bridge-smtp-password; do if [ -d alertmanager/$f ]; then rmdir alertmanager/$f; fi; install -m 0400 -o 65534 -g 65534 /opt/kdk-lab/monitoring/alertmanager/$f alertmanager/$f || exit 1; done'"
+# The trailing echoes append BLACKBOX_CONFIG_SHA to the host-copied .env (a blank
+# line first, since the host file's final newline is not guaranteed) so the
+# blackbox-exporter kdk.config-sha label recreates it on a blackbox.yml change --
+# prometheus/alertmanager already pick up edits via the whole-directory mount +
+# post_deploy /-/reload, but blackbox :9115 is expose-only and not reloaded.
+pre_deploy.command = "sh -c 'cp -f /opt/kdk-lab/monitoring/.env .env && for f in pushover-app-token pushover-user-key proton-bridge-smtp-password; do if [ -d alertmanager/$f ]; then rmdir alertmanager/$f; fi; install -m 0400 -o 65534 -g 65534 /opt/kdk-lab/monitoring/alertmanager/$f alertmanager/$f || exit 1; done && echo >> .env && echo BLACKBOX_CONFIG_SHA=$(sha256sum blackbox/blackbox.yml | cut -c1-12) >> .env'"
 # Apply prometheus.yml / rules and alertmanager.yml edits without a restart
 # (both bind-mount their config, so compose never recreates them for an edit).
 # Retries ride out the container (re)starting; a 500 here = invalid config, and
