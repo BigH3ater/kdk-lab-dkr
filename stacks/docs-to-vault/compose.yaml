@@ -1,7 +1,8 @@
 # Mirror the repo's docs/ (the docs.kmkdp.com source) into the Obsidian vault at
 # 10.Homelab/Reference, so the homelab documentation is readable/searchable in Obsidian
 # (and, via obsidian-to-koreader, on the tablet). Reuses Komodo's repo clone (../../docs
-# resolves inside it — like planner-service mounts ../../remarkable/pdf-templates), so no
+# resolves inside it — Komodo clones the whole repo into the stack's run dir, not just the
+# stack folder), so no
 # git auth is needed. rsync --delete keeps Reference a clean mirror; it only touches
 # 10.Homelab/Reference, never the user's own 10.Homelab notes. Writes propagate to all
 # devices via the obsidian-headless sync. One-shot, run by a procedure after publish-docs.

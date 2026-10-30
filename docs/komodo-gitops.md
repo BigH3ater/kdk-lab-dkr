@@ -231,7 +231,7 @@ Docker never deletes old images by itself. The `prune-images` Procedure
 kdk-mon-01, kdk-dkr-02, kdk-dkr-03, and kdk-log-01 (added to the stage after its `[[server]]` landed 2026-10-28, PR #67) — all six.
 
 - Removes every image that **no container references** — running or exited.
-- A one-shot's image (backup workers, `arr-*`, `planner-service`, …) **stays**:
+- A one-shot's image (backup workers, `arr-*`, `tdarr-*`, …) **stays**:
   its exited container still references it. A stack that is fully `down`
   loses its image and re-pulls (or rebuilds) it on the next deploy.
 - A Renovate bump leaves the **old tag on disk until Sunday**; a full root disk

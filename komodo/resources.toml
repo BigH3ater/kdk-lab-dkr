@@ -907,7 +907,7 @@ executions = [
 # (running OR exited) references. A one-shot's image survives because its exited
 # container still references it; never PruneSystem (that adds --volumes).
 # Sunday 05:10 -- off the gitops-sync :00/:15/:30/:45 slots and the :05/:07/:20
-# jobs, after the 05:05 planner-service run and the 04:25 arr-upgrade-search.
+# jobs, after the 04:25 arr-upgrade-search.
 # Stage executions run in parallel (one per server), kdk-log-01 included.
 [[procedure]]
 tags = ["kdk-lab"]
@@ -1058,50 +1058,18 @@ executions = [
   { execution.type = "DeployStack", execution.params.stack = "remarkable-ocr", enabled = true },
 ]
 
-# Daily planner: pull the Proton calendar (ICS share link) -> a Kodiak-brand
-# planner PDF pushed to the reMarkable + a Markdown agenda in the vault
-# (90-Meta/Planners/). Proton's client-side ICS plugin stores nothing on disk, so
-# the lab fetches the same ICS URL directly (op-injected). Tablet push is
-# opportunistic (only when the Paper Pro is awake); the vault note always writes.
-[[stack]]
-tags = ["kdk-lab"]
-name = "planner-service"
-deploy = false   # run daily by the planner-service Procedure
-[stack.config]
-server = "kdk-dkr-01"
-repo = "BigH3ater/kdk-lab-dkr"
-run_directory = "stacks/planner-service"
-auto_pull = false   # image is built locally (no registry) -> skip compose pull
-run_build = true    # run docker compose build before up
-destroy_before_deploy = true   # one locked down+up so the one-shot re-runs
-pre_deploy.command = "sh -c '. /etc/komodo/op.env && op inject -f -i .env.tpl -o .env'"
-
-[[procedure]]
-tags = ["kdk-lab"]
-name = "planner-service"
-[procedure.config]
-schedule_format = "Cron"
-# 05:05 daily -- early enough to be on the tablet at wake, off the gitops-sync
-# :00/:15/:30/:45 slots to avoid the "Resource is busy" lock race.
-schedule = "0 5 5 * * *"
-schedule_timezone = "America/Chicago"
-[[procedure.config.stage]]
-name = "run"
-enabled = true
-executions = [
-  { execution.type = "DeployStack", execution.params.stack = "planner-service", enabled = true },
-]
+# planner-service REMOVED 2026-10-30 (owner decision): the daily Proton-calendar
+# planner PDF + vault agenda (90-Meta/Planners/) is retired. The
+# stacks/planner-service/ tree, this Komodo stack + daily procedure, and the
+# kdk/planner-service advisory-watch catalog entry were deleted; host data under
+# /opt/kdk-lab/planner is archived by hand. The Proton ICS URL
+# (op://kdk-cluster/proton-calendar-ics/url) STAYS -- the Homepage dashboard
+# calendar widget still reads it.
 
 # book-sync REMOVED 2026-09-21 (user directive): ebook delivery to the reMarkable
 # is now Calibre OPDS *pull* only (calibre.kmkdp.com/opds → KOReader). The push
 # path into xochitl's native "Kodiak Library" is retired; container/image/host
 # data (/opt/kdk-lab/book-sync) and the stacks/book-sync/ tree were deleted.
-
-[[procedure.config.stage]]
-name = "sync"
-enabled = true
-executions = [
-]
 
 # KOReader highlights -> Obsidian: pull .sdr sidecars from the tablet, parse the Lua,
 # write one note per book into 30-Books/Highlights (the headless-synced vault).

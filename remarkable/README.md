@@ -62,8 +62,8 @@ file browser (including "set as sleep screen"), and backup/restore.
   installs the same way.
 - Lab jobs only move **content** over SSH: `readwise-koreader` and the
   `obsidian-to-koreader` channel deliver EPUB/PDF files into `/home/root/books/`,
-  `koreader-highlights` collects `.sdr` highlights, `remarkable-ocr` collects notebooks,
-  `planner-service` pushes the planner document. None of them changes software.
+  `koreader-highlights` collects `.sdr` highlights, and `remarkable-ocr` collects
+  notebooks. None of them changes software.
 
 ### Launching sideloaded apps (xovi + AppLoad)
 
