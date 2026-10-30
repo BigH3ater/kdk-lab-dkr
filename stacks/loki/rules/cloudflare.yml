@@ -1,0 +1,90 @@
+# Cloudflare edge watch (source: stacks/cloudflare-watch, kdk-log-01). watch.py
+# prints one JSON line per check; the host Alloy ships this container's stdout
+# to Loki, so every selector reads {container="cloudflare-watch"} | json
+# (hourly: tunnel, edge_cert, zone_settings, firewall_events) or
+# {container="cloudflare-watch-weekly"} | json (weekly: rule_drift). The two
+# one-shots need distinct container names on one host, hence two streams.
+#
+# Runs are hourly (:17) and weekly (Mon 07:10), so the fail windows are wide
+# enough to catch 2 hourly runs or 1 weekly run and resolve on the next clean
+# one. firewall_events is intentionally NOT alerted: the zone GraphQL analytics
+# path is forbidden for this token, so that line is a benign warn.
+#
+# Runbook: docs/runbooks/security-alerts.md#cloudflare-watch
+groups:
+  - name: cloudflare
+    interval: 1m
+    rules:
+      # Tunnel not healthy on 2 of the recent hourly runs (API status != healthy,
+      # or the probe fallback got no 2xx/3xx). Two runs = not a single blip.
+      - alert: CloudflareTunnelUnhealthy
+        expr: |
+          sum(count_over_time({container="cloudflare-watch"}
+            | json | check="tunnel" | status="fail" [2h30m])) >= 2
+        for: 0m
+        labels:
+          severity: warning
+          source: loki
+          scope: cloudflare-watch
+        annotations:
+          summary: "Cloudflare tunnel for kmkdp.com reported unhealthy on 2+ hourly checks"
+          runbook: docs/runbooks/security-alerts.md#cloudflare-watch
+
+      # Universal SSL edge certificate under 14 days (warn) or expired (fail).
+      - alert: CloudflareEdgeCertExpiring
+        expr: |
+          sum by (days_left, issuer) (count_over_time({container="cloudflare-watch"}
+            | json | check="edge_cert" | status=~"warn|fail" [2h])) > 0
+        for: 0m
+        labels:
+          severity: warning
+          source: loki
+          scope: cloudflare-watch
+        annotations:
+          summary: "Cloudflare edge cert for kmkdp.com expiring: {{ $labels.days_left }} days left ({{ $labels.issuer }})"
+          runbook: docs/runbooks/security-alerts.md#cloudflare-watch
+
+      # A zone setting drifted from the expected policy (min_tls_version,
+      # always_use_https, ssl, security_level, tls_1_3, HSTS, ...).
+      - alert: CloudflareZoneSettingDrift
+        expr: |
+          sum(count_over_time({container="cloudflare-watch"}
+            | json | check="zone_settings" | status="fail" [2h])) > 0
+        for: 0m
+        labels:
+          severity: warning
+          source: loki
+          scope: cloudflare-watch
+        annotations:
+          summary: "A Cloudflare zone setting for kmkdp.com drifted from policy (see the watch line's drift field)"
+          runbook: docs/runbooks/security-alerts.md#cloudflare-watch
+
+      # The weekly rule/DNS sha changed since the last run: custom-firewall or
+      # rate-limit rules, or the DNS record set, were edited.
+      - alert: CloudflareRuleDrift
+        expr: |
+          sum(count_over_time({container="cloudflare-watch-weekly"}
+            | json | check="rule_drift" | changed="true" [8d])) > 0
+        for: 0m
+        labels:
+          severity: warning
+          source: loki
+          scope: cloudflare-watch
+        annotations:
+          summary: "Cloudflare custom/rate-limit rules or DNS records for kmkdp.com changed since last week"
+          runbook: docs/runbooks/security-alerts.md#cloudflare-watch
+
+      # The hourly watch stopped reporting (procedure disabled, job failing
+      # before any line, or Loki/Alloy path down). Fires once after the first
+      # deploy until the first run: start the procedure once by hand after merge.
+      - alert: CloudflareWatchMissing
+        expr: |
+          absent_over_time({container="cloudflare-watch"}[3h])
+        for: 1h
+        labels:
+          severity: warning
+          source: loki
+          scope: cloudflare-watch
+        annotations:
+          summary: "No cloudflare-watch output in Loki for 3h (hourly check silent)"
+          runbook: docs/runbooks/security-alerts.md#cloudflare-watch

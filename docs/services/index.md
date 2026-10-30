@@ -18,15 +18,17 @@ Stack definitions live in `stacks/` in the repo; Komodo deploys them from git. O
 | [Jellyfin](jellyfin.md) | kdk-dkr-dmz-01 | https://jellyfin.kmkdp.com | jellyfin |
 | [Audiobookshelf](audiobookshelf.md) | kdk-dkr-dmz-01 | https://audiobookshelf.kmkdp.com | audiobookshelf |
 | [Immich](immich.md) | kdk-dkr-dmz-01 | https://immich.kmkdp.com | immich |
+| [Tandoor](tandoor.md) | kdk-dkr-dmz-01 | https://recipes.kmkdp.com | tandoor |
 | [Seerr](seerr.md) | kdk-dkr-dmz-01 | https://seerr.kmkdp.com | dmz-apps |
 | [Wizarr](wizarr.md) | kdk-dkr-dmz-01 | https://wizarr.kmkdp.com | wizarr |
 | [Backups](backups.md) | both VMs | — | backup-* |
 | [Observability](observability.md) | kdk-mon-01 + kdk-log-01 | https://grafana.kmkdp.com (fallback http://10.1.20.30:3000) | monitoring, loki, observability-agent |
 | [advisory-watch](advisory-watch.md) | kdk-log-01 | — (weekly, Grafana → Security) | advisory-watch |
+| [cloudflare-watch](cloudflare-watch.md) | kdk-log-01 | — (hourly + weekly, Grafana → Loki) | cloudflare-watch |
 | [trivy-scan](trivy-scan.md) | all compose hosts | — (weekly, Grafana → Security) | trivy-scan |
 | [NUT (UPS)](nut.md) | kdk-dkr-03 | 10.1.30.22:3493 (NUT; 10.1.3.62 on the UPS L2) | nut |
-| [Home Assistant](home-assistant.md) | kdk-dkr-02 | http://10.1.30.21:8123 | home-assistant (adopted) |
+| [Home Assistant](home-assistant.md) | kdk-dkr-02 | http://10.1.30.21:8123 | home-assistant |
 
-Adopted stacks (files on the host, managed in Komodo): [Home Assistant](home-assistant.md) on [kdk-dkr-02](../hosts/kdk-dkr-02.md), Scrypted on [kdk-dkr-03](../hosts/kdk-dkr-03.md), monitoring on [kdk-mon-01](../hosts/kdk-mon-01.md).
+Formerly adopted (files-on-host) stacks, now git-linked Komodo stacks deployed from the repo (`repo` + `run_directory` in `komodo/resources.toml`): [Home Assistant](home-assistant.md) on [kdk-dkr-02](../hosts/kdk-dkr-02.md), Scrypted on [kdk-dkr-03](../hosts/kdk-dkr-03.md), monitoring (`monitoring-ext`) on [kdk-mon-01](../hosts/kdk-mon-01.md). Only host-managed secrets and a little host-rendered config still live on those boards.
 
 Every doc follows the kdk-lab template: **At a glance · Verify · Troubleshooting · Dependencies · Observability · Architecture · Configuration · Secret Rotation · User Guide**.

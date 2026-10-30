@@ -1,0 +1,54 @@
+# cloudflare-watch: read-only Cloudflare edge watch for the kmkdp.com zone, on
+# kdk-log-01. Two one-shot Komodo stacks share this compose (deploy=false,
+# destroy_before_deploy, run by a procedure):
+#   cloudflare-watch         hourly  -> mode hourly, container "cloudflare-watch"
+#   cloudflare-watch-weekly  Mon     -> CFWATCH_MODE=weekly, CFWATCH_SUFFIX=-weekly,
+#                                       container "cloudflare-watch-weekly"
+# Two one-shots on one host cannot share a container_name (the first run's
+# exited container keeps the name), so the weekly stack sets CFWATCH_SUFFIX via
+# its Komodo `environment`; both names are relabelled 1:1 by Alloy to
+# {container=...}. watch.py (stdlib only) emits one JSON line per check to
+# stdout; the host Alloy ships it to Loki, and stacks/loki/rules/cloudflare.yml
+# pages via Alertmanager. No web UI, no inbound port.
+#
+# Token: op://kdk-cluster/cloudflare-monitor-ro/credential (Zone/DNS/Firewall/
+# SSL/Analytics Read, zone-scoped). kdk-log-01 has no op CLI/op.env, so .env is
+# only rendered where /etc/komodo/op.env exists; here CF_API_TOKEN is delivered
+# by hand to /etc/kdk/cloudflare-watch.env (root 600), same pattern as
+# /etc/kdk/pushover.env. State (weekly shas) lives in /opt/kdk-lab/cloudflare-watch.
+name: cloudflare-watch
+
+x-hardened: &hardened
+  security_opt: ["no-new-privileges:true"]
+  cap_drop: [ALL]
+  read_only: true
+  tmpfs: [/tmp]
+  restart: "no"            # one-shot; run periodically by the procedure
+  pids_limit: 64
+  mem_limit: 128m
+  logging:
+    driver: json-file
+    options: { max-size: "10m", max-file: "3" }
+
+services:
+  watch:
+    <<: *hardened
+    build: .
+    image: kdk/cloudflare-watch:latest
+    container_name: cloudflare-watch${CFWATCH_SUFFIX:-}
+    user: "1000:1000"
+    init: true
+    env_file:
+      - path: .env
+        required: false     # op inject renders this only where /etc/komodo/op.env exists
+      - path: /etc/kdk/cloudflare-watch.env
+        required: false     # kdk-log-01 (no op): CF_API_TOKEN=... delivered by hand, root 600
+    environment:
+      TZ: America/Chicago
+      CF_ZONE: "${CF_ZONE:-kmkdp.com}"
+      CFWATCH_MODE: "${CFWATCH_MODE:-}"   # empty = hourly; "weekly" on the weekly stack
+      STATE: /state/state.json
+    volumes:
+      - /opt/kdk-lab/cloudflare-watch:/state   # weekly rule/DNS shas (uid 1000)
+    labels:
+      kdk.baseline.skip: "healthcheck"   # one-shot

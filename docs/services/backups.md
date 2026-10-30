@@ -5,7 +5,7 @@ stack: backup-dkr-01, backup-dmz
 tier: infra
 status: live
 storage: yes
-secrets: [proton-mirror-crypt, authelia-postgres, immich-postgres, jellystat]
+secrets: [proton-mirror-crypt, authelia-postgres, immich-postgres, jellystat, authelia-app-secrets]
 updated: 2026-10-28
 tags: [homelab/stack, tier/infra, status/live]
 ---
@@ -21,7 +21,7 @@ Nightly app-state backups run as one-shot stacks that a Komodo Procedure redeplo
 | Field | Value |
 |---|---|
 | Purpose | pg dumps + `/opt/kdk-lab` rsync to the NAS, then selected sets offsite |
-| Status | 🟢 Local NAS live (nightly 03:00) · 🟡 offsite gated (Proton auth cooldown) |
+| Status | 🟢 Local NAS live (nightly 03:20) · 🟡 offsite gated (Proton auth cooldown) |
 | Hosts | [[kdk-dkr-01]] (`backup-dkr-01`), [[kdk-dkr-dmz-01]] (`backup-dmz`) |
 | Deploy | Komodo Procedure `nightly-backups` redeploys both stacks (`deploy = false` otherwise) |
 | Destinations | `/mnt/backup/dkr/<host>` (NFS tankz3) → Proton Drive (crypt) |
@@ -50,7 +50,7 @@ In Komodo, Procedure `nightly-backups` shows a recent successful run.
 | Direction | Thing | What breaks without it |
 |---|---|---|
 | Needs | `/mnt/backup` (NFS tankz3) | nowhere to write |
-| Needs | [[identity]] + [[immich]] Postgres | pg dumps |
+| Needs | [[identity]] + [[immich]] + Tandoor Postgres | pg dumps |
 | Needs | Proton Drive (offsite only) | offsite tier |
 
 ## Observability
@@ -59,7 +59,7 @@ No dashboard. Success is visible in the Komodo Procedure run history.
 
 ## Architecture
 
-Three layers: (1) ZFS snapshots — vmpool covers the DMZ VM zvol, tankz3 covers bulk + backup datasets; (2) VM-level — vzdump of VM 300 and VM 320 (kdk-log-01: Loki data lives on its disk, no app-level backup) to PBS, TrueNAS zvol replication of the DMZ VM; (3) app-level — the two backup stacks. `backup-dmz` runs `pg_dump` for Authelia and Immich (keeps 15) then rsyncs state; `backup-dkr-01` runs `pg_dump` for Jellystat (keeps 15, into `kdk-dkr-01/pgdump`) then rsyncs `/opt/kdk-lab` (excluding scratch + the live Postgres cluster dirs `komodo/postgres` and `jellystat/postgres`), then the gated `offsite` service syncs to Proton. `backup-verify` checks all three pg dumps are present + gzip-valid for the day.
+Three layers: (1) ZFS snapshots — vmpool covers the DMZ VM zvol, tankz3 covers bulk + backup datasets; (2) VM-level — vzdump of VM 300 and VM 320 (kdk-log-01: Loki data lives on its disk, no app-level backup) to PBS, TrueNAS zvol replication of the DMZ VM; (3) app-level — the two backup stacks. `backup-dmz` runs `pg_dump` for Authelia, Immich and Tandoor (keeps 15) then rsyncs state; `backup-dkr-01` runs `pg_dump` for Jellystat (keeps 15, into `kdk-dkr-01/pgdump`) then rsyncs `/opt/kdk-lab` (excluding scratch + the live Postgres cluster dirs `komodo/postgres` and `jellystat/postgres`), then the gated `offsite` service syncs to Proton. `backup-verify` checks all four pg dumps are present + gzip-valid for the day.
 
 DMZ data that lives on `/mnt/appdata` instead of `/opt/kdk-lab` (Seerr, Wizarr, Libreseerr, Jellyfin metadata, Audiobookshelf podcasts) is **not** in the nightly rsync or offsite: it is covered by tankz3 snapshots only. The Jellyfin metadata and podcasts are regenerable (re-scan / re-download from the feeds), so that is deliberate.
 
@@ -68,9 +68,9 @@ DMZ data that lives on `/mnt/appdata` instead of `/opt/kdk-lab` (Seerr, Wizarr, 
 | Path / setting | What it is |
 |---|---|
 | `stacks/backup-dkr-01/compose.yaml` | rsync + gated rclone offsite |
-| `stacks/backup-dmz/compose.yaml` | Authelia + Immich pg dumps + rsync of `/opt/kdk-lab` (excludes live Postgres dirs, certs, clones, Jellyfin metadata/cache/transcodes, `audiobookshelf/podcasts`) |
+| `stacks/backup-dmz/compose.yaml` | Authelia + Immich + Tandoor pg dumps + rsync of `/opt/kdk-lab` (excludes live Postgres dirs, certs, clones, Jellyfin metadata/cache/transcodes, `audiobookshelf/podcasts`) |
 | `/opt/kdk-lab/backup/rclone/rclone.conf` | `proton` + `proton-crypt` remotes |
-| Procedure `nightly-backups` | schedule `0 0 3 * * *` (03:00 daily) |
+| Procedure `nightly-backups` | schedule `0 20 3 * * *` (03:20 daily, `Cron` format) |
 
 Restore: rsync/untar back from `/mnt/backup`, `psql < dump`.
 
@@ -87,6 +87,7 @@ index are in that disk image; a restore loses at most the day since the last dum
 | `proton-mirror-crypt` (kdk-ops) | rclone crypt password | 🔴 purge-on-change | rotating it orphans every object — `rclone purge` the Proton target first |
 | `authelia-postgres`, `immich-postgres` | pg_dump auth | 🟢 self-service | rotate with the DB, then redeploy |
 | `jellystat` (postgres_password) | pg_dump auth for Jellystat | 🟢 self-service | rotate with the DB, then redeploy `jellystat` + `backup-dkr-01` |
+| `authelia-app-secrets` (`tandoor_postgres_password`) | pg_dump auth for Tandoor | 🟢 self-service | rotate with the DB, then redeploy `tandoor` + `backup-dmz` |
 
 ## Offsite status (2026-09-12)
 

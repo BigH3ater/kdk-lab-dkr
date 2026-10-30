@@ -66,12 +66,25 @@ services:
     command:
       - "run"
       - "--server.http.listen-addr=0.0.0.0:12345"
+      # Pin the storage path to the alloy-data volume below. Without this flag
+      # Alloy uses its cwd-relative default (data-alloy/), which lived in the
+      # container FS and was lost on every recreate, so positions reset and
+      # Alloy re-read every container log from the start (Loki then rejected the
+      # replay: "entry too far behind"). Matches the syslog Alloy in stacks/loki.
+      - "--storage.path=/var/lib/alloy/data"
       - "/etc/alloy/config.alloy"
     environment:
       LOKI_HOST: "${LOKI_HOST:-10.1.20.21}"   # Loki on kdk-log-01
       NODE_NAME: "${NODE_NAME:-unknown}"
     volumes:
       - ./alloy/config.alloy:/etc/alloy/config.alloy:ro
+      # Persistent positions (loki.source.docker writes positions.yml under the
+      # storage path). Survives `up -d --force-recreate`, so the agent resumes
+      # tailing where it left off instead of replaying old lines into Loki.
+      # Named volume (per host: observability-agent_alloy-data); no host dir to
+      # pre-create. alloy runs as root here (no cap_drop/read_only), so it can
+      # write the image's 473:473 /var/lib/alloy tree.
+      - alloy-data:/var/lib/alloy/data
     # Docker API via the read-only socket proxy (config.alloy: tcp://socket-proxy:2375);
     # default = egress to Loki.
     networks: [default, sockproxy]
@@ -158,6 +171,11 @@ networks:
   # No gateway, no egress: only the proxy and its two consumers are on it.
   sockproxy:
     internal: true
+
+volumes:
+  # Alloy positions/WAL state (loki.source.docker positions.yml). Persisted so a
+  # recreate does not replay every container's logs into Loki on kdk-log-01.
+  alloy-data: {}
 
 configs:
   event-watch:

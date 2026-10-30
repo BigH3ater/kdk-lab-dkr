@@ -17,8 +17,11 @@ alongside it. **Dashboards, themes, and packages are GitOps-owned** since
 2026-09-21: `stacks/home-assistant/config/{dashboards,themes,packages}` is
 copied into `/opt/kdk-lab/home-assistant/config/` by the stack's Komodo
 `pre_deploy`. So is Node-RED's `settings.js` (`stacks/home-assistant/node-red/`).
-The rest of the HA config (`configuration.yaml`, `.storage`, `secrets.yaml`,
-`custom_components`) and the Node-RED flow stay host-side under
+The Node-RED flow is in git too (`stacks/home-assistant/node-red/flows.json`, the
+repo being the source of truth); it is synced to the live Node-RED with
+`scripts/nodered-flow-sync.sh` (`import`/`export`/`diff`), not copied by
+`pre_deploy`. The rest of the HA config (`configuration.yaml`, `.storage`,
+`secrets.yaml`, `custom_components`) stays host-side under
 `/opt/kdk-lab/home-assistant/`.
 
 **2026-10-28 hardening:** Node-RED editor/admin API behind `adminAuth` with
@@ -124,7 +127,10 @@ curl -s --http1.1 -m 3 -N -H 'Connection: Upgrade' -H 'Upgrade: websocket' \
   LLDAP user to `ha-users`, set `automatic_user_linking: true` in the package,
   deploy + restart, have them log in once, set it back to `false`, deploy + restart.
 - Node-RED: `/opt/kdk-lab/home-assistant/node-red/` (Roborock automation +
-  Vikunja bridge; token in the "vik auth" function node). `settings.js` is
+  Vikunja bridge; token in the "vik auth" function node). The flow itself is
+  **repo-owned** (`stacks/home-assistant/node-red/flows.json`); push a change to the
+  live board with `scripts/nodered-flow-sync.sh import` (secrets stay in the
+  host-side `flows_cred.json`, never exported). `settings.js` is also
   **repo-owned** — pre_deploy copies it in; Node-RED reads it only at start, so
   a settings-only change needs a node-red restart. Secrets for it live in the
   host-managed `/opt/kdk-lab/home-assistant/node-red.env` (root 600); the Z2M

@@ -116,7 +116,7 @@ write_files:
       delete table inet kdk-storage
 
       table inet kdk-storage {
-          # Host -> storage net: NFS (media, backup, dee-exchange, loki mounts) and
+          # Host -> storage net: NFS (media, backup, dee-exchange mounts) and
           # ping to the NAS only. `stacks/storage-health` (host network) pings the NAS
           # and connects to 2049 every hour; both stay allowed.
           chain storage_out {
@@ -160,7 +160,7 @@ write_files:
       # Run it for 7 days, add an allow line for anything legitimate that shows up,
       # then set MODE=enforce and re-run kdk-docker-user.service.
       # Runbook: docs/runbooks/host-firewall.md.
-      MODE=log
+      MODE=enforce
 
       # Subnet router: forward everything in/out of tailscale0 (Docker's FORWARD
       # policy is DROP and tailscaled writes its own ACCEPTs into iptables-legacy,

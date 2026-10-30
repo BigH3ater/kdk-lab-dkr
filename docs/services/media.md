@@ -64,7 +64,7 @@ No dashboard. Host probes via [[kdk-mon-01]]; alerts → Pushover.
 
 ## Architecture
 
-Each app joins `default` + `proxy`; ports are `prowlarr 9696`, `sabnzbd 8080`, `sonarr 8989`, `radarr 7878`, `bazarr 6767`, `chaptarr 8789`, `tdarr 8265`. Tdarr also publishes node RPC `8266` for the external RGB-Nebula 4090 node. Sonarr/Radarr have a higher-priority `/api` router without ForwardAuth so the DMZ Seerr can use the API with a key. `tdarr-node` (`kdk-tdarr-nvenc-01`) uses the NVIDIA runtime and the GTX 1050 Ti; flow encodes to HEVC with NVENC and re-encodes any AV1 source (software decode). Tdarr 3.x (Rust engine).
+Each app joins `default` + `proxy`; ports are `prowlarr 9696`, `sabnzbd 8080`, `sonarr 8989`, `radarr 7878`, `bazarr 6767`, `chaptarr 8789`, `tdarr 8265`. Tdarr also publishes node RPC `8266` (on `10.1.20.20`) for the external RGB-Nebula 4090 Windows node, which is no longer registered (see the [Tdarr runbook](../runbooks/tdarr-troubleshooting.md)); transcoding runs on the local node. Sonarr/Radarr have a higher-priority `/api` router without ForwardAuth so the DMZ Seerr can use the API with a key. The local node `tdarr-node` (`kdk-tdarr-nvenc-01`) uses the NVIDIA runtime and the GTX 1050 Ti; flow encodes to HEVC with NVENC and re-encodes any AV1 source (software decode). Tdarr 3.x (Rust engine).
 
 ## Configuration
 

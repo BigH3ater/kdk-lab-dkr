@@ -240,10 +240,13 @@ services:
       AUTHELIA_IDENTITY_PROVIDERS_OIDC_HMAC_SECRET: "${OIDC_HMAC_SECRET}"
     # Config files are compose `configs`, not a bind-mounted directory: Authelia
     # reads its config only at start, and a directory updated by git pull left the
-    # running container on the OLD rules (2026-10-27, PR #56). CAUTION: non-swarm
-    # compose does NOT content-hash `configs: file:` either, so a config-only edit
-    # still needs `RestartStack identity services=[authelia]`; an image tag change
-    # recreates the container and picks the new files up.
+    # running container on the OLD rules (2026-10-27, PR #56). Non-swarm compose
+    # does NOT content-hash `configs: file:` (it bind-mounts the file read-only and
+    # the service config-hash captures only the file reference, not its CONTENT),
+    # so a config-only edit used to need a hand `RestartStack`. Now the identity
+    # pre_deploy hashes both files into AUTHELIA_CONFIG_SHA and the `kdk.config-sha`
+    # label below carries it, so a config-only merge recreates authelia on its own
+    # (loki's loki/alloy labels do the same). An image tag change still recreates too.
     configs:
       - source: authelia-config
         target: /config/configuration.yml
@@ -260,6 +263,11 @@ services:
       # Public: LAN entrypoint + the cloudflared-only `tunnel` entrypoint.
       traefik.http.routers.authelia.entrypoints: "websecure,tunnel"
       traefik.http.services.authelia.loadbalancer.server.port: "9091"
+      # Recreate authelia when a mounted config file changes (see the `configs`
+      # note above). AUTHELIA_CONFIG_SHA = sha256 over configuration.yml +
+      # configuration.webauthn.yml, set by the identity pre_deploy. This service
+      # ONLY -- lldap/postgres/redis must not recreate on an Authelia config edit.
+      kdk.config-sha: "${AUTHELIA_CONFIG_SHA:-unset}"
 
 networks:
   default: {}

@@ -4,10 +4,11 @@ The out-of-cluster monitoring stack: Prometheus, Grafana, Alertmanager (→ Push
 blackbox + idrac exporters, and the iDRAC fan controllers. It runs on **kdk-mon-01**
 (Pi 5) so alerting survives an outage of everything it watches.
 
-## Status: adopted (files-on-host), mirrored here
+## Status: git-linked Komodo stack (secrets still host-rendered)
 
-which Komodo deploys as the git-linked stack `monitoring-ext` (`komodo/resources.toml`:
-`repo` + `run_directory = stacks/monitoring`, `project_name = monitoring`). Two things
+Komodo deploys this as the git-linked stack `monitoring-ext` (`komodo/resources.toml`:
+`repo` + `run_directory = stacks/monitoring`, `project_name = monitoring`); it was
+adopted files-on-host originally. Two things
 are still rendered on the host rather than from 1Password, because kdk-mon-01 has no
 `op` CLI and no `/etc/komodo/op.env`:
 
