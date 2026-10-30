@@ -42,7 +42,8 @@ alerts come quietly (priority -1) at most once a day.
 |---|---|
 | `EdgeNonUSTraffic` | Which host/path? Cloudflare → Security → WAF: the geo rule's expression and any skip rule that matches the path. Security Events shows what the edge let through |
 | `EdgeAuthFailureBurst` | `sum by (ClientHost, RequestHost)` of the 401/403 lines; one IP = add it to a WAF block or rate-limit rule; many IPs on one host = credential stuffing, check that app's own lockout |
-| `EdgeJellyfinAdminPathHit` (critical) | The WAF rule that blocks Jellyfin admin paths failed. Check the path in the line, the WAF rule expression, and Jellyfin's activity log for what the request did. Remove `jellyfin.kmkdp.com` from the tunnel until fixed |
+| `EdgeJellyfinAdminPathHit` (critical) | An admin path answered **2xx** through the tunnel (a rejected 4xx/5xx scan does not fire this — see `EdgeJellyfinAdminPathProbe`). The WAF rule that blocks Jellyfin admin paths failed. Check the path in the line, the WAF rule expression, and Jellyfin's activity log for what the request did. Remove `jellyfin.kmkdp.com` from the tunnel until fixed |
+| `EdgeJellyfinAdminPathProbe` (info) | A non-lab client hit a Jellyfin admin path over the tunnel and was rejected (non-2xx) — the WAF/Jellyfin handled it. Visibility only; confirm the WAF still blocks these paths, no action if the scan was rejected. The lab's own `kdk-edge-probe` is excluded |
 | `EdgeSpoofedCfHeaders` | A LAN client sent `Cf-*` headers and `strip-cf` was not applied on `websecure` (dmz-proxy compose: `--entrypoints.websecure.http.middlewares=strip-cf@file`). Fix the flag; find the client by `ClientHost` |
 | `CloudflaredOutdated` (info) | Merge the Renovate PR for `cloudflare/cloudflared` in `stacks/dmz-proxy` |
 | `CloudflaredEdgeFlapping` | WAN: UniFi internet health; Cloudflare status page; `docker logs cloudflared` on dmz-01 |
@@ -85,7 +86,9 @@ alerts come quietly (priority -1) at most once a day.
 | `WizarrAdminRouterNon302` (critical) | The admin router answered a tunnel client without the SSO redirect: the ForwardAuth middleware is gone or the router gained `tunnel`. Check `stacks/wizarr/compose.yaml` labels; remove the public hostname until fixed |
 | `WizarrLdapExistingUserTouched` (critical) | An invite changed an existing lldap account (posture finding F1). In lldap, check that account's groups and reset its password; find the invite code in Wizarr and delete it |
 | `WizarrLdapUserCreated` (info) | Expected right after you sent an invite |
-| `WizarrAdminAuthFail` | Failed Wizarr admin logins behind Authelia: someone with a valid SSO session is guessing |
+| `WizarrAdminLogin` (info) | Expected admin login; the Authelia session already passed (Wizarr does no login of its own). Unexpected = check who reached the admin UI |
+| `WizarrInviteAccepted` (info) | An invite was accepted; expected right after you sent one. Unexpected = check Wizarr → Invitations for a code you did not issue |
+| `EdgeWizarrAdminPathHit` | An admin path was requested over the tunnel: confirm it was you; the admin router should force the SSO redirect, so a tunnel client reaching it is worth a look |
 | `WizarrAdminMutation` (info) | Expected only while you work in Wizarr |
 
 ## Request apps

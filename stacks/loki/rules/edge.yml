@@ -28,11 +28,17 @@ groups:
           summary: "Non-US request reached the origin through the tunnel ({{ $labels.request_Cf_Ipcountry }}): the Cloudflare geo rule or a skip rule has a gap"
           runbook: docs/runbooks/security-alerts.md#edge
 
+      # The lab's own synthetic probe (UA `kdk-edge-probe/1`, scripts/edge-probe.sh)
+      # POSTs /api/firstfactor through the tunnel and takes a 401 every run; its
+      # rate-limit burst was the only thing that tripped this in 7d. Excluding the
+      # probe UA keeps real credential-stuffing/scanner 401/403 bursts (any other
+      # UA) fully in scope.
       - alert: EdgeAuthFailureBurst
         expr: |
           sum(count_over_time({host="kdk-dkr-dmz-01", container="traefik"}
             |= "tunnel" | json | entryPointName="tunnel" | DownstreamStatus=~"40[13]"
-            | RequestPath!~"/api/authz/forward-auth.*" [5m])) > 60
+            | RequestPath!~"/api/authz/forward-auth.*"
+            | request_User_Agent!~"kdk-edge-probe.*" [5m])) > 60
         for: 5m
         labels:
           severity: warning
@@ -46,18 +52,45 @@ groups:
       # /System/Info, /System/Info/Public and /System/Ping are client paths the WAF
       # lets through on purpose (jellyfin-web calls /System/Endpoint on every load),
       # so they are not admin paths here either (false positive 2026-10-29).
+      # DownstreamStatus=~"2.." is required so this critical pages ONLY on a
+      # bypass that actually worked: an admin path that reached the origin AND
+      # answered 2xx. Every admin-path hit in 7d was the lab's own edge probe
+      # taking a 401/405 (WAF/Jellyfin rejecting it as designed) — a rejected scan
+      # must not page. Rejected hits from other clients are kept visible, quietly,
+      # by EdgeJellyfinAdminPathProbe (info) below.
       - alert: EdgeJellyfinAdminPathHit
         expr: |
           sum(count_over_time({host="kdk-dkr-dmz-01", container="traefik"}
             |= "tunnel" | json | entryPointName="tunnel" | RequestHost="jellyfin.kmkdp.com"
-            | RequestPath=~"(?i)^/(system/(configuration|logs|restart)|plugins|packages|repositories|scheduledtasks|devices|startup|environment|auth/keys|library/(virtualfolders|refresh)|users/[^/]+/(policy|password)).*" [5m])) > 0
+            | RequestPath=~"(?i)^/(system/(configuration|logs|restart)|plugins|packages|repositories|scheduledtasks|devices|startup|environment|auth/keys|library/(virtualfolders|refresh)|users/[^/]+/(policy|password)).*"
+            | DownstreamStatus=~"2.." [5m])) > 0
         for: 0m
         labels:
           severity: critical
           source: loki
           scope: edge
         annotations:
-          summary: "A Jellyfin admin path reached the origin through the tunnel: the Cloudflare WAF block rule was bypassed or is missing"
+          summary: "A Jellyfin admin path answered 2xx through the tunnel: the Cloudflare WAF block rule was bypassed or is missing"
+          runbook: docs/runbooks/security-alerts.md#edge
+
+      # Visibility-only companion to EdgeJellyfinAdminPathHit: a Jellyfin admin
+      # path reached the origin through the tunnel but was REJECTED (non-2xx), from
+      # a client other than the lab's own edge probe (the probe hits these paths on
+      # purpose to confirm the WAF blocks them). This is an external scan the WAF
+      # handled; info only, never a page.
+      - alert: EdgeJellyfinAdminPathProbe
+        expr: |
+          sum(count_over_time({host="kdk-dkr-dmz-01", container="traefik"}
+            |= "tunnel" | json | entryPointName="tunnel" | RequestHost="jellyfin.kmkdp.com"
+            | RequestPath=~"(?i)^/(system/(configuration|logs|restart)|plugins|packages|repositories|scheduledtasks|devices|startup|environment|auth/keys|library/(virtualfolders|refresh)|users/[^/]+/(policy|password)).*"
+            | DownstreamStatus!~"2.." | request_User_Agent!~"kdk-edge-probe.*" [5m])) > 0
+        for: 0m
+        labels:
+          severity: info
+          source: loki
+          scope: edge
+        annotations:
+          summary: "A Jellyfin admin path was probed (and rejected) through the tunnel by a non-lab client"
           runbook: docs/runbooks/security-alerts.md#edge
 
       # Canary for the strip-cf middleware on the LAN entrypoint (PR #68). Traefik
