@@ -260,10 +260,6 @@
       "local": true,
       "base": "python"
     },
-    "kdk/readwise-koreader": {
-      "local": true,
-      "base": "python"
-    },
     "kdk/remarkable-ocr": {
       "local": true,
       "base": "python"
