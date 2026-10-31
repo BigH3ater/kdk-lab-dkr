@@ -43,7 +43,7 @@ x-hardened: &hardened
   tmpfs: [/tmp]              # HOME=/tmp — calibre's config/cache + conversion scratch
   restart: unless-stopped
   pids_limit: 256
-  mem_limit: 512m
+  mem_limit: 1g               # 512m OOM-killed calibre-server 2026-10-30 19:00 during an import scan
   environment: &env
     TZ: America/Chicago
   logging:
