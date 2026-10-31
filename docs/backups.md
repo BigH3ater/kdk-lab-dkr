@@ -74,6 +74,12 @@ session is dead. This file is host-local (never in git); it was copied once from
 kdk-dkr-01 when the stage moved (migration B1). Reseeding by hand: see
 `stacks/backup-offsite/README.md`.
 
+The refresh token is single-use and every run rotates it, so the old copy left on
+kdk-dkr-01 has been dead since the first kdk-dkr-04 run (2026-10-31). To move the
+stage back, copy dkr-04's **current** file first:
+`ssh kdkadmin@10.1.20.22 'sudo cat /opt/kdk-lab/backup/rclone/rclone.conf' | ssh kdkadmin@10.1.20.20 'sudo install -m 600 -o root -g root /dev/stdin /opt/kdk-lab/backup/rclone/rclone.conf'`,
+then change the stage's server, and never let both hosts run the offsite stage.
+
 ## The nightly pipeline
 
 `nightly-backups` Procedure (03:20 America/Chicago — `:20` avoids the `gitops-sync` `:00/:15/:30/:45` slots), five sequential stages:
