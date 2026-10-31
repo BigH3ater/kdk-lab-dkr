@@ -10,7 +10,7 @@
   "keywords": ["obsidian", "remarkable"],
   "license": "MIT",
   "devDependencies": {
-    "@types/node": "20.14.9",
+    "@types/node": "20.19.43",
     "builtin-modules": "3.3.0",
     "esbuild": "0.25.12",
     "obsidian": "1.7.2",
