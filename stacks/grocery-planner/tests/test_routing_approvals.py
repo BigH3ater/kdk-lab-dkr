@@ -34,6 +34,13 @@ def test_beef_and_steak_are_amana(cfg):
     assert _route("salmon fillet", cfg) == "NewPi/weekly: Meat & Seafood"
 
 
+def test_fish_steaks_are_not_beef(cfg):
+    # Karen pass 2: "steak" (beef, Amana) must not swallow fish sold as steaks.
+    for name in ("tuna steak", "Tuna steaks", "ahi tuna steak", "salmon steak"):
+        assert _route(name, cfg) == "NewPi/weekly: Meat & Seafood", name
+    assert _route("ribeye steak", cfg) == "Amana/bulk: Freezer Beef"
+
+
 def test_unmatched_food_defaults_shelf_stable(cfg):
     assert _route("flux capacitor", cfg) == "Target/weekly: Other"
 

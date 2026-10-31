@@ -27,8 +27,8 @@ recipes:
       - {food: "honey", amount: 1, unit: jar}
       - {food: "extra-virgin olive oil", amount: 1, unit: bottle}
   - name: "Snacks to buy"
-    servings: 10
-    servings_text: "~1 week, 2 people"
+    servings: 21
+    servings_text: "~21 portions/week, 2 people (with Snack prep 14 = ~35)"
     keywords: [snack]
     ingredients:
       # shelf-stable -> Target

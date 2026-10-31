@@ -2,7 +2,8 @@
 # (case-insensitive) to a Tandoor supermarket-category, namespaced
 # "<store>/<cadence>: <aisle>" (see config.yaml stores + docs/runbooks).
 #
-# The seed assigns a food's supermarket_category from the FIRST matching rule.
+# The seed assigns a food's supermarket_category from the LONGEST matching rule
+# (most specific wins, e.g. "tuna steak" beats "steak"; file order doesn't matter).
 # A food matching nothing falls back to the freshness default
 # (stores.default_fresh / default_shelf_stable) with aisle "Other" and is logged
 # for the owner to place by hand (the assignment then sticks in Tandoor).
@@ -18,6 +19,11 @@ rules:
   - {match: chicken,            category: "NewPi/weekly: Meat & Seafood"}
   - {match: salmon,             category: "NewPi/weekly: Meat & Seafood"}
   - {match: tuna,               category: "NewPi/weekly: Meat & Seafood"}
+  # Fish sold as "steaks" must beat the beef `steak` rule below (longest match).
+  - {match: tuna steak,         category: "NewPi/weekly: Meat & Seafood"}
+  - {match: ahi tuna steak,     category: "NewPi/weekly: Meat & Seafood"}
+  - {match: salmon steak,       category: "NewPi/weekly: Meat & Seafood"}
+  - {match: swordfish steak,    category: "NewPi/weekly: Meat & Seafood"}
   # Beef (ground + steak) is Amana eighth-share FREEZER STOCK, on hand -- the
   # seed marks these food_onhand so the weekly list skips them (bought on the
   # share reorder, not the weekly New Pi run). Longest-match routing means
