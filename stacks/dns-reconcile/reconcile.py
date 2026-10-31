@@ -41,14 +41,15 @@ PROTECT = {"*.kmkdp.com"}
 #   homebridge  removed 2026-10-28 (zero accessories, UI setup never claimed)
 RETIRED = {"homebridge.kmkdp.com"}
 
-# Static rewrites NOT derived from Traefik labels: the reMarkable cloud domains
-# a device hits, redirected to rmfakecloud (kdk-dkr-01 internal Traefik) so the
-# tablet syncs to the self-hosted cloud instead of reMarkable's. Authoritative
-# host list from the ddvk/rmfakecloud device setup docs. These are non-.kmkdp.com
-# so the prune step (kmkdp-only) never touches them; listing them here keeps them
-# in git + recreated if AdGuard is rebuilt. See the readwise-to-remarkable stack.
+# The reMarkable cloud domains a device hits. Until 2026-10-31 these were redirected to
+# rmfakecloud (self-hosted cloud on kdk-dkr-01); rmfakecloud is retired (tablet content
+# now moves over SSH: obsidian-to-koreader, readwise-koreader, remarkable-ocr), so they
+# are blackholed to 0.0.0.0 instead. Dropping the rewrite would let the tablet reach
+# reMarkable's real cloud; the blackhole keeps it cloud-free. Host list from the
+# ddvk/rmfakecloud device setup docs. Non-.kmkdp.com, so the prune step never touches
+# them; listing them here keeps them in git + recreated if AdGuard is rebuilt.
 STATIC = {
-    host: "10.1.20.20"
+    host: "0.0.0.0"
     for host in (
         "my.remarkable.com",
         "ping.remarkable.com",
@@ -71,7 +72,7 @@ STATIC = {
 # Blackhole it (and Memfault's default endpoint) to 0.0.0.0 so the Paper Pro
 # cannot pull firmware updates on lab DNS -- updates would wipe the custom
 # /usr/share/remarkable/templates and are unwanted. Also stops Memfault telemetry.
-# Native document sync uses other (already-redirected) domains, so it is unaffected.
+# Native document sync domains are blackholed too (see STATIC above).
 BLOCK = {
     host: "0.0.0.0"
     for host in (
@@ -161,7 +162,7 @@ def desired_records():
             continue
         for host in re.findall(r"Host\(`([^`]+)`\)", open(cf).read()):
             want[host] = ip
-    want.update(STATIC)   # reMarkable cloud domains -> rmfakecloud (see STATIC)
+    want.update(STATIC)   # reMarkable cloud domains -> 0.0.0.0 blackhole (rmfakecloud retired)
     want.update(BLOCK)    # reMarkable OTA/telemetry -> 0.0.0.0 blackhole (see BLOCK)
     want.update(EXTRA)    # lab host A-records (see EXTRA)
     return want

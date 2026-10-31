@@ -37,7 +37,7 @@ Pick by how the stack reads the secret.
 | `.env.tpl` with `op://` refs (most stacks on kdk-dkr-01 and kdk-dkr-dmz-01) | Komodo `pre_deploy` runs `op inject` against 1Password Connect | **Deploy** the stack in Komodo (a rotation has no git change, so the 15-min loop does not redeploy it). The changed env recreates the container |
 | Host-managed env or secret file (Pis, kdk-mon-01, kdk-log-01: no op.env) | root 600 file on the host | `op read` over ssh stdin (below), then `RestartStack` |
 | File mounted with compose `configs:` or a single-file bind (Authelia secret files, Alertmanager token files) | read at container start | write the file (below), then `RestartStack <stack> services=[<svc>]`: compose does not hash file contents |
-| `pre_deploy` `op read` into the clone (readwise-to-remarkable, backup-collect) | rendered on every deploy | Deploy the stack |
+| `pre_deploy` `op read` into the clone (backup-collect) | rendered on every deploy | Deploy the stack |
 | A credential stored inside an app (Node-RED server node, Scrypted plugin) | the app's own UI | paste in the UI, then `op item edit` |
 
 Write a host file without the value touching the screen:

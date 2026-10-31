@@ -155,7 +155,7 @@ auto-reconciliation.
 | sso, seerr, jellyfin, immich, users, recipes, audiobookshelf, libreseerr .kmkdp.com | 192.168.191.20 | DMZ Traefik (kdk-dkr-dmz-01) |
 | homeassistant, zigbee, nodered, scrypted .kmkdp.com | 10.1.30.21 | Pi Traefik (kdk-dkr-02; proxies scrypted across to dkr-03). homebridge.kmkdp.com retired 2026-10-28 — dns-reconcile deletes it (`RETIRED`), so it falls through to the wildcard |
 | ollama, kdk-tdarr-gpu-01 .kmkdp.com | 10.1.30.218 | GPU workstation |
-| reMarkable cloud domains (my/ping/tectonic/…, appspot hosts) | 10.1.20.20 (2 blackholed → 0.0.0.0) | rmfakecloud intercept |
+| reMarkable cloud domains (my/ping/tectonic/…, appspot hosts) + OTA/telemetry | 0.0.0.0 (blackhole) | keep the tablet cloud-free (rmfakecloud retired 2026-10-31) |
 | host FQDNs (pve, pbs, truenas, kdk-*-NN) | per-host | infra |
 
 Public (Cloudflare tunnel → DMZ Traefik `tunnel` entrypoint): sso, jellyfin (wizarr invitee paths when published) —

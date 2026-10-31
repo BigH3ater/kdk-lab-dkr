@@ -28,9 +28,8 @@ live-validated or adopted.
   `http://10.1.20.21:3100`), labelled `{job="readwise-koreader", container="readwise-koreader",
   host=…}`. A push failure is logged and never fails the run. Pushover fires on a convert/deliver
   failure, same as the other one-shots (`/etc/kdk/pushover.env`).
-- **Why not rmfakecloud sync:** that lands in the *native* reader; KOReader needs files. The
-  `readwise-to-remarkable` leg [1] that pushed the same `remarkable` tag into the native reader
-  is retired for this reason; this stack supersedes it.
+- **Why files, not cloud sync:** the native reader can't feed KOReader, and rmfakecloud (the old
+  native-reader path) was retired 2026-10-31 along with `readwise-to-remarkable`.
 
 The return path needs no new code: `koreader-highlights` already pulls every `.sdr` under
 `/home/root/books` (which includes `Readwise/`) into the vault at `30.Books/Highlights`.

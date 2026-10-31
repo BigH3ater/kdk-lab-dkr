@@ -20,7 +20,7 @@ design. Revived 2026-10-30 (originally built 2026-09-18, retired 2026-10-29 for
 never being live-validated).
 
 **Related:** [[kdk-dkr-01]] · [[calibre]] · the `koreader-highlights`,
-`obsidian-to-koreader` and `readwise-to-remarkable` tablet jobs · `remarkable/README.md`
+`obsidian-to-koreader` tablet jobs · `remarkable/README.md`
 
 ## At a glance
 

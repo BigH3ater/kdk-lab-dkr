@@ -7,7 +7,6 @@ actual/actual: no-new-privileges,cap_drop,read_only,pids_limit,mem_limit,healthc
 apps/adguardhome-sync: no-new-privileges,cap_drop,read_only,pids_limit,mem_limit,logging,healthcheck
 apps/ntp: no-new-privileges,cap_drop,read_only,pids_limit,mem_limit,logging,healthcheck
 apps/proton-bridge: no-new-privileges,cap_drop,read_only,pids_limit,mem_limit,logging,healthcheck
-apps/rmfakecloud: no-new-privileges,cap_drop,read_only,pids_limit,mem_limit,logging,healthcheck
 apps/roborock: no-new-privileges,cap_drop,read_only,pids_limit,mem_limit,logging,healthcheck
 arr-list-guard/guard: no-new-privileges,cap_drop,read_only,pids_limit,mem_limit,logging,healthcheck,host-net
 arr-upgrade-search/search: no-new-privileges,cap_drop,read_only,pids_limit,mem_limit,logging,healthcheck,host-net
@@ -84,7 +83,6 @@ op-connect/connect-api: no-new-privileges,cap_drop,read_only,pids_limit,mem_limi
 op-connect/connect-sync: no-new-privileges,cap_drop,read_only,pids_limit,mem_limit,logging,healthcheck
 proxy/traefik: cap_drop,read_only,pids_limit,mem_limit,healthcheck
 readwise-koreader/readwise-koreader: no-new-privileges,cap_drop,read_only,pids_limit,mem_limit,logging,healthcheck
-readwise-to-remarkable/highlights: no-new-privileges,cap_drop,read_only,pids_limit,mem_limit,logging,healthcheck
 remarkable-ocr/remarkable-ocr: no-new-privileges,cap_drop,read_only,pids_limit,mem_limit,logging,healthcheck
 roborock-cert/lego: healthcheck
 scrypted-homebridge/scrypted: no-new-privileges,cap_drop,read_only,pids_limit,mem_limit,logging,healthcheck,host-net

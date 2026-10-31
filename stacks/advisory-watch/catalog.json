@@ -56,13 +56,6 @@
     "cyfershepard/jellystat": {
       "github": "CyferShepard/Jellystat"
     },
-    "ddvk/rmfakecloud": {
-      "github": "ddvk/rmfakecloud",
-      "osv": {
-        "ecosystem": "Go",
-        "package": "github.com/ddvk/rmfakecloud"
-      }
-    },
     "docker": {
       "github": "docker/cli",
       "note": "docker:28-cli sidecars (docker-event-watch, backups); floating major tag, verdict Unknown"
@@ -92,12 +85,6 @@
       "github": "Belphemur/obsidian-headless-sync-docker",
       "confirm": true,
       "note": "wraps the closed-source Obsidian headless sync; only the wrapper repo is watchable"
-    },
-    "ghcr.io/bigh3ater/kdk-lab-rm-highlights": {
-      "local": true,
-      "base": "python",
-      "confirm": true,
-      "note": "our own prebuilt image (digest-pinned); its base and packages are covered by trivy-scan"
     },
     "ghcr.io/ferretdb/ferretdb": {
       "github": "FerretDB/FerretDB",
