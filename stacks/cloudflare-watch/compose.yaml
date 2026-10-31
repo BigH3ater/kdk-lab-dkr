@@ -38,7 +38,7 @@ services:
     # Same pinned base as the other python one-shots (arr-list-guard, advisory-watch):
     # no local build. Komodo's deploy runs `compose pull` after `compose build`,
     # and a locally built kdk/* tag fails that pull (first run 2026-10-29 23:36).
-    image: python:3.12.16-alpine@sha256:44bf3bcc455e0c9ccd912b78f39019b2f7e9d2f4fb47c6d6973c7638a99aff14
+    image: python:3.12.16-alpine@sha256:e6dae589c1c05976188fd3bd019afd091445fc533ed2ea29001beddc7368a9c8
     container_name: cloudflare-watch${CFWATCH_SUFFIX:-}
     user: "1000:1000"
     entrypoint: ["python3", "-I", "/watch.py"]
