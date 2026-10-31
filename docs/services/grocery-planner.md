@@ -40,7 +40,13 @@ plan page lives in the dashboard mealplan sidecar at `home.kmkdp.com/meal/grocer
    (1 fish + 4 chicken breast + 1 ground beef + 1 steak), fish on Sunday,
    salmon/tuna and Greek/Asian beef alternating by ISO-week parity, a rotating
    veg side per dinner (no repeats), 2 lunch preps at 4 servings, and the
-   weekly-staples + snack feeder recipes. It writes the meal-plan entries
+   weekly-staples + snack feeder recipes. **Every other week (parity A, odd ISO
+   week) a slow-cooker roast replaces one chicken dinner** (3 chicken + 1 roast
+   that week), cooked **Wednesday** (`roast_night`, owner decision 2026-10-31),
+   with its own rotating veg side; the 3.5 lb roast's leftovers are planned as
+   **Thursday lunch** (no extra beef ordered). Roasts are Amana freezer stock, so
+   only the roast recipe's pantry bits (ranch/au jus packets, pepperoncini,
+   butter) reach the Target list. It writes the meal-plan entries
    (idempotent per week key `gp:<ISO week>`), materializes the shopping list
    (2 servings; lunches 4; on-hand foods dropped), splits it by the store prefix
    of each food's supermarket category, and creates **one** combined Vikunja
@@ -81,7 +87,7 @@ Bayesian score and a good/acceptable/rejected verdict come from `config.yaml`
 [recipe candidates](../reference/grocery-recipe-candidates.md). The owner-run
 seed runs a **preflight** that refuses to apply if any season is short of the
 generator minimums (1 salmon + 1 tuna + 4 chicken + Greek & Asian beef + 1 steak
-+ 7 sides + 2 lunches), then imports the chosen recipe for each slot through
++ 1 slow-cooker roast + 7 sides + 2 lunches), then imports the chosen recipe for each slot through
 Tandoor's URL import (`recipe-from-source`), tags it, adds it to the season book,
 and routes its foods. The fixed breakfast/snack feeders ("Weekly staples",
 "Snacks to buy", "Snack prep") are seeded directly (not URL imports), and the

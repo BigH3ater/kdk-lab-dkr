@@ -5,7 +5,7 @@ data read from each recipe page's schema.org JSON-LD on the dates shown.
 
 **Scoring:** Bayesian `score = (C*m + n*r)/(C+n)` with `m=4.0`, `C=50`. Verdict: **good** = rating ≥ 4.6 & count ≥ 40; **acceptable** = rating ≥ 4.3 & count ≥ 10; else rejected. The chosen default per slot is the top-scoring good/acceptable candidate (override with `selected: true`).
 
-**Totals:** 92 slots, 220 candidates — good 86, acceptable 78, rejected 56; 31 slots with no good candidate.
+**Totals:** 96 slots, 228 candidates — good 94, acceptable 78, rejected 56; 31 slots with no good candidate.
 
 
 ## Fall
@@ -64,6 +64,8 @@ data read from each recipe page's schema.org JSON-LD on the dates shown.
 | fall-lunch-3 ★ | Teriyaki Grilled Chicken and Veggie Rice | cookingclassy.com | 5 | 20 | 4.2857 | 45 | acceptable | published total 45 min over 30-min active cap (may include p |
 | fall-lunch-4  | Harvest Bowls | cookingclassy.com | 5 | 3 | 4.0566 | 60 | rejected | below acceptable (5 / 3 reviews) |
 | fall-lunch-4 ★ | Meal Prep Greek Chicken Rice Bowls | skinnytaste.com | 4.85 | 38 | 4.367 | 60 | acceptable | published total 60 min over 30-min active cap (may include p |
+| fall-roast ★ | Mississippi Pot Roast | Spend With Pennies | 4.98 | 284 | 4.8333 | 505 | good | owner-chosen recipe; reduce or swap to olive oil if wanted ( |
+| fall-roast  | Slow Cooker Pot Roast | RecipeTin Eats | 4.89 | 224 | 4.7276 | 515 | good | slow-cooker: 515 min total is mostly passive; active/prep ti |
 
 ## Spring
 
@@ -120,6 +122,8 @@ data read from each recipe page's schema.org JSON-LD on the dates shown.
 | spring-lunch-3 ★ | Teriyaki Grilled Chicken and Veggie Rice | cookingclassy.com | 5 | 20 | 4.2857 | 45 | acceptable | published total 45 min over 30-min active cap (may include p |
 | spring-lunch-4 ★ | Meal Prep Greek Chicken Rice Bowls | skinnytaste.com | 4.85 | 38 | 4.367 | 60 | acceptable | published total 60 min over 30-min active cap (may include p |
 | spring-lunch-4  | Greek Chicken Bowls | ifoodreal.com | 5 | 2 | 4.0385 | 30 | rejected | too many ingredients (13 > 10) |
+| spring-roast ★ | Mississippi Pot Roast | Spend With Pennies | 4.98 | 284 | 4.8333 | 505 | good | owner-chosen recipe; reduce or swap to olive oil if wanted ( |
+| spring-roast  | Slow Cooker Pot Roast | RecipeTin Eats | 4.89 | 224 | 4.7276 | 515 | good | slow-cooker: 515 min total is mostly passive; active/prep ti |
 
 ## Summer
 
@@ -184,6 +188,8 @@ data read from each recipe page's schema.org JSON-LD on the dates shown.
 | summer-lunch-4  | Grilled Greek Chicken Quinoa Bowls | Cooking Classy | 5 | 4 | 4.0741 | 45 | rejected | below acceptable (5 / 4 reviews) |
 | summer-lunch-4  | Grilled Mediterranean Chicken and Quinoa | Skinnytaste | 5 | 3 | 4.0566 | 35 | rejected | below acceptable (5 / 3 reviews) |
 | summer-lunch-4  | Chicken Quinoa Salad | Taste of Home | 4 | 1 | 4.0 | 25 | rejected | below acceptable (4 / 1 reviews) |
+| summer-roast ★ | Mississippi Pot Roast | Spend With Pennies | 4.98 | 284 | 4.8333 | 505 | good | owner-chosen recipe; reduce or swap to olive oil if wanted ( |
+| summer-roast  | Slow Cooker Pot Roast | RecipeTin Eats | 4.89 | 224 | 4.7276 | 515 | good | slow-cooker: 515 min total is mostly passive; active/prep ti |
 
 ## Winter
 
@@ -247,3 +253,5 @@ data read from each recipe page's schema.org JSON-LD on the dates shown.
 | winter-lunch-4 ★ | Chicken Taco Poblano Rice Bowls | Skinnytaste | 4.97 | 53 | 4.4991 | 25 | good | - |
 | winter-lunch-4  | Burrito Bowl | Well Plated | 4.81 | 36 | 4.3391 | 35 | rejected | contains beans/lentils; too many ingredients (13 > 10) |
 | winter-lunch-4  | Chicken Burrito | RecipeTin Eats | 4.96 | 93 | 4.6243 | 30 | rejected | contains beans/lentils |
+| winter-roast ★ | Mississippi Pot Roast | Spend With Pennies | 4.98 | 284 | 4.8333 | 505 | good | owner-chosen recipe; reduce or swap to olive oil if wanted ( |
+| winter-roast  | Slow Cooker Pot Roast | RecipeTin Eats | 4.89 | 224 | 4.7276 | 515 | good | slow-cooker: 515 min total is mostly passive; active/prep ti |

@@ -46,6 +46,7 @@ def test_real_candidates_build_a_week_both_parities(cfg, season):
     scored = _real(cfg)
     pool = pool_from_selected(scored[season], season)
     pool += _fixed_pool(start_id=10_000)
+    kind = {r["id"]: r["kind"] for r in pool}
     d1, d2 = _two_parity_sundays(season, cfg)
     assert G.parity_for_week(d1) != G.parity_for_week(d2)   # sanity: opposite parities
     for start in (d1, d2):
@@ -53,6 +54,15 @@ def test_real_candidates_build_a_week_both_parities(cfg, season):
         s = G.plan_summary(entries)
         assert s["dinners"] == 7 and s["sides"] == 7 and s["lunches"] == 2
         assert s["breakfast"] == 1 and s["snacks"] == 2      # fixed feeders placed
+        mains = [kind.get(e.recipe_id) for e in entries if e.role == "dinner-main"]
+        roast_week = cfg["roast"]["enabled"] and G.parity_for_week(start) == cfg["roast"]["parity"]
+        # roast week: 3 chicken + roast + fish + beef + steak = 7; else 4 chicken, no roast
+        assert mains.count("fish") == 1
+        assert mains.count("ground_beef") == 1
+        assert mains.count("steak") == 1
+        assert mains.count("roast") == (1 if roast_week else 0)
+        assert mains.count("chicken") == (3 if roast_week else 4)
+        assert s["leftovers"] == (1 if roast_week else 0)
 
 
 def test_every_season_meets_generator_minimums(cfg):

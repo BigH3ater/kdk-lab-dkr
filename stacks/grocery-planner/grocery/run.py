@@ -86,6 +86,8 @@ def build_pool(recipes, season):
             kind = "side"
         elif "lunch-prep" in names:
             kind = "lunch"
+        elif "roast" in names:
+            kind = "roast"
         elif "fish" in names:
             kind = "fish"
         elif "poultry" in names:
@@ -197,10 +199,12 @@ def run_weekly(cfg, poll=False):
         # entries itself, scaled to `servings`, linked back via list_recipe, and
         # already excludes on-hand/ignored foods. recipe + meal_type are nested
         # objects keyed by id (RecipeOverview / MealType).
+        # The Thursday roast-leftover lunch is planned WITHOUT addshopping, so no
+        # extra beef/pantry is ordered for it (the roast is already on hand).
         body = {"from_date": e.date.isoformat(), "to_date": e.date.isoformat(),
                 "recipe": {"id": e.recipe_id}, "servings": e.servings,
                 "meal_type": {"id": mt[cfg["tandoor"]["meal_types"][e.meal_type]]["id"]},
-                "note": e.note, "addshopping": True}
+                "note": e.note, "addshopping": e.role != "leftover"}
         created = t.post("/api/meal-plan/", body)
         mp_ids.append(created.get("id"))
 
