@@ -82,7 +82,7 @@ kdk-dkr-01 when the stage moved (migration B1). Reseeding by hand: see
 |---|---|---|---|
 | stage-dkr-01 | `backup-dkr-01` | dkr-01 | rsync `/opt/kdk-lab` → `tankz3/backup/dkr/kdk-dkr-01/` |
 | stage-dmz | `backup-dmz` | dmz-01 | `pg_dump` authelia + immich + tandoor, rsync app state |
-| stage-collect | `backup-collect` | dkr-01 | SSH-pull `/opt/kdk-lab` from dkr-02, dkr-03, mon-01 (not on the storage net) |
+| stage-collect | `backup-collect` | dkr-01 | SSH-pull `/opt/kdk-lab` from dkr-02, dkr-03, mon-01 (not on the storage net) and dkr-04 (pulled the same way since 2026-10-30; packed offsite and marker-checked by `backup-verify`) |
 | offsite | `backup-offsite` | **dkr-04** | `pack` one `tar.zst` per host, then `rclone sync` `offsite/` + `pve-templates/` + `*/pgdump/` → Proton (encrypted). Reads/writes the shared `/mnt/backup`, so it runs on the NAS VM (migration B1, 2026-10-30) where that storage is local |
 | verify | `backup-verify` | dkr-01 | validate everything, alert Pushover on failure |
 

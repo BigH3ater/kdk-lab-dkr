@@ -1,6 +1,6 @@
-# Nightly one-shot on kdk-dkr-01: collect app state from the three hosts that
-# are NOT on the storage NFS net (kdk-dkr-02/03, kdk-mon-01) by pulling their
-# /opt/kdk-lab over SSH into the shared backup tree. backup-offsite then ships
+# Nightly one-shot on kdk-dkr-01: collect app state from the hosts that do not
+# stage their own copy (kdk-dkr-02/03 and kdk-mon-01, which are not on the storage
+# NFS net, and kdk-dkr-04) by pulling their /opt/kdk-lab over SSH into the shared backup tree. backup-offsite then ships
 # the whole tree to Proton. The pull logic lives in collect.sh (mounted) so
 # Docker Compose interpolation never touches its shell $variables.
 #
