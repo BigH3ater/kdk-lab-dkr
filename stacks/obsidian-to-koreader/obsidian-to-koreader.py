@@ -268,7 +268,13 @@ def render_pdf(name, md_text, out_pdf):
         env={**os.environ, "TMPDIR": "/tmp"}
         r=subprocess.run(cmd, capture_output=True, timeout=1200, cwd=str(work), env=env)
         if r.returncode!=0 or not out_pdf.exists() or out_pdf.stat().st_size==0:
-            raise RuntimeError(f"pandoc failed: {r.stderr.decode(errors='replace')[-400:]}")
+            # WeasyPrint prints hundreds of harmless "WARNING: Ignored ..." CSS lines; drop them
+            # so the real cause (or its absence, e.g. an OOM kill) is what gets reported.
+            lines=[l for l in r.stderr.decode(errors='replace').splitlines()
+                   if l.strip() and not l.startswith("WARNING:") and "rule was ignored" not in l]
+            why="; ".join(lines)[-300:] or ("no error text: renderer killed, likely out of memory "
+                                            f"(container mem_limit; see kernel log)")
+            raise RuntimeError(f"pandoc failed (rc={r.returncode}): {why}")
     finally:
         shutil.rmtree(work, ignore_errors=True)
 

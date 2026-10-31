@@ -17,7 +17,7 @@ x-hardened: &hardened
   read_only: true                     # the only writable paths are the volumes below + tmpfs
   tmpfs: [/tmp]                        # HOME, XDG cache and pandoc TMPDIR all live here
   pids_limit: 256
-  mem_limit: 1g                        # WeasyPrint rendering a whole section can spike
+  mem_limit: 3g                        # WeasyPrint on a whole section: 10.Homelab hit the old 1g and was OOM-killed 2026-10-30
   logging:
     driver: json-file
     options: { max-size: "10m", max-file: "3" }
