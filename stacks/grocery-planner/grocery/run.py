@@ -180,7 +180,9 @@ def run_weekly(cfg, poll=False):
     recipes = [t.get(f"/api/recipe/{r['id']}/")
                for r in t.get_all("/api/recipe/", keyword=_kw_id(t, season))]
     pool = build_pool(recipes, season)
+    pool += _fixed_pool(t)                 # season-independent staples + snacks
     try:
+        _require_fixed(cfg, pool)          # loud fail if a fixed recipe isn't seeded
         entries = G.generate_week(pool, start, cfg)
     except G.PlanError as e:
         jlog(event="plan_error", week=wk, error=str(e))
@@ -190,23 +192,17 @@ def run_weekly(cfg, poll=False):
     mt = t.meal_types()
     mp_ids = []
     for e in entries:
+        # addshopping=true is the native "add to shopping list" flow (confirmed in
+        # the live /openapi/ MealPlan write schema): Tandoor creates the shopping
+        # entries itself, scaled to `servings`, linked back via list_recipe, and
+        # already excludes on-hand/ignored foods. recipe + meal_type are nested
+        # objects keyed by id (RecipeOverview / MealType).
         body = {"from_date": e.date.isoformat(), "to_date": e.date.isoformat(),
                 "recipe": {"id": e.recipe_id}, "servings": e.servings,
                 "meal_type": {"id": mt[cfg["tandoor"]["meal_types"][e.meal_type]]["id"]},
-                "note": e.note}
+                "note": e.note, "addshopping": True}
         created = t.post("/api/meal-plan/", body)
         mp_ids.append(created.get("id"))
-
-    # materialize the shopping list by aggregating the week's recipe ingredients
-    detail = {e.recipe_id: next((r for r in recipes if r["id"] == e.recipe_id), None)
-              for e in entries}
-    for row in aggregate_ingredients(entries, detail):
-        if row.get("food_onhand"):
-            continue
-        t.post("/api/shopping-list-entry/",
-               {"food": {"id": row["food_id"]},
-                "unit": ({"id": row["unit_id"]} if row["unit_id"] else None),
-                "amount": round(row["amount"], 2), "checked": False})
 
     lists, unrouted, skipped = S.build_store_lists(t.shopping_list_entries(), cfg, "weekly")
     jlog(event="planned", week=wk, season=season, meal_plan_entries=len(mp_ids),
@@ -222,6 +218,37 @@ def _kw_id(t, name):
     return (t.keywords().get(name) or {}).get("id")
 
 
+def _fixed_pool(t):
+    """Fetch the fixed breakfast/snack feeder recipes (season-independent) and
+    return them as pool items by name, so the generator can place them."""
+    out, seen = [], set()
+    for kw in ("breakfast", "snack"):
+        kid = _kw_id(t, kw)
+        if not kid:
+            continue
+        for r in t.get_all("/api/recipe/", keyword=kid):
+            if r["id"] in seen:
+                continue
+            seen.add(r["id"])
+            out.append({"id": r["id"], "name": r["name"],
+                        "kind": "staple" if kw == "breakfast" else "snack",
+                        "season": None, "variant": None, "working_time": None,
+                        "ingredient_count": None, "servings": r.get("servings", 7)})
+    return out
+
+
+def _require_fixed(cfg, pool):
+    """Raise loudly if any required fixed recipe (Weekly staples, Snacks to buy,
+    Snack prep) is missing -- they must be seeded, never skipped silently."""
+    names = {r.get("name") for r in pool}
+    needed = [cfg["breakfast"]["staples_recipe"],
+              cfg["snacks"]["buy_recipe"], cfg["snacks"]["prep_recipe"]]
+    missing = [n for n in needed if n not in names]
+    if missing:
+        raise G.PlanError("fixed recipes not seeded: " + ", ".join(missing)
+                          + " -- run `grocery.seed --apply`")
+
+
 def _poll_pass(cfg, t, start, end, wk):
     v = _vikunja(cfg)
     task = v.find_by_title(f"({wk})")
@@ -230,10 +257,27 @@ def _poll_pass(cfg, t, start, end, wk):
         return 0
     done, choice = v.outcome(task)
     jlog(event="poll", week=wk, task_id=task.get("id"), done=done, choice=choice)
-    # The grocery page reads the shopping-list entries live and ticks happen in
-    # the store, so Tandoor stays the source of truth; the poll pass records the
-    # decision (choice) for the Loki audit trail. Nothing is toggled here. A
-    # `skip` (closed task / missed deadline) leaves nothing marked bought.
+    if not done:
+        return 0
+    approved = S.approved_stores(choice)
+    # Act on the choice: for a single-store approval, hide the OTHER weekly
+    # store's entries by pushing delay_until past the plan week, so the grocery
+    # page shows only the approved store. `all` hides nothing; `skipped` (task
+    # closed / deadline passed with no APPROVALS-RESULT) leaves the list intact
+    # and nothing marked bought. Ticks still happen in the store; Tandoor stays
+    # the source of truth.
+    hidden = 0
+    if choice in ("newpi", "target"):
+        lists, _, _ = S.build_store_lists(t.shopping_list_entries(), cfg, "weekly")
+        hide_until = datetime.datetime.combine(
+            end + datetime.timedelta(days=1), datetime.time(0)).isoformat()
+        for store, sl in lists.items():
+            if store in approved:
+                continue
+            for eid in sl.entry_ids():
+                t.patch(f"/api/shopping-list-entry/{eid}/", {"delay_until": hide_until})
+                hidden += 1
+    jlog(event="poll_applied", week=wk, approved=sorted(approved), hidden=hidden)
     return 0
 
 

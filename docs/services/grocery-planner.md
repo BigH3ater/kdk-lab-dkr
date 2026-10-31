@@ -76,11 +76,17 @@ plan page lives in the dashboard mealplan sidecar at `home.kmkdp.com/meal/grocer
 We do **not** write recipes. `recipes/candidates/*.yaml` holds real published
 recipes per slot with the ratings read from each page's schema.org data. A
 Bayesian score and a good/acceptable/rejected verdict come from `config.yaml`
-(`grocery/scoring.py`); the review table is
+(`grocery/scoring.py`); thresholds are calibrated for the **reachable** corpus
+(Allrecipes is out of scope — it blocks bots with HTTP 402). The review table is
 [recipe candidates](../reference/grocery-recipe-candidates.md). The owner-run
-seed imports the chosen recipe for each slot through Tandoor's URL import
-(`recipe-from-source`), then tags it, adds it to the season book, and routes its
-foods. See the [runbook](../runbooks/grocery-planner.md).
+seed runs a **preflight** that refuses to apply if any season is short of the
+generator minimums (1 salmon + 1 tuna + 4 chicken + Greek & Asian beef + 1 steak
++ 7 sides + 2 lunches), then imports the chosen recipe for each slot through
+Tandoor's URL import (`recipe-from-source`), tags it, adds it to the season book,
+and routes its foods. The fixed breakfast/snack feeders ("Weekly staples",
+"Snacks to buy", "Snack prep") are seeded directly (not URL imports), and the
+weekly run fails loudly if any is missing. See the
+[runbook](../runbooks/grocery-planner.md).
 
 ## What it does not do
 

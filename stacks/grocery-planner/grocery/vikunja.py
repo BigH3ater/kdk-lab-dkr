@@ -51,15 +51,17 @@ class Vikunja:
     @staticmethod
     def outcome(task):
         """Return (done, choice) from a polled task. choice is the
-        APPROVALS-RESULT id (e.g. 'all'/'newpi'/'target') or 'skipped'/None."""
+        APPROVALS-RESULT id ('all'/'newpi'/'target') on an approval. A task that
+        is **done with no APPROVALS-RESULT is treated as skipped** — that is how
+        a skip is expressed, since the 3-button limit (all/newpi/target) leaves
+        no room for a Skip button, so the owner skips by closing the task in
+        Vikunja or letting the deadline pass. A skip approves nothing."""
         if not task or not task.get("done"):
             return False, None
-        labels = {l.get("title") for l in (task.get("labels") or [])}
         desc = task.get("description") or ""
-        choice = None
         marker = "APPROVALS-RESULT:"
         if marker in desc:
-            choice = desc.split(marker, 1)[1].strip().split("<")[0].strip().split()[0]
-        if choice is None and "skipped" in labels:
-            choice = "skipped"
-        return True, choice
+            tail = desc.split(marker, 1)[1].strip().split("<")[0].strip().split()
+            if tail:
+                return True, tail[0]
+        return True, "skipped"

@@ -1,0 +1,58 @@
+# Fixed, hand-written Tandoor recipes seeded directly (NOT URL imports): the
+# weekly breakfast staples and the two snack recipes (§5c(4b)). The seed creates
+# each as a recipe with one step holding these ingredients; the weekly generator
+# plans them every week so their foods land on the shopping list, routed by
+# recipes/foods.yaml. The weekly run FAILS LOUDLY if any is missing.
+#
+# Owner correction (2026-10-31): the "Household essentials (Target)" recipe is
+# DROPPED — household + cleaning supplies come from Amazon, not this list.
+# Protein powder lives in "Weekly staples" and routes to Target (pantry).
+# `amount`/`unit` are nominal; Tandoor scales by servings and merges same
+# food+unit lines across the week.
+recipes:
+  - name: "Weekly staples"
+    servings: 7
+    servings_text: "1 week, 2 people"
+    keywords: [breakfast, mediterranean]
+    ingredients:
+      - {food: "Chobani zero-sugar yogurt drink, mixed berry", amount: 7, unit: bottle}
+      - {food: "eggs", amount: 18, unit: ""}
+      - {food: "baby spinach", amount: 1, unit: bag}
+      - {food: "bell pepper", amount: 2, unit: ""}
+      - {food: "onion", amount: 1, unit: ""}
+      - {food: "mushrooms", amount: 8, unit: oz}
+      - {food: "tomato", amount: 2, unit: ""}
+      - {food: "feta", amount: 1, unit: block}
+      - {food: "protein powder", amount: 1, unit: container}
+      - {food: "honey", amount: 1, unit: jar}
+      - {food: "extra-virgin olive oil", amount: 1, unit: bottle}
+  - name: "Snacks to buy"
+    servings: 10
+    servings_text: "~1 week, 2 people"
+    keywords: [snack]
+    ingredients:
+      # shelf-stable -> Target
+      - {food: "almonds", amount: 1, unit: bag}
+      - {food: "plain popcorn", amount: 1, unit: box}
+      - {food: "dark chocolate", amount: 1, unit: bar}
+      - {food: "low-sugar beef jerky", amount: 1, unit: bag}
+      - {food: "protein bars", amount: 1, unit: box}
+      # fresh -> New Pi
+      - {food: "apples", amount: 6, unit: ""}
+      - {food: "clementines", amount: 1, unit: bag}
+      - {food: "baby carrots", amount: 1, unit: bag}
+      - {food: "snap peas", amount: 1, unit: bag}
+      - {food: "Greek yogurt cups", amount: 4, unit: ""}
+      - {food: "cheese sticks", amount: 1, unit: pack}
+  - name: "Snack prep"
+    servings: 14
+    servings_text: "Mon-Thu, 2 people"
+    keywords: [snack]
+    ingredients:
+      - {food: "eggs", amount: 6, unit: ""}
+      - {food: "cucumber", amount: 2, unit: ""}
+      - {food: "tzatziki", amount: 1, unit: tub}
+      - {food: "apples", amount: 2, unit: ""}
+      - {food: "nut butter", amount: 1, unit: jar}
+      - {food: "rolled oats", amount: 1, unit: cup}
+      - {food: "almonds", amount: 1, unit: cup}

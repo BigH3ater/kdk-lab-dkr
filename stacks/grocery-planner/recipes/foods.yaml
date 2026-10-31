@@ -18,9 +18,15 @@ rules:
   - {match: chicken,            category: "NewPi/weekly: Meat & Seafood"}
   - {match: salmon,             category: "NewPi/weekly: Meat & Seafood"}
   - {match: tuna,               category: "NewPi/weekly: Meat & Seafood"}
-  - {match: sirloin,            category: "NewPi/weekly: Meat & Seafood"}
-  - {match: flank,              category: "NewPi/weekly: Meat & Seafood"}
-  - {match: steak,              category: "NewPi/weekly: Meat & Seafood"}
+  # Beef (ground + steak) is Amana eighth-share FREEZER STOCK, on hand -- the
+  # seed marks these food_onhand so the weekly list skips them (bought on the
+  # share reorder, not the weekly New Pi run). Longest-match routing means
+  # "ground beef" and "beef" both land here, not Target.
+  - {match: ground beef,        category: "Amana/bulk: Freezer Beef"}
+  - {match: beef,               category: "Amana/bulk: Freezer Beef"}
+  - {match: sirloin,            category: "Amana/bulk: Freezer Beef"}
+  - {match: flank,              category: "Amana/bulk: Freezer Beef"}
+  - {match: steak,              category: "Amana/bulk: Freezer Beef"}
   # produce
   - {match: asparagus,  category: "NewPi/weekly: Produce"}
   - {match: spinach,    category: "NewPi/weekly: Produce"}
@@ -95,6 +101,7 @@ rules:
   - {match: orzo pasta, category: "Target/weekly: Pantry & Grains"}
   - {match: noodle,     category: "Target/weekly: Pantry & Grains"}
   - {match: quinoa,     category: "Target/weekly: Pantry & Grains"}
+  - {match: oat,        category: "Target/weekly: Pantry & Grains"}
   - {match: bread crumb,category: "Target/weekly: Pantry & Grains"}
   - {match: panko,      category: "Target/weekly: Pantry & Grains"}
   - {match: flour,      category: "Target/weekly: Pantry & Grains"}
@@ -133,8 +140,10 @@ rules:
   - {match: dark chocolate, category: "Target/weekly: Snacks"}
   - {match: jerky,      category: "Target/weekly: Snacks"}
   - {match: protein bar,category: "Target/weekly: Snacks"}
-  - {match: protein powder, category: "Target/weekly: Household"}
-  - {match: paper towel,category: "Target/weekly: Household"}
+  # Protein powder is a Target pantry staple (owner correction 2026-10-31: the
+  # "Household essentials (Target)" recipe is dropped; household + cleaning
+  # supplies come from Amazon and are NOT on the Tandoor list).
+  - {match: protein powder, category: "Target/weekly: Pantry & Grains"}
 
   # ---- Costco: bulk run ----
   - {match: frozen salmon, category: "Costco/bulk: Freezer"}

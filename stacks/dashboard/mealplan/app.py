@@ -603,25 +603,32 @@ def _fetch_shopping():
     return out
 
 
+def _delayed(e) -> bool:
+    """True if the entry is delayed into the future (the weekly poll pass sets
+    delay_until on the non-approved store's entries to hide them)."""
+    d = _parse_date((e.get("delay_until") or "")[:10])
+    return bool(d and d > datetime.datetime.now(TZ).date())
+
+
 def _split_groceries(entries):
-    """(stores, manual): stores = {store: {aisle: [entry]}}; manual = ad-hoc
-    entries with no linked recipe."""
+    """(stores, manual): stores = {store: {aisle: [entry]}} bucketed by the
+    supermarket-category store prefix (regardless of whether the entry is tied to
+    a recipe); manual = entries with no routable store — i.e. the add-box's
+    ad-hoc items. Skips checked, on-hand, and poll-delayed entries."""
     stores, manual = {}, []
     for e in entries:
-        if e.get("checked"):
+        if e.get("checked") or _delayed(e):
             continue
         food = e.get("food") or {}
         if food.get("food_onhand"):
             continue
-        linked = e.get("list_recipe") or e.get("list_recipe_data")
         cat = food.get("supermarket_category")
         cat_name = cat.get("name") if isinstance(cat, dict) else (cat or "")
         store, aisle = _parse_cat(cat_name)
-        if not linked:
-            manual.append(e)
-            continue
         if store in ("NewPi", "Target"):
             stores.setdefault(store, {}).setdefault(aisle, []).append(e)
+        else:
+            manual.append(e)      # ad-hoc / unrouted (what the add-box creates)
     for store, aisles in stores.items():
         order = _AISLE_ORDER.get(store, [])
         stores[store] = {a: aisles[a] for a in sorted(

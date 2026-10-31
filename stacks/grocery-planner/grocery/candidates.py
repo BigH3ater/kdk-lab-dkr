@@ -88,6 +88,67 @@ def score_all(candidate_files: dict, config: dict) -> dict:
     return out
 
 
+def _variant(slot_id, kind):
+    if kind == "fish":
+        return "salmon" if slot_id.endswith("-a") else "tuna"
+    if kind == "ground_beef":
+        return "greek" if slot_id.endswith("-a") else "asian"
+    return None
+
+
+def pool_from_selected(scored_slots, season, start_id=1):
+    """Build a generator pool from the CHOSEN candidate per slot for a season.
+    working_time is None (unknown until import -> the generator's active-time cap
+    does not apply pre-import; it applies to Tandoor's real field at plan time).
+    ingredient_count is None because the scorer already enforced the ingredient
+    cap on every chosen candidate."""
+    pool = []
+    i = start_id
+    for slot in scored_slots:
+        if not slot["chosen"]:
+            continue
+        pool.append({"id": i, "name": f"{slot['slot']}:{slot['chosen']['title'][:40]}",
+                     "kind": slot["kind"], "season": season,
+                     "variant": _variant(slot["slot"], slot["kind"]),
+                     "working_time": None, "ingredient_count": None, "servings": 2})
+        i += 1
+    return pool
+
+
+# Minimum distinct recipes the generator needs per season to build any week at
+# either parity (fish is 1/week but both variants are used across the A/B weeks).
+SEASON_MINIMUMS = {"salmon": 1, "tuna": 1, "chicken": 4, "greek": 1, "asian": 1,
+                   "steak": 1, "side": 7, "lunch": 2}
+
+
+def season_coverage(scored_slots):
+    """Count selectable recipes per requirement for one season."""
+    got = {k: 0 for k in SEASON_MINIMUMS}
+    for slot in scored_slots:
+        if not slot["chosen"]:
+            continue
+        sid, k = slot["slot"], slot["kind"]
+        if k == "fish":
+            got["salmon" if sid.endswith("-a") else "tuna"] += 1
+        elif k == "ground_beef":
+            got["greek" if sid.endswith("-a") else "asian"] += 1
+        elif k in got:
+            got[k] += 1
+    return got
+
+
+def coverage_shortfalls(scored_by_season):
+    """{season: ["chicken 2/4", ...]} for seasons that can't build a week."""
+    out = {}
+    for season, slots in scored_by_season.items():
+        got = season_coverage(slots)
+        short = [f"{k} {got[k]}/{SEASON_MINIMUMS[k]}"
+                 for k in SEASON_MINIMUMS if got[k] < SEASON_MINIMUMS[k]]
+        if short:
+            out[season] = short
+    return out
+
+
 def summarize(scored_by_season: dict) -> dict:
     """Counts for the report: per season + overall good/acceptable/rejected and
     slots with no good candidate."""

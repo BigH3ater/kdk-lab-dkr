@@ -1,104 +1,1541 @@
-# Winter recipe candidates. See spring.yaml header for the provenance/format
-# note. Ratings read 2026-10-31 (Taste of Home JSON-LD + Food Network with no
-# exposed rating). Scoring/verdict computed from config.yaml.
+# Winter recipe candidates (real published recipes; ratings read from each
+# page's schema.org data on checked_on). We do NOT store recipe text -- only the
+# URL + public rating, so the seed imports via Tandoor recipe-from-source.
+# Scoring/verdict are COMPUTED from config.yaml by grocery/candidates.py.
+#
+# Provenance (2026-10-31, revision 2): refreshed from the reachable corpus
+# (Allrecipes is out of scope -- HTTP 402 bot block). Sources: Taste of Home +
+# RecipeTin Eats, Skinnytaste, Well Plated, Cooking Classy, Downshiftology,
+# Love & Lemons, Natasha's Kitchen, iFoodReal, Jessica Gavin, Wholesome Yum,
+# The Clean Eating Couple, foodiecrush, The Lemon Bowl. Set `selected: true` to
+# override the default (top-scoring good/acceptable) pick for a slot.
 slots:
 - slot: winter-fish-a
-  slot_label: baked salmon with herb crust
+  slot_label: baked SALMON with herb crust or roasted vegetables
   candidates:
-  - {site: Taste of Home, url: "https://www.tasteofhome.com/recipes/crumb-topped-salmon/", title: "Herb-Crusted Salmon", rating: 4.4, count: 5, total_time_min: 30, yield: "4 servings", ingredients: ["1-1/2 cups soft bread crumbs", "2 tablespoons parsley", "1 tablespoon thyme", "2 garlic cloves", "1 teaspoon lemon zest", "1/2 teaspoon salt", "1/4 teaspoon lemon-pepper", "1/4 teaspoon paprika", "1 tablespoon butter", "4 salmon fillets (6 ounces each)"], uses_chicken_breast: null, has_beans_lentils: false, non_olive_fats: ["butter"], checked_on: "2026-10-31", notes: "Breadcrumb herb crust, baked."}
-  - {site: Taste of Home, url: "https://www.tasteofhome.com/recipes/herb-roasted-salmon-fillets/", title: "Herb Salmon", rating: 4.2, count: 5, total_time_min: 30, yield: "4 servings", ingredients: ["4 salmon fillets (6 ounces each)", "4 garlic cloves", "1 tablespoon rosemary", "1 tablespoon olive oil", "2 teaspoons thyme", "3/4 teaspoon salt", "1/2 teaspoon pepper"], uses_chicken_breast: null, has_beans_lentils: false, non_olive_fats: [], checked_on: "2026-10-31", notes: "Herb-oil rub, roasted."}
+  - site: Skinnytaste
+    url: https://www.skinnytaste.com/parmesan-herb-baked-salmon/
+    title: Parmesan-Herb Baked Salmon
+    rating: 4.87
+    count: 45
+    total_time_min: 25
+    yield: '6'
+    ingredients:
+    - 1 whole wild salmon filet with skin (1 1/2 inches thick (2 lbs))
+    - 1/4 cup light mayo
+    - 1/4 cup grated Parmesan cheese
+    - 3 cloves garlic (finely minced)
+    - 2 tablespoons chopped dill
+    - 2 tablespoons chopped parsley
+    - 2 tablespoons chopped basil
+    - 2 tablespoons chopped chives
+    has_beans_lentils: false
+    non_olive_fats:
+    - light mayo (topping, not a cooking fat)
+    checked_on: '2026-10-31'
+    notes: Herb crust (dill, parsley, basil, chives) bound with mayo + Parmesan; 8 ingredients, about
+      7 non-pantry (herbs, mayo, Parmesan); salmon is a whole 2 lb side so scale down to 1 lb for two.
+      Parmesan and mayo are not olive oil.
+  - site: Wholesome Yum
+    url: https://www.wholesomeyum.com/parmesan-crusted-salmon/
+    title: Parmesan Crusted Salmon (25 Min)
+    rating: 4.91
+    count: 52
+    total_time_min: 25
+    yield: '6'
+    ingredients:
+    - 2 lb Salmon fillet
+    - 1 1/2 tbsp Olive oil
+    - 1 tbsp Lemon juice
+    - 1/2 tsp Sea salt
+    - 1/2 tsp Black pepper
+    - 1/2 cup Grated parmesan cheese
+    - 2 tbsp Fresh parsley ((chopped))
+    - 2 tbsp Fresh dill ((chopped))
+    - 1 tsp Garlic powder
+    - 1 tbsp Unsalted butter ((melted))
+    has_beans_lentils: false
+    non_olive_fats:
+    - 1 tbsp unsalted butter (melted, in crust)
+    checked_on: '2026-10-31'
+    notes: Olive oil is the main fat; butter only binds the Parmesan-herb crust. Fillet is 2 lb (halve
+      for two).
+  - site: Downshiftology
+    url: https://downshiftology.com/recipes/dijon-baked-salmon/
+    title: Dijon Baked Salmon
+    rating: 4.84
+    count: 186
+    total_time_min: 25
+    yield: '5'
+    ingredients:
+    - 1 ½ pounds salmon (King, Sockeye or Coho salmon)
+    - ¼ cup fresh parsley (finely chopped)
+    - ¼ cup Dijon mustard
+    - 1 tablespoon lemon juice
+    - 1 tablespoon extra-virgin olive oil
+    - 3  garlic cloves (finely chopped)
+    - salt and pepper (to taste)
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Dijon-parsley-garlic coating (herb crust style); olive oil only. Fillet is 1.5 lb, easy to
+      scale to 2.
 - slot: winter-fish-b
-  slot_label: seared tuna steak
+  slot_label: seared TUNA steak (distinct)
   candidates:
-  - {site: Taste of Home, url: "https://www.tasteofhome.com/recipes/tasty-tuna-steaks/", title: "Tasty Tuna Steaks", rating: 4.57, count: 7, total_time_min: 30, yield: "4 servings", ingredients: ["1/3 cup dry red wine or beef broth", "1/3 cup soy sauce", "2 teaspoons gingerroot", "1 teaspoon garlic", "4 tuna steaks (6 ounces each)", "1 bay leaf", "1 tablespoon olive oil"], uses_chicken_breast: null, has_beans_lentils: false, non_olive_fats: [], checked_on: "2026-10-31", notes: "Marinated then pan-seared."}
-  - {site: Taste of Home, url: "https://www.tasteofhome.com/recipes/five-spice-tuna/", title: "Five-Spice Tuna", rating: 4.67, count: 3, total_time_min: 30, yield: "4 servings", ingredients: ["1 tablespoon sugar", "1 tablespoon soy sauce", "1 tablespoon sesame oil", "1/2 teaspoon five-spice powder", "1/2 teaspoon salt", "1/4 teaspoon pepper", "4 tuna steaks (6 ounces each)"], uses_chicken_breast: null, has_beans_lentils: false, non_olive_fats: ["sesame oil"], checked_on: "2026-10-31", notes: "1-inch steaks."}
+  - site: RecipeTin Eats
+    url: https://www.recipetineats.com/tuna-steak/
+    title: Tuna Steak
+    rating: 4.87
+    count: 22
+    total_time_min: 8
+    yield: '2'
+    ingredients:
+    - 2 x 180 - 200g (6.5 - 7oz)  tuna ((skinless, boneless). 2.5-3cm / 1-1.2" thick (Note 1))
+    - 1 tsp olive oil
+    - 1/4 tsp sea salt
+    - 1/8 tsp black pepper
+    - 2 tsp olive oil (, or oil spray)
+    - Sauce Vierge ((French salsa / vinaigrette for fish))
+    - Chervil sprigs ((substitute small flat leaf or curly parsley leaves) or small edible flowers (optional))
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Plain seared tuna steak; yield 2 steaks, olive oil only. Sauce Vierge is a separate linked
+      recipe (not listed in this ingredient JSON). Total time computed as prep 5 + cook 3 because totalTime
+      absent. Distinct from summer Tasty Tuna Steaks.
+  - site: Jessica Gavin
+    url: https://www.jessicagavin.com/seared-ahi-tuna-with-crispy-sesame-green-beans/
+    title: Seared Ahi Tuna with Crispy Sesame Green Beans
+    rating: 4.74
+    count: 64
+    total_time_min: 30
+    yield: '2'
+    ingredients:
+    - 6 ounces seared ahi tuna
+    - 2 ½ cups cauliflower florets
+    - 1 ½ cups carrots (1-inch pieces)
+    - 1 clove garlic (sliced)
+    - ½ teaspoon minced ginger
+    - 1 tablespoon olive oil
+    - ¾ teaspoon kosher salt
+    - 8 ounces green beans (or haricot verts)
+    - ½ teaspoon Sesame oil
+    - ½ teaspoon olive oil
+    - 1 teaspoon minced garlic
+    - ½ teaspoon minced ginger
+    - 1 tablespoon water
+    - 1 teaspoon soy sauce (low sodium )
+    - ¼ teaspoon sesame seeds
+    - ¼ cup grated carrots (optional)
+    - ¼ cup red cabbage (thinly sliced, optional)
+    - 2 tablespoon cilantro leaves (optional)
+    - 1 tablespoon green onions (thinly sliced, optional)
+    has_beans_lentils: false
+    non_olive_fats:
+    - 1/2 tsp sesame oil
+    checked_on: '2026-10-31'
+    notes: Yield 2 servings. Fats listed are olive oil plus 1/2 tsp sesame oil (minor). Includes optional
+      garnishes; green beans are fresh, not legumes in the dried-bean sense (flag only if the household
+      counts green beans).
 - slot: winter-chicken-1
-  slot_label: lemon oregano chicken breast (roasted)
+  slot_label: lemon oregano baked chicken breast
   candidates:
-  - {site: Taste of Home, url: "https://www.tasteofhome.com/recipes/lemon-feta-chicken/", title: "Lemon Feta Chicken", rating: 5, count: 4, total_time_min: 25, yield: "4 servings", ingredients: ["4 boneless skinless chicken breast halves (4 ounces each)", "2 to 3 tablespoons lemon juice", "1/4 cup feta cheese", "1 teaspoon dried oregano", "1/4 to 1/2 teaspoon pepper"], uses_chicken_breast: true, has_beans_lentils: false, non_olive_fats: [], checked_on: "2026-10-31", notes: "Roasted 400F; lemon, feta, oregano; breast halves."}
-  - {site: Food Network, url: "https://www.foodnetwork.com/recipes/ina-garten/lemon-chicken-breasts-recipe-1923711", title: "Lemon Chicken Breasts (Ina Garten)", rating: null, count: null, total_time_min: 60, yield: "4 servings", ingredients: ["1/4 cup olive oil", "3 tablespoons garlic", "1/3 cup dry white wine", "1 tablespoon lemon zest", "2 tablespoons lemon juice", "1-1/2 teaspoons oregano", "1 teaspoon thyme", "4 boneless chicken breasts, skin on"], uses_chicken_breast: true, has_beans_lentils: false, non_olive_fats: [], checked_on: "2026-10-31", notes: "Rating not exposed to fetcher; roasted; skin-on breasts."}
+  - site: foodiecrush
+    url: https://www.foodiecrush.com/best-greek-chicken-marinade/
+    title: THE BEST Greek Chicken Marinade
+    rating: 4.64
+    count: 684
+    total_time_min: 50
+    yield: '4'
+    ingredients:
+    - 1 pound boneless, skinless chicken breasts ((about 2 large breasts))
+    - ⅓ cup plain Greek yogurt
+    - ¼ cup olive oil
+    - 4 lemons
+    - 4-5 cloves garlic (, pressed or minced)
+    - 2 tablespoons dried oregano
+    - 1 teaspoon kosher salt
+    - ½ teaspoon freshly ground black pepper
+    uses_chicken_breast: true
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Greek yogurt-lemon-oregano marinade for 1 lb breasts (baked, grilled or pan-fried per page).
+      Total time 50 min includes the short marinade; 8 ingredients incl. 4 lemons. Easily halved for two.
+  - site: The Lemon Bowl
+    url: https://thelemonbowl.com/greek-style-baked-chicken-breasts/
+    title: Greek Style Baked Chicken Breasts
+    rating: 4.39
+    count: 18
+    total_time_min: 60
+    yield: 4 servings
+    ingredients:
+    - 4 chicken breasts
+    - 1 tablespoon extra virgin olive oil
+    - 4 cloves garlic grated
+    - 1 Zest of lemon
+    - 1 tablespoon dried oregano
+    - 1 teaspoon coriander
+    - 1 teaspoon sea salt
+    - ¼ teaspoon cayenne
+    uses_chicken_breast: true
+    has_beans_lentils: false
+    non_olive_fats:
+    - extra virgin olive oil (1 tbsp)
+    checked_on: '2026-10-31'
+    notes: 'Data read from visible recipe card via WebFetch (JSON-LD absent): rating 4.39 from 18 votes;
+      prep 15 + cook 45 = 60 min total. Garlic, lemon zest, oregano, coriander rub; ingredient text as
+      returned by fetch (quotes verbatim from card). 4 breasts, halve for two.'
 - slot: winter-chicken-2
   slot_label: sheet-pan chicken breast and potatoes
   candidates:
-  - {site: Food Network, url: "https://www.foodnetwork.com/recipes/food-network-kitchen/sheet-pan-herb-and-garlic-chicken-with-green-bean-and-potato-salad-5190247", title: "Sheet Pan Herb & Garlic Chicken with Green Bean and Potato Salad", rating: null, count: null, total_time_min: 40, yield: "4 servings", ingredients: ["Nonstick cooking spray", "8 ounces green beans", "8 ounces Yukon gold potatoes", "1/2 cup Italian Herb & Garlic Dressing", "1 pound boneless skinless chicken breasts", "1/2 cup roasted red peppers", "1/2 red onion", "5-ounce baby arugula", "1/2 cup goat cheese"], uses_chicken_breast: true, has_beans_lentils: false, non_olive_fats: [], checked_on: "2026-10-31", notes: "Rating not exposed to fetcher; breast + potatoes; fresh green beans."}
-  - {site: Taste of Home, url: "https://www.tasteofhome.com/recipes/sheet-pan-lemon-garlic-chicken/", title: "Lemon Sheet-Pan Chicken", rating: 4.38, count: 13, total_time_min: 60, yield: "6 servings", ingredients: ["1/4 cup olive oil", "2 tablespoons lemon juice", "3 garlic cloves", "1-1/2 teaspoons thyme", "1 teaspoon salt", "1/2 teaspoon rosemary", "6 bone-in chicken thighs", "6 chicken drumsticks", "1 pound baby red potatoes", "1 lemon"], uses_chicken_breast: false, breast_ok: true, has_beans_lentils: false, non_olive_fats: [], checked_on: "2026-10-31", notes: "Uses thighs/drumsticks; site says boneless breast can be swapped (check temp earlier)."}
+  - site: Natasha's Kitchen
+    url: https://natashaskitchen.com/one-pan-chicken-and-vegetables-recipe/
+    title: One Pan Chicken and Vegetables Dinner
+    rating: 4.97
+    count: 91
+    total_time_min: null
+    yield: '4'
+    ingredients:
+    - 1 oz Packet Hidden Valley® Original Ranch® Salad Dressing & Seasoning Mix
+    - 1 cup mayonnaise
+    - 1 cup unseasoned bread crumbs (I used panko crumbs)
+    - 1 1/2 lbs (4 small/medium) boneless, skinless chicken breasts
+    - 1 1/2 lb baby red potatoes (halved or quartered if larger into 3/4"-thick pieces)
+    - 1 lb baby carrots or slender peeled carrots (1/2" thick)
+    - 1 Tbsp olive oil
+    - 1/2 tsp Salt and Pepper, or to taste
+    - Parsley for garnish (optional)
+    uses_chicken_breast: true
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Breast + baby red potatoes + carrots with olive oil. Ranch packet + 1 cup mayonnaise + panko
+      coating makes it more than 8 non-pantry ingredients (flag), and mayo/ranch are not olive oil. Time
+      not in JSON-LD; not verified. Rating count shown is ratingCount 91 (8 written reviews).
+  - site: Well Plated
+    url: https://www.wellplated.com/sheet-pan-lemon-chicken/
+    title: Sheet Pan Lemon Chicken
+    rating: 4.8
+    count: 10
+    total_time_min: 50
+    yield: '4'
+    ingredients:
+    - 1 pound baby red potatoes (cut into 1-inch pieces)
+    - 3 tablespoons extra-virgin olive oil (divided)
+    - 2 tablespoons chopped fresh rosemary (divided)
+    - 1 teaspoon kosher salt (divided)
+    - 1/2 teaspoon ground black pepper (divided)
+    - 2 pounds thin asparagus (tough ends trimmed and discarded, cut into 2-inch pieces (about 2 bunches))
+    - 1 1/2 pounds boneless, skinless chicken breasts (or thighs, cut into 1-inch pieces)
+    - 1 teaspoon garlic powder
+    - 1 large lemon (juice and zest (you should have about 1/4 cup lemon juice total))
+    uses_chicken_breast: true
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Boneless breast (or thighs per page) with baby red potatoes and asparagus; olive oil only.
+      Asparagus is not a winter-best veg but swappable. Count is 10 (meets the 4.3/10 floor, below the
+      40 preference).
+  - site: iFoodReal
+    url: https://ifoodreal.com/one-pan-chicken-and-veggies/
+    title: Sheet Pan Chicken and Veggies
+    rating: 5
+    count: 6
+    total_time_min: 45
+    yield: '4'
+    ingredients:
+    - 3 large red, yellow or orange bell peppers (cut into 2 " pieces)
+    - 2 cups potatoes (cubed into 1.5" pieces)
+    - 1 large red onion (cut into 2 " pieces)
+    - 2 large garlic cloves (grated)
+    - 2 tablespoons olive oil (extra virgin)
+    - 2 tablespoons Italian seasoning
+    - 3/4 teaspoon salt
+    - 1/2 teaspoon ground black pepper
+    - 4 medium boneless skinless chicken breasts
+    - 1 tablespoon olive oil (extra virgin)
+    - 1 large garlic clove (grated)
+    - 1 tablespoon Italian seasoning
+    - 1/4 teaspoon salt
+    - 1/4 teaspoon ground black pepper
+    uses_chicken_breast: true
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Breast with potatoes, peppers, onion; olive oil only. Count only 6 (below floor); included
+      as a fallback.
 - slot: winter-chicken-3
   slot_label: chicken and vegetable soup (chicken breast)
   candidates:
-  - {site: Taste of Home, url: "https://www.tasteofhome.com/recipes/zesty-chicken-soup/", title: "Zesty Chicken Soup", rating: 5, count: 9, total_time_min: 65, yield: "10 servings", ingredients: ["1-1/4 pounds boneless skinless chicken breasts", "4 cups water", "1 tablespoon canola oil", "1 onion", "2 celery ribs", "4 garlic cloves", "Mexican diced tomatoes", "diced tomatoes", "tomato sauce", "1 cup salsa", "3 zucchini", "2 carrots", "1 cup corn", "green chiles", "3 teaspoons cumin", "2 teaspoons chili powder", "1 teaspoon basil"], uses_chicken_breast: true, has_beans_lentils: false, non_olive_fats: ["canola oil"], checked_on: "2026-10-31", notes: "Tex-Mex; 65 min."}
-  - {site: Taste of Home, url: "https://www.tasteofhome.com/recipes/creamy-chicken-vegetable-soup/", title: "Creamy Chicken Vegetable Soup", rating: 5, count: 3, total_time_min: 30, yield: "5 servings", ingredients: ["1 onion", "1 celery rib", "1 carrot", "1 garlic clove", "1 tablespoon butter", "2 cans chicken broth", "1/2 teaspoon salt", "3 tablespoons flour", "1-1/2 cups half-and-half", "2 cups cooked chicken breast", "frozen spinach", "8 ounces Brie"], uses_chicken_breast: true, has_beans_lentils: false, non_olive_fats: ["butter"], checked_on: "2026-10-31", notes: "Cooked cubed breast; Brie/cream."}
+  - site: Jessica Gavin
+    url: https://www.jessicagavin.com/chicken-vegetable-soup/
+    title: Chicken Vegetable Soup
+    rating: 4.93
+    count: 201
+    total_time_min: 60
+    yield: '12'
+    ingredients:
+    - 1 ½ pounds chicken breast (boneless and skinless)
+    - 1 teaspoon kosher salt (plus more for seasoning)
+    - ¼ teaspoon black pepper (plus more for seasoning)
+    - 2 tablespoons olive oil (divided)
+    - 1 cup diced yellow onion (½-inch dice)
+    - 1 cup sliced celery (¼-inch thick slices)
+    - 1 cup sliced carrots (¼-inch thick slices)
+    - 1 tablespoon minced garlic
+    - 1 ½ teaspoons Italian seasoning (dried)
+    - 2 tablespoons tomato paste
+    - 28 ounces diced tomatoes (canned with juice)
+    - 2 cups yukon gold potatoes (½-inch cubes)
+    - 64 ounces unsalted chicken stock (or broth, 8 cups)
+    - 1 cup sliced zucchini (¼-inch thick slices)
+    - 1 cup sliced green beans (½-inch pieces)
+    - 1 cup sliced brown mushrooms (½-inch thick slices)
+    - 1 cup corn kernels (canned, frozen or fresh)
+    - 1 tablespoon chopped parsley
+    uses_chicken_breast: true
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Yield 12 servings (scale down); 16+ ingredients so far above the 8 non-pantry limit (flag);
+      total time 60 = prep 20 + cook 40. Olive oil only.
+  - site: The Clean Eating Couple
+    url: https://thecleaneatingcouple.com/chicken-vegetable-soup/
+    title: Old Fashioned Chicken Vegetable Soup
+    rating: 4.93
+    count: 51
+    total_time_min: 40
+    yield: '4'
+    ingredients:
+    - 1 tablespoon olive oil
+    - 1 cup diced carrots
+    - ½ cup minced onion (about 1 medium onion)
+    - ½ cup minced celery (about 2 celery ribs)
+    - 1 tablespoon minced garlic
+    - 1 lb boneless, skinless chicken breasts
+    - 1 quart low sodium chicken broth
+    - 2 cups cubed russet potatoes (cut in ¼ cubes)
+    - 14 oz canned petite diced tomatoes
+    - 1 cup corn
+    - 1 cup cut green beans
+    - 1 cup peas
+    - 2 tablespoons tomato paste
+    - 2 bay leaves
+    - ¼ teaspoon black pepper
+    - ¼ teaspoon dried basil
+    - ¼ teaspoon dried oregano
+    - ¼ teaspoon dried parsley
+    uses_chicken_breast: true
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Includes 1 cup cut green beans plus corn and peas (fresh/frozen vegetables, not dried beans/legumes).
+      Many ingredients (flag >8 non-pantry). Olive oil only; stovetop/slow cooker/Instant Pot options
+      on page.
 - slot: winter-chicken-4
   slot_label: ginger chicken stir fry (chicken breast)
   candidates:
-  - {site: Taste of Home, url: "https://www.tasteofhome.com/recipes/ginger-chicken/", title: "Ginger Chicken", rating: 4.22, count: 9, total_time_min: 35, yield: "4 servings", ingredients: ["1 egg white", "1 tablespoon soy sauce", "1 teaspoon cornstarch", "1/8 teaspoon white pepper", "1 pound boneless skinless chicken breasts", "1/2 teaspoon cornstarch", "2 tablespoons rice vinegar", "2 tablespoons soy sauce", "1 teaspoon sugar", "1 tablespoon plus 2 teaspoons peanut oil", "1 green pepper", "3 green onions", "1/2 cup bamboo shoots", "2 teaspoons gingerroot", "1/4 cup almonds"], uses_chicken_breast: true, has_beans_lentils: false, non_olive_fats: ["peanut oil"], checked_on: "2026-10-31", notes: "Stir fry; peanut oil."}
-  - {site: Taste of Home, url: "https://www.tasteofhome.com/recipes/pineapple-ginger-chicken-stir-fry/", title: "Pineapple-Ginger Chicken Stir-Fry", rating: 4, count: 15, total_time_min: 30, yield: "4 servings", ingredients: ["pineapple chunks", "1 tablespoon cornstarch", "3 tablespoons soy sauce", "2 tablespoons honey", "1/4 teaspoon cinnamon", "2 tablespoons canola oil", "1 pound boneless skinless chicken breasts", "1 onion", "1 tablespoon gingerroot", "2 garlic cloves", "brown rice"], uses_chicken_breast: true, has_beans_lentils: false, non_olive_fats: ["canola oil"], checked_on: "2026-10-31", notes: "Sweet pineapple sauce; canola oil."}
+  - site: The Clean Eating Couple
+    url: https://thecleaneatingcouple.com/ginger-chicken/
+    title: Ginger Chicken
+    rating: 5
+    count: 17
+    total_time_min: 35
+    yield: '4'
+    ingredients:
+    - 1 lb boneless skinless chicken breasts (cut into 1 inch pieces (about 3 chicken breasts))
+    - 1 tablespoon olive oil
+    - 2 tablespoons minced fresh ginger
+    - 2 cloves fresh garlic (minced)
+    - 1/4 cup teriyaki sauce (low or no salt)
+    - 1/2 cup chicken broth (low or no sodium)
+    - 1 teaspoon toasted sesame oil
+    - 1/8 teaspoon salt
+    - ½ teaspoon black pepper
+    - 2 teaspoons cornstarch +water
+    - 1 teaspoon sesame seeds
+    - 2 green onions chopped
+    uses_chicken_breast: true
+    has_beans_lentils: false
+    non_olive_fats:
+    - 1 tsp toasted sesame oil (finishing)
+    checked_on: '2026-10-31'
+    notes: Simple skillet ginger chicken with teriyaki sauce and cornstarch; olive oil; count 17 (floor
+      met, below 40 preference). Teriyaki sauce is a bottled item. Served with broccoli/rice per page,
+      which are not in the ingredient JSON.
+  - site: iFoodReal
+    url: https://ifoodreal.com/healthy-chicken-stir-fry-recipe/
+    title: Healthy Chicken Stir Fry
+    rating: 5
+    count: 52
+    total_time_min: 30
+    yield: '6'
+    ingredients:
+    - 1 1/4 pounds boneless chicken breast or thighs (cut into 1 inch pieces)
+    - 1 large white onion (thinly sliced)
+    - 2 large bell peppers (thinly sliced)
+    - 1 pound broccoli (chopped)
+    - 3 large garlic cloves (minced)
+    - 1 inch ginger (peeled and minced)
+    - 1 3/4 cup chicken stock (low sodium)
+    - 1/4 cup soy sauce (I used Bragg's liquid aminos)
+    - 2 tablespoons honey, maple syrup or brown sugar
+    - 1 tablespoon rice vinegar
+    - 3 tablespoons cornstarch
+    - 1 tablespoon sesame seeds (for garnish)
+    - 2 tablespoons avocado oil (for frying)
+    uses_chicken_breast: true
+    has_beans_lentils: false
+    non_olive_fats:
+    - 2 tbsp avocado oil (for frying)
+    checked_on: '2026-10-31'
+    notes: Breast or thighs per ingredient list; ginger in sauce with broccoli and bell peppers. Count
+      52 (meets preference).
+  - site: Skinnytaste
+    url: https://www.skinnytaste.com/garlic-ginger-chicken-stir-fry/
+    title: Garlic-Ginger Chicken Stir-Fry
+    rating: 4.83
+    count: 35
+    total_time_min: 35
+    yield: '4'
+    ingredients:
+    - 1 1-inch knob fresh ginger ( minced)
+    - ⅓ cup reduced sodium soy sauce ( or GF tamari)
+    - 2 tablespoons rice vinegar
+    - 6 cloves garlic (minced)
+    - 1 tablespoon granulated sugar (or sugar substitute like monk fruit)
+    - 2 tablespoons toasted sesame oil
+    - 1 1/2 tablespoons cornstarch
+    - 2 to 3 teaspoons chili paste (to taste)
+    - 1 1/2 pounds thin sliced boneless chicken breast cutlets (sliced into thin strips)
+    - 1 tablespoon vegetable oil
+    - 1 medium red onion (cut into 1/2-inch chunks)
+    - 15 ounces baby bok choy (roughly chopped (about 6 cups))
+    - 1/3 cup dry-roasted peanuts (crushed, for garnish)
+    - ½ cup fresh Thai or traditional basil (torn)
+    - Coconut jasmine rice (or cauliflower rice, optional for serving)
+    uses_chicken_breast: true
+    has_beans_lentils: false
+    non_olive_fats:
+    - 1 tbsp vegetable oil
+    - 2 tbsp toasted sesame oil (in sauce)
+    checked_on: '2026-10-31'
+    notes: Thin-sliced breast cutlets, garlic-ginger sauce, baby bok choy; ~14 ingredients (flag >8);
+      peanuts and basil garnish; total time 35 min.
+- slot: winter-chicken-5
+  slot_label: baked chicken breast with roasted winter vegetables
+  candidates:
+  - site: Well Plated
+    url: https://www.wellplated.com/maple-dijon-chicken/
+    title: Maple Dijon Chicken and Vegetables
+    rating: 4.71
+    count: 44
+    total_time_min: 45
+    yield: '4'
+    ingredients:
+    - 2 pounds boneless skinless chicken breasts, (pounded to 1/2-inch thickness (3–4 breasts, depending
+      upon size))
+    - 10 ounces large carrots
+    - 8 ounces large-cut broccoli florets (about 1 1/4-inch-wide, about 4 cups)
+    - 1 large red onion (cut into 3/4-inch chunks)
+    - 3 tablespoons extra-virgin olive oil
+    - 2 tablespoons maple syrup
+    - 1 tablespoon Dijon mustard
+    - 3 cloves garlic (minced)
+    - 1/2 teaspoon kosher salt
+    - 1/2 teaspoon ground black pepper
+    - 1/2 teaspoon dried oregano
+    - 1/4 teaspoon dried thyme
+    - 1 tablespoon balsamic vinegar
+    - 3 tablespoons chopped fresh parsley
+    uses_chicken_breast: true
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Breasts pounded to 1/2 inch with carrots, broccoli and red onion in maple-Dijon glaze; olive
+      oil only; 13 ingredients incl. pantry items.
+  - site: Cooking Classy
+    url: https://www.cookingclassy.com/chicken-broccoli-sweet-potato-sheet-pan-dinner/
+    title: Chicken Broccoli and Sweet Potato Sheet Pan Dinner
+    rating: 4.68
+    count: 28
+    total_time_min: 55
+    yield: '4'
+    ingredients:
+    - 20 oz sweet potatoes peeled and diced into 3/4-inch cubes ((2 medium, about 3 cups))
+    - 4 Tbsp olive oil, (divided)
+    - 1 1/2 lbs boneless skinless chicken breasts,
+    - 4 cups small broccoli florets
+    - 1/2 of a medium red onion, (diced into chunks)
+    - 3 cloves garlic, (minced)
+    - 3/4 tsp of each dried thyme, sage, parsley and rosemary
+    - 1/8 tsp nutmeg
+    - Salt and freshly ground black pepper
+    - 1/2 cup pecans, (whole or roughly chopped)
+    - 1/3 cup dried cranberries
+    uses_chicken_breast: true
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Breast with sweet potatoes and broccoli; olive oil only; pecans and dried cranberries are optional-feeling
+      extras (flag non-pantry count).
 - slot: winter-beef-a
-  slot_label: Greek meatballs in tomato sauce (ground beef, feta)
+  slot_label: Greek ground beef meatballs in tomato sauce WITH FETA
   candidates:
-  - {site: Food Network, url: "https://www.foodnetwork.com/recipes/aida-mollenkamp/cinnamon-garlic-meatballs-with-tomato-sauce-and-feta-recipe-1957824", title: "Cinnamon-Garlic Meatballs with Tomato Sauce and Feta", rating: null, count: null, total_time_min: 20, yield: "25 Meatballs", ingredients: ["1 pound ground pork or beef", "1/3 cup breadcrumbs", "1/4 cup onion", "1 egg", "1 garlic clove", "1 teaspoon salt", "1 teaspoon cinnamon", "1/4 teaspoon pepper", "1 cup jarred tomato sauce", "2 ounces feta"], uses_chicken_breast: null, has_beans_lentils: false, non_olive_fats: [], checked_on: "2026-10-31", notes: "Rating not exposed; pork OR beef; tomato sauce + feta."}
-  - {site: Food Network, url: "https://www.foodnetwork.com/recipes/amanda-freitag/greek-meatball-hero-3176452", title: "Greek Meatball Hero", rating: null, count: null, total_time_min: 55, yield: "4 servings", ingredients: ["1 cup breadcrumbs", "1 cup milk", "2 pounds ground beef", "1 cup feta", "1/2 cup Parmesan", "1 tablespoon oregano", "4 cloves garlic", "2 eggs", "2 plum tomatoes", "1 cucumber", "1 red onion", "3 tablespoons olive oil", "2 tablespoons lemon juice", "hero rolls", "tzatziki"], uses_chicken_breast: null, has_beans_lentils: false, non_olive_fats: [], checked_on: "2026-10-31", notes: "Rating not exposed; beef+feta but on hero rolls, not tomato sauce."}
+  - site: The Lemon Bowl
+    url: https://thelemonbowl.com/greek-meatballs-recipe-gluten-free/
+    title: Keftedes (Baked Greek Meatballs)
+    rating: 4.16
+    count: 32
+    total_time_min: 35
+    yield: 4 servings (makes 28-30 meatballs)
+    ingredients:
+    - 20 oz ground beef (or lamb, turkey, etc.)
+    - 1 large egg
+    - 1/4 cup fresh parsley, minced
+    - 2 cloves garlic, grated
+    - 2 tbsp tomato paste
+    - 2 tbsp grated Parmesan cheese
+    - 1 tbsp dried oregano
+    - 1 tsp ground allspice
+    - 1 tsp salt
+    - 1/2 tsp cayenne (optional)
+    has_beans_lentils: false
+    non_olive_fats:
+    - cooking spray (to grease foil-lined pan)
+    checked_on: '2026-10-31'
+    notes: 'NO CANDIDATE MATCHES FULLY. Read from visible card via WebFetch (no JSON-LD): 4.16 from 32
+      votes, 10 prep + 25 cook = 35 min, 4 servings. Ground beef keftedes with tomato PASTE inside, Parmesan
+      (no feta), NO tomato sauce. Ingredient wording as condensed by fetch tool, not strictly verbatim.'
+  - site: Cooking Classy
+    url: https://www.cookingclassy.com/greek-meatballs-keftedes/
+    title: Greek Meatballs (Keftedes)
+    rating: 5
+    count: 2
+    total_time_min: 55
+    yield: '6'
+    ingredients:
+    - 1 1/2 Tbsp olive oil*
+    - 1 1/2 cups (3.5 oz) stale sourdough breadcrumbs** ((from about 2 slices))
+    - 1/3 cup milk
+    - 2 lbs 85% lean ground beef
+    - 2 tsp salt
+    - 1 tsp black pepper
+    - 2 tsp ground cumin
+    - 1 1/2 tsp dried oregano
+    - 1 tsp ground coriander
+    - 1/4 cup finely chopped fresh parsley
+    - 1/4 cup finely chopped fresh mint (or cilantro)
+    - 1/2 cup finely minced red onion ((chop as small as you mince garlic))
+    - 2 tsp minced garlic
+    - 2 large eggs
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: NO tomato sauce and NO feta in the recipe (served with tzatziki/whipped feta per page text);
+      2 lb batch, 85% beef; olive oil used. Count 2 only (rating not meaningful). Would need a tomato
+      sauce + feta added.
+  - site: Taste of Home
+    url: https://www.tasteofhome.com/recipes/greek-meatballs-recipe/
+    title: Greek Lamb Meatballs with Tzatziki Sauce
+    rating: null
+    count: null
+    total_time_min: 40
+    yield: about 3-1/2 dozen meatballs and 2-1/2 cups sauce
+    ingredients:
+    - 1/3 cup whole wheat panko bread crumbs
+    - 1 large egg, beaten
+    - 1 large egg white, beaten
+    - 1 garlic clove, minced
+    - 3/4 teaspoon salt
+    - 1 teaspoon minced fresh mint
+    - 1/2 teaspoon dried basil
+    - 1/4 teaspoon pepper
+    - 3/4 cup crumbled feta cheese
+    - 1-1/2 pounds ground lamb
+    - 1-1/2 cups plain Greek yogurt
+    - 1/2 cup peeled grated cucumber, strained
+    - 2 garlic cloves, minced
+    - 2 teaspoons lemon juice
+    - 1 teaspoon snipped fresh dill
+    - 1/4 teaspoon salt
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Lamb (not beef) meatballs WITH 3/4 cup feta inside, served with tzatziki; no tomato sauce;
+      NO rating shown on page (widget). Beef can be substituted per Taste of Home page for the variant
+      seen in search. No cooking fat listed. Included only because it is the sole real recipe with feta
+      in the meatball.
+  - site: Downshiftology
+    url: https://downshiftology.com/recipes/mediterranean-ground-beef-stir-fry/
+    title: Mediterranean Ground Beef Stir Fry
+    rating: 4.93
+    count: 260
+    total_time_min: 25
+    yield: 4 servings
+    ingredients:
+    - ground beef
+    - olive oil
+    - onion
+    - garlic
+    - oregano
+    - cumin
+    - spinach
+    - cherry tomatoes
+    - feta
+    - salt
+    - pepper
+    - parsley
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Greek/Mediterranean beef with feta + spinach + tomato (no tomato-sauce meatballs available
+      rated; closest strong match).
 - slot: winter-beef-b
-  slot_label: beef and broccoli stir fry (ground beef)
+  slot_label: beef and broccoli stir fry (ground beef) - distinct from fall
   candidates:
-  - {site: Taste of Home, url: "https://www.tasteofhome.com/recipes/hamburger-stir-fry/", title: "Ground Beef Stir-Fry", rating: 3.67, count: 9, total_time_min: 25, yield: "4 servings", ingredients: ["1 tablespoon sugar", "1 tablespoon cornstarch", "1 tablespoon ground mustard", "1/3 cup water", "1/3 cup teriyaki sauce", "1 pound lean ground beef", "2 teaspoons canola oil", "frozen asparagus stir-fry blend", "1 onion", "2 cups rice", "2 teaspoons sesame seeds"], uses_chicken_breast: null, has_beans_lentils: false, non_olive_fats: ["canola oil"], checked_on: "2026-10-31", notes: "No broccoli (asparagus blend); low rating."}
-  - {site: Food Network, url: "https://www.foodnetwork.com/recipes/ground-beef-and-broccoli-fried-rice-3414399", title: "Ground Beef and Broccoli Fried Rice", rating: null, count: null, total_time_min: 20, yield: "4 servings", ingredients: ["2 tablespoons vegetable oil", "1 egg", "1/2 pound ground beef", "1 cup broccoli florets", "1 teaspoon garlic", "1 teaspoon ginger", "1 teaspoon soy sauce", "3 cups cooked rice", "2 tablespoons scallions", "1 tablespoon peanuts"], uses_chicken_breast: null, has_beans_lentils: false, non_olive_fats: ["vegetable oil"], checked_on: "2026-10-31", notes: "Rating not exposed; fried rice with beef + broccoli."}
+  - site: Well Plated
+    url: https://www.wellplated.com/ground-beef-and-broccoli/
+    title: Ground Beef and Broccoli
+    rating: 4.88
+    count: 71
+    total_time_min: 25
+    yield: '4'
+    ingredients:
+    - ⅓ cup low-sodium soy sauce
+    - ⅓ cup water
+    - 2 tablespoons pure maple syrup (honey, or brown sugar)
+    - 2 tablespoons cornstarch
+    - 1 tablespoon sesame oil
+    - 2 tablespoons canola oil or other neutral high temperature cooking oil (divided)
+    - 1 pound lean ground beef (I used 93% lean)
+    - ¼ teaspoon kosher salt
+    - 1/2 teaspoon ground black pepper
+    - 1 head broccoli (chopped into florets, about 3 cups or 10 ounces)
+    - 2 tablespoons minced fresh ginger (from about a 2-inch piece)
+    - 2 cloves garlic (minced (about 2 teaspoons))
+    - ¼ teaspoon red pepper flakes (plus additional to taste)
+    - 1 small bunch bunch green onions (thinly sliced, white/light green parts and dark green parts divided)
+    - 1 tablespoon sesame seeds (optional for serving)
+    - Cooked brown or white rice (for serving)
+    has_beans_lentils: false
+    non_olive_fats:
+    - 2 tbsp canola oil
+    - 1 tbsp sesame oil
+    checked_on: '2026-10-31'
+    notes: Ground beef (93% lean) and broccoli with ginger-soy sauce; I did not know the fall pick, so
+      confirm distinctness. Count 71.
+  - site: Skinnytaste
+    url: https://www.skinnytaste.com/ground-beef-and-broccoli-stir-fry/
+    title: Ground Beef and Broccoli Stir Fry
+    rating: 4.68
+    count: 221
+    total_time_min: 13
+    yield: '4'
+    ingredients:
+    - ½ cup reduced sodium soy sauce (or gluten-free tamari)
+    - 1 tablespoon honey
+    - 4 cloves garlic (minced)
+    - 1 1-inch piece fresh ginger (peeled and grated)
+    - 1 tablespoon cornstarch
+    - ½ tablespoon sesame oil
+    - 1 pound ground beef (93% lean )
+    - ½ medium yellow onion (chopped)
+    - 1 large head broccoli (cut into florets and blanched*)
+    - 1 tablespoon toasted sesame seeds
+    - 3 medium scallions (sliced on the bias)
+    - cooked rice (or cauliflower rice, for serving (optional))
+    has_beans_lentils: false
+    non_olive_fats:
+    - 1/2 tbsp sesame oil
+    checked_on: '2026-10-31'
+    notes: Ground beef (93% lean) and blanched broccoli with soy-honey-ginger sauce; no cooking oil beyond
+      1/2 tbsp sesame oil in sauce; count 221, 4.68. Confirm distinct from fall pick.
 - slot: winter-steak
-  slot_label: sheet-pan steak tips and root vegetables
+  slot_label: sheet-pan steak (sirloin/flank) with root vegetables
   candidates:
-  - {site: Taste of Home, url: "https://www.tasteofhome.com/recipes/sheet-pan-steak-dinner/", title: "Sheet-Pan Steak Dinner", rating: 5, count: 2, total_time_min: 40, yield: "4 servings", ingredients: ["1 teaspoon rosemary", "1/2 teaspoon each salt, pepper, paprika, garlic powder", "1-1/2 pounds beef flank steak", "1 pound asparagus", "2 tablespoons avocado oil", "2 tablespoons butter", "1 garlic clove"], uses_chicken_breast: null, has_beans_lentils: false, non_olive_fats: ["butter", "avocado oil"], checked_on: "2026-10-31", notes: "Flank + asparagus (not root veg); 2 reviews."}
-  - {site: Food Network, url: "https://www.foodnetwork.com/recipes/food-network-kitchen/flank-steak-with-roasted-root-vegetables-4621811", title: "Flank Steak with Roasted Root Vegetables", rating: null, count: null, total_time_min: 40, yield: "4 servings", ingredients: ["6 carrots", "4 parsnips", "1 turnip", "2 tablespoons extra-virgin olive oil", "1-1/2 teaspoons rosemary", "1 flank steak (about 1 1/4 pounds)", "2 tablespoons bourbon or beef broth", "2 tablespoons brown sugar", "1 teaspoon mustard", "1 clove garlic"], uses_chicken_breast: null, has_beans_lentils: false, non_olive_fats: [], checked_on: "2026-10-31", notes: "Rating not exposed; flank + sheet-pan root veg (closest dish)."}
+  - site: Taste of Home
+    url: https://www.tasteofhome.com/recipes/steak-new-potato-toss/
+    title: Steak & New Potato Toss
+    rating: 4.67
+    count: 9
+    total_time_min: 40
+    yield: 4 servings
+    ingredients:
+    - 1 pound small red potatoes, cut into 1-inch wedges
+    - 1 beef top sirloin steak (1 inch thick and about 1-1/4 pounds)
+    - 3 cups fresh broccoli florets
+    - 1/4 cup olive oil
+    - 2 tablespoons cider vinegar
+    - 2 garlic cloves, minced
+    - 1/2 teaspoon ground mustard
+    - 1/2 teaspoon paprika
+    - 1/4 teaspoon pepper
+    - 2 green onions, thinly sliced
+    - 1 medium sweet red pepper, chopped
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Top sirloin with small red potatoes and broccoli (not true root-veg mix); olive oil. Rating
+      4.67 from 9 reviews (reviewCount; no ratingCount in schema); below the 10-count floor by 1. Closest
+      on-list match found.
+  - site: Wholesome Yum
+    url: https://www.wholesomeyum.com/steak-and-potatoes/
+    title: Steak And Potatoes (One Pan Recipe)
+    rating: 5
+    count: 6
+    total_time_min: 65
+    yield: '5'
+    ingredients:
+    - 5 8-oz Top sirloin steaks ((preferably 1 1/2" thick))
+    - 2 1/4 tsp Sea salt ((divided into 2 tsp and 1/4 tsp))
+    - 1/2 tsp Black pepper
+    - 3 medium Yellow onions ((sliced thinly))
+    - 1 tbsp Worcestershire sauce
+    - 3 tbsp Olive oil ((divided into 2 tbsp and 1 tbsp))
+    - 2 tbsp Dry red wine
+    - 1/2 cup Unsalted butter
+    - 7 cloves Garlic
+    - 2 lbs Yukon gold mini potatoes ((cut into quarters or eighths))
+    - 10 sprigs Fresh thyme ((plus more for serving))
+    has_beans_lentils: false
+    non_olive_fats:
+    - 1/2 cup unsalted butter
+    checked_on: '2026-10-31'
+    notes: Skillet-to-oven sirloin with Yukon gold potatoes, not a sheet pan; total 65 min exceeds the
+      60-min dinner cap (flag); butter-heavy (1/2 cup); 5 steaks (scale down); count 6.
+  - site: Taste of Home
+    url: https://www.tasteofhome.com/recipes/sheet-pan-steak-dinner/
+    title: Sheet-Pan Steak Dinner
+    rating: 5
+    count: 2
+    total_time_min: 40
+    yield: 4 servings
+    ingredients:
+    - 1 teaspoon minced fresh rosemary
+    - 1/2 teaspoon each salt, pepper, paprika and garlic powder
+    - 1-1/2 pounds beef flank steak
+    - 1 pound fresh asparagus, trimmed
+    - 2 tablespoons avocado oil
+    - 2 tablespoons butter, melted
+    - 1 garlic clove, minced
+    has_beans_lentils: false
+    non_olive_fats:
+    - 2 tbsp avocado oil
+    - 2 tbsp butter
+    checked_on: '2026-10-31'
+    notes: True sheet-pan flank steak but with asparagus, not root vegetables; avocado oil and butter;
+      5.0 from 2 reviews (reviewCount) only; included as fallback.
+  - site: Skinnytaste
+    url: https://www.skinnytaste.com/grilled-flank-steak-with-chimichurri/
+    title: Grilled Flank Steak with Chimichurri
+    rating: 4.95
+    count: 36
+    total_time_min: 30
+    yield: 4 servings
+    ingredients:
+    - flank steak
+    - olive oil
+    - garlic
+    - parsley
+    - cilantro
+    - oregano
+    - red wine vinegar
+    - red pepper flakes
+    - salt
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Rated steak main; serve with roasted root vegetables (separate veg-side).
 - slot: winter-side-roasted-carrots
   slot_label: roasted carrots
   candidates:
-  - {site: Taste of Home, url: "https://www.tasteofhome.com/recipes/oven-roasted-carrots/", title: "Roasted Carrots and Onions", rating: 4.91, count: 11, total_time_min: 50, yield: "8 servings", ingredients: ["2 pounds baby carrots", "4 small onions", "6 garlic cloves", "2 tablespoons olive oil", "2 teaspoons white wine vinegar", "1 to 2 teaspoons thyme", "1/2 teaspoon salt"], uses_chicken_breast: null, has_beans_lentils: false, non_olive_fats: [], checked_on: "2026-10-31", notes: "50 min."}
+  - site: Love & Lemons
+    url: https://www.loveandlemons.com/roasted-carrots/
+    title: Roasted Carrots
+    rating: 4.94
+    count: 63
+    total_time_min: 20
+    yield: '4'
+    ingredients:
+    - 1 pound carrots (about 1 large or 2 medium bunches, cut into 2-inch barrels)
+    - 1 tablespoon extra-virgin olive oil
+    - 1 teaspoon honey or maple syrup
+    - ½ teaspoon sea salt
+    - Freshly ground black pepper
+    - Chopped fresh parsley (for garnish)
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Olive oil + honey/maple + salt; 2-inch barrels; scale by weight.
+  - site: Natasha's Kitchen
+    url: https://natashaskitchen.com/roasted-carrots-recipe/
+    title: Roasted Carrots Recipe
+    rating: 4.98
+    count: 46
+    total_time_min: 30
+    yield: '6'
+    ingredients:
+    - 2 lb carrots ((small) peeled or scrubbed)
+    - 1 Tbsp olive oil
+    - 1 tsp salt
+    - 1/2 tsp black pepper
+    - 2 garlic cloves
+    - 2 Tbsp olive oil
+    - 1 tsp parsley
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Olive oil, with optional garlic-parsley olive oil drizzle; 2 lb small carrots (halve).
 - slot: winter-side-roasted-beets
   slot_label: roasted beets
   candidates:
-  - {site: Taste of Home, url: "https://www.tasteofhome.com/recipes/roasted-beet-wedges/", title: "Roasted Beets", rating: 5, count: 11, total_time_min: 75, yield: "4 servings", ingredients: ["1 pound fresh beets", "4 teaspoons olive oil", "1/2 teaspoon kosher salt", "3 to 5 rosemary sprigs"], uses_chicken_breast: null, has_beans_lentils: false, non_olive_fats: [], checked_on: "2026-10-31", notes: "Foil-wrapped wedges, ~1 hr."}
+  - site: Jessica Gavin
+    url: https://www.jessicagavin.com/how-to-cook-beets/
+    title: How to Cook Beets
+    rating: 4.97
+    count: 202
+    total_time_min: 35
+    yield: '8'
+    ingredients:
+    - 1 pound beets (2 ½ to 3" in size)
+    - olive oil (for seasoning)
+    - kosher salt (for seasoning)
+    - black pepper (for seasoning)
+    - 1 pound beets (2 ½ to 3" in size)
+    - 2 teaspoons olive oil
+    - ½ teaspoon kosher salt
+    - ¼ teaspoon black pepper
+    - 1 pound beets (2 ½ to 3" in size)
+    - 8 cups water
+    - 1 tablespoon distilled white vinegar
+    - 1 teaspoon kosher salt
+    - 1 pound beets (2 ½ to 3" in size)
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Multi-method page (roasted, steamed, boiled); ingredient JSON lists all methods repeating 1
+      lb beets; roasted needs olive oil, salt, pepper only. Total 35 min is JSON value (roasting may run
+      longer for large beets).
+  - site: Well Plated
+    url: https://www.wellplated.com/roasted-beets/
+    title: Roasted Beets Recipe
+    rating: 4.77
+    count: 17
+    total_time_min: 55
+    yield: '4'
+    ingredients:
+    - 2 pounds beets (about 6 medium or 3 very large)
+    - 1 tablespoon extra-virgin olive oil
+    - 1/2 teaspoon kosher salt
+    - 1/4 teaspoon ground black pepper
+    - 1 tablespoon balsamic vinegar (optional)
+    - 3 tablespoons crumbled goat cheese or feta cheese (or 2 tablespoons grated Parmesan cheese)
+    - Chopped fresh basil (thyme, parsley, or dill)
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Olive oil, balsamic, optional goat/feta cheese; 40 min bake, total 55 min; count 17 (floor
+      met).
 - slot: winter-side-roasted-cabbage
   slot_label: roasted cabbage wedges
   candidates:
-  - {site: Taste of Home, url: "https://www.tasteofhome.com/recipes/roasted-cabbage-onions/", title: "Roasted Cabbage & Onions", rating: 4.88, count: 16, total_time_min: 40, yield: "6 servings", ingredients: ["1 head cabbage (about 2 pounds)", "2 large onions", "1/4 cup olive oil", "3/4 teaspoon salt", "3 tablespoons chives", "3 tablespoons tarragon", "2 tablespoons balsamic vinegar", "2 tablespoons olive oil", "2 tablespoons Dijon", "1 tablespoon lemon juice"], uses_chicken_breast: null, has_beans_lentils: false, non_olive_fats: [], checked_on: "2026-10-31", notes: "Chopped cabbage + onions with dressing."}
-  - {site: Taste of Home, url: "https://www.tasteofhome.com/recipes/roasted-cabbage/", title: "Roasted Cabbage", rating: null, count: null, total_time_min: 60, yield: "6 cabbage rounds", ingredients: ["1 large head cabbage, 1-in rounds", "3 tablespoons olive oil", "1/2 teaspoon salt", "1/2 teaspoon pepper"], uses_chicken_breast: null, has_beans_lentils: false, non_olive_fats: [], checked_on: "2026-10-31", notes: "Rounds; no rating published."}
+  - site: Downshiftology
+    url: https://downshiftology.com/recipes/cabbage-steaks/
+    title: Roasted Cabbage Steaks
+    rating: 4.88
+    count: 25
+    total_time_min: 45
+    yield: '4'
+    ingredients:
+    - 1  head of cabbage
+    - 2 tablespoons extra virgin olive oil
+    - 1 teaspoon garlic powder
+    - ½ teaspoon kosher salt
+    - ¼ teaspoon freshly ground black pepper
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Olive oil + garlic powder + salt + pepper only; wedges/steaks; count 25.
+  - site: Well Plated
+    url: https://www.wellplated.com/roasted-cabbage/
+    title: Simple Roasted Cabbage
+    rating: 5
+    count: 18
+    total_time_min: 40
+    yield: '4'
+    ingredients:
+    - 1 small head green cabbage ( or savoy cabbage)
+    - 2 tablespoons extra-virgin olive oil
+    - 2 tablespoons unsalted butter (or additional olive oil)
+    - 1 tablespoon honey
+    - 3 cloves garlic (minced)
+    - 1 teaspoon kosher salt
+    - 1/4 teaspoon ground black pepper
+    - 3 tablespoons freshly grated Parmesan cheese (optional)
+    - Chopped fresh parsley or chives (optional)
+    has_beans_lentils: false
+    non_olive_fats:
+    - 2 tbsp unsalted butter (or additional olive oil)
+    checked_on: '2026-10-31'
+    notes: Wedges with garlic-honey butter; butter is the second fat (butter can be swapped for olive
+      oil per page); count 18.
 - slot: winter-side-roasted-broccoli
   slot_label: roasted broccoli
   candidates:
-  - {site: Taste of Home, url: "https://www.tasteofhome.com/recipes/garlic-roasted-broccoli/", title: "Garlic Roasted Broccoli", rating: 4.89, count: 9, total_time_min: 30, yield: "8 servings", ingredients: ["2 bunches broccoli", "1/3 cup olive oil", "4 garlic cloves", "1/2 teaspoon salt", "1/4 teaspoon pepper", "2 tablespoons balsamic vinegar"], uses_chicken_breast: null, has_beans_lentils: false, non_olive_fats: [], checked_on: "2026-10-31", notes: ""}
-  - {site: Taste of Home, url: "https://www.tasteofhome.com/recipes/roasted-dijon-broccoli/", title: "Roasted Dijon Broccoli", rating: 4.67, count: 3, total_time_min: 20, yield: "4 servings", ingredients: ["1 bunch broccoli", "2 tablespoons olive oil", "1 tablespoon red wine vinegar", "1 teaspoon Dijon", "1 garlic clove", "1/4 teaspoon salt"], uses_chicken_breast: null, has_beans_lentils: false, non_olive_fats: [], checked_on: "2026-10-31", notes: ""}
+  - site: Love & Lemons
+    url: https://www.loveandlemons.com/roasted-broccoli/
+    title: Roasted Broccoli
+    rating: 4.96
+    count: 208
+    total_time_min: 25
+    yield: '4'
+    ingredients:
+    - 12 ounces broccoli florets
+    - Extra-virgin olive oil (for drizzling)
+    - Sea salt and freshly ground black pepper
+    - Red pepper flakes (optional)
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Olive oil, salt, pepper; 12 oz florets; ratingCount 208 (83 reviews).
+  - site: Natasha's Kitchen
+    url: https://natashaskitchen.com/roasted-broccoli/
+    title: Roasted Broccoli Recipe
+    rating: 4.99
+    count: 146
+    total_time_min: 20
+    yield: '4'
+    ingredients:
+    - 1 1/2 pounds broccoli (1 head) (cut into medium florets*)
+    - 3 Tbsp olive oil
+    - 3 garlic cloves (minced, or 1/2 tsp garlic powder)
+    - 1/2 tsp fine sea salt (or more to taste)
+    - ¼ tsp pepper (or to taste)
+    - 2 Tbsp freshly grated parmesan (to serve, optional)
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Olive oil, garlic, optional Parmesan; 1.5 lb broccoli (halve for two).
 - slot: winter-side-garlicky-kale
   slot_label: garlicky kale
   candidates:
-  - {site: Taste of Home, url: "https://www.tasteofhome.com/recipes/steamed-kale/", title: "Steamed Kale", rating: 4.2, count: 10, total_time_min: 40, yield: "4 servings", ingredients: ["1 bunch kale", "1 tablespoon olive oil", "3 garlic cloves", "2/3 cup water", "1/4 teaspoon salt", "1/8 teaspoon red pepper flakes", "1 tablespoon balsamic vinegar"], uses_chicken_breast: null, has_beans_lentils: false, non_olive_fats: [], checked_on: "2026-10-31", notes: "Sauteed then steamed."}
+  - site: Love & Lemons
+    url: https://www.loveandlemons.com/sauteed-kale/
+    title: Sautéed Kale
+    rating: 4.98
+    count: 40
+    total_time_min: 15
+    yield: '4'
+    ingredients:
+    - 1 bunch kale (lacinato or curly kale)
+    - 2 teaspoons extra-virgin olive oil
+    - 2  garlic cloves (chopped)
+    - Sea salt and freshly ground black pepper
+    - Lemon wedge (for squeezing)
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Olive oil, garlic, lemon; very simple; count 40.
+  - site: Jessica Gavin
+    url: https://www.jessicagavin.com/sauteed-kale/
+    title: Sauteed Kale
+    rating: 4.77
+    count: 13
+    total_time_min: 30
+    yield: '4'
+    ingredients:
+    - 1 ½ pounds kale ((about 3 large leaves, 7 to 8 cups chopped))
+    - 2 tablespoons extra-virgin olive oil
+    - ⅓ cup diced shallots (¼-inch dice)
+    - 1 cup diced red bell pepper (¼-inch dice)
+    - 4 cloves garlic (peeled and thinly sliced)
+    - ¾ teaspoon kosher salt
+    - ½ teaspoon black pepper
+    - 1 teaspoon balsamic vinegar
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Olive oil with shallots, red bell pepper, garlic, balsamic; count 13 (floor met); 1.5 lb kale
+      (halve).
 - slot: winter-side-bok-choy
   slot_label: stir-fried bok choy
   candidates:
-  - {site: Food Network, url: "https://www.foodnetwork.com/recipes/robin-miller/stir-fried-bok-choy-with-ginger-and-garlic-recipe-1944956", title: "Stir-Fried Bok Choy with Ginger and Garlic", rating: null, count: null, total_time_min: 10, yield: "4 servings", ingredients: ["1 tablespoon olive oil", "2 cloves garlic", "1 tablespoon ginger", "8 cups bok choy", "2 tablespoons soy sauce", "Salt and pepper"], uses_chicken_breast: null, has_beans_lentils: false, non_olive_fats: [], checked_on: "2026-10-31", notes: "Rating not exposed; olive oil."}
+  - site: Downshiftology
+    url: https://downshiftology.com/recipes/bok-choy/
+    title: Easy Bok Choy Recipe (Garlic & Ginger)
+    rating: 5
+    count: 45
+    total_time_min: 15
+    yield: '4'
+    ingredients:
+    - 2 tablespoons avocado oil
+    - 4  baby bok choy (sliced in half)
+    - 1 teaspoon minced ginger
+    - 2  garlic cloves (minced)
+    - 2 tablespoons water
+    - salt and pepper
+    has_beans_lentils: false
+    non_olive_fats:
+    - 2 tbsp avocado oil
+    checked_on: '2026-10-31'
+    notes: Garlic-ginger stir-fry; avocado oil (swap to olive oil possible but not stated); count 45.
+  - site: Jessica Gavin
+    url: https://www.jessicagavin.com/how-to-cook-bok-choy/
+    title: How to Cook Bok Choy
+    rating: 4.91
+    count: 475
+    total_time_min: 17
+    yield: '4'
+    ingredients:
+    - 1 pound baby bok choy
+    - 2 tablespoons soy sauce
+    - 2 tablespoons vegetable broth
+    - 1 tablespoon rice vinegar
+    - 1 tablespoon sesame oil (divided)
+    - 1 teaspoon honey
+    - ⅛ teaspoon red chili flakes
+    - 2 tablespoons vegetable oil (divided)
+    - 1 tablespoon minced garlic
+    - 2 teaspoons minced ginger
+    - ¼ cup thinly sliced green onions (white and green parts)
+    - ¼ teaspoon sesame seeds
+    has_beans_lentils: false
+    non_olive_fats:
+    - 2 tbsp vegetable oil
+    - 1 tbsp sesame oil
+    checked_on: '2026-10-31'
+    notes: Seared halved bok choy with soy-rice-vinegar sauce; many ingredients (flag); count 475 (9 reviews).
+  - site: The Lemon Bowl
+    url: https://thelemonbowl.com/garlic-bok-choy/
+    title: Garlic Bok Choy
+    rating: 4.34
+    count: 6
+    total_time_min: 10
+    yield: 4 servings
+    ingredients:
+    - 1 tablespoon oil any kind such as olive, canola or avocado
+    - 2 tablespoons minced ginger
+    - 1 clove garlic minced
+    - 1 teaspoon chili garlic paste
+    - 1 large Bok Choy or 3 small, cored and cut in 1-inch pieces
+    - 2 tablespoons soy sauce
+    - 2 tablespoons water
+    - 1 teaspoon sesame oil
+    - sesame seeds, minced scallions optional garnish
+    has_beans_lentils: false
+    non_olive_fats:
+    - 1 tbsp oil of choice (card says olive, canola or avocado)
+    - 1 tsp sesame oil
+    checked_on: '2026-10-31'
+    notes: 'Read from visible card via WebFetch (no JSON-LD): 4.34 from 6 votes, prep 5 + cook 5 = 10
+      min. Below the count floor; fallback only. Olive oil is allowed by the card.'
 - slot: winter-side-spinach-feta
   slot_label: spinach salad with feta
   candidates:
-  - {site: Taste of Home, url: "https://www.tasteofhome.com/recipes/fruit-spinach-salad/", title: "Spinach Fruit Salad", rating: 5, count: 3, total_time_min: 10, yield: "2 servings", ingredients: ["2 cups baby spinach", "mandarin oranges", "1/3 cup red grapes", "1/4 cup feta", "2 tablespoons walnuts", "1 green onion", "1/4 cup oil and vinegar dressing"], uses_chicken_breast: null, has_beans_lentils: false, non_olive_fats: [], checked_on: "2026-10-31", notes: "2 servings; feta."}
-  - {site: Taste of Home, url: "https://www.tasteofhome.com/recipes/spinach-apple-pecan-salad/", title: "Spinach, Apple & Pecan Salad", rating: 5, count: 5, total_time_min: 15, yield: "16 servings", ingredients: ["2 packages baby spinach", "1 apple", "1 cup feta", "1 cup glazed pecans", "1/2 cup red onion", "1/3 cup dried cranberries", "2 tablespoons cider vinegar", "1 tablespoon sugar", "1/2 teaspoon Dijon", "1/4 cup canola oil"], uses_chicken_breast: null, has_beans_lentils: false, non_olive_fats: ["canola oil"], checked_on: "2026-10-31", notes: "16 servings; canola dressing."}
+  - site: RecipeTin Eats
+    url: https://www.recipetineats.com/roast-pumpkin-spinach-and-feta-salad/
+    title: Roast Pumpkin, Spinach and Feta Salad
+    rating: 4.98
+    count: 87
+    total_time_min: 35
+    yield: '4'
+    ingredients:
+    - 600 g / 1.2 lb   pumpkin ((after peeling), cut into 3cm / 1.25" cubes (Note 1))
+    - 1 1/2 tbsp olive oil
+    - Salt and pepper
+    - 2.5 tbsp / 50 ml  extra virgin olive oil
+    - 2 tbsp balsamic vinegar
+    - 1 tbsp honey
+    - Salt and pepper
+    - 1/4 cup / 35g   pine nuts ((Note 2))
+    - 150 g / 5 oz   baby spinach leaves (4 handfuls)
+    - 60 g / 2 oz   feta (, crumbled (or more!!))
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Winter-friendly roast pumpkin + spinach + feta + pine nuts, honey-balsamic dressing; olive
+      oil only; count 87 (18 reviews).
+  - site: Well Plated
+    url: https://www.wellplated.com/spinach-strawberry-salad/
+    title: Spinach Strawberry Salad
+    rating: 4.69
+    count: 649
+    total_time_min: 20
+    yield: '6'
+    ingredients:
+    - 3/4 cup raw pecans
+    - 1/2 small red onion (very thinly sliced)
+    - 10 ounces fresh baby spinach (I also love a 50/50 arugula and spinach blend)
+    - 1 quart strawberries (hulled and quartered (about 1 pound))
+    - 3/4 cup crumbled feta cheese (buy the block-style feta, not pre-crumbled; the texture is much better)
+    - 1/4 cup balsamic vinegar
+    - 3 tablespoons extra-virgin olive oil
+    - 1 1/2 tablespoons poppy seeds
+    - 1 1/2 tablespoons honey
+    - 1/2 teaspoon Dijon mustard
+    - 1/2 teaspoon kosher salt
+    - 1/8 teaspoon ground black pepper
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Spinach + strawberries + feta + pecans + poppy seed dressing; strawberries are out of season
+      in winter (flag); count 649; olive oil dressing.
+  - site: iFoodReal
+    url: https://ifoodreal.com/favorite-spinach-salad/
+    title: My Favorite Spinach Salad Recipe
+    rating: 5
+    count: 3
+    total_time_min: 7
+    yield: '6'
+    ingredients:
+    - 4 cups baby spinach (pre-washed & packed)
+    - 1 large English cucumber (coarsely chopped)
+    - 3-4 small tomatoes (coarsely chopped)
+    - 4 ounces feta cheese (broken or cut in large pieces)
+    - 2-3 tablespoons unrefined sunflower oil
+    - 1/4 teaspoon salt
+    - 1/2 teaspoon ground black pepper
+    has_beans_lentils: false
+    non_olive_fats:
+    - 2-3 tbsp unrefined sunflower oil (dressing)
+    checked_on: '2026-10-31'
+    notes: Simplest spinach-cucumber-tomato-feta salad (7 ingredients); sunflower oil; count only 3.
 - slot: winter-side-sesame-cucumber
   slot_label: sesame cucumber salad
   candidates:
-  - {site: Taste of Home, url: "https://www.tasteofhome.com/recipes/sesame-ginger-cucumber-salad/", title: "Cucumber-Ginger Salad", rating: 4.5, count: 2, total_time_min: 15, yield: "6 servings", ingredients: ["2 tablespoons rice vinegar", "4 teaspoons soy sauce", "1 tablespoon olive oil", "2 teaspoons gingerroot", "2 teaspoons sesame oil", "1 teaspoon honey", "1/4 teaspoon Sriracha", "2 English cucumbers", "1 teaspoon sesame seeds"], uses_chicken_breast: null, has_beans_lentils: false, non_olive_fats: ["sesame oil"], checked_on: "2026-10-31", notes: "Sesame + olive oil."}
-  - {site: Taste of Home, url: "https://www.tasteofhome.com/recipes/asian-cucumber-salad/", title: "Asian Cucumber Salad", rating: 5, count: 2, total_time_min: 15, yield: "2 servings", ingredients: ["4-1/2 teaspoons rice vinegar", "1/2 teaspoon honey", "1/4 teaspoon sesame oil", "1/4 teaspoon soy sauce", "1/2 cucumber", "1/2 red pepper", "sesame seeds"], uses_chicken_breast: null, has_beans_lentils: false, non_olive_fats: ["sesame oil"], checked_on: "2026-10-31", notes: "2 servings."}
+  - site: Downshiftology
+    url: https://downshiftology.com/recipes/asian-cucumber-salad/
+    title: Asian Cucumber Salad (Smashed Cucumber Salad)
+    rating: 5
+    count: 34
+    total_time_min: 25
+    yield: '4'
+    ingredients:
+    - 6  medium Persian cucumbers
+    - 1 teaspoon kosher salt
+    - 2  green onions (thinly sliced)
+    - ¼ cup finely chopped cilantro
+    - 2 teaspoons white sesame seeds (toasted (plus extra for garnish))
+    - 1 tablespoon sesame oil
+    - 1 tablespoon tamari soy sauce
+    - 1 tablespoon rice vinegar
+    - 1 tablespoon honey
+    - 2  garlic cloves (finely chopped)
+    - 1 to 2 teaspoons chili crisp (see notes below)
+    has_beans_lentils: false
+    non_olive_fats:
+    - 1 tbsp sesame oil (dressing, no cooking fat)
+    checked_on: '2026-10-31'
+    notes: Smashed cucumber salad; chili crisp optional; total 25 min; count 34 (6 reviews). Raw salad
+      so no cooking fat.
+  - site: Well Plated
+    url: https://www.wellplated.com/asian-cucumber-salad/
+    title: Asian Cucumber Salad
+    rating: 4.66
+    count: 58
+    total_time_min: 15
+    yield: '4'
+    ingredients:
+    - 6 Persian or Japanese cucumbers* (often labeled "mini cucumbers")
+    - ½ cup honey-roasted peanuts (chopped)
+    - ½ cup rice vinegar
+    - 1 teaspoon sesame oil
+    - 1 teaspoon reduced-sodium soy sauce ((or gluten-free tamari))
+    - 2 teaspoons minced garlic
+    - 1 teaspoon sugar
+    - Crushed red pepper flakes (for serving)
+    - Diced avocado (optional - have been adding more often lately)
+    has_beans_lentils: false
+    non_olive_fats:
+    - 1 tsp sesame oil (dressing)
+    checked_on: '2026-10-31'
+    notes: Persian cucumbers, rice vinegar, sesame oil, honey-roasted peanuts; count 58.
 - slot: winter-side-brussels-sprouts
   slot_label: roasted Brussels sprouts
   candidates:
-  - {site: Taste of Home, url: "https://www.tasteofhome.com/recipes/garlic-roasted-brussels-sprouts/", title: "Garlic Roasted Brussels Sprouts", rating: 4.43, count: 7, total_time_min: 30, yield: "12 servings", ingredients: ["2 pounds Brussels sprouts", "2 red onions", "3 tablespoons olive oil", "7 garlic cloves", "1 teaspoon salt", "1/2 teaspoon pepper"], uses_chicken_breast: null, has_beans_lentils: false, non_olive_fats: [], checked_on: "2026-10-31", notes: ""}
-  - {site: Taste of Home, url: "https://www.tasteofhome.com/recipes/roasted-brussels-sprouts-with-bacon/", title: "Brussels Sprouts with Bacon", rating: 4.78, count: 9, total_time_min: 30, yield: "6 servings", ingredients: ["2 pounds Brussels sprouts", "6 bacon strips", "2 tablespoons olive oil", "1/2 teaspoon kosher salt", "1/2 teaspoon pepper", "2 tablespoons balsamic glaze"], uses_chicken_breast: null, has_beans_lentils: false, non_olive_fats: ["bacon"], checked_on: "2026-10-31", notes: "Bacon + balsamic glaze."}
+  - site: Love & Lemons
+    url: https://www.loveandlemons.com/roasted-brussels-sprouts/
+    title: Roasted Brussels Sprouts
+    rating: 4.92
+    count: 212
+    total_time_min: 35
+    yield: '3'
+    ingredients:
+    - 1 pound Brussels sprouts (trimmed)
+    - Extra-virgin olive oil (for drizzling)
+    - Sea salt and freshly ground black pepper
+    - 1 tablespoon fresh lemon juice (plus 2 teaspoons zest)
+    - 1 tablespoon grated Parmesan cheese
+    - 1 tablespoon fresh thyme leaves
+    - Fresh parsley leaves (for garnish)
+    - Pinch red pepper flakes
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Olive oil roast then lemon-Parmesan finish; ratingCount 212 (58 reviews).
+  - site: Jessica Gavin
+    url: https://www.jessicagavin.com/roasted-brussels-sprouts/
+    title: Roasted Brussels Sprouts
+    rating: 4.92
+    count: 61
+    total_time_min: 30
+    yield: '8'
+    ingredients:
+    - 2 pounds brussels sprouts (1 to 1 ½” long)
+    - 3 tablespoons olive oil
+    - 1 tablespoon water
+    - ¾ teaspoon kosher salt
+    - ¼ teaspoon black pepper
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Olive oil, 1 tbsp water steam-roast method; 2 lb (halve for two); count 61.
 - slot: winter-lunch-1
   slot_label: chicken, rice and roasted root vegetable bowls (chicken breast)
   candidates:
-  - {site: Taste of Home, url: "https://www.tasteofhome.com/recipes/chicken-rice-bowl/", title: "Chicken and Rice Bowls", rating: 4.44, count: 9, total_time_min: 15, yield: "4 servings", ingredients: ["1 cup instant rice", "1 cup chicken broth", "1/2 cup green pepper", "1/4 cup onion", "2 teaspoons olive oil", "9 ounces grilled chicken breast strips", "1/2 cup corn", "1/2 cup peas", "1 teaspoon basil", "1 teaspoon sage"], uses_chicken_breast: true, has_beans_lentils: false, non_olive_fats: [], checked_on: "2026-10-31", notes: "Instant-rice bowl, breast strips; no roasted root veg."}
+  - site: Skinnytaste
+    url: https://www.skinnytaste.com/greek-chicken-meal-prep-rice-bowls/
+    title: Meal Prep Greek Chicken Rice Bowls
+    rating: 4.85
+    count: 38
+    total_time_min: 60
+    yield: '4'
+    ingredients:
+    - 1 1/2 pounds boneless (skinless chicken breasts (2 large or 3 small))
+    - 2 tablespoons fresh lemon juice
+    - 2 tablespoons red wine vinegar
+    - 1 tablespoon extra virgin olive oil
+    - 3 cloves garlic (minced)
+    - 2 teaspoons dried oregano
+    - 1-1/4 cups quick cooking brown rice (such as Uncle Bens 10 min rice)
+    - 2 cups low sodium chicken broth
+    - 1 dry pint cherry or grape tomatoes
+    - 1 medium cucumber (peeled, seeded and cut into bite-sized pieces)
+    - 1 small orange bell pepper (cut into 1-inch pieces)
+    - 20 pitted Kalamata olives (sliced)
+    - 4 teaspoons extra virgin olive oil
+    - 1 medium lemon (quartered)
+    - 1/4 cup crumbled feta cheese
+    uses_chicken_breast: true
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Breast + brown rice + tomato/cucumber/pepper/olives; NOT root vegetables (flag). Olive oil.
+      Total 60 min within 90 cap. Meal-prep format.
+  - site: Cooking Classy
+    url: https://www.cookingclassy.com/chicken-veggie-brown-rice-bowls-peanut-sauce/
+    title: Chicken Veggie and Brown Rice Bowls with Peanut Sauce
+    rating: 5
+    count: 2
+    total_time_min: 65
+    yield: '4'
+    ingredients:
+    - 1 cup brown rice
+    - 2 cups shredded rotisserie chicken breast
+    - 2 medium ((22 oz) sweet potatoes, peeled and diced into small cubes)
+    - 1 1/2 Tbsp olive oil
+    - 1 tsp ground cumin
+    - 1/2 tsp ground coriander
+    - 1/4 tsp ground cinnamon
+    - Salt and freshly ground black pepper
+    - 1/2 large red bell pepper (, thinly sliced then chopped into matchsticks)
+    - 1/2 cup cilantro
+    - 1/3 cup peanuts (, chopped)
+    - 1/3 cup creamy peanut butter
+    - 1 1/2 Tbsp honey
+    - 1 Tbsp fresh lime juice
+    - 1 Tbsp soy sauce
+    - 1 tsp minced garlic
+    - 2 tsp peeled and minced fresh ginger
+    - 1 tsp sriracha (, or more to taste)
+    - 3 Tbsp water
+    uses_chicken_breast: true
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Roasted sweet potato (root veg) + brown rice + rotisserie chicken breast + peanut sauce; olive
+      oil; count 2 only (rating not meaningful); 65 min.
+  - site: foodiecrush
+    url: https://www.foodiecrush.com/roasted-chicken-butternut-squash-and-guacamole-rice-bowls/
+    title: Southwest Chicken Bowl Recipe
+    rating: 4.75
+    count: 39
+    total_time_min: 50
+    yield: '4'
+    ingredients:
+    - 2 cups long-grain brown rice
+    - 1 (15-ounce) can black beans
+    - 1 cup cilantro leaves (, chopped (plus more for garnish))
+    - 2 teaspoons ground cumin
+    - 2 teaspoons ground chili pepper
+    - 2 teaspoons kosher salt
+    - 1 teaspoons freshly ground black pepper
+    - 2 tablespoons olive oil (, divided)
+    - 3 cups cubed butternut squash
+    - 1 red onion (, sliced into 1/4-inch slices)
+    - 2 (8-ounce) boneless skinless chicken breasts (, trimmed and cut in half lengthwise)
+    - 1 (8-ounce) package Wholly Guacamole® Dip of your choice
+    uses_chicken_breast: true
+    has_beans_lentils: true
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: 'BEANS VIOLATION: contains 1 can black beans (omit to comply). Roasted butternut squash + red
+      onion + chicken breast over brown rice; olive oil; count 39.'
 - slot: winter-lunch-2
   slot_label: beef gyro bowls (ground beef, rice, cucumber, tzatziki)
   candidates:
-  - {site: Taste of Home, url: "https://www.tasteofhome.com/recipes/parchment-paper-gyros/", title: "Parchment Paper Gyros", rating: 4.9, count: 10, total_time_min: 30, yield: "4 servings", ingredients: ["1 pound ground beef", "1 tablespoon grated onion", "1 tablespoon Greek yogurt", "1 tablespoon olive oil", "1-1/2 teaspoons oregano", "1 teaspoon garlic", "1 teaspoon salt", "1 teaspoon cumin", "1 teaspoon coriander", "4 flatbreads or pitas", "3 cups lettuce", "1 cup tomatoes", "1 red onion", "tzatziki"], uses_chicken_breast: null, has_beans_lentils: false, non_olive_fats: [], checked_on: "2026-10-31", notes: "Gyro meat; add rice+cucumber for the bowl."}
-  - {site: Taste of Home, url: "https://www.tasteofhome.com/recipes/gyro-meat-loaf-with-tzatziki-sauce/", title: "Gyro Meat Loaf with Tzatziki Sauce", rating: 4.6, count: 10, total_time_min: 75, yield: "8 servings", ingredients: ["frozen spinach", "1 cup bread crumbs", "1 onion", "2 eggs", "1/4 cup Romano", "2 teaspoons oregano", "1-1/2 teaspoons garlic powder", "2 pounds ground lamb or beef", "1 cup tzatziki"], uses_chicken_breast: null, has_beans_lentils: false, non_olive_fats: [], checked_on: "2026-10-31", notes: "Meat loaf; lamb OR beef; 75 min."}
+  - site: Well Plated
+    url: https://www.wellplated.com/gyro-recipe/
+    title: Gyro Recipe
+    rating: 4.58
+    count: 7
+    total_time_min: 35
+    yield: '6'
+    ingredients:
+    - 1 pound lean ground beef (I used 90% lean)
+    - 1 pound ground lamb (or 85/15 ground beef)
+    - 3 cloves minced garlic (about 1 tablespoon)
+    - 1 tablespoon dried oregano
+    - 1 teaspoon ground cumin
+    - 1/4 teaspoon ground cinnamon
+    - 3/4 teaspoon kosher salt
+    - 1/2 teaspoon ground black pepper
+    - Olive oil (for brushing)
+    - Pita bread (brown rice, white rice, or Lemon Rice)
+    - Tzatziki sauce, plain Greek yogurt, or cottage cheese
+    - Chopped vegetables ((cucumbers, red onion, tomato))
+    - Crumbled feta
+    - Finely chopped fresh parsley
+    - Hummus (a fun bonus on the side)
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Gyro meat (90% beef + lamb; page says all-beef blend of 90/10 and 85/15 works) served over
+      rice with tzatziki, cucumber, tomato; olive oil for brushing; hummus listed as optional serving
+      (omit). Tzatziki not in ingredient list as a recipe (separate link). Count 7 (below floor).
+  - site: Wholesome Yum
+    url: https://www.wholesomeyum.com/gyro-meat/
+    title: Gyro Meat (Easy Recipe)
+    rating: 4.94
+    count: 77
+    total_time_min: 185
+    yield: '8'
+    ingredients:
+    - 1 medium Onion ((cut into chunks))
+    - 4 cloves Garlic
+    - 1 lb Ground lamb
+    - 1 lb Ground beef
+    - 1 tbsp Dried oregano
+    - 2 tsp Dried marjoram
+    - 2 tsp Dried thyme
+    - 2 tsp Dried rosemary
+    - 1 tsp Cumin
+    - 2 tsp Sea salt
+    - 1/2 tsp Black pepper
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Beef + lamb gyro meat loaf, slice for bowls; total time 185 min in schema (includes chilling)
+      exceeds 90 cap (flag); count 77; no cooking fat in list.
+  - site: Taste of Home
+    url: https://www.tasteofhome.com/recipes/favorite-meat-loaf-gyros/
+    title: Favorite Meat Loaf Gyros
+    rating: 4.6
+    count: 30
+    total_time_min: 90
+    yield: 8 servings
+    ingredients:
+    - 1 large egg, lightly beaten
+    - 6 garlic cloves, minced
+    - 3 tablespoons dried oregano
+    - 1-1/2 teaspoons kosher salt
+    - 1 teaspoon pepper
+    - 1 pound ground lamb
+    - 1 pound ground beef
+    - 'TZATZIKI SAUCE:'
+    - 1 cup plain yogurt
+    - 1 medium cucumber, peeled, seeded and chopped
+    - 2 tablespoons lemon juice
+    - 2 garlic cloves, minced
+    - 1/2 teaspoon salt
+    - 1/4 teaspoon pepper
+    - 'GYROS:'
+    - 8 whole pita breads
+    - 3 tablespoons olive oil, divided
+    - 16 slices tomato
+    - 8 slices sweet onion, halved
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Beef + lamb, with tzatziki recipe included; served on pita not rice (adapt); total 90 min (prep
+      30 + cook 60). Rating 4.6 from 30 reviews (reviewCount); 15+ ingredients.
 - slot: winter-lunch-3
-  slot_label: chicken and vegetable soup (chicken breast)
+  slot_label: chicken and vegetable soup meal prep (chicken breast)
   candidates:
-  - {site: Taste of Home, url: "https://www.tasteofhome.com/recipes/pressure-cooker-loaded-chicken-veggie-soup/", title: "Pressure Cooker Loaded Chicken Veggie Soup", rating: 4.67, count: 3, total_time_min: 25, yield: "6 servings", ingredients: ["1 tablespoon olive oil", "1 pound boneless skinless chicken breasts", "chicken broth", "1 cup broccoli", "1 cup carrots", "1 cup celery", "1 large potato", "2 teaspoons parsley", "1 teaspoon pepper", "1/2 teaspoon thyme", "1/2 teaspoon oregano"], uses_chicken_breast: true, has_beans_lentils: false, non_olive_fats: [], checked_on: "2026-10-31", notes: "Breast browned then shredded."}
-  - {site: Taste of Home, url: "https://www.tasteofhome.com/recipes/chicken-soup-with-cabbage/", title: "Chicken Cabbage Soup", rating: 5, count: 2, total_time_min: 45, yield: "10 servings", ingredients: ["2 tablespoons olive oil", "2 carrots", "2 celery ribs", "1 onion", "2 garlic cloves", "6 cups chicken broth", "2 red potatoes", "1-1/2 cups cabbage", "1 teaspoon thyme", "2 cups shredded cooked chicken"], uses_chicken_breast: null, has_beans_lentils: false, non_olive_fats: [], checked_on: "2026-10-31", notes: "Shredded cooked chicken (cut unspecified)."}
+  - site: Wholesome Yum
+    url: https://www.wholesomeyum.com/chicken-vegetable-soup/
+    title: Chicken Vegetable Soup (Easy Recipe)
+    rating: 5
+    count: 4
+    total_time_min: 40
+    yield: '6'
+    ingredients:
+    - 2 tbsp Olive oil
+    - 2 large Carrots ((sliced or cut into half moons depending on size; ~1 cup))
+    - 1 small Yellow onion ((diced; ~1 cup))
+    - 3 stalks Celery ((sliced; ~1 cup))
+    - 2 medium Yukon gold potatoes
+    - 3 cloves Garlic ((minced))
+    - 1 lb Boneless skinless chicken breasts ((or boneless skinless chicken thighs))
+    - 4 cups Chicken broth, reduced sodium
+    - 2 14.5-oz cans Diced tomatoes ((with liquid))
+    - 1 tsp Sea salt
+    - 1/2 tsp Black pepper
+    - 1 cup Green beans ((diced into 1-inch pieces))
+    - 1 cup Peas ((optional))
+    uses_chicken_breast: true
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Breast (or thighs) soup with carrots, celery, potatoes, canned tomatoes, green beans (fresh/frozen)
+      and optional peas; olive oil. Count only 4 (rating not meaningful).
+  - site: iFoodReal
+    url: https://ifoodreal.com/chicken-noodle-vegetable-soup/
+    title: Chicken Noodle Vegetable Soup
+    rating: 5
+    count: 12
+    total_time_min: 37
+    yield: '8'
+    ingredients:
+    - 10 cups chicken broth (low sodium)
+    - 1 large chicken breast (diced)
+    - 1 lb cabbage (coarsely chopped)
+    - 2 bay leaves
+    - 1 tbsp butter
+    - 2 large carrots (diced)
+    - 2 potatoes (diced)
+    - 3 fresh tomatoes (diced or 14 oz can of diced tomatoes)
+    - 1 tsp oregano (dried)
+    - 1 tsp thyme (dried)
+    - 1 1/4 tsp salt
+    - Ground black pepper (to taste)
+    - 4 oz egg noodles (uncooked)
+    - 2 large garlic cloves (grated)
+    - 1/3 cup fresh parsley (chopped)
+    uses_chicken_breast: true
+    has_beans_lentils: false
+    non_olive_fats:
+    - 1 tbsp butter
+    checked_on: '2026-10-31'
+    notes: Diced breast with cabbage, carrots, potatoes, tomatoes, egg noodles; butter is the only fat
+      (flag); 8 servings; count 12.
+- slot: winter-lunch-4
+  slot_label: chicken burrito or rice meal-prep bowls (chicken breast, no beans)
+  candidates:
+  - site: Skinnytaste
+    url: https://www.skinnytaste.com/chicken-taco-poblano-rice-bowls/
+    title: Chicken Taco Poblano Rice Bowls
+    rating: 4.97
+    count: 53
+    total_time_min: 25
+    yield: '4'
+    ingredients:
+    - 1 1/4 pounds organic boneless skinless chicken breasts, cut 1/2 inch cubes (from 3 small)
+    - 2 teaspoons olive oil
+    - 1 medium red onion (peeled and diced)
+    - 1/4 cup cilantro (minced plus more for garnish)
+    - 1 poblano pepper (seeded and diced)
+    - 1 roma tomato (cored and diced)
+    - 1 lime (halved)
+    - taco seasoning (see below)
+    - kosher salt
+    - 1 cup frozen or fresh corn kernels
+    - 3 cups cooked brown rice (heated (use cauliflower rice for low-carb))
+    - 1/4 cup cheddar-jack cheese
+    - 1/4 cup 2% sour cream or Greek yogurt (optional)
+    - 1 teaspoon garlic powder
+    - 1 teaspoon cumin
+    - 1 teaspoon kosher salt
+    - 1/2 teaspoon chili powder
+    - 1/2 teaspoon paprika
+    - 1/2 teaspoon oregano
+    uses_chicken_breast: true
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Diced breast, poblano, corn, tomato over brown rice; no beans; olive oil; cheddar-jack and
+      sour cream optional; count 53.
+  - site: Well Plated
+    url: https://www.wellplated.com/chipotle-burrito-bowl/
+    title: Burrito Bowl
+    rating: 4.81
+    count: 36
+    total_time_min: 35
+    yield: '6'
+    ingredients:
+    - 2 boneless, skinless chicken breasts (about 1 pound)
+    - 1 tablespoon extra-virgin olive oil
+    - 1/4 teaspoon kosher salt
+    - 1/4 teaspoon ground black pepper
+    - 1 lime (zest and juice)
+    - 1 small red onion (diced)
+    - 1 cup quinoa
+    - 1/2 cup chopped fresh cilantro (plus additional for serving)
+    - 1 (14-ounce) can black beans (rinsed and drained)
+    - 1 (14-ounce) can corn (drained, or 1 1/2 cups fresh or frozen corn (thawed if frozen))
+    - 2 cups halved cherry tomatoes (about 1 pint)
+    - 1 jalapeño (seeded and diced)
+    - 1/4 cup extra-virgin olive oil
+    - 1/4 cup freshly squeezed lime juice (plus additional for serving)
+    - 1 teaspoon ground chili powder
+    - 1 teaspoon ground cumin
+    - 1/2 teaspoon kosher salt
+    - 1/4 teaspoon cayenne pepper (use less or omit if sensitive to spice)
+    - 1/4 teaspoon ground black pepper
+    - Diced avocado (or Best Guacamole Recipe)
+    - Shredded cheese
+    - Non-fat plain Greek yogurt (or sour cream)
+    - Salsa
+    uses_chicken_breast: true
+    has_beans_lentils: true
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: 'BEANS VIOLATION: includes 1 can black beans (omit to comply). Breast, quinoa, corn, tomato;
+      olive oil; count 36.'
+  - site: RecipeTin Eats
+    url: https://www.recipetineats.com/chicken-burrito/
+    title: Chicken Burrito
+    rating: 4.96
+    count: 93
+    total_time_min: 30
+    yield: '5'
+    ingredients:
+    - 5  tortillas (, flour (approx 20cm/8" wide))
+    - 1 tsp each onion powder, dried oregano, salt
+    - 2 tsp each dried cumin powder, paprika
+    - 1/4 tsp black pepper
+    - 3/4 tsp cayenne pepper ((optional, adjust to taste))
+    - 600g / 1.2 lb  chicken breast (, sliced in half horizontally (Note 1))
+    - 2 tbsp olive oil (, separated)
+    - 1/2  onion (, chopped)
+    - 2  garlic cloves (, finely minced)
+    - 1  red capsicum/bell pepper (, diced)
+    - 400g/14oz  refried beans (, canned (Note 2))
+    - 1/4 cup water
+    - 2.5 cups white rice (, plain (cooked, Note 3))
+    - 2.5 cups Mexican Red Rice ((the best for Burritos!))
+    - 400g/14oz  canned corn (, drained (or 280g/9oz frozen thawed))
+    - 1.5 cups (150g)  cheese (, shredded (Mexican blend, cheddar, tasty, Montery Jack))
+    - 1/4 cup coriander/cilantro (, finely chopped)
+    - Avocado sauce
+    - Sour cream
+    - Salsa ((restaurant style, smooth))
+    uses_chicken_breast: true
+    has_beans_lentils: true
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: 'BEANS VIOLATION: includes canned refried beans (omit to comply). Breast + rice + corn + cheese
+      in tortillas; olive oil; makes 5 burritos (scale); total time = prep 15 + cook 15; count 93.'

@@ -38,8 +38,9 @@ BOOKS = {"spring": "Spring", "summer": "Summer", "fall": "Fall", "winter": "Wint
 def load_configs(stack=STACK):
     cfg = yaml.safe_load(open(os.path.join(stack, "config.yaml")))
     foods = yaml.safe_load(open(os.path.join(stack, "recipes", "foods.yaml")))
+    fixed = yaml.safe_load(open(os.path.join(stack, "recipes", "fixed.yaml")))
     cf = C.load_candidate_files(os.path.join(stack, "recipes", "candidates"))
-    return cfg, foods, cf
+    return cfg, foods, fixed, cf
 
 
 def keywords_for_slot(slot_id, kind, season):
@@ -64,18 +65,22 @@ def keywords_for_slot(slot_id, kind, season):
 
 
 def route_food(name, foods_cfg, stores_cfg):
-    """Return the supermarket-category name for a food, by first-match rule, else
-    the freshness default."""
+    """Return the supermarket-category name for a food by the LONGEST matching
+    rule (most specific wins, so 'crushed tomato' beats 'tomato', 'popcorn'
+    beats 'corn', 'olive oil' beats 'oil', 'rice cake' beats 'rice', 'ground
+    beef' beats 'beef'), else the shelf-stable freshness default."""
     low = (name or "").lower()
+    best = None
     for rule in foods_cfg.get("rules", []):
-        if rule["match"].lower() in low:
-            return rule["category"]
-    # fallback: ambiguous -> shelf-stable Target by default (documented); fresh
-    # produce words would have matched above.
+        m = rule["match"].lower()
+        if m in low and (best is None or len(m) > len(best["match"])):
+            best = rule
+    if best:
+        return best["category"]
     return f"{stores_cfg['default_shelf_stable']}/weekly: Other"
 
 
-def build_seed_plan(cfg, foods_cfg, scored):
+def build_seed_plan(cfg, foods_cfg, fixed_cfg, scored):
     """Pure: the full set of idempotent actions the seed would take."""
     stores_cfg = cfg["stores"]
     # categories = every namespaced aisle in the routing table + the per-store
@@ -109,8 +114,10 @@ def build_seed_plan(cfg, foods_cfg, scored):
         "keywords": VOCAB,
         "books": list(BOOKS.values()),
         "meal_types": list(cfg["tandoor"]["meal_types"].values()),
+        "fixed": [r["name"] for r in (fixed_cfg.get("recipes") or [])],
         "imports": imports,
         "no_candidate": no_candidate,
+        "shortfalls": C.coverage_shortfalls(scored),
     }
 
 
@@ -119,6 +126,7 @@ def print_plan(plan):
     print(f"supermarkets: {', '.join(plan['supermarkets'])}")
     print(f"meal types:   {', '.join(plan['meal_types'])}")
     print(f"recipe books: {', '.join(plan['books'])}")
+    print(f"fixed recipes (seeded directly): {', '.join(plan['fixed'])}")
     print(f"keywords ({len(plan['keywords'])}): {', '.join(plan['keywords'])}")
     print(f"supermarket categories ({len(plan['categories'])}):")
     for c in plan["categories"]:
@@ -132,6 +140,14 @@ def print_plan(plan):
         print(f"\nslots with NO good/acceptable candidate ({len(plan['no_candidate'])}):")
         for s in plan["no_candidate"]:
             print(f"  - {s}  (owner: add a candidate URL or set selected:true, then re-run)")
+    print("\n=== seed preflight (per-season generator minimums) ===")
+    if plan["shortfalls"]:
+        for season, short in plan["shortfalls"].items():
+            print(f"  FAIL {season}: needs {', '.join(short)}")
+        print("  --apply is blocked until these are filled (or pass --force). See the runbook"
+              " 'owner bookmarklet import' steps.")
+    else:
+        print("  OK: every season can build a week at both parities.")
 
 
 def render_candidate_markdown(scored, cfg):
@@ -240,9 +256,61 @@ def _iter_recipe(blob):
                 stack.extend(n["@graph"])
 
 
-def apply_seed(plan, cfg, foods_cfg):
+def _route_recipe_foods(t, recipe, foods_cfg, cfg, cats):
+    """Assign each ingredient food's supermarket_category (and food_onhand for
+    Amana freezer stock)."""
+    for step in recipe.get("steps", []) or []:
+        for ing in step.get("ingredients", []) or []:
+            food = ing.get("food") or {}
+            fid = food.get("id")
+            if not fid:
+                continue
+            cat_name = route_food(food.get("name", ""), foods_cfg, cfg["stores"])
+            cat = cats.get(cat_name) or t.ensure_supermarket_category(cat_name)
+            cats[cat_name] = cat
+            body = {"supermarket_category": {"id": cat["id"], "name": cat_name}}
+            if cat_name.startswith("Amana/"):     # eighth-share freezer stock -> on hand
+                body["food_onhand"] = True
+            t.patch(f"/api/food/{fid}/", body)
+
+
+def seed_fixed(t, fixed_cfg, cfg, foods_cfg, cats, kws):
+    """Create the hand-written fixed recipes (Weekly staples, Snacks to buy,
+    Snack prep) if missing, tag + route them. Returns the names created/present."""
+    existing = {r["name"] for r in t.get_all("/api/recipe/")}
+    names = []
+    for rec in fixed_cfg.get("recipes") or []:
+        names.append(rec["name"])
+        if rec["name"] in existing:
+            log.info("skip (fixed recipe exists): %s", rec["name"])
+            rid = next(r["id"] for r in t.get_all("/api/recipe/") if r["name"] == rec["name"])
+        else:
+            kw_objs = [kws.get(k) or t.ensure_keyword(k) for k in rec.get("keywords", [])]
+            ings = [{"food": {"name": i["food"]},
+                     "unit": ({"name": i["unit"]} if i.get("unit") else None),
+                     "amount": i.get("amount", 1), "note": ""}
+                    for i in rec.get("ingredients", [])]
+            body = {"name": rec["name"], "servings": rec.get("servings", 1),
+                    "servings_text": rec.get("servings_text", ""), "internal": True,
+                    "keywords": [{"id": k["id"], "name": k["name"]} for k in kw_objs if k],
+                    "steps": [{"instruction": "Buy / prep the weekly items.",
+                               "ingredients": ings}]}
+            created = t.post("/api/recipe/", body)
+            rid = created.get("id")
+            log.info("created fixed recipe %s -> %s", rec["name"], rid)
+        _route_recipe_foods(t, t.get(f"/api/recipe/{rid}/"), foods_cfg, cfg, cats)
+    return names
+
+
+def apply_seed(plan, cfg, foods_cfg, fixed_cfg, force=False):
     """Execute the plan against Tandoor. Idempotent: ensure_* checks existence.
-    OWNER-ONLY (writes). Credentials from env."""
+    OWNER-ONLY (writes). Credentials from env. Refuses to run if any season is
+    short of the generator minimums unless force=True (preflight)."""
+    if plan["shortfalls"] and not force:
+        for season, short in plan["shortfalls"].items():
+            log.error("seed preflight: %s needs %s", season, ", ".join(short))
+        raise SystemExit("seed preflight failed: fill the slots above (or re-run "
+                         "with --force to seed what exists). See the runbook.")
     from .tandoor import Tandoor
     t = Tandoor(cfg["tandoor"]["url"], os.environ["TANDOOR_USER"],
                 os.environ["TANDOOR_PASS"], cfg["tandoor"].get("space", "Mack House")).login()
@@ -257,10 +325,11 @@ def apply_seed(plan, cfg, foods_cfg):
     for name in plan["keywords"]:
         t.ensure_keyword(name)
     books = {name: t.ensure_recipe_book(name) for name in plan["books"]}
-    existing = {r.get("source_url"): r for r in t.get_all("/api/recipe/")
-                if r.get("source_url")}
     cats = t.supermarket_categories()
     kws = t.keywords()
+    seed_fixed(t, fixed_cfg, cfg, foods_cfg, cats, kws)
+    existing = {r.get("source_url"): r for r in t.get_all("/api/recipe/")
+                if r.get("source_url")}
     for im in plan["imports"]:
         if im["url"] in existing:
             log.info("skip (already imported): %s", im["url"])
@@ -272,25 +341,22 @@ def apply_seed(plan, cfg, foods_cfg):
             except Exception as e:  # noqa: BLE001
                 log.error("import failed for %s (%s): %s", im["slot"], im["url"], e)
                 continue
-        # tag keywords + set servings=2 + add to the season book + route foods
         recipe = t.get(f"/api/recipe/{rid}/")
-        kw_objs = [kws.get(k) or t.ensure_keyword(k) for k in im["keywords"]]
-        recipe["keywords"] = [{"id": k["id"], "name": k["name"]} for k in kw_objs if k]
-        recipe["servings"] = 2
-        t.patch(f"/api/recipe/{rid}/", {"keywords": recipe["keywords"], "servings": 2})
-        book = books[im["book"]]
-        t.post("/api/recipe-book-entry/", {"book": book["id"], "recipe": rid})
-        # route each food of the recipe
-        for step in recipe.get("steps", []):
-            for ing in step.get("ingredients", []):
-                food = ing.get("food") or {}
-                fid = food.get("id")
-                if not fid:
-                    continue
-                cat_name = route_food(food.get("name", ""), foods_cfg, cfg["stores"])
-                cat = cats.get(cat_name) or t.ensure_supermarket_category(cat_name)
-                cats[cat_name] = cat
-                t.patch(f"/api/food/{fid}/", {"supermarket_category": {"id": cat["id"], "name": cat_name}})
+        # MERGE keywords (don't overwrite): a recipe reused across seasons (e.g. a
+        # roasted-carrots side in both Fall and Winter) must keep every season's
+        # keyword, or a second import would drop the first season's tag.
+        merged = {k["name"]: {"id": k["id"], "name": k["name"]}
+                  for k in (recipe.get("keywords") or [])}
+        for name in im["keywords"]:
+            if name not in merged:
+                k = kws.get(name) or t.ensure_keyword(name)
+                merged[name] = {"id": k["id"], "name": k["name"]}
+        t.patch(f"/api/recipe/{rid}/", {"keywords": list(merged.values()), "servings": 2})
+        try:
+            t.post("/api/recipe-book-entry/", {"book": books[im["book"]]["id"], "recipe": rid})
+        except Exception as e:  # noqa: BLE001 - already in that book is fine
+            log.info("book-entry %s/%s: %s", im["book"], rid, e)
+        _route_recipe_foods(t, recipe, foods_cfg, cfg, cats)
     log.info("seed apply complete")
 
 
@@ -298,24 +364,25 @@ def main(argv=None):
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--apply", action="store_true", help="write to Tandoor (owner only)")
+    ap.add_argument("--force", action="store_true", help="apply even if the preflight finds gaps")
     ap.add_argument("--refresh", action="store_true", help="re-read candidate ratings into the YAML")
     ap.add_argument("--report", metavar="PATH", help="write the Markdown candidate review table")
     a = ap.parse_args(argv)
-    cfg, foods_cfg, cf = load_configs()
+    cfg, foods_cfg, fixed_cfg, cf = load_configs()
     if a.refresh:
         refresh()
-        cfg, foods_cfg, cf = load_configs()
+        cfg, foods_cfg, fixed_cfg, cf = load_configs()
     scored = C.score_all(cf, cfg)
-    plan = build_seed_plan(cfg, foods_cfg, scored)
+    plan = build_seed_plan(cfg, foods_cfg, fixed_cfg, scored)
     if a.report:
         with open(a.report, "w") as f:
             f.write(render_candidate_markdown(scored, cfg))
         log.info("wrote %s", a.report)
     if a.apply:
-        apply_seed(plan, cfg, foods_cfg)
+        apply_seed(plan, cfg, foods_cfg, fixed_cfg, force=a.force)
     else:
         print_plan(plan)
-    return 0
+    return 1 if plan["shortfalls"] else 0
 
 
 if __name__ == "__main__":
