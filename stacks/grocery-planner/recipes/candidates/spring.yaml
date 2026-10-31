@@ -1362,3 +1362,50 @@ slots:
     checked_on: '2026-10-31'
     notes: Chicken breast, brown rice, tzatziki (yogurt, cucumber, dill), tomatoes, olives, red onion,
       feta, pita. Only 2 ratings (5.0) - weak evidence. 30 min. Olive oil. Above 8 non-pantry ingredients.
+- slot: spring-roast
+  slot_label: Mississippi pot roast (slow cooker)
+  candidates:
+  - site: Spend With Pennies
+    url: https://www.spendwithpennies.com/mississippi-pot-roast/
+    title: Mississippi Pot Roast
+    rating: 4.98
+    count: 284
+    total_time_min: 505
+    yield: 8 servings
+    ingredients:
+    - 4 to 5 pound beef chuck roast
+    - ranch seasoning mix (1 packet)
+    - au jus gravy mix (1 packet)
+    - 6 pepperoncini peppers plus 1/2 cup juice
+    - 1/4 cup butter
+    has_beans_lentils: false
+    non_olive_fats:
+    - butter
+    checked_on: '2026-10-31'
+    selected: true
+    notes: Owner-named default. Slow cooker, ~15 min active; total is passive. Classic 5-ingredient version;
+      packets + pepperoncini route to Target, the chuck roast is Amana freezer stock (on hand).
+  - site: RecipeTin Eats
+    url: https://www.recipetineats.com/slow-cooker-beef-pot-roast/
+    title: Slow Cooker Pot Roast
+    rating: 4.89
+    count: 224
+    total_time_min: 515
+    yield: 8 servings
+    ingredients:
+    - beef chuck roast
+    - onion
+    - garlic
+    - carrots
+    - celery
+    - dry red wine
+    - beef broth
+    - flour
+    - rosemary
+    - thyme
+    - potatoes
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: 'Variety: classic pot roast with vegetables and red wine; olive oil only. Slow cooker, ~15
+      min active.'

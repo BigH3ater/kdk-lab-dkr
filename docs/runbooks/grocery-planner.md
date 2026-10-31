@@ -93,6 +93,15 @@ All in `config.yaml`:
   give few 100+-review recipes.
 - **Proteins / parity / feta / sides / lunches / snacks / seasons:** the
   `proteins`, `sides`, `lunches`, `snacks`, `seasons` blocks.
+- **Roast dinner:** the `roast` block — `enabled`, `parity` (which week is a
+  roast week; `A` = odd ISO week = every other week), `night` (**Wednesday**,
+  owner decision 2026-10-31) and `leftovers`. On a roast week a slow-cooker roast
+  replaces one chicken dinner (3 chicken + roast), and the 3.5 lb roast's
+  leftovers are planned as Thursday lunch with no extra beef ordered (the
+  Thursday entry is created without `addshopping`). The Mississippi pot roast is
+  the default pick; the roast beef is Amana freezer stock (`food_onhand`), so only
+  the ranch/au jus packets, pepperoncini and butter reach the Target list. Set
+  `roast.enabled: false` to drop it (every dinner becomes 4 chicken again).
 - **Store routing:** `stores` (aisle order, weekly/bulk stores, freshness
   defaults) and `recipes/foods.yaml` (per-food category). Move a food's category
   once in Tandoor to override permanently.

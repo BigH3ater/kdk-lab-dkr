@@ -27,6 +27,14 @@ rules:
   - {match: sirloin,            category: "Amana/bulk: Freezer Beef"}
   - {match: flank,              category: "Amana/bulk: Freezer Beef"}
   - {match: steak,              category: "Amana/bulk: Freezer Beef"}
+  # Roasts are Amana eighth-share freezer stock too (multi-word keys so they do
+  # NOT match "roasted carrots" / "roast chicken").
+  - {match: chuck roast,        category: "Amana/bulk: Freezer Beef"}
+  - {match: pot roast,          category: "Amana/bulk: Freezer Beef"}
+  - {match: beef roast,         category: "Amana/bulk: Freezer Beef"}
+  - {match: rump roast,         category: "Amana/bulk: Freezer Beef"}
+  - {match: round roast,        category: "Amana/bulk: Freezer Beef"}
+  - {match: arm roast,          category: "Amana/bulk: Freezer Beef"}
   # produce
   - {match: asparagus,  category: "NewPi/weekly: Produce"}
   - {match: spinach,    category: "NewPi/weekly: Produce"}
@@ -126,6 +134,12 @@ rules:
   - {match: chili powder,category: "Target/weekly: Oils & Spices"}
   - {match: spice,      category: "Target/weekly: Oils & Spices"}
   - {match: seasoning,  category: "Target/weekly: Oils & Spices"}
+  # Mississippi pot-roast pantry (the roast beef itself is Amana/on-hand):
+  - {match: ranch,      category: "Target/weekly: Oils & Spices"}
+  - {match: au jus,     category: "Target/weekly: Oils & Spices"}
+  - {match: brown gravy, category: "Target/weekly: Oils & Spices"}
+  - {match: onion soup mix, category: "Target/weekly: Oils & Spices"}
+  - {match: pepperoncini, category: "Target/weekly: Canned"}
   - {match: dijon,      category: "Target/weekly: Condiments"}
   - {match: mustard,    category: "Target/weekly: Condiments"}
   - {match: mayonnaise, category: "Target/weekly: Condiments"}

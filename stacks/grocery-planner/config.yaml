@@ -182,6 +182,19 @@ proteins:
   feta_source:   { A: ground_beef, B: breakfast }   # where the week's feta lives
   chicken_food: "chicken breast"   # poultry recipes must use ONLY this food
 
+# Slow-cooker roast dinner on a busy weeknight, every other week (owner, from an
+# Amana eighth share = 8 roasts ~3.5 lb each, ~16 weeks of fortnightly roasts).
+# On a roast week the roast REPLACES one chicken dinner (3 chicken + roast that
+# week). Roasts are Amana freezer stock (food_onhand) so they never hit the
+# weekly list; only the recipe's pantry bits (ranch/au jus packets, pepperoncini,
+# butter) are ordered. The 3.5 lb roast feeds more than one dinner for two, so
+# the leftovers are planned as Thursday lunch (no extra beef ordered).
+roast:
+  enabled: true
+  parity: A                    # roast weeks = parity A (odd ISO week) = every other week
+  night: wednesday             # roast_night -- owner decision 2026-10-31 (may change)
+  leftovers: thursday_lunch    # where the leftovers go (documented; no extra shopping)
+
 sides:
   per_dinner: 1                # every dinner gets a rotating veg side
   no_repeat_within_week: true

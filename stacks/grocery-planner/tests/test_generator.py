@@ -22,6 +22,7 @@ def make_pool(season="spring", wt=20, ic=6):
         add("chicken")
     add("ground_beef", "greek"); add("ground_beef", "asian")
     add("steak"); add("steak")
+    add("roast"); add("roast")
     for _ in range(8):
         add("side")
     for _ in range(3):
@@ -54,10 +55,39 @@ def test_protein_mix(cfg):
     entries = G.generate_week(pool, SUNDAY, cfg)
     mains = [e for e in entries if e.role == "dinner-main"]
     kinds = [_kind(pool, e.recipe_id) for e in mains]
+    roast_week = cfg["roast"]["enabled"] and G.parity_for_week(SUNDAY) == cfg["roast"]["parity"]
+    assert len(mains) == 7
     assert kinds.count("fish") == 1
-    assert kinds.count("chicken") == 4
     assert kinds.count("ground_beef") == 1
     assert kinds.count("steak") == 1
+    assert kinds.count("roast") == (1 if roast_week else 0)
+    assert kinds.count("chicken") == (3 if roast_week else 4)
+
+
+def test_roast_replaces_a_chicken_on_roast_weeks(cfg):
+    pool = make_pool()
+    # find a roast-week Sunday and a non-roast-week Sunday (consecutive Sundays
+    # flip parity)
+    import datetime
+    d = datetime.date(2026, 3, 1)
+    weeks = {G.parity_for_week(d): d, G.parity_for_week(d + datetime.timedelta(7)):
+             d + datetime.timedelta(7)}
+    roast_sun = weeks[cfg["roast"]["parity"]]
+    other_sun = weeks["B" if cfg["roast"]["parity"] == "A" else "A"]
+    # roast week: 3 chicken + roast, a roast on Wednesday, a Thursday leftover lunch
+    e = G.generate_week(pool, roast_sun, cfg)
+    kinds = [_kind(pool, x.recipe_id) for x in e if x.role == "dinner-main"]
+    assert kinds.count("roast") == 1 and kinds.count("chicken") == 3
+    roast_entry = [x for x in e if x.role == "dinner-main" and _kind(pool, x.recipe_id) == "roast"][0]
+    assert roast_entry.date.weekday() == 2            # Wednesday
+    leftovers = [x for x in e if x.role == "leftover"]
+    assert len(leftovers) == 1 and leftovers[0].date.weekday() == 3   # Thursday
+    assert leftovers[0].recipe_id == roast_entry.recipe_id
+    # non-roast week: 4 chicken, no roast, no leftover
+    e2 = G.generate_week(pool, other_sun, cfg)
+    kinds2 = [_kind(pool, x.recipe_id) for x in e2 if x.role == "dinner-main"]
+    assert kinds2.count("roast") == 0 and kinds2.count("chicken") == 4
+    assert not [x for x in e2 if x.role == "leftover"]
 
 
 def test_parity_drives_fish_and_beef_variant(cfg):

@@ -19,6 +19,8 @@ from .scoring import evaluate_candidate
 # slot id prefix -> slot_kind for the scorer / generator
 def slot_kind(slot_id: str) -> str:
     s = slot_id
+    if s.endswith("-roast"):          # before "side" (roasted-carrots sides contain "roast")
+        return "roast"
     if "fish" in s:
         return "fish"
     if "chicken" in s:
@@ -118,7 +120,7 @@ def pool_from_selected(scored_slots, season, start_id=1):
 # Minimum distinct recipes the generator needs per season to build any week at
 # either parity (fish is 1/week but both variants are used across the A/B weeks).
 SEASON_MINIMUMS = {"salmon": 1, "tuna": 1, "chicken": 4, "greek": 1, "asian": 1,
-                   "steak": 1, "side": 7, "lunch": 2}
+                   "steak": 1, "roast": 1, "side": 7, "lunch": 2}
 
 
 def season_coverage(scored_slots):

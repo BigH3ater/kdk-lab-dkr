@@ -31,7 +31,7 @@ log = logging.getLogger("grocery.seed")
 # keyword vocabulary (brief)
 VOCAB = ["main", "simple", "mediterranean", "veg-side", "lunch-prep", "breakfast",
          "snack", "fish", "salmon", "tuna", "poultry", "ground-beef", "steak",
-         "greek", "asian", "feta", "spring", "summer", "fall", "winter"]
+         "roast", "greek", "asian", "feta", "spring", "summer", "fall", "winter"]
 BOOKS = {"spring": "Spring", "summer": "Summer", "fall": "Fall", "winter": "Winter"}
 
 
@@ -49,6 +49,8 @@ def keywords_for_slot(slot_id, kind, season):
         kw |= {"veg-side"}
     elif kind == "lunch":
         kw |= {"lunch-prep"}
+    elif kind == "roast":
+        kw |= {"main", "roast"}        # slow-cooker roast dinner (not tagged simple/mediterranean)
     elif kind in ("fish", "chicken", "ground_beef", "steak"):
         kw |= {"main", "simple", "mediterranean"}
         if kind == "fish":

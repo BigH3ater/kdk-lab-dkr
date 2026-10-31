@@ -125,19 +125,31 @@ def generate_week(pool: list[dict], week_start: datetime.date, config: dict) -> 
     beef_variant = pr["beef_parity"][parity]       # greek | asian
 
     fish_day = _offset(week_start, _DOW[pr["fish_day"]])   # offset of fish weekday
+
+    # Roast week? (parity A by default, every other week). On a roast week the
+    # slow-cooker roast replaces ONE chicken dinner: 3 chicken + 1 roast.
+    roast_cfg = config.get("roast") or {}
+    roast_week = bool(roast_cfg.get("enabled")) and parity == roast_cfg.get("parity", "A")
+    poultry_n = pr["poultry"] - (1 if roast_week else 0)
+
     # Fish: Sunday.
     fish = _pick(pool, "fish", season, caps, rng, used, 1, variant=fish_variant)[0]
-    # The remaining 6 dinners: 4 chicken + 1 beef + 1 steak on the other days.
-    chicken = _pick(pool, "chicken", season, caps, rng, used, pr["poultry"])
+    chicken = _pick(pool, "chicken", season, caps, rng, used, poultry_n)
     beef = _pick(pool, "ground_beef", season, caps, rng, used, 1, variant=beef_variant)[0]
     steak = _pick(pool, "steak", season, caps, rng, used, 1)[0]
+    roast = _pick(pool, "roast", season, caps, rng, used, 1)[0] if roast_week else None
 
-    # Day assignment: fish on its day; the rest fill the other 6 days in a
-    # deterministic shuffled order.
+    # Day assignment: fish on its day, roast on roast_night (if a roast week),
+    # the rest fill the remaining days in a deterministic shuffled order.
+    mains_by_day = {fish_day: fish}
+    if roast_week:
+        rd = _offset(week_start, _DOW[roast_cfg.get("night", "wednesday")])
+        if rd in mains_by_day:                       # roast_night == fish day: use next free
+            rd = next(d for d in range(7) if d not in mains_by_day)
+        mains_by_day[rd] = roast
     other = chicken + [beef, steak]
     rng.shuffle(other)
-    days = [d for d in range(7) if d != fish_day]
-    mains_by_day = {fish_day: fish}
+    days = [d for d in range(7) if d not in mains_by_day]
     for d, rec in zip(days, other):
         mains_by_day[d] = rec
 
@@ -165,6 +177,13 @@ def generate_week(pool: list[dict], week_start: datetime.date, config: dict) -> 
         entries.append(PlanEntry(prep_date, "lunch", rec["id"], rec["name"],
                                  config["lunches"]["servings_each"], "lunch",
                                  rec.get("slot", ""), note("lunch")))
+
+    # Roast leftovers -> Thursday lunch (role "leftover"; the run job posts it
+    # WITHOUT addshopping, so no extra beef/pantry is ordered for it).
+    if roast_week and roast is not None:
+        tdate = week_start + datetime.timedelta(days=_offset(week_start, _DOW["thursday"]))
+        entries.append(PlanEntry(tdate, "lunch", roast["id"], roast["name"], 2,
+                                 "leftover", roast.get("slot", ""), note("leftover")))
 
     # ---- breakfast staples + snack feeders (once a week, prep day) ---------
     for name_key, role in (("staples_recipe", "breakfast"),):
@@ -201,16 +220,11 @@ def _by_name(pool, name):
 def plan_summary(entries: list[PlanEntry]) -> dict:
     """Counts used by tests and the log line."""
     out = {"dinners": 0, "sides": 0, "lunches": 0, "breakfast": 0, "snacks": 0,
-           "dinner_kinds": {}}
+           "leftovers": 0}
+    role_key = {"dinner-main": "dinners", "side": "sides", "lunch": "lunches",
+                "breakfast": "breakfast", "snack": "snacks", "leftover": "leftovers"}
     for e in entries:
-        if e.role == "dinner-main":
-            out["dinners"] += 1
-        elif e.role == "side":
-            out["sides"] += 1
-        elif e.role == "lunch":
-            out["lunches"] += 1
-        elif e.role == "breakfast":
-            out["breakfast"] += 1
-        elif e.role == "snack":
-            out["snacks"] += 1
+        k = role_key.get(e.role)
+        if k:
+            out[k] += 1
     return out

@@ -76,7 +76,11 @@ def evaluate_candidate(cand: dict, slot_kind: str, config: dict) -> Evaluation:
     # --- flags (never fatal) ---
     fats = cand.get("non_olive_fats") or []
     if fats:
-        flags.append("swap to olive oil (" + ", ".join(fats) + ")")
+        if slot_kind == "roast":
+            flags.append("owner-chosen recipe; reduce or swap to olive oil if wanted ("
+                         + ", ".join(fats) + ")")
+        else:
+            flags.append("swap to olive oil (" + ", ".join(fats) + ")")
 
     # --- hard filters ---
     if cand.get("has_beans_lentils"):
@@ -93,14 +97,22 @@ def evaluate_candidate(cand: dict, slot_kind: str, config: dict) -> Evaluation:
             flags.append("verify cut is chicken breast")
 
     tmin = cand.get("total_time_min")
-    hard_cap = _total_time_cap(slot_kind, caps)
     active_cap = caps["working_time_max"]
-    if tmin is not None:
-        if tmin > hard_cap:
-            rejects.append(f"over total-time cap ({tmin} > {hard_cap} min)")
-        elif tmin > active_cap:
-            flags.append(f"published total {tmin} min over {active_cap}-min active cap "
-                         f"(may include passive time; verify active time)")
+    if slot_kind == "roast":
+        # Slow-cooker roast: the hours are passive. Never reject on total time;
+        # flag it. Active/prep time (~10 min) is what the household rule cares
+        # about and is confirmed at import via Tandoor's working_time.
+        if tmin is not None and tmin > active_cap:
+            flags.append(f"slow-cooker: {tmin} min total is mostly passive; "
+                         f"active/prep time is what counts (~10 min)")
+    else:
+        hard_cap = _total_time_cap(slot_kind, caps)
+        if tmin is not None:
+            if tmin > hard_cap:
+                rejects.append(f"over total-time cap ({tmin} > {hard_cap} min)")
+            elif tmin > active_cap:
+                flags.append(f"published total {tmin} min over {active_cap}-min active cap "
+                             f"(may include passive time; verify active time)")
 
     nipc = _non_pantry_ingredient_count(cand.get("ingredients"), caps["pantry_staples"])
     if nipc is not None and nipc > caps["ingredient_max"]:
