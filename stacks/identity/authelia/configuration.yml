@@ -219,9 +219,11 @@ storage:
     schema: 'public'
     username: 'authelia'
 notifier:
-  # Startup check on: Authelia connects to the bridge at boot and fails loudly
-  # if the relay is down (the old direct-to-Proton setup had it disabled).
-  disable_startup_check: false
+  # Startup check OFF (2026-10-31): with it on, a Proton Bridge outage (logged
+  # out, mid-update) makes Authelia exit at boot, which takes sso and every
+  # ForwardAuth login down with it. A broken relay now shows up only when a mail
+  # is sent (Authelia logs the SMTP error at send time) instead of as an outage.
+  disable_startup_check: true
   smtp:
     # In-lab Proton Mail Bridge on kdk-dkr-01 (stacks/apps, account
     # op://kdk-ops/proton-backup-account, 2026-10-29). Plain SMTP with STARTTLS;
