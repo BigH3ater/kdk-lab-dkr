@@ -77,6 +77,8 @@ tags = ["kdk-lab"]
 name = "proxy"
 deploy = true
 [stack.config]
+compose_cmd_wrapper = "/usr/local/sbin/kdk-compose-config-redact [[COMPOSE_COMMAND]]"   # redact env values from the stored Compose Config log (komodo#1636)
+compose_cmd_wrapper_include = ["config"]
 server = "kdk-dkr-01"
 repo = "BigH3ater/kdk-lab-dkr"
 run_directory = "stacks/proxy"
@@ -88,6 +90,8 @@ tags = ["kdk-lab"]
 name = "op-connect"
 deploy = true
 [stack.config]
+compose_cmd_wrapper = "/usr/local/sbin/kdk-compose-config-redact [[COMPOSE_COMMAND]]"   # redact env values from the stored Compose Config log (komodo#1636)
+compose_cmd_wrapper_include = ["config"]
 server = "kdk-dkr-01"
 repo = "BigH3ater/kdk-lab-dkr"
 run_directory = "stacks/op-connect"
@@ -99,6 +103,8 @@ name = "docs"
 deploy = true
 after = ["proxy"]
 [stack.config]
+compose_cmd_wrapper = "/usr/local/sbin/kdk-compose-config-redact [[COMPOSE_COMMAND]]"   # redact env values from the stored Compose Config log (komodo#1636)
+compose_cmd_wrapper_include = ["config"]
 server = "kdk-dkr-01"
 repo = "BigH3ater/kdk-lab-dkr"
 run_directory = "stacks/docs"
@@ -118,6 +124,8 @@ name = "media"
 deploy = true
 after = ["proxy"]
 [stack.config]
+compose_cmd_wrapper = "/usr/local/sbin/kdk-compose-config-redact [[COMPOSE_COMMAND]]"   # redact env values from the stored Compose Config log (komodo#1636)
+compose_cmd_wrapper_include = ["config"]
 server = "kdk-dkr-01"
 repo = "BigH3ater/kdk-lab-dkr"
 run_directory = "stacks/media"
@@ -138,6 +146,8 @@ deploy = true
 # Traefik. Registered after the kdk-dee-02 licence go/no-go PASSED (2026-10-30).
 # Runbook: docs/runbooks/dee-second-instance.md.
 [stack.config]
+compose_cmd_wrapper = "/usr/local/sbin/kdk-compose-config-redact [[COMPOSE_COMMAND]]"   # redact env values from the stored Compose Config log (komodo#1636)
+compose_cmd_wrapper_include = ["config"]
 server = "kdk-dkr-01"
 repo = "BigH3ater/kdk-lab-dkr"
 run_directory = "stacks/dee-lb"
@@ -149,6 +159,8 @@ name = "apps"
 deploy = true
 after = ["proxy"]
 [stack.config]
+compose_cmd_wrapper = "/usr/local/sbin/kdk-compose-config-redact [[COMPOSE_COMMAND]]"   # redact env values from the stored Compose Config log (komodo#1636)
+compose_cmd_wrapper_include = ["config"]
 server = "kdk-dkr-01"
 repo = "BigH3ater/kdk-lab-dkr"
 run_directory = "stacks/apps"
@@ -163,6 +175,8 @@ tags = ["kdk-lab"]
 name = "roborock-cert"
 deploy = false   # run on the 1st/15th by the roborock-cert-refresh Procedure
 [stack.config]
+compose_cmd_wrapper = "/usr/local/sbin/kdk-compose-config-redact [[COMPOSE_COMMAND]]"   # redact env values from the stored Compose Config log (komodo#1636)
+compose_cmd_wrapper_include = ["config"]
 server = "kdk-dkr-01"
 repo = "BigH3ater/kdk-lab-dkr"
 run_directory = "stacks/roborock-cert"
@@ -181,6 +195,8 @@ tags = ["kdk-lab"]
 name = "nut"
 deploy = true
 [stack.config]
+compose_cmd_wrapper = "/usr/local/sbin/kdk-compose-config-redact [[COMPOSE_COMMAND]]"   # redact env values from the stored Compose Config log (komodo#1636)
+compose_cmd_wrapper_include = ["config"]
 server = "kdk-dkr-03"
 repo = "BigH3ater/kdk-lab-dkr"
 run_directory = "stacks/nut"
@@ -207,6 +223,8 @@ tags = ["kdk-lab"]
 name = "dns-reconcile"
 deploy = true
 [stack.config]
+compose_cmd_wrapper = "/usr/local/sbin/kdk-compose-config-redact [[COMPOSE_COMMAND]]"   # redact env values from the stored Compose Config log (komodo#1636)
+compose_cmd_wrapper_include = ["config"]
 server = "kdk-dkr-01"
 repo = "BigH3ater/kdk-lab-dkr"
 run_directory = "stacks/dns-reconcile"
@@ -218,6 +236,8 @@ tags = ["kdk-lab"]
 name = "backup-dkr-01"
 deploy = false   # deployed nightly by the nightly-backups Procedure
 [stack.config]
+compose_cmd_wrapper = "/usr/local/sbin/kdk-compose-config-redact [[COMPOSE_COMMAND]]"   # redact env values from the stored Compose Config log (komodo#1636)
+compose_cmd_wrapper_include = ["config"]
 server = "kdk-dkr-01"
 repo = "BigH3ater/kdk-lab-dkr"
 run_directory = "stacks/backup-dkr-01"
@@ -239,6 +259,8 @@ tags = ["kdk-lab"]
 name = "backup-collect"
 deploy = false   # deployed nightly by the nightly-backups Procedure
 [stack.config]
+compose_cmd_wrapper = "/usr/local/sbin/kdk-compose-config-redact [[COMPOSE_COMMAND]]"   # redact env values from the stored Compose Config log (komodo#1636)
+compose_cmd_wrapper_include = ["config"]
 server = "kdk-dkr-01"
 repo = "BigH3ater/kdk-lab-dkr"
 run_directory = "stacks/backup-collect"
@@ -257,6 +279,8 @@ tags = ["kdk-lab"]
 name = "backup-offsite"
 deploy = false   # deployed nightly by the nightly-backups Procedure
 [stack.config]
+compose_cmd_wrapper = "/usr/local/sbin/kdk-compose-config-redact [[COMPOSE_COMMAND]]"   # redact env values from the stored Compose Config log (komodo#1636)
+compose_cmd_wrapper_include = ["config"]
 server = "kdk-dkr-04"
 repo = "BigH3ater/kdk-lab-dkr"
 run_directory = "stacks/backup-offsite"
@@ -268,6 +292,8 @@ tags = ["kdk-lab"]
 name = "backup-verify"
 deploy = false   # deployed nightly by the nightly-backups Procedure
 [stack.config]
+compose_cmd_wrapper = "/usr/local/sbin/kdk-compose-config-redact [[COMPOSE_COMMAND]]"   # redact env values from the stored Compose Config log (komodo#1636)
+compose_cmd_wrapper_include = ["config"]
 server = "kdk-dkr-01"
 repo = "BigH3ater/kdk-lab-dkr"
 run_directory = "stacks/backup-verify"
@@ -279,6 +305,8 @@ tags = ["kdk-lab"]
 name = "dmz-proxy"
 deploy = true
 [stack.config]
+compose_cmd_wrapper = "/usr/local/sbin/kdk-compose-config-redact [[COMPOSE_COMMAND]]"   # redact env values from the stored Compose Config log (komodo#1636)
+compose_cmd_wrapper_include = ["config"]
 server = "kdk-dkr-dmz-01"
 repo = "BigH3ater/kdk-lab-dkr"
 run_directory = "stacks/dmz-proxy"
@@ -291,6 +319,8 @@ name = "identity"
 deploy = true
 after = ["dmz-proxy"]
 [stack.config]
+compose_cmd_wrapper = "/usr/local/sbin/kdk-compose-config-redact [[COMPOSE_COMMAND]]"   # redact env values from the stored Compose Config log (komodo#1636)
+compose_cmd_wrapper_include = ["config"]
 server = "kdk-dkr-dmz-01"
 repo = "BigH3ater/kdk-lab-dkr"
 run_directory = "stacks/identity"
@@ -308,6 +338,8 @@ name = "dmz-apps"
 deploy = true
 after = ["dmz-proxy"]
 [stack.config]
+compose_cmd_wrapper = "/usr/local/sbin/kdk-compose-config-redact [[COMPOSE_COMMAND]]"   # redact env values from the stored Compose Config log (komodo#1636)
+compose_cmd_wrapper_include = ["config"]
 server = "kdk-dkr-dmz-01"
 repo = "BigH3ater/kdk-lab-dkr"
 run_directory = "stacks/dmz-apps"
@@ -323,6 +355,8 @@ name = "tandoor"
 deploy = true
 after = ["dmz-proxy"]
 [stack.config]
+compose_cmd_wrapper = "/usr/local/sbin/kdk-compose-config-redact [[COMPOSE_COMMAND]]"   # redact env values from the stored Compose Config log (komodo#1636)
+compose_cmd_wrapper_include = ["config"]
 server = "kdk-dkr-dmz-01"
 repo = "BigH3ater/kdk-lab-dkr"
 run_directory = "stacks/tandoor"
@@ -335,6 +369,8 @@ name = "jellyfin"
 deploy = true
 after = ["dmz-proxy"]
 [stack.config]
+compose_cmd_wrapper = "/usr/local/sbin/kdk-compose-config-redact [[COMPOSE_COMMAND]]"   # redact env values from the stored Compose Config log (komodo#1636)
+compose_cmd_wrapper_include = ["config"]
 server = "kdk-dkr-dmz-01"
 repo = "BigH3ater/kdk-lab-dkr"
 run_directory = "stacks/jellyfin"
@@ -346,6 +382,8 @@ name = "immich"
 deploy = true
 after = ["dmz-proxy"]
 [stack.config]
+compose_cmd_wrapper = "/usr/local/sbin/kdk-compose-config-redact [[COMPOSE_COMMAND]]"   # redact env values from the stored Compose Config log (komodo#1636)
+compose_cmd_wrapper_include = ["config"]
 server = "kdk-dkr-dmz-01"
 repo = "BigH3ater/kdk-lab-dkr"
 run_directory = "stacks/immich"
@@ -361,6 +399,8 @@ name = "audiobookshelf"
 deploy = true
 after = ["dmz-proxy"]
 [stack.config]
+compose_cmd_wrapper = "/usr/local/sbin/kdk-compose-config-redact [[COMPOSE_COMMAND]]"   # redact env values from the stored Compose Config log (komodo#1636)
+compose_cmd_wrapper_include = ["config"]
 server = "kdk-dkr-dmz-01"
 repo = "BigH3ater/kdk-lab-dkr"
 run_directory = "stacks/audiobookshelf"
@@ -383,6 +423,8 @@ name = "wizarr"
 deploy = true
 after = ["dmz-proxy"]
 [stack.config]
+compose_cmd_wrapper = "/usr/local/sbin/kdk-compose-config-redact [[COMPOSE_COMMAND]]"   # redact env values from the stored Compose Config log (komodo#1636)
+compose_cmd_wrapper_include = ["config"]
 server = "kdk-dkr-dmz-01"
 repo = "BigH3ater/kdk-lab-dkr"
 run_directory = "stacks/wizarr"
@@ -393,6 +435,8 @@ tags = ["kdk-lab"]
 name = "backup-dmz"
 deploy = false
 [stack.config]
+compose_cmd_wrapper = "/usr/local/sbin/kdk-compose-config-redact [[COMPOSE_COMMAND]]"   # redact env values from the stored Compose Config log (komodo#1636)
+compose_cmd_wrapper_include = ["config"]
 server = "kdk-dkr-dmz-01"
 repo = "BigH3ater/kdk-lab-dkr"
 run_directory = "stacks/backup-dmz"
@@ -408,6 +452,8 @@ name = "dashboard"
 deploy = true
 after = ["proxy"]
 [stack.config]
+compose_cmd_wrapper = "/usr/local/sbin/kdk-compose-config-redact [[COMPOSE_COMMAND]]"   # redact env values from the stored Compose Config log (komodo#1636)
+compose_cmd_wrapper_include = ["config"]
 server = "kdk-dkr-01"
 repo = "BigH3ater/kdk-lab-dkr"
 run_directory = "stacks/dashboard"
@@ -832,6 +878,8 @@ tags = ["kdk-lab"]
 name = "tdarr-verify"
 deploy = false   # run hourly by the tdarr-verify Procedure
 [stack.config]
+compose_cmd_wrapper = "/usr/local/sbin/kdk-compose-config-redact [[COMPOSE_COMMAND]]"   # redact env values from the stored Compose Config log (komodo#1636)
+compose_cmd_wrapper_include = ["config"]
 server = "kdk-dkr-01"
 repo = "BigH3ater/kdk-lab-dkr"
 run_directory = "stacks/tdarr-verify"
@@ -858,6 +906,8 @@ tags = ["kdk-lab"]
 name = "tdarr-remediate"
 deploy = false   # run hourly by the tdarr-remediate Procedure
 [stack.config]
+compose_cmd_wrapper = "/usr/local/sbin/kdk-compose-config-redact [[COMPOSE_COMMAND]]"   # redact env values from the stored Compose Config log (komodo#1636)
+compose_cmd_wrapper_include = ["config"]
 server = "kdk-dkr-01"
 repo = "BigH3ater/kdk-lab-dkr"
 run_directory = "stacks/tdarr-remediate"
@@ -887,6 +937,8 @@ tags = ["kdk-lab"]
 name = "tdarr-backlog"
 deploy = false   # run hourly by the tdarr-backlog Procedure
 [stack.config]
+compose_cmd_wrapper = "/usr/local/sbin/kdk-compose-config-redact [[COMPOSE_COMMAND]]"   # redact env values from the stored Compose Config log (komodo#1636)
+compose_cmd_wrapper_include = ["config"]
 server = "kdk-dkr-01"
 repo = "BigH3ater/kdk-lab-dkr"
 run_directory = "stacks/tdarr-backlog"
@@ -916,6 +968,8 @@ tags = ["kdk-lab"]
 name = "arr-upgrade-search"
 deploy = false   # run weekly by the arr-upgrade-search Procedure
 [stack.config]
+compose_cmd_wrapper = "/usr/local/sbin/kdk-compose-config-redact [[COMPOSE_COMMAND]]"   # redact env values from the stored Compose Config log (komodo#1636)
+compose_cmd_wrapper_include = ["config"]
 server = "kdk-dkr-01"
 repo = "BigH3ater/kdk-lab-dkr"
 run_directory = "stacks/arr-upgrade-search"
@@ -979,6 +1033,8 @@ tags = ["kdk-lab"]
 name = "arr-list-guard"
 deploy = false   # run every 6 h by the arr-list-guard Procedure
 [stack.config]
+compose_cmd_wrapper = "/usr/local/sbin/kdk-compose-config-redact [[COMPOSE_COMMAND]]"   # redact env values from the stored Compose Config log (komodo#1636)
+compose_cmd_wrapper_include = ["config"]
 server = "kdk-dkr-01"
 repo = "BigH3ater/kdk-lab-dkr"
 run_directory = "stacks/arr-list-guard"
@@ -1012,6 +1068,8 @@ tags = ["kdk-lab"]
 name = "wizarr-sync"
 deploy = false   # run every 15 min by the wizarr-sync Procedure
 [stack.config]
+compose_cmd_wrapper = "/usr/local/sbin/kdk-compose-config-redact [[COMPOSE_COMMAND]]"   # redact env values from the stored Compose Config log (komodo#1636)
+compose_cmd_wrapper_include = ["config"]
 server = "kdk-dkr-dmz-01"
 repo = "BigH3ater/kdk-lab-dkr"
 run_directory = "stacks/wizarr-sync"
@@ -1041,6 +1099,8 @@ tags = ["kdk-lab"]
 name = "storage-health"
 deploy = false   # run hourly by the storage-health Procedure
 [stack.config]
+compose_cmd_wrapper = "/usr/local/sbin/kdk-compose-config-redact [[COMPOSE_COMMAND]]"   # redact env values from the stored Compose Config log (komodo#1636)
+compose_cmd_wrapper_include = ["config"]
 server = "kdk-dkr-01"
 repo = "BigH3ater/kdk-lab-dkr"
 run_directory = "stacks/storage-health"
@@ -1054,6 +1114,8 @@ tags = ["kdk-lab"]
 name = "storage-health-dkr04"
 deploy = false   # run hourly by the storage-health Procedure
 [stack.config]
+compose_cmd_wrapper = "/usr/local/sbin/kdk-compose-config-redact [[COMPOSE_COMMAND]]"   # redact env values from the stored Compose Config log (komodo#1636)
+compose_cmd_wrapper_include = ["config"]
 server = "kdk-dkr-04"
 repo = "BigH3ater/kdk-lab-dkr"
 run_directory = "stacks/storage-health"
@@ -1089,6 +1151,8 @@ tags = ["kdk-lab"]
 name = "remarkable-ocr"
 deploy = false   # run hourly by the remarkable-ocr Procedure
 [stack.config]
+compose_cmd_wrapper = "/usr/local/sbin/kdk-compose-config-redact [[COMPOSE_COMMAND]]"   # redact env values from the stored Compose Config log (komodo#1636)
+compose_cmd_wrapper_include = ["config"]
 server = "kdk-dkr-01"
 repo = "BigH3ater/kdk-lab-dkr"
 run_directory = "stacks/remarkable-ocr"
@@ -1133,6 +1197,8 @@ tags = ["kdk-lab"]
 name = "koreader-highlights"
 deploy = false   # run by the koreader-highlights Procedure
 [stack.config]
+compose_cmd_wrapper = "/usr/local/sbin/kdk-compose-config-redact [[COMPOSE_COMMAND]]"   # redact env values from the stored Compose Config log (komodo#1636)
+compose_cmd_wrapper_include = ["config"]
 server = "kdk-dkr-01"
 repo = "BigH3ater/kdk-lab-dkr"
 run_directory = "stacks/koreader-highlights"
@@ -1168,6 +1234,8 @@ tags = ["kdk-lab"]
 name = "readwise-koreader"
 deploy = false   # run by the readwise-koreader Procedure
 [stack.config]
+compose_cmd_wrapper = "/usr/local/sbin/kdk-compose-config-redact [[COMPOSE_COMMAND]]"   # redact env values from the stored Compose Config log (komodo#1636)
+compose_cmd_wrapper_include = ["config"]
 server = "kdk-dkr-01"
 repo = "BigH3ater/kdk-lab-dkr"
 run_directory = "stacks/readwise-koreader"
@@ -1200,6 +1268,8 @@ tags = ["kdk-lab"]
 name = "docs-to-vault"
 deploy = false   # run by the docs-to-vault Procedure
 [stack.config]
+compose_cmd_wrapper = "/usr/local/sbin/kdk-compose-config-redact [[COMPOSE_COMMAND]]"   # redact env values from the stored Compose Config log (komodo#1636)
+compose_cmd_wrapper_include = ["config"]
 server = "kdk-dkr-01"
 repo = "BigH3ater/kdk-lab-dkr"
 run_directory = "stacks/docs-to-vault"
@@ -1228,6 +1298,8 @@ executions = [
 tags = ["kdk-lab"]
 name = "kroki"
 [stack.config]
+compose_cmd_wrapper = "/usr/local/sbin/kdk-compose-config-redact [[COMPOSE_COMMAND]]"   # redact env values from the stored Compose Config log (komodo#1636)
+compose_cmd_wrapper_include = ["config"]
 server = "kdk-dkr-01"
 repo = "BigH3ater/kdk-lab-dkr"
 run_directory = "stacks/kroki"
@@ -1248,6 +1320,8 @@ tags = ["kdk-lab"]
 name = "obsidian-to-koreader"
 deploy = false   # the one-shot is run by the obsidian-to-koreader Procedure; the watcher stays up
 [stack.config]
+compose_cmd_wrapper = "/usr/local/sbin/kdk-compose-config-redact [[COMPOSE_COMMAND]]"   # redact env values from the stored Compose Config log (komodo#1636)
+compose_cmd_wrapper_include = ["config"]
 server = "kdk-dkr-01"
 repo = "BigH3ater/kdk-lab-dkr"
 run_directory = "stacks/obsidian-to-koreader"
@@ -1287,6 +1361,8 @@ tags = ["kdk-lab"]
 name = "loki"
 deploy = true
 [stack.config]
+compose_cmd_wrapper = "/usr/local/sbin/kdk-compose-config-redact [[COMPOSE_COMMAND]]"   # redact env values from the stored Compose Config log (komodo#1636)
+compose_cmd_wrapper_include = ["config"]
 server = "kdk-log-01"
 repo = "BigH3ater/kdk-lab-dkr"
 run_directory = "stacks/loki"
@@ -1299,6 +1375,8 @@ tags = ["kdk-lab"]
 name = "node-exporter-dkr01"
 deploy = true
 [stack.config]
+compose_cmd_wrapper = "/usr/local/sbin/kdk-compose-config-redact [[COMPOSE_COMMAND]]"   # redact env values from the stored Compose Config log (komodo#1636)
+compose_cmd_wrapper_include = ["config"]
 server = "kdk-dkr-01"
 repo = "BigH3ater/kdk-lab-dkr"
 run_directory = "stacks/node-exporter"
@@ -1310,6 +1388,8 @@ tags = ["kdk-lab"]
 name = "node-exporter-dmz01"
 deploy = true
 [stack.config]
+compose_cmd_wrapper = "/usr/local/sbin/kdk-compose-config-redact [[COMPOSE_COMMAND]]"   # redact env values from the stored Compose Config log (komodo#1636)
+compose_cmd_wrapper_include = ["config"]
 server = "kdk-dkr-dmz-01"
 repo = "BigH3ater/kdk-lab-dkr"
 run_directory = "stacks/node-exporter"
@@ -1321,6 +1401,8 @@ tags = ["kdk-lab"]
 name = "node-exporter-log01"
 deploy = true
 [stack.config]
+compose_cmd_wrapper = "/usr/local/sbin/kdk-compose-config-redact [[COMPOSE_COMMAND]]"   # redact env values from the stored Compose Config log (komodo#1636)
+compose_cmd_wrapper_include = ["config"]
 server = "kdk-log-01"
 environment = "BIND_IP=10.1.20.21"   # node_exporter listens on the VLAN address only
 repo = "BigH3ater/kdk-lab-dkr"
@@ -1332,6 +1414,8 @@ tags = ["kdk-lab"]
 name = "node-exporter-dkr04"
 deploy = true
 [stack.config]
+compose_cmd_wrapper = "/usr/local/sbin/kdk-compose-config-redact [[COMPOSE_COMMAND]]"   # redact env values from the stored Compose Config log (komodo#1636)
+compose_cmd_wrapper_include = ["config"]
 server = "kdk-dkr-04"
 repo = "BigH3ater/kdk-lab-dkr"
 run_directory = "stacks/node-exporter"
@@ -1351,6 +1435,8 @@ name = "observability-agent-dkr01"
 deploy = true
 after = ["loki"]
 [stack.config]
+compose_cmd_wrapper = "/usr/local/sbin/kdk-compose-config-redact [[COMPOSE_COMMAND]]"   # redact env values from the stored Compose Config log (komodo#1636)
+compose_cmd_wrapper_include = ["config"]
 server = "kdk-dkr-01"
 repo = "BigH3ater/kdk-lab-dkr"
 run_directory = "stacks/observability-agent"
@@ -1364,6 +1450,8 @@ name = "observability-agent-dmz01"
 deploy = true
 after = ["loki"]
 [stack.config]
+compose_cmd_wrapper = "/usr/local/sbin/kdk-compose-config-redact [[COMPOSE_COMMAND]]"   # redact env values from the stored Compose Config log (komodo#1636)
+compose_cmd_wrapper_include = ["config"]
 server = "kdk-dkr-dmz-01"
 repo = "BigH3ater/kdk-lab-dkr"
 run_directory = "stacks/observability-agent"
@@ -1377,6 +1465,8 @@ name = "observability-agent-mon01"
 deploy = true
 after = ["loki"]
 [stack.config]
+compose_cmd_wrapper = "/usr/local/sbin/kdk-compose-config-redact [[COMPOSE_COMMAND]]"   # redact env values from the stored Compose Config log (komodo#1636)
+compose_cmd_wrapper_include = ["config"]
 server = "kdk-mon-01"
 repo = "BigH3ater/kdk-lab-dkr"
 run_directory = "stacks/observability-agent"
@@ -1390,6 +1480,8 @@ name = "observability-agent-log01"
 deploy = true
 after = ["loki"]
 [stack.config]
+compose_cmd_wrapper = "/usr/local/sbin/kdk-compose-config-redact [[COMPOSE_COMMAND]]"   # redact env values from the stored Compose Config log (komodo#1636)
+compose_cmd_wrapper_include = ["config"]
 server = "kdk-log-01"
 repo = "BigH3ater/kdk-lab-dkr"
 run_directory = "stacks/observability-agent"
@@ -1403,6 +1495,8 @@ name = "observability-agent-dkr02"
 deploy = true
 after = ["loki"]
 [stack.config]
+compose_cmd_wrapper = "/usr/local/sbin/kdk-compose-config-redact [[COMPOSE_COMMAND]]"   # redact env values from the stored Compose Config log (komodo#1636)
+compose_cmd_wrapper_include = ["config"]
 server = "kdk-dkr-02"
 repo = "BigH3ater/kdk-lab-dkr"
 run_directory = "stacks/observability-agent"
@@ -1416,6 +1510,8 @@ name = "observability-agent-dkr03"
 deploy = true
 after = ["loki"]
 [stack.config]
+compose_cmd_wrapper = "/usr/local/sbin/kdk-compose-config-redact [[COMPOSE_COMMAND]]"   # redact env values from the stored Compose Config log (komodo#1636)
+compose_cmd_wrapper_include = ["config"]
 server = "kdk-dkr-03"
 repo = "BigH3ater/kdk-lab-dkr"
 run_directory = "stacks/observability-agent"
@@ -1429,6 +1525,8 @@ name = "observability-agent-dkr04"
 deploy = true
 after = ["loki"]
 [stack.config]
+compose_cmd_wrapper = "/usr/local/sbin/kdk-compose-config-redact [[COMPOSE_COMMAND]]"   # redact env values from the stored Compose Config log (komodo#1636)
+compose_cmd_wrapper_include = ["config"]
 server = "kdk-dkr-04"
 repo = "BigH3ater/kdk-lab-dkr"
 run_directory = "stacks/observability-agent"
@@ -1446,6 +1544,8 @@ name = "readwise-to-remarkable"
 deploy = true
 after = ["apps", "media"]
 [stack.config]
+compose_cmd_wrapper = "/usr/local/sbin/kdk-compose-config-redact [[COMPOSE_COMMAND]]"   # redact env values from the stored Compose Config log (komodo#1636)
+compose_cmd_wrapper_include = ["config"]
 server = "kdk-dkr-01"
 repo = "BigH3ater/kdk-lab-dkr"
 run_directory = "stacks/readwise-to-remarkable"
@@ -1466,6 +1566,8 @@ tags = ["kdk-lab"]
 name = "obsidian-headless"
 deploy = true
 [stack.config]
+compose_cmd_wrapper = "/usr/local/sbin/kdk-compose-config-redact [[COMPOSE_COMMAND]]"   # redact env values from the stored Compose Config log (komodo#1636)
+compose_cmd_wrapper_include = ["config"]
 server = "kdk-dkr-01"
 repo = "BigH3ater/kdk-lab-dkr"
 run_directory = "stacks/obsidian-headless"
@@ -1484,6 +1586,8 @@ tags = ["kdk-lab"]
 name = "trailarr"
 deploy = true
 [stack.config]
+compose_cmd_wrapper = "/usr/local/sbin/kdk-compose-config-redact [[COMPOSE_COMMAND]]"   # redact env values from the stored Compose Config log (komodo#1636)
+compose_cmd_wrapper_include = ["config"]
 server = "kdk-dkr-01"
 repo = "BigH3ater/kdk-lab-dkr"
 run_directory = "stacks/trailarr"
@@ -1494,6 +1598,8 @@ tags = ["kdk-lab"]
 name = "calibre"
 deploy = true
 [stack.config]
+compose_cmd_wrapper = "/usr/local/sbin/kdk-compose-config-redact [[COMPOSE_COMMAND]]"   # redact env values from the stored Compose Config log (komodo#1636)
+compose_cmd_wrapper_include = ["config"]
 server = "kdk-dkr-01"
 repo = "BigH3ater/kdk-lab-dkr"
 run_directory = "stacks/calibre"
@@ -1509,6 +1615,8 @@ tags = ["kdk-lab"]
 name = "net-exporters"
 deploy = true
 [stack.config]
+compose_cmd_wrapper = "/usr/local/sbin/kdk-compose-config-redact [[COMPOSE_COMMAND]]"   # redact env values from the stored Compose Config log (komodo#1636)
+compose_cmd_wrapper_include = ["config"]
 server = "kdk-dkr-01"
 repo = "BigH3ater/kdk-lab-dkr"
 run_directory = "stacks/net-exporters"
@@ -1523,6 +1631,8 @@ tags = ["kdk-lab"]
 name = "actual"
 deploy = true
 [stack.config]
+compose_cmd_wrapper = "/usr/local/sbin/kdk-compose-config-redact [[COMPOSE_COMMAND]]"   # redact env values from the stored Compose Config log (komodo#1636)
+compose_cmd_wrapper_include = ["config"]
 server = "kdk-dkr-01"
 repo = "BigH3ater/kdk-lab-dkr"
 run_directory = "stacks/actual"
@@ -1539,6 +1649,8 @@ tags = ["kdk-lab"]
 name = "jellystat"
 deploy = true
 [stack.config]
+compose_cmd_wrapper = "/usr/local/sbin/kdk-compose-config-redact [[COMPOSE_COMMAND]]"   # redact env values from the stored Compose Config log (komodo#1636)
+compose_cmd_wrapper_include = ["config"]
 server = "kdk-dkr-01"
 repo = "BigH3ater/kdk-lab-dkr"
 run_directory = "stacks/jellystat"
@@ -1555,6 +1667,8 @@ tags = ["kdk-lab"]
 name = "tailscale-subnet-router"
 deploy = true
 [stack.config]
+compose_cmd_wrapper = "/usr/local/sbin/kdk-compose-config-redact [[COMPOSE_COMMAND]]"   # redact env values from the stored Compose Config log (komodo#1636)
+compose_cmd_wrapper_include = ["config"]
 server = "kdk-dkr-01"
 repo = "BigH3ater/kdk-lab-dkr"
 run_directory = "stacks/tailscale-subnet-router"
@@ -1571,6 +1685,8 @@ name = "tailscale-dns"
 deploy = true
 after = ["tailscale-subnet-router"]
 [stack.config]
+compose_cmd_wrapper = "/usr/local/sbin/kdk-compose-config-redact [[COMPOSE_COMMAND]]"   # redact env values from the stored Compose Config log (komodo#1636)
+compose_cmd_wrapper_include = ["config"]
 server = "kdk-dkr-01"
 repo = "BigH3ater/kdk-lab-dkr"
 run_directory = "stacks/tailscale-dns"
@@ -1596,6 +1712,8 @@ tags = ["kdk-lab"]
 name = "home-assistant"
 deploy = true
 [stack.config]
+compose_cmd_wrapper = "/usr/local/sbin/kdk-compose-config-redact [[COMPOSE_COMMAND]]"   # redact env values from the stored Compose Config log (komodo#1636)
+compose_cmd_wrapper_include = ["config"]
 server = "kdk-dkr-02"
 repo = "BigH3ater/kdk-lab-dkr"
 run_directory = "stacks/home-assistant"
@@ -1612,6 +1730,8 @@ tags = ["kdk-lab"]
 name = "scrypted-homebridge"
 deploy = true
 [stack.config]
+compose_cmd_wrapper = "/usr/local/sbin/kdk-compose-config-redact [[COMPOSE_COMMAND]]"   # redact env values from the stored Compose Config log (komodo#1636)
+compose_cmd_wrapper_include = ["config"]
 server = "kdk-dkr-03"
 repo = "BigH3ater/kdk-lab-dkr"
 run_directory = "stacks/scrypted-homebridge"
@@ -1630,6 +1750,8 @@ tags = ["kdk-lab"]
 name = "monitoring-ext"
 deploy = true
 [stack.config]
+compose_cmd_wrapper = "/usr/local/sbin/kdk-compose-config-redact [[COMPOSE_COMMAND]]"   # redact env values from the stored Compose Config log (komodo#1636)
+compose_cmd_wrapper_include = ["config"]
 server = "kdk-mon-01"
 project_name = "monitoring"
 repo = "BigH3ater/kdk-lab-dkr"
@@ -1664,6 +1786,8 @@ tags = ["kdk-lab"]
 name = "komodo"
 deploy = false
 [stack.config]
+compose_cmd_wrapper = "/usr/local/sbin/kdk-compose-config-redact [[COMPOSE_COMMAND]]"   # redact env values from the stored Compose Config log (komodo#1636)
+compose_cmd_wrapper_include = ["config"]
 server = "kdk-dkr-01"
 repo = "BigH3ater/kdk-lab-dkr"
 run_directory = "stacks/komodo"
@@ -1681,6 +1805,8 @@ tags = ["kdk-lab"]
 name = "network-sre-learning"
 deploy = true
 [stack.config]
+compose_cmd_wrapper = "/usr/local/sbin/kdk-compose-config-redact [[COMPOSE_COMMAND]]"   # redact env values from the stored Compose Config log (komodo#1636)
+compose_cmd_wrapper_include = ["config"]
 server = "kdk-dkr-01"
 repo = "BigH3ater/network-sre-learning"
 git_account = "BigH3ater"
@@ -1704,6 +1830,8 @@ tags = ["kdk-lab"]
 name = "advisory-watch"
 deploy = false   # run weekly by the advisory-watch Procedure
 [stack.config]
+compose_cmd_wrapper = "/usr/local/sbin/kdk-compose-config-redact [[COMPOSE_COMMAND]]"   # redact env values from the stored Compose Config log (komodo#1636)
+compose_cmd_wrapper_include = ["config"]
 server = "kdk-log-01"
 repo = "BigH3ater/kdk-lab-dkr"
 run_directory = "stacks/advisory-watch"
@@ -1736,6 +1864,8 @@ tags = ["kdk-lab"]
 name = "trivy-scan-dkr01"
 deploy = false   # run weekly by the trivy-scan Procedure
 [stack.config]
+compose_cmd_wrapper = "/usr/local/sbin/kdk-compose-config-redact [[COMPOSE_COMMAND]]"   # redact env values from the stored Compose Config log (komodo#1636)
+compose_cmd_wrapper_include = ["config"]
 server = "kdk-dkr-01"
 repo = "BigH3ater/kdk-lab-dkr"
 run_directory = "stacks/trivy-scan"
@@ -1747,6 +1877,8 @@ tags = ["kdk-lab"]
 name = "trivy-scan-dmz01"
 deploy = false   # run weekly by the trivy-scan Procedure
 [stack.config]
+compose_cmd_wrapper = "/usr/local/sbin/kdk-compose-config-redact [[COMPOSE_COMMAND]]"   # redact env values from the stored Compose Config log (komodo#1636)
+compose_cmd_wrapper_include = ["config"]
 server = "kdk-dkr-dmz-01"
 repo = "BigH3ater/kdk-lab-dkr"
 run_directory = "stacks/trivy-scan"
@@ -1758,6 +1890,8 @@ tags = ["kdk-lab"]
 name = "trivy-scan-mon01"
 deploy = false   # run weekly by the trivy-scan Procedure
 [stack.config]
+compose_cmd_wrapper = "/usr/local/sbin/kdk-compose-config-redact [[COMPOSE_COMMAND]]"   # redact env values from the stored Compose Config log (komodo#1636)
+compose_cmd_wrapper_include = ["config"]
 server = "kdk-mon-01"
 repo = "BigH3ater/kdk-lab-dkr"
 run_directory = "stacks/trivy-scan"
@@ -1769,6 +1903,8 @@ tags = ["kdk-lab"]
 name = "trivy-scan-dkr02"
 deploy = false   # run weekly by the trivy-scan Procedure
 [stack.config]
+compose_cmd_wrapper = "/usr/local/sbin/kdk-compose-config-redact [[COMPOSE_COMMAND]]"   # redact env values from the stored Compose Config log (komodo#1636)
+compose_cmd_wrapper_include = ["config"]
 server = "kdk-dkr-02"
 repo = "BigH3ater/kdk-lab-dkr"
 run_directory = "stacks/trivy-scan"
@@ -1780,6 +1916,8 @@ tags = ["kdk-lab"]
 name = "trivy-scan-dkr03"
 deploy = false   # run weekly by the trivy-scan Procedure
 [stack.config]
+compose_cmd_wrapper = "/usr/local/sbin/kdk-compose-config-redact [[COMPOSE_COMMAND]]"   # redact env values from the stored Compose Config log (komodo#1636)
+compose_cmd_wrapper_include = ["config"]
 server = "kdk-dkr-03"
 repo = "BigH3ater/kdk-lab-dkr"
 run_directory = "stacks/trivy-scan"
@@ -1791,6 +1929,8 @@ tags = ["kdk-lab"]
 name = "trivy-scan-log01"
 deploy = false   # run weekly by the trivy-scan Procedure
 [stack.config]
+compose_cmd_wrapper = "/usr/local/sbin/kdk-compose-config-redact [[COMPOSE_COMMAND]]"   # redact env values from the stored Compose Config log (komodo#1636)
+compose_cmd_wrapper_include = ["config"]
 server = "kdk-log-01"
 repo = "BigH3ater/kdk-lab-dkr"
 run_directory = "stacks/trivy-scan"
@@ -1835,6 +1975,8 @@ tags = ["kdk-lab"]
 name = "cloudflare-watch"
 deploy = false   # run hourly by the cloudflare-watch procedure
 [stack.config]
+compose_cmd_wrapper = "/usr/local/sbin/kdk-compose-config-redact [[COMPOSE_COMMAND]]"   # redact env values from the stored Compose Config log (komodo#1636)
+compose_cmd_wrapper_include = ["config"]
 server = "kdk-log-01"
 repo = "BigH3ater/kdk-lab-dkr"
 run_directory = "stacks/cloudflare-watch"
@@ -1847,6 +1989,8 @@ tags = ["kdk-lab"]
 name = "cloudflare-watch-weekly"
 deploy = false   # run weekly by the cloudflare-watch-weekly procedure
 [stack.config]
+compose_cmd_wrapper = "/usr/local/sbin/kdk-compose-config-redact [[COMPOSE_COMMAND]]"   # redact env values from the stored Compose Config log (komodo#1636)
+compose_cmd_wrapper_include = ["config"]
 server = "kdk-log-01"
 repo = "BigH3ater/kdk-lab-dkr"
 run_directory = "stacks/cloudflare-watch"

@@ -32,6 +32,7 @@ COMMON_VM = [
     ("/etc/apt/apt.conf.d/52kdk-unattended-upgrades", "hosts/_common/apt/52kdk-unattended-upgrades", None),
     ("/etc/systemd/system/kdk-storage-fence.service", "hosts/_common/systemd/kdk-storage-fence.service", None),
     ("/usr/local/sbin/kdk-docker-user.sh", "hosts/_common/sbin/kdk-docker-user.sh", "0755"),
+    ("/usr/local/sbin/kdk-compose-config-redact", "hosts/_common/sbin/kdk-compose-config-redact", "0755"),
     ("/etc/systemd/system/kdk-docker-user.service", "hosts/_common/systemd/kdk-docker-user.service", None),
     ("/etc/systemd/system/kdk-docker-user.timer", "hosts/_common/systemd/kdk-docker-user.timer", None),
 ]

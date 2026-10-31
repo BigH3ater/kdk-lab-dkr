@@ -1,0 +1,48 @@
+#!/bin/sh
+# kdk-compose-config-redact -- Komodo `compose_cmd_wrapper` for the `config` subcommand.
+#
+# Installed as /usr/local/sbin/kdk-compose-config-redact (root:root 0755) on every
+# Periphery host. komodo/resources.toml sets, per stack:
+#   compose_cmd_wrapper = "/usr/local/sbin/kdk-compose-config-redact [[COMPOSE_COMMAND]]"
+#   compose_cmd_wrapper_include = ["config"]
+#
+# Why: Komodo 2.3.x runs `docker compose ... config` on every deploy and stores its
+# stdout in the Update log ("Compose Config" stage) and in stack.info.deployed_config.
+# Compose resolves `.env` / `env_file:` values natively, so secrets rendered by our
+# `op inject` pre_deploy never pass Komodo's secret replacers and were persisted in
+# plain text (upstream moghtech/komodo#1636, fix PR #1644 still open 2026-10-31).
+#
+# What: run the real command, then replace every service `environment:` value with
+# "<redacted>" (keys and all other structure kept, so Komodo still parses services
+# and images). Exit with the command's own status; stderr passes through untouched.
+set -u
+out=$(mktemp) || exit 1
+trap 'rm -f "$out"' EXIT INT TERM
+"$@" >"$out"
+rc=$?
+awk '
+  function indent(s) { match(s, /^ */); return RLENGTH }
+  {
+    n = indent($0)
+    if (inenv) {
+      if ($0 ~ /^[[:space:]]*$/) next
+      if (n > envind) {
+        if (n == keyind || keyind < 0) {
+          keyind = n
+          line = $0
+          if (sub(/^ *- /, "", line)) {            # list form: - KEY=value
+            k = line; sub(/=.*/, "", k)
+            printf "%*s- %s=<redacted>\n", n, "", k
+          } else {                                   # map form: KEY: value
+            k = line; sub(/^ */, "", k); sub(/:.*/, "", k)
+            printf "%*s%s: <redacted>\n", n, "", k
+          }
+        }
+        next                                         # deeper = multi-line value: drop
+      }
+      inenv = 0
+    }
+    if ($0 ~ /^ *environment:[[:space:]]*$/) { inenv = 1; envind = n; keyind = -1 }
+    print
+  }' "$out"
+exit $rc
