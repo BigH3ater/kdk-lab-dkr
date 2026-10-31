@@ -1,4 +1,7 @@
-# Hourly storage/NFS health validator on kdk-dkr-01 (storage-health procedure).
+# Hourly storage/NFS health validator (storage-health procedure). One instance
+# per NFS client host: kdk-dkr-01 (media backup dee-exchange) and kdk-dkr-04
+# (media backup), each as its own [[stack]] in komodo/resources.toml with
+# NFS_MOUNTS set to exactly the mounts that host has.
 # Pages Pushover when the NAS storage IP is unreachable, NFS 2049 is refused, or
 # any NFS mount hangs (the hung-hard-mount signature behind the 2026-09-16
 # outage). Logic in verify.sh (mounted, so Compose interpolation never touches
@@ -16,8 +19,10 @@ services:
     network_mode: host
     entrypoint: ["/bin/sh", "/verify.sh"]
     environment:
-      NAS_IP: "172.16.30.2"
-      NFS_MOUNTS: "media backup dee-exchange"   # /mnt/loki released 2026-10-29 (Loki on kdk-log-01)
+      # Per host in komodo/resources.toml (stack `environment`). The defaults are
+      # kdk-dkr-01's set; kdk-dkr-04 overrides NFS_MOUNTS to "media backup".
+      NAS_IP: "${NAS_IP:-172.16.30.2}"
+      NFS_MOUNTS: "${NFS_MOUNTS:-media backup dee-exchange}"   # dkr-01 default; /mnt/loki released 2026-10-29 (Loki on kdk-log-01)
     volumes:
       - /etc/kdk:/kdk
       - ./verify.sh:/verify.sh:ro

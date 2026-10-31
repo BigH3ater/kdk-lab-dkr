@@ -173,6 +173,30 @@ write_files:
       # the alloy container, only :3100. VLAN 20 is same-subnet, so no UniFi rule is
       # needed (unlike dmz-01, which crosses from 192.168.191.0/24).
       allow_ctr alloy 10.1.20.21 tcp 3100
+  - path: /etc/systemd/system/mnt-media.mount
+    content: |
+      [Unit]
+      Description=tankz3/media over storage net
+      After=network-online.target
+      [Mount]
+      What=172.16.30.2:/mnt/tankz3/media
+      Where=/mnt/media
+      Type=nfs
+      Options=nfsvers=4.1,noatime,_netdev
+      [Install]
+      WantedBy=multi-user.target
+  - path: /etc/systemd/system/mnt-backup.mount
+    content: |
+      [Unit]
+      Description=tankz3/backup over storage net
+      After=network-online.target
+      [Mount]
+      What=172.16.30.2:/mnt/tankz3/backup
+      Where=/mnt/backup
+      Type=nfs
+      Options=nfsvers=4.1,noatime,_netdev
+      [Install]
+      WantedBy=multi-user.target
   - path: /etc/ssh/sshd_config.d/98-kdk-admin.conf
     content: |
       # kdk-lab SSH baseline, every host. Install: /etc/ssh/sshd_config.d/98-kdk-admin.conf
@@ -547,6 +571,10 @@ runcmd:
   - systemctl restart systemd-resolved
   - systemctl enable --now kdk-storage-fence.service
   - systemctl enable --now kdk-docker-user.service kdk-docker-user.timer
+  # NFS mounts over the storage net (the fence above already permits 2049 to the
+  # NAS). Same units + options as kdk-dkr-01; single /mnt/media mount so the
+  # media hardlink rule holds. Written above in the host-baseline block.
+  - systemctl enable --now mnt-media.mount mnt-backup.mount
   # rpcbind not needed (NFS is v4.1 only); mask it (hosts report M-07).
   - systemctl mask --now rpcbind.socket rpcbind.service || true
   # Periphery pinned to Core's release line (docs/services/komodo.md: 2.3.4).

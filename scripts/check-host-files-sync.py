@@ -45,10 +45,20 @@ def per_host(host):
     ]
 
 
+# kdk-dkr-04's NFS mount units are the one storage-specific host file tracked in
+# hosts/ (kdk-dkr-01 keeps its mounts hand-written in cloud-init). Tracking them
+# here keeps the hosts/ source of truth and the cloud-init rebuild copy from
+# drifting. runcmd in the cloud-init file enables them (systemctl enable --now).
+MOUNTS_DKR04 = [
+    ("/etc/systemd/system/mnt-media.mount", "hosts/kdk-dkr-04/systemd/mnt-media.mount", None),
+    ("/etc/systemd/system/mnt-backup.mount", "hosts/kdk-dkr-04/systemd/mnt-backup.mount", None),
+]
+
+
 TARGETS = {
     "cloud-init/kdk-dkr-01-vendor-data.yaml": per_host("kdk-dkr-01") + COMMON_VM,
     "cloud-init/kdk-dkr-dmz-01-user-data.yaml": per_host("kdk-dkr-dmz-01") + COMMON_VM,
-    "cloud-init/kdk-dkr-04-user-data.yaml": per_host("kdk-dkr-04") + COMMON_VM,
+    "cloud-init/kdk-dkr-04-user-data.yaml": per_host("kdk-dkr-04") + MOUNTS_DKR04 + COMMON_VM,
 }
 
 BEGIN = "  # >>> kdk host baseline (generated from hosts/ by scripts/check-host-files-sync.py --write; edit hosts/, not this block)"
