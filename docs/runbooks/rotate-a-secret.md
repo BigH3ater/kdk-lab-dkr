@@ -137,3 +137,9 @@ check the old one fails (401).
 | `kdk-ops/libreseerr-admin` | new value in 1Password (owner's personal `op` session: the service account cannot write `kdk-ops`), werkzeug scrypt hash via `docker exec -i`, `users.json` rewritten with the container stopped ([Seerr page](../services/seerr.md#libreseerr-admin-reset)) |
 | `kdk-ops/trailarr-admin` | `op item create`, applied once through `WEBUI_PASSWORD` on a one-off container ([Media page](../services/media.md#trailarr)) |
 | `kdk-cluster/libreseerr-oidc` + `authelia-app-secrets/libreseerr_client_secret` | plaintext item, digest built locally in crypt base64 and validated with `authelia crypto hash validate`, file from `op read`, Libreseerr `config.json`, Authelia restart |
+
+## Examples from 2026-10-31
+
+| Secret | Pattern |
+|---|---|
+| `kdk-cluster/actual-banksync` (`session_token`, `e2e_password`) | `.env.tpl` with `op://` refs (op inject). `session_token` from a dedicated never-logged-out Firefox session (console → IndexedDB `actual` → `asyncStorage` → `user-token`); `e2e_password` is the budget E2E key. Create in the 1Password app or `read -rs` (Claude Code `!` lines have no TTY). After `op item edit`, run the `actual-bank-sync` procedure to re-render `.env`. Not a host file and not a hash. Full steps: [Actual bank sync](actual-bank-sync.md). SimpleFIN's own credential is **not** here — it lives inside Actual (re-link in the app) |

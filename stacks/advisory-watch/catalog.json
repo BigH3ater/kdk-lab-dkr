@@ -255,6 +255,11 @@
       "tag_is_version": false,
       "github": "instrumentisto/rsync-ssh-docker-image"
     },
+    "kdk/actual-bank-sync": {
+      "local": true,
+      "base": "node",
+      "note": "built from stacks/actual-bank-sync/app/Dockerfile; @actual-app/api pinned at 26.10.0 via package-lock.json (Trivy covers the npm tree)"
+    },
     "kdk/calibre": {
       "local": true,
       "base": "python",
