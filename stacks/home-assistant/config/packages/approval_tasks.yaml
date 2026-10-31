@@ -15,7 +15,9 @@
 # (owner accepts ~2 min). This also adds NO container.
 #
 # STATE lives in Vikunja, not in HA: an internal `notified` label marks a task
-# HA has already paged for, so the once-a-minute poll neither double-pages nor
+# HA has already paged for. The poll writes that label FIRST and only pages if
+# the write succeeds (a failed write must not page every minute), so the loop
+# neither double-pages nor
 # loses its place across an HA restart. Nothing is stored in flows.json and no
 # token is in git (contrast the Node-RED chore bridge).
 #
@@ -73,8 +75,11 @@ notify:
 rest_command:
   # List the Approvals project (the per-project route; /tasks/all 400s on a
   # scoped token). done tasks are included so the poll can detect resolutions.
+  # sort_by=id&order_by=desc keeps the newest tasks in the first page, so a
+  # backlog of done tasks never pushes a new open task past per_page (verified
+  # against the live 2.7.1 instance).
   vikunja_list_approvals:
-    url: "https://tasks.kmkdp.com/api/v1/projects/{{ project_id }}/tasks?per_page=50"
+    url: "https://tasks.kmkdp.com/api/v1/projects/{{ project_id }}/tasks?per_page=50&sort_by=id&order_by=desc"
     method: GET
     headers:
       authorization: !secret vikunja_approvals_auth
@@ -255,20 +260,38 @@ automation:
                   {% endfor %}
                   {{ ns.v }}
             - choose:
-                # New open task we have not paged for yet.
+                # New open task we have not paged for yet. Claim it by writing
+                # the `notified` label FIRST; only page if that write succeeded.
+                # Otherwise the phone would be paged every poll (a storm) when
+                # the label write keeps failing. On failure: log and skip the
+                # task (the next poll retries the claim once scope/id is fixed).
                 - conditions: "{{ not t_done and not is_notified }}"
                   sequence:
-                    - action: script.approval_notify
-                      continue_on_error: true
-                      data:
-                        task_id: "{{ t_id }}"
-                        title: "{{ t_title }}"
-                        description_raw: "{{ repeat.item.description | default('') }}"
                     - action: rest_command.vikunja_add_label
                       continue_on_error: true
+                      response_variable: claim
                       data:
                         task_id: "{{ t_id }}"
                         label_id: "{{ id_notified }}"
+                    - choose:
+                        - conditions: "{{ claim is defined and claim.status in [200, 201] }}"
+                          sequence:
+                            - action: script.approval_notify
+                              continue_on_error: true
+                              data:
+                                task_id: "{{ t_id }}"
+                                title: "{{ t_title }}"
+                                description_raw: "{{ repeat.item.description | default('') }}"
+                      default:
+                        - action: system_log.write
+                          data:
+                            level: warning
+                            message: >-
+                              approval_tasks: could not mark task {{ t_id }}
+                              notified (status {{ claim.status | default('none') }});
+                              not paging, to avoid a notification storm. Check the
+                              Vikunja token's tasks_labels scope and the
+                              vikunja_label_notified id.
                 # Still open at a Vikunja reminder time -> re-send under the
                 # same tag (replaces the old notification). Never resolves the
                 # task; a missed due_date just leaves it open.
@@ -340,43 +363,95 @@ automation:
         value_template: "{{ gt is defined and gt.status == 200 and gt.content is mapping }}"
       - variables:
           t_title: "{{ gt.content.title }}"
-          # done=true + append a machine-readable result marker, in one POST.
-          task_json: >-
-            {{ gt.content | combine({
-                 'done': true,
-                 'description': (gt.content.description | default('', true))
-                                ~ '<p>APPROVALS-RESULT: ' ~ choice_id ~ '</p>'})
-               | to_json }}
-          comment: >-
-            {{ outcome_full }} by {{ who }} via Home Assistant notification on
-            {{ now().strftime('%Y-%m-%d %H:%M %Z') }}.
-      # 1) full-object update -> done + result marker
-      - action: rest_command.vikunja_update_task
-        data:
-          task_id: "{{ task_id }}"
-          task_json: "{{ task_json }}"
-      # 2) coarse outcome label (approved / skipped)
-      - action: rest_command.vikunja_add_label
-        continue_on_error: true
-        data:
-          task_id: "{{ task_id }}"
-          label_id: "{{ coarse_label }}"
-      # 3) audit comment (who / how / when / which choice)
-      - action: rest_command.vikunja_add_comment
-        continue_on_error: true
-        data:
-          task_id: "{{ task_id }}"
-          comment: "{{ comment }}"
-      # 4) drop the notified marker so the poll won't re-fire the resolution
-      - action: rest_command.vikunja_remove_label
-        continue_on_error: true
-        data:
-          task_id: "{{ task_id }}"
-          label_id: "{{ id_notified }}"
-      # 5) replace the phone notification with the resolved message
-      - action: script.approval_resolved
-        continue_on_error: true
-        data:
-          task_id: "{{ task_id }}"
-          title: "{{ t_title }}"
-          outcome: "{{ outcome_full }}"
+          done_label_ids: "{{ (gt.content.labels or []) | map(attribute='id') | list }}"
+          already_done: "{{ gt.content.done }}"
+      - choose:
+          # Already resolved (a second button press, or resolved in Vikunja
+          # between the page and the press). Do NOT write a second result
+          # marker or comment -- just show the resolved notification.
+          - conditions: "{{ already_done }}"
+            sequence:
+              - action: rest_command.vikunja_remove_label
+                continue_on_error: true
+                data:
+                  task_id: "{{ task_id }}"
+                  label_id: "{{ id_notified }}"
+              - action: script.approval_resolved
+                continue_on_error: true
+                data:
+                  task_id: "{{ task_id }}"
+                  title: "{{ t_title }}"
+                  outcome: >-
+                    {{ 'Approved' if id_approved in done_label_ids
+                       else 'Skipped' if id_skipped in done_label_ids
+                       else 'Resolved' }}
+        default:
+          - variables:
+              # done=true + append a machine-readable result marker, in one POST.
+              task_json: >-
+                {{ gt.content | combine({
+                     'done': true,
+                     'description': (gt.content.description | default('', true))
+                                    ~ '<p>APPROVALS-RESULT: ' ~ choice_id ~ '</p>'})
+                   | to_json }}
+              comment: >-
+                {{ outcome_full }} by {{ who }} via Home Assistant notification on
+                {{ now().strftime('%Y-%m-%d %H:%M %Z') }}.
+          # 1) full-object update -> done + result marker. Capture the result;
+          #    everything else is conditional on it having succeeded.
+          - action: rest_command.vikunja_update_task
+            continue_on_error: true
+            response_variable: upd
+            data:
+              task_id: "{{ task_id }}"
+              task_json: "{{ task_json }}"
+          - choose:
+              - conditions: "{{ upd is defined and upd.status in [200, 201] }}"
+                sequence:
+                  # 2) coarse outcome label (approved / skipped)
+                  - action: rest_command.vikunja_add_label
+                    continue_on_error: true
+                    data:
+                      task_id: "{{ task_id }}"
+                      label_id: "{{ coarse_label }}"
+                  # 3) audit comment (who / how / when / which choice)
+                  - action: rest_command.vikunja_add_comment
+                    continue_on_error: true
+                    data:
+                      task_id: "{{ task_id }}"
+                      comment: "{{ comment }}"
+                  # 4) drop the notified marker so the poll won't re-fire
+                  - action: rest_command.vikunja_remove_label
+                    continue_on_error: true
+                    data:
+                      task_id: "{{ task_id }}"
+                      label_id: "{{ id_notified }}"
+                  # 5) replace the notification with the resolved message
+                  - action: script.approval_resolved
+                    continue_on_error: true
+                    data:
+                      task_id: "{{ task_id }}"
+                      title: "{{ t_title }}"
+                      outcome: "{{ outcome_full }}"
+            # The decision could NOT be recorded -> do not claim success. Replace
+            # the actionable notification (same tag) with an error asking the
+            # owner to open the task, and leave it open + still `notified`.
+            default:
+              - action: system_log.write
+                data:
+                  level: warning
+                  message: >-
+                    approval_tasks: could not record decision for task
+                    {{ task_id }} (update status {{ upd.status | default('none') }});
+                    leaving it open. Check the Vikunja token's tasks scope.
+              - action: notify.approval_recipients
+                continue_on_error: true
+                data:
+                  title: "Couldn't record: {{ t_title }}"
+                  message: "Open the task to decide."
+                  data:
+                    tag: "approval_{{ task_id }}"
+                    group: "approvals"
+                    url: "https://tasks.kmkdp.com/tasks/{{ task_id }}"
+                    push:
+                      interruption-level: "active"

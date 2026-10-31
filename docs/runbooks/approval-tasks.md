@@ -146,11 +146,29 @@ order. Nothing is pasted into a shell where it would land in history.
    Note the Approvals project id and the three label ids.
 
 3. **Mint a narrow HA token in the Vikunja UI** (Settings → API Tokens), owned
-   by `jmack`, with the least scope that still lets it: read tasks in the
-   Approvals project, **update** tasks, add/remove **labels** on tasks, and
-   **create comments**. (Grant the Tasks read+update, Labels read, and Task
-   Comments create groups; leave everything else off. It needs no project/label
-   *create* and no delete beyond task-label.) Copy the token once.
+   by `jmack`. Vikunja derives each permission group from the route path, so
+   tick **exactly** these groups/actions and nothing else:
+
+   | Group | Actions | Why |
+   |---|---|---|
+   | **Tasks** (`tasks`) | Read All, Read One, Update | list the project, read a task, write the full-object `done` update |
+   | **Task Labels** (`tasks_labels`) | Create, Delete | add/remove `notified` and add `approved`/`skipped` **on the task** |
+   | **Task Comments** (`tasks_comments`) | Create | the audit comment |
+
+   > The plain **Labels** group (managing label *definitions*) is **not** what
+   > adds a label to a task — that is `tasks_labels`. Do not grant it, and grant
+   > no `create`/`delete` on `tasks`, `projects`, or `labels`.
+
+   Confirm the exact group/action names for this version (read-only):
+
+   ```sh
+   TOK="$(op read op://kdk-cluster/vikunja-api-rw/credential)"
+   curl -s -H "Authorization: Bearer $TOK" https://tasks.kmkdp.com/api/v1/routes \
+     | python3 -c "import json,sys;d=json.load(sys.stdin);[print(g, sorted(d[g])) for g in ('tasks','tasks_labels','tasks_comments')]"
+   unset TOK
+   ```
+
+   Copy the token once.
 
 4. **Store the token in 1Password** (hidden entry, no history):
 
@@ -163,16 +181,19 @@ order. Nothing is pasted into a shell where it would land in history.
 
 5. **Add the five keys to the host `secrets.yaml`** on kdk-dkr-02. The auth line
    comes straight from `op` (never printed); the four numeric lines are the IDs
-   from step 2. Replace `<PID>/<APPROVED>/<SKIPPED>/<NOTIFIED>`:
+   from step 2. Replace `<PID>/<APPROVED>/<SKIPPED>/<NOTIFIED>`. The block starts
+   with a blank line so it stays valid even if the file has no trailing newline;
+   the live file is `jmack:jmack 600`, so **keep the owner** and only re-assert
+   the mode:
 
    ```sh
-   { printf 'vikunja_approvals_auth: "Bearer %s"\n' "$(op read op://kdk-cluster/vikunja-api-approvals/credential)"
+   { printf '\n'
+     printf 'vikunja_approvals_auth: "Bearer %s"\n' "$(op read op://kdk-cluster/vikunja-api-approvals/credential)"
      printf 'vikunja_approvals_project: %s\n' "<PID>"
      printf 'vikunja_label_approved: %s\n'   "<APPROVED>"
      printf 'vikunja_label_skipped: %s\n'    "<SKIPPED>"
      printf 'vikunja_label_notified: %s\n'   "<NOTIFIED>"
    } | ssh kdkadmin@kdk-dkr-02 'sudo tee -a /opt/kdk-lab/home-assistant/config/secrets.yaml >/dev/null \
-       && sudo chown root:root /opt/kdk-lab/home-assistant/config/secrets.yaml \
        && sudo chmod 600 /opt/kdk-lab/home-assistant/config/secrets.yaml'
    ```
 
@@ -211,14 +232,19 @@ restart on an existing package).
   automation ran (trace). A 200 with an empty body or non-200 from Vikunja stops
   the poll silently — check Settings → Logs for `rest_command` errors and confirm
   `vikunja_approvals_auth`/`vikunja_approvals_project` are correct. Token scope:
-  the poll needs task-read on the Approvals project.
-- **Notification arrives every minute.** The `notified` label is not sticking —
-  the token lacks label-add on tasks, or `vikunja_label_notified` is wrong.
-- **Button does nothing.** Look at the `approval_action` trace. If the task is
-  recurring it will roll forward instead of completing — approval tasks must be
-  `repeat_after: 0`. If the comment/label steps fail but done succeeds, the token
-  lacks comment/label scope (the decision is still recorded as done + result
-  marker).
+  the poll needs `tasks` Read All on the Approvals project.
+- **A task never pages (but the poll runs).** The poll claims a task with the
+  `notified` label *before* paging and skips (logging a `system_log` warning) if
+  that write fails — so a bad `tasks_labels` scope or a wrong
+  `vikunja_label_notified` id means silence, not a storm. Check Settings → Logs
+  for "could not mark task N notified".
+- **"Couldn't record" notification.** The full-object update returned non-2xx;
+  the task is left open and still `notified`, and no label/comment was written.
+  The token is missing `tasks` Update, or the task is recurring (it must be
+  `repeat_after: 0`, or completing rolls it forward). Open the task and retry.
+- **Decision recorded (done) but no label/comment.** The update succeeded but the
+  token lacks `tasks_labels` Create / `tasks_comments` Create; done + the
+  `APPROVALS-RESULT` marker are still correct. Fix the scope.
 - **"resolved" never replaces the notification.** `clear`/replace needs the app
   to have been used recently (iOS); it will reconcile on the next poll. The task
   is already correct in Vikunja regardless.
