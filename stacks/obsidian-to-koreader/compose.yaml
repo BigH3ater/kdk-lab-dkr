@@ -52,7 +52,7 @@ x-env: &env
   PDF_PAGE_SIZE: "180mm 240mm"        # Paper Pro screen (1620x2160 @ ~229ppi); not A4
   QUEUE_SUBDIR: _remarkable           # vault folder holding queue/ + done/ for the plugin
   MAX_PDF_MB: "40"                    # per-PDF size guard
-  SYNC_FOLDERS: "20.Work"             # standing per-note sync (comma-separated vault folders)
+  SYNC_FOLDERS: "20.Work,10.Homelab"  # standing per-note sync (comma-separated vault folders); 10.Homelab added 2026-10-30
   SECTION_EXCLUDE: "90.Meta"          # top-level sections never sent (templates/plumbing)
   KROKI_URL: "http://kroki:8000"      # internal stacks/kroki service (Mermaid -> SVG)
   MERMAID_FORCE_TD: "1"               # rewrite wide (LR/RL) flowcharts to top-down for the tablet

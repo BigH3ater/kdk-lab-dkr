@@ -105,7 +105,7 @@ Set in `compose.yaml` (shared `x-env` anchor); the two services differ only in `
 | `MODE` | `oneshot` | `watch` = the long-running watcher; `oneshot` = the scheduled fallback + reconcile |
 | `RM_DEST` | `/home/root/books/kodiak-codex` | tablet root for the mirrored vault tree |
 | `RM_DEST_OLD` | `/home/root/books/Homelab` | one-time rename source (`mv` on first run; never deleted; empty disables) |
-| `SYNC_FOLDERS` | `20.Work` | comma-separated vault folders mirrored note-by-note every scheduled run |
+| `SYNC_FOLDERS` | `20.Work` (compose: `20.Work,10.Homelab`) | comma-separated vault folders mirrored note-by-note every scheduled run |
 | `KROKI_URL` | `http://kroki:8000` | internal Kroki service for Mermaid → SVG |
 | `MERMAID_FORCE_TD` | `1` | rewrite wide (`LR`/`RL`) flowcharts to top-down for the narrow page |
 | `MERMAID_INIT` | neutral theme, `htmlLabels: false` | Mermaid init directive prepended to every diagram. WeasyPrint cannot draw HTML inside SVG `<foreignObject>` (Mermaid's default label method), so labels rendered blank until this was added (2026-10-30). Empty disables it. |
