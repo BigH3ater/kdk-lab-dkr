@@ -172,7 +172,6 @@ scrape_configs:
           - "https://bazarr.kmkdp.com"
           - "https://sabnzbd.kmkdp.com"
           - "https://tdarr.kmkdp.com"
-          - "https://remarkable.kmkdp.com"
     relabel_configs:
       - source_labels: [__address__]
         target_label: __param_target

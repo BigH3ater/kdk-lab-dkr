@@ -27,20 +27,6 @@ services:
       CRON: "*/15 * * * *"
       RUN_ON_START: "true"
 
-  rmfakecloud:
-    image: ddvk/rmfakecloud:0.0.32@sha256:630a5c9e0b412a12e236c2a39034cf62fe1cde29a186d53a3459195ce8aaaf1f
-    container_name: rmfakecloud
-    restart: unless-stopped
-    environment:
-      JWT_SECRET_KEY: "${RMFAKECLOUD_JWT_SECRET}"
-      STORAGE_URL: "https://remarkable.kmkdp.com"
-    volumes:
-      - /opt/kdk-lab/apps/rmfakecloud:/data
-    labels:
-      traefik.enable: "true"
-      traefik.http.routers.rmfake.rule: "Host(`remarkable.kmkdp.com`)"
-      traefik.http.services.rmfake.loadbalancer.server.port: "3000"
-    networks: [default, proxy]
 
   proton-bridge:
     image: shenxn/protonmail-bridge:3.19.0-1@sha256:3717b4441130675dc9131196de9f9c5287d2ea21b138d83b0486429e1737638a

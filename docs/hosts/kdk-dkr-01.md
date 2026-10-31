@@ -33,7 +33,7 @@ The internal Docker host: Komodo control plane, 1Password Connect, internal Trae
 | OS | Debian 13, kernel `6.12.107+deb13-amd64` (full kernel — required for the NVIDIA driver) |
 | Hardware | 12 vCPU / 47 GiB / 571 GB local-zfs · GTX 1050 Ti (hostpci) |
 | Managed by | cloud-init at build; Komodo periphery thereafter |
-| Runs | komodo, op-connect, proxy, docs, dashboard, media, apps, actual, jellystat, calibre, trailarr, net-exporters, tailscale-subnet-router, tailscale-dns, obsidian-headless, readwise-to-remarkable, backup-dkr-01, observability-agent, node-exporter — plus scheduled one-shots (backup, arr/tdarr, vault pipelines). Representative, not exhaustive; `komodo/resources.toml` is the source of truth. (Loki + syslog moved to [[kdk-log-01]] 2026-10; the old `loki`/`loki-syslog` containers stay until 2026-11-28) |
+| Runs | komodo, op-connect, proxy, docs, dashboard, media, apps, actual, jellystat, calibre, trailarr, net-exporters, tailscale-subnet-router, tailscale-dns, obsidian-headless, backup-dkr-01, observability-agent, node-exporter — plus scheduled one-shots (backup, arr/tdarr, vault pipelines). Representative, not exhaustive; `komodo/resources.toml` is the source of truth. (Loki + syslog moved to [[kdk-log-01]] 2026-10; the old `loki`/`loki-syslog` containers stay until 2026-11-28) |
 | Blast radius | All internal services + new deploys lab-wide |
 
 ## Access

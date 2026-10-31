@@ -1224,8 +1224,8 @@ executions = [
 # Readwise Reader articles -> EPUB files in KOReader (books/Readwise). Revived from git
 # (retired 2026-10-29); Phase 1 of the remarkable-readwise-app design. Local build like the
 # other KOReader one-shots (auto_pull = false, run_build = true, destroy_before_deploy so the
-# one-shot re-runs). pre_deploy renders BOTH op secrets (the same readwise-token-ro the
-# readwise-to-remarkable pre_deploy reads, plus the tablet password) into .env via op inject,
+# one-shot re-runs). pre_deploy renders BOTH op secrets (readwise-token-ro plus the tablet
+# password) into .env via op inject,
 # matching koreader-highlights/obsidian-to-koreader (its compose uses env_file [.env]).
 # NOTE: a resources.toml change must land via the gitops sync BEFORE the first hand deploy of
 # this stack, or Komodo has no `readwise-koreader` stack to deploy.
@@ -1532,29 +1532,6 @@ repo = "BigH3ater/kdk-lab-dkr"
 run_directory = "stacks/observability-agent"
 pre_deploy.command = "sh -c 'echo AGENT_CONFIG_SHA=$(cat alloy/config.alloy docker-event-watch.sh | sha256sum | cut -c1-12) >> .env'"   # APPEND: Komodo renders LOKI_HOST/NODE_NAME into .env first; '>' wiped them (host=unknown, 2026-10-28)
 environment = "LOKI_HOST=10.1.20.21\nNODE_NAME=kdk-dkr-04\nBIND_IP=10.1.20.22"
-webhook_enabled = true
-
-# reMarkable <-> Readwise pipeline (migrated from the decommissioned dockge host).
-# Three prebuilt legs on kdk-dkr-01 talking to the live rmfakecloud over the
-# apps_default network. Readwise token via op read in pre_deploy; needs GHCR pull access for
-# the private ghcr.io/bigh3ater/* images and a one-time rmapi registration.
-[[stack]]
-tags = ["kdk-lab"]
-name = "readwise-to-remarkable"
-deploy = true
-after = ["apps", "media"]
-[stack.config]
-compose_cmd_wrapper = "/usr/local/sbin/kdk-compose-config-redact [[COMPOSE_COMMAND]]"   # redact env values from the stored Compose Config log (komodo#1636)
-compose_cmd_wrapper_include = ["config"]
-server = "kdk-dkr-01"
-repo = "BigH3ater/kdk-lab-dkr"
-run_directory = "stacks/readwise-to-remarkable"
-# The token is rendered here (not by a one-shot sidecar, whose exited container
-# kept the stack "unhealthy") into ./secrets, which the compose mounts at
-# /secrets:ro. 0644 as before: the prebuilt image's user is not pinned to root.
-# --remove-orphans removes the retired `secrets` container on the first deploy.
-extra_args = ["--remove-orphans"]
-pre_deploy.command = "sh -c '. /etc/komodo/op.env && mkdir -p secrets && op read -n -f -o secrets/readwise-token \"op://kdk-cluster/readwise-token-ro/credential\" && chmod 644 secrets/readwise-token'"
 webhook_enabled = true
 
 # Always-on headless Obsidian Sync node: keeps a local copy of the vault at

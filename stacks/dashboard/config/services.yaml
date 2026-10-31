@@ -280,8 +280,3 @@
       href: https://docs.kmkdp.com/
       siteMonitor: https://docs.kmkdp.com/
       description: Homelab documentation site (SSO)
-  - reMarkable Cloud:
-      icon: mdi-tablet
-      href: https://remarkable.kmkdp.com/
-      siteMonitor: https://remarkable.kmkdp.com/
-      description: rmfakecloud sync & handwriting (own login)
