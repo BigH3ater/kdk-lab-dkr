@@ -102,9 +102,10 @@ on kdk-dkr-01 connects). No PCI passthrough.
 
 ### Storage map (Phase A)
 
-No NFS mounts yet. Phase B adds `/mnt/media` (and any workload paths) once the
-NAS adds `172.16.30.52` to the relevant exports — that export change is a NAS
-operation, out of scope for Phase A. App state lives on the root zvol under
+No NFS mounts yet. The NAS exports `tankz3/media` and `tankz3/backup` to
+`172.16.30.52` since 2026-10-30, and a read-only test mount of each passed. Phase B adds
+the `/mnt/media` and `/mnt/backup` mount units, with the same options as kdk-dkr-01,
+when the first workload moves. App state lives on the root zvol under
 `/opt/kdk-lab` and is pulled nightly by `backup-collect` over SSH (the host is
 not on the NFS backup tree in Phase A).
 

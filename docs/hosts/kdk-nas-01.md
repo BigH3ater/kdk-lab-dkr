@@ -31,7 +31,7 @@ datasets.
 | Purpose | Bulk storage, NFS server, SMB shares, TrueNAS VM host |
 | Host | Dell PowerEdge R730xd (bare metal) |
 | Address | `10.1.3.5` (VLAN 1); storage NIC `br0` alias at `172.16.30.2` (NFS net) |
-| NFS | server for `172.16.30.0/24` (jumbo MTU 9000); per-host backup datasets `tankz3/backup/dkr/<host>`; clients `172.16.30.50` (dkr-01), `.51` (dmz-01) |
+| NFS | server for `172.16.30.0/24` (jumbo MTU 9000); per-host backup datasets `tankz3/backup/dkr/<host>`; clients `172.16.30.50` (dkr-01), `.51` (dmz-01), `.52` (dkr-04: `media` + `backup` only, added 2026-10-30) |
 | SMB | bound to `10.1.3.5` (not offered on the storage bridge) — e.g. `\\10.1.3.5\dee-exchange` for [[kdk-dee-01]] |
 | Guests | TrueNAS VMs: [[kdk-dkr-dmz-01]] and `kdk-pbs-01` |
 | Fan/BMC | R730xd BMC steered over IPMI by the `fanctl-nas` controller on [[kdk-mon-01]]; drive-temp watchdog `/root/kdk-temp-watch.sh` |
