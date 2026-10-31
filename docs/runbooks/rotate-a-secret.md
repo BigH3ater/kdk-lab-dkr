@@ -125,7 +125,8 @@ check the old one fails (401).
 |---|---|
 | `node-red-admin`, `node-red-credential-secret`, `zigbee2mqtt-frontend-token` | `op item create`, hash via `docker exec -i`, env files via `install /dev/stdin` on kdk-dkr-02 |
 | `home-assistant-nodered-token` | minted in HA as user `node-red`, pasted in the Node-RED server node, `op item edit` |
-| `vikunja-api-ro` | new token in the Vikunja UI → Node-RED nodes + HA `/config/.vikunja_token` + 1Password, old token revoked |
+| `vikunja-api-ro` | new token in the Vikunja UI → 1Password → `dashboard` redeploy, old token revoked |
+| `vikunja-api-approvals` | the Home Assistant stack's Vikunja token (approvals + robot-vacuum chores). New token in the Vikunja UI (scopes in `approval-tasks.md`) → 1Password → three places on kdk-dkr-02: `vikunja_approvals_auth` in HA `secrets.yaml`, HA `/config/.vikunja_token` (chore sensor), and the three Node-RED HTTP nodes `h_vk1`–`h_vk3` (bearer credential, set in the Node-RED editor) → restart HA and Node-RED → old token revoked |
 | `komodo-github-pat` | new fine-grained PAT → 1Password + the Komodo git account; PullStack OK, old token 401 |
 | `authelia-app-secrets/grafana_oidc_plaintext` | captured from the Authelia secret file into 1Password, then written to mon-01's `.env` from `op read` |
 

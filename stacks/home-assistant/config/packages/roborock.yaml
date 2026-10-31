@@ -97,7 +97,8 @@ script:
         data: "{{ payload }}"
 
 # Open maintenance chores from Vikunja (project 6 "Robot Vacuum"). Token is
-# host-managed at /config/.vikunja_token (0600, not in git — same lane as
+# host-managed at /config/.vikunja_token (0600, not in git; holds the HA stack's
+# token op://kdk-cluster/vikunja-api-approvals, see rotate-a-secret.md; same lane as
 # secrets.yaml). /tasks/all 400s on scoped tokens; the per-project route works.
 command_line:
   - sensor:
