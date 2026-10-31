@@ -106,6 +106,7 @@ set `bind_ip` to the host's VLAN address, then `sudo systemctl restart periphery
 |---|---|
 | kdk-dkr-01 | `10.1.20.20` |
 | kdk-dkr-dmz-01 | `192.168.191.20` |
+| kdk-dkr-04 | `10.1.20.22` |
 | kdk-mon-01 | `10.1.20.30` |
 | kdk-dkr-02 | `10.1.30.21` |
 | kdk-dkr-03 | `10.1.30.22` |

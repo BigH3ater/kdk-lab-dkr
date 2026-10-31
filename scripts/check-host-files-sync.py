@@ -48,6 +48,7 @@ def per_host(host):
 TARGETS = {
     "cloud-init/kdk-dkr-01-vendor-data.yaml": per_host("kdk-dkr-01") + COMMON_VM,
     "cloud-init/kdk-dkr-dmz-01-user-data.yaml": per_host("kdk-dkr-dmz-01") + COMMON_VM,
+    "cloud-init/kdk-dkr-04-user-data.yaml": per_host("kdk-dkr-04") + COMMON_VM,
 }
 
 BEGIN = "  # >>> kdk host baseline (generated from hosts/ by scripts/check-host-files-sync.py --write; edit hosts/, not this block)"

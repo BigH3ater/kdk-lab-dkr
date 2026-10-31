@@ -97,6 +97,7 @@ EXTRA = {
     "kdk-mon-01.kmkdp.com": "10.1.20.30",
     "kdk-dkr-02.kmkdp.com": "10.1.30.21",
     "kdk-dkr-03.kmkdp.com": "10.1.30.22",
+    "kdk-dkr-04.kmkdp.com": "10.1.20.22",
     "kdk-dkr-dmz-01.kmkdp.com": "192.168.191.20",
     # File-provider routes on the internal Traefik (not compose labels, so the
     # Host() scan below never sees them). Keep in sync with stacks/proxy/dynamic/.

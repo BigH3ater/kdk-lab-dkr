@@ -34,8 +34,9 @@ per-host /16s keep them unambiguous:
 | kdk-dkr-dmz-01 | 192.168.191.20 | `10.211.0.0/16` | `10.211.0.0/16` size 24 |
 | kdk-mon-01 | 10.1.20.30 | `10.212.0.0/16` | `10.212.0.0/16` size 24 |
 | kdk-log-01 | 10.1.20.21 | `10.213.0.0/16` | `10.213.0.0/16` size 24 (set at build by cloud-init) |
+| kdk-dkr-04 | 10.1.20.22 | `10.214.0.0/16` | `10.214.0.0/16` size 24 (set at build by cloud-init) |
 
-Spare `/16`s for future hosts: `10.214.0.0/16` – `10.223.0.0/16`.
+Spare `/16`s for future hosts: `10.215.0.0/16` – `10.223.0.0/16`.
 
 The per-host `daemon.json` files are version-controlled under `hosts/<host>/daemon.json`
 and applied to `/etc/docker/daemon.json` on each host.

@@ -15,6 +15,7 @@ PR as any change that adds or moves an address.
 | kdk-dkr-01 | 10.1.20.20 (storage 172.16.30.50) | 20 | VM on kdk-hyp-01 | 300 |
 | kdk-log-01 (Loki, syslog) | 10.1.20.21 (no storage NIC) | 20 | VM on kdk-hyp-01 | 320 |
 |  kdk-dkr-dmz-01 | 192.168.191.20 ( storage 172.16.30.51) | 191 | VM 23 on kdk-nas-01 | — |
+| kdk-dkr-04 | 10.1.20.22 (storage 172.16.30.52) | 20 | VM `kdkdkr04` on kdk-nas-01 | — |
 | kdk-dkr-02 (Pi, HA) | 10.1.30.21 | 30 | bare metal Pi 5 | — |
 | kdk-dkr-03 (Pi, HomeKit) | 10.1.30.22 | 30 | bare metal Pi 5 | — |
 | kdk-mon-01 | 10.1.20.30 | 20 | bare metal Pi 5 | — |
@@ -27,7 +28,7 @@ PR as any change that adds or moves an address.
 > wildcard to the internal Traefik (10.1.20.20), so a host without a record
 > silently "resolves" to the wrong box. Add new hosts here AND in `EXTRA`.
 
-VLAN 20 is a `/27`: gateway `.1`, kdk-dkr-01 `.20`, kdk-log-01 `.21`, kdk-mon-01 `.30`.
+VLAN 20 is a `/27`: gateway `.1`, kdk-dkr-01 `.20`, kdk-log-01 `.21`, kdk-dkr-04 `.22`, kdk-mon-01 `.30`.
 
 ## Inter-VLAN rules for the log host (UniFi)
 
@@ -52,6 +53,7 @@ Storage/NFS runs on its own flat L2 (bond1/br0 on the NAS, jumbo MTU 9000):
 | kdk-hyp-01 (`vmbr1`) | 172.16.30.3 |
 | kdk-dkr-01 (`eth1`) | 172.16.30.50 |
 | kdk-dkr-dmz-01 (`eth1`) | 172.16.30.51 |
+| kdk-dkr-04 (`eth1`) | 172.16.30.52 |
 
 > ⚠️ **Do not use `100.64.0.0/10` for storage (or any LAN).** It was `100.100.100.0/24`
 > until 2026-09-16, which sits **inside Tailscale's CGNAT range `100.64.0.0/10`**. When the

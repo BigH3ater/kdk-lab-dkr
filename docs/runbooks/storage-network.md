@@ -14,6 +14,7 @@ The NFS/storage plane is a flat L2 on the NAS `bond1`/`br0` (802.3ad, jumbo MTU
 | kdk-hyp-01 | 172.16.30.3 | `/etc/network/interfaces` (`vmbr1`) |
 | kdk-dkr-01 | 172.16.30.50 | `/etc/netplan/50-cloud-init.yaml` (`eth1`) |
 | kdk-dkr-dmz-01 | 172.16.30.51 | `/etc/netplan/50-cloud-init.yaml` (`eth1`) |
+| kdk-dkr-04 | 172.16.30.52 | `/etc/netplan/50-cloud-init.yaml` (`eth1`) |
 
 Client mounts are systemd `.mount` units (`/etc/systemd/system/mnt-*.mount`),
 seeded on build from `cloud-init/` in the repo. Current clients:

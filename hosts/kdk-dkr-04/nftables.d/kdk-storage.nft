@@ -1,0 +1,75 @@
+#!/usr/sbin/nft -f
+# kdk-dkr-04 storage-net fence + host guard (security plan A1.4; hosts report
+# C-01, H-09). Installed as /etc/nftables.d/kdk-storage.nft and loaded by
+# kdk-storage-fence.service (hosts/_common/systemd/). See
+# docs/runbooks/host-firewall.md for install, verify and rollback.
+#
+# Same shape as hosts/kdk-dkr-dmz-01/nftables.d/kdk-storage.nft, with two
+# differences: the primary NIC is on VLAN 20 (not the DMZ), and this host has no
+# neighbour-segment forward-drop. On dmz-01 that rule fenced containers off the
+# flat DMZ segment; here the primary segment is VLAN 20, whose only legitimate
+# container destination is Loki on kdk-dkr-01-adjacent kdk-log-01 (10.1.20.21).
+# Container -> VLAN 20 egress is governed by DOCKER-USER (default-deny RFC1918,
+# one allow_ctr for alloy -> 10.1.20.21:3100). Adding a forward-hook drop for
+# 10.1.20.0/27 here would run at priority -10, BEFORE Docker's DOCKER-USER, and
+# would silently kill that allowed Loki egress -- so it is deliberately absent.
+#
+# Own table, never `flush ruleset`: Docker's iptables-nft rules stay untouched.
+# The empty-table + delete pair makes a reload replace only this table. Several
+# base chains on one hook must ALL accept, so Docker's FORWARD/DOCKER-USER still
+# apply after ours. Do NOT `systemctl enable nftables`: Debian's
+# /etc/nftables.conf starts with `flush ruleset` and would wipe Docker's NAT.
+
+define STORAGE_IF = "eth1"
+define NAS = 172.16.30.2
+define STORAGE_NET = 172.16.30.0/24
+
+table inet kdk-storage {}
+delete table inet kdk-storage
+
+table inet kdk-storage {
+    # Host -> storage net: NFS (and the rpcbind port, harmless for v4.1) to the
+    # NAS only, plus ping (storage reachability checks). Replies to anything we
+    # opened are allowed; everything else on the storage NIC is dropped. Phase A
+    # has no NFS mounts yet; the fence is correct regardless and Phase B mounts
+    # (media/backup) ride these allows once the NAS exports .52.
+    chain storage_out {
+        type filter hook output priority 0; policy accept;
+        oifname $STORAGE_IF ct state established,related accept
+        oifname $STORAGE_IF ip daddr $NAS meta l4proto { tcp, udp } th dport { 111, 2049 } accept
+        oifname $STORAGE_IF ip daddr $NAS icmp type echo-request accept
+        oifname $STORAGE_IF counter drop
+    }
+
+    # Storage net -> host: only replies (NFSv4.1 callbacks ride the client's own
+    # connection). Without this an output-only fence still answers a new inbound
+    # SYN, because the SYN-ACK already counts as `established`.
+    chain storage_in {
+        type filter hook input priority 0; policy accept;
+        iifname $STORAGE_IF ct state established,related accept
+        iifname $STORAGE_IF counter drop
+    }
+
+    chain fence_forward {
+        type filter hook forward priority -10; policy accept;
+        # Nothing is routed to or from the storage net: no published port is
+        # reachable on 172.16.30.52, no container egresses via eth1.
+        iifname $STORAGE_IF counter drop
+        oifname $STORAGE_IF counter drop
+        # Containers never touch storage (redundant with the line above; kept as
+        # the explicit rule the plan and the report name).
+        iifname "br-*" ip daddr $STORAGE_NET counter drop
+    }
+
+    # Containers -> this host's own services through the bridge gateway
+    # (10.214.x.1) or any host address (hosts report H-09). These are
+    # host-network listeners, so they are INPUT, not FORWARD: sshd, rpcbind,
+    # Komodo Periphery (runs as root), node_exporter, LLMNR. Published ports
+    # (cAdvisor 9280) are DNATed and are not affected here; the cAdvisor port is
+    # guarded in DOCKER-USER (kdk-docker-user.conf).
+    chain host_guard {
+        type filter hook input priority 0; policy accept;
+        iifname "br-*" ct state new tcp dport { 22, 111, 8120, 9100 } counter drop
+        iifname "br-*" ct state new udp dport { 111, 5355 } counter drop
+    }
+}
