@@ -164,6 +164,7 @@ compose_cmd_wrapper_include = ["config"]
 server = "kdk-dkr-01"
 repo = "BigH3ater/kdk-lab-dkr"
 run_directory = "stacks/apps"
+extra_args = ["--remove-orphans"]   # a service removed from compose (rmfakecloud, 2026-10-31) is removed on the next deploy instead of lingering
 pre_deploy.command = "sh -c '. /etc/komodo/op.env && op inject -f -i .env.tpl -o .env'"
 webhook_enabled = true
 
