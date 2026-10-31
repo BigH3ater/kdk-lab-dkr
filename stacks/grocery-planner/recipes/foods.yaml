@@ -1,0 +1,142 @@
+# Food -> store routing for the seed. Each entry maps a food-name substring
+# (case-insensitive) to a Tandoor supermarket-category, namespaced
+# "<store>/<cadence>: <aisle>" (see config.yaml stores + docs/runbooks).
+#
+# The seed assigns a food's supermarket_category from the FIRST matching rule.
+# A food matching nothing falls back to the freshness default
+# (stores.default_fresh / default_shelf_stable) with aisle "Other" and is logged
+# for the owner to place by hand (the assignment then sticks in Tandoor).
+#
+# Owner routing (§6): produce + all fresh proteins + fresh fish + chicken breast
+# weekly -> New Pi; grains/canned/oils/spices/shelf-stable + Chobani -> Target;
+# bulk frozen proteins + bulk pantry -> Costco (bulk run); beef eighth share ->
+# Amana freezer stock (Phase 2 reorder).  Ambiguous fresh -> New Pi, ambiguous
+# shelf-stable -> Target. Move a food's category once in Tandoor to override.
+rules:
+  # ---- New Pi: weekly perishables ----
+  - {match: chicken breast,     category: "NewPi/weekly: Meat & Seafood"}
+  - {match: chicken,            category: "NewPi/weekly: Meat & Seafood"}
+  - {match: salmon,             category: "NewPi/weekly: Meat & Seafood"}
+  - {match: tuna,               category: "NewPi/weekly: Meat & Seafood"}
+  - {match: sirloin,            category: "NewPi/weekly: Meat & Seafood"}
+  - {match: flank,              category: "NewPi/weekly: Meat & Seafood"}
+  - {match: steak,              category: "NewPi/weekly: Meat & Seafood"}
+  # produce
+  - {match: asparagus,  category: "NewPi/weekly: Produce"}
+  - {match: spinach,    category: "NewPi/weekly: Produce"}
+  - {match: radish,     category: "NewPi/weekly: Produce"}
+  - {match: arugula,    category: "NewPi/weekly: Produce"}
+  - {match: lettuce,    category: "NewPi/weekly: Produce"}
+  - {match: romaine,    category: "NewPi/weekly: Produce"}
+  - {match: kale,       category: "NewPi/weekly: Produce"}
+  - {match: cabbage,    category: "NewPi/weekly: Produce"}
+  - {match: bok choy,   category: "NewPi/weekly: Produce"}
+  - {match: broccoli,   category: "NewPi/weekly: Produce"}
+  - {match: cauliflower,category: "NewPi/weekly: Produce"}
+  - {match: brussels,   category: "NewPi/weekly: Produce"}
+  - {match: zucchini,   category: "NewPi/weekly: Produce"}
+  - {match: squash,     category: "NewPi/weekly: Produce"}
+  - {match: eggplant,   category: "NewPi/weekly: Produce"}
+  - {match: cucumber,   category: "NewPi/weekly: Produce"}
+  - {match: tomato,     category: "NewPi/weekly: Produce"}
+  - {match: pepper,     category: "NewPi/weekly: Produce"}   # bell/sweet pepper (spices matched earlier by pantry rules)
+  - {match: onion,      category: "NewPi/weekly: Produce"}
+  - {match: scallion,   category: "NewPi/weekly: Produce"}
+  - {match: green onion,category: "NewPi/weekly: Produce"}
+  - {match: shallot,    category: "NewPi/weekly: Produce"}
+  - {match: garlic,     category: "NewPi/weekly: Produce"}
+  - {match: ginger,     category: "NewPi/weekly: Produce"}
+  - {match: carrot,     category: "NewPi/weekly: Produce"}
+  - {match: beet,       category: "NewPi/weekly: Produce"}
+  - {match: potato,     category: "NewPi/weekly: Produce"}
+  - {match: parsnip,    category: "NewPi/weekly: Produce"}
+  - {match: turnip,     category: "NewPi/weekly: Produce"}
+  - {match: mushroom,   category: "NewPi/weekly: Produce"}
+  - {match: green bean, category: "NewPi/weekly: Produce"}
+  - {match: snap pea,   category: "NewPi/weekly: Produce"}
+  - {match: snow pea,   category: "NewPi/weekly: Produce"}
+  - {match: pea,        category: "NewPi/weekly: Produce"}
+  - {match: corn,       category: "NewPi/weekly: Produce"}
+  - {match: apple,      category: "NewPi/weekly: Produce"}
+  - {match: lemon,      category: "NewPi/weekly: Produce"}
+  - {match: lime,       category: "NewPi/weekly: Produce"}
+  - {match: avocado,    category: "NewPi/weekly: Produce"}
+  - {match: grape,      category: "NewPi/weekly: Produce"}
+  - {match: clementine, category: "NewPi/weekly: Produce"}
+  - {match: berries,    category: "NewPi/weekly: Produce"}
+  - {match: parsley,    category: "NewPi/weekly: Produce"}
+  - {match: cilantro,   category: "NewPi/weekly: Produce"}
+  - {match: basil,      category: "NewPi/weekly: Produce"}
+  - {match: dill,       category: "NewPi/weekly: Produce"}
+  - {match: mint,       category: "NewPi/weekly: Produce"}
+  - {match: rosemary,   category: "NewPi/weekly: Produce"}
+  - {match: thyme,      category: "NewPi/weekly: Produce"}
+  # fresh dairy & eggs (ambiguous fresh -> New Pi)
+  - {match: egg,        category: "NewPi/weekly: Dairy & Eggs"}
+  - {match: feta,       category: "NewPi/weekly: Dairy & Eggs"}
+  - {match: greek yogurt,category: "NewPi/weekly: Dairy & Eggs"}
+  - {match: mozzarella, category: "NewPi/weekly: Dairy & Eggs"}
+  - {match: parmesan,   category: "NewPi/weekly: Dairy & Eggs"}
+  - {match: cheese,     category: "NewPi/weekly: Dairy & Eggs"}
+  - {match: cream,      category: "NewPi/weekly: Dairy & Eggs"}
+  - {match: half-and-half, category: "NewPi/weekly: Dairy & Eggs"}
+  - {match: tzatziki,   category: "NewPi/weekly: Dairy & Eggs"}
+  - {match: pita,       category: "NewPi/weekly: Bakery"}
+  - {match: tortilla,   category: "NewPi/weekly: Bakery"}
+  - {match: flatbread,  category: "NewPi/weekly: Bakery"}
+
+  # ---- Target: weekly shelf-stable + the Chobani override ----
+  - {match: chobani,    category: "Target/weekly: Dairy"}        # owner override: Chobani drink -> Target
+  - {match: yogurt drink,category: "Target/weekly: Dairy"}
+  - {match: orzo,       category: "Target/weekly: Pantry & Grains"}
+  - {match: farro,      category: "Target/weekly: Pantry & Grains"}
+  - {match: rice,       category: "Target/weekly: Pantry & Grains"}
+  - {match: pasta,      category: "Target/weekly: Pantry & Grains"}
+  - {match: orzo pasta, category: "Target/weekly: Pantry & Grains"}
+  - {match: noodle,     category: "Target/weekly: Pantry & Grains"}
+  - {match: quinoa,     category: "Target/weekly: Pantry & Grains"}
+  - {match: bread crumb,category: "Target/weekly: Pantry & Grains"}
+  - {match: panko,      category: "Target/weekly: Pantry & Grains"}
+  - {match: flour,      category: "Target/weekly: Pantry & Grains"}
+  - {match: cornstarch, category: "Target/weekly: Pantry & Grains"}
+  - {match: crushed tomato, category: "Target/weekly: Canned"}
+  - {match: diced tomato,   category: "Target/weekly: Canned"}
+  - {match: tomato sauce,   category: "Target/weekly: Canned"}
+  - {match: marinara,       category: "Target/weekly: Canned"}
+  - {match: broth,          category: "Target/weekly: Canned"}
+  - {match: stock,          category: "Target/weekly: Canned"}
+  - {match: olive,          category: "Target/weekly: Canned"}
+  - {match: olive oil,  category: "Target/weekly: Oils & Spices"}
+  - {match: sesame oil, category: "Target/weekly: Oils & Spices"}
+  - {match: vinegar,    category: "Target/weekly: Oils & Spices"}
+  - {match: soy sauce,  category: "Target/weekly: Oils & Spices"}
+  - {match: hoisin,     category: "Target/weekly: Oils & Spices"}
+  - {match: honey,      category: "Target/weekly: Oils & Spices"}
+  - {match: oregano,    category: "Target/weekly: Oils & Spices"}
+  - {match: cumin,      category: "Target/weekly: Oils & Spices"}
+  - {match: paprika,    category: "Target/weekly: Oils & Spices"}
+  - {match: cinnamon,   category: "Target/weekly: Oils & Spices"}
+  - {match: chili powder,category: "Target/weekly: Oils & Spices"}
+  - {match: spice,      category: "Target/weekly: Oils & Spices"}
+  - {match: seasoning,  category: "Target/weekly: Oils & Spices"}
+  - {match: dijon,      category: "Target/weekly: Condiments"}
+  - {match: mustard,    category: "Target/weekly: Condiments"}
+  - {match: mayonnaise, category: "Target/weekly: Condiments"}
+  - {match: sriracha,   category: "Target/weekly: Condiments"}
+  - {match: almond,     category: "Target/weekly: Snacks"}
+  - {match: walnut,     category: "Target/weekly: Snacks"}
+  - {match: pistachio,  category: "Target/weekly: Snacks"}
+  - {match: pecan,      category: "Target/weekly: Snacks"}
+  - {match: nut butter, category: "Target/weekly: Snacks"}
+  - {match: popcorn,    category: "Target/weekly: Snacks"}
+  - {match: rice cake,  category: "Target/weekly: Snacks"}
+  - {match: dark chocolate, category: "Target/weekly: Snacks"}
+  - {match: jerky,      category: "Target/weekly: Snacks"}
+  - {match: protein bar,category: "Target/weekly: Snacks"}
+  - {match: protein powder, category: "Target/weekly: Household"}
+  - {match: paper towel,category: "Target/weekly: Household"}
+
+  # ---- Costco: bulk run ----
+  - {match: frozen salmon, category: "Costco/bulk: Freezer"}
+  - {match: frozen tuna,   category: "Costco/bulk: Freezer"}
+  - {match: dog food,      category: "Costco/bulk: Pantry Bulk"}

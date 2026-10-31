@@ -2012,3 +2012,114 @@ enabled = true
 executions = [
   { execution.type = "DeployStack", execution.params.stack = "cloudflare-watch-weekly", enabled = true },
 ]
+
+# ---- grocery-planner: weekly meal-plan + shopping-list builder -------------
+# Three one-shot stacks share stacks/grocery-planner (deploy=false,
+# destroy_before_deploy = a fresh locked down+up each run), on kdk-dkr-01, each
+# distinguished by `environment` (GROCERY_MODE/GROCERY_POLL/GROCERY_SUFFIX) --
+# the cloudflare-watch pattern. The image is built locally (kdk/grocery-planner),
+# so auto_pull=false + run_build=true (a compose pull of a local kdk/* tag
+# fails). pre_deploy op-injects .env (dashboard-tandoor-rw + vikunja-api-rw).
+# Logs JSON lines to stdout -> Loki (job="grocery-planner").
+#   grocery-weekly       Thu 18:03  plan + two-store list + one combined Vikunja task
+#   grocery-weekly-poll  Sat 07:05  read the approval decision (audit log)
+#   grocery-bulk         Thu 18:09  Costco bulk list; the JOB gates to the first
+#                                   Thursday of an odd month (every 2 months, N=8)
+[[stack]]
+tags = ["kdk-lab"]
+name = "grocery-weekly"
+deploy = false   # run Thu 18:03 by the grocery-weekly procedure
+[stack.config]
+compose_cmd_wrapper = "/usr/local/sbin/kdk-compose-config-redact [[COMPOSE_COMMAND]]"   # redact env values from the stored Compose Config log (komodo#1636)
+compose_cmd_wrapper_include = ["config"]
+server = "kdk-dkr-01"
+repo = "BigH3ater/kdk-lab-dkr"
+run_directory = "stacks/grocery-planner"
+auto_pull = false   # image is built locally (kdk/grocery-planner) -> skip compose pull
+run_build = true
+destroy_before_deploy = true   # one locked down+up so the one-shot re-runs
+pre_deploy.command = "sh -c '. /etc/komodo/op.env && op inject -f -i .env.tpl -o .env'"
+
+[[stack]]
+tags = ["kdk-lab"]
+name = "grocery-weekly-poll"
+deploy = false   # run Sat 07:05 by the grocery-weekly-poll procedure
+[stack.config]
+compose_cmd_wrapper = "/usr/local/sbin/kdk-compose-config-redact [[COMPOSE_COMMAND]]"   # redact env values from the stored Compose Config log (komodo#1636)
+compose_cmd_wrapper_include = ["config"]
+server = "kdk-dkr-01"
+repo = "BigH3ater/kdk-lab-dkr"
+run_directory = "stacks/grocery-planner"
+auto_pull = false
+run_build = true
+destroy_before_deploy = true
+environment = "GROCERY_POLL=1\nGROCERY_SUFFIX=-poll"
+pre_deploy.command = "sh -c '. /etc/komodo/op.env && op inject -f -i .env.tpl -o .env'"
+
+[[stack]]
+tags = ["kdk-lab"]
+name = "grocery-bulk"
+deploy = false   # run Thu 18:09 by the grocery-bulk procedure (job gates to every 2 months)
+[stack.config]
+compose_cmd_wrapper = "/usr/local/sbin/kdk-compose-config-redact [[COMPOSE_COMMAND]]"   # redact env values from the stored Compose Config log (komodo#1636)
+compose_cmd_wrapper_include = ["config"]
+server = "kdk-dkr-01"
+repo = "BigH3ater/kdk-lab-dkr"
+run_directory = "stacks/grocery-planner"
+auto_pull = false
+run_build = true
+destroy_before_deploy = true
+environment = "GROCERY_MODE=bulk\nGROCERY_SUFFIX=-bulk"
+pre_deploy.command = "sh -c '. /etc/komodo/op.env && op inject -f -i .env.tpl -o .env'"
+
+[[procedure]]
+tags = ["kdk-lab"]
+name = "grocery-weekly"
+[procedure.config]
+schedule_format = "Cron"
+# Thu 18:03 CT -- the owner's 18:00 target, offset off the gitops-sync
+# :00/:15/:30/:45 slots to avoid the "Resource is busy" lock race.
+schedule = "0 3 18 * * Thu"
+schedule_enabled = true
+schedule_timezone = "America/Chicago"
+[[procedure.config.stage]]
+name = "build"
+enabled = true
+executions = [
+  { execution.type = "DeployStack", execution.params.stack = "grocery-weekly", enabled = true },
+]
+
+[[procedure]]
+tags = ["kdk-lab"]
+name = "grocery-weekly-poll"
+[procedure.config]
+schedule_format = "Cron"
+# Sat 07:05 CT -- after the Fri 20:00 approval deadline, before the Sat/Sun
+# pickup; reads the decision into the Loki audit trail.
+schedule = "0 5 7 * * Sat"
+schedule_enabled = true
+schedule_timezone = "America/Chicago"
+[[procedure.config.stage]]
+name = "poll"
+enabled = true
+executions = [
+  { execution.type = "DeployStack", execution.params.stack = "grocery-weekly-poll", enabled = true },
+]
+
+[[procedure]]
+tags = ["kdk-lab"]
+name = "grocery-bulk"
+[procedure.config]
+schedule_format = "Cron"
+# Every Thursday 18:09 CT; the job itself acts only on the FIRST Thursday of an
+# odd month (every two months, N=8 weeks) and exits immediately otherwise. This
+# keeps the cron unambiguous (no day-of-month/day-of-week OR surprise).
+schedule = "0 9 18 * * Thu"
+schedule_enabled = true
+schedule_timezone = "America/Chicago"
+[[procedure.config.stage]]
+name = "bulk"
+enabled = true
+executions = [
+  { execution.type = "DeployStack", execution.params.stack = "grocery-bulk", enabled = true },
+]

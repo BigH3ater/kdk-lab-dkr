@@ -546,6 +546,236 @@ def weather():
     return Response(f"<!doctype html><html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><style>{WX_CSS}</style></head><body>{hourly_html}<div class='week'>{''.join(cells)}</div></body></html>", mimetype="text/html")
 
 
+# ---- Groceries page (home.kmkdp.com/meal/groceries) ------------------------
+# The weekly grocery-planner one-shot builds the shopping list in Tandoor
+# (stacks/grocery-planner). This page RENDERS it so the list stays usable in the
+# store: New Pi as a tap-to-tick checklist, Target with per-item target.com
+# search links for the Drive Up cart, and a manual list (entries not tied to a
+# recipe) with an add box. Ticks PATCH `checked` back to Tandoor, so Tandoor is
+# the source of truth. Items group by aisle via the supermarket-category name,
+# namespaced "<store>/<cadence>: <aisle>" (see stacks/grocery-planner).
+import urllib.parse as _ulib
+
+_AISLE_ORDER = {
+    "NewPi": ["Produce", "Meat & Seafood", "Dairy & Eggs", "Bakery", "Bulk", "Other"],
+    "Target": ["Pantry & Grains", "Canned", "Oils & Spices", "Condiments", "Dairy",
+               "Snacks", "Household", "Other"],
+}
+
+
+def _api_write(method: str, path: str, body: dict) -> bool:
+    """POST/PATCH to Tandoor with the CSRF header + Referer, re-login once on 401/403."""
+    s = _session()
+    hdrs = {"X-CSRFToken": s.cookies.get("csrftoken", ""), "Referer": f"{TANDOOR_URL}/"}
+    r = s.request(method, f"{TANDOOR_URL}{path}", json=body, headers=hdrs, timeout=20)
+    if r.status_code in (401, 403):
+        globals()["_sess"] = _login()
+        s = _sess
+        hdrs["X-CSRFToken"] = s.cookies.get("csrftoken", "")
+        r = s.request(method, f"{TANDOOR_URL}{path}", json=body, headers=hdrs, timeout=20)
+    return r.status_code in (200, 201, 204)
+
+
+def _parse_cat(name: str):
+    """'<store>/<cadence>: <aisle>' -> (store, aisle). Lenient."""
+    if not name:
+        return None, "Other"
+    head, _, aisle = name.partition(":")
+    aisle = aisle.strip() or "Other"
+    store = head.split("/", 1)[0].strip()
+    return (store or None), aisle
+
+
+def _fetch_shopping():
+    """All shopping-list entries (follow pagination)."""
+    out, path = [], "/api/shopping-list-entry/"
+    while path:
+        r = _api_get(path)
+        r.raise_for_status()
+        d = r.json()
+        if isinstance(d, dict) and "results" in d:
+            out.extend(d["results"])
+            nxt = d.get("next")
+            path = nxt[len(TANDOOR_URL):] if nxt and nxt.startswith(TANDOOR_URL) else None
+        else:
+            out.extend(d or [])
+            path = None
+    return out
+
+
+def _split_groceries(entries):
+    """(stores, manual): stores = {store: {aisle: [entry]}}; manual = ad-hoc
+    entries with no linked recipe."""
+    stores, manual = {}, []
+    for e in entries:
+        if e.get("checked"):
+            continue
+        food = e.get("food") or {}
+        if food.get("food_onhand"):
+            continue
+        linked = e.get("list_recipe") or e.get("list_recipe_data")
+        cat = food.get("supermarket_category")
+        cat_name = cat.get("name") if isinstance(cat, dict) else (cat or "")
+        store, aisle = _parse_cat(cat_name)
+        if not linked:
+            manual.append(e)
+            continue
+        if store in ("NewPi", "Target"):
+            stores.setdefault(store, {}).setdefault(aisle, []).append(e)
+    for store, aisles in stores.items():
+        order = _AISLE_ORDER.get(store, [])
+        stores[store] = {a: aisles[a] for a in sorted(
+            aisles, key=lambda a: (order.index(a) if a in order else len(order), a))}
+    return stores, manual
+
+
+def _item_label(e) -> str:
+    food = (e.get("food") or {}).get("name", "?")
+    amt = e.get("amount")
+    unit = e.get("unit")
+    unit = unit.get("name") if isinstance(unit, dict) else (unit or "")
+    qty = ""
+    if amt:
+        a = int(amt) if float(amt).is_integer() else amt
+        qty = f"{a} {unit} ".strip() + " "
+    return (qty + food).strip()
+
+
+GROCERIES_CSS = PAGE_CSS + """
+.gwrap{padding:10px;max-width:760px;margin:0 auto}
+.store{margin-bottom:18px}
+.store h2{font-family:'JetBrains Mono',monospace;font-size:13px;letter-spacing:.14em;
+text-transform:uppercase;color:var(--ember);margin:0 0 6px;border-bottom:1px solid var(--ink-hairline);padding-bottom:5px}
+.aisle{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.12em;
+text-transform:uppercase;color:var(--ash);margin:10px 0 3px}
+.gi{display:flex;align-items:center;gap:10px;padding:9px 6px;border-bottom:1px solid var(--ink-hairline);min-height:40px}
+.gi:last-child{border-bottom:none}
+.gi form{display:flex;margin:0}
+.gi button.tick{width:26px;height:26px;border:2px solid var(--ash);border-radius:7px;background:none;cursor:pointer;flex:0 0 auto}
+.gi button.tick:hover{border-color:var(--ok);background:var(--ink)}
+.gi .lbl{font-size:15px;flex:1 1 auto}
+.gi a.srch{color:var(--ember);text-decoration:none;font-size:12px;font-family:'JetBrains Mono',monospace;white-space:nowrap}
+.gi a.srch:hover{text-decoration:underline}
+.gi.busy{opacity:.4}
+.addbox{display:flex;gap:8px;margin:8px 0 2px}
+.addbox input{flex:1 1 auto;background:var(--ink);border:1px solid var(--ink-hairline);
+border-radius:7px;color:var(--paper);padding:9px;font:15px 'Space Grotesk',sans-serif}
+.addbox button{background:var(--ember);border:none;color:var(--ink);border-radius:7px;padding:0 14px;font-weight:600;cursor:pointer}
+.empty2{color:var(--ash);font-size:13px;padding:14px 6px}
+"""
+
+GROCERIES_JS = """
+document.addEventListener('submit', async function (e) {
+  var f = e.target;
+  if (!f.matches('.gi form.tickform')) return;
+  e.preventDefault();
+  var row = f.closest('.gi');
+  if (row.classList.contains('busy')) return;
+  row.classList.add('busy');
+  try {
+    var r = await fetch(f.action, {method: 'POST', body: new FormData(f)});
+    if (!r.ok) throw new Error(r.status);
+    row.style.display = 'none';   // ticked -> drop from the in-store view
+  } catch (err) { location.reload(); }
+});
+"""
+
+
+def _render_groceries():
+    try:
+        stores, manual = _split_groceries(_fetch_shopping())
+    except Exception:
+        log.exception("groceries fetch failed")
+        return ("<!doctype html><body style='background:#2b2825;color:#8d8377;"
+                "font-family:sans-serif;padding:20px'>Couldn't load the grocery "
+                "list right now.</body>")
+    parts = ["<div class='gwrap'>"]
+    # New Pi -- in-store tap-to-tick checklist
+    parts.append("<div class='store'><h2>New Pi — in-store checklist</h2>")
+    np = stores.get("NewPi") or {}
+    if not np:
+        parts.append("<div class='empty2'>Nothing to pick up at New Pi.</div>")
+    for aisle, items in np.items():
+        parts.append(f"<div class='aisle'>{escape(aisle)}</div>")
+        for e in items:
+            parts.append(
+                "<div class='gi'>"
+                f"<form class='tickform' method='post' action='groceries/tick'>"
+                f"<input type='hidden' name='id' value='{e['id']}'>"
+                "<button class='tick' type='submit' title='got it'></button></form>"
+                f"<span class='lbl'>{escape(_item_label(e))}</span></div>")
+    parts.append("</div>")
+    # Target -- list with per-item target.com search links for the Drive Up cart
+    parts.append("<div class='store'><h2>Target — Drive Up cart</h2>")
+    tg = stores.get("Target") or {}
+    if not tg:
+        parts.append("<div class='empty2'>Nothing to add at Target.</div>")
+    for aisle, items in tg.items():
+        parts.append(f"<div class='aisle'>{escape(aisle)}</div>")
+        for e in items:
+            food = (e.get("food") or {}).get("name", "")
+            link = "https://www.target.com/s?searchTerm=" + _ulib.quote(food)
+            parts.append(
+                "<div class='gi'>"
+                f"<form class='tickform' method='post' action='groceries/tick'>"
+                f"<input type='hidden' name='id' value='{e['id']}'>"
+                "<button class='tick' type='submit' title='in cart'></button></form>"
+                f"<span class='lbl'>{escape(_item_label(e))}</span>"
+                f"<a class='srch' href='{escape(link)}' target='_blank' rel='noopener'>search ↗</a></div>")
+    parts.append("</div>")
+    # Manual -- ad-hoc items not tied to a recipe, with an add box
+    parts.append("<div class='store'><h2>Manual list</h2>"
+                 "<form class='addbox' method='post' action='groceries/add'>"
+                 "<input name='item' placeholder='Add an item…' maxlength='80' autocomplete='off'>"
+                 "<button type='submit'>Add</button></form>")
+    if not manual:
+        parts.append("<div class='empty2'>No ad-hoc items.</div>")
+    for e in manual:
+        parts.append(
+            "<div class='gi'>"
+            f"<form class='tickform' method='post' action='groceries/tick'>"
+            f"<input type='hidden' name='id' value='{e['id']}'>"
+            "<button class='tick' type='submit' title='got it'></button></form>"
+            f"<span class='lbl'>{escape(_item_label(e))}</span></div>")
+    parts.append("</div></div>")
+    body = "".join(parts)
+    return (f"<!doctype html><html><head><meta charset='utf-8'>"
+            f"<meta name='viewport' content='width=device-width,initial-scale=1'>"
+            f"<style>{GROCERIES_CSS}</style><script>{GROCERIES_JS}</script></head>"
+            f"<body>{body}</body></html>")
+
+
+@app.get("/groceries")
+def groceries():
+    return Response(_render_groceries(), mimetype="text/html")
+
+
+@app.post("/groceries/tick")
+def groceries_tick():
+    try:
+        eid = int(request.form["id"])
+        _api_write("PATCH", f"/api/shopping-list-entry/{eid}/", {"checked": True})
+        log.info("grocery entry %s checked", eid)
+    except Exception:
+        log.exception("grocery tick failed")
+    return redirect("../groceries", code=303)
+
+
+@app.post("/groceries/add")
+def groceries_add():
+    try:
+        item = (request.form.get("item") or "").strip()
+        if item:
+            # Ad-hoc entry: a food created by name (Tandoor auto-creates it),
+            # amount 1, no linked recipe -> shows under the manual list.
+            _api_write("POST", "/api/shopping-list-entry/",
+                       {"food": {"name": item[:80]}, "amount": 1, "checked": False})
+            log.info("grocery manual add: %s", item[:80])
+    except Exception:
+        log.exception("grocery add failed")
+    return redirect("../groceries", code=303)
+
+
 if __name__ == "__main__":
     if not (USER and PASS):
         log.warning("TANDOOR_USER/TANDOOR_PASS not set -- meal plan will fail to load")
