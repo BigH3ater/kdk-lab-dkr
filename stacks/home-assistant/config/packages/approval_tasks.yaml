@@ -1,0 +1,457 @@
+# Approval tasks — Vikunja <-> Home Assistant decision loop.
+#
+# Purpose (owner request 2026-10-31): a Vikunja task that needs a decision
+# raises an actionable Companion-app notification. The decision is recorded ON
+# the Vikunja task (done + a comment naming who/how/when + an `approved` or
+# `skipped` label + a machine-readable APPROVALS-RESULT marker), and the phone
+# notification is then replaced with a "resolved" message so it visibly shows
+# the outcome. A task resolved directly in Vikunja (web or app) clears the
+# phone the same way. Vikunja is the source of truth and the audit record.
+#
+# WHY POLLING, NOT A WEBHOOK: Vikunja runs on kdk-dkr-01 (VLAN 20) and HA on
+# kdk-dkr-02 (VLAN 30); the planned firewall rule is "8123 only from
+# 10.1.30.21", so Vikunja cannot reach HA inbound. HA polling Vikunja outbound
+# needs no inbound path and no new firewall exception. Latency is <= ~1 min
+# (owner accepts ~2 min). This also adds NO container.
+#
+# STATE lives in Vikunja, not in HA: an internal `notified` label marks a task
+# HA has already paged for. The poll writes that label FIRST and only pages if
+# the write succeeds (a failed write must not page every minute), so the loop
+# neither double-pages nor
+# loses its place across an HA restart. Nothing is stored in flows.json and no
+# token is in git (contrast the Node-RED chore bridge).
+#
+# CHOICES: a task may declare its own buttons in the description with a line
+#   APPROVALS-CHOICES: newpi=Approve New Pi; target=Approve Target; skip=Skip
+# Each choice is id=Title; ids are lowercase [a-z0-9] (no underscore), max 3
+# choices (Android shows at most 3 buttons; tapping the body opens the task, so
+# no Open button is needed). With no choices line the default buttons are
+# Approve + Skip. Each non-skip choice is an "approve-type" button and always
+# carries authenticationRequired. Choices are mutually exclusive: pressing ONE
+# button resolves the task (done). The chosen id is recorded in the task as
+# `APPROVALS-RESULT: <id>` (machine-readable) plus the coarse `approved`/
+# `skipped` label and an audit comment. A workflow that must accumulate several
+# approvals before closing is OUT of scope — use one approval task per item.
+#
+# REMINDERS: if a task carries Vikunja `reminders` and is still open when a
+# reminder time arrives, the poll re-sends the notification under the same tag
+# (replacing the old one). The once-a-minute poll fires each reminder exactly
+# once (the minute window it lands in). due_date is NEVER used to resolve a
+# task — a missed deadline just leaves it open.
+#
+# DEPLOY / ACTIVATION: pre_deploy (komodo/resources.toml) copies this file to
+# /opt/kdk-lab/home-assistant/config/packages/, but copying does not reload HA.
+# This package introduces NEW integrations (rest_command, notify group, new
+# automations/scripts), so the FIRST activation needs a one-time HA restart
+# (Developer Tools -> YAML -> RESTART, or `action: homeassistant.restart`).
+# Later edits to the automations/scripts reload with Reload All YAML; later
+# edits to the rest_command block reload with `action: rest_command.reload`.
+#
+# SECRETS (host-managed /config/secrets.yaml, op-backed — see the runbook):
+#   vikunja_approvals_auth      "Bearer <token>"  (a narrow Vikunja API token)
+#   vikunja_approvals_project   <int>  Approvals project id
+#   vikunja_label_approved      <int>  label id for `approved`
+#   vikunja_label_skipped       <int>  label id for `skipped`
+#   vikunja_label_notified      <int>  label id for the internal `notified` marker
+# Label ids are not secret, but secrets.yaml is the host-config lane that keeps
+# per-install values out of this public repo.
+
+# ---------------------------------------------------------------------------
+# Recipients. A notify group so a second phone is one line (owner phone only
+# today — notify.mobile_app_iphone, confirmed via GET /api/services).
+# ---------------------------------------------------------------------------
+notify:
+  - platform: group
+    name: approval_recipients
+    services:
+      - service: mobile_app_iphone
+      # - service: mobile_app_rachels_phone   # add a recipient: one line
+
+# ---------------------------------------------------------------------------
+# Vikunja REST calls. The token is a !secret header value ("Bearer <token>"),
+# never catted from a file and never in git. Vikunja replies application/json,
+# so `.content` in a response_variable is already parsed.
+# ---------------------------------------------------------------------------
+rest_command:
+  # List the Approvals project (the per-project route; /tasks/all 400s on a
+  # scoped token). done tasks are included so the poll can detect resolutions.
+  # sort_by=id&order_by=desc keeps the newest tasks in the first page, so a
+  # backlog of done tasks never pushes a new open task past per_page (verified
+  # against the live 2.7.1 instance).
+  vikunja_list_approvals:
+    url: "https://tasks.kmkdp.com/api/v1/projects/{{ project_id }}/tasks?per_page=50&sort_by=id&order_by=desc"
+    method: GET
+    headers:
+      authorization: !secret vikunja_approvals_auth
+      accept: "application/json"
+    timeout: 20
+
+  vikunja_get_task:
+    url: "https://tasks.kmkdp.com/api/v1/tasks/{{ task_id }}"
+    method: GET
+    headers:
+      authorization: !secret vikunja_approvals_auth
+      accept: "application/json"
+    timeout: 20
+
+  # Full-object update. A bare {"done":true} returns 200 but changes nothing in
+  # this Vikunja build, so we GET the task and POST it back whole with done set.
+  # task_json is pre-serialized by the caller.
+  vikunja_update_task:
+    url: "https://tasks.kmkdp.com/api/v1/tasks/{{ task_id }}"
+    method: POST
+    headers:
+      authorization: !secret vikunja_approvals_auth
+      content-type: "application/json"
+    payload: "{{ task_json }}"
+    timeout: 20
+
+  vikunja_add_label:
+    url: "https://tasks.kmkdp.com/api/v1/tasks/{{ task_id }}/labels"
+    method: PUT
+    headers:
+      authorization: !secret vikunja_approvals_auth
+      content-type: "application/json"
+    payload: '{"label_id": {{ label_id }}}'
+    timeout: 20
+
+  vikunja_remove_label:
+    url: "https://tasks.kmkdp.com/api/v1/tasks/{{ task_id }}/labels/{{ label_id }}"
+    method: DELETE
+    headers:
+      authorization: !secret vikunja_approvals_auth
+    timeout: 20
+
+  vikunja_add_comment:
+    url: "https://tasks.kmkdp.com/api/v1/tasks/{{ task_id }}/comments"
+    method: PUT
+    headers:
+      authorization: !secret vikunja_approvals_auth
+      content-type: "application/json"
+    payload: '{"comment": {{ comment | to_json }}}'
+    timeout: 20
+
+# ---------------------------------------------------------------------------
+# Scripts: send the actionable notification, and the resolved replacement.
+# ---------------------------------------------------------------------------
+script:
+  # Actionable "needs a decision" notification. Buttons come from an optional
+  # APPROVALS-CHOICES line in the description; default is Approve + Skip. tag
+  # and action ids are keyed on the (never-reused) Vikunja task id, so an old
+  # notification can never resolve a newer task. Tapping the body opens the
+  # task (data.url). Approve-type buttons require the device to be unlocked.
+  approval_notify:
+    alias: "Approval: send actionable notification"
+    mode: parallel
+    fields:
+      task_id: { description: "Vikunja task id" }
+      title: { description: "Task title" }
+      description_raw: { description: "Raw (HTML) task description" }
+    sequence:
+      - variables:
+          clean: "{{ (description_raw | default('')) | regex_replace('<[^>]+>', ' ') }}"
+          spec: >-
+            {% set m = clean | regex_findall('APPROVALS-CHOICES:\\s*([^\\n]+)') %}
+            {{ m[0] if m | count > 0 else '' }}
+          actions: >-
+            {% set ns = namespace(a=[]) %}
+            {% if spec | trim | length > 0 %}
+              {% for part in spec.split(';') %}
+                {% set kv = part.split('=') %}
+                {% if kv | count == 2 and ns.a | count < 3 %}
+                  {% set cid = kv[0] | trim %}
+                  {% set ctitle = kv[1] | trim %}
+                  {% if cid | regex_match('^[a-z0-9]{1,20}$') and ctitle | length > 0 %}
+                    {% set ns.a = ns.a + [{
+                        'action': 'CHOICE_' ~ task_id ~ '_' ~ cid,
+                        'title': ctitle,
+                        'authenticationRequired': (cid != 'skip')}] %}
+                  {% endif %}
+                {% endif %}
+              {% endfor %}
+            {% endif %}
+            {% if ns.a | count == 0 %}
+              {% set ns.a = [
+                  {'action': 'CHOICE_' ~ task_id ~ '_approve', 'title': 'Approve', 'authenticationRequired': true},
+                  {'action': 'CHOICE_' ~ task_id ~ '_skip', 'title': 'Skip'}] %}
+            {% endif %}
+            {{ ns.a }}
+          body: "{{ clean | regex_replace('APPROVALS-CHOICES:[^\\n]*', '') | trim | truncate(160, true) }}"
+      - action: notify.approval_recipients
+        data:
+          title: "Approve: {{ title }}"
+          message: "{{ body if body | length > 0 else 'Tap to decide.' }}"
+          data:
+            tag: "approval_{{ task_id }}"
+            group: "approvals"
+            url: "https://tasks.kmkdp.com/tasks/{{ task_id }}"
+            push:
+              interruption-level: "active"
+            actions: "{{ actions }}"
+
+  # Replace the actionable notification (same tag) with a buttonless "resolved"
+  # message, so the phone visibly shows the outcome instead of stale buttons.
+  approval_resolved:
+    alias: "Approval: show resolved"
+    mode: parallel
+    fields:
+      task_id: { description: "Vikunja task id" }
+      title: { description: "Task title" }
+      outcome: { description: "Approved / Skipped / Resolved (+ choice)" }
+    sequence:
+      - action: notify.approval_recipients
+        data:
+          title: "{{ outcome }}: {{ title }}"
+          message: "Resolved in Vikunja."
+          data:
+            tag: "approval_{{ task_id }}"
+            group: "approvals"
+            url: "https://tasks.kmkdp.com/tasks/{{ task_id }}"
+            push:
+              interruption-level: "passive"
+
+# ---------------------------------------------------------------------------
+# Automations: the poll, and the button handler.
+# ---------------------------------------------------------------------------
+automation:
+  # Poll the Approvals project once a minute (and on HA start to catch up).
+  # Open + not-notified  -> page and mark notified.
+  # Done + still-notified -> show resolved and drop the notified marker
+  #   (covers tasks resolved directly in Vikunja; button-resolved tasks are
+  #    already un-notified by the handler below, so they don't double-fire).
+  - id: approval_poll
+    alias: "Approval: poll Vikunja and reconcile phone"
+    mode: single
+    max_exceeded: silent
+    triggers:
+      - trigger: time_pattern
+        minutes: "/1"
+      - trigger: homeassistant
+        event: start
+    actions:
+      - action: rest_command.vikunja_list_approvals
+        data:
+          project_id: !secret vikunja_approvals_project
+        response_variable: resp
+      - condition: template
+        value_template: "{{ resp is defined and resp.status == 200 and resp.content is iterable }}"
+      - repeat:
+          for_each: "{{ resp.content }}"
+          sequence:
+            - variables:
+                t_id: "{{ repeat.item.id }}"
+                t_title: "{{ repeat.item.title }}"
+                t_done: "{{ repeat.item.done }}"
+                label_ids: "{{ (repeat.item.labels or []) | map(attribute='id') | list }}"
+                id_approved: !secret vikunja_label_approved
+                id_skipped: !secret vikunja_label_skipped
+                id_notified: !secret vikunja_label_notified
+                is_notified: "{{ id_notified in label_ids }}"
+                # True only during the one-minute poll window that a Vikunja
+                # reminder timestamp falls into -> fires once, no extra state.
+                reminder_now: >-
+                  {% set now_ts = now().timestamp() %}
+                  {% set ns = namespace(v=false) %}
+                  {% for r in (repeat.item.reminders or []) %}
+                    {% set rt = as_timestamp(r.reminder, 0) %}
+                    {% if rt > 0 and (now_ts - rt) >= 0 and (now_ts - rt) < 60 %}
+                      {% set ns.v = true %}
+                    {% endif %}
+                  {% endfor %}
+                  {{ ns.v }}
+            - choose:
+                # New open task we have not paged for yet. Claim it by writing
+                # the `notified` label FIRST; only page if that write succeeded.
+                # Otherwise the phone would be paged every poll (a storm) when
+                # the label write keeps failing. On failure: log and skip the
+                # task (the next poll retries the claim once scope/id is fixed).
+                - conditions: "{{ not t_done and not is_notified }}"
+                  sequence:
+                    - action: rest_command.vikunja_add_label
+                      continue_on_error: true
+                      response_variable: claim
+                      data:
+                        task_id: "{{ t_id }}"
+                        label_id: "{{ id_notified }}"
+                    - choose:
+                        - conditions: "{{ claim is defined and claim.status in [200, 201] }}"
+                          sequence:
+                            - action: script.approval_notify
+                              continue_on_error: true
+                              data:
+                                task_id: "{{ t_id }}"
+                                title: "{{ t_title }}"
+                                description_raw: "{{ repeat.item.description | default('') }}"
+                      default:
+                        - action: system_log.write
+                          data:
+                            level: warning
+                            message: >-
+                              approval_tasks: could not mark task {{ t_id }}
+                              notified (status {{ claim.status | default('none') }});
+                              not paging, to avoid a notification storm. Check the
+                              Vikunja token's tasks_labels scope and the
+                              vikunja_label_notified id.
+                # Still open at a Vikunja reminder time -> re-send under the
+                # same tag (replaces the old notification). Never resolves the
+                # task; a missed due_date just leaves it open.
+                - conditions: "{{ not t_done and is_notified and (reminder_now | bool) }}"
+                  sequence:
+                    - action: script.approval_notify
+                      continue_on_error: true
+                      data:
+                        task_id: "{{ t_id }}"
+                        title: "{{ t_title }}"
+                        description_raw: "{{ repeat.item.description | default('') }}"
+                # Resolved in Vikunja while a notification is still live.
+                - conditions: "{{ t_done and is_notified }}"
+                  sequence:
+                    - action: script.approval_resolved
+                      continue_on_error: true
+                      data:
+                        task_id: "{{ t_id }}"
+                        title: "{{ t_title }}"
+                        outcome: >-
+                          {{ 'Approved' if id_approved in label_ids
+                             else 'Skipped' if id_skipped in label_ids
+                             else 'Resolved' }}
+                    - action: rest_command.vikunja_remove_label
+                      continue_on_error: true
+                      data:
+                        task_id: "{{ t_id }}"
+                        label_id: "{{ id_notified }}"
+
+  # Button handler. Action ids look like CHOICE_<taskid>_<choiceid>.
+  # A press records the decision on the task, then replaces the notification
+  # with the resolved message. Tapping the body (not a button) opens the task.
+  - id: approval_action
+    alias: "Approval: record decision from phone button"
+    mode: parallel
+    triggers:
+      - trigger: event
+        event_type: mobile_app_notification_action
+    conditions:
+      - condition: template
+        value_template: >-
+          {{ trigger.event.data.action is defined
+             and trigger.event.data.action.startswith('CHOICE_')
+             and trigger.event.data.action.split('_')[1] | int(0) > 0 }}
+    actions:
+      - variables:
+          id_approved: !secret vikunja_label_approved
+          id_skipped: !secret vikunja_label_skipped
+          id_notified: !secret vikunja_label_notified
+          raw: "{{ trigger.event.data.action }}"
+          task_id: "{{ raw.split('_')[1] }}"
+          choice_id: "{{ raw.split('_')[2] if raw.split('_') | count > 2 else 'approve' }}"
+          is_skip: "{{ choice_id == 'skip' }}"
+          outcome: "{{ 'Skipped' if is_skip else 'Approved' }}"
+          outcome_full: >-
+            {{ outcome if choice_id in ['approve', 'skip']
+               else outcome ~ ' (' ~ choice_id ~ ')' }}
+          coarse_label: "{{ id_skipped if is_skip else id_approved }}"
+          presser_uid: "{{ trigger.event.context.user_id }}"
+          who: >-
+            {% set p = states.person
+               | selectattr('attributes.user_id', 'eq', presser_uid) | list %}
+            {{ p[0].name if p | count > 0 else 'someone' }}
+      - action: rest_command.vikunja_get_task
+        data:
+          task_id: "{{ task_id }}"
+        response_variable: gt
+      - condition: template
+        value_template: "{{ gt is defined and gt.status == 200 and gt.content is mapping }}"
+      - variables:
+          t_title: "{{ gt.content.title }}"
+          done_label_ids: "{{ (gt.content.labels or []) | map(attribute='id') | list }}"
+          already_done: "{{ gt.content.done }}"
+      - choose:
+          # Already resolved (a second button press, or resolved in Vikunja
+          # between the page and the press). Do NOT write a second result
+          # marker or comment -- just show the resolved notification.
+          - conditions: "{{ already_done }}"
+            sequence:
+              - action: rest_command.vikunja_remove_label
+                continue_on_error: true
+                data:
+                  task_id: "{{ task_id }}"
+                  label_id: "{{ id_notified }}"
+              - action: script.approval_resolved
+                continue_on_error: true
+                data:
+                  task_id: "{{ task_id }}"
+                  title: "{{ t_title }}"
+                  outcome: >-
+                    {{ 'Approved' if id_approved in done_label_ids
+                       else 'Skipped' if id_skipped in done_label_ids
+                       else 'Resolved' }}
+        default:
+          - variables:
+              # done=true + append a machine-readable result marker, in one POST.
+              task_json: >-
+                {{ gt.content | combine({
+                     'done': true,
+                     'description': (gt.content.description | default('', true))
+                                    ~ '<p>APPROVALS-RESULT: ' ~ choice_id ~ '</p>'})
+                   | to_json }}
+              comment: >-
+                {{ outcome_full }} by {{ who }} via Home Assistant notification on
+                {{ now().strftime('%Y-%m-%d %H:%M %Z') }}.
+          # 1) full-object update -> done + result marker. Capture the result;
+          #    everything else is conditional on it having succeeded.
+          - action: rest_command.vikunja_update_task
+            continue_on_error: true
+            response_variable: upd
+            data:
+              task_id: "{{ task_id }}"
+              task_json: "{{ task_json }}"
+          - choose:
+              - conditions: "{{ upd is defined and upd.status in [200, 201] }}"
+                sequence:
+                  # 2) coarse outcome label (approved / skipped)
+                  - action: rest_command.vikunja_add_label
+                    continue_on_error: true
+                    data:
+                      task_id: "{{ task_id }}"
+                      label_id: "{{ coarse_label }}"
+                  # 3) audit comment (who / how / when / which choice)
+                  - action: rest_command.vikunja_add_comment
+                    continue_on_error: true
+                    data:
+                      task_id: "{{ task_id }}"
+                      comment: "{{ comment }}"
+                  # 4) drop the notified marker so the poll won't re-fire
+                  - action: rest_command.vikunja_remove_label
+                    continue_on_error: true
+                    data:
+                      task_id: "{{ task_id }}"
+                      label_id: "{{ id_notified }}"
+                  # 5) replace the notification with the resolved message
+                  - action: script.approval_resolved
+                    continue_on_error: true
+                    data:
+                      task_id: "{{ task_id }}"
+                      title: "{{ t_title }}"
+                      outcome: "{{ outcome_full }}"
+            # The decision could NOT be recorded -> do not claim success. Replace
+            # the actionable notification (same tag) with an error asking the
+            # owner to open the task, and leave it open + still `notified`.
+            default:
+              - action: system_log.write
+                data:
+                  level: warning
+                  message: >-
+                    approval_tasks: could not record decision for task
+                    {{ task_id }} (update status {{ upd.status | default('none') }});
+                    leaving it open. Check the Vikunja token's tasks scope.
+              - action: notify.approval_recipients
+                continue_on_error: true
+                data:
+                  title: "Couldn't record: {{ t_title }}"
+                  message: "Open the task to decide."
+                  data:
+                    tag: "approval_{{ task_id }}"
+                    group: "approvals"
+                    url: "https://tasks.kmkdp.com/tasks/{{ task_id }}"
+                    push:
+                      interruption-level: "active"
