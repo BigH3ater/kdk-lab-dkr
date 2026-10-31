@@ -1,7 +1,15 @@
 """Thin Tandoor 2.7 API client. Reuses the dashboard mealplan sidecar's
 django-allauth headless login (session + CSRF; DRF token auth is disabled on
-this instance). All routes/fields below were confirmed read-only against the
-live instance on 2026-10-31.
+this instance).
+
+Verification (2026-10-31): the READ routes/fields were exercised live against
+the instance (meal-plan, shopping-list-entry, food, keyword, recipe,
+supermarket-category, recipe-book) and the recipe-from-source route probed. The
+WRITE shapes (recipe-from-source, recipe create, meal-plan create with
+addshopping, shopping-list-entry, food/recipe PATCH, recipe-book-entry) were
+checked against the live `GET /openapi/` request schemas but NOT executed here
+(no live writes in this build); the owner's first `seed --apply` and first
+weekly run exercise them.
 
 Network code lives here so the pure modules (scoring/generator/shoplist) stay
 import-clean and unit-testable offline.

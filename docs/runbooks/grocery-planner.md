@@ -111,6 +111,41 @@ cd stacks/grocery-planner && python3 -m grocery.seed --refresh --report docs/ref
 YAML (one GET per page, best-effort; blocked sites are left unchanged), then the
 report is regenerated. Commit the updated YAML + report.
 
+## Fill a slot the scored set can't (bookmarklet import)
+
+The automated scorer only sees the **reachable** recipe corpus — Allrecipes
+blocks bots on purpose (HTTP 402) and is out of scope, and a few dishes (a
+true Greek ground-beef-and-rice-with-feta skillet, salmon specifically with
+carrots) have no well-rated page there. The seed **preflight** lists any season
+short of the generator minimums and blocks `--apply` (use `--force` only to seed
+what exists). The dry-run also lists slots with no good/acceptable candidate.
+
+To add a recipe the scorer couldn't find, from a site that blocks our fetcher:
+
+1. In Tandoor (recipes.kmkdp.com), Settings → enable the **Import bookmarklet**
+   and drag it to your browser bar (one-time).
+2. Open the recipe page in the browser (your own session, not a bot) and click
+   the bookmarklet — Tandoor imports it server-side, which is not bot-blocked.
+3. Add keywords by hand to match the slot: the season (`spring`/…), and
+   `main`+`simple`+`mediterranean`+ the protein tag (`poultry`, `salmon`,
+   `tuna`, `ground-beef`+`greek`/`asian`, `steak`) for a dinner, or `veg-side` /
+   `lunch-prep`. Set `servings = 2` and add it to the season recipe book.
+4. Record it in `recipes/candidates/<season>.yaml` (site, url, rating, count as
+   seen) with `selected: true`, so the repo stays the source of truth and a
+   later `--refresh` keeps its rating current.
+
+**Current slots needing this** (non-blocking — these are slack beyond the weekly
+minimums, so the generator still builds every week):
+
+- `spring-side-spinach-radish` — no rated spinach-and-radish salad on the
+  reachable sites.
+- `summer-lunch-4` — no rated chicken-quinoa meal-prep bowl under the caps.
+
+**Longer term:** the household's own ratings become the score source. The
+dashboard meal-plan sidecar already writes star ratings back as Tandoor CookLog
+entries; a future `refresh` can prefer the household CookLog average over the
+public rating, and demote dishes the household rates low (Phase 2).
+
 ## Troubleshooting
 
 - **"plan_error" in the log / no task created.** The selected pool could not fill

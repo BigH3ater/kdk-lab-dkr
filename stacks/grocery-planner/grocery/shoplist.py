@@ -47,6 +47,13 @@ class StoreList:
         return sum(len(v) for v in self.aisles.values())
 
 
+def approved_stores(choice):
+    """Map the weekly approval choice to the set of approved stores.
+    all -> both; newpi/target -> that one; skipped/None/unknown -> none."""
+    return {"all": {"NewPi", "Target"}, "newpi": {"NewPi"},
+            "target": {"Target"}}.get(choice, set())
+
+
 def parse_category(name: str):
     """'<store>/<cadence>: <aisle>' -> (store, cadence, aisle). Lenient:
     missing cadence -> None; missing aisle -> 'Other'. Unparseable -> (None,...)."""

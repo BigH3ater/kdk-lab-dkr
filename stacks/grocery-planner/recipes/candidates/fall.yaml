@@ -1,114 +1,1324 @@
-# Fall recipe candidates. See spring.yaml header for the provenance/format note.
-# Ratings read 2026-10-31 (this pass reached Skinnytaste, RecipeTin Eats,
-# Downshiftology, Cooking Classy, Well Plated, Love & Lemons, Wholesome Yum,
-# Jessica Gavin, The Kitchn, Taste of Home; schema.org JSON-LD via one GET per
-# page). non_olive_fats trimmed to real cooking fats. Scoring/verdict computed
-# from config.yaml.
+# Fall recipe candidates (real published recipes; ratings read from each
+# page's schema.org data on checked_on). We do NOT store recipe text -- only the
+# URL + public rating, so the seed imports via Tandoor recipe-from-source.
+# Scoring/verdict are COMPUTED from config.yaml by grocery/candidates.py.
+#
+# Provenance (2026-10-31, revision 2): refreshed from the reachable corpus
+# (Allrecipes is out of scope -- HTTP 402 bot block). Sources: Taste of Home +
+# RecipeTin Eats, Skinnytaste, Well Plated, Cooking Classy, Downshiftology,
+# Love & Lemons, Natasha's Kitchen, iFoodReal, Jessica Gavin, Wholesome Yum,
+# The Clean Eating Couple, foodiecrush, The Lemon Bowl. Set `selected: true` to
+# override the default (top-scoring good/acceptable) pick for a slot.
 slots:
 - slot: fall-fish-a
-  slot_label: sheet-pan wild salmon with carrots
+  slot_label: sheet-pan or baked SALMON WITH CARROTS / root vegetables
   candidates:
-  - {site: Skinnytaste, url: "https://www.skinnytaste.com/sheet-pan-teriyaki-salmon-and-vegetables/", title: "Sheet Pan Teriyaki Salmon and Vegetables", rating: 4.96, count: 91, total_time_min: 35, yield: "2 servings", ingredients: ["2 cups broccoli florets", "10 mini sweet peppers", "1 tablespoon sesame oil", "1/4 teaspoon kosher salt", "2 (4-ounce) wild salmon filets", "1 teaspoon sesame oil", "1 garlic clove", "1/2 teaspoon ginger", "2 tablespoons soy sauce", "1 teaspoon rice vinegar", "1 teaspoon brown sugar", "1/2 teaspoon sesame seeds", "1 scallion"], uses_chicken_breast: null, has_beans_lentils: false, non_olive_fats: ["sesame oil"], checked_on: "2026-10-31", notes: "True sheet-pan wild salmon; veg are broccoli+peppers (carrots would be a swap)."}
-  - {site: Cooking Classy, url: "https://www.cookingclassy.com/honey-teriyaki-salmon-and-veggies-in-foil/", title: "Honey Teriyaki Salmon and Veggies in Foil", rating: 4.5, count: 4, total_time_min: 55, yield: "4", ingredients: ["1/3 cup soy sauce", "1/4 cup honey", "1 1/2 Tbsp rice vinegar", "3 cloves garlic", "1 Tbsp ginger", "1 tsp sesame oil", "2 1/2 tsp cornstarch", "4 (6 oz) salmon fillets", "4 cups broccoli florets", "1 1/2 cups carrots", "2 1/2 Tbsp olive oil", "2 green onions"], uses_chicken_breast: null, has_beans_lentils: false, non_olive_fats: ["sesame oil"], checked_on: "2026-10-31", notes: "Foil packets; has carrots; salmon not labeled wild."}
-  - {site: Taste of Home, url: "https://www.tasteofhome.com/recipes/salmon-with-root-vegetables/", title: "Salmon with Root Vegetables", rating: null, count: null, total_time_min: 25, yield: "6 servings", ingredients: ["2 tablespoons olive oil", "2 sweet potatoes", "2 red potatoes", "2 turnips", "2 carrots", "1 teaspoon sea salt", "1 teaspoon chili powder", "1/2 teaspoon cinnamon", "1/2 teaspoon cumin", "6 salmon fillets (6 ounces each)"], uses_chicken_breast: null, has_beans_lentils: false, non_olive_fats: [], checked_on: "2026-10-31", notes: "Has carrots; no rating in JSON-LD."}
+  - site: tasteofhome.com
+    url: https://www.tasteofhome.com/recipes/salmon-with-root-vegetables/
+    title: Salmon with Root Vegetables
+    rating: null
+    count: null
+    total_time_min: 25
+    yield: 6 servings
+    ingredients:
+    - 2 tablespoons olive oil
+    - 2 medium sweet potatoes, peeled and cut into 1/4-inch cubes
+    - 2 medium red potatoes, cut into 1/4-inch cubes
+    - 2 medium turnips, peeled and diced
+    - 2 medium carrots, peeled and diced
+    - 1 teaspoon sea salt, divided
+    - 1 teaspoon chili powder
+    - 3/4 teaspoon pepper, divided
+    - 1/2 teaspoon ground cinnamon
+    - 1/2 teaspoon ground cumin
+    - 6 salmon fillets (6 ounces each)
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Literal match (carrots, sweet potato, turnip, red potato roasted with salmon). NO rating or
+      review count published on the page (no aggregateRating in schema, none in HTML). 6 servings - halve
+      for 2. Spice list (chili powder, cinnamon, cumin) are pantry. Root-veg count is high (4 roots) though
+      all produce.
+  - site: thekitchn.com
+    url: https://www.thekitchn.com/honey-mustard-salmon-with-caramelized-carrots-23185228
+    title: Honey Mustard Salmon with Caramelized Carrots
+    rating: null
+    count: null
+    total_time_min: null
+    yield: '4'
+    ingredients:
+    - 1 1/2 pounds carrots
+    - 4  medium scallions
+    - 4  (6-ounce) skin-on salmon fillets
+    - 1 1/2 teaspoons kosher salt, divided
+    - 1/2 teaspoon freshly ground black pepper, divided
+    - 4 tablespoons olive oil, divided
+    - 2 tablespoons Dijon mustard
+    - 1 tablespoon honey
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Salmon with caramelized carrots (1.5 lb carrots), skillet/stovetop method rather than sheet
+      pan. NO rating published on page (The Kitchn pages carry no aggregateRating); schema times are 0.
+      4 servings - halve for 2. 8 ingredients, olive oil only.
+  - site: Downshiftology
+    url: https://downshiftology.com/recipes/baked-salmon/
+    title: Dijon Baked Salmon
+    rating: 4.84
+    count: 186
+    total_time_min: 25
+    yield: 4 servings
+    ingredients:
+    - salmon fillets
+    - olive oil
+    - Dijon mustard
+    - honey
+    - garlic
+    - lemon
+    - salt
+    - pepper
+    - parsley
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Rated salmon main; the carrots side is a separate veg-side paired at plan time.
 - slot: fall-fish-b
-  slot_label: seared tuna steak
+  slot_label: seared TUNA steak (distinct recipe)
   candidates:
-  - {site: RecipeTin Eats, url: "https://www.recipetineats.com/tuna-steak/", title: "Tuna Steak", rating: 4.87, count: 22, total_time_min: 8, yield: "2", ingredients: ["2 x 180-200g tuna steaks", "1 tsp olive oil", "1/4 tsp sea salt", "1/8 tsp black pepper", "2 tsp olive oil", "Sauce Vierge"], uses_chicken_breast: null, has_beans_lentils: false, non_olive_fats: [], checked_on: "2026-10-31", notes: "Pan-seared with Sauce Vierge."}
-  - {site: Skinnytaste, url: "https://www.skinnytaste.com/sesame-crusted-tuna-steak-on-arugula-5/", title: "Sesame Crusted Tuna Steak on Arugula", rating: 4.8, count: 15, total_time_min: 20, yield: "4 servings", ingredients: ["20 ounces tuna", "1 teaspoon sesame oil", "1/4 cup sesame seeds", "pinch kosher salt", "5 cups arugula", "1 tablespoon ginger", "1 tablespoon scallion", "1 tablespoon garlic", "1/2 cup balsamic vinegar", "1/4 cup red wine vinegar", "1/4 cup soy sauce", "1 1/2 tbsp honey", "2 teaspoons sesame oil", "1 teaspoon Dijon"], uses_chicken_breast: null, has_beans_lentils: false, non_olive_fats: ["sesame oil"], checked_on: "2026-10-31", notes: "Sesame-crusted seared tuna over arugula."}
+  - site: recipetineats.com
+    url: https://www.recipetineats.com/tuna-steak/
+    title: Tuna Steak
+    rating: 4.87
+    count: 22
+    total_time_min: 8
+    yield: '2'
+    ingredients:
+    - 2 x 180 - 200g (6.5 - 7oz)  tuna ((skinless, boneless). 2.5-3cm / 1-1.2" thick (Note 1))
+    - 1 tsp olive oil
+    - 1/4 tsp sea salt
+    - 1/8 tsp black pepper
+    - 2 tsp olive oil (, or oil spray)
+    - Sauce Vierge ((French salsa / vinaigrette for fish))
+    - Chervil sprigs ((substitute small flat leaf or curly parsley leaves) or small edible flowers (optional))
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Plain seared tuna steak, olive oil only; 2 servings as written. Sauce Vierge is a separate
+      linked recipe (not in ingredient list); total time not in schema (prep 5 + cook 3 = 8 min plus resting/sauce).
+  - site: jessicagavin.com
+    url: https://www.jessicagavin.com/seared-ahi-tuna-with-crispy-sesame-green-beans/
+    title: Seared Ahi Tuna with Crispy Sesame Green Beans
+    rating: 4.74
+    count: 64
+    total_time_min: 30
+    yield: 2 servings
+    ingredients:
+    - 6 ounces seared ahi tuna
+    - 2 ½ cups cauliflower florets
+    - 1 ½ cups carrots (1-inch pieces)
+    - 1 clove garlic (sliced)
+    - ½ teaspoon minced ginger
+    - 1 tablespoon olive oil
+    - ¾ teaspoon kosher salt
+    - 8 ounces green beans (or haricot verts)
+    - ½ teaspoon Sesame oil
+    - ½ teaspoon olive oil
+    - 1 teaspoon minced garlic
+    - ½ teaspoon minced ginger
+    - 1 tablespoon water
+    - 1 teaspoon soy sauce (low sodium )
+    - ¼ teaspoon sesame seeds
+    - ¼ cup grated carrots (optional)
+    - ¼ cup red cabbage (thinly sliced, optional)
+    - 2 tablespoon cilantro leaves (optional)
+    - 1 tablespoon green onions (thinly sliced, optional)
+    has_beans_lentils: false
+    non_olive_fats:
+    - sesame oil (1/2 tsp, flavoring)
+    checked_on: '2026-10-31'
+    notes: Seared ahi on a roasted cauliflower/carrot + sesame green bean plate; 2 servings as written;
+      olive oil. Sesame oil only 1/2 tsp for flavor. Ingredient count is higher than 8 because it includes
+      the veg sides (several optional).
+  - site: skinnytaste.com
+    url: https://www.skinnytaste.com/sesame-crusted-tuna-steak-on-arugula-5/
+    title: Sesame Crusted Tuna Steak on Arugula
+    rating: 4.8
+    count: 15
+    total_time_min: 20
+    yield: 4 servings
+    ingredients:
+    - 20 ounces sushi grade tuna
+    - 1 teaspoon toasted sesame oil
+    - 1/4 cup black and white sesame seeds
+    - pinch kosher salt
+    - fresh black pepper (to taste)
+    - 5 cups baby arugula
+    - 1 tablespoon minced ginger
+    - 1 tablespoon minced scallion
+    - 1 tablespoon minced garlic
+    - 1/2 cup balsamic vinegar
+    - 1/4 cup red wine vinegar
+    - 1/4 cup soy sauce or gluten-free tamari
+    - 1 1/2 tbsp honey
+    - 2 teaspoons toasted sesame oil
+    - 1 teaspoon Dijon mustard
+    has_beans_lentils: false
+    non_olive_fats:
+    - toasted sesame oil (1 tsp coating + 2 tsp dressing)
+    checked_on: '2026-10-31'
+    notes: Sesame-crusted seared tuna over arugula with soy-balsamic dressing; 4 servings (20 oz tuna)
+      - scale down to ~10 oz for 2. Sesame oil is the only oil (no olive oil).
 - slot: fall-chicken-1
   slot_label: roast chicken breast with apples
   candidates:
-  - {site: Well Plated, url: "https://www.wellplated.com/sheet-pan-chicken-sweet-potatoes-apples-brussels-sprouts/", title: "Sheet Pan Chicken with Sweet Potatoes Apples and Brussels Sprouts", rating: 4.86, count: 67, total_time_min: 55, yield: "4 servings", ingredients: ["4 boneless skinless chicken breasts", "3 tablespoons extra-virgin olive oil", "4 cloves garlic", "2 tablespoons rosemary", "1 teaspoon cinnamon", "1 teaspoon kosher salt", "4 cups Brussels sprouts", "1 large sweet potato", "1 red onion", "1 Granny Smith apple"], uses_chicken_breast: true, has_beans_lentils: false, non_olive_fats: [], checked_on: "2026-10-31", notes: "Roasted breast + apple + sweet potato + Brussels sprouts."}
-  - {site: Cooking Classy, url: "https://www.cookingclassy.com/apple-chicken/", title: "Autumn Apple Chicken", rating: 5, count: 1, total_time_min: 35, yield: "4", ingredients: ["1 Tbsp olive oil", "6 boneless skinless chicken thighs", "3/4 tsp salt and pepper", "3/4 tsp paprika", "1/2 tsp garlic powder", "2 Tbsp butter", "2 gala apples", "1/2 cup red onion", "1/2 tsp cinnamon", "1 tsp thyme, rosemary, sage", "1 cup apple juice", "1 Tbsp honey", "1 Tbsp apple cider vinegar", "1 tsp dijon", "1 1/2 tsp cornstarch"], uses_chicken_breast: false, breast_ok: true, has_beans_lentils: false, non_olive_fats: ["butter"], checked_on: "2026-10-31", notes: "Skillet thighs; page allows breasts as sub; only 1 rating."}
+  - site: wellplated.com
+    url: https://www.wellplated.com/sheet-pan-chicken-sweet-potatoes-apples-brussels-sprouts/
+    title: Sheet Pan Chicken with Sweet Potatoes Apples and Brussels Sprouts
+    rating: 4.86
+    count: 67
+    total_time_min: 55
+    yield: 4 servings
+    ingredients:
+    - 4 boneless skinless chicken breasts,
+    - 3 tablespoons extra-virgin olive oil (divided)
+    - 4 cloves garlic (minced)
+    - 2 tablespoons chopped fresh rosemary (divided)
+    - 1 teaspoon ground cinnamon
+    - 1 teaspoon kosher salt (divided)
+    - 1/2 teaspoon ground black pepper (divided)
+    - 4 cups Brussels sprouts (trimmed and halved (quarter if very large), about 1 pound)
+    - 1 large sweet potato (peeled and cut into 1/2-inch cubes)
+    - 1 medium red onion (cut into 3/4-inch pieces)
+    - 1 medium Granny smith apple (peeled, cored, and cut into rough 1-inch pieces (these pieces should
+      be larger than the other vegetables))
+    uses_chicken_breast: true
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: 'Sheet-pan boneless skinless breasts roasted with Granny Smith apple, sweet potato, Brussels
+      sprouts, red onion, rosemary. Olive oil. 4 servings - halve for 2. Non-pantry ingredient count:
+      chicken, Brussels sprouts, sweet potato, red onion, apple, rosemary (about 6).'
+  - site: wellplated.com
+    url: https://www.wellplated.com/chicken-apple-sweet-potato-and-brussels-sprouts-skillet/
+    title: Harvest Chicken Skillet with Sweet Potatoes and Brussels Sprouts
+    rating: 4.74
+    count: 181
+    total_time_min: 50
+    yield: 4 servings
+    ingredients:
+    - 1 tablespoon extra-virgin olive oil
+    - 1 pound boneless, skinless chicken breasts (cut into 1/2-inch cubes)
+    - 1 teaspoon kosher salt (divided)
+    - 1/2 teaspoon ground black pepper
+    - 4 slices thick-cut bacon (chopped)
+    - 3 cups Brussels sprouts (trimmed and quartered (about 3/4 pound))
+    - 1 medium sweet potato (peeled and cut into 1/2 inch cubes (about 8 ounces))
+    - 1 medium onion (chopped)
+    - 2 Granny Smith apples (peeled, cored and cut into 3/4 inch cubes)
+    - 4 cloves garlic (minced (about 2 teaspoons))
+    - 2 teaspoons chopped fresh thyme (or 1/2 teaspoon dried thyme)
+    - 1 teaspoon ground cinnamon
+    - 1 cup reduced-sodium chicken broth (divided)
+    uses_chicken_breast: true
+    has_beans_lentils: false
+    non_olive_fats:
+    - bacon (4 slices, rendered)
+    checked_on: '2026-10-31'
+    notes: One-skillet harvest dish with cubed breast, apples, sweet potato, Brussels sprouts, onion.
+      Uses BACON (4 slices) rendered as cooking fat - flag. 4 servings.
 - slot: fall-chicken-2
-  slot_label: chicken and mushroom orzo (chicken breast)
+  slot_label: SIMPLE chicken and mushroom orzo (one pot, olive oil)
   candidates:
-  - {site: The Clean Eating Couple, url: "https://thecleaneatingcouple.com/chicken-marsala-orzo/", title: "One Pot Chicken Marsala Orzo", rating: 5, count: 5, total_time_min: 45, yield: "4", ingredients: ["1 tablespoon extra virgin olive oil", "1 1/2 pounds boneless skinless chicken breasts", "1/4 teaspoon black pepper", "1/4 teaspoon salt", "3 cups baby bella mushrooms", "1/2 cup onion", "1 tablespoon garlic", "1/4 cup marsala wine", "1 3/4 cup chicken stock", "1 cup orzo", "1/4 cup parsley", "1/4 cup Parmesan"], uses_chicken_breast: true, has_beans_lentils: false, non_olive_fats: [], checked_on: "2026-10-31", notes: "One-pot breast + mushrooms + orzo; closest match."}
-  - {site: RecipeTin Eats, url: "https://www.recipetineats.com/chicken-breast-in-creamy-mushroom-sauce/", title: "Chicken with Creamy Mushroom Sauce", rating: 4.98, count: 223, total_time_min: 20, yield: "4", ingredients: ["2 chicken breasts", "1/2 tsp salt", "black pepper", "1/4 cup flour", "3 tbsp unsalted butter", "300g mushrooms", "2 garlic cloves", "1/4 cup dry white wine", "1/2 cup chicken stock", "1 cup heavy cream", "1/2 cup parmesan", "2 tbsp chives"], uses_chicken_breast: true, has_beans_lentils: false, non_olive_fats: ["butter", "heavy cream"], checked_on: "2026-10-31", notes: "Breast + mushrooms in cream sauce; NO orzo (serve over orzo); high volume."}
-  - {site: RecipeTin Eats, url: "https://www.recipetineats.com/one-pot-italian-chicken-orzo-risoni-pasta/", title: "One Pot Italian Chicken & Orzo", rating: 4.9, count: 28, total_time_min: 35, yield: "4", ingredients: ["2 tbsp white wine vinegar", "1 tbsp olive oil", "1 tsp Dijon", "1 tsp Italian herbs", "1 garlic clove", "1 tbsp olive oil", "4 chicken breasts", "1 onion", "1 bell pepper", "1 1/2 cups orzo", "400g crushed tomato", "3 cups chicken stock", "1 cup basil"], uses_chicken_breast: true, has_beans_lentils: false, non_olive_fats: [], checked_on: "2026-10-31", notes: "One-pot breast + orzo; NO mushrooms (tomato/pepper)."}
+  - site: thecleaneatingcouple.com
+    url: https://thecleaneatingcouple.com/chicken-marsala-orzo/
+    title: One Pot Chicken Marsala Orzo
+    rating: 5
+    count: 5
+    total_time_min: 45
+    yield: 4 1.5 cup servings
+    ingredients:
+    - 1 tablespoon extra virgin olive oil
+    - 1½ pounds boneless, skinless chicken breasts (cut in ¼ inch cubes)
+    - ¼ teaspoon black pepper
+    - ¼ teaspoon salt
+    - 3 cups thinly sliced baby bella mushrooms
+    - ½ cup minced onion
+    - 1 tablespoon minced garlic
+    - ¼ cup marsala wine
+    - 1 ¾ cup low sodium chicken stock
+    - 1 cup dry orzo pasta
+    - ¼ cup chopped fresh parsley
+    - ¼ cup Parmesan cheese
+    uses_chicken_breast: true
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: 'Closest dish match: one-pot, chicken breast + baby bella mushrooms + orzo, cooked in 1 tbsp
+      extra virgin olive oil, no cream or butter. Uses marsala wine (1/4 cup) and Parmesan - flag wine.
+      Only 5 ratings (rating 5). 4 servings - halve for 2.'
+  - site: thecleaneatingcouple.com
+    url: https://thecleaneatingcouple.com/healthy-mediterranean-chicken-orzo/
+    title: Mediterranean Chicken and Orzo
+    rating: 4.78
+    count: 75
+    total_time_min: 35
+    yield: 4 2 cup servings
+    ingredients:
+    - 1 pound boneless, skinless chicken breasts
+    - 2 tablespoons extra virgin olive oil (divided)
+    - ⅛ teaspoon salt
+    - ⅛ teaspoon black pepper
+    - 1½ cups dry whole wheat orzo (10 ounces)
+    - ½ tablespoon minced garlic
+    - 2 cups halved cherry tomatoes
+    - ¼ cup white wine
+    - 2 cups chopped fresh spinach
+    - ½ cup crumbled feta
+    - ½ cup diced, pitted kalamata olives
+    - ¼ cup pine nuts
+    - 2 tablespoons fresh chopped basil
+    - 2 tablespoons fresh chopped parsley
+    - ½ teaspoon dried oregano
+    - ¼ teaspoon black pepper
+    - ¼ teaspoon red pepper flakes
+    uses_chicken_breast: true
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: 'DISH-MATCH VIOLATION: no mushrooms (tomato, spinach, feta, kalamata, pine nuts). Included
+      only as a well-rated olive-oil, breast, one-pot orzo fallback. Ingredient count well over 8 non-pantry.'
+  - site: recipetineats.com
+    url: https://www.recipetineats.com/creamy-mushroom-and-spinach-orzo-risoni-one-pot/
+    title: Creamy Mushroom and Spinach Orzo (Risoni) (One Pot)
+    rating: 4.94
+    count: 61
+    total_time_min: 30
+    yield: '4'
+    ingredients:
+    - 1 tbsp olive oil
+    - 1.2 lb / 600g   mushrooms (, sliced (I used button mushrooms))
+    - 3 tbsp butter, unsalted
+    - 3  garlic cloves (, minced)
+    - 1  small onion (, finely diced)
+    - 3 tbsp flour
+    - 1 1/2 cups / 375 ml  milk ((I used low fat))
+    - 3 cups / 750 ml  chicken broth
+    - 1 1/2 cups orzo / risoni, uncooked ((Note 1))
+    - 1/2 tsp salt
+    - Black pepper
+    - 3/4 cup parmesan cheese (, grated)
+    - 8 oz / 250g   frozen spinach ((1 box), thawed, excess water squeezed out)
+    - Extra parmesan cheese
+    - Finely chopped parsley
+    uses_chicken_breast: unspecified
+    has_beans_lentils: false
+    non_olive_fats:
+    - butter (3 tbsp)
+    - flour roux
+    - milk (1.5 cups)
+    checked_on: '2026-10-31'
+    notes: 'DISH-MATCH VIOLATION: no chicken (vegetarian base; chicken must be added) and uses butter
+      + flour + milk roux plus Parmesan - heavier than requested. Included only as a highly rated mushroom
+      orzo reference.'
 - slot: fall-chicken-3
   slot_label: chicken and broccoli stir fry (chicken breast)
   candidates:
-  - {site: Skinnytaste, url: "https://www.skinnytaste.com/chicken-and-broccoli-stir-fry/", title: "Chicken and Broccoli", rating: 4.89, count: 163, total_time_min: 30, yield: "4 servings", ingredients: ["1/4 cup soy sauce", "1/2 cup chicken broth", "1 tablespoon cornstarch", "2 tablespoons mirin", "1 tablespoon sugar", "2 teaspoons sesame oil", "1/4 teaspoon white pepper", "1 tablespoon canola oil", "1 tablespoon garlic", "1 tablespoon ginger", "1 pound chicken breast", "2 cups broccoli florets"], uses_chicken_breast: true, has_beans_lentils: false, non_olive_fats: ["canola oil", "sesame oil"], checked_on: "2026-10-31", notes: ""}
-  - {site: RecipeTin Eats, url: "https://www.recipetineats.com/chicken-broccoli-stir-fry/", title: "Chicken Broccoli Stir Fry", rating: 4.91, count: 148, total_time_min: 16, yield: "5", ingredients: ["500g chicken breast", "1 1/2 tsp baking soda", "2 tbsp cornstarch", "3 tbsp soy sauce", "1 1/2 tbsp cooking wine", "3 tbsp oyster sauce", "2 tsp sesame oil", "2 tbsp oil", "1/2 onion", "2 garlic cloves", "400g broccoli florets", "1 1/4 cups water"], uses_chicken_breast: true, has_beans_lentils: false, non_olive_fats: ["sesame oil"], checked_on: "2026-10-31", notes: "Baking-soda tenderized breast."}
+  - site: skinnytaste.com
+    url: https://www.skinnytaste.com/chicken-and-broccoli-stir-fry/
+    title: Chicken and Broccoli Recipe
+    rating: 4.89
+    count: 163
+    total_time_min: 30
+    yield: 4 servings
+    ingredients:
+    - 1/4 cup low sodium soy sauce (or use gf soy sauce*)
+    - 1/2 cup chicken broth*
+    - 1 tablespoon cornstarch
+    - 2 tablespoons mirin
+    - 1 tablespoon sugar
+    - 2 teaspoons sesame oil
+    - 1/4 teaspoon white pepper
+    - 1 tablespoon canola oil (divided)
+    - 1 tablespoon minced garlic
+    - 1 tablespoon minced ginger
+    - 1 pound chicken breast (sliced very thinly)
+    - 2 cups broccoli florets
+    - sesame seeds as garnish (if desired)
+    uses_chicken_breast: true
+    has_beans_lentils: false
+    non_olive_fats:
+    - canola oil (1 tbsp)
+    - sesame oil (2 tsp)
+    checked_on: '2026-10-31'
+    notes: 'Chicken breast + broccoli, soy-mirin sauce. Cooking oil is canola, not olive. 4 servings;
+      scalable. Non-pantry: chicken, broccoli, ginger, mirin (about 4-5).'
+  - site: natashaskitchen.com
+    url: https://natashaskitchen.com/chicken-broccoli-and-mushroom-stir-fry/
+    title: Chicken and Broccoli Stir Fry Recipe
+    rating: 4.94
+    count: 928
+    total_time_min: 30
+    yield: 4 people
+    ingredients:
+    - 1 lb chicken breast ((boneless skinless), cut into 3/4" pieces)
+    - 2 Tbsp cooking oil ((I used extra light olive oil), divided)
+    - 1 lb broccoli (cut into florets (about 5 cups))
+    - 1 small yellow onion (sliced into strips)
+    - 1/2 lb white button mushrooms (thickly sliced)
+    - 2/3 cup low sodium chicken broth
+    - 3 Tbsp low sodium soy sauce ((use Tamari for gluten free), or added to taste)
+    - 2 Tbsp light brown sugar (packed (or honey to taste))
+    - 1 Tbsp corn starch
+    - 1 Tbsp sesame oil
+    - 1 tsp fresh ginger (peeled and grated (lightly packed))
+    - 1 tsp garlic (2 small cloves) (grated)
+    - 1/4 tsp black pepper (plus more to season chicken)
+    uses_chicken_breast: true
+    has_beans_lentils: false
+    non_olive_fats:
+    - sesame oil (1 tbsp, in sauce)
+    checked_on: '2026-10-31'
+    notes: Chicken breast, broccoli, mushrooms, onion; the recipe says it used extra light olive oil as
+      the cooking oil (listed as generic cooking oil). Very high review count. 4 servings.
 - slot: fall-chicken-4
-  slot_label: lemon herb chicken breast (baked/roasted)
+  slot_label: lemon herb baked chicken breast
   candidates:
-  - {site: Downshiftology, url: "https://downshiftology.com/recipes/herb-baked-chicken-breast/", title: "Herb Baked Chicken Breast", rating: 5, count: 28, total_time_min: 25, yield: "2 servings", ingredients: ["2 boneless skinless chicken breasts", "1 tablespoon olive oil", "1/2 teaspoon garlic powder", "1/2 teaspoon dried basil", "1/2 teaspoon dried thyme", "1/2 teaspoon dried oregano", "salt and pepper"], uses_chicken_breast: true, has_beans_lentils: false, non_olive_fats: [], checked_on: "2026-10-31", notes: "Herb-baked breast; add lemon yourself."}
-  - {site: Skinnytaste, url: "https://www.skinnytaste.com/skillet-lemon-chicken-with-olives-and-herbs/", title: "Skillet Lemon Chicken with Olives and Herbs", rating: 4.64, count: 19, total_time_min: 20, yield: "4 Servings", ingredients: ["1/2 tbsp extra virgin olive oil", "4 8oz boneless chicken breasts", "1/2 tsp kosher salt", "2 teaspoons flour", "2 cloves garlic", "1/2 cup dry white wine", "1/4 cup lemon juice", "1 teaspoon lemon zest", "1 teaspoon thyme", "1 cup olives", "1 tbsp parsley"], uses_chicken_breast: true, has_beans_lentils: false, non_olive_fats: [], checked_on: "2026-10-31", notes: "Lemon + thyme; skillet then oven."}
+  - site: downshiftology.com
+    url: https://downshiftology.com/recipes/herb-baked-chicken-breast/
+    title: Herb Baked Chicken Breast
+    rating: 5
+    count: 28
+    total_time_min: 25
+    yield: 2 servings
+    ingredients:
+    - 2  boneless, skinless chicken breasts
+    - 1 tablespoon olive oil (or avocado oil)
+    - ½ teaspoon garlic powder
+    - ½ teaspoon dried basil
+    - ½ teaspoon dried thyme
+    - ½ teaspoon dried oregano
+    - salt and pepper, to taste
+    uses_chicken_breast: true
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: 'Simplest option: 2 breasts as written (already 2 servings), olive oil, dried herbs only. NOTE:
+      no lemon in the ingredient list, so it is herb-only rather than lemon-herb. 25 min.'
+  - site: wellplated.com
+    url: https://www.wellplated.com/baked-lemon-chicken/
+    title: Baked Lemon Chicken
+    rating: 4.85
+    count: 53
+    total_time_min: 100
+    yield: 4 servings
+    ingredients:
+    - 2 pounds boneless skinless chicken breasts (about 3 to 4 breasts)
+    - 1/4 cup extra virgin olive oil
+    - 3 cloves garlic (minced (about 1 tablespoon))
+    - 1 tablespoon minced fresh rosemary (or 1 teaspoon dried rosemary)
+    - 1 teaspoon kosher salt
+    - 1/4 teaspoon ground black pepper
+    - 2 lemons (divided)
+    uses_chicken_breast: true
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Lemon + garlic + rosemary olive-oil marinade, 2 lb breasts (4 servings; halve for 2). Schema
+      total_time 100 includes marinate time (prep 15 + cook 20 active).
+- slot: fall-chicken-5
+  slot_label: baked Parmesan or herb-crusted chicken breast
+  candidates:
+  - site: foodiecrush.com
+    url: https://www.foodiecrush.com/parmesan-crusted-chicken/
+    title: Baked Parmesan Crusted Chicken Recipe
+    rating: 4.99
+    count: 87
+    total_time_min: 35
+    yield: '6'
+    ingredients:
+    - 3 boneless skinless chicken breasts
+    - 1 cup seasoned Italian breadcrumbs
+    - 1/2 cup grated Parmesan cheese
+    - 1 teaspoon garlic powder
+    - 1/2 teaspoon kosher salt
+    - 1/2 teaspoon freshly ground black pepper
+    - 1/4 teaspoon ground paprika
+    - 1/3 cup mayonnaise ( (or 4 tablespoons melted butter))
+    uses_chicken_breast: true
+    has_beans_lentils: false
+    non_olive_fats:
+    - mayonnaise (1/3 cup) or melted butter
+    checked_on: '2026-10-31'
+    notes: Breasts coated with mayo + Italian breadcrumbs + Parmesan, baked. Mayonnaise (or melted butter)
+      is the binder - no olive oil. 3 breasts, 6 servings as written (halved breasts).
+  - site: skinnytaste.com
+    url: https://www.skinnytaste.com/baked-chicken-breasts/
+    title: Baked Chicken Breast (Juicy, Easy, High-Protein)
+    rating: 4.88
+    count: 83
+    total_time_min: 95
+    yield: 4 servings
+    ingredients:
+    - 4 6 ounce boneless skinless chicken breasts (preferably organic)
+    - kosher salt (Diamond Crystal Kosher, if using Morton's or table salt use less)
+    - 3/4 teaspoon garlic powder
+    - 1/2 teaspoon dried parsley
+    - 1/2 teaspoon paprika
+    - 1 1/2 tablespoons mayonnaise
+    - 1/3 cup seasoned Panko Breadcrumbs (OR gluten free panko)
+    - 2 tablespoons shredded Parmesan cheese
+    - 1 lemon (cut into wedges for serving)
+    uses_chicken_breast: true
+    has_beans_lentils: false
+    non_olive_fats:
+    - mayonnaise (1.5 tbsp)
+    checked_on: '2026-10-31'
+    notes: Panko-Parmesan topped breasts with mayonnaise binder; 4 breasts. Schema total_time 95 includes
+      a brine (active prep 5 + cook 30).
 - slot: fall-beef-a
-  slot_label: ground beef and butternut squash skillet
+  slot_label: Greek ground beef and butternut (or rice) skillet WITH FETA
   candidates:
-  - {site: The Clean Eating Couple, url: "https://thecleaneatingcouple.com/one-pot-ground-beef-butternut-squash/", title: "Ground Beef Butternut Squash", rating: 5, count: 6, total_time_min: 45, yield: "4", ingredients: ["1 teaspoon extra virgin olive oil", "1 lb ground beef", "1 tablespoon garlic", "1 cup onion", "2 cups mushrooms", "1/4 teaspoon sea salt", "1 teaspoon dried sage", "3 cups butternut squash", "1/4 cup prunes", "1 cup cheddar cheese"], uses_chicken_breast: null, has_beans_lentils: false, non_olive_fats: [], checked_on: "2026-10-31", notes: "One-pot beef + butternut + mushrooms; low count."}
-  - {site: Taste of Home, url: "https://www.tasteofhome.com/recipes/butternut-goulash/", title: "Butternut Goulash", rating: 4.8, count: 5, total_time_min: 70, yield: "8 servings", ingredients: ["2 tablespoons butter", "1 pound lean ground beef", "1 red pepper", "1 cup onion", "28 ounces crushed tomatoes", "1-1/2 cups butternut squash", "8 ounces tomato sauce", "1 cup beef broth", "1 teaspoon salt", "1/2 teaspoon chili powder", "2 cups zucchini"], uses_chicken_breast: null, has_beans_lentils: false, non_olive_fats: ["butter"], checked_on: "2026-10-31", notes: "Goulash (Dutch oven); 70 min."}
+  - site: downshiftology.com
+    url: https://downshiftology.com/recipes/mediterranean-ground-beef-stir-fry/
+    title: Mediterranean Ground Beef Stir Fry
+    rating: 4.93
+    count: 260
+    total_time_min: 25
+    yield: 4 servings
+    ingredients:
+    - 1 tablespoon olive oil
+    - 1  red bell pepper (deseeded and diced)
+    - 1 pint cherry tomatoes (sliced in half)
+    - 8 ounces baby spinach (small tub)
+    - 4  garlic cloves (minced)
+    - 2  green onion (thinly sliced, white and green parts separated)
+    - 1 pound ground beef
+    - ½ teaspoon dried oregano
+    - kosher salt and freshly ground black pepper (to taste)
+    - 2 tablespoons crumbled feta ((optional))
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: 'Closest match: Greek/Mediterranean one-skillet ground beef with oregano, spinach, tomatoes,
+      pepper, topped with crumbled feta (optional). No butternut or rice in recipe (serve over rice/squash
+      separately). Olive oil. 4 servings.'
+  - site: thecleaneatingcouple.com
+    url: https://thecleaneatingcouple.com/one-pot-ground-beef-butternut-squash/
+    title: Ground Beef Butternut Squash
+    rating: 5
+    count: 6
+    total_time_min: 45
+    yield: 4 1.5 cup servings
+    ingredients:
+    - 1 teaspoon extra virgin olive oil
+    - 1 lb ground beef
+    - 1 tablespoon chopped garlic
+    - 1 cup diced onion
+    - 2 cups mushrooms (cubed (about 5 oz))
+    - ¼ teaspoon sea salt
+    - ¼ teaspoon black pepper
+    - 1 teaspoon dried sage
+    - 3 cups diced butternut squash (¼ inch pieces, about 1 lb)
+    - ¼ cup diced prunes
+    - 1 cup shredded cheddar cheese
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: 'Ground beef + butternut squash one pot. DISH-MATCH VIOLATION: not Greek, topped with cheddar
+      not feta, includes prunes and mushrooms. Only 6 ratings. Olive oil.'
 - slot: fall-beef-b
-  slot_label: Mongolian-style ground beef
+  slot_label: Mongolian-style or Asian ground beef (with broccoli)
   candidates:
-  - {site: Skinnytaste, url: "https://www.skinnytaste.com/ground-beef-and-broccoli-stir-fry/", title: "Ground Beef and Broccoli Stir Fry", rating: 4.68, count: 221, total_time_min: 13, yield: "4 servings", ingredients: ["1/2 cup soy sauce", "1 tablespoon honey", "4 cloves garlic", "1 piece ginger", "1 tablespoon cornstarch", "1/2 tablespoon sesame oil", "1 pound ground beef (93% lean)", "1/2 onion", "1 head broccoli", "1 tablespoon sesame seeds", "3 scallions"], uses_chicken_breast: null, has_beans_lentils: false, non_olive_fats: ["sesame oil"], checked_on: "2026-10-31", notes: "Soy/honey/ginger beef stir fry (Mongolian-style flavor)."}
-  - {site: RecipeTin Eats, url: "https://www.recipetineats.com/one-pan-mongolian-beef-noodles-with-broccoli/", title: "One-Pan Mongolian Beef Noodles with broccoli", rating: 4.5, count: 44, total_time_min: 15, yield: "4", ingredients: ["4 instant noodle cakes", "2 tablespoons dark soy sauce", "1/4 cup hoisin sauce", "2 tablespoons Mirin", "1/4 teaspoon five spice", "2 teaspoons sesame oil", "2 tablespoons oil", "2 garlic cloves", "1 onion", "500g ground beef", "5 cups broccoli florets", "2 1/4 cups water"], uses_chicken_breast: null, has_beans_lentils: false, non_olive_fats: ["sesame oil"], checked_on: "2026-10-31", notes: "Ground beef Mongolian sauce + instant noodles + broccoli."}
+  - site: skinnytaste.com
+    url: https://www.skinnytaste.com/ground-beef-and-broccoli-stir-fry/
+    title: Ground Beef and Broccoli Stir Fry
+    rating: 4.68
+    count: 221
+    total_time_min: 13
+    yield: 4 servings
+    ingredients:
+    - ½ cup reduced sodium soy sauce (or gluten-free tamari)
+    - 1 tablespoon honey
+    - 4 cloves garlic (minced)
+    - 1 1-inch piece fresh ginger (peeled and grated)
+    - 1 tablespoon cornstarch
+    - ½ tablespoon sesame oil
+    - 1 pound ground beef (93% lean )
+    - ½ medium yellow onion (chopped)
+    - 1 large head broccoli (cut into florets and blanched*)
+    - 1 tablespoon toasted sesame seeds
+    - 3 medium scallions (sliced on the bias)
+    - cooked rice (or cauliflower rice, for serving (optional))
+    has_beans_lentils: false
+    non_olive_fats:
+    - sesame oil (1/2 tbsp)
+    checked_on: '2026-10-31'
+    notes: Ground beef + broccoli in soy-honey-ginger sauce, 10-13 min; no olive oil (only sesame oil).
+      Serve over rice (listed optional). 4 servings.
+  - site: recipetineats.com
+    url: https://www.recipetineats.com/one-pan-mongolian-beef-noodles-with-broccoli/
+    title: One-Pan Mongolian Beef Noodles with broccoli
+    rating: 4.5
+    count: 44
+    total_time_min: 15
+    yield: '4'
+    ingredients:
+    - 4  instant noodle cakes (, ~70g/2.5oz each (aka 2 minute noodles, instant ramen noodles), UNCOOKED,
+      (Note 1))
+    - 2 tablespoons dark soy sauce - NOT light soy sauce or all-purpose soy sauce
+    - 1/4 cup hoisin sauce (- if yours is not a dark brown colour, noodles may be bit paler)
+    - 2 tablespoons Mirin (, or Chinese cooking wine + 2 tsp sugar (Note 3))
+    - 1/4 teaspoon Chinese Five Spice Powder ((not critical if you don't have))
+    - 2 teaspoons sesame oil
+    - 2 tablespoons oil (- anything plain flavoured (eg canola, vegetable, peanut))
+    - 2  garlic cloves (, finely minced)
+    - 1  onion (, halved then sliced)
+    - 500g/ 1 lb  beef mince (ground beef)
+    - 5 cups broccoli florets, cut small (, not too big else they get in the way and won't cook through
+      (Note 4 for other veg))
+    - 2 1/4 cups water
+    has_beans_lentils: false
+    non_olive_fats:
+    - plain oil e.g. canola (2 tbsp)
+    - sesame oil (2 tsp)
+    checked_on: '2026-10-31'
+    notes: Mongolian beef mince + broccoli with instant-noodle cakes cooked in the pan; plain oil (canola
+      etc.) not olive. Count 44, rating 4.5. Contains noodles (wheat) rather than rice.
 - slot: fall-steak
   slot_label: seared sirloin steak with mushroom pan sauce
   candidates:
-  - {site: Skinnytaste, url: "https://www.skinnytaste.com/quick-skillet-steak-with-onions-and/", title: "Quick Skillet Steak with Onions and Mushrooms", rating: 4.8, count: 29, total_time_min: 15, yield: "4 servings", ingredients: ["1/2 lb thin sliced beef round or sirloin steaks", "1/2 large onion", "1/2 tsp olive oil", "8 oz sliced mushrooms", "olive oil spray", "1/2 teaspoon garlic powder", "1/2 teaspoon kosher salt"], uses_chicken_breast: null, has_beans_lentils: false, non_olive_fats: [], checked_on: "2026-10-31", notes: "Thin sirloin + onions + mushrooms; no real pan sauce."}
-  - {site: Taste of Home, url: "https://www.tasteofhome.com/recipes/sirloin-with-mushroom-sauce/", title: "Sirloin with Mushroom Sauce", rating: 4, count: 2, total_time_min: 30, yield: "4 servings", ingredients: ["1 beef top sirloin steak (1 pound)", "1 teaspoon pepper", "1/2 teaspoon salt", "1 teaspoon butter", "1-1/2 cups mushrooms", "1 garlic clove", "1/2 cup beef broth", "1/2 cup red wine"], uses_chicken_breast: null, has_beans_lentils: false, non_olive_fats: ["butter"], checked_on: "2026-10-31", notes: "Sirloin + mushroom/red-wine pan sauce; 2 reviews."}
+  - site: tasteofhome.com
+    url: https://www.tasteofhome.com/recipes/grilled-steaks-with-mushroom-sauce/
+    title: Grilled Steaks with Mushroom Sauce
+    rating: 4.89
+    count: 18
+    total_time_min: 20
+    yield: 4 servings
+    ingredients:
+    - 1 beef top sirloin steak (1-1/2 pounds)
+    - 1/2 teaspoon steak seasoning
+    - 1 pound small fresh mushrooms
+    - 1/4 cup butter, cubed
+    - 1/2 cup beef broth
+    - 1 tablespoon Dijon mustard
+    - 1/2 teaspoon dried rosemary, crushed
+    - 1/2 teaspoon dried thyme
+    has_beans_lentils: false
+    non_olive_fats:
+    - butter (1/4 cup)
+    checked_on: '2026-10-31'
+    notes: Top sirloin with a butter-sauteed mushroom, Dijon, beef broth, rosemary/thyme sauce. Titled
+      "grilled" (steak grilled; sauce stovetop) - sear in a pan to match slot. 1.5 lb steak / 4 servings.
+      Count only 18. No olive oil.
+  - site: tasteofhome.com
+    url: https://www.tasteofhome.com/recipes/sirloin-with-mushroom-sauce/
+    title: Sirloin with Mushroom Sauce
+    rating: 4
+    count: 2
+    total_time_min: 30
+    yield: 4 servings
+    ingredients:
+    - 1 beef top sirloin steak (1 pound and 3/4 inch thick)
+    - 1 teaspoon coarsely ground pepper
+    - 1/2 teaspoon salt
+    - 1 teaspoon butter
+    - 1-1/2 cups sliced fresh mushrooms
+    - 1 garlic clove, minced
+    - 1/2 cup beef broth
+    - 1/2 cup dry red wine or additional beef broth
+    has_beans_lentils: false
+    non_olive_fats:
+    - butter (1 tsp)
+    checked_on: '2026-10-31'
+    notes: 'True pan-seared top sirloin + mushroom, garlic, beef broth and red wine sauce in the same
+      pan; 1 lb steak, minimal ingredients. LOW rating evidence: 4.0 from 2 ratings. Butter only (1 tsp).'
+  - site: natashaskitchen.com
+    url: https://natashaskitchen.com/filet-mignon-recipe-mushroom-sauce-video/
+    title: Filet Mignon Recipe in Mushroom Sauce (VIDEO)
+    rating: 5
+    count: 153
+    total_time_min: 30
+    yield: 4 filet mignon steaks
+    ingredients:
+    - 4 Tbsp unsalted butter (divided)
+    - 2 Tbsp olive oil (divided)
+    - 16 oz baby bella mushrooms (thickly sliced)
+    - 1 small onion (finely diced)
+    - 4 garlic cloves (minced)
+    - 1 Tbsp fresh thyme (minced (or 1 tsp dry thyme))
+    - 24 oz filet mignon (beef tenderloin) steaks (6-8 oz each, about 1 1/2" thick)
+    - 1/2 cup Merlot wine (or any dry red wine)
+    - 1 1/2 cups beef broth
+    - 1/2 cup whipping cream
+    - 1 1/4 tsp sea salt (we use sea salt, divided)
+    - 1/2 tsp black pepper (divided)
+    has_beans_lentils: false
+    non_olive_fats:
+    - unsalted butter (4 tbsp)
+    - whipping cream (1/2 cup)
+    checked_on: '2026-10-31'
+    notes: 'DISH-MATCH NOTE: filet mignon, not sirloin, with a rich red wine/cream/butter mushroom sauce
+      - heavier and pricier. Included only because it is the best-rated seared-steak + mushroom pan sauce
+      on the allowed sites (count 153). Uses olive oil plus butter and cream.'
 - slot: fall-side-roasted-carrots
   slot_label: roasted carrots
   candidates:
-  - {site: RecipeTin Eats, url: "https://www.recipetineats.com/great-roasted-carrots/", title: "Great Roasted Carrots", rating: 4.96, count: 21, total_time_min: 35, yield: "5", ingredients: ["1 kg carrots", "2 tbsp olive oil", "3/4 tsp salt", "1/2 tsp black pepper", "2 garlic cloves", "Fresh parsley"], uses_chicken_breast: null, has_beans_lentils: false, non_olive_fats: [], checked_on: "2026-10-31", notes: ""}
-  - {site: Skinnytaste, url: "https://www.skinnytaste.com/herb-roasted-carrots/", title: "Roasted Carrots", rating: 5, count: 13, total_time_min: 50, yield: "6 servings", ingredients: ["Olive oil spray", "2 pounds carrots", "2 tablespoons extra-virgin olive oil", "1 tablespoon thyme", "1/4 cup parsley", "3 garlic cloves", "2 teaspoons kosher salt"], uses_chicken_breast: null, has_beans_lentils: false, non_olive_fats: [], checked_on: "2026-10-31", notes: ""}
+  - site: loveandlemons.com
+    url: https://www.loveandlemons.com/roasted-carrots/
+    title: Roasted Carrots
+    rating: 4.94
+    count: 63
+    total_time_min: 20
+    yield: '4'
+    ingredients:
+    - 1 pound carrots (about 1 large or 2 medium bunches, cut into 2-inch barrels)
+    - 1 tablespoon extra-virgin olive oil
+    - 1 teaspoon honey or maple syrup
+    - ½ teaspoon sea salt
+    - Freshly ground black pepper
+    - Chopped fresh parsley (for garnish)
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Olive oil, honey/maple optional, salt; 425F. 4 servings.
+  - site: natashaskitchen.com
+    url: https://natashaskitchen.com/roasted-carrots-recipe/
+    title: Roasted Carrots Recipe
+    rating: 4.98
+    count: 46
+    total_time_min: 30
+    yield: 6 servings
+    ingredients:
+    - 2 lb carrots ((small) peeled or scrubbed)
+    - 1 Tbsp olive oil
+    - 1 tsp salt
+    - 1/2 tsp black pepper
+    - 2 garlic cloves
+    - 2 Tbsp olive oil
+    - 1 tsp parsley
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Olive oil roast then garlic-parsley olive oil finish; 6 servings.
 - slot: fall-side-sauteed-kale
   slot_label: sauteed kale
   candidates:
-  - {site: Love & Lemons, url: "https://www.loveandlemons.com/sauteed-kale/", title: "Sauteed Kale", rating: 4.98, count: 40, total_time_min: 15, yield: "4", ingredients: ["1 bunch kale", "2 teaspoons extra-virgin olive oil", "2 garlic cloves", "Sea salt and black pepper", "Lemon wedge"], uses_chicken_breast: null, has_beans_lentils: false, non_olive_fats: [], checked_on: "2026-10-31", notes: ""}
-  - {site: Jessica Gavin, url: "https://www.jessicagavin.com/sauteed-kale/", title: "Sauteed Kale", rating: 4.77, count: 13, total_time_min: 30, yield: "4 servings", ingredients: ["1 1/2 pounds kale", "2 tablespoons extra-virgin olive oil", "1/3 cup shallots", "1 cup red bell pepper", "4 cloves garlic", "3/4 teaspoon kosher salt", "1 teaspoon balsamic vinegar"], uses_chicken_breast: null, has_beans_lentils: false, non_olive_fats: [], checked_on: "2026-10-31", notes: "Shallot + bell pepper."}
+  - site: loveandlemons.com
+    url: https://www.loveandlemons.com/sauteed-kale/
+    title: Sautéed Kale
+    rating: 4.98
+    count: 40
+    total_time_min: 15
+    yield: '4'
+    ingredients:
+    - 1 bunch kale (lacinato or curly kale)
+    - 2 teaspoons extra-virgin olive oil
+    - 2  garlic cloves (chopped)
+    - Sea salt and freshly ground black pepper
+    - Lemon wedge (for squeezing)
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Kale, olive oil, garlic, lemon wedge; 5 ingredients.
+  - site: jessicagavin.com
+    url: https://www.jessicagavin.com/sauteed-kale/
+    title: Sauteed Kale
+    rating: 4.77
+    count: 13
+    total_time_min: 30
+    yield: 4 servings
+    ingredients:
+    - 1 ½ pounds kale ((about 3 large leaves, 7 to 8 cups chopped))
+    - 2 tablespoons extra-virgin olive oil
+    - ⅓ cup diced shallots (¼-inch dice)
+    - 1 cup diced red bell pepper (¼-inch dice)
+    - 4 cloves garlic (peeled and thinly sliced)
+    - ¾ teaspoon kosher salt
+    - ½ teaspoon black pepper
+    - 1 teaspoon balsamic vinegar
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Kale with shallot, red bell pepper, garlic, balsamic; olive oil. Only 13 ratings.
 - slot: fall-side-brussels-sprouts
   slot_label: roasted Brussels sprouts
   candidates:
-  - {site: Downshiftology, url: "https://downshiftology.com/recipes/roasted-brussels-sprouts/", title: "Simple Roasted Brussels Sprouts", rating: 4.96, count: 22, total_time_min: 40, yield: "6 servings", ingredients: ["1 1/2 pounds Brussels sprouts", "2 tablespoons olive oil or avocado oil", "salt and pepper"], uses_chicken_breast: null, has_beans_lentils: false, non_olive_fats: [], checked_on: "2026-10-31", notes: ""}
-  - {site: Cooking Classy, url: "https://www.cookingclassy.com/roasted-brussels-sprouts-with-balsamic-and-honey/", title: "Roasted Brussels Sprouts with Balsamic and Honey", rating: 5, count: 2, total_time_min: 26, yield: "5", ingredients: ["1 3/4 lbs Brussels sprouts", "3 Tbsp olive oil", "1/2 tsp salt and pepper", "2 Tbsp balsamic vinegar", "1 Tbsp honey"], uses_chicken_breast: null, has_beans_lentils: false, non_olive_fats: [], checked_on: "2026-10-31", notes: "2 ratings."}
+  - site: loveandlemons.com
+    url: https://www.loveandlemons.com/roasted-brussels-sprouts/
+    title: Roasted Brussels Sprouts
+    rating: 4.92
+    count: 212
+    total_time_min: 35
+    yield: 3 to 4
+    ingredients:
+    - 1 pound Brussels sprouts (trimmed)
+    - Extra-virgin olive oil (for drizzling)
+    - Sea salt and freshly ground black pepper
+    - 1 tablespoon fresh lemon juice (plus 2 teaspoons zest)
+    - 1 tablespoon grated Parmesan cheese
+    - 1 tablespoon fresh thyme leaves
+    - Fresh parsley leaves (for garnish)
+    - Pinch red pepper flakes
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Olive oil roast, optional lemon/Parmesan/thyme finish; "3 to 4" servings per 1 lb.
+  - site: jessicagavin.com
+    url: https://www.jessicagavin.com/roasted-brussels-sprouts/
+    title: Roasted Brussels Sprouts
+    rating: 4.92
+    count: 61
+    total_time_min: 30
+    yield: 8 servings
+    ingredients:
+    - 2 pounds brussels sprouts (1 to 1 ½” long)
+    - 3 tablespoons olive oil
+    - 1 tablespoon water
+    - ¾ teaspoon kosher salt
+    - ¼ teaspoon black pepper
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Olive oil, salt, pepper plus a spoonful of water; 8 servings per 2 lb.
 - slot: fall-side-garlicky-green-beans
   slot_label: garlicky green beans
   candidates:
-  - {site: RecipeTin Eats, url: "https://www.recipetineats.com/garlic-sauteed-green-beans/", title: "Sauteed Green Beans with Garlic", rating: 4.99, count: 58, total_time_min: 13, yield: "2", ingredients: ["250g green beans", "1 tsp salt", "1 tbsp extra virgin olive oil", "2 garlic cloves", "1 pinch black pepper"], uses_chicken_breast: null, has_beans_lentils: false, non_olive_fats: [], checked_on: "2026-10-31", notes: "Fresh green beans (not a legume)."}
-  - {site: Skinnytaste, url: "https://www.skinnytaste.com/string-beans-with-garlic-and-oil/", title: "String Beans with Garlic and Oil", rating: 5, count: 14, total_time_min: 15, yield: "4 servings", ingredients: ["1 lb string beans", "2 tbsp extra virgin olive oil", "4 cloves garlic", "salt and pepper"], uses_chicken_breast: null, has_beans_lentils: false, non_olive_fats: [], checked_on: "2026-10-31", notes: ""}
+  - site: recipetineats.com
+    url: https://www.recipetineats.com/garlic-sauteed-green-beans/
+    title: Sautéed Green Beans with Garlic
+    rating: 4.99
+    count: 58
+    total_time_min: 13
+    yield: 2 - 4
+    ingredients:
+    - 250g/ 8oz  green beans (, trimmed (Note 1))
+    - 1 tsp salt
+    - 1 tbsp extra virgin olive oil ((or... butter!))
+    - 2  garlic cloves (, finely minced (~ 2 tsp), do not use jar or garlic crusher (Note 2))
+    - 1/8 tsp salt
+    - 1 pinch black pepper
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Blanch then saute in olive oil with minced garlic; 2-4 servings. Schema total_time not given
+      (prep 5 + cook 8 = 13).
+  - site: skinnytaste.com
+    url: https://www.skinnytaste.com/string-beans-with-garlic-and-oil/
+    title: String Beans with Garlic and Oil
+    rating: 5
+    count: 14
+    total_time_min: 15
+    yield: 4 servings
+    ingredients:
+    - 1 lb fresh string beans (washed, ends trimmed)
+    - 2 tbsp extra virgin olive oil
+    - 4 cloves garlic (sliced thin)
+    - salt and fresh pepper
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Steamed string beans tossed with garlic cooked in oil; only 14 ratings (rating 5).
 - slot: fall-side-sesame-cabbage-slaw
-  slot_label: sesame cabbage slaw
+  slot_label: sesame cabbage/Asian slaw (no edamame)
   candidates:
-  - {site: Cooking Classy, url: "https://www.cookingclassy.com/thai-slaw-peanut-dressing/", title: "Asian Slaw with Peanut Dressing", rating: 4.98, count: 39, total_time_min: 15, yield: "6", ingredients: ["6 cups shredded cabbage", "1 cup matchstick carrots", "1 red bell pepper", "1/2 cup green onions", "1/3 cup cilantro", "1/3 cup peanut butter", "2 Tbsp lime juice", "1 1/2 Tbsp rice vinegar", "1 1/2 Tbsp soy sauce", "2 Tbsp honey", "1 1/2 tsp sesame oil", "1 tsp sriracha"], uses_chicken_breast: null, has_beans_lentils: false, non_olive_fats: ["peanut butter", "sesame oil"], checked_on: "2026-10-31", notes: "Peanut dressing (condiment, not a bean meal)."}
-  - {site: Skinnytaste, url: "https://www.skinnytaste.com/asian-cabbage-mango-slaw/", title: "Asian Slaw Recipe with Mango", rating: 4.63, count: 16, total_time_min: 30, yield: "6 servings", ingredients: ["2 cups shredded cabbage", "1/2 cup shredded carrots", "1 mango", "3 scallions", "3 tbsp rice vinegar", "1/2 lime", "1 tbsp soy sauce", "1 tbsp sesame oil", "1 tsp sesame seeds"], uses_chicken_breast: null, has_beans_lentils: false, non_olive_fats: ["sesame oil"], checked_on: "2026-10-31", notes: "Contains mango."}
+  - site: jessicagavin.com
+    url: https://www.jessicagavin.com/asian-slaw-sesame-ginger-dressing/
+    title: Asian Slaw with Sesame Ginger Dressing
+    rating: 4.6
+    count: 30
+    total_time_min: 25
+    yield: 8 servings
+    ingredients:
+    - 4 cups shredded napa cabbage (or green cabbage, ¼-inch thick)
+    - 3 cups shredded red cabbage (¼-inch thick)
+    - 1 cup shredded carrots
+    - 1 cup thinly sliced fuji apples ( or red apples, ⅛-inch thick)
+    - ¼ sliced green onions (cut on a bias)
+    - ¼ cup cilantro leaves
+    - 1 teaspoon sesame seeds (black and white)
+    - ¼ cup rice vinegar (unsweetened)
+    - 3 tablespoons honey
+    - 2 tablespoons mayonnaise
+    - 1 teaspoon soy sauce
+    - 1 teaspoon finely minced garlic
+    - 1 teaspoon finely minced ginger
+    - ¼ teaspoon black pepper
+    - 1 tablespoon sesame oil (toasted)
+    - 1/2 cup olive oil
+    has_beans_lentils: false
+    non_olive_fats:
+    - mayonnaise (2 tbsp, dressing)
+    - toasted sesame oil (1 tbsp, dressing)
+    checked_on: '2026-10-31'
+    notes: Napa + red cabbage, carrots, apple, sesame-ginger dressing; many ingredients (>8), 8 servings,
+      mayonnaise in dressing. No edamame. Dressing lists 1/2 cup olive oil plus toasted sesame oil.
+  - site: foodiecrush.com
+    url: https://www.foodiecrush.com/asian-slaw/
+    title: Asian Slaw Recipe
+    rating: 5
+    count: 1
+    total_time_min: 10
+    yield: '4'
+    ingredients:
+    - 4 cups shredded Napa cabbage
+    - 1 carrot (, shredded)
+    - 4 green onions (, white and green parts chopped)
+    - 3 tablespoons toasted sesame seeds
+    - 3 tablespoons toasted sesame oil
+    - 2 tablespoons rice vinegar
+    - 1 teaspoon sugar
+    - 1/2 teaspoon kosher salt
+    has_beans_lentils: false
+    non_olive_fats:
+    - toasted sesame oil (3 tbsp, dressing)
+    checked_on: '2026-10-31'
+    notes: 'Simplest: Napa cabbage, carrot, green onion, sesame seeds, sesame oil, rice vinegar. No edamame.
+      Only 1 rating (rating 5) - very thin evidence.'
 - slot: fall-side-roasted-cauliflower
   slot_label: roasted cauliflower
   candidates:
-  - {site: RecipeTin Eats, url: "https://www.recipetineats.com/roasted-cauliflower/", title: "Roasted Cauliflower", rating: 4.9, count: 39, total_time_min: 30, yield: "5", ingredients: ["1 large head cauliflower", "2 1/2 tbsp olive oil", "1/2 tsp salt and pepper", "2 garlic cloves", "1 tbsp parsley", "2 tbsp parmesan", "3 tbsp panko breadcrumbs"], uses_chicken_breast: null, has_beans_lentils: false, non_olive_fats: [], checked_on: "2026-10-31", notes: ""}
-  - {site: Well Plated, url: "https://www.wellplated.com/roasted-cauliflower/", title: "Roasted Cauliflower", rating: 4.84, count: 30, total_time_min: 35, yield: "4 servings", ingredients: ["1 head cauliflower", "2 tablespoons extra virgin olive oil", "1/2 teaspoon kosher salt", "1 teaspoon paprika", "3/4 teaspoon Italian seasoning", "1/2 teaspoon garlic powder", "2 tablespoons Parmesan"], uses_chicken_breast: null, has_beans_lentils: false, non_olive_fats: [], checked_on: "2026-10-31", notes: ""}
-  - {site: Skinnytaste, url: "https://www.skinnytaste.com/oven-roasted-cauliflower/", title: "Oven Roasted Cauliflower", rating: 5, count: 16, total_time_min: 35, yield: "5 servings", ingredients: ["6 1/2 cups cauliflower florets", "3 garlic cloves", "2 tbsp olive oil", "kosher salt and pepper", "juice of 1/4 lemon", "2 tbsp Parmigiano Reggiano"], uses_chicken_breast: null, has_beans_lentils: false, non_olive_fats: [], checked_on: "2026-10-31", notes: ""}
+  - site: natashaskitchen.com
+    url: https://natashaskitchen.com/roasted-cauliflower/
+    title: Oven Roasted Cauliflower Recipe
+    rating: 4.99
+    count: 884
+    total_time_min: 30
+    yield: 6 as a side dish
+    ingredients:
+    - 1 medium cauliflower (sliced in small florets, or 1/2" thick steaks)
+    - 2 Tbsp olive oil
+    - 2 Tbsp unsalted butter (melted)
+    - ½ tsp garlic powder
+    - ½ tsp salt (or to taste)
+    - ¼ tsp ground paprika
+    - ¼ tsp ground black pepper (or to taste)
+    has_beans_lentils: false
+    non_olive_fats:
+    - unsalted butter (2 tbsp)
+    checked_on: '2026-10-31'
+    notes: Olive oil + melted butter with garlic powder/paprika; 6 sides. Extremely high count (884).
+  - site: wholesomeyum.com
+    url: https://www.wholesomeyum.com/roasted-cauliflower/
+    title: Roasted Cauliflower (Easy Recipe)
+    rating: 4.98
+    count: 71
+    total_time_min: 30
+    yield: 4 Servings
+    ingredients:
+    - 1 head Cauliflower ((cut into medium florets, about 1.5 inches in diameter and 1.5-2 inches long))
+    - 2 tbsp Olive oil ( (or avocado oil))
+    - 1/2 tsp Garlic powder ( (optional))
+    - 1/2 tsp Sea salt
+    - 1/4 tsp Black pepper
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Cauliflower, olive oil (or avocado), garlic powder, salt, pepper; 5 ingredients.
 - slot: fall-side-arugula-feta
   slot_label: arugula salad with feta
   candidates:
-  - {site: Skinnytaste, url: "https://www.skinnytaste.com/arugula-salad/", title: "Arugula Salad", rating: 5, count: 12, total_time_min: 5, yield: "4 servings", ingredients: ["6 cups baby arugula", "2 tablespoons extra virgin olive oil", "1/2 large lemon", "1/4 teaspoon kosher salt", "black pepper", "1 ounce shaved Parmesan"], uses_chicken_breast: null, has_beans_lentils: false, non_olive_fats: [], checked_on: "2026-10-31", notes: "Parmesan; feta is a listed variation."}
+  - site: ifoodreal.com
+    url: https://ifoodreal.com/arugula-salad/
+    title: Arugula Feta Salad
+    rating: 5
+    count: 4
+    total_time_min: 15
+    yield: 8 servings
+    ingredients:
+    - 1 tablespoon balsamic vinegar
+    - 3 tablespoons olive oil (extra virgin)
+    - 1 garlic clove (grated)
+    - 1/4 teaspoon salt
+    - Ground black pepper (to taste)
+    - 5 ounces baby arugula
+    - 1 pint cherry or grape tomatoes (halved)
+    - 1/2 cup feta cheese (crumbled)
+    - 1/4 cup fresh dill (finely chopped)
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Arugula, cherry tomatoes, feta, dill with olive-oil/balsamic dressing; 8 servings as written.
+      Only 4 ratings.
+  - site: skinnytaste.com
+    url: https://www.skinnytaste.com/arugula-salad/
+    title: Arugula Salad
+    rating: 5
+    count: 12
+    total_time_min: 5
+    yield: 4 servings
+    ingredients:
+    - 6 cups baby arugula (4 oounces)
+    - 2 tablespoons extra virgin olive oil
+    - 1/2 large lemon
+    - 1/4 teaspoon kosher salt
+    - black pepper (to taste)
+    - 1 ounce shaved Parmesan Cheese (about 1/2 cup )
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: 'DISH-MATCH NOTE: arugula with olive oil, lemon and shaved PARMESAN (no feta); swap feta. Only
+      12 ratings.'
 - slot: fall-side-bok-choy
   slot_label: stir-fried bok choy
   candidates:
-  - {site: Downshiftology, url: "https://downshiftology.com/recipes/bok-choy/", title: "Easy Bok Choy (Garlic & Ginger)", rating: 5, count: 45, total_time_min: 15, yield: "4 servings", ingredients: ["2 tablespoons avocado oil", "4 baby bok choy", "1 teaspoon ginger", "2 garlic cloves", "2 tablespoons water", "salt and pepper"], uses_chicken_breast: null, has_beans_lentils: false, non_olive_fats: ["avocado oil"], checked_on: "2026-10-31", notes: "Garlic + ginger."}
-  - {site: Skinnytaste, url: "https://www.skinnytaste.com/bok-choy-stir-fry/", title: "Bok Choy Stir Fry", rating: 4.67, count: 3, total_time_min: 15, yield: "4 servings", ingredients: ["8 baby bok choy", "4 garlic cloves", "1 tablespoon gochujang", "1/4 cup soy sauce", "2 tablespoons hoisin sauce", "1 tablespoon sesame oil", "scallions and sesame seeds"], uses_chicken_breast: null, has_beans_lentils: false, non_olive_fats: ["sesame oil"], checked_on: "2026-10-31", notes: "Gochujang/hoisin; 3 ratings."}
+  - site: downshiftology.com
+    url: https://downshiftology.com/recipes/bok-choy/
+    title: Easy Bok Choy Recipe (Garlic & Ginger)
+    rating: 5
+    count: 45
+    total_time_min: 15
+    yield: 4 servings
+    ingredients:
+    - 2 tablespoons avocado oil
+    - 4  baby bok choy (sliced in half)
+    - 1 teaspoon minced ginger
+    - 2  garlic cloves (minced)
+    - 2 tablespoons water
+    - salt and pepper
+    has_beans_lentils: false
+    non_olive_fats:
+    - avocado oil (2 tbsp)
+    checked_on: '2026-10-31'
+    notes: Baby bok choy, ginger, garlic, 2 tbsp water. Cooked in AVOCADO oil (not olive).
+  - site: jessicagavin.com
+    url: https://www.jessicagavin.com/how-to-cook-bok-choy/
+    title: How to Cook Bok Choy
+    rating: 4.91
+    count: 475
+    total_time_min: 17
+    yield: 4 servings
+    ingredients:
+    - 1 pound baby bok choy
+    - 2 tablespoons soy sauce
+    - 2 tablespoons vegetable broth
+    - 1 tablespoon rice vinegar
+    - 1 tablespoon sesame oil (divided)
+    - 1 teaspoon honey
+    - ⅛ teaspoon red chili flakes
+    - 2 tablespoons vegetable oil (divided)
+    - 1 tablespoon minced garlic
+    - 2 teaspoons minced ginger
+    - ¼ cup thinly sliced green onions (white and green parts)
+    - ¼ teaspoon sesame seeds
+    has_beans_lentils: false
+    non_olive_fats:
+    - vegetable oil (2 tbsp)
+    - sesame oil (1 tbsp)
+    checked_on: '2026-10-31'
+    notes: Bok choy stir-fry with soy-garlic-ginger sauce; many ingredients (>8), vegetable oil + sesame
+      oil, not olive.
 - slot: fall-side-delicata-squash
-  slot_label: roasted delicata squash
+  slot_label: roasted delicata or butternut squash
   candidates:
-  - {site: Skinnytaste, url: "https://www.skinnytaste.com/roasted-delicata-squash/", title: "Roasted Delicata Squash", rating: 4.84, count: 6, total_time_min: 50, yield: "4 servings", ingredients: ["2 delicata squash", "1 1/2 tablespoons olive oil", "1 1/2 tablespoons maple syrup", "3/4 teaspoon kosher salt", "1/3 cup toasted almonds", "1 tablespoon sage", "1/2 teaspoon paprika"], uses_chicken_breast: null, has_beans_lentils: false, non_olive_fats: [], checked_on: "2026-10-31", notes: "Maple glaze + almonds."}
-  - {site: Skinnytaste, url: "https://www.skinnytaste.com/roasted-delicata-squash-and-brussels-sprouts/", title: "Roasted Delicata Squash and Brussels Sprouts", rating: 5, count: 3, total_time_min: 40, yield: "4 servings", ingredients: ["2 Delicata squash", "2 tablespoons extra virgin olive oil", "1/2 teaspoon paprika", "1/2 teaspoon cinnamon", "1 red onion", "1 pound Brussels sprouts", "1 teaspoon salt", "balsamic glaze"], uses_chicken_breast: null, has_beans_lentils: false, non_olive_fats: [], checked_on: "2026-10-31", notes: "3 ratings."}
+  - site: loveandlemons.com
+    url: https://www.loveandlemons.com/roasted-butternut-squash/
+    title: Roasted Butternut Squash
+    rating: 4.95
+    count: 115
+    total_time_min: 40
+    yield: '4'
+    ingredients:
+    - 1  butternut squash (peeled, seeds scooped, and cubed)
+    - Extra-virgin olive oil (for drizzling)
+    - Sea salt and freshly ground black pepper
+    - Chopped fresh parsley (optional, for garnish)
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Butternut cubes with olive oil, salt, pepper; 3 ingredients.
+  - site: wellplated.com
+    url: https://www.wellplated.com/cinnamon-roasted-butternut-squash/
+    title: Roasted Butternut Squash
+    rating: 4.89
+    count: 582
+    total_time_min: 40
+    yield: 4 –5 servings
+    ingredients:
+    - 1 large butternut squash (about 3 pounds, peeled, seeded, and cut into 1-inch cubes)
+    - 1 1/2 tablespoons extra-virgin olive oil
+    - 1 1/2 tablespoons pure maple syrup
+    - 1 3/4 teaspoons kosher salt
+    - 3/4 teaspoon ground cinnamon
+    - 1/2 teaspoon ground black pepper
+    - 1 tablespoon chopped fresh rosemary
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Butternut with olive oil, maple, cinnamon, rosemary; huge review count (582).
+  - site: wholesomeyum.com
+    url: https://www.wholesomeyum.com/delicata-squash-recipe/
+    title: Roasted Delicata Squash (Easy Recipe)
+    rating: 5
+    count: 11
+    total_time_min: 30
+    yield: 6 servings
+    ingredients:
+    - 2 medium Delicata squash ((2 pounds each))
+    - 1/4 cup Olive oil
+    - 1/2 tbsp Garlic powder ((optional))
+    - 3/4 tsp Sea salt
+    - 1/4 tsp Black pepper
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Delicata with olive oil, garlic powder, salt; only 11 ratings (rating 5).
 - slot: fall-lunch-1
-  slot_label: chicken, roasted squash and farro bowls (chicken breast)
+  slot_label: chicken, roasted squash and farro (or grain) bowls (chicken breast)
   candidates:
-  - {site: Cooking Classy, url: "https://www.cookingclassy.com/sweetgreen-harvest-bowl/", title: "Harvest Bowls", rating: 5, count: 3, total_time_min: 60, yield: "5", ingredients: ["1/3 cup olive oil", "2 Tbsp lemon juice", "1 Tbsp honey", "2 tsp dijon", "1 cup wild rice blend", "3 cups cooked chicken breast", "2 Tbsp olive oil", "1 lb sweet potato", "1 lb Brussels sprouts", "1 Tbsp rosemary and thyme", "5 cups kale", "2 apples", "2/3 cup almonds", "2/3 cup feta"], uses_chicken_breast: true, has_beans_lentils: false, non_olive_fats: [], checked_on: "2026-10-31", notes: "Cooked breast + sweet potato + wild rice (farro as a swap); 3 ratings."}
+  - site: skinnytaste.com
+    url: https://www.skinnytaste.com/fall-chicken-sheet-pan-dinner/
+    title: Fall Chicken Sheet Pan Dinner
+    rating: 4.78
+    count: 22
+    total_time_min: 50
+    yield: 4 servings
+    ingredients:
+    - 1 ½ pounds boneless skinless chicken thighs (cut into 1-inch pieces)
+    - 1 medium red onion (cut into 1-inch pieces)
+    - 2 cups brussels sprouts (halved)
+    - 2 cups butternut squash (diced small)
+    - 1 ½ tablespoons extra virgin olive oil (divided)
+    - 4 ounces feta chunk (crumbled by hand)
+    - 1 ½ teaspoon smoked paprika
+    - 1 ½ teaspoon cumin
+    - 1 teaspoon garlic powder
+    - 1 teaspoon onion powder
+    - ½ teaspoon ground cinnamon
+    - 1 ½ teaspoon kosher salt
+    uses_chicken_breast: false
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: 'DISH-MATCH VIOLATIONS: uses chicken THIGHS (no breast), no grain in ingredient list (page
+      suggests rice/quinoa/farro). Butternut squash + Brussels sprouts + feta, olive oil. 4 servings.
+      Best-rated fall chicken+squash sheet pan on the allowed sites that I could read.'
+  - site: thelemonbowl.com
+    url: https://thelemonbowl.com/sheet-pan-chicken-and-acorn-squash/
+    title: Chicken and Acorn Squash Sheet Pan Dinner
+    rating: 4.49
+    count: 33
+    total_time_min: 50
+    yield: 4 servings
+    ingredients:
+    - 1 acorn squash seeded and sliced (skin-on)
+    - 1 pound split chicken breasts (bone-in)
+    - 4 chicken drum sticks
+    - 1 tablespoon extra virgin olive oil
+    - 1 tablespoon cinnamon
+    - 1 tablespoon garlic powder
+    - 1 teaspoon salt
+    - 1/2 teaspoon pepper
+    uses_chicken_breast: true
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Page read via WebFetch (direct curl returns 403); rating 4.49 from 33 votes per page schema.
+      Acorn squash (not butternut), bone-in split chicken breasts plus 4 drumsticks (page suggests boneless
+      breast substitution), no grain in recipe (serve over farro). Olive oil. Header time display is garbled;
+      prep 10 + cook 40 = 50.
+  - site: thelemonbowl.com
+    url: https://thelemonbowl.com/grain-bowls-with-chicken-veggies-and-tahini-dressing/
+    title: Grain Bowls with Chicken and Vegetables
+    rating: null
+    count: null
+    total_time_min: 40
+    yield: 4 servings
+    ingredients:
+    - 2 cups cooked bulgur wheat or quinoa for gluten free bowl
+    - 4 servings leftover Asian Citrus Slow Cooker Shredded Chicken
+    - 2 cups Brussels sprouts quartered
+    - 2 cups peeled and cubed butternut squash or sweet potatoes
+    - 1 tablespoon extra virgin olive oil
+    - salt and pepper to taste
+    - 1 avocado pitted and cubed
+    - 1 Cara Cara orange - segmented or seedless orange of choice
+    - 1/4 cup sliced almonds toasted
+    - 2 tablespoons tahini
+    - 2 tablespoons soy sauce low sodium
+    - 2 tablespoons lemon juice
+    - 2 tablespoons warm water
+    - 1 clove garlic grated
+    - 1/4 teaspoon salt more or less to taste
+    uses_chicken_breast: unspecified
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Page read via WebFetch. NO rating on page. Bulgur/quinoa grain bowl with roasted butternut
+      + Brussels sprouts, tahini dressing, avocado, orange; chicken is leftover Asian Citrus Slow Cooker
+      Shredded Chicken (cut not specified, separate recipe). Olive oil. More than 8 non-pantry ingredients.
+      Farro substitution noted by author.
 - slot: fall-lunch-2
   slot_label: beef gyro bowls (ground beef, rice, cucumber, tzatziki)
   candidates:
-  - {site: Wholesome Yum, url: "https://www.wholesomeyum.com/gyro-meat/", title: "Gyro Meat (Easy Recipe)", rating: 4.94, count: 77, total_time_min: 185, yield: "8 servings", ingredients: ["1 onion", "4 cloves garlic", "1 lb ground lamb", "1 lb ground beef", "1 tbsp oregano", "2 tsp marjoram", "2 tsp thyme", "2 tsp rosemary", "1 tsp cumin", "2 tsp sea salt"], uses_chicken_breast: null, has_beans_lentils: false, non_olive_fats: [], checked_on: "2026-10-31", notes: "Lamb + beef; 185 min incl chilling."}
-  - {site: Well Plated, url: "https://www.wellplated.com/gyro-recipe/", title: "Gyro Recipe", rating: 4.58, count: 7, total_time_min: 35, yield: "6 servings", ingredients: ["1 pound lean ground beef", "1 pound ground lamb (or 85/15 beef)", "3 cloves garlic", "1 tablespoon oregano", "1 teaspoon cumin", "1/4 teaspoon cinnamon", "3/4 teaspoon salt", "Olive oil", "Pita or rice", "Tzatziki", "cucumbers, red onion, tomato", "feta"], uses_chicken_breast: null, has_beans_lentils: false, non_olive_fats: [], checked_on: "2026-10-31", notes: "Beef + lamb (lamb can be all beef); rice serving option; 7 ratings."}
+  - site: wholesomeyum.com
+    url: https://www.wholesomeyum.com/gyro-meat/
+    title: Gyro Meat (Easy Recipe)
+    rating: 4.94
+    count: 77
+    total_time_min: 65
+    yield: 8 servings
+    ingredients:
+    - 1 medium Onion ((cut into chunks))
+    - 4 cloves Garlic
+    - 1 lb Ground lamb
+    - 1 lb Ground beef
+    - 1 tbsp Dried oregano
+    - 2 tsp Dried marjoram
+    - 2 tsp Dried thyme
+    - 2 tsp Dried rosemary
+    - 1 tsp Cumin
+    - 2 tsp Sea salt
+    - 1/2 tsp Black pepper
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Gyro meat (food-processed onion/garlic + herbs) uses 1 lb beef AND 1 lb LAMB (flag); no rice
+      or tzatziki in ingredient list (bowl serving suggested on page). Schema total 185 min includes chilling/resting
+      (active prep 15 + cook 50). 8 servings - good for meal prep.
+  - site: wellplated.com
+    url: https://www.wellplated.com/gyro-recipe/
+    title: Gyro Recipe
+    rating: 4.58
+    count: 7
+    total_time_min: 35
+    yield: 6 servings
+    ingredients:
+    - 1 pound lean ground beef (I used 90% lean)
+    - 1 pound ground lamb (or 85/15 ground beef)
+    - 3 cloves minced garlic (about 1 tablespoon)
+    - 1 tablespoon dried oregano
+    - 1 teaspoon ground cumin
+    - 1/4 teaspoon ground cinnamon
+    - 3/4 teaspoon kosher salt
+    - 1/2 teaspoon ground black pepper
+    - Olive oil (for brushing)
+    - Pita bread (brown rice, white rice, or Lemon Rice)
+    - Tzatziki sauce, plain Greek yogurt, or cottage cheese
+    - Chopped vegetables ((cucumbers, red onion, tomato))
+    - Crumbled feta
+    - Finely chopped fresh parsley
+    - Hummus (a fun bonus on the side)
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: 'Sheet-pan gyro meat: 1 lb lean beef + 1 lb LAMB (page says 85/15 beef can replace lamb); serve
+      over rice with tzatziki, cucumber, tomato, feta. Optional HUMMUS listed as side (skip it). Olive
+      oil brush. Only 7 ratings.'
 - slot: fall-lunch-3
   slot_label: teriyaki chicken and broccoli rice bowls (chicken breast)
   candidates:
-  - {site: Well Plated, url: "https://www.wellplated.com/teriyaki-chicken-stir-fry/", title: "Teriyaki Chicken Stir Fry", rating: 4.86, count: 85, total_time_min: 30, yield: "4 servings", ingredients: ["1 tablespoon extra-virgin olive oil", "1 1/4 pounds boneless skinless chicken breasts", "1 red bell pepper", "3 cups mixed vegetables (broccoli etc)", "1 can water chestnuts", "2 green onions", "soy sauce", "brown rice", "1/2 cup water", "1/3 cup soy sauce", "3 tablespoons honey", "1 tablespoon garlic", "1 tablespoon ginger", "1 tablespoon cornstarch"], uses_chicken_breast: true, has_beans_lentils: false, non_olive_fats: [], checked_on: "2026-10-31", notes: "Teriyaki breast stir fry; broccoli among veg; over rice."}
-  - {site: Cooking Classy, url: "https://www.cookingclassy.com/teriyaki-grilled-chicken-and-veggie-rice-bowls/", title: "Teriyaki Grilled Chicken and Veggie Rice Bowls", rating: 5, count: 20, total_time_min: 45, yield: "4 servings", ingredients: ["1/2 cup soy sauce", "1/2 cup water", "3 Tbsp brown sugar", "3 Tbsp honey", "3 cloves garlic", "1 Tbsp ginger", "1 Tbsp rice vinegar", "1 1/2 Tbsp cornstarch", "3 1/2 Tbsp olive oil", "1 1/2 lbs chicken breasts", "1 zucchini", "1 1/2 cups carrots", "2 1/2 cups broccoli", "2 cups rice"], uses_chicken_breast: true, has_beans_lentils: false, non_olive_fats: [], checked_on: "2026-10-31", notes: "Grilled teriyaki breast + broccoli/zucchini/carrot over rice."}
-  - {site: Skinnytaste, url: "https://www.skinnytaste.com/honey-sriracha-chicken-and-broccoli-meal-prep-bowls/", title: "Honey Sriracha Chicken and Broccoli Meal Prep Bowls", rating: 4.72, count: 80, total_time_min: 30, yield: "4 servings", ingredients: ["olive oil spray", "3 chicken breasts", "1 egg white", "2 tablespoons corn starch", "1 1/4 teaspoon kosher salt", "1 head broccoli", "2 teaspoons sesame oil", "2 cups brown rice", "2 tablespoons honey", "2 tablespoons sriracha", "1 teaspoon rice vinegar", "2 scallions"], uses_chicken_breast: true, has_beans_lentils: false, non_olive_fats: ["sesame oil"], checked_on: "2026-10-31", notes: "Honey-sriracha (not teriyaki) breast + broccoli meal prep."}
+  - site: wholesomeyum.com
+    url: https://www.wholesomeyum.com/teriyaki-chicken-bowl/
+    title: Teriyaki Chicken Bowl (Easy 30-Minute Dinner)
+    rating: 5
+    count: 6
+    total_time_min: 30
+    yield: 4 servings
+    ingredients:
+    - 1 recipe Teriyaki sauce ((or 1/2 cup store-bought teriyaki sauce))
+    - 1 head Broccoli ((chopped into florets; ~3 cups))
+    - 2 tbsp Olive oil
+    - 24 oz Boneless skinless chicken breasts ((cut into bite-sized pieces))
+    - 2 tsp Sesame seeds
+    - 1 medium Green onion ((sliced))
+    - 2 medium Carrots ((shredded; ~1 cup))
+    - 2 cups Cooked rice ((with salt and pepper added to taste))
+    uses_chicken_breast: true
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Chicken breast, broccoli, shredded carrot, rice, olive oil; teriyaki sauce is a separate recipe/store-bought
+      (sauce ingredients not in list). Only 6 ratings (5.0).
+  - site: cookingclassy.com
+    url: https://www.cookingclassy.com/teriyaki-grilled-chicken-and-veggie-rice-bowls/
+    title: Teriyaki Grilled Chicken and Veggie Rice Bowls
+    rating: 5
+    count: 20
+    total_time_min: 45
+    yield: 4 servings
+    ingredients:
+    - 1/2 cup low-sodium soy sauce
+    - 1/2 cup water
+    - 3 Tbsp packed light-brown sugar
+    - 3 Tbsp honey
+    - 3 cloves garlic (, minced (1 Tbsp))
+    - 1 Tbsp minced ginger
+    - 1 Tbsp rice vinegar
+    - 1 1/2 Tbsp cornstarch
+    - 3 1/2 Tbsp olive oil (, divided, plus more for brushing grill)
+    - 1 1/2 lbs bonless skinless chicken breasts
+    - Ground black pepper
+    - 1 medium zucchini (, diced into half moons and quartered (1 1/2 cups))
+    - 1 1/2 cups matchstick carrots
+    - 2 1/2 cups small diced broccoli florets
+    - 1 1/2 - 2 cups white or brown rice (, cooked according to directions on package (I prefer short
+      grain brown rice))
+    - Sesame seeds (, optional)
+    uses_chicken_breast: true
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Marinated/grilled breast + zucchini, carrot, broccoli, rice; homemade teriyaki with brown sugar
+      and honey; olive oil. 4 servings; more than 8 ingredients.
+- slot: fall-lunch-4
+  slot_label: chicken and wild rice (or grain) meal-prep bowls (chicken breast)
+  candidates:
+  - site: cookingclassy.com
+    url: https://www.cookingclassy.com/sweetgreen-harvest-bowl/
+    title: Harvest Bowls
+    rating: 5
+    count: 3
+    total_time_min: 60
+    yield: '5'
+    ingredients:
+    - 1/3 cup olive oil
+    - 2 Tbsp fresh lemon juice, (plus 1 1/2 tsp lemon zest)
+    - 1 Tbsp honey
+    - 2 tsp dijon mustard
+    - Salt (and black pepper)
+    - 1 cup wild rice blend,* (such as Lundberg, cooked according to package directions)
+    - 3 cups cooked chicken breast,** (chopped)
+    - 2 Tbsp olive oil
+    - 1 lb. sweet potato ((1 extra large), peeled and chopped into 1/2-inch cubes)
+    - 1 lb. Brussels sprouts, (halved )
+    - 1 Tbsp each minced fresh rosemary (and fresh thyme (or 1 tsp dried of each))
+    - 5 cups shredded curly kale
+    - 2 medium apples, (cored and chopped (I prefer gala or honeycrisp))
+    - 2/3 cup slivered toasted almonds, (or toasted chopped pecans)
+    - 2/3 cup crumbled feta (or goat cheese)
+    uses_chicken_breast: true
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Wild rice blend, chopped cooked chicken breast, roasted sweet potato + Brussels sprouts, kale,
+      apples, almonds, feta, lemon-Dijon olive-oil dressing (page suggests butternut swap). More than
+      8 non-pantry ingredients. Only 3 ratings.
+  - site: skinnytaste.com
+    url: https://www.skinnytaste.com/greek-chicken-meal-prep-rice-bowls/
+    title: Meal Prep Greek Chicken Rice Bowls
+    rating: 4.85
+    count: 38
+    total_time_min: 60
+    yield: 4 servings
+    ingredients:
+    - 1 1/2 pounds boneless (skinless chicken breasts (2 large or 3 small))
+    - 2 tablespoons fresh lemon juice
+    - 2 tablespoons red wine vinegar
+    - 1 tablespoon extra virgin olive oil
+    - 3 cloves garlic (minced)
+    - 2 teaspoons dried oregano
+    - 1-1/4 cups quick cooking brown rice (such as Uncle Bens 10 min rice)
+    - 2 cups low sodium chicken broth
+    - 1 dry pint cherry or grape tomatoes
+    - 1 medium cucumber (peeled, seeded and cut into bite-sized pieces)
+    - 1 small orange bell pepper (cut into 1-inch pieces)
+    - 20 pitted Kalamata olives (sliced)
+    - 4 teaspoons extra virgin olive oil
+    - 1 medium lemon (quartered)
+    - 1/4 cup crumbled feta cheese
+    uses_chicken_breast: true
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Marinated chicken breast with brown rice (not wild rice), cucumber, tomatoes, olives, feta;
+      explicit meal-prep recipe; olive oil.
