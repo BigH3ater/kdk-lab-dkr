@@ -17,6 +17,7 @@ Stack definitions live in `stacks/` in the repo; Komodo deploys them from git. O
 | [Obsidian to reMarkable](obsidian-to-koreader.md) | kdk-dkr-01 | — (SSH to tablet) | obsidian-to-koreader |
 | [Trailarr](trailarr.md) | kdk-dkr-01 | https://trailarr.kmkdp.com | trailarr |
 | [net-exporters](net-exporters.md) | kdk-dkr-01 | — (scraped by kdk-mon-01) | net-exporters |
+| [actual-bank-sync](actual-bank-sync.md) | kdk-dkr-01 | — (daily one-shot, Grafana → Loki) | actual-bank-sync |
 | [Traefik DMZ + tunnel](dmz-proxy.md) | kdk-dkr-dmz-01 | — | dmz-proxy |
 | [Identity](identity.md) | kdk-dkr-dmz-01 | https://sso.kmkdp.com | identity |
 | [Jellyfin](jellyfin.md) | kdk-dkr-dmz-01 | https://jellyfin.kmkdp.com | jellyfin |
