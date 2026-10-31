@@ -71,3 +71,13 @@ groups:
         annotations:
           summary: "No logs from kdk-log-01 in Loki for 30m"
           description: "Check the alloy container on kdk-log-01 (observability-agent stack), its LOKI_HOST, and that it can reach 10.1.20.21:3100."
+      - alert: LokiShippingStalled
+        expr: absent_over_time({host="kdk-dkr-04"}[30m])
+        for: 5m
+        labels:
+          severity: warning
+          source: loki
+          host: kdk-dkr-04
+        annotations:
+          summary: "No logs from kdk-dkr-04 in Loki for 30m"
+          description: "Check the alloy container on kdk-dkr-04 (observability-agent stack), its LOKI_HOST, and that it can reach 10.1.20.21:3100."

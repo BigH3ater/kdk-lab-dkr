@@ -60,6 +60,17 @@ name = "kdk-log-01"
 address = "https://10.1.20.21:8120"
 enabled = true
 
+# Internal compose host (VM `kdkdkr04` on kdk-nas-01): the second internal
+# Docker host, added 2026-10-30 to split the heavy render/encode work off the
+# over-committed kdk-dkr-01. Periphery binds 10.1.20.22 only and the nft
+# host_guard admits :8120 from Komodo Core (kdk-dkr-01) on same-subnet VLAN 20.
+[[server]]
+tags = ["kdk-lab"]
+name = "kdk-dkr-04"
+[server.config]
+address = "https://10.1.20.22:8120"
+enabled = true
+
 # ---- kdk-dkr-01 stacks ----
 [[stack]]
 tags = ["kdk-lab"]
@@ -949,6 +960,7 @@ executions = [
   { execution.type = "PruneImages", execution.params.server = "kdk-dkr-02", enabled = true },
   { execution.type = "PruneImages", execution.params.server = "kdk-dkr-03", enabled = true },
   { execution.type = "PruneImages", execution.params.server = "kdk-log-01", enabled = true },
+  { execution.type = "PruneImages", execution.params.server = "kdk-dkr-04", enabled = true },
 ]
 
 # Radarr import-list guard: the IMDb Popular / Top 250 lists keep pushing
@@ -1293,6 +1305,17 @@ repo = "BigH3ater/kdk-lab-dkr"
 run_directory = "stacks/node-exporter"
 webhook_enabled = true
 
+[[stack]]
+tags = ["kdk-lab"]
+name = "node-exporter-dkr04"
+deploy = true
+[stack.config]
+server = "kdk-dkr-04"
+repo = "BigH3ater/kdk-lab-dkr"
+run_directory = "stacks/node-exporter"
+environment = "BIND_IP=10.1.20.22"   # node_exporter listens on the VLAN address only
+webhook_enabled = true
+
 # --force-recreate: the compose bind-mounts single files (a script / ups.conf);
 # compose never hashes file contents, so without it an edit never reaches the
 # running container (event-watch ran its Sep-20 script until 2026-10-17).
@@ -1376,6 +1399,19 @@ repo = "BigH3ater/kdk-lab-dkr"
 run_directory = "stacks/observability-agent"
 pre_deploy.command = "sh -c 'echo AGENT_CONFIG_SHA=$(cat alloy/config.alloy docker-event-watch.sh | sha256sum | cut -c1-12) >> .env'"   # APPEND: Komodo renders LOKI_HOST/NODE_NAME into .env first; '>' wiped them (host=unknown, 2026-10-28)
 environment = "LOKI_HOST=10.1.20.21\nNODE_NAME=kdk-dkr-03\nBIND_IP=10.1.30.22"
+webhook_enabled = true
+
+[[stack]]
+tags = ["kdk-lab"]
+name = "observability-agent-dkr04"
+deploy = true
+after = ["loki"]
+[stack.config]
+server = "kdk-dkr-04"
+repo = "BigH3ater/kdk-lab-dkr"
+run_directory = "stacks/observability-agent"
+pre_deploy.command = "sh -c 'echo AGENT_CONFIG_SHA=$(cat alloy/config.alloy docker-event-watch.sh | sha256sum | cut -c1-12) >> .env'"   # APPEND: Komodo renders LOKI_HOST/NODE_NAME into .env first; '>' wiped them (host=unknown, 2026-10-28)
+environment = "LOKI_HOST=10.1.20.21\nNODE_NAME=kdk-dkr-04\nBIND_IP=10.1.20.22"
 webhook_enabled = true
 
 # reMarkable <-> Readwise pipeline (migrated from the decommissioned dockge host).

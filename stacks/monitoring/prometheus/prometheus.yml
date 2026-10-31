@@ -48,6 +48,7 @@ scrape_configs:
           - "192.168.191.20:9100" # kdk-dkr-dmz-01 (VM)
           - "10.1.20.30:9100"   # kdk-mon-01  (this host)
           - "10.1.20.21:9100"   # kdk-log-01  (VM, Loki)
+          - "10.1.20.22:9100"   # kdk-dkr-04  (VM, NAS-hosted)
           - "10.1.30.21:9100"   # kdk-dkr-02  (Pi, HA)
           - "10.1.30.22:9100"   # kdk-dkr-03  (Pi, HomeKit)
           - "10.1.1.100:9100"   # kdk-hyp-01  (Proxmox)
@@ -66,6 +67,7 @@ scrape_configs:
       - {targets: ["192.168.191.20:9280"], labels: {host: kdk-dkr-dmz-01}}
       - {targets: ["10.1.20.30:9280"], labels: {host: kdk-mon-01}}
       - {targets: ["10.1.20.21:9280"], labels: {host: kdk-log-01}}
+      - {targets: ["10.1.20.22:9280"], labels: {host: kdk-dkr-04}}
       - {targets: ["10.1.30.21:9280"], labels: {host: kdk-dkr-02}}
       - {targets: ["10.1.30.22:9280"], labels: {host: kdk-dkr-03}}
     metric_relabel_configs:
@@ -96,6 +98,7 @@ scrape_configs:
           - "10.1.1.53"         # AdGuard VIP
           - "10.1.20.20"        # kdk-dkr-01
           - "10.1.20.21"        # kdk-log-01
+          - "10.1.20.22"        # kdk-dkr-04
           - "192.168.191.20"    # kdk-dkr-dmz-01
     relabel_configs:
       - source_labels: [__address__]
