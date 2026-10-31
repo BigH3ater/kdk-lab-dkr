@@ -57,17 +57,6 @@
 # per-install values out of this public repo.
 
 # ---------------------------------------------------------------------------
-# Recipients. A notify group so a second phone is one line (owner phone only
-# today — notify.mobile_app_iphone, confirmed via GET /api/services).
-# ---------------------------------------------------------------------------
-notify:
-  - platform: group
-    name: approval_recipients
-    services:
-      - service: mobile_app_iphone
-      # - service: mobile_app_rachels_phone   # add a recipient: one line
-
-# ---------------------------------------------------------------------------
 # Vikunja REST calls. The token is a !secret header value ("Bearer <token>"),
 # never catted from a file and never in git. Vikunja replies application/json,
 # so `.content` in a response_variable is already parsed.
@@ -135,6 +124,69 @@ rest_command:
 # Scripts: send the actionable notification, and the resolved replacement.
 # ---------------------------------------------------------------------------
 script:
+  # Every phone message goes through here, so presence is applied in one place.
+  # Owner rule 2026-10-31: only notify a person who is HOME. Tasks open on
+  # tasks.kmkdp.com, which is LAN-only, so an away person cannot act on them.
+  #   mode: home     -> send only to recipients whose person is `home`
+  #                     (optionally only to `only_person`). Away recipients get
+  #                     it on arrival (automation approval_arrival).
+  #   mode: resolve  -> home recipients get the resolved message; away
+  #                     recipients get a silent clear_notification for the tag,
+  #                     so no stale buttons are left on any phone.
+  # Recipients: add or remove a phone here (one entry per person).
+  approval_send:
+    alias: "Approval: send to recipients at home"
+    mode: parallel
+    fields:
+      mode: { description: "home | resolve" }
+      only_person: { description: "Optional person entity id" }
+      task_id: { description: "Vikunja task id (for the logbook)" }
+      title: { description: "Notification title" }
+      message: { description: "Notification message" }
+      data: { description: "Companion notification data (tag, actions, url, ...)" }
+    sequence:
+      - variables:
+          recipients:
+            - { person: person.jacob, notify: notify.mobile_app_iphone }
+            - { person: person.rachel, notify: notify.mobile_app_rachels_phone }
+          target_person: "{{ only_person | default('') }}"
+          sent: >-
+            {% set home = states.person | selectattr('state', 'eq', 'home')
+                          | map(attribute='entity_id') | list %}
+            {% set wanted = [target_person] if target_person
+                            else recipients | map(attribute='person') | list %}
+            {{ recipients | selectattr('person', 'in', home)
+               | selectattr('person', 'in', wanted)
+               | map(attribute='person') | list }}
+      - repeat:
+          for_each: "{{ recipients }}"
+          sequence:
+            - choose:
+                - conditions: "{{ repeat.item.person in sent }}"
+                  sequence:
+                    - action: "{{ repeat.item.notify }}"
+                      continue_on_error: true
+                      data:
+                        title: "{{ title }}"
+                        message: "{{ message }}"
+                        data: "{{ data }}"
+                - conditions: "{{ mode == 'resolve' }}"
+                  sequence:
+                    - action: "{{ repeat.item.notify }}"
+                      continue_on_error: true
+                      data:
+                        message: clear_notification
+                        data:
+                          tag: "{{ data.tag }}"
+      - action: logbook.log
+        continue_on_error: true
+        data:
+          name: Approvals
+          entity_id: automation.approval_poll_vikunja_and_reconcile_phone
+          message: >-
+            task {{ task_id }} ({{ mode }}): sent to
+            {{ sent | map('replace', 'person.', '') | join(', ') or 'nobody (no recipient home)' }}
+
   # Actionable "needs a decision" notification. Buttons come from an optional
   # APPROVALS-CHOICES line in the description; default is Approve + Skip. tag
   # and action ids are keyed on the (never-reused) Vikunja task id, so an old
@@ -147,6 +199,7 @@ script:
       task_id: { description: "Vikunja task id" }
       title: { description: "Task title" }
       description_raw: { description: "Raw (HTML) task description" }
+      only_person: { description: "Optional person entity: send to this recipient only (arrival catch-up)" }
     sequence:
       - variables:
           clean: "{{ (description_raw | default('')) | regex_replace('<[^>]+>', ' ') }}"
@@ -177,8 +230,11 @@ script:
             {% endif %}
             {{ ns.a }}
           body: "{{ clean | regex_replace('APPROVALS-CHOICES:[^\\n]*', '') | trim | truncate(160, true) }}"
-      - action: notify.approval_recipients
+      - action: script.approval_send
         data:
+          mode: home
+          only_person: "{{ only_person | default('') }}"
+          task_id: "{{ task_id }}"
           title: "Approve: {{ title }}"
           message: "{{ body if body | length > 0 else 'Tap to decide.' }}"
           data:
@@ -199,8 +255,10 @@ script:
       title: { description: "Task title" }
       outcome: { description: "Approved / Skipped / Resolved (+ choice)" }
     sequence:
-      - action: notify.approval_recipients
+      - action: script.approval_send
         data:
+          mode: resolve
+          task_id: "{{ task_id }}"
           title: "{{ outcome }}: {{ title }}"
           message: "Resolved in Vikunja."
           data:
@@ -444,9 +502,11 @@ automation:
                     approval_tasks: could not record decision for task
                     {{ task_id }} (update status {{ upd.status | default('none') }});
                     leaving it open. Check the Vikunja token's tasks scope.
-              - action: notify.approval_recipients
+              - action: script.approval_send
                 continue_on_error: true
                 data:
+                  mode: home
+                  task_id: "{{ task_id }}"
                   title: "Couldn't record: {{ t_title }}"
                   message: "Open the task to decide."
                   data:
@@ -455,3 +515,39 @@ automation:
                     url: "https://tasks.kmkdp.com/tasks/{{ task_id }}"
                     push:
                       interruption-level: "active"
+
+  # Arrival catch-up: when a recipient comes home, send them every approval
+  # that is still open and was already claimed (`notified`) while they were away.
+  - id: approval_arrival
+    alias: "Approval: catch up a recipient who arrives home"
+    mode: queued
+    triggers:
+      - trigger: state
+        entity_id:
+          - person.jacob
+          - person.rachel
+        to: home
+        for: "00:01:00"
+    actions:
+      - action: rest_command.vikunja_list_approvals
+        data:
+          project_id: !secret vikunja_approvals_project
+        response_variable: resp
+      - condition: template
+        value_template: "{{ resp is defined and resp.status == 200 and resp.content is iterable }}"
+      - variables:
+          id_notified: !secret vikunja_label_notified
+      - repeat:
+          for_each: "{{ resp.content }}"
+          sequence:
+            - condition: template
+              value_template: >-
+                {{ not repeat.item.done and id_notified in
+                   ((repeat.item.labels or []) | map(attribute='id') | list) }}
+            - action: script.approval_notify
+              continue_on_error: true
+              data:
+                task_id: "{{ repeat.item.id }}"
+                title: "{{ repeat.item.title }}"
+                description_raw: "{{ repeat.item.description | default('') }}"
+                only_person: "{{ trigger.entity_id }}"
