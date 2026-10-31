@@ -1,0 +1,60 @@
+# Daily Actual Budget bank-sync one-shot on kdk-dkr-01 (actual-bank-sync
+# procedure, 05:32 America/Chicago). Actual never syncs bank data on its own:
+# SimpleFIN transactions only arrive when someone presses "Bank Sync". This job
+# presses it once a day, headless, then exits.
+#
+# Auth: a SESSION TOKEN from a dedicated, never-logged-out browser session of the
+# owner's own OIDC user (login is Authelia OIDC only, so there is no password).
+# The budget is end-to-end encrypted, so it also needs the E2E password. Both are
+# op-injected into .env from the kdk-cluster vault (see .env.tpl); the decrypted
+# budget cache lives only on a tmpfs and is gone when the container exits.
+#
+# It reaches the Actual server over Docker DNS on the actual stack's network
+# (http://actual:5006), not through the proxy. Logging: one JSON line of COUNTS
+# ONLY per run -- never amounts, payees, account names or balances. The line goes
+# to stdout AND straight to Loki (job="actual-bank-sync"), because the host Alloy
+# does not reliably scrape one-shot containers that exit in seconds (same pattern
+# as advisory-watch / readwise-koreader). The Loki ruler alerts on status != ok.
+name: actual-bank-sync
+
+# Baseline per docs/reference/compose-baseline.md; the one-shot overrides restart.
+x-hardened: &hardened
+  security_opt: ["no-new-privileges:true"]
+  cap_drop: [ALL]
+  read_only: true
+  restart: "no"            # one-shot; the actual-bank-sync procedure runs it
+  pids_limit: 64
+  mem_limit: 256m
+  logging:
+    driver: json-file
+    options: { max-size: "10m", max-file: "3" }
+
+services:
+  banksync:
+    <<: *hardened
+    build: ./app
+    image: kdk/actual-bank-sync:latest   # built locally; auto_pull = false in komodo/resources.toml
+    container_name: actual-bank-sync
+    user: "1000:1000"
+    init: true               # node one-shot: tini reaps + forwards SIGTERM
+    env_file: [.env]         # ACTUAL_SESSION_TOKEN + ACTUAL_E2E_PASSWORD (op-injected)
+    environment:
+      TZ: America/Chicago
+      ACTUAL_SERVER_URL: "http://actual:5006"   # docker DNS on the actual stack network
+      ACTUAL_SYNC_ID: "821405a7-8bb2-403e-b17e-c8b871a9a670"   # budget sync id (not a secret)
+      ACTUAL_DATA_DIR: /data                     # decrypted cache -> tmpfs (ephemeral)
+      LOKI_URL: "http://10.1.20.21:3100"         # kdk-log-01 Loki (one-shot push)
+      NODE_NAME: kdk-dkr-01
+    tmpfs:
+      - /tmp
+      - /data               # budget cache; disappears on exit (E2E data never persists)
+    networks: [actual_default]
+    labels:
+      kdk.baseline.skip: "healthcheck"   # one-shot: nothing to health-check
+
+networks:
+  # The actual stack's default bridge (compose names it <project>_default). Joining
+  # it gives docker-DNS access to `actual` and, as a non-internal bridge, LAN
+  # egress to the Loki host. External so this stack never recreates it.
+  actual_default:
+    external: true
