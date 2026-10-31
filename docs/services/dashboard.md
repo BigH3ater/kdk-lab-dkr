@@ -56,6 +56,12 @@ The meal-plan sidecar logs into Tandoor with a dedicated account (session auth â
 are disabled) and reads `/api/meal-plan/`; ratings post back as CookLog entries. Per-user
 ratings remain available by opening the recipe page (each meal deep-links there).
 
+An **Approvals** project (with labels `approved`, `skipped`, `notified`) drives the generic
+approval-task loop: tasks needing a decision raise an actionable phone notification via
+[[home-assistant|Home Assistant]], which polls this project and records the decision back on the
+task. Home Assistant holds a narrow `vikunja-api-approvals` token; Vikunja stays the source of
+truth. See the [approval-tasks runbook](../runbooks/approval-tasks.md).
+
 ## Configuration
 
 | Path / setting | What it is |

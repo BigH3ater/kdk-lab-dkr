@@ -5,7 +5,7 @@ stack: home-assistant
 tier: apps
 status: live
 storage: yes
-secrets: [home-assistant-nodered-token, node-red-admin, node-red-credential-secret, zigbee2mqtt-frontend-token, kdk-ups-01-nut-upsd, scrypted-admin, homeassistant-oidc-client, vikunja-api-ro]
+secrets: [home-assistant-nodered-token, node-red-admin, node-red-credential-secret, zigbee2mqtt-frontend-token, kdk-ups-01-nut-upsd, scrypted-admin, homeassistant-oidc-client, vikunja-api-ro, vikunja-api-approvals]
 updated: 2026-10-28
 tags: [homelab/stack, tier/apps, status/live]
 ---
@@ -102,7 +102,14 @@ curl -s --http1.1 -m 3 -N -H 'Connection: Upgrade' -H 'Upgrade: websocket' \
   `/config/.vikunja_token` (host-managed, 0600) and tasks.kmkdp.com reachable.
 - Editing an existing YAML dashboard file is picked up on browser refresh;
   **registering a new dashboard or the themes dir needs an HA restart**;
-  package edits reload with Developer Tools → "Reload all YAML".
+  package edits reload with Developer Tools → "Reload all YAML" (a *new*
+  package that adds integrations needs a one-time restart).
+- **Approval tasks** — `config/packages/approval_tasks.yaml` is a generic
+  decision loop: a Vikunja task in the Approvals project raises an actionable
+  notification (polled, no inbound path, no container), and Approve/Skip (or
+  task-declared choices) is recorded back on the task. Token/project/label ids
+  live in the host `secrets.yaml` (`vikunja_approvals_*`). See the
+  [approval-tasks runbook](../runbooks/approval-tasks.md).
 - **OIDC login loop / missing button** — check `auth_oidc:` in
   `configuration.yaml`, the Authelia client `homeassistant`
   (PKCE S256 + `client_secret_post`, policy `ha_access`), and that the user is
