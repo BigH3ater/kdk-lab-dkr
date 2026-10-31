@@ -22,7 +22,7 @@ services that carry their own login (most now Authelia OIDC, incl. Home Assistan
 `op inject` fails if any ref is missing. Stack-read items live in **kdk-cluster** (the only vault templates reference); **kdk-ops** is for management logins containers never read.
 - `op://kdk-cluster/vikunja-app/jwt_secret` — random 64+ chars (Vikunja session secret).
 - `op://kdk-cluster/jellyfin-api-ro/password`, `.../seerr-api-ro/password`,
-  `.../audiobookshelf-api-ro/password`, `.../vikunja-api-ro/password` — read-only API keys
+  `.../audiobookshelf-api-ro/password`, `.../vikunja-api-ro/credential` — read-only API keys
   minted in each app for the Homepage stat widgets (field `password`).
 - `op://kdk-cluster/dashboard-tandoor-rw/{username,password}` — dedicated Tandoor account
   for the meal-plan sidecar (**P2**); must be **added to the "Mack House" space** in Tandoor.

@@ -40,6 +40,7 @@ docker logs adguardhome-sync 2>&1 | tail -3          # last sync ok to dns-02/03
 | Problem | Cause | Command to validate |
 |---|---|---|
 | AdGuard replicas drift | sync creds wrong or origin down | `docker logs adguardhome-sync` shows auth/connection error |
+| SMTP on `10.1.20.20:25` closes with no banner; `socat ... connect 127.0.0.1:1025: Connection refused` in `docker logs proton-bridge` | Bridge stores its own ports in its vault and moved off 1025/1143 (seen 2026-10-31 after a re-login: 1026/1144); the image's socat is hard-wired to 1025/1143 | `nsenter -t $(docker inspect proton-bridge --format {{.State.Pid}}) -n ss -lntp`. Fix: stop the container, run the CLI once under `script` with the same `/root` volume and send `change smtp-port` 1025 and `change imap-port` 1143, then start it (the in-container `faketty` FIFO does not work, as the CLI needs a tty) |
 | Roborock devices offline | TLS/config not migrated | check `/opt/kdk-lab/apps/roborock/{config.toml,tls}` present |
 | Roborock cert stale / `TLSCertExpiringSoon` for `api-slave` | lego DNS-01 failing, hook not copying, or roborock not restarted since renewal | `docker logs roborock-cert-lego` (ACME order or "no renewal needed"); `echo \| openssl s_client -connect 10.1.20.20:555 -servername api-slave.kmkdp.com 2>/dev/null \| openssl x509 -noout -subject -dates`; run procedure `roborock-cert-refresh` |
 
