@@ -1,6 +1,7 @@
 #!/bin/sh
-# Pull /opt/kdk-lab from the three hosts NOT on the storage NFS net into the
-# shared backup tree. Best-effort per host: a failed pull leaves that host's
+# Pull /opt/kdk-lab over SSH into the shared backup tree from the hosts that do
+# not stage their own copy: kdk-dkr-02/03 and kdk-mon-01 (not on the storage NFS
+# net) and kdk-dkr-04 (on the storage net since 2026-10-30, but pulled the same way). Best-effort per host: a failed pull leaves that host's
 # .last-backup marker stale, which backup-verify turns into a Pushover alert --
 # one host failing never blocks the rest or the offsite/verify stages.
 # Remote reads use `sudo rsync` (app data is root-owned; kdkadmin has NOPASSWD

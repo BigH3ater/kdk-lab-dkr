@@ -65,7 +65,7 @@ EOF
 # Only these explicit host dirs are packed (each via `tar -C /data <host>`), so
 # the archive never recurses /data/offsite (our own output) or /data/_archive
 # (rclone's backup-dir) -- both are siblings of the host dirs, not under one.
-for host in kdk-dkr-01 kdk-dkr-dmz-01 kdk-dkr-02 kdk-dkr-03 kdk-mon-01; do
+for host in kdk-dkr-01 kdk-dkr-dmz-01 kdk-dkr-02 kdk-dkr-03 kdk-mon-01 kdk-dkr-04; do
   [ -d "/data/$host" ] || { echo "pack: $host missing, skip"; continue; }
   tmp="$OUT/.$host-$DATE.tar.zst.partial"
   final="$OUT/$host-$DATE.tar.zst"

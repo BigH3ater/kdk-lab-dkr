@@ -16,7 +16,7 @@ add_warn() { WARN="$WARN\n- $1"; }
 
 # 1. every host staged in this run (marker touched < 12h ago). Not tighter:
 #    verify runs after offsite, which can take hours on a big upload.
-for h in kdk-dkr-01 kdk-dkr-dmz-01 kdk-dkr-02 kdk-dkr-03 kdk-mon-01; do
+for h in kdk-dkr-01 kdk-dkr-dmz-01 kdk-dkr-02 kdk-dkr-03 kdk-mon-01 kdk-dkr-04; do
   m="/dest/$h/.last-backup"
   if [ ! -f "$m" ]; then add_prob "$h: never staged (no marker)"; continue; fi
   age=$(( now - $(date -r "$m" +%s) ))
