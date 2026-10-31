@@ -49,6 +49,8 @@ In the UI, Servers shows all six hosts (`kdk-dkr-01/-dmz-01/-02/-03`, `kdk-mon-0
 | Server shows offline | Periphery down on that host | `ssh kdkadmin@<host> systemctl is-active periphery` → `active` |
 | UI returns 403 after SSO login | No Authelia `access_control` rule for `komodo.kmkdp.com`, or Authelia still on old config | rule exists in `stacks/identity/authelia/configuration.yml`; `RestartStack identity services=[authelia]` |
 | UI calls fail after idle | Authelia session expired (5 min inactivity) | reload the page; tick *Remember me* at SSO |
+| Every deploy fails at "Compose Config" with `kdk-compose-config-redact: not found` | the redaction wrapper is not installed on that host | install `hosts/_common/sbin/kdk-compose-config-redact` to `/usr/local/sbin/` (0755 root) on the host (see docs/komodo-gitops.md) |
+| A secret value shows in a stack's "Compose Config" log or Info tab | the stack lacks the redaction wrapper, or the value is outside `environment:` (a command arg or label) | add the two `compose_cmd_wrapper` lines; move the value into `environment:` or a file |
 | API-key script gets a 302 to sso | Request lacks `X-Api-Key` or hits a path other than `/read`, `/write`, `/execute` | send the key header; or call `http://127.0.0.1:9120` via `--network container:komodo-core-1` |
 
 ## Dependencies

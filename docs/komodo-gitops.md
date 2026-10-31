@@ -93,11 +93,20 @@ itself. Keep those out of the file.
    tags = ["kdk-lab"]
    name = "<name>"
    [stack.config]
-   server = "<server>"          # kdk-dkr-01 | kdk-dkr-dmz-01 | kdk-dkr-02 | kdk-dkr-03 | kdk-mon-01 | kdk-log-01
+   server = "<server>"          # kdk-dkr-01 | kdk-dkr-04 | kdk-dkr-dmz-01 | kdk-dkr-02 | kdk-dkr-03 | kdk-mon-01 | kdk-log-01
+   compose_cmd_wrapper = "/usr/local/sbin/kdk-compose-config-redact [[COMPOSE_COMMAND]]"
+   compose_cmd_wrapper_include = ["config"]
    repo = "BigH3ater/kdk-lab-dkr"
    run_directory = "stacks/<name>"
    webhook_enabled = true
    ```
+   The two `compose_cmd_wrapper` lines are required on every stack (CI:
+   `scripts/check-komodo-redact-wrapper.py`). Komodo stores the output of
+   `docker compose config` in the Update log ("Compose Config" stage) and in the
+   stack's deployed config, with every `.env` value resolved. The wrapper masks
+   service `environment:` values before Komodo sees them (upstream
+   moghtech/komodo#1636, fix PR #1644 still open). Remove both lines once an
+   upstream release redacts this itself.
 3. Commit + push to `main`.
 4. Done — within 15 min `gitops-sync` applies it (creates the stack tagged
    `kdk-lab`; `deploy = true` stacks deploy in `after`-order). To apply
