@@ -38,8 +38,17 @@ including one made by hand in Vikunja — works the same way.
     marker, add the `approved`/`skipped` label, add the comment, remove
     `notified`, replace the notification.
 
-Automations/scripts: `approval_poll`, `approval_action`, `script.approval_notify`,
-`script.approval_resolved`, notify group `notify.approval_recipients`.
+Automations/scripts: `approval_poll`, `approval_action`, `approval_arrival`,
+`script.approval_notify`, `script.approval_resolved`, `script.approval_send`.
+
+**Home-only rule (owner, 2026-10-31).** Tasks open on tasks.kmkdp.com, which is
+LAN-only, so a person is paged only while their `person` entity is `home`.
+`script.approval_send` applies this to every message. A task created while
+nobody is home is still claimed (`notified`); `approval_arrival` sends each
+open claimed task to a recipient one minute after they arrive home. A resolution
+replaces the notification on phones at home and silently clears it
+(`clear_notification`) on phones that are away. Reminders follow the same rule.
+Every send writes a logbook line (name `Approvals`) saying who got it.
 
 ## The job contract (how a job uses it)
 
@@ -215,15 +224,18 @@ order. Nothing is pasted into a shell where it would land in history.
 
 ## Add a recipient (second phone)
 
-Edit `stacks/home-assistant/config/packages/approval_tasks.yaml`, under the
-`approval_recipients` notify group, uncomment/add one line:
+Edit `stacks/home-assistant/config/packages/approval_tasks.yaml`: add one entry
+to `recipients` in `script.approval_send`, and add the person to the
+`approval_arrival` trigger:
 
 ```yaml
-      - service: mobile_app_rachels_phone
+            - { person: person.jacob, notify: notify.mobile_app_iphone }
+            - { person: person.rachel, notify: notify.mobile_app_rachels_phone }
 ```
 
-Deploy (GitOps merge) and *Reload all YAML* (notify group reloads without a full
-restart on an existing package).
+Deploy (GitOps merge), then reload scripts and automations (Developer Tools →
+YAML → Scripts, Automations). The decider's name in the audit comment comes from
+the `person` linked to the HA user who tapped.
 
 ## Troubleshooting
 
