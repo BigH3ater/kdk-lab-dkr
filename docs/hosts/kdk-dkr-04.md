@@ -39,7 +39,8 @@ Phase B moves workloads in later PRs.
 | Hardware | 12 vCPU / 32 GiB / 120 GB vmpool zvol · no PCI passthrough |
 | Docker pool | `10.214.0.0/16` size 24 ([[docker-ipam]]) |
 | Managed by | cloud-init (NoCloud seed ISO) at build; Komodo periphery thereafter |
-| Blast radius | Phase A: none beyond its own agents. Phase B: the moved workloads |
+| Runs | agents (node-exporter, observability-agent) + the `offsite` stage of `nightly-backups` and the hourly `storage-health-dkr04` (migration B1, 2026-10-30) |
+| Blast radius | Its own agents + the nightly offsite backup (best-effort; `backup-verify` on dkr-01 still pages). Further workloads in later phases |
 
 ## Access
 
@@ -62,10 +63,10 @@ ssh kdkadmin@10.1.20.22 'sudo ss -lntp | grep -E ":22 |:8120 "'   # sshd + perip
 
 | Direction | Thing | What breaks without it |
 |---|---|---|
-| Needs | [[kdk-nas-01]] | the VM itself (zvol + compute) |
-| Needs | [[kdk-dkr-01]] | Komodo Core (periphery inbound), backup-collect pull |
+| Needs | [[kdk-nas-01]] | the VM itself (zvol + compute); `/mnt/media` + `/mnt/backup` NFS (backup-offsite reads/writes `/mnt/backup`) |
+| Needs | [[kdk-dkr-01]] | Komodo Core (periphery inbound), backup-collect pull, source of the offsite `rclone.conf` |
 | Needs | [[kdk-log-01]] | log shipping (Alloy → Loki, rsyslog) |
-| Needed by | Phase B workloads | nothing in Phase A |
+| Needed by | `nightly-backups` | runs the `offsite` stage (migration B1); `backup-verify` on dkr-01 reads its `.offsite-status` from shared `/mnt/backup` |
 
 ## Observability
 
@@ -100,14 +101,21 @@ VLAN 20 (`/27`). NIC 1 `br20` → `10.1.20.22/27`, gw `10.1.20.1`, DNS
 gateway), fenced to NFS-to-NAS only. Periphery on `8120` (inbound; Komodo Core
 on kdk-dkr-01 connects). No PCI passthrough.
 
-### Storage map (Phase A)
+### Storage map
 
-No NFS mounts yet. The NAS exports `tankz3/media` and `tankz3/backup` to
-`172.16.30.52` since 2026-10-30, and a read-only test mount of each passed. Phase B adds
-the `/mnt/media` and `/mnt/backup` mount units, with the same options as kdk-dkr-01,
-when the first workload moves. App state lives on the root zvol under
-`/opt/kdk-lab` and is pulled nightly by `backup-collect` over SSH (the host is
-not on the NFS backup tree in Phase A).
+| Mount | Source | FS | Options | Consumed by | Backup |
+|---|---|---|---|---|---|
+| `/mnt/media` | `172.16.30.2:/mnt/tankz3/media` | NFSv4.1 | `nfsvers=4.1,noatime,_netdev` | (Phase B workloads) | tankz3 snapshots |
+| `/mnt/backup` | `172.16.30.2:/mnt/tankz3/backup` | NFSv4.1 | `nfsvers=4.1,noatime,_netdev` | `backup-offsite` | tankz3 snapshots |
+| `/opt/kdk-lab` | root zvol | zfs | — | all stack config | SSH-pulled nightly by `backup-collect` on dkr-01 |
+
+The NAS exports `tankz3/media` and `tankz3/backup` to `172.16.30.52` (RW,
+`maproot=root`) since 2026-10-30. The mount units are `/etc/systemd/system/mnt-{media,backup}.mount`,
+tracked in `hosts/kdk-dkr-04/systemd/` and the cloud-init rebuild copy (same
+style and options as kdk-dkr-01); a single `/mnt/media` mount keeps the media
+hardlink rule. `/mnt/media` is unused until a media workload moves in a later
+phase. App state on `/opt/kdk-lab` is still SSH-pulled by `backup-collect` on
+dkr-01 (dkr-04 is not yet packed into the offsite set — see `docs/backups.md`).
 
 ## Secret Rotation
 

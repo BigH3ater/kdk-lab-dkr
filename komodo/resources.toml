@@ -247,12 +247,17 @@ pre_deploy.command = "sh -c '. /etc/komodo/op.env && op read \"op://kdk-ops/kdka
 
 # Ship the whole backup tree (all hosts) to Proton, encrypted. Runs after the
 # staging stages. Excludes regenerable caches, repo clones, and the rclone creds.
+# Runs on kdk-dkr-04 (2026-10-30, migration B1): it reads/writes /mnt/backup on
+# the NAS, so on the NAS VM that traffic stays inside the box instead of crossing
+# the network twice, and the 6.4-core p95 pack+rclone burst leaves kdk-dkr-01.
+# The persistent rclone.conf (Proton session) lives host-side at
+# /opt/kdk-lab/backup/rclone/rclone.conf, copied once from dkr-01 (never in git).
 [[stack]]
 tags = ["kdk-lab"]
 name = "backup-offsite"
 deploy = false   # deployed nightly by the nightly-backups Procedure
 [stack.config]
-server = "kdk-dkr-01"
+server = "kdk-dkr-04"
 repo = "BigH3ater/kdk-lab-dkr"
 run_directory = "stacks/backup-offsite"
 destroy_before_deploy = true   # one locked down+up (stage execs run in parallel)
@@ -1040,6 +1045,20 @@ server = "kdk-dkr-01"
 repo = "BigH3ater/kdk-lab-dkr"
 run_directory = "stacks/storage-health"
 destroy_before_deploy = true   # one locked down+up so the one-shot re-runs
+# No `environment`: the compose default NFS_MOUNTS is dkr-01's set
+# (media backup dee-exchange), so dkr-01's behaviour is unchanged.
+
+# Same compose on kdk-dkr-04, which has only /mnt/media and /mnt/backup.
+[[stack]]
+tags = ["kdk-lab"]
+name = "storage-health-dkr04"
+deploy = false   # run hourly by the storage-health Procedure
+[stack.config]
+server = "kdk-dkr-04"
+repo = "BigH3ater/kdk-lab-dkr"
+run_directory = "stacks/storage-health"
+environment = "NFS_MOUNTS=media backup"   # exactly the mounts kdk-dkr-04 has
+destroy_before_deploy = true   # one locked down+up so the one-shot re-runs
 
 [[procedure]]
 tags = ["kdk-lab"]
@@ -1053,8 +1072,11 @@ schedule_timezone = "America/Chicago"
 [[procedure.config.stage]]
 name = "verify"
 enabled = true
+# One stage, both hosts' validators. A stage's executions run in parallel, which
+# is safe here: they are different stacks on different servers (no shared lock).
 executions = [
   { execution.type = "DeployStack", execution.params.stack = "storage-health", enabled = true },
+  { execution.type = "DeployStack", execution.params.stack = "storage-health-dkr04", enabled = true },
 ]
 
 # reMarkable handwriting -> OCR (Ollama qwen2.5vl on the 4090) -> Obsidian vault.

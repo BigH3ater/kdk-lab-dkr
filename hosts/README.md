@@ -19,6 +19,7 @@ onto the host. The two VM cloud-init files carry the same files so a rebuild get
 | `_common/sbin/kdk-docker-user.sh` | `/usr/local/sbin/kdk-docker-user.sh` (0755) | dkr-01, dmz-01 |
 | `<host>/kdk-docker-user.conf` | `/etc/default/kdk-docker-user` | dkr-01, dmz-01 |
 | `_common/systemd/kdk-docker-user.{service,timer}` | `/etc/systemd/system/` | dkr-01, dmz-01 |
+| `kdk-dkr-04/systemd/mnt-{media,backup}.mount` | `/etc/systemd/system/` | dkr-04 (NFS mounts; `systemctl enable --now` after install) |
 | `kdk-dkr-03/kdk-ups-l2.nmconnection` | NetworkManager (see `docs/hosts/kdk-dkr-03.md`) | dkr-03 |
 | `kdk-hyp-01/kdk-template-backup.sh` | `/usr/local/sbin/kdk-template-backup.sh` (0755) | hyp-01 (PVE host, not a Docker host) |
 | `kdk-hyp-01/kdk-template-backup.cron` | `/etc/cron.d/kdk-template-backup` | hyp-01 |

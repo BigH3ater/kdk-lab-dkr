@@ -98,7 +98,7 @@ VLAN 20 for services (`80/443` Traefik, `8080` Connect bound to the VLAN address
 |---|---|---|---|---|
 | `/mnt/media` | `172.16.30.2:/mnt/tankz3/media` | NFS | media, jellyfin(RO) | tankz3 snapshots |
 | `/mnt/dee-exchange` | `…/dee-exchange` | NFS | Tdarr DEE | snapshots |
-| `/mnt/backup` | `…/backup` | NFS | backup stacks | snapshots |
+| `/mnt/backup` | `…/backup` | NFS | backup stacks (`backup-dkr-01`, `backup-collect`, `backup-verify`; the `backup-offsite` stage moved to [[kdk-dkr-04]] 2026-10-30) | snapshots |
 | `/opt/kdk-lab` | local-zfs | zfs | all stack config | nightly rsync → NAS |
 
 ## Configuration

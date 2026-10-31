@@ -1,0 +1,10 @@
+[Unit]
+Description=tankz3/backup over storage net
+After=network-online.target
+[Mount]
+What=172.16.30.2:/mnt/tankz3/backup
+Where=/mnt/backup
+Type=nfs
+Options=nfsvers=4.1,noatime,_netdev
+[Install]
+WantedBy=multi-user.target

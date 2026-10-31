@@ -1,7 +1,9 @@
 # backup-offsite
 
-Nightly one-shot on kdk-dkr-01 (the `offsite` stage of the `nightly-backups`
-Procedure). Two services run in order: **pack** writes one `tar.zst` per host
+Nightly one-shot on kdk-dkr-04 (the `offsite` stage of the `nightly-backups`
+Procedure; moved off kdk-dkr-01 in migration B1 so the pack+rclone burst runs on
+the NAS VM, where `/mnt/backup` is local). Two services run in order: **pack**
+writes one `tar.zst` per host
 into `/mnt/backup/dkr/offsite/` (`pack.sh`), then **offsite** `rclone sync`s the
 offsite set to the Proton crypt remote (`offsite.sh`). See
 [docs/backups.md](../../docs/backups.md) for the full pipeline and the pack
@@ -39,8 +41,9 @@ their order is deterministic).
 If the cached session has expired (e.g. the stage hasn't run for weeks) rclone
 will try to re-login automatically from the stored `otp_secret_key`; that is the
 normal path and needs no action. If Proton still refuses (e.g. the account
-password or 2FA secret changed), reconnect once on kdk-dkr-01 — this rewrites
-the `client_*` fields in place and prints no secret values:
+password or 2FA secret changed), reconnect once on kdk-dkr-04 (the host that now
+runs this stage) — this rewrites the `client_*` fields in place and prints no
+secret values:
 
 ```bash
 sudo docker run --rm -it \

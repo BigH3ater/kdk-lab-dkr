@@ -67,10 +67,12 @@ order is deterministic). Transfer flags are conservative for Proton's flaky API:
 --protondrive-replace-existing-draft=true`.
 
 **Proton session:** rclone runs against the writable host config
-`/opt/kdk-lab/backup/rclone/rclone.conf` so the logged-in session
-(`client_access_token`/`client_refresh_token`, …) persists between passes and
-nights; it logs in from the stored `otp_secret_key` only when the session is
-dead. Reseeding by hand: see `stacks/backup-offsite/README.md`.
+`/opt/kdk-lab/backup/rclone/rclone.conf` **on kdk-dkr-04** so the logged-in
+session (`client_access_token`/`client_refresh_token`, …) persists between
+passes and nights; it logs in from the stored `otp_secret_key` only when the
+session is dead. This file is host-local (never in git); it was copied once from
+kdk-dkr-01 when the stage moved (migration B1). Reseeding by hand: see
+`stacks/backup-offsite/README.md`.
 
 ## The nightly pipeline
 
@@ -81,7 +83,7 @@ dead. Reseeding by hand: see `stacks/backup-offsite/README.md`.
 | stage-dkr-01 | `backup-dkr-01` | dkr-01 | rsync `/opt/kdk-lab` → `tankz3/backup/dkr/kdk-dkr-01/` |
 | stage-dmz | `backup-dmz` | dmz-01 | `pg_dump` authelia + immich + tandoor, rsync app state |
 | stage-collect | `backup-collect` | dkr-01 | SSH-pull `/opt/kdk-lab` from dkr-02, dkr-03, mon-01 (not on the storage net) |
-| offsite | `backup-offsite` | dkr-01 | `pack` one `tar.zst` per host, then `rclone sync` `offsite/` + `pve-templates/` + `*/pgdump/` → Proton (encrypted) |
+| offsite | `backup-offsite` | **dkr-04** | `pack` one `tar.zst` per host, then `rclone sync` `offsite/` + `pve-templates/` + `*/pgdump/` → Proton (encrypted). Reads/writes the shared `/mnt/backup`, so it runs on the NAS VM (migration B1, 2026-10-30) where that storage is local |
 | verify | `backup-verify` | dkr-01 | validate everything, alert Pushover on failure |
 
 The staging + offsite stages are **best-effort** (their containers exit 0 even on

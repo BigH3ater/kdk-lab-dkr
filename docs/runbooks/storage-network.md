@@ -21,11 +21,12 @@ seeded on build from `cloud-init/` in the repo. Current clients:
 
 - **kdk-dkr-01** — `/mnt/media`, `/mnt/backup`, `/mnt/dee-exchange` (`/mnt/loki` released 2026-10-29: Loki runs on kdk-log-01's local disk since 2026-10-28; the `vmpool/loki` NFS share is deleted, the dataset is kept until the owner destroys it)
 - **kdk-dkr-dmz-01** — `/mnt/media` (RO), `/mnt/backup`, `/mnt/appdata`
+- **kdk-dkr-04** — `/mnt/media`, `/mnt/backup` (migration B1, 2026-10-30: the `backup-offsite` stage runs here and reads/writes `/mnt/backup`; a single `/mnt/media` mount preserves the media hardlink rule). Units tracked in `hosts/kdk-dkr-04/systemd/`.
 - **kdk-hyp-01** — `/mnt/pve/backups` mounted **on demand** (soft NFSv4.1) by
   `/usr/local/sbin/kdk-template-backup.sh` for the monthly VM 9000 dump, then
   released; no permanent mount, no fstab or PVE storage entry (`docs/backups.md`).
 
-Both VMs fence their storage NIC with nft table `inet kdk-storage`: the host may
+All three VMs fence their storage NIC with nft table `inet kdk-storage`: the host may
 talk only NFS (+ ping) to `172.16.30.2`, nothing new comes in on `eth1`, and
 containers never route onto the storage net. See [Host firewall](host-firewall.md);
 if a mount hangs right after a fence change, check its counters first

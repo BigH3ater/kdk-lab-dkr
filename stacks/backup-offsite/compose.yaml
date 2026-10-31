@@ -1,4 +1,4 @@
-# Nightly one-shot on kdk-dkr-01: ship application state to Proton Drive,
+# Nightly one-shot on kdk-dkr-04: ship application state to Proton Drive,
 # encrypted. Runs AFTER the staging stages (backup-dkr-01 / backup-dmz /
 # backup-collect) in the nightly procedure. Two services, in order:
 #   pack    -- writes one tar.zst per host into /data/offsite/ (pack.sh), so the
