@@ -286,6 +286,11 @@
       "local": true,
       "base": "python"
     },
+    "kdk/treadmill-bridge": {
+      "local": true,
+      "base": "python",
+      "note": "built from stacks/treadmill-bridge/Dockerfile; DIRCON(TCP)->MQTT telemetry bridge, read-only"
+    },
     "ldez/traefik-certs-dumper": {
       "github": "ldez/traefik-certs-dumper",
       "osv": {

@@ -1,0 +1,70 @@
+# treadmill-bridge -- kdk-dkr-02 (10.1.30.21), VLAN 30.
+#
+# A read-only bridge: it reads live treadmill telemetry from the NordicFTMS app
+# on the console (DIRCON, plain TCP, 10.1.30.103:36866) and republishes it to
+# the existing Mosquitto/Home Assistant on this host via MQTT discovery. It
+# issues NO motor command and writes no FTMS control characteristic (bridge.py).
+#
+# network_mode: host (same rationale as the home-assistant service): it must
+# reach BOTH the loopback-only Mosquitto (127.0.0.1:1883 -- never exposed to the
+# VLAN, see stacks/home-assistant/compose.yaml) AND the treadmill on VLAN 30.
+# Host networking gives it both with no published port and no inter-VLAN hop.
+#
+# Secrets: Mosquitto is anonymous on its loopback listener, so by default the
+# bridge needs NO secret (it publishes exactly like zigbee2mqtt does). If broker
+# auth is ever enabled, uncomment the env_file below and create the host file per
+# docs/runbooks/treadmill-glassos-bridge.md (root 600; dkr-02 has no op CLI).
+#
+# See README.md and docs/runbooks/treadmill-glassos-bridge.md.
+name: treadmill-bridge
+
+# Shared hardening baseline (docs/reference/compose-baseline.md).
+x-hardened: &hardened
+  user: "1000:1000"
+  security_opt: ["no-new-privileges:true"]
+  cap_drop: [ALL]
+  read_only: true                     # only /state (volume) + /tmp (tmpfs) are writable
+  tmpfs: [/tmp]
+  init: true                          # tini reaps and forwards SIGTERM to python
+  restart: unless-stopped
+  pids_limit: 256
+  mem_limit: 128m                     # a single socket + MQTT client; tiny
+  logging:
+    driver: json-file
+    options: { max-size: "10m", max-file: "3" }
+
+services:
+  treadmill-bridge:
+    <<: *hardened
+    build: .
+    image: kdk/treadmill-bridge:latest
+    container_name: treadmill-bridge
+    # host net: loopback Mosquitto + VLAN-30 treadmill, same rationale as home-assistant.
+    network_mode: host
+    environment:
+      TZ: America/Chicago
+      TREADMILL_HOST: "10.1.30.103"   # NordicFTMS console (give it a DHCP reservation)
+      DIRCON_PORT: "36866"            # hardcoded in NordicFTMS (no mDNS needed)
+      MQTT_HOST: "127.0.0.1"          # loopback Mosquitto on this host
+      MQTT_PORT: "1883"
+      STATE_DIR: "/state"
+      HOME: "/tmp"
+    # Only if the Mosquitto loopback listener is NOT anonymous. The file is
+    # host-managed (root 600) and optional -- a missing file does not fail the
+    # deploy. It supplies MQTT_USER / MQTT_PASS.
+    env_file:
+      - path: /opt/kdk-lab/treadmill-bridge/mqtt.env
+        required: false
+    volumes:
+      - /opt/kdk-lab/treadmill-bridge/state:/state
+    healthcheck:
+      # bridge.py touches /state/bridge.heartbeat every loop (and during
+      # reconnect backoff); stale > 2 min = unhealthy. Same idiom as
+      # obsidian-to-koreader-watcher.
+      test: ["CMD-SHELL", "python3 -c \"import os,time,sys; sys.exit(0 if time.time()-os.path.getmtime('/state/bridge.heartbeat')<120 else 1)\""]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    labels:
+      kdk.baseline.exception: "host-net: reaches loopback Mosquitto 127.0.0.1:1883 + VLAN-30 treadmill, same rationale as home-assistant"

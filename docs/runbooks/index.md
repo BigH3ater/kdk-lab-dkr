@@ -25,6 +25,7 @@ illustrative.
 - [Host firewall (storage fence + DOCKER-USER)](host-firewall.md) — the nft storage-net fence and the DOCKER-USER egress policy on the two VMs: install, verify, log -> enforce, rollback.
 - [Approval tasks (Vikunja ⇄ Home Assistant)](approval-tasks.md) — actionable phone notifications for Vikunja decisions; the job contract, task-declared choices, reminders, setup, and rollback.
 - [Grocery planner — seed, run, and tune](grocery-planner.md) — seed Tandoor from scored real recipes, the weekly meal-plan + two-store list run, adding/swapping a recipe, changing the rules, troubleshooting.
+- [Treadmill → Home Assistant (GlassOS/DIRCON bridge)](treadmill-glassos-bridge.md) — the read-only DIRCON→MQTT bridge on kdk-dkr-02: console prerequisites (NordicFTMS, DHCP reservation), deploy order, optional broker auth, the three-slice rollout.
 
 Conventions used throughout:
 
