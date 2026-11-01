@@ -112,16 +112,25 @@ One incident should be one page. Add an `inhibit_rules` entry when alert B is a
 and target must share the `equal:` labels (or be targeted by a specific
 `alertname`), and never inhibit something that could be an independent fault.
 
-Live example (`alertmanager.yml`): `AlertmanagerDown` inhibits
-`LokiRulerCannotNotify` and `LokiRulerNoAlertmanager` — if the published
-`:9093` is down, the ruler obviously cannot deliver, so that is the same
-incident; but `LokiRulerConfigReloadFailed` (a bad rule file) is **not**
-inhibited, because it is unrelated.
+Live examples (`alertmanager.yml`):
 
-Candidate future inhibitions (need a shared `host` label on the probe/host
-rules first): a host's `InstanceDown` inhibiting that host's `EndpointDown` /
-`CadvisorDown` / `ContainerOOMKilled`, so a dead host is one page, not fifteen
-(the shape of the 2026-10-27 02:10–02:50 blackout).
+- `AlertmanagerDown` inhibits `LokiRulerCannotNotify` and
+  `LokiRulerNoAlertmanager` — if the published `:9093` is down, the ruler
+  obviously cannot deliver, so that is the same incident; but
+  `LokiRulerConfigReloadFailed` (a bad rule file) is **not** inhibited, because
+  it is unrelated.
+- `MonitoringBlackout` (service.yml `availability` group; fires when
+  `count(up==0) + count(probe_success==0) >= 10`) inhibits `InstanceDown`,
+  `EndpointDown`, `SmartHomeEndpointDown`, `CadvisorDown` and `NetExporterDown`,
+  so a correlated reachability loss pages **once** instead of 15+ times (the
+  2026-10-27 02:10–02:50 blackout, ~18 targets down across 4 hosts/subnets). The
+  per-target detail stays visible in the Alertmanager UI.
+
+Future work: a finer, **per-host** cascade — a host's `InstanceDown` inhibiting
+only that host's `EndpointDown` / `CadvisorDown` / `ContainerOOMKilled` — so a
+single dead host (below the blackout threshold) is also one page. That needs a
+shared `host` label on the probe/host rules first, so it is deferred;
+`MonitoringBlackout` covers the fleet-wide case today.
 
 ## 7. Routing
 

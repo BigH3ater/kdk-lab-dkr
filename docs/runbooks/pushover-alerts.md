@@ -147,6 +147,21 @@ service availability from kdk-mon-01's external vantage point.
 | `HostMemoryHigh` | Available memory under 10% for 15m (kdk-nas-01 is excluded — its RAM is ZFS ARC). Find the hungry process/container |
 | `TLSCertExpiringSoon` | An LE cert for a probed name expires in under 14 days. Check the Traefik cf resolver (most names) or the roborock-cert lego one-shot (api-slave.kmkdp.com) |
 
+## Monitoring blackout
+
+`stacks/monitoring/prometheus/rules/service.yml`, `availability` group (`scope:
+availability`). `MonitoringBlackout` (critical) fires when **10 or more** scrape
+targets and/or blackbox probes are unreachable at once (`count(up==0) +
+count(probe_success==0) >= 10`, `for: 2m`) — a correlated reachability loss, not
+one service. It **inhibits** the per-target reachability alerts
+(`InstanceDown` / `EndpointDown` / `SmartHomeEndpointDown` / `CadvisorDown` /
+`NetExporterDown`) so a blackout pages **once** (the 2026-10-27 02:10–02:50 event
+was ~18 targets down → 15+ pages without this).
+
+| Alert | First checks |
+|---|---|
+| `MonitoringBlackout` (critical) | Don't assume each service failed. Open Alertmanager to see which targets are down; they are usually one host/subnet or the monitor's own uplink. Check the kdk-mon-01 uplink/DNS and the path to the affected hosts first, then the stacks |
+
 ## Smart-home availability
 
 `stacks/monitoring/prometheus/rules/smart-home.yml` (`scope: smart-home`). The

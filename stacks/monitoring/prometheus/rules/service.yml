@@ -1,5 +1,44 @@
 # Service + host alerts for the migrated Komodo/compose estate.
 groups:
+  # Correlated monitoring blackout: many unrelated targets unreachable at once.
+  # The 2026-10-27 02:10-02:50 event tripped 14 critical pages (EndpointDown x9,
+  # InstanceDown x3, SmartHomeEndpointDown x2) plus CadvisorDown x1 and
+  # NetExporterDown x3 -- ~18 down across 4 hosts/subnets while count(up) held at
+  # ~54, i.e. a reachability loss seen from kdk-mon-01, not a mon-01 reboot. With
+  # no single AlertmanagerDown series to pivot on, that storm paged 15+ times.
+  # This meta-alert collapses it into ONE page and inhibits the individual
+  # reachability alerts (see alertmanager.yml inhibit_rules); the detail stays
+  # visible in the Alertmanager UI.
+  #
+  # Expr counts BOTH scrape targets (up==0) and blackbox probes
+  # (probe_success==0) down, since a blackout hits both paths; `or vector(0)`
+  # makes each side 0 (not empty) so the sum still evaluates when only one side
+  # has down series. Threshold N=10: the monitored surface is ~96 reachability
+  # series (count(up)=62 + count(probe_success)=34, 2026-10-31); a single host
+  # reboot or a couple of endpoint blips is <=5 down (and should still page
+  # individually, with the detail), whereas a correlated blackout is >=10 (~10%
+  # of the surface). for:2m is below the inhibited alerts' 3-5m `for:` so the
+  # inhibitor is already firing when they would fire.
+  - name: availability
+    rules:
+      - alert: MonitoringBlackout
+        expr: >-
+          (count(up == 0) or vector(0))
+          + (count(probe_success == 0) or vector(0))
+          >= 10
+        for: 2m
+        labels: {severity: critical, source: external-monitor, scope: availability}
+        annotations:
+          summary: "monitoring blackout: 10+ targets unreachable from kdk-mon-01"
+          runbook: docs/runbooks/pushover-alerts.md#monitoring-blackout
+          description: >-
+            At least 10 scrape targets and/or blackbox probes are down at once --
+            a correlated reachability loss, not a single service. The individual
+            InstanceDown/EndpointDown/SmartHomeEndpointDown/CadvisorDown/
+            NetExporterDown alerts are inhibited; open the Alertmanager UI to see
+            which targets. Check the kdk-mon-01 uplink/DNS and the path to the
+            affected hosts/subnets before assuming each service failed.
+
   - name: hosts
     rules:
       - alert: InstanceDown

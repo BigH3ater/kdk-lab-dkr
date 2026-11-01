@@ -157,3 +157,11 @@ receivers:
 inhibit_rules:
   - source_matchers: ['alertname="AlertmanagerDown"']
     target_matchers: ['alertname=~"LokiRulerCannotNotify|LokiRulerNoAlertmanager"']
+  # A correlated monitoring blackout (MonitoringBlackout, service.yml) explains
+  # every individual reachability alert firing at once -- the 2026-10-27 shape
+  # (~18 targets down across 4 hosts/subnets = 15+ pages). While it fires,
+  # suppress the per-target reachability alerts so a blackout pages ONCE; the
+  # detail stays in the Alertmanager UI. No `equal`: a blackout is global, so
+  # every one of these is part of the same incident.
+  - source_matchers: ['alertname="MonitoringBlackout"']
+    target_matchers: ['alertname=~"InstanceDown|EndpointDown|SmartHomeEndpointDown|CadvisorDown|NetExporterDown"']
