@@ -1,12 +1,15 @@
 # Out-of-cluster Alertmanager on kdk-mon-01.
 #
-# TWO transports, per the alerting standard (docs/runbooks/pushover-alerts.md):
-#   - Pushover (SaaS): EVERY alert, firing and resolved. Cluster-independent by
-#     design, so an outage of the rest of the estate never silences paging.
-#   - Email (critical only): severity=critical is ALSO e-mailed to the owner,
-#     through the in-lab Proton SMTP bridge on kdk-dkr-01 (10.1.20.20:25). This
-#     is a second, durable record of the things that matter most -- it is NOT a
-#     digest and NOT a replacement for Pushover.
+# TWO transports, per the alerting standard (docs/reference/alerting-standards.md):
+#   - Pushover (SaaS): every PAGE-worthy alert (critical + warning), firing and
+#     resolved. Cluster-independent by design, so an outage of the rest of the
+#     estate never silences paging.
+#   - Email, through the in-lab Proton SMTP bridge on kdk-dkr-01 (10.1.20.20:25),
+#     in two roles: (a) severity=critical is ALSO e-mailed (receiver email-ops) --
+#     a second, durable record of what matters most, NOT a replacement for
+#     Pushover; (b) severity=info is e-mailed ONLY (receiver email-info), batched
+#     into a ~6 h digest -- app-notification/provenance alerts that never page
+#     (owner decision 2026-10-30).
 #
 # SECRETS (never committed; hand-rendered on kdk-mon-01, see compose.yaml):
 #   - Pushover user_key + app token: 1Password kdk-cluster/pushover-kdk-lab,
