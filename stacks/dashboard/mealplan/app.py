@@ -787,6 +787,15 @@ def _grocery_row(item, title: str, link: str = "") -> str:
 GROCERIES_CSS = PAGE_CSS + """
 .gwrap{padding:10px;max-width:760px;margin:0 auto}
 .store{margin-bottom:18px}
+.tabs{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 12px;position:sticky;top:0;z-index:2;
+background:var(--ink-surface);padding:8px 0}
+.tabs button{font:500 13px 'JetBrains Mono',monospace;letter-spacing:.08em;text-transform:uppercase;
+background:var(--ink);color:var(--ash);border:1px solid var(--ink-hairline);border-radius:999px;
+padding:7px 14px;cursor:pointer;min-height:36px}
+.tabs button[aria-selected=true]{color:var(--ink);background:var(--ember);border-color:var(--ember)}
+.tabs .n{margin-left:6px;opacity:.8}
+.js .tab{display:none}
+.js .tab.on{display:block}
 .gi .lbl .qty{color:var(--ember);margin-left:8px;font-family:'JetBrains Mono',monospace;font-size:13px}
 .gi .lbl .src{display:block;color:var(--ash);font-size:11px;margin-top:1px}
 .meals{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px}
@@ -827,7 +836,31 @@ document.addEventListener('submit', async function (e) {
     var r = await fetch(f.action, {method: 'POST', body: new FormData(f)});
     if (!r.ok) throw new Error(r.status);
     row.style.display = 'none';   // ticked -> drop from the in-store view
+    var tab = row.closest('.tab');
+    var n = tab && document.querySelector('.tabs [data-tab="' + tab.id + '"] .n');
+    if (n) { n.textContent = Math.max(0, (parseInt(n.textContent, 10) || 1) - 1); }
   } catch (err) { location.reload(); }
+});
+// Store tabs: one list at a time. The tab lives in the URL hash so a reload,
+// a bookmark (#target) or the add-box redirect (#manual) opens the same tab.
+// Without JS every section shows (the .js class is never set).
+document.documentElement.classList.add('js');
+function showTab(id) {
+  var tabs = document.querySelectorAll('.tab');
+  if (!document.getElementById(id)) { id = tabs.length ? tabs[0].id : ''; }
+  tabs.forEach(function (t) { t.classList.toggle('on', t.id === id); });
+  document.querySelectorAll('.tabs button').forEach(function (b) {
+    b.setAttribute('aria-selected', b.dataset.tab === id ? 'true' : 'false');
+  });
+}
+document.addEventListener('click', function (e) {
+  var b = e.target.closest('.tabs button');
+  if (!b) return;
+  history.replaceState(null, '', '#' + b.dataset.tab);
+  showTab(b.dataset.tab);
+});
+document.addEventListener('DOMContentLoaded', function () {
+  showTab(location.hash.slice(1) || 'newpi');
 });
 """
 
@@ -868,32 +901,40 @@ def _render_groceries():
         return ("<!doctype html><body style='background:#2b2825;color:#8d8377;"
                 "font-family:sans-serif;padding:20px'>Couldn't load the grocery "
                 "list right now.</body>")
-    parts = ["<div class='gwrap'>", _render_meal_cards()]
+    np = {a: _combine(v) for a, v in (stores.get("NewPi") or {}).items()}
+    tg = {a: _combine(v) for a, v in (stores.get("Target") or {}).items()}
+    n_np = sum(len(v) for v in np.values())
+    n_tg = sum(len(v) for v in tg.values())
+    tabs = [("newpi", "New Pi", n_np), ("target", "Target", n_tg),
+            ("manual", "Manual", len(manual)), ("meals", "Meals", None)]
+    bar = "".join(
+        f"<button type='button' data-tab='{tid}' aria-selected='false'>{label}"
+        + (f"<span class='n'>{n}</span>" if n is not None else "") + "</button>"
+        for tid, label, n in tabs)
+    parts = ["<div class='gwrap'>", f"<nav class='tabs' aria-label='Shopping lists'>{bar}</nav>"]
     # New Pi -- in-store tap-to-tick checklist
-    parts.append("<div class='store'><h2>New Pi — in-store checklist</h2>")
-    np = stores.get("NewPi") or {}
+    parts.append("<section class='tab store' id='newpi'><h2>New Pi — in-store checklist</h2>")
     if not np:
         parts.append("<div class='empty2'>Nothing to pick up at New Pi.</div>")
     for aisle, items in np.items():
         parts.append(f"<div class='aisle'>{escape(aisle)}</div>")
-        for item in _combine(items):
+        for item in items:
             parts.append(_grocery_row(item, "got it"))
-    parts.append("</div>")
+    parts.append("</section>")
     # Target -- list with per-item target.com search links for the Drive Up cart
-    parts.append("<div class='store'><h2>Target — Drive Up cart</h2>")
-    tg = stores.get("Target") or {}
+    parts.append("<section class='tab store' id='target'><h2>Target — Drive Up cart</h2>")
     if not tg:
         parts.append("<div class='empty2'>Nothing to add at Target.</div>")
     for aisle, items in tg.items():
         parts.append(f"<div class='aisle'>{escape(aisle)}</div>")
-        for item in _combine(items):
+        for item in items:
             link = "https://www.target.com/s?searchTerm=" + _ulib.quote(item["food"])
             parts.append(_grocery_row(
                 item, "in cart",
                 f"<a class='srch' href='{escape(link)}' target='_blank' rel='noopener'>search ↗</a>"))
-    parts.append("</div>")
+    parts.append("</section>")
     # Manual -- ad-hoc items not tied to a recipe, with an add box
-    parts.append("<div class='store'><h2>Manual list</h2>"
+    parts.append("<section class='tab store' id='manual'><h2>Manual list</h2>"
                  "<form class='addbox' method='post' action='groceries/add'>"
                  "<input name='item' placeholder='Add an item…' maxlength='80' autocomplete='off'>"
                  "<button type='submit'>Add</button></form>")
@@ -906,7 +947,9 @@ def _render_groceries():
             f"<input type='hidden' name='id' value='{e['id']}'>"
             "<button class='tick' type='submit' title='got it'></button></form>"
             f"<span class='lbl'>{escape(_item_label(e))}</span></div>")
-    parts.append("</div></div>")
+    parts.append("</section>")
+    parts.append(f"<section class='tab' id='meals'>{_render_meal_cards()}</section>")
+    parts.append("</div>")
     body = "".join(parts)
     return (f"<!doctype html><html><head><meta charset='utf-8'>"
             f"<meta name='viewport' content='width=device-width,initial-scale=1'>"
@@ -943,7 +986,7 @@ def groceries_add():
             log.info("grocery manual add: %s", item[:80])
     except Exception:
         log.exception("grocery add failed")
-    return redirect("../groceries", code=303)
+    return redirect("../groceries#manual", code=303)   # back to the Manual tab
 
 
 if __name__ == "__main__":

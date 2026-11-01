@@ -195,7 +195,8 @@ clean-up after importing new recipes. Tandoor's food merge is not used (it can't
 be undone); old spellings stay as unused foods. To put a pantry food back on the
 list, untick "on hand" on the food in Tandoor.
 
-The groceries page shows one line per food: same-family units are added up
+The groceries page has a tab per list (New Pi, Target, Manual, Meals; the tab
+is in the URL, e.g. `/meal/groceries#target`). It shows one line per food: same-family units are added up
 (tsp/Tbsp/cup, oz/lb/g), with the recipes underneath; ticking the line ticks all
 its entries.
 
