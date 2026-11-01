@@ -124,8 +124,25 @@ def _parse_date(v: str) -> datetime.date | None:
             return None
 
 
+_IMG_CACHE: dict[int, str | None] = {}
+
+
+def _recipe_image(rid: int, nested: dict) -> str | None:
+    """Recipe photo URL. Tandoor's /media/ files are UUID-named and served without
+    a login, so the browser loads them directly. Falls back to the recipe detail
+    when the nested meal-plan recipe has no image field (cached per process)."""
+    if nested.get("image"):
+        return nested["image"]
+    if rid not in _IMG_CACHE:
+        try:
+            _IMG_CACHE[rid] = _api_get(f"/api/recipe/{rid}/").json().get("image")
+        except Exception:
+            return None
+    return _IMG_CACHE[rid]
+
+
 def fetch_plan(mon: datetime.date, sun: datetime.date) -> list[dict]:
-    """Return normalized entries: {date, meal_type, title, recipe_id, url}.
+    """Return normalized entries: {date, meal_type, title, recipe_id, url, image}.
     Tandoor meal-plan entry fields (confirm on deploy): `from_date` (date/datetime),
     nested `recipe` {id, name}, `meal_type` {name} or `meal_type_name`, `title`."""
     r = _api_get(f"/api/meal-plan/?from_date={mon.isoformat()}&to_date={sun.isoformat()}")
@@ -146,6 +163,7 @@ def fetch_plan(mon: datetime.date, sun: datetime.date) -> list[dict]:
             "title": rname,
             "recipe_id": rid,
             "url": f"{TANDOOR_URL}/view/recipe/{rid}" if rid else None,
+            "image": _recipe_image(rid, rec) if rid else None,
         })
     return out
 
@@ -206,6 +224,7 @@ body{margin:0;font:14px/1.45 'Space Grotesk',sans-serif;background:var(--ink-sur
 text-transform:uppercase;color:var(--ash)}
 .day.today .dow{color:var(--ember)}
 .meal{margin-top:6px;padding-top:6px;border-top:1px solid var(--ink-hairline)}
+.meal img{display:block;width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:6px;margin:4px 0;background:var(--ink-hairline)}
 .meal a{color:var(--paper);text-decoration:none;font-weight:600}
 .meal a:hover{color:var(--ember);text-decoration:underline;text-decoration-thickness:2px}
 .mt{font-family:'JetBrains Mono',monospace;color:var(--bark);font-size:10px;text-transform:uppercase;letter-spacing:.12em}
@@ -256,7 +275,9 @@ def render_week(plan: list[dict], today: datetime.date, mon: datetime.date, rate
         for e in by_day.get(iso, []):
             mt = f'<div class="mt">{escape(e["meal_type"])}</div>' if e["meal_type"] else ""
             if e["url"]:
-                name = f'<a href="{escape(e["url"])}" target="_top">{escape(e["title"])}</a>'
+                img = (f'<a href="{escape(e["url"])}" target="_top"><img src="{escape(e["image"])}" alt="" loading="lazy"></a>'
+                       if e.get("image") else "")
+                name = img + f'<a href="{escape(e["url"])}" target="_top">{escape(e["title"])}</a>'
                 cur = rated.get(e["recipe_id"], 0)
                 star_btns = []
                 for n in range(1, 6):
@@ -664,6 +685,12 @@ def _item_label(e) -> str:
 GROCERIES_CSS = PAGE_CSS + """
 .gwrap{padding:10px;max-width:760px;margin:0 auto}
 .store{margin-bottom:18px}
+.meals{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px}
+.mcard{background:var(--ink);border:1px solid var(--ink-hairline);border-radius:9px;overflow:hidden;color:var(--paper);text-decoration:none}
+.mcard img,.mcard .noimg{display:block;width:100%;aspect-ratio:4/3;object-fit:cover;background:var(--ink-hairline)}
+.mcard .mi{padding:6px 8px;font-weight:600;font-size:13px}
+.mcard .mi .mt{display:block;font-weight:400}
+.mcard:hover{border-color:var(--ember)}
 .store h2{font-family:'JetBrains Mono',monospace;font-size:13px;letter-spacing:.14em;
 text-transform:uppercase;color:var(--ember);margin:0 0 6px;border-bottom:1px solid var(--ink-hairline);padding-bottom:5px}
 .aisle{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.12em;
@@ -701,6 +728,34 @@ document.addEventListener('submit', async function (e) {
 """
 
 
+def _render_meal_cards() -> str:
+    """The planned meals the list was built from, with photos, so the weekly
+    approval can be reviewed by eye. The planner fills next Sun-Sat on Tuesday,
+    so look two weeks ahead."""
+    today = datetime.datetime.now(TZ).date()
+    try:
+        plan = fetch_plan(today, today + datetime.timedelta(days=13))
+    except Exception:
+        log.exception("meal cards: plan fetch failed")
+        return ""
+    plan = sorted((e for e in plan if e["date"]), key=lambda e: (e["date"], e["meal_type"]))
+    if not plan:
+        return ("<div class='store'><h2>Planned meals</h2>"
+                "<div class='empty2'>No meals planned in the next two weeks.</div></div>")
+    cards = []
+    for e in plan:
+        d = datetime.date.fromisoformat(e["date"]).strftime("%a %-d")
+        img = (f"<img src='{escape(e['image'])}' alt='' loading='lazy'>" if e.get("image")
+               else "<div class='noimg'></div>")
+        label = (f"<div class='mi'><span class='mt'>{escape(d)} · {escape(e['meal_type'])}</span>"
+                 f"{escape(e['title'])}</div>")
+        if e["url"]:
+            cards.append(f"<a class='mcard' href='{escape(e['url'])}' target='_blank' rel='noopener'>{img}{label}</a>")
+        else:
+            cards.append(f"<div class='mcard'>{img}{label}</div>")
+    return f"<div class='store'><h2>Planned meals</h2><div class='meals'>{''.join(cards)}</div></div>"
+
+
 def _render_groceries():
     try:
         stores, manual = _split_groceries(_fetch_shopping())
@@ -709,7 +764,7 @@ def _render_groceries():
         return ("<!doctype html><body style='background:#2b2825;color:#8d8377;"
                 "font-family:sans-serif;padding:20px'>Couldn't load the grocery "
                 "list right now.</body>")
-    parts = ["<div class='gwrap'>"]
+    parts = ["<div class='gwrap'>", _render_meal_cards()]
     # New Pi -- in-store tap-to-tick checklist
     parts.append("<div class='store'><h2>New Pi — in-store checklist</h2>")
     np = stores.get("NewPi") or {}

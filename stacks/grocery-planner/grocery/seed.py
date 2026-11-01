@@ -18,6 +18,7 @@ import argparse
 import glob
 import logging
 import os
+import re
 import sys
 
 import yaml
@@ -352,13 +353,16 @@ def apply_seed(plan, cfg, foods_cfg, fixed_cfg, force=False):
     existing = {}
     for r in sorted(t.recipes_detail(), key=lambda r: r["id"]):
         if r.get("source_url"):
-            existing.setdefault(r["source_url"], r)
+            existing.setdefault(url_key(r["source_url"]), r)
+    # Book entries already present: re-posting one is a 400 "unique set".
+    in_book = {(e["book"], e["recipe"]) for e in t.get_all("/api/recipe-book-entry/")}
     imaged = set()   # one image fetch per recipe, even when several slots share it
     for im in plan["imports"]:
-        if im["url"] in existing:
+        key = url_key(im["url"])
+        if key in existing:
             log.info("skip (already imported): %s", im["url"])
-            rid = existing[im["url"]]["id"]
-            if not existing[im["url"]].get("image") and rid not in imaged:
+            rid = existing[key]["id"]
+            if not existing[key].get("image") and rid not in imaged:
                 if t.backfill_image(rid, im["url"]):
                     log.info("image set for %s (recipe %s)", im["slot"], rid)
             imaged.add(rid)
@@ -369,7 +373,7 @@ def apply_seed(plan, cfg, foods_cfg, fixed_cfg, force=False):
             except Exception as e:  # noqa: BLE001
                 log.error("import failed for %s (%s): %s", im["slot"], im["url"], e)
                 continue
-            existing[im["url"]] = {"id": rid, "image": True}
+            existing[key] = {"id": rid, "image": True}
             imaged.add(rid)
         recipe = t.get(f"/api/recipe/{rid}/")
         # MERGE keywords (don't overwrite): a recipe reused across seasons (e.g. a
@@ -382,12 +386,22 @@ def apply_seed(plan, cfg, foods_cfg, fixed_cfg, force=False):
                 k = kws.get(name) or t.ensure_keyword(name)
                 merged[name] = {"id": k["id"], "name": k["name"]}
         t.patch(f"/api/recipe/{rid}/", {"keywords": list(merged.values()), "servings": 2})
-        try:
-            t.post("/api/recipe-book-entry/", {"book": books[im["book"]]["id"], "recipe": rid})
-        except Exception as e:  # noqa: BLE001 - already in that book is fine
-            log.info("book-entry %s/%s: %s", im["book"], rid, e)
+        book_id = books[im["book"]]["id"]
+        if (book_id, rid) not in in_book:
+            t.post("/api/recipe-book-entry/", {"book": book_id, "recipe": rid})
+            in_book.add((book_id, rid))
         _route_recipe_foods(t, recipe, foods_cfg, cfg, cats)
     log.info("seed apply complete")
+
+
+def url_key(url):
+    """Compare source URLs the way Tandoor stores them: it drops `www.` (the
+    spring souvlaki and spinach-salad candidates re-imported every run because
+    the YAML had www.), so ignore scheme, www., case of the host and a trailing /."""
+    u = re.sub(r"^https?://", "", (url or "").strip())
+    host, _, path = u.partition("/")
+    host = host.lower().removeprefix("www.")
+    return f"{host}/{path.rstrip('/')}"
 
 
 def dedupe_plan(recipes):
@@ -396,7 +410,7 @@ def dedupe_plan(recipes):
     groups = {}
     for r in sorted(recipes, key=lambda r: r["id"]):
         if r.get("source_url"):
-            groups.setdefault(r["source_url"], []).append(r)
+            groups.setdefault(url_key(r["source_url"]), []).append(r)
     return [(g[0], g[1:]) for g in groups.values() if len(g) > 1]
 
 
