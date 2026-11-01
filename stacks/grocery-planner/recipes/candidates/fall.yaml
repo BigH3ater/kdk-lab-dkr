@@ -62,7 +62,7 @@ slots:
       pan. NO rating published on page (The Kitchn pages carry no aggregateRating); schema times are 0.
       4 servings - halve for 2. 8 ingredients, olive oil only.
   - site: Downshiftology
-    url: https://downshiftology.com/recipes/baked-salmon/
+    url: https://downshiftology.com/recipes/dijon-baked-salmon/   # old /baked-salmon/ 404s since 2026-11 (page moved)
     title: Dijon Baked Salmon
     rating: 4.84
     count: 186
