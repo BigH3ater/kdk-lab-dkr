@@ -1,0 +1,3 @@
+# Mountpoint for the host-managed Workout guide (/opt/kdk-lab/dashboard/workout).
+# ./guides is mounted read-only, so Docker cannot create this folder itself;
+# without it dashboard-guides fails to start ("read-only file system").
