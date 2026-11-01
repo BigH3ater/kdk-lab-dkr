@@ -6,7 +6,8 @@
 #
 # Owner correction (2026-10-31): the "Household essentials (Target)" recipe is
 # DROPPED — household + cleaning supplies come from Amazon, not this list.
-# Protein powder lives in "Weekly staples" and routes to Target (pantry).
+# Breakfast shakes (owner 2026-10-31): Chobani and Jocko weekly (Target), Nurri on the
+# Costco bulk run, rounded up to whole packs. No protein powder.
 # `amount`/`unit` are nominal; Tandoor scales by servings and merges same
 # food+unit lines across the week.
 recipes:

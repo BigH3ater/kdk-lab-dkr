@@ -54,7 +54,7 @@ def next_week_window(today, start_weekday=6):
 
 def bulk_due(today, cfg):
     """True if `today` is a bulk day: first week of the month (if configured) and
-    the right month parity (odd/even/any). The procedure fires every Thursday;
+    the right month parity (odd/even/any). The procedure fires every Tuesday;
     this gate makes it act every two months."""
     cad = cfg["cadence"]
     if cad.get("bulk_first_week_only", True) and today.day > 7:

@@ -118,7 +118,7 @@ def evaluate_candidate(cand: dict, slot_kind: str, config: dict) -> Evaluation:
                 flags.append("recipe uses another cut; site says breast works")
             else:
                 rejects.append("not chicken breast")
-        elif ucb is None:
+        elif ucb is not True:      # None, or a stray sentinel string
             flags.append("verify cut is chicken breast")
 
     tmin = cand.get("total_time_min")

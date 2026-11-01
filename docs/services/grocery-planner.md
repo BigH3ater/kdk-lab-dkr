@@ -75,8 +75,8 @@ plan page lives in the dashboard mealplan sidecar at `home.kmkdp.com/meal/grocer
   blocking wait. The approval is asynchronous and durable (the Vikunja task is
   the record), so the build pass exits immediately and the poll pass reads the
   outcome later. No long-lived container.
-- **Bulk schedule:** the `grocery-bulk` procedure fires **every Thursday**, but
-  the job gates to the **first Thursday of an odd month** (every two months,
+- **Bulk schedule:** the `grocery-bulk` procedure fires **every Tuesday**, but
+  the job gates to the **first Tuesday of an odd month** (every two months,
   N = 8 weeks) in code — this keeps the cron unambiguous (no day-of-month /
   day-of-week OR surprise). Costco only; the Amana beef eighth-share reorder is
   Phase 2 (a low-stock task, stubbed).

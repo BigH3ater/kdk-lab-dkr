@@ -625,6 +625,9 @@ def _split_groceries(entries):
         food = e.get("food") or {}
         if food.get("food_onhand"):
             continue
+        fname = (food.get("name") or "").lower()
+        if any(x in fname for x in _GROCERY_EXCLUDE):
+            continue              # pets are budgeted in Actual, never ordered here
         cat = food.get("supermarket_category")
         cat_name = cat.get("name") if isinstance(cat, dict) else (cat or "")
         store, aisle = _parse_cat(cat_name)

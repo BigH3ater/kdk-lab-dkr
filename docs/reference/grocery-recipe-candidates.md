@@ -5,7 +5,7 @@ data read from each recipe page's schema.org JSON-LD on the dates shown.
 
 **Scoring:** Bayesian `score = (C*m + n*r)/(C+n)` with `m=4.0`, `C=50`. Verdict: **good** = rating ≥ 4.6 & count ≥ 40; **acceptable** = rating ≥ 4.3 & count ≥ 10; else rejected. The chosen default per slot is the top-scoring good/acceptable candidate (override with `selected: true`).
 
-**Totals:** 144 slots, 317 candidates — good 155, acceptable 96, rejected 66; 37 slots with no good candidate.
+**Totals:** 144 slots, 317 candidates — good 154, acceptable 96, rejected 67; 37 slots with no good candidate.
 
 
 ## Fall
@@ -21,8 +21,8 @@ data read from each recipe page's schema.org JSON-LD on the dates shown.
 | fall-chicken-1  | Sheet Pan Chicken with Sweet Potatoes Ap | wellplated.com | 4.86 | 67 | 4.4925 | 55 | good | published total 55 min over 30-min active cap (may include p |
 | fall-chicken-1 ★ | Harvest Chicken Skillet with Sweet Potat | wellplated.com | 4.74 | 181 | 4.5798 | 50 | good | swap to olive oil (bacon (4 slices, rendered)); published to |
 | fall-chicken-2  | One Pot Chicken Marsala Orzo | thecleaneatingcouple.com | 5 | 5 | 4.0909 | 45 | rejected | below acceptable (5 / 5 reviews) |
-| fall-chicken-2  | Mediterranean Chicken and Orzo | thecleaneatingcouple.com | 4.78 | 75 | 4.468 | 35 | good | published total 35 min over 30-min active cap (may include p |
-| fall-chicken-2 ★ | Creamy Mushroom and Spinach Orzo (Risoni | recipetineats.com | 4.94 | 61 | 4.5166 | 30 | good | swap to olive oil (butter (3 tbsp), flour roux, milk (1.5 cu |
+| fall-chicken-2 ★ | Mediterranean Chicken and Orzo | thecleaneatingcouple.com | 4.78 | 75 | 4.468 | 35 | good | published total 35 min over 30-min active cap (may include p |
+| fall-chicken-2  | Creamy Mushroom and Spinach Orzo (Risoni | recipetineats.com | 4.94 | 61 | 4.5166 | 30 | rejected | not chicken breast |
 | fall-chicken-3  | Chicken and Broccoli Recipe | skinnytaste.com | 4.89 | 163 | 4.6811 | 30 | good | swap to olive oil (canola oil (1 tbsp), sesame oil (2 tsp)) |
 | fall-chicken-3 ★ | Chicken and Broccoli Stir Fry Recipe | natashaskitchen.com | 4.94 | 928 | 4.8919 | 30 | good | swap to olive oil (sesame oil (1 tbsp, in sauce)) |
 | fall-chicken-4 ★ | Herb Baked Chicken Breast | downshiftology.com | 5 | 28 | 4.359 | 25 | acceptable | - |
@@ -182,7 +182,7 @@ data read from each recipe page's schema.org JSON-LD on the dates shown.
 | summer-fish-b  | Grilled Tuna Steak | Taste of Home | 4.5 | 6 | 4.0536 | 20 | rejected | below acceptable (4.5 / 6 reviews) |
 | summer-fish-b ★ | Tuna Steak | RecipeTin Eats | 4.87 | 22 | 4.2658 | 8 | acceptable | - |
 | summer-chicken-1 ★ | Greek Chicken Souvlaki | Downshiftology | 5 | 63 | 4.5575 | 38 | good | published total 38 min over 30-min active cap (may include p |
-| summer-chicken-1  | Chicken Souvlaki with Tzatziki | RecipeTin Eats | 4.94 | 47 | 4.4555 | 25 | good | - |
+| summer-chicken-1  | Chicken Souvlaki with Tzatziki | RecipeTin Eats | 4.94 | 47 | 4.4555 | 25 | good | verify cut is chicken breast |
 | summer-chicken-2 ★ | Skillet Lemon Parmesan Chicken with Zucc | Cooking Classy | 4.98 | 80 | 4.6031 | 30 | good | swap to olive oil (butter (2 Tbsp; the page says it can be s |
 | summer-chicken-2  | Chicken and Zucchini Noodle Caprese | Skinnytaste | 4.93 | 40 | 4.4133 | 30 | good | - |
 | summer-chicken-2  | Caprese Chicken with Zucchini and Tomato | iFoodReal | 5 | 58 | 4.537 | 45 | good | swap to olive oil (oil type not specified in the ingredient  |

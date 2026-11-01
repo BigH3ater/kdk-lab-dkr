@@ -310,7 +310,7 @@ slots:
     - 8 oz / 250g   frozen spinach ((1 box), thawed, excess water squeezed out)
     - Extra parmesan cheese
     - Finely chopped parsley
-    uses_chicken_breast: unspecified
+    uses_chicken_breast: false   # Karen 2026-10-31: no chicken at all (chicken broth only)
     has_beans_lentils: false
     non_olive_fats:
     - butter (3 tbsp)
@@ -1030,7 +1030,7 @@ slots:
     - 2 tablespoons warm water
     - 1 clove garlic grated
     - 1/4 teaspoon salt more or less to taste
-    uses_chicken_breast: unspecified
+    uses_chicken_breast: null
     has_beans_lentils: false
     non_olive_fats: []
     checked_on: '2026-10-31'

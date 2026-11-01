@@ -22,8 +22,8 @@ cadence:
   timezone: "America/Chicago"
   plan_start_weekday: 6        # 6 = Sunday (Python weekday(): Mon=0..Sun=6)
   bulk_weeks: 8                # N weeks of protein/pantry per bulk run
-  # The bulk procedure fires every Thursday (unambiguous cron), but the job acts
-  # only on the FIRST Thursday of an odd month = every two months (N=8). This
+  # The bulk procedure fires every Tuesday (unambiguous cron), but the job acts
+  # only on the FIRST Tuesday of an odd month = every two months (N=8). This
   # gate lives in code so the schedule avoids cron's day-of-month/day-of-week OR
   # ambiguity; off-weeks exit immediately.
   bulk_first_week_only: true
