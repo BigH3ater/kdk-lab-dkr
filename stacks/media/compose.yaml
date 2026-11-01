@@ -189,16 +189,40 @@ services:
     <<: *common
     image: ghcr.io/haveagitgat/tdarr_node:3.04.00@sha256:05bbccf0f20c8b79e21424b553149a85f5bac588a9392986feaa440517bf491f
     runtime: nvidia
-    # Memory ceiling for the transcode node. 2026-10-28 07:57 a runaway encode
-    # (software-decoded 4K / DEE `-max_interleave_delta 0` remux) grew to ~43 GB
-    # RSS on this 47 GB host and the kernel OOM-killed it, taking the node down
-    # instead of just the one job. Cap it so a runaway hits the cgroup limit and
-    # the kernel kills the offending ffmpeg (the job fails, flow holds the file),
-    # not the host. memswap_limit == mem_limit disables swap for the cgroup, so a
-    # runaway is killed rather than thrashing. OOM of the node is alerted by the
-    # Prometheus rule ContainerOOMKilled (stacks/monitoring/prometheus/rules/).
-    mem_limit: 24g
-    memswap_limit: 24g
+    # Memory ceiling for the transcode node. Before any cap (pre-#192) a runaway
+    # DEE/4K remux took the whole node down with a host-level OOM; #192 added a
+    # 24g cgroup cap so a runaway hits the cgroup limit and the kernel kills the
+    # offending ffmpeg (the job fails, flow holds the file), not the host.
+    # memswap_limit == mem_limit disables swap for the cgroup (this host has 0
+    # swap anyway), so a runaway is killed rather than thrashing. Node OOM is
+    # alerted by the Prometheus rule ContainerOOMKilled.
+    #
+    # 2026-10-31 alert review: the 24g cap was set too tight. During the lossless
+    # DV/TrueHD backlog drain (stacks/tdarr-backlog) the §7.4b DEE-dispatch remux
+    # -- a two-input `-c copy -max_interleave_delta 0` mux, required to stop the
+    # Neptune silent-audio bug -- buffers for a single large 4K title (ffmpeg
+    # holds video packets until every mapped stream, incl. sparse `0:s?`
+    # subtitles, yields one). cAdvisor recorded 8 OOM kills in 24 h, all
+    # CONSTRAINT_MEMCG on a single `tdarr-ffmpeg`, each at anon-rss ~24.8 GB
+    # (kernel log 19:44 / 20:50 / 22:04, hourly with the :55 feeder). Every kill
+    # happened AT the 24 GiB cap, so the remux's true working set is UNOBSERVED
+    # (it was never allowed to finish) -- 24.8 GB is only the floor.
+    #
+    # 36g is therefore a MITIGATION sized to the observed ~24.8 GB peak plus
+    # headroom, not a proven ceiling: a single remux now has room to complete and
+    # the drain unsticks, but a very sparse-subtitle title could still exceed it.
+    # Host is ~47 GiB with 0 swap and ~6 GB used by everything else, so 36g keeps
+    # ~5 GB headroom; a runaway is still bounded by the cgroup (host safe), though
+    # the pre-#192 43 GB figure was a host-level event, not a cgroup-capped one,
+    # and did not recur in the 7-day kernel log. The real fix is structural and
+    # deferred (vault follow-up): split the remux (mux v+a with
+    # -max_interleave_delta 0 first, add subs in a second pass) or wrap the remux
+    # in `ulimit -v` so a runaway fails as a catchable malloc error into the
+    # flow's existing nativeFallback instead of relying on the cgroup cap.
+    # If two heavy remuxes ever coincide the cgroup kills one (host safe); drop
+    # the node to 1 transcode worker for the drain (Tdarr UI) if that recurs.
+    mem_limit: 36g
+    memswap_limit: 36g
     pids_limit: 4096
     environment:
       <<: *env
