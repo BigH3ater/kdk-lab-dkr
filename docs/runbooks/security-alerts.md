@@ -8,7 +8,7 @@ What a security page means and what to check first. The rules live in
 `stacks/loki/rules/<family>.yml`; the full list with severities is in
 [Observability → Alert rules](../services/observability.md#alert-rules).
 Pages arrive through Alertmanager on kdk-mon-01 (`source="loki"`); `info`
-alerts come quietly (priority -1) at most once a day.
+alerts are e-mailed as a digest (the `email-info` receiver), not paged.
 
 ## General
 

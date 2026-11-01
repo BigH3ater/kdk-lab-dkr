@@ -76,7 +76,8 @@ Conventions (from `stacks/loki/rules/*`):
 - A series label named `severity` is overwritten by the rule's `severity`; copy it
   to another name first (see `adv_severity` in `advisories.yml`).
 - `runbook` = `docs/runbooks/security-alerts.md#<family>`, and that anchor exists.
-- `info` = "expected while you work on X". It goes to the quiet receiver.
+- `info` = "expected while you work on X". It is e-mailed as a digest (the
+  `email-info` receiver), not paged.
 
 ## 3. Test the LogQL before the PR
 
@@ -147,7 +148,8 @@ ssh kdkadmin@10.1.20.30 'sudo docker exec alertmanager-ext amtool --alertmanager
   alert add RouteTest source=loki severity=info --annotation=summary="route test" --end=$(date -u -d +5min +%FT%TZ)'
 ```
 
-`severity=info` should arrive as a quiet Pushover (`[INFO] RouteTest`).
+`severity=info` should arrive as an e-mail digest (`[INFO] RouteTest`), not a
+page. See [Alerting standards](../reference/alerting-standards.md).
 
 ## Routing
 
@@ -155,8 +157,9 @@ ssh kdkadmin@10.1.20.30 'sudo docker exec alertmanager-ext amtool --alertmanager
 
 | Match | Receiver | Grouping / repeat |
 |---|---|---|
-| `source="loki"` | `pushover` (priority 1 firing, 0 resolved) | `alertname, host`, 4 h |
-| `source="loki"`, `severity="info"` | `pushover-quiet` (priority -1, no resolved) | 24 h |
+| `severity="critical"` | `email-ops` (Pushover + e-mail) | `alertname, host`, 1 h |
+| `severity="info"` | `email-info` (e-mail only, digest) | `alertname`, 6 h / 24 h |
+| `source="loki"` (the rest → warning) | `pushover` (priority 1 firing, 0 resolved) | `alertname, host`, 4 h |
 
 An `alertmanager.yml` change reaches the container through the
 `monitoring-ext` `post_deploy` reload (`POST /-/reload`); a rejected config
