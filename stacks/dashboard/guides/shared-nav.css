@@ -1,0 +1,79 @@
+/* Kodiak shared navigation -- the ONE sidebar for home.kmkdp.com.
+   Loaded by Homepage (via config/custom.css @import "/guides/shared-nav.css"),
+   by every guide page, and by the /meal sidecar pages, so all three present one
+   look and behaviour. The markup is injected by shared-nav.js, which also hides
+   it inside an iframe (the /meal grid/tasks/weather pages are embedded on the
+   dashboard) and adds .has-kodiak-nav to <body> only when it actually renders --
+   so a page that merely loads this file inside a frame gets no stray offset.
+   Tokens are redefined here (same values as Brand.md / custom.css) so the file
+   styles correctly on any page that loads it, standalone or not. Ink ground:
+   accent is --ember (never --rust), secondary text --ash. Never #000/#fff. */
+:root {
+  --ink:#1b1a18; --paper:#ece2d0; --ember:#c9743f; --ash:#8d8377;
+  --ink-surface:#2b2825; --ink-hairline:#423d38; --terminal-bg:#161311;
+}
+
+/* Desktop: a fixed left sidebar, always visible. */
+#kodiak-sidebar {
+  position:fixed; top:0; left:0; bottom:0; width:208px;
+  background:var(--terminal-bg); border-right:1px solid var(--ink-hairline);
+  padding:18px 14px; z-index:40; overflow-y:auto;
+}
+#kodiak-sidebar .ks-brand {
+  display:flex; align-items:center; gap:10px; color:var(--ember);
+  font-weight:600; font-size:16px; text-decoration:none;
+  font-family:'Space Grotesk',sans-serif;
+  padding-bottom:12px; margin-bottom:6px; border-bottom:1px solid var(--ink-hairline);
+}
+#kodiak-sidebar .ks-brand span { color:var(--paper); }
+#kodiak-sidebar ul {
+  list-style:none; margin:0; padding:6px 0 0;
+  border-top:1px solid var(--ink-hairline);
+}
+#kodiak-sidebar li { margin:0; }
+#kodiak-sidebar li a {
+  display:block; padding:8px 10px; margin:2px 0;
+  font-family:'JetBrains Mono',monospace; font-size:11px;
+  letter-spacing:.12em; text-transform:uppercase;
+  color:var(--ash); text-decoration:none; border-radius:9px;
+}
+#kodiak-sidebar li a:hover { color:var(--ember); background:var(--ink-surface); }
+#kodiak-sidebar li a.active,
+#kodiak-sidebar li a[aria-current=page] {
+  color:var(--paper); background:var(--ink-surface);
+  box-shadow:inset 3px 0 0 var(--ember);
+}
+@media (min-width:960px) { body.has-kodiak-nav { padding-left:224px; } }
+
+/* Mobile (<960px): a sticky top bar whose button toggles the sidebar as an
+   off-canvas overlay. The sidebar is the same element on every screen size. */
+#kodiak-topbar, #kodiak-backdrop { display:none; }
+@media (max-width:959px) {
+  body.has-kodiak-nav { padding-left:0; }
+  #kodiak-topbar {
+    display:flex; align-items:center; gap:10px;
+    position:sticky; top:0; z-index:50; padding:10px 16px;
+    background:var(--terminal-bg); border-bottom:1px solid var(--ink-hairline);
+  }
+  #kodiak-topbar .ks-brand {
+    display:flex; align-items:center; gap:8px; color:var(--ember);
+    font-weight:600; font-size:15px; text-decoration:none;
+    font-family:'Space Grotesk',sans-serif;
+  }
+  #kodiak-topbar .ks-brand span { color:var(--paper); }
+  #kodiak-menu {
+    margin-left:auto; display:inline-flex; align-items:center; justify-content:center;
+    min-width:44px; height:44px; padding:0 10px; background:transparent;
+    border:1px solid var(--ink-hairline); border-radius:9px;
+    color:var(--paper); font-size:20px; line-height:1; cursor:pointer;
+  }
+  #kodiak-menu:hover, #kodiak-menu:focus-visible { color:var(--ember); border-color:var(--ember); }
+  #kodiak-sidebar { display:none; top:0; width:min(84vw,300px); z-index:60; }
+  body.ks-open #kodiak-sidebar { display:block; }
+  body.ks-open #kodiak-backdrop {
+    display:block; position:fixed; inset:0; z-index:55; background:rgba(0,0,0,.5);
+  }
+}
+
+#kodiak-sidebar :focus-visible,
+#kodiak-topbar :focus-visible { outline:2px solid var(--ember); outline-offset:2px; }

@@ -12,8 +12,9 @@ services that carry their own login (most now Authelia OIDC, incl. Home Assistan
 | `mealplan` (P2) | `https://home.kmkdp.com/meal/` | Tandoor weekly plan + star-rating write-back |
 
 ## Config (all git-tracked)
-- `config/` — Homepage YAML (`settings`, `services`, `bookmarks`, `widgets`, `custom.css`).
-- `guides/` — static HTML guides. Served under `/guides` via Traefik StripPrefix; each page sets `<base href="/guides/">` so relative links/assets resolve under the prefix even without a trailing slash. `nav.js` renders the guides sidebar (current page marked, Back to home link) and, below 960px, a top-bar menu button that toggles it as an overlay.
+- `config/` — Homepage YAML (`settings`, `services`, `bookmarks`, `widgets`, `custom.css`, `custom.js`). `custom.css` `@import`s `/guides/shared-nav.css`; `custom.js` is a tiny loader that pulls in `/guides/shared-nav.js` (Homepage only auto-loads its own `custom.js`).
+- `guides/` — static HTML guides. Served under `/guides` via Traefik StripPrefix; each page sets `<base href="/guides/">` so relative links/assets resolve under the prefix even without a trailing slash.
+- `guides/shared-nav.css` + `guides/shared-nav.js` — the **one** Kodiak sidebar, shared by Homepage, the guides and the `/meal` pages (same link set/order/labels, active-link state, and a <960px top-bar + hamburger overlay). `shared-nav.js` injects the markup, marks the current surface with `aria-current="page"`, and **hides the nav inside an iframe** (so the dashboard-embedded `/meal` grid/tasks/weather stay bare; standalone `/meal/groceries` gets the sidebar). Served same-origin from `/guides`, behind Authelia — no CDN.
 - `guides.nginx.conf` — mounted read-only over the container's `default.conf`; sends `Cache-Control: no-cache` for HTML and a short `max-age` + `must-revalidate` for css/js so guide edits show up without a hard refresh. Single-file bind mount → conf edits need a container recreate to apply.
 - `mealplan/` — the sidecar (`Dockerfile` + `app.py`).
 - `.env.tpl` — op refs, injected at deploy (`pre_deploy`).
@@ -40,4 +41,4 @@ If a key isn't ready, comment out its line in `.env.tpl` **and** its widget bloc
 - Deploy is standard GitOps: register in `komodo/resources.toml`, push, run `gitops-sync`.
 # Cache busting
 
-The HTML references `style.css?v=<commit>` and `nav.js?v=<commit>`; bump the value (any new string) whenever either file changes so browsers that still hold an old copy fetch the new one on their next page load. The nginx headers (`guides.nginx.conf`) keep HTML at no-cache and css/js at five minutes, but a copy cached before 2026-10-30 had no headers at all and lived on heuristics, which is why the first sidebar fix did not show without a hard refresh.
+The HTML references `style.css?v=<ver>`, `shared-nav.css?v=<ver>` and `shared-nav.js?v=<ver>` (and `custom.css`/`custom.js` and the `/meal` heads reference the same `shared-nav.*?v=<ver>`); bump the value (any new string) everywhere whenever a shared file changes so browsers that still hold an old copy fetch the new one on their next page load. The nginx headers (`guides.nginx.conf`) keep HTML at no-cache and css/js at five minutes, but a copy cached before 2026-10-30 had no headers at all and lived on heuristics, which is why the first sidebar fix did not show without a hard refresh.
