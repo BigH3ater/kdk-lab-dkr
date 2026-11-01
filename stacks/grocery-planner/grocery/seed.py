@@ -452,6 +452,7 @@ def main(argv=None):
             f.write(render_candidate_markdown(scored, cfg))
         log.info("wrote %s", a.report)
     if a.dedupe:
+        from .tandoor import Tandoor
         t = Tandoor(cfg["tandoor"]["url"], os.environ["TANDOOR_USER"],
                     os.environ["TANDOOR_PASS"], cfg["tandoor"].get("space", "Mack House"),
                     space_id=cfg["tandoor"].get("space_id"),
