@@ -202,11 +202,22 @@ class Tandoor:
     def recipe_books(self):
         return {b["name"]: b for b in self.get_all("/api/recipe-book/")}
 
-    def ensure_recipe_book(self, name, description=""):
+    def ensure_recipe_book(self, name, description="", share_ids=()):
+        """Create the book if missing. Tandoor 2.7 requires `shared` on create
+        (400 {"shared":["This field is required."]} without it, seen 2026-11-01);
+        share with the household users so they see the books too. If the server
+        rejects the user list, fall back to an empty share list."""
         existing = self.recipe_books()
         if name in existing:
             return existing[name]
-        return self.post("/api/recipe-book/", {"name": name, "description": description})
+        try:
+            return self.post("/api/recipe-book/", recipe_book_payload(name, description, share_ids))
+        except requests.HTTPError as e:
+            if not share_ids or getattr(e.response, "status_code", None) != 400:
+                raise
+            log.warning("recipe-book %r: shared users rejected (%s); creating unshared",
+                        name, getattr(e.response, "text", "")[:200])
+            return self.post("/api/recipe-book/", recipe_book_payload(name, description, ()))
 
     def meal_plan(self, from_date, to_date):
         return self.get_all("/api/meal-plan/",
@@ -230,3 +241,9 @@ class Tandoor:
             raise RuntimeError(f"no recipe parsed from {url}")
         created = self.post("/api/recipe/", recipe)
         return created.get("id"), src
+
+
+def recipe_book_payload(name, description="", share_ids=()):
+    """Body for POST /api/recipe-book/ (`shared` is required by Tandoor 2.7)."""
+    return {"name": name, "description": description,
+            "shared": [{"id": int(i)} for i in share_ids]}
