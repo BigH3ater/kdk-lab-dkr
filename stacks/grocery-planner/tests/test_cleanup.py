@@ -77,3 +77,23 @@ def test_unknown_unit_is_reread(maps):
     assert b["food"] == {"name": "poblano pepper"} and b["unit"] is None
     b = plan_ingredient(ing("garlic cloves", "large", 3), maps)
     assert b["food"] == {"name": "garlic"} and b["unit"] == {"name": "clove"}
+
+
+def test_second_pass_is_a_no_op(maps):
+    # case-only food difference (Tandoor matches names case-insensitively)
+    assert plan_ingredient(ing("Salt and pepper", None, 0), maps) is None
+    # a re-read that lands on the same food/unit/amount and an existing note
+    once = ing("can diced tomatoes", "oz", 14.5, "", note="")
+    b = plan_ingredient(once, maps)
+    if b:
+        again = ing(b.get("food", once["food"])["name"],
+                    (b.get("unit") or {}).get("name") if "unit" in b else "oz",
+                    b.get("amount", 14.5), "", note=b.get("note", ""))
+        assert plan_ingredient(again, maps) is None
+
+
+def test_broth_routes_to_target_not_meat(cfg):
+    from grocery.seed import load_configs, route_food
+    _, foods_cfg, _, _ = load_configs()
+    for name in ("chicken broth", "chicken stock", "beef broth"):
+        assert route_food(name, foods_cfg, cfg["stores"]).startswith("Target/"), name

@@ -746,11 +746,12 @@ def _combine(entries) -> list[dict]:
     for key, g in out.items():
         parts = [_fmt_family(f, v) for f, v in g["fam"].items() if v]
         parts += [f"{_fmt_num(v)} {u}" for u, v in g["other"].items() if v]
+        qty = " + ".join(parts)
         buy = _BUY_AS.get(key)
         if buy and g["other"].get(buy[0]):
             n = -(-g["other"][buy[0]] // buy[1])          # round up
-            parts.append(f"≈ {_fmt_num(n)} {buy[2]}")
-        items.append({"ids": g["ids"], "food": g["food"], "qty": " + ".join(parts),
+            qty += f" (≈ {_fmt_num(n)} {buy[2]}{'s' if n > 1 else ''})"
+        items.append({"ids": g["ids"], "food": g["food"], "qty": qty,
                       "recipes": g["recipes"]})
     return items
 
