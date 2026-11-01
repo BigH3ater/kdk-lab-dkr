@@ -162,12 +162,23 @@ shopping entries, food categories — lands there automatically. The job still
 **verifies the active space at login and fails loudly** if it isn't the
 configured `tandoor.space` / `space_id`.
 
-**Meal-plan sharing is an owner step.** This Tandoor 2.7 meal-plan API exposes no
-`shared` field, so the job cannot share each entry with jmack/rach
-programmatically (their ids, 3 and 4, are in `tandoor.share_with` for when it
-can). All three household members are in the Mack House space; if jmack or rach
-don't see the plan in their own view, the owner shares it in the Tandoor UI (or
-sets a space-wide default). The weekly run logs a `sharing_note` for the record.
+**Meal-plan sharing is an owner step.** Two API routes were checked read-only
+with the `dashboard` account on 2026-11-01, and neither supports it on this
+instance:
+
+- the **meal-plan** serializer exposes no `shared` field, so a plan can't be
+  shared per-entry; and
+- the **user-preference** default-sharing fields `plan_share` / `shopping_share`
+  (which, when set, auto-share a user's new plans + shopping list) are **not in
+  this 2.7 instance** — absent from both `GET /api/user-preference/` (list and
+  the dashboard user's detail `/api/user-preference/5/`) and the openapi
+  `UserPreference` schema. (If a Tandoor upgrade adds them, the seed should set
+  the dashboard user's `plan_share`/`shopping_share` to `tandoor.share_with`.)
+
+So the job cannot share programmatically (jmack=3, rach=4 are in
+`tandoor.share_with` for when it can). All three household members are in the
+Mack House space; if jmack or rach don't see the plan in their own view, the
+owner shares it in the Tandoor UI. The weekly run logs a `sharing_note`.
 
 ## Amana ground-beef runway
 
