@@ -210,12 +210,14 @@ def run_weekly(cfg, poll=False):
         # the live /openapi/ MealPlan write schema): Tandoor creates the shopping
         # entries itself, scaled to `servings`, linked back via list_recipe, and
         # already excludes on-hand/ignored foods. recipe + meal_type are nested
-        # objects keyed by id (RecipeOverview / MealType).
+        # objects keyed by id (RecipeOverview / MealType); Tandoor 2.7 also
+        # requires `name` on both (400 "This field is required." without it).
         # The Thursday roast-leftover lunch is planned WITHOUT addshopping, so no
         # extra beef/pantry is ordered for it (the roast is already on hand).
+        mtype = mt[cfg["tandoor"]["meal_types"][e.meal_type]]
         body = {"from_date": e.date.isoformat(), "to_date": e.date.isoformat(),
-                "recipe": {"id": e.recipe_id}, "servings": e.servings,
-                "meal_type": {"id": mt[cfg["tandoor"]["meal_types"][e.meal_type]]["id"]},
+                "recipe": {"id": e.recipe_id, "name": e.recipe_name}, "servings": e.servings,
+                "meal_type": {"id": mtype["id"], "name": mtype["name"]},
                 "note": e.note, "addshopping": e.role != "leftover"}
         created = t.post("/api/meal-plan/", body)
         mp_ids.append(created.get("id"))
