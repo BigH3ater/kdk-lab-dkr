@@ -234,6 +234,8 @@ text-transform:uppercase;color:var(--ash)}
 .rate button.on{color:var(--ember)}
 .rate .as{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ash);margin-left:6px}
 :focus-visible{outline:2px solid var(--ember);outline-offset:2px}
+.ahead{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.14em;text-transform:uppercase;
+color:var(--ember);padding:10px 12px 0}
 .empty{color:var(--ash);font-size:13px;padding:24px;text-align:center;font-family:'Space Grotesk',sans-serif}
 """
 
@@ -241,8 +243,8 @@ text-transform:uppercase;color:var(--ash)}
 # same-origin from /guides (behind Authelia -- no CDN). shared-nav.js hides the
 # nav inside an iframe, so the dashboard-embedded /meal grid, tasks and weather
 # pages stay bare; the standalone /meal/groceries page gets the full sidebar.
-NAV_HEAD = ('<link rel="stylesheet" href="/guides/shared-nav.css?v=nav20261101">'
-            '<script defer src="/guides/shared-nav.js?v=nav20261101"></script>')
+NAV_HEAD = ('<link rel="stylesheet" href="/guides/shared-nav.css?v=nav20261101b">'
+            '<script defer src="/guides/shared-nav.js?v=nav20261101b"></script>')
 
 
 def last_ratings(recipe_ids: set[int]) -> dict[int, int]:
@@ -260,7 +262,8 @@ def last_ratings(recipe_ids: set[int]) -> dict[int, int]:
     return out
 
 
-def render_week(plan: list[dict], today: datetime.date, mon: datetime.date, rater: str) -> str:
+def render_week(plan: list[dict], today: datetime.date, mon: datetime.date, rater: str,
+                note: str = "") -> str:
     rated = last_ratings({e["recipe_id"] for e in plan if e.get("recipe_id")})
     by_day: dict[str, list[dict]] = {}
     for e in plan:
@@ -297,6 +300,8 @@ def render_week(plan: list[dict], today: datetime.date, mon: datetime.date, rate
         parts.append("</div>")
         cells.append("".join(parts))
     body = f'<div class="week">{"".join(cells)}</div>'
+    if note:
+        body = f'<div class="ahead">{escape(note)}</div>' + body
     if not plan:
         body = '<div class="empty">No meals planned for this week yet.<br>Open the recipe book to plan some!</div>'
     return f"<!doctype html><html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'>{NAV_HEAD}<style>{PAGE_CSS}</style></head><body>{body}</body></html>"
@@ -325,6 +330,17 @@ def index():
     mon, sun = _week_bounds(today)
     try:
         plan = fetch_plan(mon, sun)
+        note = ""
+        if not plan:
+            # The planner fills NEXT week (Sun-Sat) on Tuesday, so the rolling
+            # 7 days can be empty while next week is ready: show that week.
+            ahead = [e for e in fetch_plan(sun, sun + datetime.timedelta(days=13)) if e["date"]]
+            if ahead:
+                first = min(datetime.date.fromisoformat(e["date"]) for e in ahead)
+                mon = first
+                last = first + datetime.timedelta(days=6)
+                plan = [e for e in ahead if e["date"] <= last.isoformat()]
+                note = f"Next planned week: {first:%a %b %-d} – {last:%a %b %-d}"
     except Exception:
         log.exception("meal plan fetch failed")
         return Response(
@@ -332,7 +348,7 @@ def index():
             f"Couldn't load the meal plan right now. Try again shortly.</body>",
             mimetype="text/html",
         )
-    return Response(render_week(plan, today, mon, rater_from_headers()), mimetype="text/html")
+    return Response(render_week(plan, today, mon, rater_from_headers(), note), mimetype="text/html")
 
 
 @app.post("/rate")

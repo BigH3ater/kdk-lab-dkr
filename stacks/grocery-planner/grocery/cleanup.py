@@ -325,7 +325,9 @@ def run(t, cc, cfg, foods_cfg, fixed_cfg, apply=False, refresh_list=False):
             body["ignore_shopping"] = True
         cat_name = S.route_food(name, foods_cfg, cfg["stores"])
         cur = (f.get("supermarket_category") or {}).get("name") if isinstance(f.get("supermarket_category"), dict) else None
-        if cat_name != cur and not cur:
+        # Route foods with no store, and foods parked in a store's "Other" default
+        # once a rule matches them (a food moved by hand to a real aisle stays).
+        if cat_name != cur and (not cur or (cur.endswith(": Other") and not cat_name.endswith(": Other"))):
             cat = cats.get(cat_name) or (t.ensure_supermarket_category(cat_name) if apply else {"id": None})
             cats[cat_name] = cat
             body["supermarket_category"] = {"id": cat["id"], "name": cat_name}

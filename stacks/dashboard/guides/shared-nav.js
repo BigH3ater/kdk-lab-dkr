@@ -22,6 +22,8 @@
   // open in a new tab.
   var LINKS = [
     ["Home",              "https://home.kmkdp.com/"],
+    ["This Week",         "https://home.kmkdp.com/meal/"],
+    ["Groceries",         "https://home.kmkdp.com/meal/groceries"],
     ["Meal Plan",         "https://recipes.kmkdp.com/mealplan"],
     ["Recipes",           "https://recipes.kmkdp.com/"],
     ["Tasks",             "https://tasks.kmkdp.com/"],

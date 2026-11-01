@@ -158,6 +158,20 @@ All in `config.yaml`:
   only if the pool is tiny) so the week still fills; the preflight reports the
   per-season side count vs 7. Approve more sides to drop the repeats.
 
+## Preview a week before its run
+
+The Tuesday build plans the NEXT Sun–Sat week. To see what it would plan, and the
+store lists that would follow, without writing anything:
+
+```bash
+sudo docker compose run --rm grocery grocery.run --preview                       # the next run's week
+sudo docker compose run --rm grocery grocery.run --preview --week-of 2026-11-15  # any week (a Sunday)
+```
+
+It prints the meals per day, then each store's lines by aisle. Look for repeats,
+lines under `Other` (a missing rule in `recipes/foods.yaml`), and anything that
+should be on hand. If the week is already planned it says so; the real run skips it.
+
 ## Clean up ingredients (one food per line)
 
 Recipe-site imports leave one food under many names ("garlic", "minced garlic",
