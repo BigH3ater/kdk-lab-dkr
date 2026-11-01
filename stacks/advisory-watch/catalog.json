@@ -264,6 +264,11 @@
       "local": true,
       "base": "python"
     },
+    "kdk/grocery-planner": {
+      "local": true,
+      "base": "python",
+      "note": "built from stacks/grocery-planner/Dockerfile (python:3.12-slim + requests + pyyaml)"
+    },
     "kdk/koreader-highlights": {
       "local": true,
       "base": "python"

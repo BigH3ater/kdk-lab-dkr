@@ -1,0 +1,1411 @@
+# Spring recipe candidates (real published recipes; ratings read from each
+# page's schema.org data on checked_on). We do NOT store recipe text -- only the
+# URL + public rating, so the seed imports via Tandoor recipe-from-source.
+# Scoring/verdict are COMPUTED from config.yaml by grocery/candidates.py.
+#
+# Provenance (2026-10-31, revision 2): refreshed from the reachable corpus
+# (Allrecipes is out of scope -- HTTP 402 bot block). Sources: Taste of Home +
+# RecipeTin Eats, Skinnytaste, Well Plated, Cooking Classy, Downshiftology,
+# Love & Lemons, Natasha's Kitchen, iFoodReal, Jessica Gavin, Wholesome Yum,
+# The Clean Eating Couple, foodiecrush, The Lemon Bowl. Set `selected: true` to
+# override the default (top-scoring good/acceptable) pick for a slot.
+slots:
+- slot: spring-fish-a
+  slot_label: baked or roasted WILD SALMON with lemon/dill or with roasted vegetables
+  candidates:
+  - site: skinnytaste.com
+    url: https://www.skinnytaste.com/baked-salmon/
+    title: Baked Salmon Recipe
+    rating: 5
+    count: 11
+    total_time_min: 25
+    yield: 6 servings
+    ingredients:
+    - 2 lemons
+    - 8 to 10 sprigs fresh parsley (plus 1 tablespoon chopped)
+    - extra virgin olive oil
+    - 1 2-pound whole skin-on side of wild salmon (such as sockeye or coho)
+    - 1/2 teaspoon kosher salt
+    - fresh black pepper (to taste)
+    - 2 tablespoons fresh dill (chopped)
+    - 1 tablespoons fresh chives (chopped)
+    uses_chicken_breast: null
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Explicitly wild (sockeye/coho) side of salmon with lemon, parsley, dill, chives. Yield is 6
+      from a 2-lb side; scale to about 10-12 oz for 2. Olive oil. Rating count only 11.
+  - site: wholesomeyum.com
+    url: https://www.wholesomeyum.com/baked-salmon/
+    title: Baked Salmon Recipe (Easy & Flaky!)
+    rating: 4.9
+    count: 118
+    total_time_min: 15
+    yield: 4 servings
+    ingredients:
+    - 4 6-oz Salmon fillets
+    - 1/4 cup Olive oil
+    - 1 tbsp Lemon juice
+    - 2 cloves Garlic ((minced or crushed))
+    - 1 tbsp Fresh dill ((chopped))
+    - 1 tbsp Fresh parsley ((chopped))
+    - 1 tsp Sea salt
+    - 1/4 tsp Black pepper
+    - Lemon slices ((optional))
+    uses_chicken_breast: null
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Lemon/dill/parsley baked fillets, 15 min, olive oil. Page does not say wild; wild fillets work
+      (cook a little shorter). Scale 4 fillets to 2.
+  - site: thelemonbowl.com
+    url: https://thelemonbowl.com/garlic-and-dill-roasted-salmon/
+    title: Garlic and Dill Roasted Salmon
+    rating: 5
+    count: 1
+    total_time_min: 30
+    yield: Serves 2
+    ingredients:
+    - 2 wild salmon filets 6-8oz each
+    - 2 teaspoons extra virgin olive oil
+    - 2 cloves garlic grated
+    - 2 tablespoons fresh dill minced
+    - 1 tablespoon lemon zest
+    - ½ teaspoon sea salt
+    - ¼ teaspoon pepper
+    - slices lemon
+    uses_chicken_breast: null
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Explicitly wild salmon, lemon zest, dill, olive oil, serves 2 as written. Only 1 rating (5.0)
+      so weak evidence. Read via WebFetch (curl got 403).
+- slot: spring-fish-b
+  slot_label: seared/grilled TUNA steak (lemon-herb or sesame)
+  candidates:
+  - site: jessicagavin.com
+    url: https://www.jessicagavin.com/sesame-crusted-ahi-tuna-with-soy-ginger-lime-sauce/
+    title: Sauce for Seared Tuna
+    rating: 4.72
+    count: 187
+    total_time_min: 30
+    yield: 4 servings
+    ingredients:
+    - ½ cup rice wine vinegar
+    - ½ cup water
+    - ⅓ cup sugar
+    - 1 ½ teaspoons kosher salt
+    - ½ teaspoon red chili flakes
+    - 2 6-inch Japanese cucumbers (cut into ⅛" slices)
+    - 6 tablespoons lime juice
+    - ¼ cup soy sauce (plus 2 teaspoons)
+    - 2 tablespoons honey
+    - 2 teaspoons water
+    - 2 teaspoons minced ginger
+    - 1 teaspoon sesame oil
+    - ½ teaspoon red chili flakes
+    - 20 ounces ahi tuna (four 5-oz pieces, about 1" thick)
+    - ½ cup sesame seeds (white, black or a mixture)
+    - 2 tablespoons vegetable oil (or grapeseed oil)
+    uses_chicken_breast: null
+    has_beans_lentils: false
+    non_olive_fats:
+    - vegetable oil (or grapeseed oil)
+    - sesame oil
+    checked_on: '2026-10-31'
+    notes: Sesame-crusted seared ahi (URL slug; page title in JSON-LD is "Sauce for Seared Tuna"). Swap
+      to olive oil/avocado oil for searing. Recipe card also includes a quick-pickled cucumber side and
+      a lime-soy-ginger sauce, so total ingredient count is above 8; tuna + sesame seeds + sauce only
+      is feasible. Lime not lemon. Yield 4 (four 5-oz pieces).
+  - site: skinnytaste.com
+    url: https://www.skinnytaste.com/sesame-crusted-tuna-steak-on-arugula-5/
+    title: Sesame Crusted Tuna Steak on Arugula
+    rating: 4.8
+    count: 15
+    total_time_min: 20
+    yield: 4 servings
+    ingredients:
+    - 20 ounces sushi grade tuna
+    - 1 teaspoon toasted sesame oil
+    - 1/4 cup black and white sesame seeds
+    - pinch kosher salt
+    - fresh black pepper (to taste)
+    - 5 cups baby arugula
+    - 1 tablespoon minced ginger
+    - 1 tablespoon minced scallion
+    - 1 tablespoon minced garlic
+    - 1/2 cup balsamic vinegar
+    - 1/4 cup red wine vinegar
+    - 1/4 cup soy sauce or gluten-free tamari
+    - 1 1/2 tbsp honey
+    - 2 teaspoons toasted sesame oil
+    - 1 teaspoon Dijon mustard
+    uses_chicken_breast: null
+    has_beans_lentils: false
+    non_olive_fats:
+    - toasted sesame oil
+    checked_on: '2026-10-31'
+    notes: Sesame-crusted tuna over arugula with balsamic-soy-ginger dressing; dressing has many ingredients
+      (above 8 non-pantry). Cook 3 min total. 20 oz tuna for 4; halve for 2. Rating count 15.
+- slot: spring-chicken-1
+  slot_label: Greek lemon-oregano chicken breast
+  candidates:
+  - site: foodiecrush.com
+    url: https://www.foodiecrush.com/best-greek-chicken-marinade/
+    title: THE BEST Greek Chicken Marinade
+    rating: 4.64
+    count: 684
+    total_time_min: 50
+    yield: '4'
+    ingredients:
+    - 1 pound boneless, skinless chicken breasts ((about 2 large breasts))
+    - ⅓ cup plain Greek yogurt
+    - ¼ cup olive oil
+    - 4 lemons
+    - 4-5 cloves garlic (, pressed or minced)
+    - 2 tablespoons dried oregano
+    - 1 teaspoon kosher salt
+    - ½ teaspoon freshly ground black pepper
+    uses_chicken_breast: true
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: 'Greek yogurt-lemon-oregano marinade; chicken breast; 50 min total includes a 30 min marinade
+      (works grilled, baked, or pan-fried). Olive oil only. 1 lb breast = about 2 servings as written;
+      ingredients: chicken, yogurt, lemons, garlic, oregano.'
+  - site: ifoodreal.com
+    url: https://www.ifoodreal.com/greek-chicken/
+    title: Greek Chicken Marinade
+    rating: 5
+    count: 24
+    total_time_min: 55
+    yield: 6 servings
+    ingredients:
+    - 3 lbs chicken thighs or breasts (boneless & skinless)
+    - 2 tbsp extra virgin olive oil
+    - 1 large lemon (juice of)
+    - 1 tbsp oregano (dried)
+    - 1 tbsp rosemary (dried or fresh)
+    - 2 garlic cloves (grated)
+    - 1 tsp salt
+    - Ground black pepper (to taste)
+    - Pinch of red pepper flakes
+    uses_chicken_breast: true
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Page says "chicken thighs or breasts (boneless and skinless)", so breast is explicitly allowed.
+      3 lb for 6 servings; use 1 lb for 2. 55 min total includes marinade. Olive oil.
+  - site: cookingclassy.com
+    url: https://www.cookingclassy.com/grilled-greek-lemon-chicken/
+    title: Grilled Greek Lemon Chicken
+    rating: 5
+    count: 14
+    total_time_min: 145
+    yield: '4'
+    ingredients:
+    - 4 (6 oz) boneless skinless chicken breast halves*
+    - 1/3 cup olive oil (, plus more for brushing grill)
+    - 1 Tbsp lemon zest
+    - 1/3 cup fresh lemon juice
+    - 4 cloves garlic (, minced (1 1/2 Tbsp))
+    - 2 tsp dried oregano
+    - 1/2 tsp dried basil
+    - 1/2 tsp dried thyme
+    - 1/2 tsp dried rosemary (, crushed)
+    - Salt and freshly ground black pepper
+    - Chopped fresh parsley (, for serving)
+    uses_chicken_breast: true
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Grilled breast halves, olive oil, lemon, oregano. Total time 145 min is mostly a 2-5 hr marinade;
+      active cook is about 25 min (violates the 60 min total only through marinating). Rating count 14.
+- slot: spring-chicken-2
+  slot_label: chicken souvlaki (chicken breast)
+  candidates:
+  - site: downshiftology.com
+    url: https://www.downshiftology.com/recipes/greek-chicken-souvlaki/
+    title: Greek Chicken Souvlaki
+    rating: 5
+    count: 63
+    total_time_min: 38
+    yield: '4'
+    ingredients:
+    - 4 boneless skinless chicken breasts (cut into 1 ½-inch cubes)
+    - ⅓ cup olive oil
+    - 2 tablespoons lemon juice
+    - 3 cloves garlic (minced)
+    - 2 teaspoons dried oregano
+    - 1 teaspoon dried parsley
+    - 1 teaspoon kosher salt
+    - ½ teaspoon freshly ground black pepper
+    - 1 recipe tzatziki sauce
+    uses_chicken_breast: true
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: 'Breast cubes in olive oil-lemon-oregano marinade, grilled on skewers. Total 38 min on page
+      (includes marinade). Ingredient list says "1 recipe tzatziki sauce" (separate recipe: yogurt, cucumber,
+      etc.) so non-pantry count rises if tzatziki is made. Yield 4.'
+  - site: recipetineats.com
+    url: https://www.recipetineats.com/chicken-souvlaki-tzatziki/
+    title: Chicken Souvlaki with Tzatziki
+    rating: 4.94
+    count: 47
+    total_time_min: 25
+    yield: '4'
+    ingredients:
+    - 1.5 lb / 750 g chicken thigh fillets ((or breast), cut into 1"/2.5cm pieces)
+    - 2 tbsp olive oil
+    - 1/4 cup lemon juice
+    - 3 garlic cloves (, minced)
+    - 2 tbsp dried oregano
+    - 1/2 - 3/4 tsp salt
+    - Black pepper
+    - 1 tbsp olive oil
+    - Flatbreads / wraps / pita bread
+    - Lettuce
+    - Tomato slices
+    - 2 Lebanese cucumbers ((to make about ½ cup grated cucumber after squeezing out juice))
+    - 1 1/4 cups / 300 g plain Greek yoghurt
+    - 2 tsp white wine vinegar ((or red wine or apple cider vinegar))
+    - 1 tbsp lemon juice
+    - 1/2 garlic clove (, minced)
+    - 1 tbsp extra virgin olive oil ((or more if you want richer))
+    - 1/2 tsp salt
+    - Black pepper
+    uses_chicken_breast: true
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Page says "chicken thigh fillets (or breast)" so breast works - flag thigh is the default.
+      Includes homemade tzatziki, flatbreads, lettuce, tomato (list is long; souvlaki itself is simple).
+      25 min total. Olive oil.
+- slot: spring-chicken-3
+  slot_label: sheet-pan chicken breast with spring vegetables
+  candidates:
+  - site: wellplated.com
+    url: https://www.wellplated.com/sheet-pan-lemon-chicken/
+    title: Sheet Pan Lemon Chicken
+    rating: 4.8
+    count: 10
+    total_time_min: 50
+    yield: 4 servings
+    ingredients:
+    - 1 pound baby red potatoes (cut into 1-inch pieces)
+    - 3 tablespoons extra-virgin olive oil (divided)
+    - 2 tablespoons chopped fresh rosemary (divided)
+    - 1 teaspoon kosher salt (divided)
+    - 1/2 teaspoon ground black pepper (divided)
+    - 2 pounds thin asparagus (tough ends trimmed and discarded, cut into 2-inch pieces (about 2 bunches))
+    - 1 1/2 pounds boneless, skinless chicken breasts (or thighs, cut into 1-inch pieces)
+    - 1 teaspoon garlic powder
+    - 1 large lemon (juice and zest (you should have about 1/4 cup lemon juice total))
+    uses_chicken_breast: true
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Chicken breast (or thighs) with asparagus and baby potatoes, lemon, rosemary, olive oil. 50
+      min total. Yield 4; halve for 2. Rating count 10 (borderline).
+  - site: thecleaneatingcouple.com
+    url: https://thecleaneatingcouple.com/paleo-sheet-pan-rosemary-balsamic-chicken-and-veggies/
+    title: Sheet Pan Balsamic Chicken & Veggies
+    rating: 4.62
+    count: 13
+    total_time_min: 45
+    yield: 4 servings
+    ingredients:
+    - ¼ cup balsamic vinegar
+    - ¼ cup olive oil
+    - 1 teaspoon dried rosemary
+    - ½ teaspoon garlic powder
+    - ½ teaspoon onion powder
+    - ½ teaspoon pepper
+    - ½ teaspoon salt
+    - 1 ½ lbs boneless, skinless chicken breasts (pounded thinly)
+    - 2 ½ cups halved baby bella mushrooms (8 ounces)
+    - 3 cups chopped red bell peppers (cut into large square pieces (2 large peppers))
+    - 2 cups quartered asparagus (4 ounces)
+    - 2 cups halved baby potatoes (10 ounces)
+    - 1 cup quartered yellow onion
+    - 1 tablespoon minced garlic
+    uses_chicken_breast: true
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Breast pounded thin with mushrooms, peppers, asparagus, potatoes, onion; balsamic-rosemary-olive
+      oil marinade. About 9 non-pantry ingredients (slightly over the 8 limit). Search snippet says thighs/tenders
+      can substitute. 45 min.
+  - site: cookingclassy.com
+    url: https://www.cookingclassy.com/sheet-pan-pesto-chicken-asparagus-tomatoes-walnuts/
+    title: Sheet Pan Pesto Chicken with Asparagus, Tomatoes & Walnuts
+    rating: 5
+    count: 3
+    total_time_min: 35
+    yield: '4'
+    ingredients:
+    - 1 1/2 cups (48g) packed fresh basil leaves
+    - 1/4 cup Fishers Walnuts Halves and Pieces
+    - 1/4 cup finely shredded parmesan cheese
+    - 2 cloves garlic (, peeled)
+    - 1/2 cup olive oil
+    - Salt and freshly ground black pepper
+    - 1 1/2 lbs boneless skinless chicken breasts (, diced into 1-inch pieces)
+    - 1 lb asparagus ((don't use thick spears), tough ends trimmed and discarded remaining diced into
+      1 1/2-inch pieces)
+    - 1 pint fresh grape tomatoes ((2 cups))
+    - 1/2 cup Fishers Walnuts Halves and Pieces
+    uses_chicken_breast: true
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Pesto chicken breast with asparagus and grape tomatoes; homemade pesto adds ingredients (basil,
+      walnuts, parmesan, garlic, olive oil). Only 3 ratings (5.0) - weak evidence. 35 min.
+- slot: spring-chicken-4
+  slot_label: honey-garlic chicken breast
+  candidates:
+  - site: recipetineats.com
+    url: https://www.recipetineats.com/honey-garlic-chicken/
+    title: Honey Garlic Chicken Breast
+    rating: 4.97
+    count: 838
+    total_time_min: 12
+    yield: '4'
+    ingredients:
+    - 500g / 1 lb chicken breast (, boneless and skinless (2 pieces))
+    - Salt and pepper
+    - 1/4 cup flour ((Note 1))
+    - 3 1/2 tbsp (50g) unsalted butter ((or 2 1/2 tbsp olive oil))
+    - 2 garlic cloves (, minced)
+    - 1 1/2 tbsp apple cider vinegar ((or white or other clear vinegar))
+    - 1 tbsp soy sauce (, light or all purpose (Note 2))
+    - 1/3 cup honey ((or maple syrup))
+    uses_chicken_breast: true
+    has_beans_lentils: false
+    non_olive_fats:
+    - butter
+    checked_on: '2026-10-31'
+    notes: Seared breast with 5-ingredient honey-garlic sauce, 12 min. Butter is the default but the page
+      lists "or 2 1/2 tbsp olive oil" - swap to olive oil. Flour dredge. Yield 4 from 1 lb (2 breasts),
+      so 1 lb is a good 2-person batch with leftovers.
+  - site: ifoodreal.com
+    url: https://www.ifoodreal.com/honey-garlic-chicken/
+    title: Baked Honey Garlic Chicken Recipe
+    rating: 4.96
+    count: 46
+    total_time_min: 30
+    yield: 6 servings
+    ingredients:
+    - 2 pounds boneless skinless chicken breasts
+    - 1/3 cup honey (pourable)
+    - 2 tablespoons soy sauce
+    - 2 tablespoons lemon juice (or apple cider vinegar)
+    - 3 large garlic cloves
+    - 1 tablespoon cold water
+    - 1 teaspoon cornstarch
+    - 2 tablespoons green onion (for garnish)
+    - 2 teaspoons sesame seeds (for garnish)
+    uses_chicken_breast: true
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Baked honey-garlic breast; no added cooking fat in the list. 6 servings from 2 lb; use 1 lb
+      for 2-3. 30 min total.
+- slot: spring-chicken-5
+  slot_label: Mediterranean baked/grilled lemon chicken breast
+  candidates:
+  - site: wellplated.com
+    url: https://www.wellplated.com/baked-lemon-chicken/
+    title: Baked Lemon Chicken
+    rating: 4.85
+    count: 53
+    total_time_min: 100
+    yield: 4 servings
+    ingredients:
+    - 2 pounds boneless skinless chicken breasts (about 3 to 4 breasts)
+    - 1/4 cup extra virgin olive oil
+    - 3 cloves garlic (minced (about 1 tablespoon))
+    - 1 tablespoon minced fresh rosemary (or 1 teaspoon dried rosemary)
+    - 1 teaspoon kosher salt
+    - 1/4 teaspoon ground black pepper
+    - 2 lemons (divided)
+    uses_chicken_breast: true
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Lemon-garlic-rosemary baked breast in olive oil. Total 100 min includes a 1-8 hr marinade;
+      cook is about 20 min. Only 7 ingredients. Yield 4.
+  - site: thelemonbowl.com
+    url: https://thelemonbowl.com/greek-style-baked-chicken-breasts/
+    title: Greek Style Baked Chicken Breasts
+    rating: 4.39
+    count: 18
+    total_time_min: 60
+    yield: 4 servings
+    ingredients:
+    - 4 chicken breasts
+    - 1 tablespoon extra virgin olive oil
+    - 4 cloves garlic grated
+    - 1 Zest of lemon
+    - 1 tablespoon dried oregano
+    - 1 teaspoon coriander
+    - 1 teaspoon sea salt
+    - ¼ teaspoon cayenne
+    uses_chicken_breast: true
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: 'Greek-style baked breast: olive oil, garlic, lemon zest, oregano, coriander, cayenne. 60 min
+      total (45 min cook). Rating 4.39 (count 18). Read via WebFetch (curl got 403).'
+  - site: tasteofhome.com
+    url: https://www.tasteofhome.com/recipes/lemon-feta-chicken/
+    title: Lemon Feta Chicken
+    rating: 5
+    count: 4
+    total_time_min: 25
+    yield: 4 servings
+    ingredients:
+    - 4 boneless skinless chicken breast halves (4 ounces each)
+    - 2 to 3 tablespoons lemon juice
+    - 1/4 cup crumbled feta cheese
+    - 1 teaspoon dried oregano
+    - 1/4 to 1/2 teaspoon pepper
+    uses_chicken_breast: true
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Breast halves with lemon juice, feta, oregano; 5 ingredients, 25 min. Only 4 ratings (5.0)
+      - weak evidence. No added cooking fat.
+- slot: spring-beef-a
+  slot_label: Greek ground beef and rice skillet or bowl WITH FETA
+  candidates:
+  - site: downshiftology.com
+    url: https://www.downshiftology.com/recipes/mediterranean-ground-beef-stir-fry/
+    title: Mediterranean Ground Beef Stir Fry
+    rating: 4.93
+    count: 260
+    total_time_min: 25
+    yield: 4 servings
+    ingredients:
+    - 1 tablespoon olive oil
+    - 1 red bell pepper (deseeded and diced)
+    - 1 pint cherry tomatoes (sliced in half)
+    - 8 ounces baby spinach (small tub)
+    - 4 garlic cloves (minced)
+    - 2 green onion (thinly sliced, white and green parts separated)
+    - 1 pound ground beef
+    - ½ teaspoon dried oregano
+    - kosher salt and freshly ground black pepper (to taste)
+    - 2 tablespoons crumbled feta ((optional))
+    uses_chicken_breast: null
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Closest Greek ground-beef skillet with feta (optional 2 tbsp crumbled feta), spinach, cherry
+      tomatoes, peppers, oregano. NO RICE in recipe - serve over cooked rice. 25 min. Olive oil. Yield
+      4.
+  - site: recipetineats.com
+    url: https://www.recipetineats.com/ground-beef-and-rice-recipe/
+    title: Beef and Rice with Veggies
+    rating: 4.92
+    count: 117
+    total_time_min: 25
+    yield: '5'
+    ingredients:
+    - 2 tbsp olive oil
+    - 1 onion (, diced (any type))
+    - 1 red capsicum / bell pepper (, diced (large))
+    - 2 garlic cloves (, minced)
+    - 500g (1 lb) ground beef (mince) (, lean)
+    - 2 1/2 tbsp tomato paste
+    - 1 1/4 tsp salt
+    - 1/2 tsp EACH cumin, black pepper
+    - 1 tsp each onion powder, dried oregano (or other herb of choice)
+    - 1/4 tsp cayenne pepper ((optional))
+    - 1 dried bay leaf
+    - 1 1/4 cups (225g) long grain white rice (, uncooked (Note 1))
+    - 2 cups (500 ml) beef broth (, low sodium)
+    - 2 cups (300g) diced frozen veggies (, I used corn, pea, carrot mix (Note 2))
+    - 3 big handfuls baby spinach (~ 90g/3 oz) (, or other leafy greens (Note 3))
+    uses_chicken_breast: null
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: One-pan ground beef and rice with spinach, oregano, cumin, bell pepper. Not Greek and no feta
+      in recipe - add feta and lemon at the end to make it Greek-style. 25 min. Olive oil. Yield 5.
+- slot: spring-beef-b
+  slot_label: Asian/Korean ground beef and snap pea (or broccoli) stir fry
+  candidates:
+  - site: thecleaneatingcouple.com
+    url: https://thecleaneatingcouple.com/ground-beef-stir-fry/
+    title: Healthy Ground Beef Stir Fry
+    rating: 4.96
+    count: 24
+    total_time_min: 35
+    yield: 4 2-cup servings
+    ingredients:
+    - 1 pound ground beef (80:20 or 85:15)
+    - 1 tablespoon minced garlic cloves ((3 large cloves))
+    - ½ cup quartered yellow onion (about 1/2 medium onion)
+    - 2 cups red bell pepper (chopped in about 1-inch pieces - 2 peppers)
+    - 2 cups sugar snap peas
+    - ½ cup shredded carrots (about 1 large carrot, julienne cut carrots can also be used)
+    - 4 ounces mushrooms (sliced (I use white mushrooms))
+    - ½ cup coconut aminos (or low sodium soy sauce)
+    - ¼ cup coconut sugar (or brown sugar - optional)
+    - 1 tablespoon sesame oil
+    - 1 tablespoon rice vinegar
+    - 2 teaspoons cornstarch
+    - 2 teaspoons ground ginger
+    - ¼ teaspoon crushed red pepper flakes (optional)
+    - 1 tablespoon sesame seeds
+    - 1 green onion (thinly sliced)
+    - Cooked rice
+    uses_chicken_breast: null
+    has_beans_lentils: false
+    non_olive_fats:
+    - sesame oil
+    checked_on: '2026-10-31'
+    notes: Ground beef with sugar snap peas, bell pepper, carrot, mushrooms; coconut aminos sauce. Above
+      8 non-pantry ingredients (many vegetables; trim to snap peas + pepper). Uses 80:20 beef. Not specifically
+      Korean. 35 min.
+  - site: skinnytaste.com
+    url: https://www.skinnytaste.com/ground-beef-and-broccoli-stir-fry/
+    title: Ground Beef and Broccoli Stir Fry
+    rating: 4.68
+    count: 221
+    total_time_min: 13
+    yield: 4 servings
+    ingredients:
+    - ½ cup reduced sodium soy sauce (or gluten-free tamari)
+    - 1 tablespoon honey
+    - 4 cloves garlic (minced)
+    - 1 1-inch piece fresh ginger (peeled and grated)
+    - 1 tablespoon cornstarch
+    - ½ tablespoon sesame oil
+    - 1 pound ground beef (93% lean )
+    - ½ medium yellow onion (chopped)
+    - 1 large head broccoli (cut into florets and blanched*)
+    - 1 tablespoon toasted sesame seeds
+    - 3 medium scallions (sliced on the bias)
+    - cooked rice (or cauliflower rice, for serving (optional))
+    uses_chicken_breast: null
+    has_beans_lentils: false
+    non_olive_fats:
+    - sesame oil
+    checked_on: '2026-10-31'
+    notes: Ground beef with broccoli in soy-honey-ginger-garlic sauce; 13 min total; sesame oil is flavoring
+      (swap not needed). Broccoli not snap peas. Count 221.
+- slot: spring-steak
+  slot_label: grilled sirloin or flank steak (chimichurri or garlic)
+  candidates:
+  - site: skinnytaste.com
+    url: https://www.skinnytaste.com/grilled-flank-steak-with-chimichurri/
+    title: Grilled Chimichurri Flank Steak
+    rating: 4.95
+    count: 36
+    total_time_min: 30
+    yield: 6 servings
+    ingredients:
+    - 1 1/2 pounds flank steak
+    - 1 teaspoon garlic powder
+    - 3/4 teaspoon ground cumin
+    - 1/2 teaspoon dried oregano
+    - fresh black pepper (to taste)
+    - 1 1/4 teaspoons kosher salt
+    - 1/3 cup packed fresh parsley (minced fine, no stems)
+    - 2 tablespoons red onion (finely chopped*)
+    - 4 cloves garlic (minced)
+    - 2 tablespoons extra virgin olive oil
+    - 3 tablespoons red wine vinegar
+    - 1 tablespoon water
+    - 1/4 teaspoon kosher salt
+    - 1/8 teaspoon fresh black pepper
+    - 1/8 teaspoon crushed red pepper flakes (or more to taste)
+    uses_chicken_breast: null
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Flank steak with parsley chimichurri (olive oil, red wine vinegar, garlic). 6 servings from
+      1.5 lb; use about 1 lb for 2 plus leftovers. 30 min.
+  - site: wholesomeyum.com
+    url: https://www.wholesomeyum.com/sirloin-tips/
+    title: Sirloin Steak Tips (With Chimichurri!)
+    rating: 5
+    count: 16
+    total_time_min: 38
+    yield: 4 servings
+    ingredients:
+    - 4 tbsp Olive oil ((divided into 3 tbsp and 1 tbsp))
+    - 1 tbsp Balsamic vinegar
+    - 1/2 tsp Garlic powder
+    - 1 tsp Sea salt
+    - 1/4 tsp Black pepper
+    - 1 lb Top sirloin steaks ((cut into 1.5-inch pieces; can also use New York Strip, ribeye, or beef
+      tenderloin))
+    - 1/4 cup Chimichurri sauce ((optional))
+    uses_chicken_breast: null
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Top sirloin cut in pieces, pan-seared with olive oil; chimichurri is optional ("1/4 cup chimichurri
+      sauce", separate recipe). 38 min listed total.
+- slot: spring-side-asparagus
+  slot_label: roasted asparagus (NOT radishes)
+  candidates:
+  - site: wholesomeyum.com
+    url: https://www.wholesomeyum.com/how-to-cook-asparagus-in-the-oven/
+    title: Oven Roasted Asparagus (Easy Recipe)
+    rating: 4.97
+    count: 243
+    total_time_min: 17
+    yield: 4 servings
+    ingredients:
+    - 1 lb Asparagus ((woody ends trimmed))
+    - 2 tbsp Olive oil
+    - 1/2 tsp Garlic powder ((optional))
+    - 1/4 tsp Sea salt
+    - 1/4 tsp Black pepper
+    uses_chicken_breast: null
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: 1 lb asparagus, 2 tbsp olive oil, garlic powder. 17 min. Halve for 2.
+  - site: wellplated.com
+    url: https://www.wellplated.com/roasted-asparagus/
+    title: Perfect Roasted Asparagus
+    rating: 4.87
+    count: 76
+    total_time_min: 20
+    yield: 4 servings
+    ingredients:
+    - 1 pound asparagus
+    - 1 ½ teaspoons extra virgin olive oil
+    - ¼ teaspoon kosher salt
+    - Toppings of your choice (optional)
+    - Lemon zest and juice
+    - Freshly grated Parmesan cheese
+    - Red pepper flakes ((just a pinch))
+    - Thyme* ((1 teaspoon fresh or a slightly heaping 1/4 teaspoon of dried))
+    - Basil* ((1 tablespoon fresh or 1 teaspoon dried))
+    - Drizzle balsamic reduction or aged balsamic vinegar
+    - Drizzle of melted butter
+    uses_chicken_breast: null
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: 1 lb asparagus, 1.5 tsp olive oil; optional toppings list includes melted butter (omit). 20
+      min.
+- slot: spring-side-spinach-radish
+  slot_label: spinach and radish salad
+  candidates:
+  - site: tasteofhome.com
+    url: https://www.tasteofhome.com/recipes/wilted-arugula-salad/
+    title: Wilted Arugula Salad
+    rating: 5
+    count: 2
+    total_time_min: 25
+    yield: 8 servings
+    ingredients:
+    - 4 bacon strips, chopped
+    - 5 ounces fresh arugula or baby spinach
+    - 2 hard-boiled large eggs, chopped
+    - 1 medium leek (white portion only), thinly sliced
+    - 1 medium tomato, chopped
+    - 4 radishes, thinly sliced
+    - 1/4 cup cider vinegar
+    - 4-1/2 teaspoons prepared mustard
+    - 2 teaspoons sugar
+    - Dash pepper
+    uses_chicken_breast: null
+    has_beans_lentils: false
+    non_olive_fats:
+    - bacon
+    checked_on: '2026-10-31'
+    notes: 'Closest page that combines radishes with greens: arugula OR baby spinach, 4 sliced radishes,
+      egg, leek, tomato; dressing is cider vinegar + mustard. Bacon fat is part of the recipe (omit or
+      swap to olive oil). 8 servings; only 2 ratings (5.0) - weak evidence.'
+  - site: loveandlemons.com
+    url: https://www.loveandlemons.com/spring-salad/
+    title: Bright Spring Salad
+    rating: 4.99
+    count: 100
+    total_time_min: 25
+    yield: '4'
+    ingredients:
+    - 1 bunch asparagus (tender parts, chopped into 1-inch pieces)
+    - ½ cup frozen peas (thawed)
+    - A few handfuls salad greens
+    - 2 radishes (thinly sliced)
+    - ½ cup crumbled feta cheese
+    - ½ avocado (pitted and diced)
+    - ¼ cup chopped toasted pistachios
+    - ½ cup roasted chickpeas
+    - Fresh herbs (for garnish (basil, mint and/or chives))
+    - Sea salt and freshly ground pepper
+    - ¼ cup fresh basil leaves (or a mix of basil and mint leaves)
+    - 1 small garlic clove
+    - 1 tablespoon fresh lemon juice
+    - ½ teaspoon lemon zest
+    - 1 tablespoon white wine vinegar
+    - 2 tablespoons extra-virgin olive oil (plus more as desired)
+    - ¼ teaspoon sea salt
+    uses_chicken_breast: null
+    has_beans_lentils: true
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Salad greens (use baby spinach) with thinly sliced radishes, asparagus, peas, feta, basil-lemon
+      dressing in olive oil. Ingredient list includes 1/2 cup roasted chickpeas - OMIT (violates no-beans).
+      Above 8 non-pantry ingredients unless trimmed. Rating 4.99 / 100.
+- slot: spring-side-garlicky-spinach
+  slot_label: garlicky sauteed spinach
+  candidates:
+  - site: loveandlemons.com
+    url: https://www.loveandlemons.com/sauteed-spinach/
+    title: Sautéed Spinach
+    rating: 4.94
+    count: 64
+    total_time_min: 5
+    yield: '4'
+    ingredients:
+    - 2 teaspoons extra-virgin olive oil
+    - 1 garlic clove (chopped)
+    - 5 ounces spinach
+    - ¼ teaspoon sea salt
+    - Lemon wedge (for squeezing)
+    - Freshly ground black pepper
+    uses_chicken_breast: null
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: 5 oz spinach, 1 garlic clove, 2 tsp olive oil, lemon wedge; 5 min. Scale up to about 8 oz for
+      2 if wanted.
+  - site: downshiftology.com
+    url: https://downshiftology.com/recipes/garlic-sauteed-spinach/
+    title: Garlic Sautéed Spinach
+    rating: 5
+    count: 24
+    total_time_min: 10
+    yield: 4 servings
+    ingredients:
+    - 1 pound baby spinach
+    - 2 tablespoons olive oil
+    - 3 garlic cloves (minced)
+    - kosher salt and freshly ground black pepper (to taste)
+    uses_chicken_breast: null
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: 1 lb baby spinach, 2 tbsp olive oil, 3 garlic cloves; 10 min. Halve for 2.
+- slot: spring-side-cucumber-radish
+  slot_label: cucumber radish salad
+  candidates:
+  - site: natashaskitchen.com
+    url: https://www.natashaskitchen.com/cucumber-radish-salad-recipe/
+    title: Creamy Cucumber Radish Salad Recipe
+    rating: 4.95
+    count: 92
+    total_time_min: 10
+    yield: 4 (as a side)
+    ingredients:
+    - 1 English cucumber (thinly sliced)
+    - 20 radishes ((2 bunches), trimmed and thinly sliced)
+    - 1/2 cup chives or green onion ((1 bunch), chopped)
+    - 3/4 cup sour cream (*)
+    - 3/4 tsp sea salt (or add to taste)
+    uses_chicken_breast: null
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Creamy sour cream dressing (not a cooking fat; swap to olive oil + lemon or Greek yogurt if
+      avoiding dairy fat). 4 ingredients, 10 min. Count 92.
+  - site: downshiftology.com
+    url: https://downshiftology.com/recipes/cucumber-radish-salad/
+    title: Cucumber Radish Salad
+    rating: 4.95
+    count: 18
+    total_time_min: 10
+    yield: 4 servings
+    ingredients:
+    - 4 mini or Persian cucumbers
+    - 8 radishes (one bunch)
+    - 2 green onion (thinly sliced)
+    - 1 tablespoons fresh dill (roughly chopped)
+    - 2 tablespoons olive oil
+    - 1 ½ tablespoons lemon juice (from half a lemon)
+    - kosher salt and freshly ground black pepper (to taste)
+    uses_chicken_breast: null
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Olive oil + lemon + dill dressing, Persian cucumbers, radishes, green onion. 10 min. Rating
+      count 18.
+- slot: spring-side-pea-salad
+  slot_label: fresh pea salad (lemon)
+  candidates:
+  - site: skinnytaste.com
+    url: https://www.skinnytaste.com/pea-salad/
+    title: Pea Salad Recipe
+    rating: 4.8
+    count: 5
+    total_time_min: 28
+    yield: 6 servings
+    ingredients:
+    - 1 pound frozen petite peas (or fresh shelled peas)
+    - Kosher salt (and fresh black pepper)
+    - 1/2 cup packed fresh dill sprigs (plus more for garnish)
+    - 1/3 cup packed fresh mint leaves
+    - 1/4 cup non-fat Greek yogurt
+    - 1 lemon
+    - 2 teaspoons extra-virgin olive oil
+    - 1/2 shallot (minced)
+    - 1/2 cup crumbled feta (for topping)
+    - 1 small radish (thinly sliced for garnish)
+    uses_chicken_breast: null
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Peas dressed with blended pea-yogurt-mint-dill-lemon dressing, shallot, feta, radish garnish.
+      Count only 5 (4.8). Frozen peas fine. 6 servings; halve. About 8 non-pantry ingredients.
+  - site: recipetineats.com
+    url: https://www.recipetineats.com/spring-salad/
+    title: Spring Salad with Goats Cheese
+    rating: 4.95
+    count: 17
+    total_time_min: 15
+    yield: 4 - 6 people as a side
+    ingredients:
+    - 3 bunches (24 spears) asparagus (, woody ends snapped off (Note 1))
+    - 120g / 4oz snow peas ((about 16 large or 20 smaller ones), trimmed and string removed)
+    - 1 head baby gem or cos lettuce (aka romaine) (washed (16 leaves, Note 2))
+    - 2 cups fresh or frozen peas ((Note 3))
+    - 90g / 3oz goats cheese
+    - 1 cup (loosely packed) fresh mint leaves, (, roughly torn)
+    - 1 tsp lemon zest ((from 1 lemon))
+    - 2 tbsp (30ml) lemon juice
+    - 6 tbsp (90ml) extra virgin olive oil
+    - 1/4 tsp each salt and pepper
+    uses_chicken_breast: null
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Asparagus, snow peas, peas, romaine, goat cheese, mint, lemon-olive oil dressing. JSON-LD gives
+      no totalTime; total_time_min is prep 10 + cook 5. 4-6 side servings; halve. Slightly more than 8
+      ingredients if all vegetables kept.
+- slot: spring-side-roasted-radishes
+  slot_label: roasted radishes
+  candidates:
+  - site: tasteofhome.com
+    url: https://www.tasteofhome.com/recipes/roasted-radishes/
+    title: Roasted Radishes
+    rating: 4.83
+    count: 12
+    total_time_min: 40
+    yield: 6 servings
+    ingredients:
+    - 2-1/4 pounds radishes, trimmed and quartered (about 6 cups)
+    - 3 tablespoons olive oil
+    - 1 tablespoon minced fresh oregano or 1 teaspoon dried oregano
+    - 1/4 teaspoon salt
+    - 1/8 teaspoon pepper
+    uses_chicken_breast: null
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Radishes, olive oil, oregano, salt, pepper; 40 min total (30 min roast). Yield 6; use about
+      3/4 lb for 2. Count 12.
+  - site: wholesomeyum.com
+    url: https://www.wholesomeyum.com/roasted-radishes/
+    title: Roasted Radishes (Easy Recipe)
+    rating: 5
+    count: 17
+    total_time_min: 30
+    yield: 4 servings
+    ingredients:
+    - 1 lb Radishes ((trimmed and quartered - weight without greens; ~24 radishes))
+    - 1 1/2 tbsp Olive oil
+    - 1/2 tsp Garlic powder ((optional))
+    - 1/2 tsp Sea salt
+    - 1/4 tsp Black pepper
+    - 1 tbsp Unsalted butter
+    uses_chicken_breast:
+    - butter
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Olive oil roast then toss with 1 tbsp butter at the end - swap to olive oil or omit. 30 min.
+      Count 17.
+- slot: spring-side-spinach-feta
+  slot_label: spinach salad with feta (NO beans)
+  candidates:
+  - site: ifoodreal.com
+    url: https://www.ifoodreal.com/strawberry-spinach-salad/
+    title: Best Strawberry Spinach Salad with Balsamic Dressing
+    rating: 5
+    count: 36
+    total_time_min: 18
+    yield: 8 servings (side dish)
+    ingredients:
+    - 1 lb strawberries (hulled and sliced in halves (quarters))
+    - 3 oz goat or feta cheese (crumbled)
+    - 1/4 cup red onion (thinly sliced)
+    - 1 1/2 cups pecans
+    - 11 oz box baby spinach (pre-washed)
+    - 1/4 cup extra virgin olive oil
+    - 2 tbsp maple syrup
+    - 2 tbsp balsamic vinegar
+    - 1 tbsp soy sauce (I used Bragg's liquid aminos)
+    uses_chicken_breast: null
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Baby spinach, strawberries, red onion, feta (or goat), pecans; olive oil-balsamic-maple-soy
+      dressing. 8 servings; scale to 1/4. 18 min total.
+  - site: loveandlemons.com
+    url: https://www.loveandlemons.com/strawberry-spinach-salad/
+    title: Strawberry Spinach Salad
+    rating: 4.88
+    count: 16
+    total_time_min: 20
+    yield: 4 to 6
+    ingredients:
+    - 5 ounces fresh spinach
+    - 1 cup thinly sliced strawberries
+    - ⅓ cup thinly sliced red onion
+    - 1 recipe Poppy Seed Dressing
+    - ½ cup toasted pecans
+    - 2 ounces feta cheese (crumbled)
+    - Sea salt and freshly ground black pepper
+    uses_chicken_breast: null
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Spinach, strawberries, red onion, pecans, feta; references a separate Poppy Seed Dressing recipe
+      (not itemized in the list). 20 min. Count 16.
+- slot: spring-side-sesame-cucumber
+  slot_label: sesame cucumber salad
+  candidates:
+  - site: downshiftology.com
+    url: https://downshiftology.com/recipes/asian-cucumber-salad/
+    title: Asian Cucumber Salad (Smashed Cucumber Salad)
+    rating: 5
+    count: 34
+    total_time_min: 25
+    yield: 4 servings
+    ingredients:
+    - 6 medium Persian cucumbers
+    - 1 teaspoon kosher salt
+    - 2 green onions (thinly sliced)
+    - ¼ cup finely chopped cilantro
+    - 2 teaspoons white sesame seeds (toasted (plus extra for garnish))
+    - 1 tablespoon sesame oil
+    - 1 tablespoon tamari soy sauce
+    - 1 tablespoon rice vinegar
+    - 1 tablespoon honey
+    - 2 garlic cloves (finely chopped)
+    - 1 to 2 teaspoons chili crisp (see notes below)
+    uses_chicken_breast: null
+    has_beans_lentils: false
+    non_olive_fats:
+    - sesame oil
+    checked_on: '2026-10-31'
+    notes: Smashed Persian cucumbers with sesame oil, tamari, rice vinegar, honey, garlic, cilantro, sesame
+      seeds, optional chili crisp. 25 min. Count 34. 6 cucumbers/4 servings; halve.
+  - site: wholesomeyum.com
+    url: https://www.wholesomeyum.com/smashed-cucumber-salad/
+    title: Smashed Cucumber Salad
+    rating: 5
+    count: 2
+    total_time_min: 15
+    yield: 6 servings
+    ingredients:
+    - 3 medium English cucumbers
+    - 2 tbsp Toasted sesame seeds
+    - 1/4 cup Fresh cilantro ((chopped))
+    - 3 tbsp Rice vinegar
+    - 1 tbsp Olive oil
+    - 1 tbsp Coconut aminos
+    - 1 tsp Honey
+    - 1 tsp Toasted sesame oil
+    - 1 tsp Sea salt
+    - 1/2 tsp Black pepper
+    - 1/2 tsp Garlic powder
+    - 1/2 tsp Sriracha
+    uses_chicken_breast: null
+    has_beans_lentils: false
+    non_olive_fats:
+    - sesame oil
+    checked_on: '2026-10-31'
+    notes: Smashed English cucumber, toasted sesame seeds, olive oil + a little sesame oil, rice vinegar,
+      coconut aminos, cilantro. Only 2 ratings (5.0) - weak evidence. 6 servings; use 1 cucumber for 2.
+- slot: spring-side-arugula-radish
+  slot_label: arugula salad (with radish if possible)
+  candidates:
+  - site: loveandlemons.com
+    url: https://www.loveandlemons.com/arugula-salad/
+    title: Arugula Salad
+    rating: 4.95
+    count: 36
+    total_time_min: 5
+    yield: '4'
+    ingredients:
+    - 2 tablespoons extra-virgin olive oil
+    - 1 tablespoon fresh lemon juice
+    - ¾ teaspoon honey
+    - ½ teaspoon Dijon mustard
+    - ¼ teaspoon sea salt
+    - Freshly ground black pepper
+    - 5 ounces arugula
+    - ¼ cup shaved Parmesan or pecorino cheese
+    - ¼ cup toasted pine nuts
+    uses_chicken_breast: null
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: NO radish in recipe - add 3-4 thinly sliced radishes. Olive oil-lemon-honey-Dijon dressing,
+      parmesan, pine nuts. 5 min. Count 36.
+  - site: foodiecrush.com
+    url: https://www.foodiecrush.com/arugula-salad-shaved-parmesan-three-ways/
+    title: Arugula Salad with Shaved Parmesan
+    rating: 4.69
+    count: 170
+    total_time_min: 5
+    yield: 2 servings
+    ingredients:
+    - 2 tablespoons extra virgin olive oil
+    - 2 tablespoons fresh lemon juice
+    - 1 teaspoon honey
+    - 1/2 teaspoon kosher salt
+    - 1/2 teaspoon freshly ground black pepper
+    - 4 cups arugula
+    - 1/4 cup shaved Parmesan cheese
+    uses_chicken_breast: null
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: NO radish in recipe - add sliced radishes. Written for 2 servings (4 cups arugula, olive oil,
+      lemon, honey, parmesan). 5 min. Count 170.
+- slot: spring-lunch-1
+  slot_label: chicken orzo pasta salad meal prep (chicken breast, NO chickpeas)
+  candidates:
+  - site: thecleaneatingcouple.com
+    url: https://thecleaneatingcouple.com/healthy-mediterranean-chicken-orzo/
+    title: Mediterranean Chicken and Orzo
+    rating: 4.78
+    count: 75
+    total_time_min: 35
+    yield: 4 2 cup servings
+    ingredients:
+    - 1 pound boneless, skinless chicken breasts
+    - 2 tablespoons extra virgin olive oil (divided)
+    - ⅛ teaspoon salt
+    - ⅛ teaspoon black pepper
+    - 1½ cups dry whole wheat orzo (10 ounces)
+    - ½ tablespoon minced garlic
+    - 2 cups halved cherry tomatoes
+    - ¼ cup white wine
+    - 2 cups chopped fresh spinach
+    - ½ cup crumbled feta
+    - ½ cup diced, pitted kalamata olives
+    - ¼ cup pine nuts
+    - 2 tablespoons fresh chopped basil
+    - 2 tablespoons fresh chopped parsley
+    - ½ teaspoon dried oregano
+    - ¼ teaspoon black pepper
+    - ¼ teaspoon red pepper flakes
+    uses_chicken_breast: true
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Seared chicken breast with orzo, tomatoes, spinach, feta, olives, pine nuts, wine; a warm one-pan
+      dish that meal-preps well (not a cold salad). More than 8 non-pantry ingredients (about 12). 35
+      min. Yield 4 x 2 cups. Olive oil. No beans.
+  - site: cookingclassy.com
+    url: https://www.cookingclassy.com/greek-orzo-salad/
+    title: Greek Orzo Salad
+    rating: 4.96
+    count: 22
+    total_time_min: 25
+    yield: '6'
+    ingredients:
+    - 1/3 cup olive oil
+    - 3 Tbsp fresh lemon juice
+    - 1 clove garlic (, minced)
+    - Salt and freshly ground black pepper
+    - 1 1/4 cups (8 oz) dry orzo
+    - 1 cup (5 oz) crumbled feta
+    - 1 medium English cucumber, (diced)
+    - 1 (10.5 oz) pkg. grape tomatoes, (halved)
+    - 1/2 cup sliced kalamata olives ((or 3/4 cup sliced black olives))
+    - 1/2 cup chopped red onion,
+    - 3 Tbsp chopped fresh basil
+    - 3 Tbsp chopped fresh parsley
+    uses_chicken_breast: false
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Cold Greek orzo salad (orzo, feta, cucumber, tomatoes, olives, red onion, lemon-olive oil dressing).
+      NO chicken in recipe - add 1 lb grilled/baked chicken breast. Above 8 non-pantry ingredients. 25
+      min. Yield 6. No chickpeas.
+- slot: spring-lunch-2
+  slot_label: beef gyro bowls (ground beef, rice, cucumber, tzatziki)
+  candidates:
+  - site: wholesomeyum.com
+    url: https://www.wholesomeyum.com/gyro-meat/
+    title: Gyro Meat (Easy Recipe)
+    rating: 4.94
+    count: 77
+    total_time_min: 185
+    yield: 8 servings
+    ingredients:
+    - 1 medium Onion ((cut into chunks))
+    - 4 cloves Garlic
+    - 1 lb Ground lamb
+    - 1 lb Ground beef
+    - 1 tbsp Dried oregano
+    - 2 tsp Dried marjoram
+    - 2 tsp Dried thyme
+    - 2 tsp Dried rosemary
+    - 1 tsp Cumin
+    - 2 tsp Sea salt
+    - 1/2 tsp Black pepper
+    uses_chicken_breast: null
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Ground lamb + ground beef gyro loaf (use all beef to avoid lamb). Total time 185 min listed
+      (includes long cook/rest; page prep 15 + cook 50) - exceeds 90 min for lunch preps as written. 8
+      servings. Rating 4.94 / 77. Bowl components (rice, cucumber, tzatziki) are not in the recipe.
+  - site: wellplated.com
+    url: https://www.wellplated.com/gyro-recipe/
+    title: Gyro Recipe
+    rating: 4.58
+    count: 7
+    total_time_min: 35
+    yield: 6 servings
+    ingredients:
+    - 1 pound lean ground beef (I used 90% lean)
+    - 1 pound ground lamb (or 85/15 ground beef)
+    - 3 cloves minced garlic (about 1 tablespoon)
+    - 1 tablespoon dried oregano
+    - 1 teaspoon ground cumin
+    - 1/4 teaspoon ground cinnamon
+    - 3/4 teaspoon kosher salt
+    - 1/2 teaspoon ground black pepper
+    - Olive oil (for brushing)
+    - Pita bread (brown rice, white rice, or Lemon Rice)
+    - Tzatziki sauce, plain Greek yogurt, or cottage cheese
+    - Chopped vegetables ((cucumbers, red onion, tomato))
+    - Crumbled feta
+    - Finely chopped fresh parsley
+    - Hummus (a fun bonus on the side)
+    uses_chicken_breast: null
+    has_beans_lentils: true
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Sheet-pan gyro meat; page says 1 lb lean beef + 1 lb lamb (or 85/15 beef). Serve as bowl over
+      rice with cucumber, tomato, tzatziki, feta. Ingredient list includes optional hummus - OMIT (violates
+      no-beans). Count only 7 (4.58). 35 min. Yield 6.
+  - site: tasteofhome.com
+    url: https://www.tasteofhome.com/recipes/gyro-meat-loaf-with-tzatziki-sauce/
+    title: Gyro Meat Loaf with Tzatziki Sauce
+    rating: 4.6
+    count: 10
+    total_time_min: 75
+    yield: 8 servings
+    ingredients:
+    - 1 package (10 ounces) frozen chopped spinach, thawed and squeezed dry
+    - 1 cup dry bread crumbs
+    - 1 small onion, finely chopped
+    - 2 large eggs, lightly beaten
+    - 1/4 cup grated Romano cheese
+    - 2 teaspoons dried oregano
+    - 1-1/2 teaspoons garlic powder
+    - 1/2 teaspoon salt
+    - 2 pounds ground lamb or beef
+    - 1 cup refrigerated tzatziki sauce
+    uses_chicken_breast: null
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Gyro meat loaf (ground lamb or beef) with spinach, bread crumbs, eggs; tzatziki sauce refrigerated.
+      75 min total. 8 servings; no rice in recipe. Count 10 (4.6).
+- slot: spring-lunch-3
+  slot_label: teriyaki chicken rice bowls with snap peas (chicken breast)
+  candidates:
+  - site: ifoodreal.com
+    url: https://www.ifoodreal.com/teriyaki-chicken-meal-prep/
+    title: Teriyaki Chicken Meal Prep
+    rating: 5
+    count: 6
+    total_time_min: 35
+    yield: 4 servings
+    ingredients:
+    - 1 cup brown rice (uncooked)
+    - 1 lb boneless chicken breasts (cut into 1” pieces)
+    - 3 cups snap peas
+    - 3 tbsp soy sauce (I used Bragg liquid aminos)
+    - 3 tbsp maple syrup or honey
+    - 6 tbsp water
+    - 1 tsp rice or white vinegar
+    - 1 tbsp cornstarch
+    - 2 large garlic cloves (grated & divided)
+    - 2 tsp ginger (minced & divided)
+    - 1 green onion sprig (finely chopped)
+    - 2 tsp sesame seeds
+    - 2 tsp oil (divided)
+    uses_chicken_breast: true
+    has_beans_lentils: false
+    non_olive_fats:
+    - oil (unspecified, "2 tsp oil (divided)" - use olive oil)
+    checked_on: '2026-10-31'
+    notes: 'Exactly on target: chicken breast, snap peas, brown rice, teriyaki sauce. Count only 6 (5.0).
+      35 min. 4 servings; halve for 2. Unspecified oil - use olive oil.'
+  - site: cookingclassy.com
+    url: https://www.cookingclassy.com/teriyaki-grilled-chicken-and-veggie-rice-bowls/
+    title: Teriyaki Grilled Chicken and Veggie Rice Bowls
+    rating: 5
+    count: 20
+    total_time_min: 45
+    yield: 4 servings
+    ingredients:
+    - 1/2 cup low-sodium soy sauce
+    - 1/2 cup water
+    - 3 Tbsp packed light-brown sugar
+    - 3 Tbsp honey
+    - 3 cloves garlic (, minced (1 Tbsp))
+    - 1 Tbsp minced ginger
+    - 1 Tbsp rice vinegar
+    - 1 1/2 Tbsp cornstarch
+    - 3 1/2 Tbsp olive oil (, divided, plus more for brushing grill)
+    - 1 1/2 lbs bonless skinless chicken breasts
+    - Ground black pepper
+    - 1 medium zucchini (, diced into half moons and quartered (1 1/2 cups))
+    - 1 1/2 cups matchstick carrots
+    - 2 1/2 cups small diced broccoli florets
+    - 1 1/2 - 2 cups white or brown rice (, cooked according to directions on package (I prefer short
+      grain brown rice))
+    - Sesame seeds (, optional)
+    uses_chicken_breast: true
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Grilled chicken breast, zucchini, carrots, broccoli (no snap peas - swap in), rice, honey-soy
+      teriyaki; olive oil. Above 8 non-pantry ingredients (4 vegetables). 45 min. Rating count 20.
+- slot: spring-lunch-4
+  slot_label: Greek chicken and rice meal-prep bowls (chicken breast, feta)
+  candidates:
+  - site: skinnytaste.com
+    url: https://www.skinnytaste.com/greek-chicken-meal-prep-rice-bowls/
+    title: Meal Prep Greek Chicken Rice Bowls
+    rating: 4.85
+    count: 38
+    total_time_min: 60
+    yield: 4 servings
+    ingredients:
+    - 1 1/2 pounds boneless (skinless chicken breasts (2 large or 3 small))
+    - 2 tablespoons fresh lemon juice
+    - 2 tablespoons red wine vinegar
+    - 1 tablespoon extra virgin olive oil
+    - 3 cloves garlic (minced)
+    - 2 teaspoons dried oregano
+    - 1-1/4 cups quick cooking brown rice (such as Uncle Bens 10 min rice)
+    - 2 cups low sodium chicken broth
+    - 1 dry pint cherry or grape tomatoes
+    - 1 medium cucumber (peeled, seeded and cut into bite-sized pieces)
+    - 1 small orange bell pepper (cut into 1-inch pieces)
+    - 20 pitted Kalamata olives (sliced)
+    - 4 teaspoons extra virgin olive oil
+    - 1 medium lemon (quartered)
+    - 1/4 cup crumbled feta cheese
+    uses_chicken_breast: true
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Chicken breast with brown rice, tomatoes, cucumber, bell pepper, kalamata olives, feta, lemon;
+      olive oil. About 10 non-pantry ingredients. 60 min total. Yield 4.
+  - site: ifoodreal.com
+    url: https://www.ifoodreal.com/greek-chicken-bowls/
+    title: Greek Chicken Bowls
+    rating: 5
+    count: 2
+    total_time_min: 30
+    yield: 4 servings
+    ingredients:
+    - 2 large boneless skinless chicken breasts (sliced in half lengthwise (1 pound))
+    - 1 tablespoon olive oil (extra virgin)
+    - 1/2 small lemon (juiced (1 tablespoon))
+    - 1 small garlic clove (grated)
+    - 1 teaspoon oregano (dried)
+    - 1/4 teaspoon salt
+    - 1/4 teaspoon ground black pepper
+    - 2 cups plain Greek yogurt (2% fat or higher)
+    - 3/4 long English cucumber (grated on medium holes of a box grater)
+    - 1/2 medium lemon (juice of or 2 tablespoons)
+    - 3 tablespoons olive oil (extra virgin)
+    - 3 small garlic cloves (grated)
+    - 2 tablespoons fresh dill (finely chopped)
+    - 1/2 teaspoon salt
+    - 1/2 teaspoon ground black pepper
+    - 2 cups brown rice (cooked)
+    - 2 cups grape or cherry tomatoes (halved)
+    - 1/2 long English cucumber (chopped)
+    - 1/2 cup Kalamata olives
+    - 1/4 cup red onion (thinly sliced)
+    - 1/2 cup feta cheese (crumbled)
+    - 4 pitas (cut into wedges)
+    - 1/2 small lemon (cut into wedges)
+    uses_chicken_breast: true
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Chicken breast, brown rice, tzatziki (yogurt, cucumber, dill), tomatoes, olives, red onion,
+      feta, pita. Only 2 ratings (5.0) - weak evidence. 30 min. Olive oil. Above 8 non-pantry ingredients.
+- slot: spring-roast
+  slot_label: Mississippi pot roast (slow cooker)
+  candidates:
+  - site: Spend With Pennies
+    url: https://www.spendwithpennies.com/mississippi-pot-roast/
+    title: Mississippi Pot Roast
+    rating: 4.98
+    count: 284
+    total_time_min: 505
+    yield: 8 servings
+    ingredients:
+    - 4 to 5 pound beef chuck roast
+    - ranch seasoning mix (1 packet)
+    - au jus gravy mix (1 packet)
+    - 6 pepperoncini peppers plus 1/2 cup juice
+    - 1/4 cup butter
+    has_beans_lentils: false
+    non_olive_fats:
+    - butter
+    checked_on: '2026-10-31'
+    selected: true
+    notes: Owner-named default. Slow cooker, ~15 min active; total is passive. Classic 5-ingredient version;
+      packets + pepperoncini route to Target, the chuck roast is Amana freezer stock (on hand).
+  - site: RecipeTin Eats
+    url: https://www.recipetineats.com/slow-cooker-beef-pot-roast/
+    title: Slow Cooker Pot Roast
+    rating: 4.89
+    count: 224
+    total_time_min: 515
+    yield: 8 servings
+    ingredients:
+    - beef chuck roast
+    - onion
+    - garlic
+    - carrots
+    - celery
+    - dry red wine
+    - beef broth
+    - flour
+    - rosemary
+    - thyme
+    - potatoes
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: 'Variety: classic pot roast with vegetables and red wine; olive oil only. Slow cooker, ~15
+      min active.'

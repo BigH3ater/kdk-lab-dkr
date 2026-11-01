@@ -1,0 +1,1589 @@
+# Summer recipe candidates (real published recipes; ratings read from each
+# page's schema.org data on checked_on). We do NOT store recipe text -- only the
+# URL + public rating, so the seed imports via Tandoor recipe-from-source.
+# Scoring/verdict are COMPUTED from config.yaml by grocery/candidates.py.
+#
+# Provenance (2026-10-31, revision 2): refreshed from the reachable corpus
+# (Allrecipes is out of scope -- HTTP 402 bot block). Sources: Taste of Home +
+# RecipeTin Eats, Skinnytaste, Well Plated, Cooking Classy, Downshiftology,
+# Love & Lemons, Natasha's Kitchen, iFoodReal, Jessica Gavin, Wholesome Yum,
+# The Clean Eating Couple, foodiecrush, The Lemon Bowl. Set `selected: true` to
+# override the default (top-scoring good/acceptable) pick for a slot.
+slots:
+- slot: summer-fish-a
+  slot_label: grilled WILD SALMON
+  candidates:
+  - site: Wholesome Yum
+    url: https://www.wholesomeyum.com/grilled-salmon/
+    title: Grilled Salmon (Perfect Every Time)
+    rating: 4.98
+    count: 37
+    total_time_min: 50
+    yield: 4 servings
+    ingredients:
+    - 1/3 cup Olive oil
+    - 3 tbsp Lemon juice
+    - 2 tbsp Maple syrup
+    - 2 tbsp Fresh parsley ((chopped))
+    - 1 tbsp Fresh dill ((chopped))
+    - 1 clove Garlic ((minced))
+    - 3/4 tsp Sea salt
+    - 1/4 tsp Black pepper
+    - 4 6-oz Salmon fillets ((skin on, about 1 inch thick))
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Olive oil marinade. 50 min total includes a 30 min marinade; active time is 10 min prep + 10
+      min cook. The page does not say wild; buy wild fillets. Scales to 2 by halving.
+  - site: Jessica Gavin
+    url: https://www.jessicagavin.com/grilled-salmon/
+    title: Grilled Salmon
+    rating: 4.95
+    count: 18
+    total_time_min: 40
+    yield: 4 servings
+    ingredients:
+    - 1 ½ pound salmon fillet
+    - olive oil (as needed for brushing)
+    - kosher salt (as needed for seasoning)
+    - black pepper (as needed for seasoning)
+    - 4 lemon wedges
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Only 2 non-pantry ingredients (salmon, lemon). 40 min total includes about 30 min prep/rest.
+      The page does not say wild.
+  - site: Taste of Home
+    url: https://www.tasteofhome.com/recipes/lemon-grilled-salmon/
+    title: Grilled Salmon with Lemon
+    rating: 4.96
+    count: 23
+    total_time_min: 25
+    yield: 6 servings
+    ingredients:
+    - 2 teaspoons snipped fresh dill or 3/4 teaspoon dill weed
+    - 1/2 teaspoon lemon-pepper seasoning
+    - 1/2 teaspoon salt, optional
+    - 1/4 teaspoon garlic powder
+    - 1 salmon fillet (1-1/2 pounds)
+    - 1/4 cup packed brown sugar
+    - 3 tablespoons chicken broth
+    - 3 tablespoons canola oil
+    - 3 tablespoons reduced-sodium soy sauce
+    - 3 tablespoons finely chopped green onions
+    - 1 small lemon, thinly sliced
+    - 2 onion slices, separated into rings
+    has_beans_lentils: false
+    non_olive_fats:
+    - canola oil
+    checked_on: '2026-10-31'
+    notes: Fallback only. Uses canola oil, brown sugar and soy, with more than 8 non-pantry ingredients.
+- slot: summer-fish-b
+  slot_label: grilled TUNA steak (distinct from winter's Tasty Tuna Steaks)
+  candidates:
+  - site: Wholesome Yum
+    url: https://www.wholesomeyum.com/tuna-steak/
+    title: Grilled Tuna Steak
+    rating: 5
+    count: 9
+    total_time_min: 40
+    yield: 4 servings
+    ingredients:
+    - 4 8-oz Tuna steaks ( (1 inch thick))
+    - 1/4 cup Coconut aminos ((or low-sodium soy sauce))
+    - 2 tbsp Sesame oil
+    - 3 cloves Garlic ((minced))
+    - 1 tbsp Fresh ginger ((grated))
+    - 2 tbsp Honey ((I use Wholesome Yum Zero Sugar Honey))
+    - 1/2 tsp Sea salt
+    - 1/2 tsp Black pepper
+    - 1/2 tsp Red pepper flakes ( (to taste))
+    has_beans_lentils: false
+    non_olive_fats:
+    - sesame oil
+    checked_on: '2026-10-31'
+    notes: Count is below 10. 40 min total includes a 30 min marinade. Asian soy-ginger profile.
+  - site: Taste of Home
+    url: https://www.tasteofhome.com/recipes/garlic-herbed-grilled-tuna-steaks/
+    title: Grilled Tuna Steak
+    rating: 4.5
+    count: 6
+    total_time_min: 20
+    yield: 4 servings
+    ingredients:
+    - 2 tablespoons lemon juice
+    - 1 tablespoon olive oil
+    - 2 garlic cloves, minced
+    - 2 teaspoons minced fresh thyme or 1/2 teaspoon dried thyme
+    - 4 tuna steaks (6 ounces each)
+    - 1/4 teaspoon salt
+    - 1/4 teaspoon pepper
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Different recipe from Tasty Tuna Steaks (/recipes/tasty-tuna-steaks/). Olive oil, 4 non-pantry
+      ingredients. Count is below 10.
+  - site: RecipeTin Eats
+    url: https://www.recipetineats.com/tuna-steak/
+    title: Tuna Steak
+    rating: 4.87
+    count: 22
+    total_time_min: 8
+    yield: 2 servings
+    ingredients:
+    - 2 x 180 - 200g (6.5 - 7oz)  tuna ((skinless, boneless). 2.5-3cm / 1-1.2" thick (Note 1))
+    - 1 tsp olive oil
+    - 1/4 tsp sea salt
+    - 1/8 tsp black pepper
+    - 2 tsp olive oil (, or oil spray)
+    - Sauce Vierge ((French salsa / vinaigrette for fish))
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Pan-sear in a very hot skillet, not grilled; the same method can go on a grill. Total time
+      is prep 5 + cook 3 (the page has no totalTime). Yield is 2. The Sauce Vierge is a sub-recipe with
+      extra ingredients.
+- slot: summer-chicken-1
+  slot_label: grilled chicken souvlaki (chicken breast)
+  candidates:
+  - site: Downshiftology
+    url: https://downshiftology.com/recipes/greek-chicken-souvlaki/
+    title: Greek Chicken Souvlaki
+    rating: 5
+    count: 63
+    total_time_min: 38
+    yield: 4 servings
+    ingredients:
+    - 4  boneless skinless chicken breasts (cut into 1 ½-inch cubes)
+    - ⅓ cup olive oil
+    - 2 tablespoons lemon juice
+    - 3 cloves garlic (minced)
+    - 2 teaspoons dried oregano
+    - 1 teaspoon dried parsley
+    - 1 teaspoon kosher salt
+    - ½ teaspoon freshly ground black pepper
+    - 1 recipe tzatziki sauce
+    uses_chicken_breast: true
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Breast, olive oil. 38 min includes a 30 min marinade. The tzatziki is a separate sub-recipe.
+  - site: RecipeTin Eats
+    url: https://www.recipetineats.com/chicken-souvlaki-tzatziki/
+    title: Chicken Souvlaki with Tzatziki
+    rating: 4.94
+    count: 47
+    total_time_min: 25
+    yield: 4 servings
+    ingredients:
+    - 1.5 lb / 750 g   chicken thigh fillets ((or breast), cut into 1"/2.5cm pieces)
+    - 2 tbsp olive oil
+    - 1/4 cup lemon juice
+    - 3  garlic cloves (, minced)
+    - 2 tbsp dried oregano
+    - 1/2 - 3/4 tsp salt
+    - Black pepper
+    - 1 tbsp olive oil
+    - Flatbreads / wraps / pita bread
+    - Lettuce
+    - Tomato slices
+    - 2  Lebanese cucumbers ((to make about ½ cup grated cucumber after squeezing out juice))
+    - 1 1/4 cups / 300 g   plain Greek yoghurt
+    - 2 tsp white wine vinegar ((or red wine or apple cider vinegar))
+    - 1 tbsp lemon juice
+    - 1/2  garlic clove (, minced)
+    - 1 tbsp extra virgin olive oil ((or more if you want richer))
+    - 1/2 tsp salt
+    - Black pepper
+    uses_chicken_breast: 'flag: written for thigh fillets; the page says breast works'
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Thigh is the default; breast is the stated alternative. Olive oil only. The full ingredient
+      list includes the tzatziki and serving items.
+- slot: summer-chicken-2
+  slot_label: chicken and zucchini skillet (chicken breast)
+  candidates:
+  - site: Cooking Classy
+    url: https://www.cookingclassy.com/healthy-lemon-parmesan-chicken-and-veggies-cooking-classy/
+    title: Skillet Lemon Parmesan Chicken with Zucchini and Squash
+    rating: 4.98
+    count: 80
+    total_time_min: 30
+    yield: 4 servings
+    ingredients:
+    - 1 1/4 lbs boneless skinless chicken breasts, (diced into bite size pieces)
+    - 2 Tbsp olive oil, (divided)
+    - 2 Tbsp butter, (divided (or more olive oil))
+    - Salt and freshly ground black pepper
+    - 3 tsp Italian seasoning, (divided)
+    - 1 tsp garlic powder*, (divided)
+    - 1/2 tsp onion powder
+    - 1 tsp lemon zest, (plus more for serving)
+    - 10 oz. (2 small) zucchini, (sliced and halved if wider)
+    - 10 oz. (2 small) yellow squash, (sliced and halved if wider)
+    - 1/3 cup finely shredded parmesan, (or more to taste)
+    - 2 Tbsp chopped fresh parsley
+    - 2 Tbsp fresh lemon juice
+    uses_chicken_breast: true
+    has_beans_lentils: false
+    non_olive_fats:
+    - butter (2 Tbsp; the page says it can be swapped for more olive oil)
+    checked_on: '2026-10-31'
+    notes: Best fit by rating. Butter is replaceable with olive oil per the page. The yellow squash can
+      be dropped.
+  - site: Skinnytaste
+    url: https://www.skinnytaste.com/chicken-zucchini-noodle-caprese/
+    title: Chicken and Zucchini Noodle Caprese
+    rating: 4.93
+    count: 40
+    total_time_min: 30
+    yield: 2 servings
+    ingredients:
+    - 1/2 lb boneless skinless chicken breast (cut 1/2-inch cubes)
+    - kosher salt
+    - 1/4 teaspoon dried oregano
+    - 1 tablespoon olive oil
+    - 3 garlic cloves (chopped)
+    - 3/4 lb grape tomatoes (cut in half)
+    - pinch crushed red pepper flakes
+    - Kosher Salt and freshly ground black pepper (to taste)
+    - 1 tbsp chopped fresh basil
+    - 1 large zucchini (spiralized with Blade D)
+    - 2 oz fresh mini mozzarella balls (cut in half)
+    uses_chicken_breast: true
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Written for 2 servings. Olive oil. 6 non-pantry ingredients. Uses a spiralized zucchini rather
+      than a sliced one.
+  - site: iFoodReal
+    url: https://ifoodreal.com/caprese-chicken-and-zucchini/
+    title: Caprese Chicken with Zucchini and Tomatoes Skillet
+    rating: 5
+    count: 58
+    total_time_min: 45
+    yield: 6 servings
+    ingredients:
+    - 1.5 pounds boneless & skinless chicken breasts (cut into 1" cubes)
+    - 2 pounds zucchini (cut in to 1" cubes)
+    - 9 ounces fresh mozzarella cheese (thinly sliced)
+    - 7 garlic cloves (minced)
+    - 1.5 pounds tomatoes (sliced)
+    - 6 ounces can tomato paste (low sodium)
+    - 2 tablespoons oil (divided)
+    - 1 tablespoon balsamic vinegar
+    - 1 teaspoon dried oregano
+    - 1/2 teaspoon salt (divided)
+    - Ground black pepper (to taste)
+    - Handful fresh basil (thinly sliced)
+    uses_chicken_breast: true
+    has_beans_lentils: false
+    non_olive_fats:
+    - oil type not specified in the ingredient list (2 tbsp)
+    checked_on: '2026-10-31'
+    notes: Yields 6 and needs scaling down for 2.
+- slot: summer-chicken-3
+  slot_label: lemon garlic grilled chicken breast
+  candidates:
+  - site: Taste of Home
+    url: https://www.tasteofhome.com/recipes/easy-grilled-lemon-chicken/
+    title: Grilled Lemon Chicken
+    rating: 4.78
+    count: 18
+    total_time_min: 25
+    yield: 6 servings
+    ingredients:
+    - 1/2 cup lemon juice
+    - 6 tablespoons olive oil
+    - 3 tablespoons minced fresh parsley
+    - 3 tablespoons grated lemon zest
+    - 1-1/2 teaspoons minced garlic
+    - 1 teaspoon minced fresh thyme
+    - 3/4 teaspoon salt
+    - 3/4 teaspoon dried marjoram
+    - 3/4 teaspoon pepper
+    - 6 boneless skinless chicken breast halves
+    - Lemon wedges, optional
+    uses_chicken_breast: true
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Olive oil. Yields 6, so halve it for 2. Lemon, parsley, thyme and marjoram plus the chicken
+      make about 6 non-pantry ingredients.
+  - site: Well Plated
+    url: https://www.wellplated.com/grilled-chicken-breast/
+    title: Grilled Chicken Breast
+    rating: 4.71
+    count: 61
+    total_time_min: 60
+    yield: 4 servings
+    ingredients:
+    - 1 3/4 pounds boneless, skinless chicken breasts (about 3 medium breasts)
+    - 1 batch best Chicken Marinade* (see notes)
+    - Chopped fresh herbs (crumbled feta cheese, a squeeze of lemon juice, optional for serving)
+    - Oil (for grilling)
+    uses_chicken_breast: true
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: The marinade is not in recipeIngredient; it is a separate Well Plated recipe. The search snippet
+      described it as olive oil, garlic, salt, pepper and an acid, but I did not open it. 60 min total
+      includes marinating.
+  - site: iFoodReal
+    url: https://ifoodreal.com/grilled-chicken-breast/
+    title: Easy Juicy Grilled Chicken Breast
+    rating: 5
+    count: 11
+    total_time_min: 45
+    yield: 6 servings
+    ingredients:
+    - 2 pounds boneless skinless chicken breasts
+    - 1 large lemon (zest and juice of)
+    - 3 tablespoons olive oil
+    - 3 large garlic cloves (grated)
+    - 2 teaspoons oregano (dried)
+    - 3/4 teaspoon salt
+    - 1/2 teaspoon ground black pepper
+    uses_chicken_breast: true
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Closest literal lemon-garlic match. 4 non-pantry ingredients. Count is just above 10.
+- slot: summer-chicken-4
+  slot_label: chicken and green bean stir fry (chicken breast)
+  candidates:
+  - site: Jessica Gavin
+    url: https://www.jessicagavin.com/chicken-green-bean-stir-fry/
+    title: Chicken and Green Bean Stir-fry
+    rating: 4.82
+    count: 16
+    total_time_min: 45
+    yield: 4 servings
+    ingredients:
+    - 1 ½ pounds boneless skinless chicken breast (cut into ½-inch thick strips [O Organics® Brand])
+    - 2 tablespoons soy sauce
+    - 1 ½ teaspoons cornstarch
+    - ½ teaspoon sesame oil
+    - ½ cup chicken stock (unsalted)
+    - ¼ cup soy sauce
+    - ¼ cup oyster sauce
+    - 1 tablespoon Shaoxing rice wine (or mirin (optional))
+    - 1 tablespoon honey
+    - 1 tablespoon cornstarch
+    - 1 teaspoon sesame oil
+    - 1 teaspoon sesame oil
+    - 2 tablespoons peanut oil (divided)
+    - 20 ounces green beans (trimmed, halved crosswise [O Organics® Brand], about 5 cups)
+    - 1 cup red bell peppers (¼-inch thick slices)
+    - ½ cup white onions (¼-inch thick slices)
+    - 1 tablespoon minced garlic
+    - 2 teaspoons minced ginger
+    - 1 tablespoon roasted peanuts ((optional))
+    - 1 tablespoon green onions (thinly sliced)
+    uses_chicken_breast: true
+    has_beans_lentils: false
+    non_olive_fats:
+    - peanut oil
+    - sesame oil
+    checked_on: '2026-10-31'
+    notes: 'Violations: more than 8 non-pantry ingredients and non-olive oils. 45 min includes a 15 min
+      marinade. Green beans are fresh, not legumes.'
+  - site: Skinnytaste
+    url: https://www.skinnytaste.com/one-skillet-chicken-with-bacon-and-green-beans/
+    title: One Skillet Chicken with Bacon and Green Beans
+    rating: 4.82
+    count: 96
+    total_time_min: 20
+    yield: 4 servings
+    ingredients:
+    - 4 strips center-cut bacon (chopped)
+    - 1 pound boneless (skinless chicken breasts, cut lengthwise into thin cutlets)
+    - kosher salt
+    - freshly ground black pepper
+    - 2 minced shallot
+    - 2 cloves garlic (minced)
+    - ¾ cup low-sodium chicken broth
+    - ½ cup crisp white wine (such as Sauvignon Blanc (use broth for Whole30 or Paleo))
+    - 1 teaspoon chopped fresh thyme
+    - 8 ounces French green beans
+    uses_chicken_breast: true
+    has_beans_lentils: false
+    non_olive_fats:
+    - bacon
+    checked_on: '2026-10-31'
+    notes: 'Violation: bacon is the cooking fat. This is a skillet dish, not a soy-style stir fry. The
+      shallot line is as published: the page reads ''2 tablespoons minced shallot'' in the fetched data,
+      and a transcription slip here made it ''2 minced shallot'', so trust the page. 7 non-pantry ingredients.'
+  - site: The Lemon Bowl
+    url: https://thelemonbowl.com/chicken-and-green-bean-stir-fry/
+    title: Chicken and Green Bean Stir-Fry
+    rating: 3.92
+    count: 47
+    total_time_min: 30
+    yield: 4 servings
+    ingredients:
+    - 1 pound boneless skinless chicken breasts cubed
+    - ½ teaspoon salt
+    - ¼ teaspoon pepper
+    - 4 cups green beans trimmed and cut in 1 in. pieces
+    - ¼ cup chicken broth low sodium
+    - 2 tablespoons hoisin sauce
+    - 2 tablespoons soy sauce low sodium
+    - 2 tablespoons rice wine vinegar
+    - 2 tablespoons minced ginger
+    - 2 teaspoons sesame oil
+    - 1 clove garlic minced
+    - 1 teaspoon chili paste optional
+    - scallions and brown rice – to serve optional
+    uses_chicken_breast: true
+    has_beans_lentils: false
+    non_olive_fats:
+    - sesame oil
+    checked_on: '2026-10-31'
+    notes: 'Weak rating (3.92), so use only if nothing else fits. Read from the visible recipe card via
+      WebFetch because the page has no JSON-LD. Cook time: prep 10 + cook 20.'
+- slot: summer-chicken-5
+  slot_label: grilled Mediterranean/Greek chicken breast
+  candidates:
+  - site: foodiecrush
+    url: https://www.foodiecrush.com/best-greek-chicken-marinade/
+    title: THE BEST Greek Chicken Marinade
+    rating: 4.64
+    count: 684
+    total_time_min: 50
+    yield: 4 servings
+    ingredients:
+    - 1 pound boneless, skinless chicken breasts ((about 2 large breasts))
+    - ⅓ cup plain Greek yogurt
+    - ¼ cup olive oil
+    - 4 lemons
+    - 4-5 cloves garlic (, pressed or minced)
+    - 2 tablespoons dried oregano
+    - 1 teaspoon kosher salt
+    - ½ teaspoon freshly ground black pepper
+    uses_chicken_breast: true
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: 'Highest-evidence match: 684 ratings. Breast, olive oil. 50 min includes a 30 min marinade.
+      4 non-pantry ingredients. Scales to 2 by halving.'
+  - site: Natasha's Kitchen
+    url: https://natashaskitchen.com/greek-chicken-bowls/
+    title: Greek Chicken Bowls Recipe
+    rating: 5
+    count: 26
+    total_time_min: 30
+    yield: 4 bowls
+    ingredients:
+    - 1 lb chicken breast (2 boneless, skinless breasts, sliced lengthwise into 4 cutlets)
+    - 2 Tbsp extra virgin olive oil
+    - 1 ½ tsp dried oregano leaves
+    - ½ tsp fine sea salt
+    - ½ tsp freshly ground black pepper
+    - ½ tsp garlic powder
+    - 2 cups cherry tomatoes (halved, or chopped heirloom tomatoes)
+    - ½ English cucumber (or 2 garden cucumbers, sliced)
+    - 1 bell pepper (chopped)
+    - 1 avocado (chopped)
+    - ¼ cup red onion (thinly sliced)
+    - ½ cup Kalamata olives (pitted and sliced)
+    - 1 Tbsp extra virgin olive oil (or added to taste, divided)
+    - 1 lemon (cut into wedges to serve)
+    - 6 oz feta cheese ((about 1 cup diced))
+    - salt and freshly cracked black pepper (added to taste)
+    - 1 cup tzatziki sauce (or more to taste, divided)
+    - 4 pieces pita bread (cut into wedges, divided (See gluten-free variations*))
+    uses_chicken_breast: true
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: A bowl format with many toppings, so more than 8 non-pantry ingredients. Olive oil. The chicken
+      can be grilled.
+  - site: Cooking Classy
+    url: https://www.cookingclassy.com/grilled-greek-lemon-chicken/
+    title: Grilled Greek Lemon Chicken
+    rating: 5
+    count: 14
+    total_time_min: 145
+    yield: 4 servings
+    ingredients:
+    - 4 (6 oz) boneless skinless chicken breast halves*
+    - 1/3 cup olive oil (, plus more for brushing grill)
+    - 1 Tbsp lemon zest
+    - 1/3 cup fresh lemon juice
+    - 4 cloves garlic (, minced (1 1/2 Tbsp))
+    - 2 tsp dried oregano
+    - 1/2 tsp dried basil
+    - 1/2 tsp dried thyme
+    - 1/2 tsp dried rosemary (, crushed)
+    - Salt and freshly ground black pepper
+    - Chopped fresh parsley (, for serving)
+    uses_chicken_breast: true
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: 'Violation: 145 min total only because of a 2-5 hour marinade; active time is 15 prep + 10
+      cook. Olive oil, breast.'
+- slot: summer-beef-a
+  slot_label: Greek ground beef kofta or bowl WITH FETA salad
+  candidates:
+  - site: RecipeTin Eats
+    url: https://www.recipetineats.com/smashed-beef-kofta-with-cucumber-yogurt-sauce/
+    title: Smashed Beef Koftas with Yogurt Sauce
+    rating: 4.94
+    count: 30
+    total_time_min: 25
+    yield: 4 servings
+    ingredients:
+    - 1 tbsp olive oil
+    - 500g / 1 lb  beef mince ((ground beef) (Note 1))
+    - 1  large onion (, peeled, kept whole)
+    - 2 tsp cumin powder
+    - 2 tsp coriander powder
+    - 2 tsp paprika (, sweet/regular)
+    - 1 1/2 tsp ground cinnamon
+    - 1/4 tsp cayenne pepper (, optional (for a bit spicy))
+    - 1 tsp cooking salt / kosher salt ((halve for table salt, +50% for flakes))
+    - 1/4 cup walnuts (, crumbled into large pieces with your hands - or chopped almonds or pecans)
+    - 2 tbsp dried cranberries ( or raisins)
+    - 1  large Lebanese cucumber ((Persian cucumbers), about 25cm/10" long)
+    - 1 1/2 cups plain yogurt (, full-fat)
+    - 3 tbsp finely sliced mint (, plus extra for sprinkling (substitute coriander/cilantro, or 2 tsp
+      dried mint in yogurt sauce))
+    - 1/2 tsp cooking salt / kosher salt
+    - 1 tbsp pomegranate molasses ((balsamic glaze is an excellent substitute - Note 2))
+    - Pita bread (, warmed)
+    - Extra virgin olive oil
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: 'Olive oil. Violations: no feta in the recipe (add it to the side salad), and more than 8 non-pantry
+      ingredients. Total is prep 15 + cook 10 (no totalTime on the page). This is a Middle Eastern spice
+      profile, not strictly Greek.'
+  - site: Taste of Home
+    url: https://www.tasteofhome.com/recipes/gyro-salad-with-tzatziki-dressing/
+    title: Gyro Salad with Tzatziki Dressing
+    rating: 5
+    count: 3
+    total_time_min: 30
+    yield: 6 servings
+    ingredients:
+    - 'DRESSING:'
+    - 1 cucumber, peeled and coarsely shredded
+    - 1/2 teaspoon salt
+    - 1/2 cup sour cream
+    - 3/4 cup plain yogurt
+    - 2 tablespoons white vinegar
+    - 1 garlic clove, minced
+    - 1/2 teaspoon dill weed
+    - 1/4 teaspoon cracked black pepper
+    - 'SALAD:'
+    - 1/2 pound ground lamb or ground beef
+    - 1 small onion, chopped
+    - 1 teaspoon Greek seasoning or oregano leaves
+    - 8 cups mixed salad greens
+    - 2 tomatoes, chopped
+    - 1 package (4 ounces) crumbled feta cheese
+    - 1/2 cup pitted Greek olives, drained
+    - Toasted pita bread wedges
+    has_beans_lentils: false
+    non_olive_fats:
+    - sour cream
+    checked_on: '2026-10-31'
+    notes: 'Has feta, tomato and a ground beef option, but the count is only 3. The dressing uses sour
+      cream. Uses 1/2 lb of meat, so it is already small. Note: Taste of Home Kofta Kabobs (/recipes/kofta-kabobs/)
+      has no rating, so I did not use it.'
+- slot: summer-beef-b
+  slot_label: Korean-style ground beef bowls
+  candidates:
+  - site: Skinnytaste
+    url: https://www.skinnytaste.com/korean-beef-rice-bowls/
+    title: Korean Beef Bowl Recipe
+    rating: 4.95
+    count: 280
+    total_time_min: 30
+    yield: 4 servings
+    ingredients:
+    - 1/4 cup low sodium soy sauce*
+    - 2 teaspoons light brown sugar
+    - 1 teaspoon sesame oil
+    - 1/2 teaspoon crushed red pepper flakes
+    - cooking spray
+    - 1 pound 93% lean ground beef
+    - 1/4 cup chopped yellow onion
+    - 2 garlic cloves (crushed)
+    - 1 teaspoon fresh grated ginger
+    - 3 cups cooked brown rice
+    - 1 small sliced cucumber (skin on)
+    - 2 tablespoons Gochujang Sauce (or more if desired*)
+    - 1/2 tablespoon sesame seeds
+    - 2 sliced scallions (white and green parts)
+    has_beans_lentils: false
+    non_olive_fats:
+    - sesame oil (1 tsp)
+    - cooking spray (type unspecified)
+    checked_on: '2026-10-31'
+    notes: 'Best evidence: 280 ratings. Only 1 tsp of sesame oil. About 8 non-pantry ingredients.'
+  - site: Well Plated
+    url: https://www.wellplated.com/korean-beef-bowl/
+    title: Korean Beef Bowl
+    rating: 4.87
+    count: 234
+    total_time_min: 20
+    yield: 4 servings
+    ingredients:
+    - 1 pound lean ground beef ((I used 93% lean))
+    - 3 tablespoons low sodium soy sauce (plus additional to taste, divided)
+    - 1 1/4 cups minced scallions (both green and white parts (from about 1 small bundle), divided)
+    - 1 tablespoon minced garlic (about 3 cloves)
+    - 2 tablespoons rice vinegar
+    - 2 tablespoons honey
+    - 2 tablespoons minced or finely grated fresh ginger
+    - 1/4 teaspoon red pepper flakes (plus additional to taste)
+    - 1 tablespoon sesame oil (plus additional to tase)
+    - Cooked brown rice (quinoa, or cauliflower rice)
+    - 1 1/2 cups shredded carrots (see recipe notes to pickle them for an upgrade)
+    - Thinly sliced seedless cucumbers (Persian-style or English/hot house)
+    - Toasted sesame seeds
+    has_beans_lentils: false
+    non_olive_fats:
+    - sesame oil (1 tbsp)
+    checked_on: '2026-10-31'
+    notes: Fastest at 20 min. The sesame oil is used as a cooking fat.
+  - site: Wholesome Yum
+    url: https://www.wholesomeyum.com/korean-ground-beef-bowl-recipe/
+    title: Korean Beef Bowl (Easy In 20 Minutes)
+    rating: 4.88
+    count: 172
+    total_time_min: 20
+    yield: 4 servings
+    ingredients:
+    - 1 tbsp Olive oil
+    - 1 lb Cauliflower ((frozen or fresh riced in a food processor))
+    - 1/2 tsp Sea salt
+    - 1/8 tsp Black pepper
+    - 1 tbsp Olive oil
+    - 1 lb Ground beef
+    - 1/2 tsp Sea salt
+    - 4 cloves Garlic ((minced))
+    - 1/4 cup Coconut aminos
+    - 1/4 cup Beef broth
+    - 2 tsp Sesame oil
+    - 1/4 tsp Ground ginger
+    - 1/4 tsp Crushed red pepper flakes ((or just more black pepper))
+    - 1/4 cup Green onions ((sliced))
+    - 1 tsp Sesame seeds
+    - 1 small Cucumber ((~8 ounces, sliced))
+    has_beans_lentils: false
+    non_olive_fats:
+    - sesame oil (2 tsp)
+    checked_on: '2026-10-31'
+    notes: Cooks in olive oil and serves over cauliflower rice (a low-carb swap).
+- slot: summer-steak
+  slot_label: steak fajitas (flank or sirloin)
+  candidates:
+  - site: Downshiftology
+    url: https://downshiftology.com/recipes/steak-fajitas/
+    title: Steak Fajitas
+    rating: 5
+    count: 32
+    total_time_min: 50
+    yield: 6 servings
+    ingredients:
+    - 1 pound flank steak or skirt steak
+    - 1  onion (thinly sliced)
+    - 3  bell peppers (thinly sliced)
+    - 1 tablespoon extra-virgin olive oil
+    - ⅓ cup lime juice (from about 3 limes)
+    - ¼ cup extra-virgin olive oil
+    - 4  garlic cloves (minced)
+    - 1 teaspoon ground cumin
+    - 1 teaspoon kosher salt
+    - ½ teaspoon chili powder
+    - ½ teaspoon freshly ground black pepper
+    - pinch cayenne pepper
+    - tortillas
+    - sour cream
+    - guacamole
+    - pico de gallo
+    - chopped fresh cilantro
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Olive oil. The toppings (sour cream, guacamole, pico) are optional. Skillet-seared, not grilled.
+      50 min includes marinating (prep 20 + cook 30).
+  - site: Taste of Home
+    url: https://www.tasteofhome.com/recipes/mexican-steak-fajitas/
+    title: Steak Fajitas
+    rating: 4.9
+    count: 21
+    total_time_min: 30
+    yield: 6 servings
+    ingredients:
+    - 1/4 cup orange juice
+    - 1/4 cup white vinegar
+    - 4 garlic cloves, minced
+    - 1 teaspoon seasoned salt
+    - 1 teaspoon dried oregano
+    - 1 teaspoon ground cumin
+    - 1/4 teaspoon cayenne pepper
+    - 1 pound beef top sirloin steak, cut into 1/4-inch strips
+    - 1 medium onion, thinly sliced
+    - 1 medium green pepper, thinly sliced
+    - 1 medium sweet red pepper, thinly sliced
+    - 2 tablespoons canola oil, divided
+    - 6 flour tortillas (10 inches)
+    - 'Optional: Shredded cheddar cheese, picante sauce and sour cream'
+    has_beans_lentils: false
+    non_olive_fats:
+    - canola oil
+    checked_on: '2026-10-31'
+    notes: 'Sirloin. Violation: canola oil, which could be swapped for olive oil. Fastest at 30 min.'
+  - site: Well Plated
+    url: https://www.wellplated.com/beef-fajitas/
+    title: Steak Fajitas
+    rating: 4.84
+    count: 36
+    total_time_min: 75
+    yield: 4 servings
+    ingredients:
+    - 2 ½ teaspoons ground cumin (divided)
+    - 1 ½ teaspoons chili powder (divided)
+    - 1 teaspoon chipotle chile powder
+    - 1 teaspoon ground coriander
+    - 1 ½ teaspoons kosher salt (divided)
+    - 1 ½ pounds flank steak or skirt steak
+    - 2 medium limes (zest and juice (about 1 ½ teaspoons zest and ¼ cup juice))
+    - 4 tablespoons extra-virgin olive oil (divided)
+    - 1 tablespoon Worcestershire sauce
+    - ½ tablespoon honey
+    - 2 cloves garlic (minced (about 2 teaspoons))
+    - 2 red bell peppers (seeded and cut into ¼-inch strips)
+    - 1 green bell pepper (seeded and cut into ¼-inch strips)
+    - 1 large yellow onion (halved and cut into ¼-inch strips)
+    - Flour or corn tortillas
+    - Chopped fresh cilantro
+    - Sliced fresh avocado
+    - Nonfat plain Greek yogurt or sour cream
+    - Crumbled queso fresco or feta
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: 'Olive oil, flank. Violation: 75 min total, which includes marinating.'
+- slot: summer-side-grilled-zucchini
+  slot_label: grilled zucchini
+  candidates:
+  - site: Love and Lemons
+    url: https://www.loveandlemons.com/grilled-zucchini/
+    title: Grilled Zucchini
+    rating: 5
+    count: 14
+    total_time_min: 10
+    yield: 4 servings
+    ingredients:
+    - 2  medium zucchini (sliced lengthwise into ¼-inch-thick planks)
+    - Extra-virgin olive oil (for drizzling)
+    - ¼ teaspoon garlic powder
+    - Lemon wedges (for squeezing)
+    - Chopped fresh parsley or basil leaves
+    - Sea salt and freshly ground black pepper
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Olive oil. 3 non-pantry ingredients (zucchini, lemon, herb).
+  - site: Skinnytaste
+    url: https://www.skinnytaste.com/grilled-zucchini/
+    title: Perfect Grilled Zucchini
+    rating: 4.77
+    count: 39
+    total_time_min: 25
+    yield: 4 servings
+    ingredients:
+    - 2 medium zucchini (about 8 oz each, sliced 1/4 inch thick)
+    - 1 tbsp olive oil (extra virgin)
+    - 1 tbsp red wine vinegar
+    - 1 tsp dried parsley
+    - 1 tsp dried basil
+    - 1/2 tsp garlic powder
+    - Kosher salt
+    - Freshly ground black pepper
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Olive oil. Higher count; mostly dried-herb pantry items.
+- slot: summer-side-tomato-cucumber
+  slot_label: tomato cucumber salad
+  candidates:
+  - site: Wholesome Yum
+    url: https://www.wholesomeyum.com/cucumber-tomato-salad/
+    title: Cucumber Tomato Salad (Quick & Easy)
+    rating: 4.98
+    count: 40
+    total_time_min: 15
+    yield: 4 servings
+    ingredients:
+    - 3 cups Tomatoes ((5-6 medium or 3-4 large tomatoes; cut into small wedges))
+    - 2 cups Cucumber ((1 large or a few small ones; sliced into half moons))
+    - 1/2 medium Red onion ((sliced into thin quarter moons))
+    - 1 tbsp Fresh dill ((chopped))
+    - 1 tbsp Fresh parsley ((chopped))
+    - 3 tbsp Extra virgin olive oil
+    - 2 tbsp Red wine vinegar ((or white wine vinegar))
+    - 1 tsp Sea salt
+    - 1/4 tsp Black pepper
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Meets the preferred threshold (4.98 with 40 ratings). Olive oil.
+  - site: Natasha's Kitchen
+    url: https://natashaskitchen.com/cucumber-and-tomato-salad-recipe/
+    title: Cucumber Tomato Salad
+    rating: 5
+    count: 21
+    total_time_min: 10
+    yield: 6 servings
+    ingredients:
+    - 3 large ripe tomatoes ((1 1/2 lbs) cut into bite-sized wedges or chunks)
+    - 1 English cucumber ((1 lb) or Persian cucumbers, sliced)
+    - 1/2 medium red onion (or sweet onion, thinly sliced*)
+    - 1-2 Tbsp chopped fresh dill (parsley, basil or green onion, plus more to garnish*)
+    - 3 Tbsp extra virgin olive oil (or sunflower oil*)
+    - 1 1/2 Tbsp red wine vinegar (or distilled white vinegar*)
+    - 3/4 tsp fine sea salt (plus more to taste)
+    - 1/4 tsp freshly ground black pepper
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Olive oil, 10 min.
+- slot: summer-side-grilled-eggplant
+  slot_label: grilled eggplant
+  candidates:
+  - site: Love and Lemons
+    url: https://www.loveandlemons.com/grilled-eggplant/
+    title: Grilled Eggplant
+    rating: 4.94
+    count: 15
+    total_time_min: 30
+    yield: 4 servings
+    ingredients:
+    - 2  medium eggplants (sliced into ¼-inch-thick rounds)
+    - Extra-virgin olive oil (for drizzling)
+    - Sea salt and freshly ground black pepper
+    - ½ cup dry Israeli couscous
+    - ½ teaspoon extra-virgin olive oil (plus more for drizzling)
+    - 1  garlic clove (grated)
+    - 1 tablespoon  fresh lemon juice
+    - ½ teaspoon lemon zest
+    - 3 tablespoons chopped dried apricots or Medjool dates
+    - Heaping ¼ teaspoon sea salt
+    - Freshly ground black pepper
+    - Pinches red pepper flakes
+    - ¼ cup finely chopped fresh parsley
+    - 3 tablespoons chopped or sliced almonds
+    - ¼ cup fresh mint leaves (for garnish)
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: The page's recipeIngredient also lists a couscous topping. The plain grilled eggplant needs
+      only the first 3 lines, so the topping can be skipped. Olive oil.
+  - site: Skinnytaste
+    url: https://www.skinnytaste.com/grilled-eggplant-with-feta/
+    title: Grilled Eggplant with Feta
+    rating: 4.84
+    count: 6
+    total_time_min: 25
+    yield: 4 servings
+    ingredients:
+    - 1 large eggplant
+    - 1 tablespoon red wine vinegar
+    - 1 tablespoon extra-virgin olive oil
+    - 2 teaspoons dried oregano
+    - 1 large garlic clove (or 2 small cloves, pressed or minced)
+    - 1/2 teaspoon kosher salt (plus more as needed)
+    - 2 ounces feta cheese (crumbled (about 1/3 cup))
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Olive oil, 3 non-pantry ingredients. Count is below 10.
+- slot: summer-side-tomatoes-basil
+  slot_label: sliced tomatoes with basil (or caprese)
+  candidates:
+  - site: Natasha's Kitchen
+    url: https://natashaskitchen.com/caprese-salad-recipe/
+    title: Caprese Salad
+    rating: 4.99
+    count: 77
+    total_time_min: 15
+    yield: 6 servings
+    ingredients:
+    - 1 1/2 lbs Ripe tomatoes ((3-4 medium) sliced 1/4” thick)
+    - 12-16 oz Fresh mozzarella (sliced 1/4” thick)
+    - 1 bunch Fresh basil ((1/3 cup basil leaves))
+    - 3 Tbsp Extra virgin olive oil (for drizzling)
+    - 1/2 tsp Sea salt (or to taste)
+    - 1/4 tsp Black pepper (or to taste)
+    - 1-2 Tbsp Balsamic glaze (or added to taste (optional))
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Olive oil. 4 non-pantry ingredients.
+  - site: Love and Lemons
+    url: https://www.loveandlemons.com/caprese-salad/
+    title: Caprese Salad Recipe
+    rating: 4.94
+    count: 31
+    total_time_min: 10
+    yield: 4 servings
+    ingredients:
+    - 3 to 4  medium heirloom tomatoes (sliced)
+    - 1 (8-ounce) ball fresh mozzarella cheese (sliced)
+    - Fresh basil leaves
+    - Extra-virgin olive oil (for drizzling)
+    - Balsamic vinegar or balsamic reduction
+    - Flaky sea salt and freshly ground black pepper
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Olive oil.
+- slot: summer-side-corn-tomato
+  slot_label: corn and tomato salad
+  candidates:
+  - site: Downshiftology
+    url: https://downshiftology.com/recipes/fresh-corn-salad/
+    title: Fresh Corn Salad
+    rating: 5
+    count: 28
+    total_time_min: 25
+    yield: 6 servings
+    ingredients:
+    - 4  ears of corn (shucked and silks removed)
+    - ¼ cup olive oil
+    - 1 cup cherry or grape tomatoes (quartered)
+    - 1  English cucumber (sliced and quartered)
+    - ½  medium red onion (diced)
+    - ¼ cup chopped fresh herbs ((choose tender herbs like parsley, dill, cilantro, basil, mint, and tarragon))
+    - 2 tablespoons apple cider vinegar
+    - ½ teaspoon kosher salt
+    - ¼ teaspoon freshly ground black pepper
+    - 'Optional: crumbled feta'
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Olive oil. Corn is grilled. 5 non-pantry ingredients.
+  - site: Taste of Home
+    url: https://www.tasteofhome.com/recipes/summer-corn-salad/
+    title: Summer Corn Salad
+    rating: 4.81
+    count: 31
+    total_time_min: 20
+    yield: 4 servings
+    ingredients:
+    - 5 teaspoons olive oil, divided
+    - 1 tablespoon lime juice
+    - 1/4 teaspoon salt
+    - 1/4 teaspoon hot pepper sauce
+    - 1-1/2 cups fresh or frozen corn, thawed
+    - 1-1/2 cups cherry tomatoes, halved
+    - 1/2 cup finely chopped cucumber
+    - 1/4 cup finely chopped red onion
+    - 2 tablespoons minced fresh basil or 2 teaspoons dried basil
+    - 1/4 cup crumbled feta cheese
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Olive oil. Yields 4, close to 2 scale. 6 non-pantry ingredients.
+- slot: summer-side-smashed-cucumber
+  slot_label: smashed cucumber salad
+  candidates:
+  - site: RecipeTin Eats
+    url: https://www.recipetineats.com/smashed-cucumber-salad/
+    title: Smashed Cucumber Salad
+    rating: 4.98
+    count: 49
+    total_time_min: null
+    yield: 4 servings
+    ingredients:
+    - 500g/ 1 lb   cucumbers ((4 medium or 2 long cucumbers, Note 1))
+    - 3/4 tsp salt
+    - 2 tbsp coriander/cilantro (, roughly chopped)
+    - 1/4 cup green onions (, sliced)
+    - 1.5 tbsp rice vinegar
+    - 2 tsp sesame oil (, toasted (Note 2))
+    - 1.5 tsp ginger (, freshly grated)
+    - 2 tsp soy sauce
+    - 1/2 tsp sugar
+    has_beans_lentils: false
+    non_olive_fats:
+    - toasted sesame oil
+    checked_on: '2026-10-31'
+    notes: Page gives no time data. It is a no-cook salad, plus a salting rest. Sesame oil is the dressing
+      fat; it is not a cooking fat.
+  - site: Downshiftology
+    url: https://downshiftology.com/recipes/asian-cucumber-salad/
+    title: Asian Cucumber Salad (Smashed Cucumber Salad)
+    rating: 5
+    count: 34
+    total_time_min: 25
+    yield: 4 servings
+    ingredients:
+    - 6  medium Persian cucumbers
+    - 1 teaspoon kosher salt
+    - 2  green onions (thinly sliced)
+    - ¼ cup finely chopped cilantro
+    - 2 teaspoons white sesame seeds (toasted (plus extra for garnish))
+    - 1 tablespoon sesame oil
+    - 1 tablespoon tamari soy sauce
+    - 1 tablespoon rice vinegar
+    - 1 tablespoon honey
+    - 2 garlic cloves (finely chopped)
+    - 1 to 2 teaspoons chili crisp (see notes below)
+    has_beans_lentils: false
+    non_olive_fats:
+    - sesame oil
+    checked_on: '2026-10-31'
+    notes: Includes optional chili crisp (an oil-based condiment). Sesame oil is the dressing fat.
+- slot: summer-side-greek-salad-feta
+  slot_label: Greek salad with feta
+  candidates:
+  - site: Love and Lemons
+    url: https://www.loveandlemons.com/greek-salad/
+    title: Greek Salad
+    rating: 4.99
+    count: 516
+    total_time_min: 15
+    yield: 4 servings
+    ingredients:
+    - ¼ cup extra-virgin olive oil
+    - 3 tablespoons red wine vinegar
+    - 1  garlic clove (minced)
+    - ½ teaspoon dried oregano (more for sprinkling)
+    - ¼ teaspoon Dijon mustard
+    - ¼ teaspoon sea salt
+    - Freshly ground black pepper
+    - 1  English cucumber (cut lengthwise, seeded, and sliced ¼-inch thick)
+    - 1  green bell pepper (chopped into 1-inch pieces)
+    - 2 cups halved cherry tomatoes
+    - 5 ounces feta cheese (cut into ½ inch cubes*)
+    - ⅓ cup thinly sliced red onion
+    - ⅓ cup pitted Kalamata olives
+    - ⅓ cup fresh mint leaves
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Highest evidence (516 ratings). Olive oil. About 8 non-pantry ingredients.
+  - site: Natasha's Kitchen
+    url: https://natashaskitchen.com/greek-salad/
+    title: Easy Greek Salad Recipe
+    rating: 4.94
+    count: 15
+    total_time_min: 5
+    yield: 6 servings
+    ingredients:
+    - ¼ cup red wine vinegar
+    - 1 tsp dried oregano leaves
+    - 2 garlic cloves (minced or grated)
+    - ¾ tsp fine sea salt
+    - ½ tsp freshly ground black pepper
+    - ½ cup extra-virgin olive oil
+    - 2 cups cherry tomatoes (halved (or 1 pound garden tomatoes, chopped))
+    - 1 English cucumber (or 4 garden cucumbers, sliced into 1/2 inch-thick half-moons)
+    - 1 bell pepper (any color, stemmed, seeded)
+    - 6 oz feta cheese (diced from a block or crumbled (about 1 cup))
+    - ½ cup pitted kalamata olives (halved or roughly chopped)
+    - ¼ cup thinly sliced red onion
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Olive oil, 5 min.
+- slot: summer-side-charred-corn
+  slot_label: grilled/charred sweet corn
+  candidates:
+  - site: Jessica Gavin
+    url: https://www.jessicagavin.com/how-to-cook-corn-on-the-cob/
+    title: How to Cook Corn on the Cob (6 Ways!)
+    rating: 4.8
+    count: 93
+    total_time_min: 30
+    yield: 4 servings
+    ingredients:
+    - 4 ears corn
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: A multi-method guide; the grilled method is one of six. It has the strongest rating evidence
+      but is not grill-specific.
+  - site: foodiecrush
+    url: https://www.foodiecrush.com/how-to-make-best-easy-grilled-corn/
+    title: How to Make THE BEST Grilled Corn on the Cob
+    rating: 4.74
+    count: 15
+    total_time_min: 17
+    yield: 8 servings
+    ingredients:
+    - 8 ears sweet corn ((in their husks) )
+    - 4 tablespoons butter ((flavored or plain) )
+    - kosher salt and freshly ground black pepper (, to taste )
+    has_beans_lentils: false
+    non_olive_fats:
+    - butter (4 tbsp; use olive oil or skip it)
+    checked_on: '2026-10-31'
+    notes: 'Violation: butter, which is the finish rather than a cooking fat. Yields 8.'
+  - site: Skinnytaste
+    url: https://www.skinnytaste.com/how-to-grill-corn-on-the-cobb/
+    title: Grilled Corn on The Cob
+    rating: 5
+    count: 2
+    total_time_min: 50
+    yield: 4 servings
+    ingredients:
+    - 4 medium ears corn (silks removed and peeled*)
+    - olive oil spray
+    - optional (salt to taste)
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Olive oil spray. Count is only 2. The 50 min total includes a soak or rest per the page.
+- slot: summer-side-cucumber-avocado
+  slot_label: cucumber avocado salad
+  candidates:
+  - site: Natasha's Kitchen
+    url: https://natashaskitchen.com/avocado-cucumber-salad-recipe/
+    title: Avocado Cucumber Salad Recipe
+    rating: 4.99
+    count: 79
+    total_time_min: 10
+    yield: 4 servings
+    ingredients:
+    - 2 English cucumbers (sliced)
+    - 1 large avocado (pitted, peeled and sliced)
+    - 1/3 cup green onion (half of a bunch, chopped)
+    - 2 Tbsp lime juice (from 1 medium lime)
+    - 2 Tbsp extra virgin olive oil
+    - 1 tsp sea salt (or 3/4 tsp table salt, or to taste)
+    - 1/8 tsp black pepper
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Olive oil, 4 non-pantry ingredients.
+  - site: Wholesome Yum
+    url: https://www.wholesomeyum.com/cucumber-tomato-avocado-salad/
+    title: Cucumber Tomato Avocado Salad
+    rating: 4.94
+    count: 30
+    total_time_min: 15
+    yield: 8 servings
+    ingredients:
+    - 1/4 cup Olive oil
+    - 1 1/2 tbsp Lemon juice
+    - 1/2 tsp Garlic powder
+    - 1/2 tsp Sea salt ((to taste))
+    - 1/4 tsp Black pepper ((to taste))
+    - 2 large Avocados ((~8 ounces each; halved, pitted, peeled, and cubed))
+    - 6 medium Tomatoes ((cut into wedges or cubes))
+    - 2 cups English cucumbers ((chopped))
+    - 3 tbsp Fresh dill ((chopped))
+    - 3 tbsp Fresh parsley ((chopped))
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Olive oil. Yields 8, so scale down. It overlaps with the tomato-cucumber slot in ingredients,
+      but the URL is distinct. Natasha's Kitchen also has Cucumber Tomato Avocado Salad (https://natashaskitchen.com/cucumber-tomato-avocado-salad/),
+      rated 4.94 with 512 ratings, 15 min.
+- slot: summer-lunch-1
+  slot_label: chicken and farro (or grain) salad with tomato and cucumber (chicken breast)
+  candidates:
+  - site: Skinnytaste
+    url: https://www.skinnytaste.com/greek-chicken-meal-prep-rice-bowls/
+    title: Meal Prep Greek Chicken Rice Bowls
+    rating: 4.85
+    count: 38
+    total_time_min: 60
+    yield: 4 servings
+    ingredients:
+    - 1 1/2 pounds boneless (skinless chicken breasts (2 large or 3 small))
+    - 2 tablespoons fresh lemon juice
+    - 2 tablespoons red wine vinegar
+    - 1 tablespoon extra virgin olive oil
+    - 3 cloves garlic (minced)
+    - 2 teaspoons dried oregano
+    - 1-1/4 cups quick cooking brown rice (such as Uncle Bens 10 min rice)
+    - 2 cups low sodium chicken broth
+    - 1 dry pint cherry or grape tomatoes
+    - 1 medium cucumber (peeled, seeded and cut into bite-sized pieces)
+    - 1 small orange bell pepper (cut into 1-inch pieces)
+    - 20 pitted Kalamata olives (sliced)
+    - 4 teaspoons extra virgin olive oil
+    - 1 medium lemon (quartered)
+    - 1/4 cup crumbled feta cheese
+    uses_chicken_breast: true
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: 'Best actual match: chicken breast, tomato, cucumber and olive oil, with brown rice as the
+      grain. The page says farro can substitute (taken from the search snippet; I did not verify the page
+      text). More than 8 non-pantry ingredients.'
+  - site: Skinnytaste
+    url: https://www.skinnytaste.com/farro-with-feta-cucumbers-and-sun-dried/
+    title: Farro Salad with Feta, Cucumbers and Sun-dried Tomatoes
+    rating: 4.92
+    count: 36
+    total_time_min: 30
+    yield: 4 servings
+    ingredients:
+    - 1 cup uncooked pearled farro
+    - 2 tbsp minced red onion
+    - 1/4 cup minced sun-dried tomatoes
+    - 1/4 cup fresh grated feta
+    - 2/3 cup finely chopped cucumber (seeds removed)
+    - 1/4 cup finely chopped bell pepper
+    - 1 tbsp fresh lemon juice
+    - 1 tbsp olive oil
+    - 1 tbsp finely chopped mint or parsley
+    - kosher salt and fresh cracked pepper to taste
+    uses_chicken_breast: false
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: 'Violation: the recipe has no chicken, so add grilled chicken breast. It uses sun-dried tomatoes
+      rather than fresh. Olive oil.'
+  - site: Well Plated
+    url: https://www.wellplated.com/italian-farro-salad/
+    title: Italian Farro Salad
+    rating: 4.79
+    count: 57
+    total_time_min: 45
+    yield: 8 servings
+    ingredients:
+    - 1 cup uncooked farro
+    - ¼ teaspoon kosher salt
+    - ½ cup dry packaged sundried tomatoes (not oil packed, cut into julienne slices, rehydrated if dry*)
+    - 1 large cucumber (seeded and finely diced)
+    - ¾ cup jarred roasted red peppers (drained and finely diced )
+    - 1 pint cherry tomatoes (halved)
+    - 1 cup frozen petite peas (thawed)
+    - ½ cup finely chopped fresh parsley
+    - ½ cup crumbled feta cheese
+    - ¼ cup extra-virgin olive oil
+    - ¼ cup red wine vinegar
+    - 2 teaspoons Dijon mustard
+    - 1 teaspoon honey
+    - 1 teaspoon dried oregano
+    - ½ teaspoon kosher salt
+    - ¼ teaspoon ground black pepper
+    uses_chicken_breast: false
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: 'Violations: no chicken (add it), more than 8 non-pantry ingredients, and it yields 8. Olive
+      oil.'
+- slot: summer-lunch-2
+  slot_label: beef and rice stuffed pepper bowls (ground beef)
+  candidates:
+  - site: Cooking Classy
+    url: https://www.cookingclassy.com/stuffed-peppers/
+    title: Stuffed Peppers
+    rating: 4.97
+    count: 78
+    total_time_min: 70
+    yield: 6 servings
+    ingredients:
+    - 2/3 cup long grain white rice*
+    - Salt and freshly ground black pepper
+    - 6 bell peppers, (any color (medium-large size))
+    - 1 Tbsp olive oil
+    - 1 1/4 lbs lean ground beef**
+    - 1 small yellow onion, (finely chopped (1 cup))
+    - 3 garlic cloves, (minced (1 Tbsp))
+    - 1 (14.5 oz) can petite diced tomatoes, (drained)
+    - 1 (8 oz) can tomato sauce
+    - 3 Tbsp minced fresh parsley, (plus more for garnish)
+    - 2 tsp Italian seasoning
+    - 1 cup shredded mozzarella cheese
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Olive oil, within the 90 min lunch limit. A baked stuffed pepper rather than a bowl. Yields
+      6.
+  - site: Skinnytaste
+    url: https://www.skinnytaste.com/stuffed-peppers/
+    title: Stuffed Peppers
+    rating: 4.95
+    count: 20
+    total_time_min: 60
+    yield: 4 servings
+    ingredients:
+    - 1 lb 90% lean ground beef
+    - 1½ cups partially cooked (leftover or instant rice white rice*)
+    - ½ cup onion (very finely chopped)
+    - 3 cloves garlic (very finely chopped)
+    - ⅓ cup Pecorino Romano cheese (grated)
+    - ¼ cup basil (chopped)
+    - 1 large egg
+    - 1 cup + 3 tablespoons crushed tomatoes (divided (I love Tuttorosso))
+    - 1 ½ teaspoons kosher salt
+    - 1 cup water (or low sodium broth)
+    - 4 large bell peppers ( of various colors, tops cut off and seeded and cored)
+    - ½ cup mozzarella cheese (shredded and divided)
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: No added oil (added fat from cheese only). About 9 non-pantry ingredients.
+  - site: Taste of Home
+    url: https://www.tasteofhome.com/recipes/beef-pepper-skillet/
+    title: Stuffed Pepper Skillet
+    rating: 4.36
+    count: 28
+    total_time_min: 25
+    yield: 6 servings
+    ingredients:
+    - 1 pound lean ground beef (90% lean)
+    - 1 can (14-1/2 ounces) diced tomatoes with mild green chiles, undrained
+    - 1 can (14-1/2 ounces) beef broth
+    - 1 tablespoon chili powder
+    - 1/4 teaspoon salt
+    - 1/8 teaspoon garlic powder
+    - 2 cups instant brown rice
+    - 1 medium sweet red pepper, sliced
+    - 1 medium green pepper, sliced
+    - 1 cup shredded Colby-Monterey Jack cheese
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: The true bowl-style (skillet) version. Rating is just above the 4.3 floor. No added oil. The
+      Kitchn's Stuffed Pepper Bowls has no rating in its JSON-LD, so I did not use it.
+- slot: summer-lunch-3
+  slot_label: chicken pasta salad with zucchini and tomatoes (chicken breast)
+  candidates:
+  - site: The Clean Eating Couple
+    url: https://thecleaneatingcouple.com/greek-chicken-pasta/
+    title: Greek Chicken Pasta Salad
+    rating: 5
+    count: 8
+    total_time_min: 35
+    yield: 6 servings
+    ingredients:
+    - 1 lb boneless, skinless chicken breasts
+    - 1/2 tablespoon olive oil
+    - 16 oz farfalle pasta (cooked according to package directions)
+    - 1 pint cherry tomatoes (halved)
+    - 1 cup cucumber (diced or thinly sliced)
+    - 1/4 cup red onion (diced)
+    - ¼ cup pepperoncini (thinly sliced )
+    - ⅓ cup kalamata olives (halved)
+    - ¾ cup crumbled feta cheese
+    - 1/2 cup olive oil
+    - 1/4 cup red wine vinegar
+    - 1 tablespoon lemon juice (Juice from 1 lemon)
+    - 1 teaspoon dijon mustard
+    - 1 teaspoon dried oregano
+    - 1/4 teaspoon salt
+    - 1/4 teaspoon black pepper
+    uses_chicken_breast: true
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: 'Violations: no zucchini (add it) and more than 8 non-pantry ingredients. Breast, olive oil,
+      tomatoes included. Count is below 10.'
+  - site: Well Plated
+    url: https://www.wellplated.com/chicken-pasta-salad/
+    title: Chicken Pasta Salad
+    rating: 4.85
+    count: 19
+    total_time_min: 40
+    yield: 8 servings
+    ingredients:
+    - 3 cups cooked, cubed chicken (about 3 medium breasts)
+    - 1 pound asparagus or green beans (trimmed and cut into 1-inch pieces)
+    - ¾ teaspoon kosher salt (plus additional for cooking the asparagus and pasta)
+    - 16 ounces whole wheat bowtie pasta (or similar short, tubular pasta)
+    - ¼ cup finely chopped red onion (about ½ small)
+    - 4 tablespoons red wine vinegar (divided)
+    - 1 red bell pepper (chopped)
+    - 1 (14-ounce) can artichoke hearts (drained, cut into bite-sized pieces, and patted dry)
+    - 1 pint cherry or grape tomatoes (halved)
+    - 4 ounces mozzarella pearls (about 1 cup)
+    - ¼ cup extra-virgin olive oil
+    - 2 cloves minced garlic (about 2 teaspoons)
+    - 1 ½ tablespoons Dijon mustard
+    - ½ teaspoon dried oregano
+    - ¼ teaspoon ground black pepper
+    - ⅛ teaspoon red pepper flakes
+    - ⅓ cup chopped fresh basil (or 3 tablespoons chopped parsley)
+    uses_chicken_breast: true
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: 'Violations: no zucchini (the page uses asparagus or green beans; zucchini would be a swap)
+      and more than 8 non-pantry ingredients. Olive oil. Yields 8.'
+  - site: The Lemon Bowl
+    url: https://thelemonbowl.com/grilled-chicken-and-vegetable-pasta-salad/
+    title: Grilled Chicken and Vegetable Greek Pasta Salad
+    rating: 5
+    count: 1
+    total_time_min: 25
+    yield: 8 servings
+    ingredients:
+    - 1 pound Our Family rotini pasta or any short cut pasta, prepared according to package instructions
+    - 2 tablespoons olive oil
+    - 2 tablespoons dried oregano
+    - 2 teaspoons salt divided
+    - 1 teaspoon pepper divided
+    - ½ teaspoon chili flakes optional
+    - 2 boneless skinless chicken breasts
+    - 1 medium zucchini halved and cut in 1/2 inch cubes
+    - 1 medium eggplant cubed
+    - 1 medium red onion halved then cubed
+    - 8 cloves garlic whole, peeled
+    - 2 tablespoons olive oil
+    - 2 tablespoons red wine vinegar
+    - 1 teaspoon oregano
+    - 1 clove garlic grated
+    - 1 teaspoon salt
+    - ½ teaspoon pepper
+    - 8 ounces crumbled feta cheese
+    uses_chicken_breast: true
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: The only candidate with both chicken breast and zucchini, but it has no tomato (add some) and
+      only 1 rating. Read from the visible card via WebFetch because the page has no JSON-LD. Olive oil.
+- slot: summer-lunch-4
+  slot_label: chicken quinoa salad meal prep with cucumber and tomato (chicken breast)
+  candidates:
+  - site: Cooking Classy
+    url: https://www.cookingclassy.com/grilled-greek-chicken-quinoa-bowls/
+    title: Grilled Greek Chicken Quinoa Bowls
+    rating: 5
+    count: 4
+    total_time_min: 45
+    yield: 4 servings
+    ingredients:
+    - 1 1/2 lbs boneless, skinless chicken breasts
+    - 3 Tbsp olive oil
+    - 3 Tbsp fresh lemon juice
+    - 2 cloves garlic, (minced (2 tsp))
+    - 1 1/2 tsp dried oregano
+    - 1/2 tsp dried thyme
+    - 1/2 tsp dried basil
+    - 1/2 tsp honey ((optional*))
+    - Salt and freshly ground black pepper
+    - 1 cup dry quinoa
+    - 1 large roma tomato (cored and diced)
+    - 1 avocado, (cored and diced (optional))
+    - 1/3 English cucumber, (diced)
+    - 2/3 cup crumbled feta cheese ((optional))
+    - 1/3 cup sliced kalamata olives ((optional))
+    - 1 cup tzatziki (homemade or store-bought)
+    uses_chicken_breast: true
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Breast, olive oil, tomato and cucumber. Count is only 4. Per the search snippet, the site says
+      it suits meal prep with the tzatziki and avocado stored separately.
+  - site: Skinnytaste
+    url: https://www.skinnytaste.com/grilled-mediterranean-chicken-and/
+    title: Grilled Mediterranean Chicken and Quinoa Salad
+    rating: 5
+    count: 3
+    total_time_min: 35
+    yield: 6 servings
+    ingredients:
+    - 16 oz skinless thin sliced chicken cutlets
+    - kosher salt and freshly ground black pepper
+    - 1 clove garlic (minced)
+    - 1 tablespoons chopped fresh rosemary or oregano
+    - juice of 1/2 lemon
+    - 1 teaspoon extra-virgin olive oil
+    - 1/2 cup uncooked quinoa
+    - 3/4 cup water
+    - 1/4 cup red onion (diced)
+    - juice of 1 lemon
+    - 1/4 cup kalamata olives (pitted and sliced)
+    - 1 tbsp extra virgin olive oil
+    - 2 cups cucumber (peeled and diced (from 1 English))
+    - 1 cup cherry tomatoes (quartered)
+    - 1/3 cup crumbled feta
+    - kosher salt and fresh pepper (to taste)
+    uses_chicken_breast: likely; the page says 'thin sliced chicken cutlets' (breast cutlets), not explicitly
+      'breast'
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Olive oil. Count is only 3. Closest to a true cold quinoa salad for meal prep.
+  - site: Taste of Home
+    url: https://www.tasteofhome.com/recipes/chicken-quinoa-salad/
+    title: Chicken Quinoa Salad
+    rating: 4
+    count: 1
+    total_time_min: 25
+    yield: 4 servings
+    ingredients:
+    - 1-1/2 cups plus 2 tablespoons water, divided
+    - 3/4 cup quinoa, rinsed
+    - 2 tablespoons reduced-fat plain yogurt
+    - 1 tablespoon reduced-fat mayonnaise
+    - 1 teaspoon Sriracha chili sauce
+    - 1/4 cup crumbled reduced-fat feta cheese
+    - 1 medium cucumber, seeded and diced
+    - 3/4 cup finely chopped fresh parsley
+    - 2 green onions, chopped
+    - 1/4 cup extra virgin olive oil
+    - 3 tablespoons lemon juice
+    - 3/4 teaspoon Greek seasoning
+    - 1 package (6 ounces) ready-to-use grilled chicken breast strips
+    - 1 medium tomato, finely chopped
+    uses_chicken_breast: true
+    has_beans_lentils: false
+    non_olive_fats:
+    - reduced-fat mayonnaise (1 tbsp)
+    checked_on: '2026-10-31'
+    notes: Weak rating evidence (4.0 from 1 rating). Fallback only. Uses packaged grilled chicken breast
+      strips.
+- slot: summer-roast
+  slot_label: Mississippi pot roast (slow cooker)
+  candidates:
+  - site: Spend With Pennies
+    url: https://www.spendwithpennies.com/mississippi-pot-roast/
+    title: Mississippi Pot Roast
+    rating: 4.98
+    count: 284
+    total_time_min: 505
+    yield: 8 servings
+    ingredients:
+    - 4 to 5 pound beef chuck roast
+    - ranch seasoning mix (1 packet)
+    - au jus gravy mix (1 packet)
+    - 6 pepperoncini peppers plus 1/2 cup juice
+    - 1/4 cup butter
+    has_beans_lentils: false
+    non_olive_fats:
+    - butter
+    checked_on: '2026-10-31'
+    selected: true
+    notes: Owner-named default. Slow cooker, ~15 min active; total is passive. Classic 5-ingredient version;
+      packets + pepperoncini route to Target, the chuck roast is Amana freezer stock (on hand).
+  - site: RecipeTin Eats
+    url: https://www.recipetineats.com/slow-cooker-beef-pot-roast/
+    title: Slow Cooker Pot Roast
+    rating: 4.89
+    count: 224
+    total_time_min: 515
+    yield: 8 servings
+    ingredients:
+    - beef chuck roast
+    - onion
+    - garlic
+    - carrots
+    - celery
+    - dry red wine
+    - beef broth
+    - flour
+    - rosemary
+    - thyme
+    - potatoes
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: 'Variety: classic pot roast with vegetables and red wine; olive oil only. Slow cooker, ~15
+      min active.'
