@@ -47,6 +47,36 @@ class StoreList:
         return sum(len(v) for v in self.aisles.values())
 
 
+import math
+
+
+def is_excluded(name, excludes):
+    """True if the food name matches any config `exclude` term (case-insensitive
+    substring) -- e.g. dog/pet food, which must never reach a store list."""
+    low = (name or "").lower()
+    return any(str(x).lower() in low for x in (excludes or []))
+
+
+def packs_needed(weekly_amount, weeks, pack_size):
+    """Whole packs for a bulk item: ceil(weekly_amount * weeks / pack_size).
+    Returns None if pack_size is missing/invalid, 0 if nothing is needed."""
+    if not pack_size or pack_size < 1:
+        return None
+    total = (weekly_amount or 0) * weeks
+    return math.ceil(total / pack_size) if total > 0 else 0
+
+
+def food_pack_size(name, foods_cfg):
+    """pack_size of the longest-matching foods.yaml rule for a food, or None."""
+    low = (name or "").lower()
+    best = None
+    for rule in foods_cfg.get("rules", []):
+        m = rule["match"].lower()
+        if m in low and "pack_size" in rule and (best is None or len(m) > len(best["match"])):
+            best = rule
+    return best["pack_size"] if best else None
+
+
 def approved_stores(choice):
     """Map the weekly approval choice to the set of approved stores.
     all -> both; newpi/target -> that one; skipped/None/unknown -> none."""
@@ -90,12 +120,15 @@ def build_store_lists(entries, config, run_mode="weekly"):
     run_stores = set(stores_cfg["weekly_stores"] if run_mode == "weekly"
                      else stores_cfg["bulk_stores"])
     aisle_order = stores_cfg.get("aisles", {})
+    excludes = config.get("exclude") or []
     lists: dict[str, StoreList] = {}
     unrouted: list[Item] = []
     skipped = 0
 
     for e in entries:
         food = _food_of(e)
+        if is_excluded(food.get("name", ""), excludes):
+            continue                           # dog/pet food etc. -- never ordered here
         if food.get("food_onhand"):
             skipped += 1
             continue

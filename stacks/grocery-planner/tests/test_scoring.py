@@ -53,6 +53,43 @@ def test_legume_only_main_rejected_but_beans_as_ingredient_allowed(cfg):
     assert side.verdict == "good"
 
 
+def test_excluded_ingredient_rejected(cfg):
+    ev = evaluate_candidate(
+        {"site": "X", "rating": 4.9, "count": 900, "total_time_min": 15,
+         "title": "Spinach and Radish Salad",
+         "ingredients": ["spinach", "radish", "olive oil"]}, "side", cfg)
+    assert ev.verdict == "rejected"
+    assert any("radish" in r for r in ev.reject_reasons)
+
+
+def test_owner_pick_bypasses_rating_but_not_hard_rules(cfg):
+    # low rating + owner_pick -> good (score gate bypassed)
+    ev = evaluate_candidate(
+        {"site": "X", "rating": 4.27, "count": 165, "total_time_min": 25,
+         "owner_pick": True, "ingredients": ["ground beef", "provolone", "peppers"]},
+        "ground_beef", cfg)
+    assert ev.verdict == "good"
+    # owner_pick does NOT override a hard rule (excluded ingredient)
+    ev2 = evaluate_candidate(
+        {"site": "X", "rating": 5.0, "count": 9, "total_time_min": 15,
+         "owner_pick": True, "ingredients": ["beets", "olive oil"]}, "side", cfg)
+    assert ev2.verdict == "rejected"
+
+
+def test_require_owner_approval_gate(cfg):
+    from grocery.candidates import score_slot
+    slot = {"slot": "spring-side-x", "slot_label": "x", "candidates": [
+        {"site": "A", "url": "a", "rating": 4.9, "count": 900, "total_time_min": 15,
+         "ingredients": ["carrots", "olive oil"], "rejected_by_owner": True},
+        {"site": "B", "url": "b", "rating": 4.9, "count": 900, "total_time_min": 15,
+         "ingredients": ["broccoli", "olive oil"], "pending_owner_approval": True},
+        {"site": "C", "url": "c", "rating": 4.4, "count": 30, "total_time_min": 15,
+         "ingredients": ["green beans", "olive oil"], "approved": True},
+    ]}
+    chosen = score_slot(slot, cfg)["chosen"]      # cfg has require_owner_approval: true
+    assert chosen is not None and chosen["site"] == "C"   # only the approved one
+
+
 def test_reject_missing_rating(cfg):
     unrated = evaluate_candidate(
         {"site": "X", "rating": None, "count": None, "total_time_min": 20,

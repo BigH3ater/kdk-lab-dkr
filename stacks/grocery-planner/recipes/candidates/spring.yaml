@@ -58,6 +58,7 @@ slots:
     checked_on: '2026-10-31'
     notes: Lemon/dill/parsley baked fillets, 15 min, olive oil. Page does not say wild; wild fillets work
       (cook a little shorter). Scale 4 fillets to 2.
+    approved: true
   - site: thelemonbowl.com
     url: https://thelemonbowl.com/garlic-and-dill-roasted-salmon/
     title: Garlic and Dill Roasted Salmon
@@ -117,6 +118,7 @@ slots:
       to olive oil/avocado oil for searing. Recipe card also includes a quick-pickled cucumber side and
       a lime-soy-ginger sauce, so total ingredient count is above 8; tuna + sesame seeds + sauce only
       is feasible. Lime not lemon. Yield 4 (four 5-oz pieces).
+    approved: true
   - site: skinnytaste.com
     url: https://www.skinnytaste.com/sesame-crusted-tuna-steak-on-arugula-5/
     title: Sesame Crusted Tuna Steak on Arugula
@@ -173,6 +175,7 @@ slots:
     notes: 'Greek yogurt-lemon-oregano marinade; chicken breast; 50 min total includes a 30 min marinade
       (works grilled, baked, or pan-fried). Olive oil only. 1 lb breast = about 2 servings as written;
       ingredients: chicken, yogurt, lemons, garlic, oregano.'
+    approved: true
   - site: ifoodreal.com
     url: https://www.ifoodreal.com/greek-chicken/
     title: Greek Chicken Marinade
@@ -248,6 +251,7 @@ slots:
     notes: 'Breast cubes in olive oil-lemon-oregano marinade, grilled on skewers. Total 38 min on page
       (includes marinade). Ingredient list says "1 recipe tzatziki sauce" (separate recipe: yogurt, cucumber,
       etc.) so non-pantry count rises if tzatziki is made. Yield 4.'
+    approved: true
   - site: recipetineats.com
     url: https://www.recipetineats.com/chicken-souvlaki-tzatziki/
     title: Chicken Souvlaki with Tzatziki
@@ -308,6 +312,7 @@ slots:
     checked_on: '2026-10-31'
     notes: Chicken breast (or thighs) with asparagus and baby potatoes, lemon, rosemary, olive oil. 50
       min total. Yield 4; halve for 2. Rating count 10 (borderline).
+    approved: true
   - site: thecleaneatingcouple.com
     url: https://thecleaneatingcouple.com/paleo-sheet-pan-rosemary-balsamic-chicken-and-veggies/
     title: Sheet Pan Balsamic Chicken & Veggies
@@ -389,6 +394,7 @@ slots:
     notes: Seared breast with 5-ingredient honey-garlic sauce, 12 min. Butter is the default but the page
       lists "or 2 1/2 tbsp olive oil" - swap to olive oil. Flour dredge. Yield 4 from 1 lb (2 breasts),
       so 1 lb is a good 2-person batch with leftovers.
+    rejected_by_owner: true
   - site: ifoodreal.com
     url: https://www.ifoodreal.com/honey-garlic-chicken/
     title: Baked Honey Garlic Chicken Recipe
@@ -458,6 +464,7 @@ slots:
     checked_on: '2026-10-31'
     notes: 'Greek-style baked breast: olive oil, garlic, lemon zest, oregano, coriander, cayenne. 60 min
       total (45 min cook). Rating 4.39 (count 18). Read via WebFetch (curl got 403).'
+    approved: true
   - site: tasteofhome.com
     url: https://www.tasteofhome.com/recipes/lemon-feta-chicken/
     title: Lemon Feta Chicken
@@ -477,126 +484,6 @@ slots:
     checked_on: '2026-10-31'
     notes: Breast halves with lemon juice, feta, oregano; 5 ingredients, 25 min. Only 4 ratings (5.0)
       - weak evidence. No added cooking fat.
-- slot: spring-beef-a
-  slot_label: Greek ground beef and rice skillet or bowl WITH FETA
-  candidates:
-  - site: downshiftology.com
-    url: https://www.downshiftology.com/recipes/mediterranean-ground-beef-stir-fry/
-    title: Mediterranean Ground Beef Stir Fry
-    rating: 4.93
-    count: 260
-    total_time_min: 25
-    yield: 4 servings
-    ingredients:
-    - 1 tablespoon olive oil
-    - 1 red bell pepper (deseeded and diced)
-    - 1 pint cherry tomatoes (sliced in half)
-    - 8 ounces baby spinach (small tub)
-    - 4 garlic cloves (minced)
-    - 2 green onion (thinly sliced, white and green parts separated)
-    - 1 pound ground beef
-    - ½ teaspoon dried oregano
-    - kosher salt and freshly ground black pepper (to taste)
-    - 2 tablespoons crumbled feta ((optional))
-    uses_chicken_breast: null
-    has_beans_lentils: false
-    non_olive_fats: []
-    checked_on: '2026-10-31'
-    notes: Closest Greek ground-beef skillet with feta (optional 2 tbsp crumbled feta), spinach, cherry
-      tomatoes, peppers, oregano. NO RICE in recipe - serve over cooked rice. 25 min. Olive oil. Yield
-      4.
-  - site: recipetineats.com
-    url: https://www.recipetineats.com/ground-beef-and-rice-recipe/
-    title: Beef and Rice with Veggies
-    rating: 4.92
-    count: 117
-    total_time_min: 25
-    yield: '5'
-    ingredients:
-    - 2 tbsp olive oil
-    - 1 onion (, diced (any type))
-    - 1 red capsicum / bell pepper (, diced (large))
-    - 2 garlic cloves (, minced)
-    - 500g (1 lb) ground beef (mince) (, lean)
-    - 2 1/2 tbsp tomato paste
-    - 1 1/4 tsp salt
-    - 1/2 tsp EACH cumin, black pepper
-    - 1 tsp each onion powder, dried oregano (or other herb of choice)
-    - 1/4 tsp cayenne pepper ((optional))
-    - 1 dried bay leaf
-    - 1 1/4 cups (225g) long grain white rice (, uncooked (Note 1))
-    - 2 cups (500 ml) beef broth (, low sodium)
-    - 2 cups (300g) diced frozen veggies (, I used corn, pea, carrot mix (Note 2))
-    - 3 big handfuls baby spinach (~ 90g/3 oz) (, or other leafy greens (Note 3))
-    uses_chicken_breast: null
-    has_beans_lentils: false
-    non_olive_fats: []
-    checked_on: '2026-10-31'
-    notes: One-pan ground beef and rice with spinach, oregano, cumin, bell pepper. Not Greek and no feta
-      in recipe - add feta and lemon at the end to make it Greek-style. 25 min. Olive oil. Yield 5.
-- slot: spring-beef-b
-  slot_label: Asian/Korean ground beef and snap pea (or broccoli) stir fry
-  candidates:
-  - site: thecleaneatingcouple.com
-    url: https://thecleaneatingcouple.com/ground-beef-stir-fry/
-    title: Healthy Ground Beef Stir Fry
-    rating: 4.96
-    count: 24
-    total_time_min: 35
-    yield: 4 2-cup servings
-    ingredients:
-    - 1 pound ground beef (80:20 or 85:15)
-    - 1 tablespoon minced garlic cloves ((3 large cloves))
-    - ½ cup quartered yellow onion (about 1/2 medium onion)
-    - 2 cups red bell pepper (chopped in about 1-inch pieces - 2 peppers)
-    - 2 cups sugar snap peas
-    - ½ cup shredded carrots (about 1 large carrot, julienne cut carrots can also be used)
-    - 4 ounces mushrooms (sliced (I use white mushrooms))
-    - ½ cup coconut aminos (or low sodium soy sauce)
-    - ¼ cup coconut sugar (or brown sugar - optional)
-    - 1 tablespoon sesame oil
-    - 1 tablespoon rice vinegar
-    - 2 teaspoons cornstarch
-    - 2 teaspoons ground ginger
-    - ¼ teaspoon crushed red pepper flakes (optional)
-    - 1 tablespoon sesame seeds
-    - 1 green onion (thinly sliced)
-    - Cooked rice
-    uses_chicken_breast: null
-    has_beans_lentils: false
-    non_olive_fats:
-    - sesame oil
-    checked_on: '2026-10-31'
-    notes: Ground beef with sugar snap peas, bell pepper, carrot, mushrooms; coconut aminos sauce. Above
-      8 non-pantry ingredients (many vegetables; trim to snap peas + pepper). Uses 80:20 beef. Not specifically
-      Korean. 35 min.
-  - site: skinnytaste.com
-    url: https://www.skinnytaste.com/ground-beef-and-broccoli-stir-fry/
-    title: Ground Beef and Broccoli Stir Fry
-    rating: 4.68
-    count: 221
-    total_time_min: 13
-    yield: 4 servings
-    ingredients:
-    - ½ cup reduced sodium soy sauce (or gluten-free tamari)
-    - 1 tablespoon honey
-    - 4 cloves garlic (minced)
-    - 1 1-inch piece fresh ginger (peeled and grated)
-    - 1 tablespoon cornstarch
-    - ½ tablespoon sesame oil
-    - 1 pound ground beef (93% lean )
-    - ½ medium yellow onion (chopped)
-    - 1 large head broccoli (cut into florets and blanched*)
-    - 1 tablespoon toasted sesame seeds
-    - 3 medium scallions (sliced on the bias)
-    - cooked rice (or cauliflower rice, for serving (optional))
-    uses_chicken_breast: null
-    has_beans_lentils: false
-    non_olive_fats:
-    - sesame oil
-    checked_on: '2026-10-31'
-    notes: Ground beef with broccoli in soy-honey-ginger-garlic sauce; 13 min total; sesame oil is flavoring
-      (swap not needed). Broccoli not snap peas. Count 221.
 - slot: spring-steak
   slot_label: grilled sirloin or flank steak (chimichurri or garlic)
   candidates:
@@ -629,6 +516,7 @@ slots:
     checked_on: '2026-10-31'
     notes: Flank steak with parsley chimichurri (olive oil, red wine vinegar, garlic). 6 servings from
       1.5 lb; use about 1 lb for 2 plus leftovers. 30 min.
+    approved: true
   - site: wholesomeyum.com
     url: https://www.wholesomeyum.com/sirloin-tips/
     title: Sirloin Steak Tips (With Chimichurri!)
@@ -672,6 +560,7 @@ slots:
     non_olive_fats: []
     checked_on: '2026-10-31'
     notes: 1 lb asparagus, 2 tbsp olive oil, garlic powder. 17 min. Halve for 2.
+    approved: true
   - site: wellplated.com
     url: https://www.wellplated.com/roasted-asparagus/
     title: Perfect Roasted Asparagus
@@ -697,67 +586,6 @@ slots:
     checked_on: '2026-10-31'
     notes: 1 lb asparagus, 1.5 tsp olive oil; optional toppings list includes melted butter (omit). 20
       min.
-- slot: spring-side-spinach-radish
-  slot_label: spinach and radish salad
-  candidates:
-  - site: tasteofhome.com
-    url: https://www.tasteofhome.com/recipes/wilted-arugula-salad/
-    title: Wilted Arugula Salad
-    rating: 5
-    count: 2
-    total_time_min: 25
-    yield: 8 servings
-    ingredients:
-    - 4 bacon strips, chopped
-    - 5 ounces fresh arugula or baby spinach
-    - 2 hard-boiled large eggs, chopped
-    - 1 medium leek (white portion only), thinly sliced
-    - 1 medium tomato, chopped
-    - 4 radishes, thinly sliced
-    - 1/4 cup cider vinegar
-    - 4-1/2 teaspoons prepared mustard
-    - 2 teaspoons sugar
-    - Dash pepper
-    uses_chicken_breast: null
-    has_beans_lentils: false
-    non_olive_fats:
-    - bacon
-    checked_on: '2026-10-31'
-    notes: 'Closest page that combines radishes with greens: arugula OR baby spinach, 4 sliced radishes,
-      egg, leek, tomato; dressing is cider vinegar + mustard. Bacon fat is part of the recipe (omit or
-      swap to olive oil). 8 servings; only 2 ratings (5.0) - weak evidence.'
-  - site: loveandlemons.com
-    url: https://www.loveandlemons.com/spring-salad/
-    title: Bright Spring Salad
-    rating: 4.99
-    count: 100
-    total_time_min: 25
-    yield: '4'
-    ingredients:
-    - 1 bunch asparagus (tender parts, chopped into 1-inch pieces)
-    - ½ cup frozen peas (thawed)
-    - A few handfuls salad greens
-    - 2 radishes (thinly sliced)
-    - ½ cup crumbled feta cheese
-    - ½ avocado (pitted and diced)
-    - ¼ cup chopped toasted pistachios
-    - ½ cup roasted chickpeas
-    - Fresh herbs (for garnish (basil, mint and/or chives))
-    - Sea salt and freshly ground pepper
-    - ¼ cup fresh basil leaves (or a mix of basil and mint leaves)
-    - 1 small garlic clove
-    - 1 tablespoon fresh lemon juice
-    - ½ teaspoon lemon zest
-    - 1 tablespoon white wine vinegar
-    - 2 tablespoons extra-virgin olive oil (plus more as desired)
-    - ¼ teaspoon sea salt
-    uses_chicken_breast: null
-    has_beans_lentils: true
-    non_olive_fats: []
-    checked_on: '2026-10-31'
-    notes: Salad greens (use baby spinach) with thinly sliced radishes, asparagus, peas, feta, basil-lemon
-      dressing in olive oil. Ingredient list includes 1/2 cup roasted chickpeas - OMIT (violates no-beans).
-      Above 8 non-pantry ingredients unless trimmed. Rating 4.99 / 100.
 - slot: spring-side-garlicky-spinach
   slot_label: garlicky sauteed spinach
   candidates:
@@ -781,6 +609,7 @@ slots:
     checked_on: '2026-10-31'
     notes: 5 oz spinach, 1 garlic clove, 2 tsp olive oil, lemon wedge; 5 min. Scale up to about 8 oz for
       2 if wanted.
+    rejected_by_owner: true
   - site: downshiftology.com
     url: https://downshiftology.com/recipes/garlic-sauteed-spinach/
     title: Garlic Sautéed Spinach
@@ -798,49 +627,6 @@ slots:
     non_olive_fats: []
     checked_on: '2026-10-31'
     notes: 1 lb baby spinach, 2 tbsp olive oil, 3 garlic cloves; 10 min. Halve for 2.
-- slot: spring-side-cucumber-radish
-  slot_label: cucumber radish salad
-  candidates:
-  - site: natashaskitchen.com
-    url: https://www.natashaskitchen.com/cucumber-radish-salad-recipe/
-    title: Creamy Cucumber Radish Salad Recipe
-    rating: 4.95
-    count: 92
-    total_time_min: 10
-    yield: 4 (as a side)
-    ingredients:
-    - 1 English cucumber (thinly sliced)
-    - 20 radishes ((2 bunches), trimmed and thinly sliced)
-    - 1/2 cup chives or green onion ((1 bunch), chopped)
-    - 3/4 cup sour cream (*)
-    - 3/4 tsp sea salt (or add to taste)
-    uses_chicken_breast: null
-    has_beans_lentils: false
-    non_olive_fats: []
-    checked_on: '2026-10-31'
-    notes: Creamy sour cream dressing (not a cooking fat; swap to olive oil + lemon or Greek yogurt if
-      avoiding dairy fat). 4 ingredients, 10 min. Count 92.
-  - site: downshiftology.com
-    url: https://downshiftology.com/recipes/cucumber-radish-salad/
-    title: Cucumber Radish Salad
-    rating: 4.95
-    count: 18
-    total_time_min: 10
-    yield: 4 servings
-    ingredients:
-    - 4 mini or Persian cucumbers
-    - 8 radishes (one bunch)
-    - 2 green onion (thinly sliced)
-    - 1 tablespoons fresh dill (roughly chopped)
-    - 2 tablespoons olive oil
-    - 1 ½ tablespoons lemon juice (from half a lemon)
-    - kosher salt and freshly ground black pepper (to taste)
-    uses_chicken_breast: null
-    has_beans_lentils: false
-    non_olive_fats: []
-    checked_on: '2026-10-31'
-    notes: Olive oil + lemon + dill dressing, Persian cucumbers, radishes, green onion. 10 min. Rating
-      count 18.
 - slot: spring-side-pea-salad
   slot_label: fresh pea salad (lemon)
   candidates:
@@ -893,49 +679,7 @@ slots:
     notes: Asparagus, snow peas, peas, romaine, goat cheese, mint, lemon-olive oil dressing. JSON-LD gives
       no totalTime; total_time_min is prep 10 + cook 5. 4-6 side servings; halve. Slightly more than 8
       ingredients if all vegetables kept.
-- slot: spring-side-roasted-radishes
-  slot_label: roasted radishes
-  candidates:
-  - site: tasteofhome.com
-    url: https://www.tasteofhome.com/recipes/roasted-radishes/
-    title: Roasted Radishes
-    rating: 4.83
-    count: 12
-    total_time_min: 40
-    yield: 6 servings
-    ingredients:
-    - 2-1/4 pounds radishes, trimmed and quartered (about 6 cups)
-    - 3 tablespoons olive oil
-    - 1 tablespoon minced fresh oregano or 1 teaspoon dried oregano
-    - 1/4 teaspoon salt
-    - 1/8 teaspoon pepper
-    uses_chicken_breast: null
-    has_beans_lentils: false
-    non_olive_fats: []
-    checked_on: '2026-10-31'
-    notes: Radishes, olive oil, oregano, salt, pepper; 40 min total (30 min roast). Yield 6; use about
-      3/4 lb for 2. Count 12.
-  - site: wholesomeyum.com
-    url: https://www.wholesomeyum.com/roasted-radishes/
-    title: Roasted Radishes (Easy Recipe)
-    rating: 5
-    count: 17
-    total_time_min: 30
-    yield: 4 servings
-    ingredients:
-    - 1 lb Radishes ((trimmed and quartered - weight without greens; ~24 radishes))
-    - 1 1/2 tbsp Olive oil
-    - 1/2 tsp Garlic powder ((optional))
-    - 1/2 tsp Sea salt
-    - 1/4 tsp Black pepper
-    - 1 tbsp Unsalted butter
-    uses_chicken_breast:
-    - butter
-    has_beans_lentils: false
-    non_olive_fats: []
-    checked_on: '2026-10-31'
-    notes: Olive oil roast then toss with 1 tbsp butter at the end - swap to olive oil or omit. 30 min.
-      Count 17.
+    rejected_by_owner: true
 - slot: spring-side-spinach-feta
   slot_label: spinach salad with feta (NO beans)
   candidates:
@@ -962,6 +706,7 @@ slots:
     checked_on: '2026-10-31'
     notes: Baby spinach, strawberries, red onion, feta (or goat), pecans; olive oil-balsamic-maple-soy
       dressing. 8 servings; scale to 1/4. 18 min total.
+    approved: true
   - site: loveandlemons.com
     url: https://www.loveandlemons.com/strawberry-spinach-salad/
     title: Strawberry Spinach Salad
@@ -1012,6 +757,7 @@ slots:
     checked_on: '2026-10-31'
     notes: Smashed Persian cucumbers with sesame oil, tamari, rice vinegar, honey, garlic, cilantro, sesame
       seeds, optional chili crisp. 25 min. Count 34. 6 cucumbers/4 servings; halve.
+    approved: true
   - site: wholesomeyum.com
     url: https://www.wholesomeyum.com/smashed-cucumber-salad/
     title: Smashed Cucumber Salad
@@ -1039,53 +785,6 @@ slots:
     checked_on: '2026-10-31'
     notes: Smashed English cucumber, toasted sesame seeds, olive oil + a little sesame oil, rice vinegar,
       coconut aminos, cilantro. Only 2 ratings (5.0) - weak evidence. 6 servings; use 1 cucumber for 2.
-- slot: spring-side-arugula-radish
-  slot_label: arugula salad (with radish if possible)
-  candidates:
-  - site: loveandlemons.com
-    url: https://www.loveandlemons.com/arugula-salad/
-    title: Arugula Salad
-    rating: 4.95
-    count: 36
-    total_time_min: 5
-    yield: '4'
-    ingredients:
-    - 2 tablespoons extra-virgin olive oil
-    - 1 tablespoon fresh lemon juice
-    - ¾ teaspoon honey
-    - ½ teaspoon Dijon mustard
-    - ¼ teaspoon sea salt
-    - Freshly ground black pepper
-    - 5 ounces arugula
-    - ¼ cup shaved Parmesan or pecorino cheese
-    - ¼ cup toasted pine nuts
-    uses_chicken_breast: null
-    has_beans_lentils: false
-    non_olive_fats: []
-    checked_on: '2026-10-31'
-    notes: NO radish in recipe - add 3-4 thinly sliced radishes. Olive oil-lemon-honey-Dijon dressing,
-      parmesan, pine nuts. 5 min. Count 36.
-  - site: foodiecrush.com
-    url: https://www.foodiecrush.com/arugula-salad-shaved-parmesan-three-ways/
-    title: Arugula Salad with Shaved Parmesan
-    rating: 4.69
-    count: 170
-    total_time_min: 5
-    yield: 2 servings
-    ingredients:
-    - 2 tablespoons extra virgin olive oil
-    - 2 tablespoons fresh lemon juice
-    - 1 teaspoon honey
-    - 1/2 teaspoon kosher salt
-    - 1/2 teaspoon freshly ground black pepper
-    - 4 cups arugula
-    - 1/4 cup shaved Parmesan cheese
-    uses_chicken_breast: null
-    has_beans_lentils: false
-    non_olive_fats: []
-    checked_on: '2026-10-31'
-    notes: NO radish in recipe - add sliced radishes. Written for 2 servings (4 cups arugula, olive oil,
-      lemon, honey, parmesan). 5 min. Count 170.
 - slot: spring-lunch-1
   slot_label: chicken orzo pasta salad meal prep (chicken breast, NO chickpeas)
   candidates:
@@ -1121,6 +820,7 @@ slots:
     notes: Seared chicken breast with orzo, tomatoes, spinach, feta, olives, pine nuts, wine; a warm one-pan
       dish that meal-preps well (not a cold salad). More than 8 non-pantry ingredients (about 12). 35
       min. Yield 4 x 2 cups. Olive oil. No beans.
+    approved: true
   - site: cookingclassy.com
     url: https://www.cookingclassy.com/greek-orzo-salad/
     title: Greek Orzo Salad
@@ -1231,6 +931,7 @@ slots:
     checked_on: '2026-10-31'
     notes: Gyro meat loaf (ground lamb or beef) with spinach, bread crumbs, eggs; tzatziki sauce refrigerated.
       75 min total. 8 servings; no rice in recipe. Count 10 (4.6).
+    rejected_by_owner: true
 - slot: spring-lunch-3
   slot_label: teriyaki chicken rice bowls with snap peas (chicken breast)
   candidates:
@@ -1293,6 +994,7 @@ slots:
     checked_on: '2026-10-31'
     notes: Grilled chicken breast, zucchini, carrots, broccoli (no snap peas - swap in), rice, honey-soy
       teriyaki; olive oil. Above 8 non-pantry ingredients (4 vegetables). 45 min. Rating count 20.
+    approved: true
 - slot: spring-lunch-4
   slot_label: Greek chicken and rice meal-prep bowls (chicken breast, feta)
   candidates:
@@ -1325,6 +1027,7 @@ slots:
     checked_on: '2026-10-31'
     notes: Chicken breast with brown rice, tomatoes, cucumber, bell pepper, kalamata olives, feta, lemon;
       olive oil. About 10 non-pantry ingredients. 60 min total. Yield 4.
+    approved: true
   - site: ifoodreal.com
     url: https://www.ifoodreal.com/greek-chicken-bowls/
     title: Greek Chicken Bowls
@@ -1385,6 +1088,7 @@ slots:
     selected: true
     notes: Owner-named default. Slow cooker, ~15 min active; total is passive. Classic 5-ingredient version;
       packets + pepperoncini route to Target, the chuck roast is Amana freezer stock (on hand).
+    approved: true
   - site: RecipeTin Eats
     url: https://www.recipetineats.com/slow-cooker-beef-pot-roast/
     title: Slow Cooker Pot Roast
@@ -1409,3 +1113,952 @@ slots:
     checked_on: '2026-10-31'
     notes: 'Variety: classic pot roast with vegetables and red wine; olive oil only. Slow cooker, ~15
       min active.'
+- slot: spring-beef-tacos
+  slot_label: ground beef tacos
+  candidates:
+  - site: Spend With Pennies
+    url: https://www.spendwithpennies.com/easy-ground-beef-tacos/
+    title: Easy Ground Beef Tacos
+    rating: 4.91
+    count: 44
+    total_time_min: 30
+    yield: 4 servings
+    ingredients:
+    - 1 lb lean ground beef
+    - 2 tbsp tomato paste
+    - water
+    - 8 taco shells
+    - chili powder
+    - cumin
+    - onion powder
+    - garlic powder
+    - oregano
+    - salt
+    - toppings
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: ''
+    approved: true
+  - site: Wholesome Yum
+    url: https://www.wholesomeyum.com/taco-skillet/
+    title: Mexican Taco Skillet
+    rating: 4.92
+    count: 24
+    total_time_min: 30
+    yield: 4 servings
+    ingredients:
+    - 1 tbsp olive oil
+    - 1 lb ground beef
+    - taco seasoning
+    - onion
+    - 3 bell peppers
+    - diced tomatoes
+    - Mexican cheese blend
+    - green onions
+    - sour cream
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: ''
+- slot: spring-beef-spaghetti
+  slot_label: spaghetti with jarred sauce + ground beef
+  candidates:
+  - site: Spend With Pennies
+    url: https://www.spendwithpennies.com/fusilli-with-meat-sauce/
+    selected: true
+    title: Fusilli with Meat Sauce (jarred)
+    rating: 4.97
+    count: 33
+    total_time_min: 27
+    yield: 4 servings
+    ingredients:
+    - 1 lb lean ground beef
+    - onion
+    - garlic
+    - Italian seasoning
+    - red wine or beef broth
+    - 24 oz marinara sauce
+    - 8 oz pasta
+    - mozzarella
+    - Parmesan
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Owner's simple jar-sauce + 1 lb beef pasta (any pasta; swap spaghetti).
+    approved: true
+  - site: Cooking Classy
+    url: https://www.cookingclassy.com/instant-pot-spaghetti/
+    title: Instant Pot Spaghetti
+    rating: 4.75
+    count: 51
+    total_time_min: 30
+    yield: 4 servings
+    ingredients:
+    - 1 lb ground beef
+    - garlic
+    - spaghetti
+    - four cheese marinara
+    - diced tomatoes
+    - water
+    - basil
+    - Parmesan
+    - olive oil
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: ''
+- slot: spring-beef-broccoli
+  slot_label: ground beef and broccoli
+  candidates:
+  - site: Skinnytaste
+    url: https://www.skinnytaste.com/ground-beef-and-broccoli-stir-fry/
+    title: Ground Beef and Broccoli Stir Fry
+    rating: 4.68
+    count: 221
+    total_time_min: 13
+    yield: 4 servings
+    ingredients:
+    - 1 lb ground beef
+    - broccoli
+    - soy sauce
+    - honey
+    - garlic
+    - ginger
+    - cornstarch
+    - sesame oil
+    - onion
+    - scallions
+    has_beans_lentils: false
+    non_olive_fats:
+    - sesame oil
+    checked_on: '2026-10-31'
+    notes: ''
+    approved: true
+  - site: Well Plated
+    url: https://www.wellplated.com/ground-beef-and-broccoli/
+    title: Ground Beef and Broccoli
+    rating: 4.88
+    count: 71
+    total_time_min: 25
+    yield: 4 servings
+    ingredients:
+    - 1 lb ground beef
+    - broccoli
+    - soy sauce
+    - maple syrup
+    - cornstarch
+    - sesame oil
+    - canola oil
+    - ginger
+    - garlic
+    - scallions
+    - rice
+    has_beans_lentils: false
+    non_olive_fats:
+    - canola oil
+    - sesame oil
+    checked_on: '2026-10-31'
+    notes: ''
+- slot: spring-beef-quesadilla
+  slot_label: cheesy ground beef quesadillas
+  candidates:
+  - site: RecipeTin Eats
+    url: https://www.recipetineats.com/crispy-oven-baked-quesadillas/
+    title: Crispy Oven Baked Beef Quesadillas
+    rating: 4.95
+    count: 80
+    total_time_min: 25
+    yield: 4 servings
+    ingredients:
+    - ground beef
+    - tomato paste
+    - corn
+    - black beans
+    - flour tortillas
+    - shredded cheese
+    - olive oil
+    - taco spices
+    has_beans_lentils: true
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: ''
+    approved: true
+  - site: Well Plated
+    url: https://www.wellplated.com/ground-beef-quesadillas/
+    title: Ground Beef Quesadillas
+    rating: 5
+    count: 7
+    total_time_min: 25
+    yield: 4 servings
+    ingredients:
+    - 1 lb ground beef
+    - tomato paste
+    - chili powder
+    - cumin
+    - garlic powder
+    - shredded cheese
+    - tortillas
+    - olive oil
+    has_beans_lentils: false
+    non_olive_fats:
+    - butter
+    checked_on: '2026-10-31'
+    notes: ''
+- slot: spring-beef-philly
+  slot_label: Philly cheesesteak (ground beef)
+  candidates:
+  - site: Wholesome Yum
+    url: https://www.wholesomeyum.com/philly-cheesesteak-casserole-recipe/
+    title: Philly Cheesesteak Casserole (ground beef)
+    rating: 4.85
+    count: 108
+    total_time_min: 40
+    yield: 4 servings
+    ingredients:
+    - 2 lb ground beef
+    - 3 bell peppers
+    - onion
+    - cream cheese
+    - chicken broth
+    - Italian seasoning
+    - smoked paprika
+    - garlic powder
+    - provolone cheese
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: ''
+    rejected_by_owner: true
+  - site: Taste of Home
+    url: https://www.tasteofhome.com/recipes/sloppy-cheesesteaks/
+    title: Sloppy Cheesesteaks
+    rating: 4.33
+    count: 3
+    total_time_min: 20
+    yield: 4 servings
+    ingredients:
+    - 1 lb ground beef
+    - green pepper
+    - onion
+    - garlic powder
+    - French rolls
+    - provolone cheese
+    - mayonnaise
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: ''
+  - site: EasyHealth LLC
+    url: https://easyhealthllc.com/main-dish/low-carb-philly-cheesesteak-bowl/
+    title: Low Carb Philly Cheesesteak Bowl
+    rating: 4.27
+    count: 165
+    total_time_min: 25
+    yield: 4 servings
+    ingredients:
+    - 1 lb lean ground beef
+    - beef broth
+    - Worcestershire sauce
+    - 2 onions
+    - 3 green bell peppers
+    - mushrooms
+    - olive oil
+    - 4 slices provolone cheese
+    - salt and pepper
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-11-01'
+    notes: owner-supplied 2026-11-01
+    approved: true
+    selected: true
+    owner_pick: true
+  - site: Taste of Home
+    url: https://www.tasteofhome.com/recipes/philly-cheesesteak-gnocchi/
+    title: Philly Cheesesteak Gnocchi
+    rating: null
+    count: 4
+    total_time_min: 30
+    yield: 6 servings
+    ingredients:
+    - 1 lb ground beef
+    - green pepper
+    - onion
+    - jalapeno
+    - butter
+    - flour
+    - milk
+    - Worcestershire
+    - provolone cheese
+    - potato gnocchi
+    has_beans_lentils: false
+    non_olive_fats:
+    - butter
+    checked_on: '2026-11-01'
+    notes: ground beef skillet; no numeric rating (4 reviews)
+    pending_owner_approval: true
+  - site: Spend With Pennies
+    url: https://www.spendwithpennies.com/philly-cheesesteak-casserole/
+    title: Philly Cheesesteak Casserole
+    rating: 5.0
+    count: 6
+    total_time_min: 80
+    yield: 6 servings
+    ingredients:
+    - 8 oz cavatappi
+    - 1 lb lean ground beef
+    - steak seasoning
+    - onion
+    - mushrooms
+    - green bell pepper
+    - butter
+    - flour
+    - beef broth
+    - half and half
+    - Dijon
+    - Swiss cheese
+    - pepper jack cheese
+    has_beans_lentils: false
+    non_olive_fats:
+    - butter
+    checked_on: '2026-11-01'
+    notes: ground beef pasta bake; 80 min total (over cap); 5.0/6
+    pending_owner_approval: true
+  - site: Taste of Home
+    url: https://www.tasteofhome.com/recipes/philly-cheesesteak-casserole/
+    title: Philly Cheesesteak Casserole (macaroni)
+    rating: null
+    count: 1
+    total_time_min: 50
+    yield: 6 servings
+    ingredients:
+    - 1 lb elbow macaroni
+    - butter
+    - 1 lb ground beef
+    - green pepper
+    - red pepper
+    - onion
+    - beef broth
+    - cream cheese
+    - heavy cream
+    - garlic
+    - Italian seasoning
+    - provolone cheese
+    has_beans_lentils: false
+    non_olive_fats:
+    - butter
+    - heavy cream
+    checked_on: '2026-11-01'
+    notes: ground beef pasta bake; no numeric rating (1 review)
+    pending_owner_approval: true
+- slot: spring-beef-sloppy
+  slot_label: sloppy joes / beef skillet
+  candidates:
+  - site: Natasha's Kitchen
+    url: https://natashaskitchen.com/sloppy-joe-recipe/
+    title: Sloppy Joes
+    rating: 4.94
+    count: 2056
+    total_time_min: 30
+    yield: 4 servings
+    ingredients:
+    - 1 lb ground beef
+    - tomato sauce
+    - ketchup
+    - Worcestershire
+    - mustard
+    - brown sugar
+    - olive oil
+    - onion
+    - green bell pepper
+    - garlic
+    - hamburger buns
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: ''
+    rejected_by_owner: true
+  - site: Skinnytaste
+    url: https://www.skinnytaste.com/skinny-sloppy-joes/
+    title: Skinny Sloppy Joes
+    rating: 4.83
+    count: 111
+    total_time_min: 30
+    yield: 4 servings
+    ingredients:
+    - 1.25 lb lean ground beef
+    - carrot
+    - onion
+    - garlic
+    - red bell pepper
+    - mushrooms
+    - red wine vinegar
+    - Worcestershire
+    - tomato sauce
+    - tomato paste
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: ''
+- slot: spring-beef-greek
+  slot_label: Greek ground beef with feta
+  candidates:
+  - site: Downshiftology
+    url: https://downshiftology.com/recipes/mediterranean-ground-beef-stir-fry/
+    title: Mediterranean Ground Beef Stir Fry (feta)
+    rating: 4.93
+    count: 260
+    total_time_min: 25
+    yield: 4 servings
+    ingredients:
+    - ground beef
+    - olive oil
+    - onion
+    - garlic
+    - oregano
+    - cumin
+    - spinach
+    - cherry tomatoes
+    - feta
+    - parsley
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Greek-style beef with feta -- when picked it carries the week's feta.
+    approved: true
+- slot: spring-pork-pan-seared
+  slot_label: pan-seared pork chops
+  candidates:
+  - site: Wholesome Yum
+    url: https://www.wholesomeyum.com/pan-seared-pork-chops/
+    title: Pan Seared Pork Chops
+    rating: 4.99
+    count: 59
+    total_time_min: 11
+    yield: 4 servings
+    ingredients:
+    - 4 pork chops (boneless or bone-in)
+    - garlic powder
+    - smoked paprika
+    - thyme
+    - oregano
+    - cayenne
+    - olive oil
+    - salt
+    - pepper
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: ''
+  - site: Spend With Pennies
+    url: https://www.spendwithpennies.com/pan-seared-pork-chops/
+    title: Pan Seared Pork Chops with Herb Butter
+    rating: 4.99
+    count: 88
+    total_time_min: 25
+    yield: 4 servings
+    ingredients:
+    - 2 bone-in pork chops
+    - salt
+    - pepper
+    - vegetable oil
+    - butter
+    - thyme
+    - rosemary
+    - garlic
+    has_beans_lentils: false
+    non_olive_fats:
+    - vegetable oil
+    - butter
+    checked_on: '2026-10-31'
+    notes: ''
+    approved: true
+- slot: spring-pork-baked
+  slot_label: baked pork chops
+  candidates:
+  - site: Downshiftology
+    url: https://downshiftology.com/recipes/baked-pork-chops/
+    title: Super Easy Baked Pork Chops
+    rating: 4.99
+    count: 95
+    total_time_min: 25
+    yield: 4 servings
+    ingredients:
+    - 4 pork chops (bone-in or boneless)
+    - olive oil
+    - paprika
+    - brown sugar
+    - garlic powder
+    - onion powder
+    - oregano
+    - salt
+    - pepper
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: ''
+  - site: Spend With Pennies
+    url: https://www.spendwithpennies.com/juicy-baked-pork-chops/
+    title: Juicy Baked Pork Chops
+    rating: 4.95
+    count: 308
+    total_time_min: 60
+    yield: 4 servings
+    ingredients:
+    - 4 boneless pork chops
+    - water
+    - salt
+    - brown sugar
+    - peppercorns
+    - garlic powder
+    - mustard powder
+    - paprika
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Total 60 incl a 30-min brine; active ~30.
+    approved: true
+- slot: spring-pork-lemon-herb
+  slot_label: lemon-herb / Greek pork chops
+  candidates:
+  - site: RecipeTin Eats
+    url: https://www.recipetineats.com/lemon-garlic-marinated-pork-chops/
+    title: Lemon Garlic Pork Chops
+    rating: 4.98
+    count: 36
+    total_time_min: 15
+    yield: 4 servings
+    ingredients:
+    - 4 bone-in pork chops
+    - garlic
+    - oregano
+    - lemon zest
+    - lemon juice
+    - olive oil
+    - salt
+    - pepper
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: 15 min active; marinade time extra.
+    rejected_by_owner: true
+  - site: Taste of Home
+    url: https://www.tasteofhome.com/recipes/greek-pork-chops/
+    title: Greek Pork Chops
+    rating: 4.72
+    count: 36
+    total_time_min: 25
+    yield: 4 servings
+    ingredients:
+    - 4 boneless pork loin chops
+    - olive oil
+    - lemon juice
+    - Worcestershire
+    - oregano
+    - onion powder
+    - garlic powder
+    - mustard
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: ''
+- slot: spring-pork-honey-garlic
+  slot_label: honey-garlic pork chops
+  candidates:
+  - site: Wholesome Yum
+    url: https://www.wholesomeyum.com/honey-garlic-pork-chops/
+    title: Honey Garlic Pork Chops
+    rating: 5
+    count: 11
+    total_time_min: 15
+    yield: 4 servings
+    ingredients:
+    - 4 pork chops
+    - garlic powder
+    - olive oil
+    - butter
+    - garlic
+    - honey
+    - coconut aminos or soy sauce
+    - apple cider vinegar
+    has_beans_lentils: false
+    non_olive_fats:
+    - butter
+    checked_on: '2026-10-31'
+    notes: ''
+    rejected_by_owner: true
+  - site: Well Plated
+    url: https://www.wellplated.com/honey-garlic-pork-chops/
+    title: Honey Garlic Pork Chops
+    rating: 5
+    count: 19
+    total_time_min: 83
+    yield: 4 servings
+    ingredients:
+    - 4 bone-in pork chops
+    - salt
+    - pepper
+    - garlic
+    - honey
+    - olive oil
+    - apple cider vinegar
+    - parsley
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Total 83 incl a long passive rest -> over the candidate cap; the Wholesome Yum one is the pick.
+- slot: spring-pork-smothered
+  slot_label: smothered pork chops
+  candidates:
+  - site: RecipeTin Eats
+    url: https://www.recipetineats.com/french-onion-smothered-pork-chops/
+    title: French Onion Smothered Pork Chops
+    rating: 4.93
+    count: 82
+    total_time_min: 35
+    yield: 4 servings
+    ingredients:
+    - 4 boneless pork chops
+    - garlic powder
+    - onions
+    - garlic
+    - butter
+    - beef broth
+    - flour
+    - cheese slices
+    - rosemary
+    has_beans_lentils: false
+    non_olive_fats:
+    - butter
+    checked_on: '2026-10-31'
+    notes: ''
+    approved: true
+  - site: Wholesome Yum
+    url: https://www.wholesomeyum.com/baked-smothered-pork-chops-recipe/
+    title: Smothered Pork Chops
+    rating: 4.92
+    count: 60
+    total_time_min: 60
+    yield: 4 servings
+    ingredients:
+    - 4 boneless pork chops
+    - garlic powder
+    - onion powder
+    - olive oil
+    - onion
+    - garlic
+    - thyme
+    - chicken broth
+    - cream cheese
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Total 60 mostly hands-off oven time; active ~25.
+- slot: spring-pork-sheet-pan
+  slot_label: sheet-pan pork chops
+  candidates:
+  - site: RecipeTin Eats
+    url: https://www.recipetineats.com/oven-baked-pork-chops-with-potatoes/
+    title: Oven Baked Pork Chops with Potatoes
+    rating: 4.92
+    count: 495
+    total_time_min: 40
+    yield: 4 servings
+    ingredients:
+    - 4 pork chops
+    - baby potatoes
+    - Worcestershire
+    - ketchup
+    - soy sauce
+    - brown sugar
+    - olive oil
+    - garlic
+    - apple cider vinegar
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: One-tray bake; add a green vegetable side.
+    approved: true
+  - site: Taste of Home
+    url: https://www.tasteofhome.com/recipes/pork-and-asparagus-sheet-pan-dinner/
+    title: Pork Chops and Asparagus Sheet Pan
+    rating: 4.11
+    count: 19
+    total_time_min: 40
+    yield: 4 servings
+    ingredients:
+    - olive oil
+    - new potatoes
+    - asparagus
+    - apple
+    - brown sugar
+    - cinnamon
+    - ginger
+    - 4 boneless pork loin chops
+    - Southwest seasoning
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Below the rating threshold; listed as the only true sheet-pan pork+veg option.
+- slot: spring-steak-stroganoff
+  slot_label: beef stroganoff
+  candidates:
+  - site: Spend With Pennies
+    url: https://www.spendwithpennies.com/easy-beef-stroganoff/
+    title: Beef Stroganoff
+    rating: 4.94
+    count: 622
+    total_time_min: 40
+    yield: 4 servings
+    ingredients:
+    - 1 1/2 lb sirloin steak
+    - flour
+    - olive oil
+    - butter
+    - onion
+    - mushrooms
+    - garlic
+    - beef broth
+    - Worcestershire
+    - Dijon
+    - sour cream
+    - egg noodles
+    has_beans_lentils: false
+    non_olive_fats:
+    - butter
+    checked_on: '2026-11-01'
+    notes: ''
+    pending_owner_approval: true
+  - site: Natasha's Kitchen
+    url: https://natashaskitchen.com/beef-stroganoff/
+    title: Beef Stroganoff
+    rating: 4.96
+    count: 2025
+    total_time_min: 30
+    yield: 4 servings
+    ingredients:
+    - 1 lb top sirloin steak
+    - olive oil
+    - butter
+    - onion
+    - mushrooms
+    - garlic
+    - flour
+    - beef broth
+    - heavy cream
+    - sour cream
+    - Worcestershire
+    - Dijon
+    - egg noodles
+    has_beans_lentils: false
+    non_olive_fats:
+    - butter
+    - heavy cream
+    checked_on: '2026-11-01'
+    notes: ''
+    pending_owner_approval: true
+- slot: spring-steak-fajitas
+  slot_label: steak fajitas
+  candidates:
+  - site: Downshiftology
+    url: https://downshiftology.com/recipes/steak-fajitas/
+    title: Steak Fajitas
+    rating: 5.0
+    count: 32
+    total_time_min: 50
+    yield: 4 servings
+    ingredients:
+    - 1 lb flank or skirt steak
+    - onion
+    - 3 bell peppers
+    - olive oil
+    - lime juice
+    - garlic
+    - cumin
+    - chili powder
+    - tortillas
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-11-01'
+    notes: ''
+    pending_owner_approval: true
+  - site: iFoodReal
+    url: https://ifoodreal.com/steak-fajitas-sheet-pan/
+    title: Sheet Pan Steak Fajitas
+    rating: 4.94
+    count: 16
+    total_time_min: 35
+    yield: 4 servings
+    ingredients:
+    - 1.5 lb sirloin/flank/skirt steak
+    - jalapeno
+    - olive oil
+    - lime
+    - taco seasoning
+    - garlic powder
+    - 2 onions
+    - 3 bell peppers
+    - tortillas
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-11-01'
+    notes: ''
+    pending_owner_approval: true
+- slot: spring-steak-salad
+  slot_label: steak salad
+  candidates:
+  - site: Skinnytaste
+    url: https://www.skinnytaste.com/steak-fajita-salad/
+    title: Steak Fajita Salad
+    rating: 5.0
+    count: 2
+    total_time_min: 25
+    yield: 4 servings
+    ingredients:
+    - 1 lb sirloin steak
+    - 3 bell peppers
+    - red onion
+    - olive oil
+    - cumin
+    - romaine
+    - avocado
+    - lime
+    - honey
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-11-01'
+    notes: ''
+    pending_owner_approval: true
+  - site: RecipeTin Eats
+    url: https://www.recipetineats.com/thai-beef-salad/
+    title: Thai Beef Salad
+    rating: 4.98
+    count: 163
+    total_time_min: 25
+    yield: 4 servings
+    ingredients:
+    - sirloin steak
+    - mixed lettuce
+    - cherry tomatoes
+    - red onion
+    - cucumber
+    - cilantro
+    - mint
+    - peanuts
+    - fish sauce
+    - lime juice
+    - chili
+    has_beans_lentils: false
+    non_olive_fats:
+    - grapeseed oil
+    checked_on: '2026-11-01'
+    notes: many fresh herbs; winter-unfriendly
+    pending_owner_approval: true
+- slot: spring-side-carrots
+  slot_label: roasted carrots
+  candidates:
+  - site: Love & Lemons
+    url: https://www.loveandlemons.com/roasted-carrots/
+    title: Roasted Carrots
+    rating: 4.94
+    count: 63
+    total_time_min: 35
+    yield: 4 servings
+    ingredients:
+    - 2 lb carrots
+    - olive oil
+    - salt
+    - pepper
+    - parsley
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-11-01'
+    notes: ''
+    pending_owner_approval: true
+- slot: spring-side-green-beans
+  slot_label: garlicky green beans
+  candidates:
+  - site: RecipeTin Eats
+    url: https://www.recipetineats.com/garlic-sauteed-green-beans/
+    title: Sauteed Green Beans with Garlic
+    rating: 4.99
+    count: 58
+    total_time_min: 13
+    yield: 4 servings
+    ingredients:
+    - green beans
+    - olive oil
+    - garlic
+    - salt
+    - pepper
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-11-01'
+    notes: ''
+    pending_owner_approval: true
+- slot: spring-side-cauliflower
+  slot_label: roasted cauliflower
+  candidates:
+  - site: RecipeTin Eats
+    url: https://www.recipetineats.com/roasted-cauliflower/
+    title: Roasted Cauliflower
+    rating: 4.9
+    count: 39
+    total_time_min: 30
+    yield: 4 servings
+    ingredients:
+    - cauliflower
+    - olive oil
+    - garlic
+    - parsley
+    - parmesan
+    - panko
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-11-01'
+    notes: ''
+    pending_owner_approval: true
+- slot: spring-side-broccoli
+  slot_label: roasted broccoli
+  candidates:
+  - site: Natasha's Kitchen
+    url: https://natashaskitchen.com/roasted-broccoli/
+    title: Roasted Broccoli
+    rating: 4.99
+    count: 146
+    total_time_min: 25
+    yield: 4 servings
+    ingredients:
+    - broccoli
+    - olive oil
+    - garlic
+    - salt
+    - pepper
+    - lemon
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-11-01'
+    notes: ''
+    pending_owner_approval: true
+- slot: spring-side-kale
+  slot_label: sauteed kale
+  candidates:
+  - site: Love & Lemons
+    url: https://www.loveandlemons.com/sauteed-kale/
+    title: Sauteed Kale
+    rating: 4.98
+    count: 40
+    total_time_min: 15
+    yield: 4 servings
+    ingredients:
+    - kale
+    - olive oil
+    - garlic
+    - salt
+    - pepper
+    - lemon
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-11-01'
+    notes: ''
+    pending_owner_approval: true

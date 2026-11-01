@@ -24,12 +24,55 @@ import requests
 log = logging.getLogger("grocery.tandoor")
 
 
+def resolve_active_space(spaces, user_spaces):
+    """(active_space_id, active_space_name) from /api/space/ + /api/user-space/.
+    Pure, so the startup check is unit tested offline."""
+    by_id = {s["id"]: s.get("name") for s in (spaces or [])}
+    aid = None
+    for r in (user_spaces or []):
+        if r.get("active"):
+            sp = r.get("space")
+            aid = sp.get("id") if isinstance(sp, dict) else sp
+            break
+    return aid, by_id.get(aid)
+
+
+def resolve_active_household(user_spaces):
+    """(household_id, household_name) from the active /api/user-space/ row's
+    `household` object. Tandoor 2.x shares meal plans + shopping within a
+    household. Pure, so the startup check is unit tested offline."""
+    for r in (user_spaces or []):
+        if r.get("active"):
+            hh = r.get("household")
+            if isinstance(hh, dict):
+                return hh.get("id"), hh.get("name")
+            return hh, None
+    return None, None
+
+
+def _name_or_id_matches(active_name, active_id, want_name, want_id):
+    if want_name:
+        return active_name == want_name
+    if want_id is not None:
+        return active_id == want_id
+    return True
+
+
+# Back-compat alias (the space check used this name).
+space_matches = _name_or_id_matches
+household_matches = _name_or_id_matches
+
+
 class Tandoor:
-    def __init__(self, url, user, password, space="Mack House", timeout=30):
+    def __init__(self, url, user, password, space="Mack House", space_id=None,
+                 household=None, household_id=None, timeout=30):
         self.url = url.rstrip("/")
         self.user = user
         self.password = password
         self.space = space
+        self.space_id = space_id
+        self.household = household
+        self.household_id = household_id
         self.timeout = timeout
         self.s = requests.Session()
         self.s.headers["User-Agent"] = "kdk-grocery-planner"
@@ -50,7 +93,39 @@ class Tandoor:
         if chk.status_code != 200:
             raise RuntimeError(f"Tandoor login check failed: {chk.status_code}")
         log.info("logged into Tandoor as %s", self.user)
+        self.verify_space()
+        self.verify_household()
         return self
+
+    def verify_household(self):
+        """Fail loudly unless the account's active household is the configured
+        household -- that is the unit Tandoor 2.x shares meal plans + shopping
+        lists within, so jmack/rach only see the plan if they share it. Skipped
+        if no household is configured. Membership is a space-admin (owner) step."""
+        if not (self.household or self.household_id is not None):
+            return None, None
+        hid, name = resolve_active_household(self.get_all("/api/user-space/"))
+        if not household_matches(name, hid, self.household, self.household_id):
+            raise RuntimeError(
+                f"dashboard account's active household is {name!r} (id {hid}); "
+                f"expected {self.household!r} (id {self.household_id}) -- refusing "
+                "to write (set membership in Tandoor Space settings -> Households)")
+        log.info("Tandoor active household verified: %s (id %s)", name, hid)
+        return hid, name
+
+    def verify_space(self):
+        """Fail loudly unless the account's ACTIVE Tandoor space is the configured
+        household space -- every write (recipes, books, meal plans, shopping
+        entries, food categories) must land there. Tandoor scopes all writes to
+        the active space, so this guards against a misconfigured account."""
+        aid, name = resolve_active_space(self.get_all("/api/space/"),
+                                         self.get_all("/api/user-space/"))
+        if not space_matches(name, aid, self.space, self.space_id):
+            raise RuntimeError(
+                f"Tandoor active space is {name!r} (id {aid}); expected "
+                f"{self.space!r} (id {self.space_id}) -- refusing to write")
+        log.info("Tandoor active space verified: %s (id %s)", name, aid)
+        return aid, name
 
     def _csrf_headers(self):
         return {"X-CSRFToken": self.s.cookies.get("csrftoken", ""),

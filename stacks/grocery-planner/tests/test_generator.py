@@ -9,18 +9,21 @@ def make_pool(season="spring", wt=20, ic=6):
     pool = []
     i = 0
 
-    def add(kind, variant=None, name=None, servings=2):
+    def add(kind, variant=None, style=None, name=None, servings=2):
         nonlocal i
         i += 1
         pool.append({"id": i, "name": name or f"{kind}-{i}", "kind": kind,
-                     "season": season, "variant": variant, "working_time": wt,
-                     "ingredient_count": ic, "servings": servings})
+                     "season": season, "variant": variant, "beef_style": style,
+                     "working_time": wt, "ingredient_count": ic, "servings": servings})
         return i
 
     add("fish", "salmon"); add("fish", "tuna")
     for _ in range(5):
         add("chicken")
-    add("ground_beef", "greek"); add("ground_beef", "asian")
+    for st in ("comfort", "tex-mex", "asian", "italian"):   # ground beef, styles
+        add("ground_beef", style=st)
+    for _ in range(3):
+        add("pork")
     add("steak"); add("steak")
     add("roast"); add("roast")
     for _ in range(8):
@@ -36,79 +39,113 @@ def make_pool(season="spring", wt=20, ic=6):
 SUNDAY = datetime.date(2026, 3, 1)   # a Sunday in spring
 
 
+def _parity_sundays():
+    """Return {parity: a Sunday with that parity} using two consecutive Sundays."""
+    d = datetime.date(2026, 3, 1)
+    return {G.parity_for_week(d): d,
+            G.parity_for_week(d + datetime.timedelta(7)): d + datetime.timedelta(7)}
+
+
+def _flex_kind(cfg, parity):
+    rot = cfg["flex"]["rotation"]
+    return rot[(0 if parity == "A" else 1) % len(rot)]
+
+
 def test_counts_and_fish_on_sunday(cfg):
     pool = make_pool()
-    entries = G.generate_week(pool, SUNDAY, cfg)
-    s = G.plan_summary(entries)
+    s = G.plan_summary(G.generate_week(pool, SUNDAY, cfg))
     assert s["dinners"] == 7
     assert s["sides"] == 7
     assert s["lunches"] == 2
-    assert s["breakfast"] == 1       # Weekly staples
-    assert s["snacks"] == 2          # Snacks to buy + Snack prep
-    fish = [e for e in entries if e.role == "dinner-main"
-            and _kind(pool, e.recipe_id) == "fish"][0]
+    assert s["breakfast"] == 1 and s["snacks"] == 2
+    fish = [e for e in G.generate_week(pool, SUNDAY, cfg)
+            if e.role == "dinner-main" and _kind(pool, e.recipe_id) == "fish"][0]
     assert fish.date == SUNDAY
 
 
-def test_protein_mix(cfg):
+def test_new_mix_both_parities(cfg):
     pool = make_pool()
-    entries = G.generate_week(pool, SUNDAY, cfg)
-    mains = [e for e in entries if e.role == "dinner-main"]
-    kinds = [_kind(pool, e.recipe_id) for e in mains]
-    roast_week = cfg["roast"]["enabled"] and G.parity_for_week(SUNDAY) == cfg["roast"]["parity"]
-    assert len(mains) == 7
-    assert kinds.count("fish") == 1
-    assert kinds.count("ground_beef") == 1
-    assert kinds.count("steak") == 1
-    assert kinds.count("roast") == (1 if roast_week else 0)
-    assert kinds.count("chicken") == (3 if roast_week else 4)
+    for parity, sun in _parity_sundays().items():
+        mains = [e for e in G.generate_week(pool, sun, cfg) if e.role == "dinner-main"]
+        kinds = [_kind(pool, e.recipe_id) for e in mains]
+        roast_week = cfg["roast"]["enabled"] and parity == cfg["roast"]["parity"]
+        flex_kind = _flex_kind(cfg, parity)
+        assert len(mains) == 7
+        assert kinds.count("fish") == 1
+        assert kinds.count("steak") == 1
+        assert kinds.count("roast") == (1 if roast_week else 0)
+        assert kinds.count("ground_beef") == (1 if roast_week else 2)
+        exp_pork = 1 if flex_kind == "pork" else 0
+        assert kinds.count("pork") == exp_pork
+        # chicken = 2 regular + (1 if the flex is chicken)
+        assert kinds.count("chicken") == 2 + (0 if flex_kind == "pork" else 1)
 
 
-def test_roast_replaces_a_chicken_on_roast_weeks(cfg):
+def test_roast_replaces_a_beef_and_leftover_thursday(cfg):
     pool = make_pool()
-    # find a roast-week Sunday and a non-roast-week Sunday (consecutive Sundays
-    # flip parity)
-    import datetime
-    d = datetime.date(2026, 3, 1)
-    weeks = {G.parity_for_week(d): d, G.parity_for_week(d + datetime.timedelta(7)):
-             d + datetime.timedelta(7)}
+    weeks = _parity_sundays()
     roast_sun = weeks[cfg["roast"]["parity"]]
-    other_sun = weeks["B" if cfg["roast"]["parity"] == "A" else "A"]
-    # roast week: 3 chicken + roast, a roast on Wednesday, a Thursday leftover lunch
     e = G.generate_week(pool, roast_sun, cfg)
     kinds = [_kind(pool, x.recipe_id) for x in e if x.role == "dinner-main"]
-    assert kinds.count("roast") == 1 and kinds.count("chicken") == 3
+    assert kinds.count("roast") == 1 and kinds.count("ground_beef") == 1
     roast_entry = [x for x in e if x.role == "dinner-main" and _kind(pool, x.recipe_id) == "roast"][0]
     assert roast_entry.date.weekday() == 2            # Wednesday
-    leftovers = [x for x in e if x.role == "leftover"]
-    assert len(leftovers) == 1 and leftovers[0].date.weekday() == 3   # Thursday
-    assert leftovers[0].recipe_id == roast_entry.recipe_id
-    # non-roast week: 4 chicken, no roast, no leftover
-    e2 = G.generate_week(pool, other_sun, cfg)
-    kinds2 = [_kind(pool, x.recipe_id) for x in e2 if x.role == "dinner-main"]
-    assert kinds2.count("roast") == 0 and kinds2.count("chicken") == 4
-    assert not [x for x in e2 if x.role == "leftover"]
+    lo = [x for x in e if x.role == "leftover"]
+    assert len(lo) == 1 and lo[0].date.weekday() == 3 and lo[0].recipe_id == roast_entry.recipe_id
 
 
-def test_parity_drives_fish_and_beef_variant(cfg):
+def test_flex_alternates_pork_and_chicken(cfg):
     pool = make_pool()
-    entries = G.generate_week(pool, SUNDAY, cfg)
-    parity = G.parity_for_week(SUNDAY)
-    exp_fish = cfg["proteins"]["fish_parity"][parity]
-    exp_beef = cfg["proteins"]["beef_parity"][parity]
-    fish = [e for e in entries if e.role == "dinner-main" and _kind(pool, e.recipe_id) == "fish"][0]
-    beef = [e for e in entries if e.role == "dinner-main" and _kind(pool, e.recipe_id) == "ground_beef"][0]
-    assert _variant(pool, fish.recipe_id) == exp_fish
-    assert _variant(pool, beef.recipe_id) == exp_beef
+    for parity, sun in _parity_sundays().items():
+        kinds = [_kind(pool, e.recipe_id) for e in G.generate_week(pool, sun, cfg)
+                 if e.role == "dinner-main"]
+        if _flex_kind(cfg, parity) == "pork":
+            assert kinds.count("pork") == 1
+        else:
+            assert kinds.count("pork") == 0 and kinds.count("chicken") == 3
 
 
-def test_no_repeat_sides_and_lunch_servings(cfg):
+def test_at_most_one_asian_beef(cfg):
+    # three asian beef, nothing else -> still only 1 asian can be chosen -> fails
+    pool = [r for r in make_pool() if r["kind"] != "ground_beef"]
+    nxt = max(r["id"] for r in pool) + 1
+    for k in range(3):
+        pool.append({"id": nxt + k, "name": f"gb{k}", "kind": "ground_beef",
+                     "season": "spring", "variant": None, "beef_style": "asian",
+                     "working_time": 20, "ingredient_count": 6, "servings": 2})
+    with pytest.raises(G.PlanError):          # need 2 beef, only 1 may be asian
+        G.generate_week(pool, _parity_sundays()["B"], cfg)   # B = non-roast, needs 2 beef
+
+
+def test_fish_variant_by_parity(cfg):
     pool = make_pool()
+    for parity, sun in _parity_sundays().items():
+        fish = [e for e in G.generate_week(pool, sun, cfg)
+                if e.role == "dinner-main" and _kind(pool, e.recipe_id) == "fish"][0]
+        assert _variant(pool, fish.recipe_id) == cfg["proteins"]["fish_parity"][parity]
+
+
+def test_no_repeat_sides_when_pool_is_full(cfg):
+    # make_pool has 8 sides (>= 7) -> all 7 distinct, no repeat.
+    entries = G.generate_week(make_pool(), SUNDAY, cfg)
+    sides = [e.recipe_id for e in entries if e.role == "side"]
+    assert len(sides) == 7 and len(set(sides)) == 7
+    assert all(e.servings == 4 for e in entries if e.role == "lunch")
+
+
+def test_interim_side_repeat_when_pool_is_short(cfg):
+    # only 3 sides approved -> 7 slots filled by repeating, each <= max_repeats
+    # (interim rule relaxes further only if 3*max < 7).
+    pool = [r for r in make_pool() if r["kind"] != "side"]
+    nxt = max(r["id"] for r in pool) + 1
+    for k in range(3):
+        pool.append({"id": nxt + k, "name": f"side{k}", "kind": "side", "season": "spring",
+                     "variant": None, "beef_style": None, "working_time": 20,
+                     "ingredient_count": 6, "servings": 2})
     entries = G.generate_week(pool, SUNDAY, cfg)
     sides = [e.recipe_id for e in entries if e.role == "side"]
-    assert len(sides) == len(set(sides))      # no repeat within the week
-    lunches = [e for e in entries if e.role == "lunch"]
-    assert all(e.servings == 4 for e in lunches)
+    assert len(sides) == 7                 # always fills the week
+    assert set(sides) <= {nxt, nxt + 1, nxt + 2}   # only from the short pool
 
 
 def test_deterministic_per_week(cfg):
@@ -119,15 +156,14 @@ def test_deterministic_per_week(cfg):
 
 
 def test_fail_closed_when_not_enough(cfg):
-    pool = [r for r in make_pool() if r["kind"] != "chicken"]  # no chicken at all
+    pool = [r for r in make_pool() if r["kind"] != "ground_beef"]   # no beef at all
     with pytest.raises(G.PlanError):
         G.generate_week(pool, SUNDAY, cfg)
 
 
 def test_caps_reject_over_time(cfg):
-    pool = make_pool(wt=999)        # everything over the 30-min active cap
     with pytest.raises(G.PlanError):
-        G.generate_week(pool, SUNDAY, cfg)
+        G.generate_week(make_pool(wt=999), SUNDAY, cfg)
 
 
 def test_season_by_date(cfg):

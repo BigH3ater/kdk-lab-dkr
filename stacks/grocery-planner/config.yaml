@@ -6,7 +6,24 @@
 
 tandoor:
   url: "https://recipes.kmkdp.com"
+  # Household Space. Every write must land here. The job verifies the dashboard
+  # account's ACTIVE space at startup (confirmed live 2026-11-01: the account is
+  # a member of exactly one space, "Mack House" id 3, active=true) and fails
+  # loudly otherwise.
   space: "Mack House"
+  space_id: 3
+  # Within a Space, Tandoor 2.x shares meal plans + shopping lists by HOUSEHOLD
+  # (confirmed live 2026-11-01: UserSpace.household). The dashboard account is in
+  # household "The Macks" (id 1). The job verifies this at startup and fails
+  # loudly otherwise. jmack + rach must be in the SAME household to see the plans
+  # -- that is a space-admin action (owner step; /api/household/ is admin-only).
+  household: "The Macks"
+  household_id: 1
+  # Household user ids (read-only lookup 2026-11-01: jmack=3, rach=4, dashboard=5)
+  # for meal-plan sharing. NOTE: this Tandoor 2.7 meal-plan API exposes NO
+  # `shared` field, so per-entry sharing is an OWNER STEP (see the runbook); all
+  # three users are in the Mack House space, which already scopes the data.
+  share_with: { jmack: 3, rach: 4 }
   # Tandoor meal types the generator writes into. Names must match Tandoor
   # (confirmed live: /api/meal-type/ has name + order). The seed creates any
   # that are missing.
@@ -22,8 +39,8 @@ cadence:
   timezone: "America/Chicago"
   plan_start_weekday: 6        # 6 = Sunday (Python weekday(): Mon=0..Sun=6)
   bulk_weeks: 8                # N weeks of protein/pantry per bulk run
-  # The bulk procedure fires every Thursday (unambiguous cron), but the job acts
-  # only on the FIRST Thursday of an odd month = every two months (N=8). This
+  # The bulk procedure fires every Tuesday (unambiguous cron), but the job acts
+  # only on the FIRST Tuesday of an odd month = every two months (N=8). This
   # gate lives in code so the schedule avoids cron's day-of-month/day-of-week OR
   # ambiguity; off-weeks exit immediately.
   bulk_first_week_only: true
@@ -167,23 +184,46 @@ scoring:
 # Per-week dinner shape (owner, §5c(4) revision 3). The generator enforces these
 # counts over the 7 dinners and fails closed (logs + picks the next candidate)
 # if the selected pool can't satisfy them.
+# Weekly dinner mix (owner 2026-11: fewer chicken, more ground beef, then a flex
+# dinner added to stretch the Amana beef):
+#   non-roast week: Sunday fish + 2 chicken + 2 ground beef + 1 flex + 1 steak = 7
+#   roast week:     Sunday fish + 2 chicken + 1 ground beef + 1 flex + 1 steak + roast = 7
+# The roast REPLACES a ground-beef dinner (see `roast`); the flex dinner
+# alternates pork chop / chicken breast by week (see `flex`).
 proteins:
   dinners_per_week: 7
   fish: 1
-  poultry: 4
-  ground_beef: 1
+  poultry: 2
+  ground_beef: 2               # non-roast count; a roast week replaces one (-> 1)
   steak: 1
   legume_only_mains: 0         # owner 2026-10-31: no legume-ONLY mains (no meat/fish);
                                # beans/lentils/chickpeas AS AN INGREDIENT are fine
                                # (chicken+white-bean chili, black beans in a bowl, a
                                # chickpea side, hummus snack). Enforced in scoring.py.
   fish_day: sunday             # fish is Sunday dinner
-  # Parity: A = odd ISO week, B = even ISO week.
-  fish_parity:   { A: salmon, B: tuna }
-  beef_parity:   { A: greek,  B: asian }
-  feta_per_week: 1
-  feta_source:   { A: ground_beef, B: breakfast }   # where the week's feta lives
+  fish_parity:   { A: salmon, B: tuna }   # odd ISO week = salmon, even = tuna (kept)
   chicken_food: "chicken breast"   # poultry recipes must use ONLY this food
+
+# Ground-beef variety (replaces the old Greek/Asian A/B rule). The generator
+# picks the week's distinct beef dishes with no repeat within the week and at
+# most one Asian-style dish (e.g. beef & broccoli). `beef-style` keyword values:
+# Flex dinner: one dinner that alternates pork chop / chicken breast by week, to
+# stretch the Amana ground beef (ground-beef dinners now average ~1.5/wk). parity
+# A -> rotation[0], parity B -> rotation[1]. A chicken flex must be a chicken
+# dish not already used that week. Pork chops are fresh/weekly from New Pi.
+# Phase 2 idea (not built): once a freezer inventory exists, make the flex
+# "ground beef when stock is high, pork or chicken when it's low".
+flex:
+  enabled: true
+  rotation: [pork, chicken]
+
+beef:
+  no_repeat_within_week: true
+  max_asian_per_week: 1
+  styles: [comfort, tex-mex, asian, italian, greek]
+  # Feta now rides on the weekend eggs ("Weekly staples") every week; if a
+  # Greek-style beef dish happens to be picked, it carries feta too (Tandoor
+  # merges the line). No separate feta parity.
 
 # Slow-cooker roast dinner on a busy weeknight, every other week (owner, from an
 # Amana eighth share = 8 roasts ~3.5 lb each, ~16 weeks of fortnightly roasts).
@@ -201,6 +241,10 @@ roast:
 sides:
   per_dinner: 1                # every dinner gets a rotating veg side
   no_repeat_within_week: true
+  # Interim rule while the approved side pool is short of 7: allow a side to
+  # repeat up to this many times in a week (used only when the pool can't fill
+  # 7 distinct). Drops back to no-repeat once enough sides are approved.
+  max_repeats_per_week: 2
 
 lunches:
   recipes_per_week: 2          # 2 lunch-prep recipes...
@@ -237,20 +281,54 @@ stores:
   # Aisle order within each store (namespace suffix after "<store>/<cadence>: ").
   aisles:
     NewPi:   [Produce, "Meat & Seafood", "Dairy & Eggs", Bakery, Bulk, Other]
-    Target:  ["Pantry & Grains", Canned, "Oils & Spices", Condiments, Dairy, Snacks, Other]
+    Target:  ["Pantry & Grains", Canned, "Oils & Spices", Condiments, Dairy, Frozen, Snacks, Other]
     Costco:  ["Freezer", "Pantry Bulk", "Snacks Bulk", Other]
     Amana:   ["Freezer Beef", Other]
 
+# Owner review gate. When on, the seed imports ONLY recipes the owner approved
+# (approved: true on a candidate, or owner_pick: true), and the generator draws
+# only from them. rejected_by_owner candidates are never chosen;
+# pending_owner_approval candidates show in the review but are not used until
+# approved. Off = fall back to the scored default pick.
+require_owner_approval: true
+
+# Ingredients the owner removed entirely (2026-11-01). The scorer rejects any
+# candidate whose title or ingredients contain one of these, in every season.
+exclude_ingredients:
+  - radish
+  - beet
+  - arugula
+
 # Approvals (Vikunja + HA). The job contract is docs/runbooks/approval-tasks.md.
+# Foods that must NEVER reach a store list, even if a recipe pulls one in. Dog
+# food is a JustFoodForDogs subscription; pets are budgeted in Actual, not
+# ordered here. Matched as a case-insensitive substring of the food name by the
+# list builder (grocery/shoplist.py) and the grocery page.
+exclude:
+  - dog food
+  - pet food
+  - dog treats
+
+# Weekly cadence times (owner 2026-11). New Pi now DELIVERS on Saturday and needs
+# 2-3 days lead time, so New Pi orders must go in by Wednesday night. The crons
+# in komodo/resources.toml mirror these (kept off the gitops :00/:15/:30/:45
+# slots). Plan week stays Sunday->Saturday, for the week AFTER the Saturday
+# delivery.
+schedule:
+  build: { weekday: tuesday,  time: "18:03" }   # plan + two-store list + approval task
+  poll:  { weekday: thursday, time: "07:05" }   # read the decision; page shows approved lists
+  bulk:  { weekday: tuesday,  time: "18:09" }   # Costco bulk run (every 2 months)
+
 approvals:
   vikunja_url: "https://tasks.kmkdp.com"
   weekly:
     # One combined task; <=3 mutually-exclusive buttons.
     choices: "all=Approve both; newpi=New Pi only; target=Target only"
-    due_hour: 20               # Friday 20:00 CT
-    due_weekday: friday
-    reminder_hour: 12          # Friday noon reminder
-  # Poll in a SECOND scheduled pass (see run.py / the procedure), not a long
-  # blocking wait. The weekly procedure runs the build pass Thu 18:00; a poll
-  # pass runs later and on approval marks the store's entries.
+    due_weekday: wednesday     # New Pi order must go in by Wednesday night
+    due_hour: 20               # Wednesday 20:00 CT
+    reminder_hour: 12          # Wednesday noon reminder (same day)
+    # Target Drive Up has no lead time; it is still ordered Friday night for the
+    # Saturday delivery, from the same approved list.
+  # Poll in a SECOND scheduled pass (Thursday 07:05), not a long blocking wait:
+  # the build pass runs Tuesday 18:03 and exits; the poll pass reads the decision.
   poll_timeout_min: 10         # bounded in-run poll before handing off to the next pass

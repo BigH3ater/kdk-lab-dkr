@@ -30,8 +30,9 @@ log = logging.getLogger("grocery.seed")
 
 # keyword vocabulary (brief)
 VOCAB = ["main", "simple", "mediterranean", "veg-side", "lunch-prep", "breakfast",
-         "snack", "fish", "salmon", "tuna", "poultry", "ground-beef", "steak",
-         "roast", "greek", "asian", "feta", "spring", "summer", "fall", "winter"]
+         "snack", "fish", "salmon", "tuna", "poultry", "pork", "ground-beef",
+         "steak", "roast", "comfort", "tex-mex", "asian", "italian", "greek",
+         "feta", "spring", "summer", "fall", "winter"]
 BOOKS = {"spring": "Spring", "summer": "Summer", "fall": "Fall", "winter": "Winter"}
 
 
@@ -50,17 +51,18 @@ def keywords_for_slot(slot_id, kind, season):
     elif kind == "lunch":
         kw |= {"lunch-prep"}
     elif kind == "roast":
-        kw |= {"main", "roast"}        # slow-cooker roast dinner (not tagged simple/mediterranean)
-    elif kind in ("fish", "chicken", "ground_beef", "steak"):
+        kw |= {"main", "roast"}        # slow-cooker roast (not simple/mediterranean)
+    elif kind == "ground_beef":
+        # comfort dishes: ground-beef + the beef-style, no "mediterranean".
+        kw |= {"main", "ground-beef", C.beef_style_for_slot(slot_id)}
+    elif kind == "pork":
+        kw |= {"main", "simple", "pork"}
+    elif kind in ("fish", "chicken", "steak"):
         kw |= {"main", "simple", "mediterranean"}
         if kind == "fish":
             kw |= {"fish", "salmon" if slot_id.endswith("-a") else "tuna"}
         elif kind == "chicken":
             kw |= {"poultry"}
-        elif kind == "ground_beef":
-            kw |= {"ground-beef", "greek" if slot_id.endswith("-a") else "asian"}
-            if slot_id.endswith("-a"):
-                kw |= {"feta"}
         elif kind == "steak":
             kw |= {"steak"}
     return sorted(kw)
@@ -72,6 +74,12 @@ def route_food(name, foods_cfg, stores_cfg):
     beats 'corn', 'olive oil' beats 'oil', 'rice cake' beats 'rice', 'ground
     beef' beats 'beef'), else the shelf-stable freshness default."""
     low = (name or "").lower()
+    # Frozen vegetables -> Target frozen aisle. Handled before longest-match
+    # because a wording like "frozen cut green beans" would otherwise hit the
+    # fresh "green bean" produce rule. Frozen FISH keeps its explicit routing
+    # (frozen salmon -> Costco, frozen tuna -> New Pi).
+    if "frozen" in low and "salmon" not in low and "tuna" not in low:
+        return "Target/weekly: Frozen"
     best = None
     for rule in foods_cfg.get("rules", []):
         m = rule["match"].lower()
@@ -120,6 +128,7 @@ def build_seed_plan(cfg, foods_cfg, fixed_cfg, scored):
         "imports": imports,
         "no_candidate": no_candidate,
         "shortfalls": C.coverage_shortfalls(scored),
+        "side_shortfalls": C.side_shortfalls(scored),
     }
 
 
@@ -142,14 +151,18 @@ def print_plan(plan):
         print(f"\nslots with NO good/acceptable candidate ({len(plan['no_candidate'])}):")
         for s in plan["no_candidate"]:
             print(f"  - {s}  (owner: add a candidate URL or set selected:true, then re-run)")
-    print("\n=== seed preflight (per-season generator minimums) ===")
+    print("\n=== seed preflight (per-season approved pool vs the weekly needs) ===")
     if plan["shortfalls"]:
         for season, short in plan["shortfalls"].items():
             print(f"  FAIL {season}: needs {', '.join(short)}")
-        print("  --apply is blocked until these are filled (or pass --force). See the runbook"
-              " 'owner bookmarklet import' steps.")
+        print("  --apply is blocked until these are filled (or pass --force).")
     else:
-        print("  OK: every season can build a week at both parities.")
+        print("  OK: every season meets the hard weekly minimums (both parities).")
+    if plan["side_shortfalls"]:
+        print("  sides below the 7-a-week target (interim repeat rule covers it; "
+              "approve more sides to remove the repeat):")
+        for season, (n, target) in plan["side_shortfalls"].items():
+            print(f"    - {season}: {n}/{target} approved sides")
 
 
 def render_candidate_markdown(scored, cfg):
@@ -315,7 +328,10 @@ def apply_seed(plan, cfg, foods_cfg, fixed_cfg, force=False):
                          "with --force to seed what exists). See the runbook.")
     from .tandoor import Tandoor
     t = Tandoor(cfg["tandoor"]["url"], os.environ["TANDOOR_USER"],
-                os.environ["TANDOOR_PASS"], cfg["tandoor"].get("space", "Mack House")).login()
+                os.environ["TANDOOR_PASS"], cfg["tandoor"].get("space", "Mack House"),
+                space_id=cfg["tandoor"].get("space_id"),
+                household=cfg["tandoor"].get("household"),
+                household_id=cfg["tandoor"].get("household_id")).login()
     for name in plan["meal_types"]:
         if name not in t.meal_types():
             t.post("/api/meal-type/", {"name": name})

@@ -17,8 +17,16 @@ rules:
   # ---- New Pi: weekly perishables ----
   - {match: chicken breast,     category: "NewPi/weekly: Meat & Seafood"}
   - {match: chicken,            category: "NewPi/weekly: Meat & Seafood"}
+  # Pork chops: fresh/weekly at New Pi (the flex dinner's pork weeks).
+  - {match: pork chop,          category: "NewPi/weekly: Meat & Seafood"}
+  - {match: pork loin chop,     category: "NewPi/weekly: Meat & Seafood"}
   - {match: salmon,             category: "NewPi/weekly: Meat & Seafood"}
+  # Tuna at New Pi is frozen, salmon is fresh -- both ordered weekly from New Pi
+  # (tuna is NOT a Costco bulk item). The 1-2 day fresh-fish timing rule applies
+  # to salmon only; tuna weeks have no timing constraint.
   - {match: tuna,               category: "NewPi/weekly: Meat & Seafood"}
+  - {match: frozen tuna,        category: "NewPi/weekly: Meat & Seafood"}
+  - {match: ahi,                category: "NewPi/weekly: Meat & Seafood"}
   # Fish sold as "steaks" must beat the beef `steak` rule below (longest match).
   - {match: tuna steak,         category: "NewPi/weekly: Meat & Seafood"}
   - {match: ahi tuna steak,     category: "NewPi/weekly: Meat & Seafood"}
@@ -102,8 +110,28 @@ rules:
   - {match: half-and-half, category: "NewPi/weekly: Dairy & Eggs"}
   - {match: tzatziki,   category: "NewPi/weekly: Dairy & Eggs"}
   - {match: pita,       category: "NewPi/weekly: Bakery"}
-  - {match: tortilla,   category: "NewPi/weekly: Bakery"}
   - {match: flatbread,  category: "NewPi/weekly: Bakery"}
+  # Tortillas, taco shells and sandwich rolls are shelf-stable -> Target.
+  - {match: tortilla,   category: "Target/weekly: Pantry & Grains"}
+  - {match: taco shell, category: "Target/weekly: Pantry & Grains"}
+  - {match: hamburger bun, category: "Target/weekly: Pantry & Grains"}
+  - {match: hoagie,     category: "Target/weekly: Pantry & Grains"}
+  - {match: sub roll,   category: "Target/weekly: Pantry & Grains"}
+  - {match: french roll, category: "Target/weekly: Pantry & Grains"}
+  # Bagged/processed cheeses sit in Target's dairy aisle (fresh feta, mozzarella,
+  # parmesan and cheese sticks stay at New Pi above; longest-match wins).
+  - {match: shredded cheese, category: "Target/weekly: Dairy"}
+  - {match: cheddar,    category: "Target/weekly: Dairy"}
+  - {match: monterey,   category: "Target/weekly: Dairy"}
+  - {match: pepper jack, category: "Target/weekly: Dairy"}
+  - {match: colby,      category: "Target/weekly: Dairy"}
+  - {match: mexican cheese, category: "Target/weekly: Dairy"}
+  - {match: cheese blend, category: "Target/weekly: Dairy"}
+  - {match: velveeta,   category: "Target/weekly: Dairy"}
+  - {match: american cheese, category: "Target/weekly: Dairy"}
+  - {match: provolone,  category: "Target/weekly: Dairy"}
+  - {match: cheese sauce, category: "Target/weekly: Dairy"}
+  - {match: cream cheese, category: "Target/weekly: Dairy"}
 
   # ---- Target: weekly shelf-stable + the Chobani override ----
   - {match: chobani,    category: "Target/weekly: Dairy"}        # owner override: Chobani drink -> Target
@@ -124,6 +152,8 @@ rules:
   - {match: diced tomato,   category: "Target/weekly: Canned"}
   - {match: tomato sauce,   category: "Target/weekly: Canned"}
   - {match: marinara,       category: "Target/weekly: Canned"}
+  - {match: pasta sauce,    category: "Target/weekly: Canned"}
+  - {match: spaghetti sauce, category: "Target/weekly: Canned"}
   - {match: broth,          category: "Target/weekly: Canned"}
   - {match: stock,          category: "Target/weekly: Canned"}
   - {match: olive,          category: "Target/weekly: Canned"}
@@ -146,6 +176,9 @@ rules:
   - {match: brown gravy, category: "Target/weekly: Oils & Spices"}
   - {match: onion soup mix, category: "Target/weekly: Oils & Spices"}
   - {match: pepperoncini, category: "Target/weekly: Canned"}
+  # Frozen vegetables (winter sides) -> Target frozen aisle. The longer
+  # "frozen salmon" (Costco) and "frozen tuna" (New Pi) rules win over this.
+  - {match: frozen,      category: "Target/weekly: Frozen"}
   - {match: dijon,      category: "Target/weekly: Condiments"}
   - {match: mustard,    category: "Target/weekly: Condiments"}
   - {match: mayonnaise, category: "Target/weekly: Condiments"}
@@ -160,12 +193,18 @@ rules:
   - {match: dark chocolate, category: "Target/weekly: Snacks"}
   - {match: jerky,      category: "Target/weekly: Snacks"}
   - {match: protein bar,category: "Target/weekly: Snacks"}
-  # Protein powder is a Target pantry staple (owner correction 2026-10-31: the
-  # "Household essentials (Target)" recipe is dropped; household + cleaning
-  # supplies come from Amazon and are NOT on the Tandoor list).
-  - {match: protein powder, category: "Target/weekly: Pantry & Grains"}
+  # Jocko Fuel ready-to-drink protein shake (12-pack). Store UNKNOWN (owner has
+  # not said); Costco carrying it is unconfirmed, so it defaults to Target/weekly
+  # per the owner rule. pack_size keeps it ceil-roundable if it later moves to
+  # the bulk run. OWNER TODO: confirm where Jocko is bought (see runbook).
+  - {match: jocko,       category: "Target/weekly: Snacks", pack_size: 12}
 
   # ---- Costco: bulk run ----
-  - {match: frozen salmon, category: "Costco/bulk: Freezer"}
-  - {match: frozen tuna,   category: "Costco/bulk: Freezer"}
-  - {match: dog food,      category: "Costco/bulk: Pantry Bulk"}
+  - {match: frozen salmon, category: "Costco/bulk: Freezer"}   # salmon fallback only
+  # Ready-to-drink breakfast protein shakes (shelf-stable -> bulk run). Nurri is
+  # a Costco item (11 fl oz, 12-pack). pack_size drives ceil-rounding to whole
+  # packs on the bulk list.
+  - {match: nurri,         category: "Costco/bulk: Snacks Bulk", pack_size: 12}
+  # Dog food is a JustFoodForDogs subscription -- NOT ordered here (budgeted in
+  # Actual). It is also in the config `exclude` list so a stray ingredient can
+  # never reach a store list.

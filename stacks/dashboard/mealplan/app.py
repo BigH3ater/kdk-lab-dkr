@@ -561,6 +561,9 @@ _AISLE_ORDER = {
     "Target": ["Pantry & Grains", "Canned", "Oils & Spices", "Condiments", "Dairy",
                "Snacks", "Household", "Other"],
 }
+# Foods that must never show on a store list (dog/pet food is a JustFoodForDogs
+# subscription, budgeted in Actual). Mirrors the grocery-planner config `exclude`.
+_GROCERY_EXCLUDE = ("dog food", "pet food", "dog treats")
 
 
 def _api_write(method: str, path: str, body: dict) -> bool:
@@ -622,6 +625,9 @@ def _split_groceries(entries):
         food = e.get("food") or {}
         if food.get("food_onhand"):
             continue
+        fname = (food.get("name") or "").lower()
+        if any(x in fname for x in _GROCERY_EXCLUDE):
+            continue              # pets are budgeted in Actual, never ordered here
         cat = food.get("supermarket_category")
         cat_name = cat.get("name") if isinstance(cat, dict) else (cat or "")
         store, aisle = _parse_cat(cat_name)
