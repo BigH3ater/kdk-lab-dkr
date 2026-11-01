@@ -158,3 +158,12 @@ def test_scraped_recipe_trimmed_to_tandoor_limits():
                            "description": "d" * 600, "steps": []})
     assert len(r["name"]) == 128 and len(r["servings_text"]) == 32 and len(r["description"]) == 512
     assert r["steps"] == []
+
+
+def test_imported_recipe_gets_ingredient_order():
+    # The web importer leaves `order` null; Tandoor 2.7 rejects that (2026-11-01).
+    from grocery.tandoor import fit_recipe_limits
+    r = fit_recipe_limits({"name": "x", "steps": [{"instruction": "a", "ingredients": [
+        {"food": {"name": "oil"}, "order": None}, {"food": {"name": "salt"}, "order": None}]}]})
+    assert [i["order"] for i in r["steps"][0]["ingredients"]] == [0, 1]
+    assert r["steps"][0]["order"] == 0
