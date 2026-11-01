@@ -79,6 +79,103 @@
 # see the PR body / .env.tpl for the wishlist).
 # ---------------------------------------------------------------------------
 
+# ---------------------------------------------------------------------------
+# Workout -- treadmill telemetry from Home Assistant (home-assistant stack on
+# kdk-dkr-02). READ-ONLY: these tiles only DISPLAY HA entity states; there is
+# no control that commands the treadmill.
+#
+# The homeassistant widget fetches HA's REST API server-side with a long-lived
+# access token (HOMEPAGE_VAR_HA_TOKEN, op-injected -- never in the request URL).
+# HA is reached by its public hostname, not 10.1.30.21:8123 directly: the
+# planned firewall rule allows :8123 only from 10.1.30.21, so the homepage
+# container on kdk-dkr-01 (VLAN 20) cannot hit the host port, but the Traefik
+# route for homeassistant.kmkdp.com carries no forwardauth, so the Bearer token
+# alone authenticates (same "public host + token" shape as the Jellyfin tile).
+#
+# DEPENDENCY -- MERGE THIS PR AFTER SLICE 2: the live sensor.treadmill_* states
+# exist NOW (treadmill-bridge, slice 1) and the Treadmill tile works today. The
+# current-walker and per-person entities come from the slice-2 HA package
+# (stacks/home-assistant/config/packages/treadmill.yaml, branch
+# feat/treadmill-ha-package). Until that lands those custom states render as
+# "unknown". The tm_daily_*/tm_weekly_* utility_meter entity_ids below are the
+# PLANNED names -- reconcile them with slice-2's treadmill.yaml before merge.
+- Workout:
+  - Treadmill:
+      icon: mdi-run
+      href: https://homeassistant.kmkdp.com/
+      siteMonitor: https://homeassistant.kmkdp.com/
+      description: Live belt telemetry (read-only)
+      widget:
+        type: homeassistant
+        url: https://homeassistant.kmkdp.com
+        key: '{{HOMEPAGE_VAR_HA_TOKEN}}'
+        # Up to 4 custom states per widget. speed/incline/distance are live now
+        # (slice 1); the walker is slice 2. Default value is
+        # "{state} {attributes.unit_of_measurement}" -- fine for the unit-bearing
+        # sensors; input_select has no unit so its value is set to "{state}".
+        custom:
+          - state: sensor.treadmill_speed
+            label: Speed
+          - state: sensor.treadmill_incline
+            label: Incline
+          - state: sensor.treadmill_distance
+            label: Distance
+          - state: input_select.tm_current_walker
+            label: Walker
+            value: "{state}"
+  - Jacob:
+      icon: mdi-account
+      href: https://homeassistant.kmkdp.com/
+      description: Jacob -- distance & last workout (needs slice 2)
+      widget:
+        type: homeassistant
+        url: https://homeassistant.kmkdp.com
+        key: '{{HOMEPAGE_VAR_HA_TOKEN}}'
+        custom:
+          - state: sensor.tm_distance_daily_jacob
+            label: Today
+          - state: sensor.tm_distance_weekly_jacob
+            label: This week
+          - state: input_number.tm_total_distance_jacob
+            label: Total
+          - state: input_datetime.tm_last_workout_jacob
+            label: Last
+            value: "{state}"
+  - Rachel:
+      icon: mdi-account
+      href: https://homeassistant.kmkdp.com/
+      description: Rachel -- distance & last workout (needs slice 2)
+      widget:
+        type: homeassistant
+        url: https://homeassistant.kmkdp.com
+        key: '{{HOMEPAGE_VAR_HA_TOKEN}}'
+        custom:
+          - state: sensor.tm_distance_daily_rachel
+            label: Today
+          - state: sensor.tm_distance_weekly_rachel
+            label: This week
+          - state: input_number.tm_total_distance_rachel
+            label: Total
+          - state: input_datetime.tm_last_workout_rachel
+            label: Last
+            value: "{state}"
+  - Guest:
+      icon: mdi-account-question
+      href: https://homeassistant.kmkdp.com/
+      description: Guest -- distance (needs slice 2)
+      widget:
+        type: homeassistant
+        url: https://homeassistant.kmkdp.com
+        key: '{{HOMEPAGE_VAR_HA_TOKEN}}'
+        # Guest has no last-workout datetime in slice 2 (brief), so 3 states.
+        custom:
+          - state: sensor.tm_distance_daily_guest
+            label: Today
+          - state: sensor.tm_distance_weekly_guest
+            label: This week
+          - state: input_number.tm_total_distance_guest
+            label: Total
+
 - Media:
   - Jellyfin:
       icon: jellyfin
