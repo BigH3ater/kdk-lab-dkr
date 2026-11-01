@@ -197,8 +197,23 @@ services:
     # not the host. memswap_limit == mem_limit disables swap for the cgroup, so a
     # runaway is killed rather than thrashing. OOM of the node is alerted by the
     # Prometheus rule ContainerOOMKilled (stacks/monitoring/prometheus/rules/).
-    mem_limit: 24g
-    memswap_limit: 24g
+    #
+    # 2026-10-31 alert review: the 24g cap was set too tight. During the lossless
+    # DV/TrueHD backlog drain (stacks/tdarr-backlog) the §7.4b DEE-dispatch remux
+    # -- a two-input `-c copy -max_interleave_delta 0` mux, required to stop the
+    # Neptune silent-audio bug -- legitimately buffers ~24 GB for a single large
+    # 4K title (ffmpeg holds video packets until every mapped stream, incl. sparse
+    # `0:s?` subtitles, yields one). cAdvisor recorded 8 OOM kills in 24 h, all
+    # CONSTRAINT_MEMCG on a single `tdarr-ffmpeg` at anon-rss ~24.7 GB (kernel log
+    # 19:44 / 20:50 / 22:04, hourly with the :55 feeder) -- the cap was BELOW the
+    # real working set, so those titles can never finish and the drain re-killed
+    # them every cycle. Raised to 36g: a single remux completes with margin, the
+    # host (48 GB total, ~6 GB used by everything else) keeps ~6 GB headroom, and
+    # a true runaway (the 2026-10-28 43 GB case) is still caught before the host
+    # dies. If two heavy remuxes ever coincide the cgroup still kills one (host
+    # safe); drop the node to 1 transcode worker for the drain if that recurs.
+    mem_limit: 36g
+    memswap_limit: 36g
     pids_limit: 4096
     environment:
       <<: *env

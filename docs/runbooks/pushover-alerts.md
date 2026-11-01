@@ -10,17 +10,22 @@ title: Alerting standard (Pushover + email)
 
 ## The standard
 
+The canonical contract is [Alerting standards](../reference/alerting-standards.md)
+(severity, naming, labels, annotations, `for:` defaults, inhibition, routing,
+how to test). The summary below is the operational view.
+
 **Channels.** Two transports, both terminating at Alertmanager on
 [[kdk-mon-01]] (`stacks/monitoring/alertmanager/alertmanager.yml`):
 
 | Channel | Gets | Why |
 |---|---|---|
-| **Pushover** | **every** alert, firing and resolved | SaaS, shares no failure domain with the lab; the channel that must always work |
-| **Email** | **`severity=critical` only**, additionally | a second, durable record of the things that matter most. Through the in-lab Proton bridge (`10.1.20.20:25`); it is **not** a digest |
+| **Pushover** | **every page-worthy** alert (critical + warning), firing and resolved | SaaS, shares no failure domain with the lab; the channel that must always work |
+| **Email** | **`severity=critical`** (additionally) and the **`severity=info` digest** | critical: a durable second record of what matters most; info: app-notification/provenance alerts (owner decision 2026-10-30). Through the in-lab Proton bridge (`10.1.20.20:25`) |
 
-There is no daily digest and email never replaces Pushover. A critical alert is
-delivered to **both** (the `email-ops` receiver carries a Pushover config and an
-email config), so email going down never loses a page.
+A critical alert is delivered to **both** Pushover and email (the `email-ops`
+receiver carries both configs), so email going down never loses a page. Info
+alerts are email-only and batched into a ~6 h digest (the `email-info`
+receiver), so they never page and never flood.
 
 **Severity.** Every rule carries one:
 
@@ -28,7 +33,7 @@ email config), so email going down never loses a page.
 |---|---|---|
 | `critical` | something is broken or unsafe now; act | Pushover (high) **+ email** |
 | `warning` | degraded or suspicious; look soon | Pushover (high) |
-| `info` | expected while you work on X; a quiet record | Pushover **quiet** (priority -1, repeat 24 h) |
+| `info` | expected while you work on X; a provenance record | **email digest only** (not paged) |
 
 **`source` label.** Set on every rule; Alertmanager routes on it:
 

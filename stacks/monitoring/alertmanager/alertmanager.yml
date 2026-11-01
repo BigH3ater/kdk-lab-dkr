@@ -48,19 +48,26 @@ route:
       group_wait: 30s
       group_interval: 5m
       repeat_interval: 1h
+    # INFO (any source): app-notification / provenance alerts -- the owner's
+    # decision (2026-10-30) is that these go to Alertmanager and out by E-MAIL,
+    # not Pushover. Matched before the source="loki" route below so every info
+    # rule lands here. Grouped hard into a ~6 h digest with a 24 h repeat because
+    # two info rules are high-volume (2026-10-31: KomodoManualDeploy ~35 non-
+    # gitops DeployStack/day, RequestAppsContainerChange ~32 seerr image events/
+    # day) and must never flood the mailbox one message at a time.
+    - matchers: ['severity="info"']
+      receiver: email-info
+      group_by: ["alertname"]
+      group_wait: 5m
+      group_interval: 6h
+      repeat_interval: 24h
     # Loki ruler alerts (stacks/loki/rules/, sent from kdk-log-01 to
-    # 10.1.20.30:9093) that are NOT critical. Grouped per host so one silent
-    # host is one page.
+    # 10.1.20.30:9093) that are NOT critical and NOT info (i.e. warning).
+    # Grouped per host so one silent host is one page. Pushover.
     - matchers: ['source="loki"']
       receiver: pushover
       group_by: ["alertname", "host"]
       repeat_interval: 4h
-      routes:
-        # severity=info Loki rules ("expected while you work in X", advisories
-        # to review) go out quietly (Pushover priority -1) and repeat daily.
-        - matchers: ['severity="info"']
-          receiver: pushover-quiet
-          repeat_interval: 24h
 
 receivers:
   - name: pushover
@@ -77,19 +84,30 @@ receivers:
         url_title: 'Open Alertmanager'
         html: false
 
-  # Same app and credentials, priority -1 (quiet notification), for info alerts.
-  - name: pushover-quiet
-    pushover_configs:
-      - user_key_file: /etc/alertmanager/pushover-user-key
-        token_file: /etc/alertmanager/pushover-app-token
+  # INFO receiver: e-mail ONLY (no Pushover), through the same Proton bridge
+  # smarthost as email-ops. This is where app-notification / provenance alerts
+  # land per the owner's 2026-10-30 decision. send_resolved is off (an info
+  # event is a point-in-time note, not an outage that "resolves") and the route
+  # groups into a ~6 h digest, so a busy info rule arrives as one mail, not many.
+  - name: email-info
+    email_configs:
+      - to: 'admin@kmkdp.com'
         send_resolved: false
-        priority: '-1'
-        title: '[INFO] {{ .CommonLabels.alertname }} ({{ .Alerts | len }})'
-        message: >-
+        require_tls: true
+        tls_config:
+          # Proton bridge presents a self-signed cert on STARTTLS (apps.md).
+          insecure_skip_verify: true
+        headers:
+          Subject: '[INFO] {{ .CommonLabels.alertname }} ({{ .Alerts | len }}) — kdk-lab'
+        html: ''
+        text: >-
           {{ range .Alerts }}{{ if .Annotations.summary }}{{ .Annotations.summary }}{{ else }}{{ .Labels.alertname }}{{ end }}
+          {{ if .Annotations.description }}
+          {{ .Annotations.description }}{{ end }}
+          {{ if .Annotations.runbook }}runbook: {{ .Annotations.runbook }}{{ end }}
+          labels: {{ range .Labels.SortedPairs }}{{ .Name }}={{ .Value }} {{ end }}
           {{ end }}
-        url_title: 'Open Alertmanager'
-        html: false
+          Open Alertmanager: https://alertmanager.kmkdp.com
 
   # CRITICAL receiver: Pushover (so every alert still reaches Pushover) PLUS an
   # e-mail to the owner's mailbox. admin@kmkdp.com is the lab's administrative
@@ -126,3 +144,13 @@ receivers:
           labels: {{ range .Labels.SortedPairs }}{{ .Name }}={{ .Value }} {{ end }}
           {{ end }}
           Open Alertmanager: https://alertmanager.kmkdp.com
+
+# One incident, one page. On 2026-10-30 a stale compose unit removed the
+# published :9093 and THREE alerting-pipeline alerts described the same fault at
+# once (Alertmanager unreachable + the Loki ruler could not notify / had no AM).
+# When AlertmanagerDown is firing, the ruler-side consequences are guaranteed and
+# redundant, so suppress them -- but NOT LokiRulerConfigReloadFailed, which is an
+# unrelated bad-rule fault that must still surface during an AM outage.
+inhibit_rules:
+  - source_matchers: ['alertname="AlertmanagerDown"']
+    target_matchers: ['alertname=~"LokiRulerCannotNotify|LokiRulerNoAlertmanager"']

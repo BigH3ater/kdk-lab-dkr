@@ -1,0 +1,68 @@
+# promtool unit tests for the rules reviewed on 2026-10-31.
+# Run from the repo root:
+#   docker run --rm -v "$PWD/stacks/monitoring/prometheus:/p:ro" \
+#     prom/prometheus:v3.15.1 promtool test rules /p/tests/*_test.yml
+# These files live OUTSIDE rules/ on purpose: Prometheus globs rules/*.yml and
+# would try to load a test file as a rule group.
+rule_files:
+  - ../rules/service.yml
+
+evaluation_interval: 1m
+
+tests:
+  # The OOM signal at the centre of the 2026-10-31 review: a single increase of
+  # container_oom_events_total fires ContainerOOMKilled with the container's
+  # host/service/stack labels (added by the cAdvisor metric_relabel).
+  - interval: 1m
+    input_series:
+      - series: 'container_oom_events_total{name="media-tdarr-node-1",service="tdarr-node",stack="media",host="kdk-dkr-01"}'
+        values: '0+0x15 1+0x5'
+    alert_rule_test:
+      - eval_time: 18m
+        alertname: ContainerOOMKilled
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              source: external-monitor
+              scope: containers
+              name: media-tdarr-node-1
+              service: tdarr-node
+              stack: media
+              host: kdk-dkr-01
+            exp_annotations:
+              summary: "tdarr-node OOM-killed on kdk-dkr-01"
+              runbook: "docs/runbooks/pushover-alerts.md#containers"
+              description: "The kernel OOM killer fired for container media-tdarr-node-1 (stack media) on kdk-dkr-01. A single job hit the container mem_limit and was killed; the host stayed up. Check the container's memory ceiling and the workload that ballooned (for tdarr-node: a software-decoded 4K source or a DEE remux)."
+
+  # No OOM in the window -> ContainerOOMKilled does not fire (flat counter).
+  - interval: 1m
+    input_series:
+      - series: 'container_oom_events_total{name="media-tdarr-node-1",service="tdarr-node",stack="media",host="kdk-dkr-01"}'
+        values: '8+0x20'
+    alert_rule_test:
+      - eval_time: 18m
+        alertname: ContainerOOMKilled
+        exp_alerts: []
+
+  # InstanceDown holds its 5m `for:` before firing.
+  - interval: 1m
+    input_series:
+      - series: 'up{job="node-external",instance="10.1.20.20:9100"}'
+        values: '0+0x10'
+    alert_rule_test:
+      - eval_time: 3m
+        alertname: InstanceDown
+        exp_alerts: []
+      - eval_time: 6m
+        alertname: InstanceDown
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              source: external-monitor
+              scope: service
+              job: node-external
+              instance: "10.1.20.20:9100"
+            exp_annotations:
+              summary: "service: node_exporter down (10.1.20.20:9100)"
+              runbook: "docs/runbooks/pushover-alerts.md#service-and-host-alerts"
+              description: "node_exporter on 10.1.20.20:9100 has been unscrapable for 5m."
