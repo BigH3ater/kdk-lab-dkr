@@ -227,7 +227,9 @@ def plan_ingredient(ing, maps):
         body = {"food": {"name": p["food"]},
                 "unit": {"name": p["unit"]} if p["unit"] else None,
                 "amount": p["amount"] if p["amount"] else (ing.get("amount") or 0)}
-        note = "; ".join(x for x in (ing.get("note"), p["note"]) if x)
+        old_note = ing.get("note") or ""
+        note = old_note if (not p["note"] or p["note"] in old_note) else \
+            "; ".join(x for x in (old_note, p["note"]) if x)
         if note != (ing.get("note") or ""):
             body["note"] = note[:256]
     else:
@@ -242,9 +244,12 @@ def plan_ingredient(ing, maps):
             body["unit"] = {"name": unit} if unit else None
     if not body:
         return None
-    same_food = body.get("food", {"name": cur_food})["name"] == cur_food
-    same_unit = ("unit" not in body) or ((body["unit"] or {}).get("name") == cur_unit)
-    if same_food and same_unit and "amount" not in body and "note" not in body:
+    # Tandoor matches food names case-insensitively ("Salt and pepper" is the
+    # food "salt and pepper"), so a case-only difference is no change.
+    same_food = body.get("food", {"name": cur_food})["name"].lower() == cur_food.lower()
+    same_unit = ("unit" not in body) or ((body["unit"] or {}).get("name") or "").lower() == (cur_unit or "").lower()
+    same_amount = "amount" not in body or float(body["amount"] or 0) == float(ing.get("amount") or 0)
+    if same_food and same_unit and same_amount and "note" not in body:
         return None
     return body
 
@@ -351,6 +356,8 @@ def refresh_shopping(t, apply):
             log.info("  skip %s (%s): has ticked items", s["id"], (s.get("recipe_data") or {}).get("name"))
             continue
         recipe = t.get(f"/api/recipe/{s['recipe']}/")
+        # Same scaling Tandoor applies when a meal plan adds its recipe.
+        factor = float(s.get("servings") or 2) / float(recipe.get("servings") or 1)
         want = []
         for step in recipe.get("steps") or []:
             for i in step.get("ingredients") or []:
@@ -360,15 +367,20 @@ def refresh_shopping(t, apply):
                 full = t.get(f"/api/food/{f['id']}/")
                 if full.get("food_onhand") or full.get("ignore_shopping"):
                     continue
-                want.append(i["id"])
+                want.append({"ingredient_id": i["id"], "food_id": f["id"],
+                             "unit_id": (i.get("unit") or {}).get("id"),
+                             "amount": round(float(i.get("amount") or 0) * factor, 3)})
         log.info("  %s %s: %d -> %d items", s["id"], recipe["name"][:40], len(mine), len(want))
         if apply:
             for e in mine:
                 t.delete(f"/api/shopping-list-entry/{e['id']}/")
+            # Not PUT /api/recipe/{id}/shopping/: Tandoor finds a list recipe through
+            # its entries, so once they are deleted that call 500s
+            # (shopping_helper.get_shopping_list_recipe, 2.7.2). bulk_create_entries
+            # addresses the list recipe by id.
             if want:
-                t.put(f"/api/recipe/{s['recipe']}/shopping/",
-                      {"list_recipe": s["id"], "servings": int(s.get("servings") or 2),
-                       "ingredients": want})
+                t.post(f"/api/shopping-list-recipe/{s['id']}/bulk_create_entries/",
+                       {"entries": want})
 
 
 # ---- per-recipe shopping-list test ---------------------------------------
