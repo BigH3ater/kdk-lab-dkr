@@ -218,6 +218,13 @@ text-transform:uppercase;color:var(--ash)}
 .empty{color:var(--ash);font-size:13px;padding:24px;text-align:center;font-family:'Space Grotesk',sans-serif}
 """
 
+# The shared Kodiak sidebar, same source the guides and Homepage use. Served
+# same-origin from /guides (behind Authelia -- no CDN). shared-nav.js hides the
+# nav inside an iframe, so the dashboard-embedded /meal grid, tasks and weather
+# pages stay bare; the standalone /meal/groceries page gets the full sidebar.
+NAV_HEAD = ('<link rel="stylesheet" href="/guides/shared-nav.css?v=nav20261101">'
+            '<script defer src="/guides/shared-nav.js?v=nav20261101"></script>')
+
 
 def last_ratings(recipe_ids: set[int]) -> dict[int, int]:
     """Latest CookLog rating per recipe (any household member; the dashboard
@@ -271,7 +278,7 @@ def render_week(plan: list[dict], today: datetime.date, mon: datetime.date, rate
     body = f'<div class="week">{"".join(cells)}</div>'
     if not plan:
         body = '<div class="empty">No meals planned for this week yet.<br>Open the recipe book to plan some!</div>'
-    return f"<!doctype html><html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><style>{PAGE_CSS}</style></head><body>{body}</body></html>"
+    return f"<!doctype html><html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'>{NAV_HEAD}<style>{PAGE_CSS}</style></head><body>{body}</body></html>"
 
 
 @app.get("/healthz")
@@ -437,7 +444,7 @@ def tasks_view():
                 f"<span class='due'>{due_s}</span></span></div>")
         cols.append(f"<div class='cat'><h3>{cat}</h3>{''.join(items)}</div>")
     body = f"<div class='cats'>{''.join(cols)}</div>" if cols else "<div class='note'>Nothing due in the next two weeks. 🎉</div>"
-    return Response(f"<!doctype html><html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><style>{TASKS_CSS}</style><script>{TASKS_JS}</script></head><body>{body}</body></html>", mimetype="text/html")
+    return Response(f"<!doctype html><html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'>{NAV_HEAD}<style>{TASKS_CSS}</style><script>{TASKS_JS}</script></head><body>{body}</body></html>", mimetype="text/html")
 
 @app.post("/tasks/complete")
 def tasks_complete():
@@ -543,7 +550,7 @@ def weather():
                 f"<div class='pop'>{int(hr['precipitation_probability'][i] or 0)}%</div></div>")
             if len(hours) >= 12: break
     hourly_html = f"<div class='hours'>{''.join(hours)}</div>" if hours else ""
-    return Response(f"<!doctype html><html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><style>{WX_CSS}</style></head><body>{hourly_html}<div class='week'>{''.join(cells)}</div></body></html>", mimetype="text/html")
+    return Response(f"<!doctype html><html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'>{NAV_HEAD}<style>{WX_CSS}</style></head><body>{hourly_html}<div class='week'>{''.join(cells)}</div></body></html>", mimetype="text/html")
 
 
 # ---- Groceries page (home.kmkdp.com/meal/groceries) ------------------------
@@ -754,7 +761,7 @@ def _render_groceries():
     body = "".join(parts)
     return (f"<!doctype html><html><head><meta charset='utf-8'>"
             f"<meta name='viewport' content='width=device-width,initial-scale=1'>"
-            f"<style>{GROCERIES_CSS}</style><script>{GROCERIES_JS}</script></head>"
+            f"{NAV_HEAD}<style>{GROCERIES_CSS}</style><script>{GROCERIES_JS}</script></head>"
             f"<body>{body}</body></html>")
 
 

@@ -34,44 +34,11 @@ code { font-family:'JetBrains Mono',monospace; font-size:14px;
 footer { margin-top:40px; color:var(--muted); font-size:14px;
   border-top:1px solid var(--line); padding-top:14px; }
 
-/* Guides sidebar (nav.js) -- same treatment as the dashboard.
-   Lists the guide pages, marks the current one, and links back to home. */
-#kodiak-sidebar{position:fixed;top:0;left:0;bottom:0;width:208px;background:#161311;
-border-right:1px solid var(--ink-hairline);padding:18px 14px;z-index:40;overflow-y:auto}
-#kodiak-sidebar .ks-brand{display:flex;align-items:center;gap:10px;color:var(--ember);
-font-weight:600;font-size:16px;text-decoration:none;padding-bottom:12px;margin-bottom:6px;
-border-bottom:1px solid var(--ink-hairline)}
-#kodiak-sidebar .ks-brand span{color:var(--paper)}
-#kodiak-sidebar .ks-home{display:block;font-family:'JetBrains Mono',monospace;font-size:11px;
-letter-spacing:.12em;text-transform:uppercase;color:var(--ash);text-decoration:none;
-padding:8px 10px;margin-bottom:6px;border-radius:9px}
-#kodiak-sidebar .ks-home:hover{color:var(--ember);background:var(--ink-surface)}
-#kodiak-sidebar ul{list-style:none;margin:0;padding:0;border-top:1px solid var(--ink-hairline);padding-top:6px}
-#kodiak-sidebar li a{display:block;padding:8px 10px;margin:2px 0;font-family:'JetBrains Mono',monospace;
-font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--ash);text-decoration:none;border-radius:9px}
-#kodiak-sidebar li a:hover{color:var(--ember);background:var(--ink-surface)}
-#kodiak-sidebar li a.active,#kodiak-sidebar li a[aria-current=page]{color:var(--paper);
-background:var(--ink-surface);box-shadow:inset 3px 0 0 var(--ember)}
-@media(min-width:960px){body{padding-left:224px}}
-
-/* Mobile (<960px): top bar with a menu button that toggles the sidebar as an
-   off-canvas overlay. Desktop keeps the fixed sidebar (top bar + backdrop hidden). */
-#kodiak-topbar,#kodiak-backdrop{display:none}
-@media(max-width:959px){
-  body{padding-left:0}
-  #kodiak-topbar{display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:50;
-    margin:0 -16px;padding:10px 16px;background:#161311;border-bottom:1px solid var(--ink-hairline)}
-  #kodiak-topbar .ks-brand{display:flex;align-items:center;gap:8px;color:var(--ember);
-    font-weight:600;font-size:15px;text-decoration:none}
-  #kodiak-topbar .ks-brand span{color:var(--paper)}
-  #kodiak-menu{margin-left:auto;display:inline-flex;align-items:center;justify-content:center;
-    min-width:44px;height:44px;padding:0 10px;background:transparent;border:1px solid var(--ink-hairline);
-    border-radius:9px;color:var(--paper);font-size:20px;line-height:1;cursor:pointer}
-  #kodiak-menu:hover,#kodiak-menu:focus-visible{color:var(--ember);border-color:var(--ember)}
-  #kodiak-sidebar{display:none;top:0;width:min(84vw,300px);z-index:60}
-  body.ks-open #kodiak-sidebar{display:block}
-  body.ks-open #kodiak-backdrop{display:block;position:fixed;inset:0;z-index:55;background:rgba(0,0,0,.5)}
-}
+/* The Kodiak sidebar styling lives in shared-nav.css (loaded alongside this file
+   and injected by shared-nav.js) so the guides, Homepage and /meal pages share
+   one definition. On desktop the sidebar is a fixed 224px-wide gutter; this body
+   keeps its 16px horizontal gutter, and shared-nav.css adds the left offset via
+   body.has-kodiak-nav. */
 
 /* ---- Components the guide pages use (index grid, cards, buttons) ---- */
 .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; margin: 16px 0; }

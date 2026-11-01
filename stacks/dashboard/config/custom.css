@@ -4,6 +4,10 @@
    surfaces --ink-surface, hairlines --ink-hairline; status colours use the
    *-ink variants. Never #000/#fff. */
 @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
+/* The shared Kodiak sidebar styling -- the one source used by the guides and the
+   /meal pages too (served same-origin from /guides, behind Authelia). custom.js
+   loads the matching /guides/shared-nav.js. */
+@import url('/guides/shared-nav.css?v=nav20261101');
 
 :root {
   --ink: #1b1a18; --rust: #9d4a25; --paper: #ece2d0;
@@ -53,44 +57,10 @@ a { color: var(--ember); }
 
 .service-container iframe { border-radius: 12px; background: var(--ink-surface); border: 1px solid var(--ink-hairline); }
 
-/* ---- Kodiak sidebar (injected by custom.js) ---- */
-#kodiak-sidebar {
-  position: fixed; top: 0; left: 0; bottom: 0; width: 208px;
-  background: var(--terminal-bg);
-  border-right: 1px solid var(--ink-hairline);
-  padding: 18px 14px; z-index: 40; overflow-y: auto;
-  transition: transform 0.15s ease;
-}
-#kodiak-sidebar .ks-brand {
-  display: flex; align-items: center; gap: 10px;
-  color: var(--ember); font-weight: 600; font-size: 16px;
-  padding-bottom: 14px; margin-bottom: 10px;
-  border-bottom: 1px solid var(--ink-hairline);
-}
-#kodiak-sidebar .ks-brand span { color: var(--paper); font-family: var(--font-display); }
-#kodiak-sidebar ul { list-style: none; margin: 0; padding: 0; }
-#kodiak-sidebar li a {
-  display: block; padding: 8px 10px; margin: 2px 0;
-  font-family: var(--font-mono); font-size: 11px;
-  letter-spacing: 0.14em; text-transform: uppercase;
-  color: var(--ash); text-decoration: none; border-radius: 9px;
-}
-#kodiak-sidebar li a:hover { color: var(--ember); background: var(--ink-surface); }
-
-body.has-kodiak-sidebar { padding-left: 208px !important; }
-body.has-kodiak-sidebar.ks-collapsed { padding-left: 0 !important; }
-body.ks-collapsed #kodiak-sidebar { transform: translateX(-100%); }
-#ks-toggle {
-  position: fixed; top: 10px; left: 10px; z-index: 50;
-  width: 34px; height: 34px; border-radius: 9px;
-  border: 1px solid var(--ink-hairline); background: var(--ink-surface);
-  color: var(--ember); font-size: 17px; cursor: pointer; line-height: 1;
-}
-#ks-toggle:hover { border-color: var(--ember); }
-body:not(.ks-collapsed) #ks-toggle { left: 164px; }
-@media (max-width: 820px) {
-  body.has-kodiak-sidebar { padding-left: 0 !important; }
-  #kodiak-sidebar { transform: translateX(-100%); }
-  body.ks-open #kodiak-sidebar { transform: none; }
-  body:not(.ks-collapsed) #ks-toggle { left: 10px; }
-}
+/* The Kodiak sidebar (markup injected by shared-nav.js, styling from
+   shared-nav.css @imported at the top of this file) lives in /guides so the
+   guides and /meal pages share one definition. The desktop offset needs
+   !important to beat Homepage's own body rules; shared-nav.css gates it on
+   .has-kodiak-nav, which shared-nav.js only sets when it actually renders. */
+@media (min-width: 960px) { body.has-kodiak-nav { padding-left: 224px !important; } }
+@media (max-width: 959px) { body.has-kodiak-nav { padding-left: 0 !important; } }
