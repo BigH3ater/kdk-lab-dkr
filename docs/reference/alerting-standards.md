@@ -75,6 +75,14 @@ Conventions:
 - `kdk_inferred: "true"` marks a rule written against log text **not yet seen
   in this lab**. Promote it (drop the label) once it has fired on a real event,
   or delete it, within 30 days.
+- `notify: "phone"` is an **opt-in on an `info` rule only** (it requires
+  `severity: info`; it is meaningless and must not be set on warning/critical,
+  which already page). It says "this info alert is security-adjacent — ping the
+  phone promptly as well as filing it in the e-mail digest". The route (§7)
+  sends it to a quiet Pushover (priority -1) with `continue: true` so the digest
+  still gets it. Use it sparingly, for low-rate security signals (a 2FA change,
+  an admin write, a login from the internet), never for high-rate provenance
+  rules like `KomodoManualDeploy`.
 
 ## 4. Annotations
 
@@ -139,9 +147,14 @@ Set in `alertmanager.yml`; routing keys on labels, never on rule names:
 | Match | Receiver | Transport |
 |---|---|---|
 | `severity="critical"` | `email-ops` | Pushover (high) **+** email, 1 h repeat |
+| `severity="info", notify="phone"` | `pushover-quiet` (then `continue`) | quiet Pushover (priority -1), 15 s/1 m grouping — then falls through to the info digest |
 | `severity="info"` | `email-info` | email only, grouped into a ~6 h digest, 24 h repeat |
 | `source="loki"` (the rest → `warning`) | `pushover` | Pushover, per-host grouping |
 | everything else | `pushover` (default) | Pushover |
+
+The `notify="phone"` route is listed **before** the generic `severity="info"`
+route and sets `continue: true`, so a security-adjacent info alert pings the
+phone within seconds *and* still lands in the e-mail digest.
 
 - **Pushover** gets every page-worthy alert (critical + warning). It is a SaaS
   that shares no failure domain with the lab, so it is the channel that must

@@ -143,6 +143,10 @@ groups:
           severity: info
           source: loki
           scope: jellyfin
+          # Security-adjacent: a successful Jellyfin login from the internet
+          # should also ping the phone (quiet Pushover) promptly, not only the
+          # info e-mail digest.
+          notify: phone
         annotations:
           summary: "Jellyfin: password login through the tunnel from {{ $labels.client }}"
           runbook: docs/runbooks/security-alerts.md#jellyfin
