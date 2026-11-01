@@ -1715,6 +1715,84 @@ slots:
     approved: true
     selected: true
     owner_pick: true
+  - site: Taste of Home
+    url: https://www.tasteofhome.com/recipes/philly-cheesesteak-gnocchi/
+    title: Philly Cheesesteak Gnocchi
+    rating: null
+    count: 4
+    total_time_min: 30
+    yield: 6 servings
+    ingredients:
+    - 1 lb ground beef
+    - green pepper
+    - onion
+    - jalapeno
+    - butter
+    - flour
+    - milk
+    - Worcestershire
+    - provolone cheese
+    - potato gnocchi
+    has_beans_lentils: false
+    non_olive_fats:
+    - butter
+    checked_on: '2026-11-01'
+    notes: ground beef skillet; no numeric rating (4 reviews)
+    pending_owner_approval: true
+  - site: Spend With Pennies
+    url: https://www.spendwithpennies.com/philly-cheesesteak-casserole/
+    title: Philly Cheesesteak Casserole
+    rating: 5.0
+    count: 6
+    total_time_min: 80
+    yield: 6 servings
+    ingredients:
+    - 8 oz cavatappi
+    - 1 lb lean ground beef
+    - steak seasoning
+    - onion
+    - mushrooms
+    - green bell pepper
+    - butter
+    - flour
+    - beef broth
+    - half and half
+    - Dijon
+    - Swiss cheese
+    - pepper jack cheese
+    has_beans_lentils: false
+    non_olive_fats:
+    - butter
+    checked_on: '2026-11-01'
+    notes: ground beef pasta bake; 80 min total (over cap); 5.0/6
+    pending_owner_approval: true
+  - site: Taste of Home
+    url: https://www.tasteofhome.com/recipes/philly-cheesesteak-casserole/
+    title: Philly Cheesesteak Casserole (macaroni)
+    rating: null
+    count: 1
+    total_time_min: 50
+    yield: 6 servings
+    ingredients:
+    - 1 lb elbow macaroni
+    - butter
+    - 1 lb ground beef
+    - green pepper
+    - red pepper
+    - onion
+    - beef broth
+    - cream cheese
+    - heavy cream
+    - garlic
+    - Italian seasoning
+    - provolone cheese
+    has_beans_lentils: false
+    non_olive_fats:
+    - butter
+    - heavy cream
+    checked_on: '2026-11-01'
+    notes: ground beef pasta bake; no numeric rating (1 review)
+    pending_owner_approval: true
 - slot: summer-beef-sloppy
   slot_label: sloppy joes / beef skillet
   candidates:

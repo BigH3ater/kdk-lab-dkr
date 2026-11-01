@@ -5,7 +5,7 @@ data read from each recipe page's schema.org JSON-LD on the dates shown.
 
 **Scoring:** Bayesian `score = (C*m + n*r)/(C+n)` with `m=4.0`, `C=50`. Verdict: **good** = rating ≥ 4.6 & count ≥ 40; **acceptable** = rating ≥ 4.3 & count ≥ 10; else rejected. The chosen default per slot is the top-scoring good/acceptable candidate (override with `selected: true`).
 
-**Totals:** 166 slots, 352 candidates — good 178, acceptable 102, rejected 72; 43 slots with no good candidate.
+**Totals:** 166 slots, 364 candidates — good 178, acceptable 102, rejected 84; 43 slots with no good candidate.
 
 
 ## Fall
@@ -71,6 +71,9 @@ data read from each recipe page's schema.org JSON-LD on the dates shown.
 | fall-beef-philly  | Philly Cheesesteak Casserole (ground bee | Wholesome Yum | 4.85 | 108 | 4.581 | 40 | good | published total 40 min over 30-min active cap (may include p |
 | fall-beef-philly  | Sloppy Cheesesteaks | Taste of Home | 4.33 | 3 | 4.0187 | 20 | rejected | below acceptable (4.33 / 3 reviews) |
 | fall-beef-philly ★ | Low Carb Philly Cheesesteak Bowl | EasyHealth LLC | 4.27 | 165 | 4.2072 | 25 | good | - |
+| fall-beef-philly  | Philly Cheesesteak Gnocchi | Taste of Home | None | 4 | None | 30 | rejected | no rating found |
+| fall-beef-philly  | Philly Cheesesteak Casserole | Spend With Pennies | 5.0 | 6 | 4.1071 | 80 | rejected | over total-time cap (80 > 60 min) |
+| fall-beef-philly  | Philly Cheesesteak Casserole (macaroni) | Taste of Home | None | 1 | None | 50 | rejected | no rating found |
 | fall-beef-sloppy  | Sloppy Joes | Natasha's Kitchen | 4.94 | 2056 | 4.9177 | 30 | good | - |
 | fall-beef-sloppy  | Skinny Sloppy Joes | Skinnytaste | 4.83 | 111 | 4.5722 | 30 | good | - |
 | fall-beef-greek ★ | Mediterranean Ground Beef Stir Fry (feta | Downshiftology | 4.93 | 260 | 4.78 | 25 | good | - |
@@ -158,6 +161,9 @@ data read from each recipe page's schema.org JSON-LD on the dates shown.
 | spring-beef-philly  | Philly Cheesesteak Casserole (ground bee | Wholesome Yum | 4.85 | 108 | 4.581 | 40 | good | published total 40 min over 30-min active cap (may include p |
 | spring-beef-philly  | Sloppy Cheesesteaks | Taste of Home | 4.33 | 3 | 4.0187 | 20 | rejected | below acceptable (4.33 / 3 reviews) |
 | spring-beef-philly ★ | Low Carb Philly Cheesesteak Bowl | EasyHealth LLC | 4.27 | 165 | 4.2072 | 25 | good | - |
+| spring-beef-philly  | Philly Cheesesteak Gnocchi | Taste of Home | None | 4 | None | 30 | rejected | no rating found |
+| spring-beef-philly  | Philly Cheesesteak Casserole | Spend With Pennies | 5.0 | 6 | 4.1071 | 80 | rejected | over total-time cap (80 > 60 min) |
+| spring-beef-philly  | Philly Cheesesteak Casserole (macaroni) | Taste of Home | None | 1 | None | 50 | rejected | no rating found |
 | spring-beef-sloppy  | Sloppy Joes | Natasha's Kitchen | 4.94 | 2056 | 4.9177 | 30 | good | - |
 | spring-beef-sloppy  | Skinny Sloppy Joes | Skinnytaste | 4.83 | 111 | 4.5722 | 30 | good | - |
 | spring-beef-greek ★ | Mediterranean Ground Beef Stir Fry (feta | Downshiftology | 4.93 | 260 | 4.78 | 25 | good | - |
@@ -256,6 +262,9 @@ data read from each recipe page's schema.org JSON-LD on the dates shown.
 | summer-beef-philly  | Philly Cheesesteak Casserole (ground bee | Wholesome Yum | 4.85 | 108 | 4.581 | 40 | good | published total 40 min over 30-min active cap (may include p |
 | summer-beef-philly  | Sloppy Cheesesteaks | Taste of Home | 4.33 | 3 | 4.0187 | 20 | rejected | below acceptable (4.33 / 3 reviews) |
 | summer-beef-philly ★ | Low Carb Philly Cheesesteak Bowl | EasyHealth LLC | 4.27 | 165 | 4.2072 | 25 | good | - |
+| summer-beef-philly  | Philly Cheesesteak Gnocchi | Taste of Home | None | 4 | None | 30 | rejected | no rating found |
+| summer-beef-philly  | Philly Cheesesteak Casserole | Spend With Pennies | 5.0 | 6 | 4.1071 | 80 | rejected | over total-time cap (80 > 60 min) |
+| summer-beef-philly  | Philly Cheesesteak Casserole (macaroni) | Taste of Home | None | 1 | None | 50 | rejected | no rating found |
 | summer-beef-sloppy  | Sloppy Joes | Natasha's Kitchen | 4.94 | 2056 | 4.9177 | 30 | good | - |
 | summer-beef-sloppy  | Skinny Sloppy Joes | Skinnytaste | 4.83 | 111 | 4.5722 | 30 | good | - |
 | summer-beef-greek ★ | Mediterranean Ground Beef Stir Fry (feta | Downshiftology | 4.93 | 260 | 4.78 | 25 | good | - |
@@ -345,6 +354,9 @@ data read from each recipe page's schema.org JSON-LD on the dates shown.
 | winter-beef-philly  | Philly Cheesesteak Casserole (ground bee | Wholesome Yum | 4.85 | 108 | 4.581 | 40 | good | published total 40 min over 30-min active cap (may include p |
 | winter-beef-philly  | Sloppy Cheesesteaks | Taste of Home | 4.33 | 3 | 4.0187 | 20 | rejected | below acceptable (4.33 / 3 reviews) |
 | winter-beef-philly ★ | Low Carb Philly Cheesesteak Bowl | EasyHealth LLC | 4.27 | 165 | 4.2072 | 25 | good | - |
+| winter-beef-philly  | Philly Cheesesteak Gnocchi | Taste of Home | None | 4 | None | 30 | rejected | no rating found |
+| winter-beef-philly  | Philly Cheesesteak Casserole | Spend With Pennies | 5.0 | 6 | 4.1071 | 80 | rejected | over total-time cap (80 > 60 min) |
+| winter-beef-philly  | Philly Cheesesteak Casserole (macaroni) | Taste of Home | None | 1 | None | 50 | rejected | no rating found |
 | winter-beef-sloppy  | Sloppy Joes | Natasha's Kitchen | 4.94 | 2056 | 4.9177 | 30 | good | - |
 | winter-beef-sloppy  | Skinny Sloppy Joes | Skinnytaste | 4.83 | 111 | 4.5722 | 30 | good | - |
 | winter-beef-greek ★ | Mediterranean Ground Beef Stir Fry (feta | Downshiftology | 4.93 | 260 | 4.78 | 25 | good | - |
