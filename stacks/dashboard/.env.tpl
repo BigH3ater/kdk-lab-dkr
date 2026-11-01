@@ -21,6 +21,13 @@ HOMEPAGE_VAR_VIKUNJA_KEY={{ op://kdk-cluster/vikunja-api-ro/credential }}
 # minted by the owner's op helper (see the PR); must exist in 1P BEFORE this merges
 # or op inject fails and the stack won't deploy.
 HOMEPAGE_VAR_JELLYFIN_KEY={{ op://kdk-cluster/jellyfin-api-ro/password }}
+# Home Assistant long-lived access token for the Workout group's homeassistant
+# widgets (config/services.yaml). Read-only use: the widget only GETs entity
+# states. The owner mints it in HA -> Profile -> Security -> Long-lived access
+# tokens and pastes it into 1P item kdk-cluster/homepage-ha-token field
+# `password` (see the PR body / rotate-a-secret.md). Must exist in 1P BEFORE
+# this merges or `op inject` fails and the stack won't deploy.
+HOMEPAGE_VAR_HA_TOKEN={{ op://kdk-cluster/homepage-ha-token/password }}
 
 # ---- P2b: per-user Vikunja tokens (task write-back attributed via SSO) --------
 # Each household member mints their own full-permission token in Vikunja and it

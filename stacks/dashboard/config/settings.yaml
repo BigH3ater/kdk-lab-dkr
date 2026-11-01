@@ -23,6 +23,9 @@ layout:
   Household Calendar:
     style: row
     columns: 2   # weekly agenda (events visible) + clickable monthly
+  Workout:
+    style: column
+    columns: 4   # Treadmill (live) + Jacob + Rachel + Guest stat tiles
   Media:
     style: column
     columns: 4
