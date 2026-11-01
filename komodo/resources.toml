@@ -1698,6 +1698,29 @@ run_directory = "stacks/home-assistant"
 pre_deploy.command = "sh -c 'cp -f traefik-dynamic/*.yml /opt/kdk-lab/home-assistant/traefik/dynamic/ && mkdir -p /opt/kdk-lab/home-assistant/config/dashboards /opt/kdk-lab/home-assistant/config/themes /opt/kdk-lab/home-assistant/config/packages && cp -f config/dashboards/*.yaml /opt/kdk-lab/home-assistant/config/dashboards/ && cp -f config/themes/*.yaml /opt/kdk-lab/home-assistant/config/themes/ && cp -f config/packages/*.yaml /opt/kdk-lab/home-assistant/config/packages/ && { [ -e /opt/kdk-lab/home-assistant/node-red/settings.js.pre-gitops ] || [ ! -e /opt/kdk-lab/home-assistant/node-red/settings.js ] || cp -p /opt/kdk-lab/home-assistant/node-red/settings.js /opt/kdk-lab/home-assistant/node-red/settings.js.pre-gitops; } && cp -f node-red/settings.js /opt/kdk-lab/home-assistant/node-red/settings.js'"
 webhook_enabled = true
 
+# Read-only treadmill telemetry bridge on kdk-dkr-02. Reads the NordicFTMS
+# console over DIRCON (TCP 10.1.30.103:36866) and republishes to the loopback
+# Mosquitto via MQTT discovery for Home Assistant. network_mode: host so it
+# reaches BOTH the loopback broker and the VLAN-30 treadmill (same rationale as
+# the home-assistant service). Built locally (run_build), no auto_pull. Issues
+# no motor command. This resources.toml change must gitops-sync BEFORE the first
+# deploy. pre_deploy creates the /state dir owned by the container's uid 1000 so
+# the unprivileged process can write its heartbeat (mirrors obsidian-to-koreader).
+[[stack]]
+tags = ["kdk-lab"]
+name = "treadmill-bridge"
+deploy = true
+[stack.config]
+compose_cmd_wrapper = "/usr/local/sbin/kdk-compose-config-redact [[COMPOSE_COMMAND]]"   # redact env values from the stored Compose Config log (komodo#1636)
+compose_cmd_wrapper_include = ["config"]
+server = "kdk-dkr-02"
+repo = "BigH3ater/kdk-lab-dkr"
+run_directory = "stacks/treadmill-bridge"
+auto_pull = false
+run_build = true
+pre_deploy.command = "sh -c 'install -d -o 1000 -g 1000 /opt/kdk-lab/treadmill-bridge/state'"
+webhook_enabled = true
+
 # GitOps-owned since 2026-09-20 (was files-on-host). Data dir stays at
 # /opt/kdk-lab/scrypted; network_mode: host (HomeKit mDNS). No secrets.
 # Homebridge was removed 2026-10-28 (zero accessories, setup never claimed); the
