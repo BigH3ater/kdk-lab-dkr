@@ -153,32 +153,34 @@ All in `config.yaml`:
   only if the pool is tiny) so the week still fills; the preflight reports the
   per-season side count vs 7. Approve more sides to drop the repeats.
 
-## Household space & meal-plan sharing (owner)
+## Household, space & meal-plan sharing (owner)
 
-Tandoor scopes all data by **Space**. The household space is **"Mack House"
-(id 3)** and the `dashboard` account is a member of exactly that one space
-(confirmed read-only 2026-11-01), so every write — recipes, books, meal plans,
-shopping entries, food categories — lands there automatically. The job still
-**verifies the active space at login and fails loudly** if it isn't the
-configured `tandoor.space` / `space_id`.
+Tandoor scopes data at two levels, both confirmed read-only (dashboard account,
+2026-11-01):
 
-**Meal-plan sharing is an owner step.** Two API routes were checked read-only
-with the `dashboard` account on 2026-11-01, and neither supports it on this
-instance:
+- **Space** — the household space is **"Mack House" (id 3)**; the `dashboard`
+  account is a member of exactly that one space, so every write (recipes, books,
+  meal plans, shopping entries, food categories) lands there. The job verifies
+  the active space at login and fails loudly if it isn't `tandoor.space` /
+  `space_id`.
+- **Household** — within a space, Tandoor 2.x shares meal plans and shopping
+  lists by **Household** (`UserSpace.household`; the space has
+  `allow_sharing: true`). This is why the old per-user `plan_share` /
+  `shopping_share` preferences are gone — they're **absent from this instance's
+  `/api/user-preference/` and openapi `UserPreference` schema** — and why the
+  meal-plan/shopping serializers carry no `shared` field: sharing is implicit
+  via the household. The `dashboard` account is in household **"The Macks"
+  (id 1)**. The job verifies the active household at login too
+  (`tandoor.household` / `household_id`) and fails loudly otherwise.
 
-- the **meal-plan** serializer exposes no `shared` field, so a plan can't be
-  shared per-entry; and
-- the **user-preference** default-sharing fields `plan_share` / `shopping_share`
-  (which, when set, auto-share a user's new plans + shopping list) are **not in
-  this 2.7 instance** — absent from both `GET /api/user-preference/` (list and
-  the dashboard user's detail `/api/user-preference/5/`) and the openapi
-  `UserPreference` schema. (If a Tandoor upgrade adds them, the seed should set
-  the dashboard user's `plan_share`/`shopping_share` to `tandoor.share_with`.)
-
-So the job cannot share programmatically (jmack=3, rach=4 are in
-`tandoor.share_with` for when it can). All three household members are in the
-Mack House space; if jmack or rach don't see the plan in their own view, the
-owner shares it in the Tandoor UI. The weekly run logs a `sharing_note`.
+**Owner step — household membership.** For jmack and rach to see the meal plan
+and the shared shopping list automatically, they must be in the **same
+household** ("The Macks") as the `dashboard` account. Adding a user to a
+household is a **space-admin** action (`/api/household/` is admin-only and
+returns 403 to the `dashboard` account, so the job can't do it and can't even
+enumerate the other users' households): in Tandoor, **Space settings →
+Households**, put jmack (id 3) and rach (id 4) in "The Macks". Once they share a
+household, no per-plan sharing is needed. The weekly run logs a `sharing_note`.
 
 ## Amana ground-beef runway
 

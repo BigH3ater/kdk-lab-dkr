@@ -1,11 +1,13 @@
 """The Tandoor active-space startup check (item 4). Pure helpers, no network."""
 import pytest
 
-from grocery.tandoor import resolve_active_space, space_matches, Tandoor
+from grocery.tandoor import (resolve_active_space, space_matches, Tandoor,
+                             resolve_active_household, household_matches)
 
 
 SPACES = [{"id": 3, "name": "Mack House"}]
-USER_SPACES = [{"id": 5, "space": 3, "active": True}]
+USER_SPACES = [{"id": 5, "space": 3, "active": True,
+                "household": {"id": 1, "name": "The Macks"}}]
 
 
 def test_resolve_active_space():
@@ -36,3 +38,26 @@ def test_verify_space_ok(monkeypatch):
     monkeypatch.setattr(t, "get_all", lambda path: {
         "/api/space/": SPACES, "/api/user-space/": USER_SPACES}[path])
     assert t.verify_space() == (3, "Mack House")
+
+
+def test_resolve_active_household():
+    assert resolve_active_household(USER_SPACES) == (1, "The Macks")
+    assert resolve_active_household([{"active": False, "household": {"id": 1}}]) == (None, None)
+    assert resolve_active_household([]) == (None, None)
+
+
+def test_verify_household_raises_on_wrong_household(monkeypatch):
+    t = Tandoor("https://x", "u", "p", household="The Macks", household_id=1)
+    monkeypatch.setattr(t, "get_all", lambda path: [
+        {"active": True, "household": {"id": 9, "name": "Someone Else"}}])
+    with pytest.raises(RuntimeError):
+        t.verify_household()
+
+
+def test_verify_household_ok_and_skipped_when_unconfigured(monkeypatch):
+    t = Tandoor("https://x", "u", "p", household="The Macks", household_id=1)
+    monkeypatch.setattr(t, "get_all", lambda path: USER_SPACES)
+    assert t.verify_household() == (1, "The Macks")
+    # not configured -> skipped (no network), returns (None, None)
+    t2 = Tandoor("https://x", "u", "p")
+    assert t2.verify_household() == (None, None)

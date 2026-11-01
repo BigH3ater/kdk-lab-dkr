@@ -98,9 +98,10 @@ refuses to apply if any season is short of the hard weekly minimums (1 salmon +
 side; sides below 7 are reported, and the interim repeat rule covers them), then
 imports each chosen recipe through Tandoor's URL import (`recipe-from-source`),
 tags it, adds it to the season book, and routes its foods. Every write lands in
-the **Mack House** space — the job verifies the active space at login and fails
-loudly otherwise. Meal-plan per-entry sharing is an owner step (no `shared` field
-in this API). The fixed breakfast/snack feeders are seeded directly (not URL
+the **Mack House** space and the **"The Macks" household** (Tandoor 2.x shares
+meal plans + shopping lists by household) — the job verifies both the active
+space and household at login and fails loudly otherwise. Putting jmack + rach in
+that household is a space-admin owner step (Space settings → Households). The fixed breakfast/snack feeders are seeded directly (not URL
 imports), and the weekly run fails loudly if any is missing. See the
 [runbook](../runbooks/grocery-planner.md).
 

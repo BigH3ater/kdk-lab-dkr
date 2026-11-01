@@ -12,6 +12,13 @@ tandoor:
   # loudly otherwise.
   space: "Mack House"
   space_id: 3
+  # Within a Space, Tandoor 2.x shares meal plans + shopping lists by HOUSEHOLD
+  # (confirmed live 2026-11-01: UserSpace.household). The dashboard account is in
+  # household "The Macks" (id 1). The job verifies this at startup and fails
+  # loudly otherwise. jmack + rach must be in the SAME household to see the plans
+  # -- that is a space-admin action (owner step; /api/household/ is admin-only).
+  household: "The Macks"
+  household_id: 1
   # Household user ids (read-only lookup 2026-11-01: jmack=3, rach=4, dashboard=5)
   # for meal-plan sharing. NOTE: this Tandoor 2.7 meal-plan API exposes NO
   # `shared` field, so per-entry sharing is an OWNER STEP (see the runbook); all

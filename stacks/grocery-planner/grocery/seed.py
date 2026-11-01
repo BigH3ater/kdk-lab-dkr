@@ -329,7 +329,9 @@ def apply_seed(plan, cfg, foods_cfg, fixed_cfg, force=False):
     from .tandoor import Tandoor
     t = Tandoor(cfg["tandoor"]["url"], os.environ["TANDOOR_USER"],
                 os.environ["TANDOOR_PASS"], cfg["tandoor"].get("space", "Mack House"),
-                space_id=cfg["tandoor"].get("space_id")).login()
+                space_id=cfg["tandoor"].get("space_id"),
+                household=cfg["tandoor"].get("household"),
+                household_id=cfg["tandoor"].get("household_id")).login()
     for name in plan["meal_types"]:
         if name not in t.meal_types():
             t.post("/api/meal-type/", {"name": name})

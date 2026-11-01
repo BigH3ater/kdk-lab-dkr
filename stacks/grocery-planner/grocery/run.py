@@ -155,7 +155,9 @@ def _tandoor(cfg):
     return Tandoor(cfg["tandoor"]["url"], os.environ["TANDOOR_USER"],
                    os.environ["TANDOOR_PASS"],
                    cfg["tandoor"].get("space", "Mack House"),
-                   space_id=cfg["tandoor"].get("space_id")).login()
+                   space_id=cfg["tandoor"].get("space_id"),
+                   household=cfg["tandoor"].get("household"),
+                   household_id=cfg["tandoor"].get("household_id")).login()
 
 
 def _already_planned(t, start, end, wk):
