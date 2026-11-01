@@ -79,7 +79,9 @@ def build_pool(recipes, season):
     Variant comes from keywords (salmon/tuna, greek/asian). kind from keywords."""
     pool = []
     for r in recipes:
-        names = {k.get("name") for k in (r.get("keywords") or [])}
+        # Lower-case: Tandoor already had a "Pork" keyword, which the seed reused for
+        # `pork`, so a case-sensitive match found no pork recipes (2026-11-01).
+        names = {(k.get("name") or "").lower() for k in (r.get("keywords") or [])}
         if season not in names:
             continue
         if "veg-side" in names:
@@ -112,8 +114,12 @@ def build_pool(recipes, season):
         pool.append({
             "id": r["id"], "name": r["name"], "kind": kind, "season": season,
             "variant": variant, "beef_style": beef_style,
-            "working_time": r.get("working_time"),
-            "ingredient_count": _ingredient_count(r), "slot": "",
+            # The time and ingredient caps were already applied when the owner
+            # approved the candidates (with pantry staples excluded). Re-counting raw
+            # Tandoor ingredients here rejected every approved fish (2026-11-01:
+            # "not enough eligible fish/tuna ... have 0"), so the run trusts the set.
+            "working_time": None,
+            "ingredient_count": None, "slot": "",
             "servings": r.get("servings", 2),
         })
     return pool

@@ -167,3 +167,21 @@ def test_imported_recipe_gets_ingredient_order():
         {"food": {"name": "oil"}, "order": None}, {"food": {"name": "salt"}, "order": None}]}]})
     assert [i["order"] for i in r["steps"][0]["ingredients"]] == [0, 1]
     assert r["steps"][0]["order"] == 0
+
+
+def test_runtime_pool_does_not_recheck_caps():
+    # Approved recipes were vetted at candidate time; the run must not re-reject them
+    # on raw Tandoor ingredient counts (2026-11-01: all fall tuna rejected).
+    from grocery.run import build_pool
+    r = {"id": 1, "name": "Seared tuna", "servings": 2, "working_time": 45,
+         "keywords": [{"name": "fall"}, {"name": "fish"}, {"name": "tuna"}],
+         "steps": [{"ingredients": [{}] * 19}]}
+    p = build_pool([r], "fall")[0]
+    assert p["ingredient_count"] is None and p["working_time"] is None and p["variant"] == "tuna"
+
+
+def test_pool_keywords_case_insensitive():
+    from grocery.run import build_pool
+    r = {"id": 2, "name": "Pork chops", "servings": 2,
+         "keywords": [{"name": "Pork"}, {"name": "Winter"}], "steps": []}
+    assert build_pool([r], "winter")[0]["kind"] == "pork"
