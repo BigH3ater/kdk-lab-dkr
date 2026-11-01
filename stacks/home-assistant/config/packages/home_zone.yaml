@@ -1,0 +1,17 @@
+# Home zone override. The UI can't move the home pin: configuration.yaml sets
+# core keys under `homeassistant:` (external/internal URL), which locks
+# Settings -> General. The default pin sat ~1.7 km from the house, so every
+# person was always `not_home` and the home-only approval notifications never
+# went out (found 2026-11-01). A YAML zone named "Home" replaces zone.home.
+#
+# SECRETS (host-managed /config/secrets.yaml; the repo is public, so the
+# coordinates never go in git):
+#   home_latitude    <float>
+#   home_longitude   <float>
+# Add both BEFORE this deploys: a missing !secret fails the config load.
+zone:
+  - name: Home
+    latitude: !secret home_latitude
+    longitude: !secret home_longitude
+    radius: 100
+    icon: mdi:home
