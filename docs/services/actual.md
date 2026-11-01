@@ -16,8 +16,9 @@ DNS resolves `budget.kmkdp.com`). Auth is **Authelia OIDC** (`client_id: actual`
   `/opt/kdk-lab` rsync (`stacks/backup-dkr-01`) and shipped offsite to Proton
   (`stacks/backup-offsite`). No backup change needed.
 - Bank sync: **SimpleFIN** (native in Actual) is linked. Actual has no server-side
-  scheduler, so the [`actual-bank-sync`](actual-bank-sync.md) one-shot presses
-  *Bank Sync* once a day (05:32, `actual-bank-sync` procedure). Manual CSV/QFX
+  scheduler, so a person presses **Bank Sync** (All Accounts → Bank Sync). By owner
+  decision (2026-10-31), **no automated job writes to the budget**: the daily
+  `actual-bank-sync` one-shot (#263) was retired before it ever ran. Manual CSV/QFX
   import still works as a fallback.
 
 ## OIDC (Authelia) facts

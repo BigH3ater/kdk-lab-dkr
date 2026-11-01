@@ -142,4 +142,3 @@ check the old one fails (401).
 
 | Secret | Pattern |
 |---|---|
-| `kdk-cluster/actual-banksync` (`session_token`, `e2e_password`) | `.env.tpl` with `op://` refs (op inject). `session_token` from a dedicated never-logged-out Firefox session (console → IndexedDB `actual` → `asyncStorage` → `user-token`); `e2e_password` is the budget E2E key. Create in the 1Password app or `read -rs` (Claude Code `!` lines have no TTY). After `op item edit`, run the `actual-bank-sync` procedure to re-render `.env`. Not a host file and not a hash. Full steps: [Actual bank sync](actual-bank-sync.md). SimpleFIN's own credential is **not** here — it lives inside Actual (re-link in the app) |

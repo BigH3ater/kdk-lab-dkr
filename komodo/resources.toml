@@ -961,45 +961,6 @@ executions = [
   { execution.type = "DeployStack", execution.params.stack = "tdarr-backlog", enabled = true },
 ]
 
-# Daily Actual Budget bank sync on kdk-dkr-01 (actual-bank-sync procedure,
-# 05:32 America/Chicago). Actual never syncs bank data on its own -- SimpleFIN
-# transactions only land when someone presses "Bank Sync". This one-shot presses
-# it once a day and logs one JSON line of counts (status != ok pages via the Loki
-# rules/actual-bank-sync.yml rule). auto_pull = false: the image is built locally (no
-# registry). deploy = false + destroy_before_deploy: the procedure re-runs it
-# fresh each day (a plain `up -d` leaves an exited one-shot untouched). op inject
-# renders .env (ACTUAL_SESSION_TOKEN + ACTUAL_E2E_PASSWORD) before each run.
-[[stack]]
-tags = ["kdk-lab"]
-name = "actual-bank-sync"
-deploy = false   # run daily by the actual-bank-sync Procedure
-[stack.config]
-compose_cmd_wrapper = "/usr/local/sbin/kdk-compose-config-redact [[COMPOSE_COMMAND]]"   # redact env values from the stored Compose Config log (komodo#1636)
-compose_cmd_wrapper_include = ["config"]
-server = "kdk-dkr-01"
-repo = "BigH3ater/kdk-lab-dkr"
-run_directory = "stacks/actual-bank-sync"
-auto_pull = false   # image built locally (kdk/actual-bank-sync) -> skip compose pull
-destroy_before_deploy = true   # one locked down+up so the one-shot re-runs
-pre_deploy.command = "sh -c '. /etc/komodo/op.env && op inject -f -i .env.tpl -o .env'"
-
-[[procedure]]
-tags = ["kdk-lab"]
-name = "actual-bank-sync"
-[procedure.config]
-schedule_format = "Cron"
-# 05:32 daily -- the owner asked for ~05:30 (before the morning); shifted to :32
-# to clear the gitops-sync :00/:15/:30/:45 slots and the "Resource is busy" lock
-# race, like every other scheduled job here.
-schedule = "0 32 5 * * *"
-schedule_timezone = "America/Chicago"
-[[procedure.config.stage]]
-name = "sync"
-enabled = true
-executions = [
-  { execution.type = "DeployStack", execution.params.stack = "actual-bank-sync", enabled = true },
-]
-
 # Weekly Sonarr/Radarr upgrade search: asks the *arrs to search for files they
 # already score below zero (AV1 custom format). They never search backwards on
 # their own -- an AV1 file is only replaced when a release happens to hit RSS.
