@@ -45,6 +45,10 @@ services:
     restart: unless-stopped
     volumes:
       - ./guides:/usr/share/nginx/html:ro
+      # Host-managed Workout guide: generated on the laptop from the private
+      # Obsidian vault (guides/gen-workout-guide.py), copied to this host path.
+      # Personal/health content kept OUT of this PUBLIC repo; served at /guides/workout/.
+      - /opt/kdk-lab/dashboard/workout:/usr/share/nginx/html/workout:ro
       # Cache policy so family guide edits show up without a hard refresh
       # (no-cache on HTML, short must-revalidate on css/js). Single-file bind
       # mount: nginx reads this only at start and git swaps the file's inode on
