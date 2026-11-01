@@ -50,6 +50,21 @@ def _non_pantry_ingredient_count(ingredients, pantry_staples):
     return n
 
 
+# Slot kinds that ARE a main/lunch, where a legume-only dish is rejected.
+_MAIN_KINDS = {"fish", "chicken", "ground_beef", "steak", "roast", "lunch"}
+_MEAT_TERMS = ("chicken", "beef", "steak", "salmon", "tuna", "pork", "turkey",
+               "lamb", "shrimp", "sausage", "ham", "bacon", "prosciutto")
+
+
+def _has_meat_protein(cand):
+    """True if the candidate names a meat/fish protein in its title or
+    ingredients (used to tell a legume-only lunch from a chicken-and-beans one)."""
+    text = (str(cand.get("title", "")) + " "
+            + " ".join(str(i) for i in (cand.get("ingredients") or []))).lower()
+    text = text.replace("fish sauce", "")      # a seasoning, not a protein
+    return any(t in text for t in _MEAT_TERMS) or "fish" in text
+
+
 def _total_time_cap(slot_kind, caps):
     """Hard cap on a candidate's PUBLISHED total time (includes passive time).
     Lunch preps may run to lunch_total_time_max; everything else to
@@ -83,8 +98,18 @@ def evaluate_candidate(cand: dict, slot_kind: str, config: dict) -> Evaluation:
             flags.append("swap to olive oil (" + ", ".join(fats) + ")")
 
     # --- hard filters ---
-    if cand.get("has_beans_lentils"):
-        rejects.append("contains beans/lentils")
+    # Beans/lentils/chickpeas AS AN INGREDIENT are allowed (owner correction
+    # 2026-10-31: "no beans" meant no bean-ONLY dinners). Reject only a
+    # legume-only MAIN or lunch-prep: beans present and no meat/fish protein.
+    # fish/chicken/ground_beef/steak/roast slots carry a meat protein by their
+    # slot; a lunch is checked against its title + ingredients. Sides and snacks
+    # may contain beans (e.g. a chickpea Greek-salad side, hummus) and are never
+    # rejected for it.
+    if cand.get("has_beans_lentils") and slot_kind in _MAIN_KINDS:
+        has_meat = slot_kind in ("fish", "chicken", "ground_beef", "steak", "roast") \
+            or _has_meat_protein(cand)
+        if not has_meat:
+            rejects.append("legume-only main (beans/lentils with no meat protein)")
 
     if slot_kind == "chicken":
         ucb = cand.get("uses_chicken_breast")

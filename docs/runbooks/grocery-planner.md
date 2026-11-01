@@ -143,11 +143,9 @@ To add a recipe the scorer couldn't find, from a site that blocks our fetcher:
    seen) with `selected: true`, so the repo stays the source of truth and a
    later `--refresh` keeps its rating current.
 
-**Current slots needing this** (non-blocking — these are slack beyond the weekly
-minimums, so the generator still builds every week):
+**Current slots needing this** (non-blocking — slack beyond the weekly minimums,
+so the generator still builds every week):
 
-- `spring-side-spinach-radish` — no rated spinach-and-radish salad on the
-  reachable sites.
 - `summer-lunch-4` — no rated chicken-quinoa meal-prep bowl under the caps.
 
 **Longer term:** the household's own ratings become the score source. The

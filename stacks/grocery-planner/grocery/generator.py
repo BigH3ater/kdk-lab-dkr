@@ -5,7 +5,8 @@ selected recipes:
 
   * season chosen by date (Spring Mar-May, Summer Jun-Aug, Fall Sep-Nov, Winter
     Dec-Feb);
-  * 7 dinners = 1 fish + 4 chicken breast + 1 ground beef + 1 steak, no legumes;
+  * 7 dinners = 1 fish + 4 chicken breast + 1 ground beef + 1 steak (no
+    legume-only mains; beans as an ingredient are fine);
   * fish is Sunday; odd ISO week => salmon + Greek beef (feta in beef); even ISO
     week => tuna + Asian beef (feta in the weekend scramble);
   * a rotating veg side per dinner, no repeat within the week;

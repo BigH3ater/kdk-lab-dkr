@@ -1467,7 +1467,9 @@ slots:
     non_olive_fats: []
     checked_on: '2026-10-31'
     notes: Diced breast, poblano, corn, tomato over brown rice; no beans; olive oil; cheddar-jack and
-      sour cream optional; count 53.
+      sour cream optional; count 53. Pinned as the owner default; a newly-eligible bean bowl (RecipeTin
+      Chicken Burrito) scores slightly higher — owner may switch.
+    selected: true
   - site: Well Plated
     url: https://www.wellplated.com/chipotle-burrito-bowl/
     title: Burrito Bowl

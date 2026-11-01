@@ -20,11 +20,40 @@ def test_verdict_good_and_acceptable(cfg):
     assert accept.verdict == "acceptable"
 
 
-def test_reject_beans_and_missing_rating(cfg):
-    beans = evaluate_candidate(
-        {"site": "X", "rating": 4.9, "count": 900, "total_time_min": 20,
-         "has_beans_lentils": True, "ingredients": ["lentils"]}, "lunch", cfg)
-    assert beans.verdict == "rejected" and "beans" in beans.reject_reasons[0]
+def test_legume_only_main_rejected_but_beans_as_ingredient_allowed(cfg):
+    # Lentil soup MAIN with no meat -> legume-only -> rejected.
+    lentil = evaluate_candidate(
+        {"site": "X", "rating": 4.9, "count": 900, "total_time_min": 40,
+         "has_beans_lentils": True, "title": "Hearty Lentil Soup",
+         "ingredients": ["lentils", "carrots", "onion"]}, "lunch", cfg)
+    assert lentil.verdict == "rejected"
+    assert any("legume-only" in r for r in lentil.reject_reasons)
+
+    # Chicken-and-white-bean chili: beans are an INGREDIENT, chicken is the
+    # protein -> allowed.
+    chili = evaluate_candidate(
+        {"site": "X", "rating": 4.8, "count": 300, "total_time_min": 40,
+         "has_beans_lentils": True, "title": "Chicken White Bean Chili",
+         "uses_chicken_breast": True,
+         "ingredients": ["chicken breast", "white beans", "broth"]}, "lunch", cfg)
+    assert chili.verdict == "good"
+
+    # Beans in a chicken DINNER slot are fine (the slot carries the protein).
+    beanbowl = evaluate_candidate(
+        {"site": "X", "rating": 4.9, "count": 300, "total_time_min": 25,
+         "has_beans_lentils": True, "uses_chicken_breast": True,
+         "ingredients": ["chicken breast", "black beans", "rice"]}, "chicken", cfg)
+    assert beanbowl.verdict == "good"
+
+    # A chickpea veg-side is fine (not a main).
+    side = evaluate_candidate(
+        {"site": "X", "rating": 4.8, "count": 300, "total_time_min": 15,
+         "has_beans_lentils": True, "title": "Chickpea Greek Salad",
+         "ingredients": ["chickpeas", "cucumber", "feta"]}, "side", cfg)
+    assert side.verdict == "good"
+
+
+def test_reject_missing_rating(cfg):
     unrated = evaluate_candidate(
         {"site": "X", "rating": None, "count": None, "total_time_min": 20,
          "ingredients": ["salmon"]}, "fish", cfg)

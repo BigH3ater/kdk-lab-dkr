@@ -5,7 +5,7 @@ data read from each recipe page's schema.org JSON-LD on the dates shown.
 
 **Scoring:** Bayesian `score = (C*m + n*r)/(C+n)` with `m=4.0`, `C=50`. Verdict: **good** = rating ≥ 4.6 & count ≥ 40; **acceptable** = rating ≥ 4.3 & count ≥ 10; else rejected. The chosen default per slot is the top-scoring good/acceptable candidate (override with `selected: true`).
 
-**Totals:** 96 slots, 228 candidates — good 94, acceptable 78, rejected 56; 31 slots with no good candidate.
+**Totals:** 96 slots, 228 candidates — good 96, acceptable 79, rejected 53; 30 slots with no good candidate.
 
 
 ## Fall
@@ -98,7 +98,7 @@ data read from each recipe page's schema.org JSON-LD on the dates shown.
 | spring-side-asparagus ★ | Oven Roasted Asparagus (Easy Recipe) | wholesomeyum.com | 4.97 | 243 | 4.8045 | 17 | good | - |
 | spring-side-asparagus  | Perfect Roasted Asparagus | wellplated.com | 4.87 | 76 | 4.5248 | 20 | good | - |
 | spring-side-spinach-radish  | Wilted Arugula Salad | tasteofhome.com | 5 | 2 | 4.0385 | 25 | rejected | below acceptable (5 / 2 reviews) |
-| spring-side-spinach-radish  | Bright Spring Salad | loveandlemons.com | 4.99 | 100 | 4.66 | 25 | rejected | contains beans/lentils |
+| spring-side-spinach-radish ★ | Bright Spring Salad | loveandlemons.com | 4.99 | 100 | 4.66 | 25 | good | - |
 | spring-side-garlicky-spinach ★ | Sautéed Spinach | loveandlemons.com | 4.94 | 64 | 4.5277 | 5 | good | - |
 | spring-side-garlicky-spinach  | Garlic Sautéed Spinach | downshiftology.com | 5 | 24 | 4.3243 | 10 | acceptable | - |
 | spring-side-cucumber-radish ★ | Creamy Cucumber Radish Salad Recipe | natashaskitchen.com | 4.95 | 92 | 4.6155 | 10 | good | - |
@@ -116,7 +116,7 @@ data read from each recipe page's schema.org JSON-LD on the dates shown.
 | spring-lunch-1 ★ | Mediterranean Chicken and Orzo | thecleaneatingcouple.com | 4.78 | 75 | 4.468 | 35 | good | published total 35 min over 30-min active cap (may include p |
 | spring-lunch-1  | Greek Orzo Salad | cookingclassy.com | 4.96 | 22 | 4.2933 | 25 | acceptable | - |
 | spring-lunch-2  | Gyro Meat (Easy Recipe) | wholesomeyum.com | 4.94 | 77 | 4.5699 | 185 | rejected | over total-time cap (185 > 90 min) |
-| spring-lunch-2  | Gyro Recipe | wellplated.com | 4.58 | 7 | 4.0712 | 35 | rejected | contains beans/lentils |
+| spring-lunch-2  | Gyro Recipe | wellplated.com | 4.58 | 7 | 4.0712 | 35 | rejected | below acceptable (4.58 / 7 reviews) |
 | spring-lunch-2 ★ | Gyro Meat Loaf with Tzatziki Sauce | tasteofhome.com | 4.6 | 10 | 4.1 | 75 | acceptable | published total 75 min over 30-min active cap (may include p |
 | spring-lunch-3  | Teriyaki Chicken Meal Prep | ifoodreal.com | 5 | 6 | 4.1071 | 35 | rejected | below acceptable (5 / 6 reviews) |
 | spring-lunch-3 ★ | Teriyaki Grilled Chicken and Veggie Rice | cookingclassy.com | 5 | 20 | 4.2857 | 45 | acceptable | published total 45 min over 30-min active cap (may include p |
@@ -244,14 +244,14 @@ data read from each recipe page's schema.org JSON-LD on the dates shown.
 | winter-side-brussels-sprouts  | Roasted Brussels Sprouts | Jessica Gavin | 4.92 | 61 | 4.5056 | 30 | good | - |
 | winter-lunch-1 ★ | Meal Prep Greek Chicken Rice Bowls | Skinnytaste | 4.85 | 38 | 4.367 | 60 | acceptable | published total 60 min over 30-min active cap (may include p |
 | winter-lunch-1  | Chicken Veggie and Brown Rice Bowls with | Cooking Classy | 5 | 2 | 4.0385 | 65 | rejected | below acceptable (5 / 2 reviews) |
-| winter-lunch-1  | Southwest Chicken Bowl Recipe | foodiecrush | 4.75 | 39 | 4.3287 | 50 | rejected | contains beans/lentils |
+| winter-lunch-1  | Southwest Chicken Bowl Recipe | foodiecrush | 4.75 | 39 | 4.3287 | 50 | acceptable | published total 50 min over 30-min active cap (may include p |
 | winter-lunch-2  | Gyro Recipe | Well Plated | 4.58 | 7 | 4.0712 | 35 | rejected | below acceptable (4.58 / 7 reviews) |
 | winter-lunch-2  | Gyro Meat (Easy Recipe) | Wholesome Yum | 4.94 | 77 | 4.5699 | 185 | rejected | over total-time cap (185 > 90 min) |
 | winter-lunch-2 ★ | Favorite Meat Loaf Gyros | Taste of Home | 4.6 | 30 | 4.225 | 90 | acceptable | published total 90 min over 30-min active cap (may include p |
 | winter-lunch-3  | Chicken Vegetable Soup (Easy Recipe) | Wholesome Yum | 5 | 4 | 4.0741 | 40 | rejected | below acceptable (5 / 4 reviews) |
 | winter-lunch-3 ★ | Chicken Noodle Vegetable Soup | iFoodReal | 5 | 12 | 4.1935 | 37 | acceptable | swap to olive oil (1 tbsp butter); published total 37 min ov |
 | winter-lunch-4 ★ | Chicken Taco Poblano Rice Bowls | Skinnytaste | 4.97 | 53 | 4.4991 | 25 | good | - |
-| winter-lunch-4  | Burrito Bowl | Well Plated | 4.81 | 36 | 4.3391 | 35 | rejected | contains beans/lentils; too many ingredients (13 > 10) |
-| winter-lunch-4  | Chicken Burrito | RecipeTin Eats | 4.96 | 93 | 4.6243 | 30 | rejected | contains beans/lentils |
+| winter-lunch-4  | Burrito Bowl | Well Plated | 4.81 | 36 | 4.3391 | 35 | rejected | too many ingredients (13 > 10) |
+| winter-lunch-4  | Chicken Burrito | RecipeTin Eats | 4.96 | 93 | 4.6243 | 30 | good | - |
 | winter-roast ★ | Mississippi Pot Roast | Spend With Pennies | 4.98 | 284 | 4.8333 | 505 | good | owner-chosen recipe; reduce or swap to olive oil if wanted ( |
 | winter-roast  | Slow Cooker Pot Roast | RecipeTin Eats | 4.89 | 224 | 4.7276 | 515 | good | slow-cooker: 515 min total is mostly passive; active/prep ti |

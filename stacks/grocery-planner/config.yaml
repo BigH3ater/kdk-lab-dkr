@@ -173,7 +173,10 @@ proteins:
   poultry: 4
   ground_beef: 1
   steak: 1
-  legume: 0                    # owner: no bean or lentil meals, ever
+  legume_only_mains: 0         # owner 2026-10-31: no legume-ONLY mains (no meat/fish);
+                               # beans/lentils/chickpeas AS AN INGREDIENT are fine
+                               # (chicken+white-bean chili, black beans in a bowl, a
+                               # chickpea side, hummus snack). Enforced in scoring.py.
   fish_day: sunday             # fish is Sunday dinner
   # Parity: A = odd ISO week, B = even ISO week.
   fish_parity:   { A: salmon, B: tuna }

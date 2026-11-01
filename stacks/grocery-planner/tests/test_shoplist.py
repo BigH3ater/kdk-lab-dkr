@@ -55,10 +55,17 @@ def test_bulk_mode_selects_costco(cfg):
 
 
 def test_item_label_and_links():
+    import urllib.parse
     it = S.Item(1, "spinach", 2, "bunch", "Produce", "NewPi", "weekly")
     assert it.label() == "2 bunch spinach"
-    assert "target.com" in S.target_search_url("orzo")
-    assert "newpi.coop" in S.newpi_search_url("spinach")
+    # Parse the URL and assert the exact hostname + query param (not an
+    # `in`-substring host check, which CodeQL flags as incomplete sanitization).
+    tu = urllib.parse.urlparse(S.target_search_url("orzo"))
+    assert tu.scheme == "https" and tu.hostname == "www.target.com"
+    assert urllib.parse.parse_qs(tu.query).get("searchTerm") == ["orzo"]
+    nu = urllib.parse.urlparse(S.newpi_search_url("spinach"))
+    assert nu.scheme == "https" and nu.hostname == "shop.newpi.coop"
+    assert "q=spinach" in nu.fragment      # shop.newpi.coop uses #! hash routing
 
 
 def test_next_week_window():
