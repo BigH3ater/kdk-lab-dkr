@@ -148,7 +148,9 @@ script:
       - variables:
           recipients:
             - { person: person.jacob, notify: notify.mobile_app_iphone }
-            - { person: person.rachel, notify: notify.mobile_app_rachels_phone }
+            # Device name in the Companion app = "Rachel's Master iPhone" (the
+            # stale duplicate registration was deleted 2026-11-01).
+            - { person: person.rachel, notify: notify.mobile_app_rachels_master_iphone }
           target_person: "{{ only_person | default('') }}"
           sent: >-
             {% set home = states.person | selectattr('state', 'eq', 'home')
@@ -190,8 +192,11 @@ script:
   # Actionable "needs a decision" notification. Buttons come from an optional
   # APPROVALS-CHOICES line in the description; default is Approve + Skip. tag
   # and action ids are keyed on the (never-reused) Vikunja task id, so an old
-  # notification can never resolve a newer task. Tapping the body opens the
-  # task (data.url). Approve-type buttons require the device to be unlocked.
+  # notification can never resolve a newer task. iOS shows the buttons on a
+  # press-and-hold; a plain tap opens data.url: the first link in the task
+  # description (the grocery page, for review), else the Vikunja task. Not
+  # Vikunja first: its only option there is "mark done", which reads as skip.
+  # Approve-type buttons require the device to be unlocked.
   approval_notify:
     alias: "Approval: send actionable notification"
     mode: parallel
@@ -229,18 +234,21 @@ script:
                   {'action': 'CHOICE_' ~ task_id ~ '_skip', 'title': 'Skip'}] %}
             {% endif %}
             {{ ns.a }}
-          body: "{{ clean | regex_replace('APPROVALS-CHOICES:[^\\n]*', '') | trim | truncate(160, true) }}"
+          body: "{{ clean | regex_replace('APPROVALS-CHOICES:[^\\n]*', '') | trim | truncate(120, true) }}"
+          review_url: >-
+            {% set l = (description_raw | default('')) | regex_findall('href=\"(https://[^\"]+)\"') %}
+            {{ l[0] if l | count > 0 else 'https://tasks.kmkdp.com/tasks/' ~ task_id }}
       - action: script.approval_send
         data:
           mode: home
           only_person: "{{ only_person | default('') }}"
           task_id: "{{ task_id }}"
           title: "Approve: {{ title }}"
-          message: "{{ body if body | length > 0 else 'Tap to decide.' }}"
+          message: "{{ (body ~ ' — ' if body | length > 0 else '') ~ 'Press and hold to choose.' }}"
           data:
             tag: "approval_{{ task_id }}"
             group: "approvals"
-            url: "https://tasks.kmkdp.com/tasks/{{ task_id }}"
+            url: "{{ review_url | trim }}"
             push:
               interruption-level: "active"
             actions: "{{ actions }}"
