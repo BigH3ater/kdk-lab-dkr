@@ -90,7 +90,11 @@ SENSORS = {
         "field": "distance_m",
         "unit_of_measurement": "m",
         "device_class": "distance",
-        "state_class": "measurement",
+        # total_increasing, NOT measurement: the console's DIRCON distance is
+        # cumulative-since-boot and resets to 0 on an (iFit OTA) console reboot.
+        # total_increasing tells HA to treat a drop as a reset, so later
+        # utility_meter / long-term statistics stay correct.
+        "state_class": "total_increasing",
         "icon": "mdi:map-marker-distance",
     },
     "treadmill_incline": {

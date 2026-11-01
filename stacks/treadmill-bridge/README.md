@@ -31,7 +31,7 @@ NordicFTMS (console, 10.1.30.103)              treadmill-bridge (this stack)
   | Entity | Topic | Unit | device_class / state_class |
   |---|---|---|---|
   | `sensor.treadmill_speed` | `kdk/treadmill/speed` | km/h | speed / measurement |
-  | `sensor.treadmill_distance` | `kdk/treadmill/distance` | m | distance / measurement |
+  | `sensor.treadmill_distance` | `kdk/treadmill/distance` | m | distance / total_increasing |
   | `sensor.treadmill_incline` | `kdk/treadmill/incline` | % | — / measurement |
 
 - Publishes availability to `kdk/treadmill/status` (`online`/`offline`), also
