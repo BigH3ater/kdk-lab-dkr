@@ -1,0 +1,450 @@
+# Treadmill — multi-user workout tracking for the NordicTrack Commercial 1250.
+# Shipped from git (stacks/home-assistant/config/packages/); the host
+# configuration.yaml owns `!include_dir_named packages`, so dropping this file
+# in and restarting HA activates it (see DEPLOY below).
+#
+# TELEMETRY comes from the read-only treadmill-bridge stack on kdk-dkr-02
+# (console GlassOS -> NordicFTMS -> DIRCON -> bridge -> MQTT discovery). The
+# bridge publishes a "Treadmill" device with three sensors (object_ids fix the
+# entity ids this package references):
+#   sensor.treadmill_speed     km/h, state_class measurement
+#   sensor.treadmill_distance  m,    state_class TOTAL_INCREASING — cumulative
+#                              since the console booted; it RESETS TO 0 on an
+#                              (iFit OTA) console reboot, so every read of it is
+#                              guarded and session math clamps the reset case.
+#   sensor.treadmill_incline   %,    state_class measurement (can be negative)
+# All three go `unavailable`/`unknown` when the bridge or console is off, so
+# every template below carries an availability gate or a float(0) default, the
+# way roborock.yaml guards Mr. Slave going offline.
+#
+# NOTHING here commands the treadmill — this package only reads. Motor control
+# is Phase 2 (thud), out of scope.
+#
+# MULTI-USER MODEL: input_select.tm_current_walker names who is on the belt
+# (set by the slice-3 dashboard's "I'm walking" button via
+# script.tm_set_walker_from_user, which resolves the pressing HA user to a
+# person). A session is bracketed by two automations (speed > 0 starts it,
+# speed 0 for 2 min ends it); on end, the session's distance/time are added to
+# the selected walker's running totals and their last-workout datetime is
+# stamped — the per-person pattern mirrors roborock.yaml's rr_last_clean_<room>.
+# Those totals feed per-person utility_meter cycles (daily/weekly/monthly) and
+# history_stats (workouts + time this week).
+#
+# DEPLOY / ACTIVATION: pre_deploy (komodo/resources.toml) copies this file to
+# /opt/kdk-lab/home-assistant/config/packages/, but copying does not reload HA.
+# This package introduces NEW integrations (input_select, input_number,
+# utility_meter, history_stats, template/history_stats sensors, automations),
+# so the FIRST activation needs a one-time HA restart (Developer Tools -> YAML
+# -> RESTART, or `action: homeassistant.restart`), per approval_tasks.yaml.
+# Later edits to the helpers/automations reload with Reload All YAML.
+
+# ---------------------------------------------------------------------------
+# Who is walking. The slice-3 dashboard sets this from the pressing user; it is
+# also directly selectable. Options match person friendly names so the script
+# below can map a resolved person straight onto an option.
+input_select:
+  tm_current_walker:
+    name: Treadmill Current Walker
+    icon: mdi:account-switch
+    options:
+      - Jacob
+      - Rachel
+      - Guest
+    initial: Jacob
+
+# Session latch + the two session-start snapshots the END automation reads back.
+input_boolean:
+  tm_session_active:
+    name: Treadmill Session Active
+    icon: mdi:run
+
+input_number:
+  # Snapshot of sensor.treadmill_distance at session start, so the END
+  # automation can compute the session delta (guarding the reset-to-0 case).
+  tm_session_start_distance:
+    name: Treadmill Session Start Distance
+    min: 0
+    max: 100000000
+    step: 0.01
+    mode: box
+    unit_of_measurement: m
+    icon: mdi:map-marker-distance
+  # --- per-person running totals (survive restarts; only ever increased) ---
+  tm_total_distance_jacob:
+    name: Treadmill Total Distance (Jacob)
+    min: 0
+    max: 100000000
+    step: 1
+    mode: box
+    unit_of_measurement: m
+    icon: mdi:map-marker-distance
+  tm_total_distance_rachel:
+    name: Treadmill Total Distance (Rachel)
+    min: 0
+    max: 100000000
+    step: 1
+    mode: box
+    unit_of_measurement: m
+    icon: mdi:map-marker-distance
+  tm_total_distance_guest:
+    name: Treadmill Total Distance (Guest)
+    min: 0
+    max: 100000000
+    step: 1
+    mode: box
+    unit_of_measurement: m
+    icon: mdi:map-marker-distance
+  tm_total_time_min_jacob:
+    name: Treadmill Total Time (Jacob)
+    min: 0
+    max: 10000000
+    step: 0.1
+    mode: box
+    unit_of_measurement: min
+    icon: mdi:timer-outline
+  tm_total_time_min_rachel:
+    name: Treadmill Total Time (Rachel)
+    min: 0
+    max: 10000000
+    step: 0.1
+    mode: box
+    unit_of_measurement: min
+    icon: mdi:timer-outline
+  tm_total_time_min_guest:
+    name: Treadmill Total Time (Guest)
+    min: 0
+    max: 10000000
+    step: 0.1
+    mode: box
+    unit_of_measurement: min
+    icon: mdi:timer-outline
+  # --- per-person body weight, used by the calorie estimate (owner edits) ---
+  tm_weight_kg_jacob:
+    name: Treadmill Weight (Jacob)
+    min: 20
+    max: 250
+    step: 0.1
+    mode: box
+    unit_of_measurement: kg
+    icon: mdi:weight-kilogram
+    initial: 80
+  tm_weight_kg_rachel:
+    name: Treadmill Weight (Rachel)
+    min: 20
+    max: 250
+    step: 0.1
+    mode: box
+    unit_of_measurement: kg
+    icon: mdi:weight-kilogram
+    initial: 65
+
+input_datetime:
+  # Session start timestamp, read back by the END automation for elapsed time.
+  tm_session_start:
+    name: Treadmill Session Start
+    has_date: true
+    has_time: true
+  # Per-person last-workout stamps (mirror rr_last_clean_<room>).
+  tm_last_workout_jacob:
+    name: Treadmill Last Workout (Jacob)
+    has_date: true
+    has_time: true
+  tm_last_workout_rachel:
+    name: Treadmill Last Workout (Rachel)
+    has_date: true
+    has_time: true
+  tm_last_workout_guest:
+    name: Treadmill Last Workout (Guest)
+    has_date: true
+    has_time: true
+
+# ---------------------------------------------------------------------------
+# Resolve the pressing HA user to a walker and select it. The slice-3 dashboard
+# "I'm walking" button calls this with no data; `context.user_id` is the user
+# who pressed. Uses the EXACT person-resolution idiom from approval_tasks.yaml
+# (states.person | selectattr('attributes.user_id','eq', <uid>)); a user who is
+# not Jacob or Rachel falls through to Guest.
+script:
+  tm_set_walker_from_user:
+    alias: Treadmill set walker from user
+    icon: mdi:account-check
+    mode: single
+    sequence:
+      - variables:
+          uid: "{{ context.user_id }}"
+          matched: >-
+            {% set p = states.person
+               | selectattr('attributes.user_id', 'eq', uid) | list %}
+            {{ p[0].name if p | count > 0 else '' }}
+          walker: "{{ matched if matched in ['Jacob', 'Rachel'] else 'Guest' }}"
+      - action: input_select.select_option
+        target:
+          entity_id: input_select.tm_current_walker
+        data:
+          option: "{{ walker }}"
+
+# ---------------------------------------------------------------------------
+# Template sensors. All guard the bridge going offline.
+template:
+  - sensor:
+      # Per-person total distance exposed as a sensor so a utility_meter can use
+      # it as a source. total_increasing (the input_number is only ever added
+      # to), so the daily/weekly/monthly meters reset cleanly each cycle.
+      - name: Treadmill Distance Total (Jacob)
+        unique_id: tm_distance_total_jacob
+        unit_of_measurement: m
+        device_class: distance
+        state_class: total_increasing
+        icon: mdi:map-marker-distance
+        state: "{{ states('input_number.tm_total_distance_jacob') | float(0) | round(2) }}"
+      - name: Treadmill Distance Total (Rachel)
+        unique_id: tm_distance_total_rachel
+        unit_of_measurement: m
+        device_class: distance
+        state_class: total_increasing
+        icon: mdi:map-marker-distance
+        state: "{{ states('input_number.tm_total_distance_rachel') | float(0) | round(2) }}"
+      - name: Treadmill Distance Total (Guest)
+        unique_id: tm_distance_total_guest
+        unit_of_measurement: m
+        device_class: distance
+        state_class: total_increasing
+        icon: mdi:map-marker-distance
+        state: "{{ states('input_number.tm_total_distance_guest') | float(0) | round(2) }}"
+
+      # Distance walked in the CURRENT session (live). While a session is
+      # active it is max(0, current - start); the reset-to-0 case (console
+      # reboot mid-session, current < start) falls back to the current reading.
+      # 0 when no session is running. Unavailable when the bridge is offline.
+      - name: Treadmill Session Distance
+        unique_id: tm_session_distance
+        unit_of_measurement: m
+        device_class: distance
+        state_class: measurement
+        icon: mdi:map-marker-distance
+        availability: >-
+          {{ states('sensor.treadmill_distance') not in
+             ['unknown', 'unavailable'] }}
+        state: >-
+          {% if is_state('input_boolean.tm_session_active', 'on') %}
+            {% set cur = states('sensor.treadmill_distance') | float(0) %}
+            {% set start = states('input_number.tm_session_start_distance') | float(0) %}
+            {{ [ (cur - start) if cur >= start else cur, 0 ] | max | round(2) }}
+          {% else %}
+            0
+          {% endif %}
+
+      # Live calorie burn RATE for the current walker, kcal/min. Uses the ACSM
+      # walking metabolic equation:
+      #   speed_m_min = speed_kmh * 1000 / 60
+      #   VO2 (ml/kg/min) = 0.1*speed_m_min + 1.8*speed_m_min*grade + 3.5
+      #   kcal/min = VO2 * weight_kg / 200
+      # grade = incline% / 100, clamped at >= 0 (downhill is not credited as a
+      # metabolic saving). Guest weight is a fixed 75 kg (no guest weight
+      # helper). 0 when stopped or offline.
+      - name: Treadmill Calorie Rate
+        unique_id: tm_calorie_rate
+        unit_of_measurement: kcal/min
+        state_class: measurement
+        icon: mdi:fire
+        availability: >-
+          {{ states('sensor.treadmill_speed') not in ['unknown', 'unavailable'] }}
+        state: >-
+          {% set spd = states('sensor.treadmill_speed') | float(0) %}
+          {% if spd <= 0 %}
+            0
+          {% else %}
+            {% set walker = states('input_select.tm_current_walker') %}
+            {% set wt = states('input_number.tm_weight_kg_' ~ (walker | lower)) | float(75) %}
+            {% set smm = spd * 1000 / 60 %}
+            {% set grade = [ states('sensor.treadmill_incline') | float(0) / 100, 0 ] | max %}
+            {% set vo2 = 0.1 * smm + 1.8 * smm * grade + 3.5 %}
+            {{ (vo2 * wt / 200) | round(2) }}
+          {% endif %}
+
+      # Estimated calories burned so far in the CURRENT session, for the current
+      # walker. Session average speed = session distance / elapsed minutes; the
+      # flat-ground ACSM term is used (we do not persist an average incline, so
+      # the per-session total ignores grade — the live rate above is
+      # incline-aware). 0 when no session is active or offline.
+      - name: Treadmill Session Calories
+        unique_id: tm_session_calories
+        unit_of_measurement: kcal
+        state_class: measurement
+        icon: mdi:fire
+        state: >-
+          {% if is_state('input_boolean.tm_session_active', 'on') %}
+            {% set cur = states('sensor.treadmill_distance') | float(0) %}
+            {% set start = states('input_number.tm_session_start_distance') | float(0) %}
+            {% set dist = [ (cur - start) if cur >= start else cur, 0 ] | max %}
+            {% set start_ts = state_attr('input_datetime.tm_session_start', 'timestamp') | float(0) %}
+            {% set mins = ((now().timestamp() - start_ts) / 60) if start_ts > 0 else 0 %}
+            {% if mins > 0 %}
+              {% set walker = states('input_select.tm_current_walker') %}
+              {% set wt = states('input_number.tm_weight_kg_' ~ (walker | lower)) | float(75) %}
+              {% set smm = dist / mins %}
+              {% set vo2 = 0.1 * smm + 3.5 %}
+              {{ (vo2 * wt / 200 * mins) | round(1) }}
+            {% else %}
+              0
+            {% endif %}
+          {% else %}
+            0
+          {% endif %}
+
+# ---------------------------------------------------------------------------
+# Per-person utility meters off the total-distance template sensors. NEW to
+# this repo (no other package uses utility_meter yet); it copes with the
+# source's total_increasing resets automatically.
+utility_meter:
+  tm_distance_daily_jacob:
+    source: sensor.tm_distance_total_jacob
+    name: Treadmill Distance Daily (Jacob)
+    unique_id: tm_distance_daily_jacob
+    cycle: daily
+  tm_distance_weekly_jacob:
+    source: sensor.tm_distance_total_jacob
+    name: Treadmill Distance Weekly (Jacob)
+    unique_id: tm_distance_weekly_jacob
+    cycle: weekly
+  tm_distance_monthly_jacob:
+    source: sensor.tm_distance_total_jacob
+    name: Treadmill Distance Monthly (Jacob)
+    unique_id: tm_distance_monthly_jacob
+    cycle: monthly
+  tm_distance_daily_rachel:
+    source: sensor.tm_distance_total_rachel
+    name: Treadmill Distance Daily (Rachel)
+    unique_id: tm_distance_daily_rachel
+    cycle: daily
+  tm_distance_weekly_rachel:
+    source: sensor.tm_distance_total_rachel
+    name: Treadmill Distance Weekly (Rachel)
+    unique_id: tm_distance_weekly_rachel
+    cycle: weekly
+  tm_distance_monthly_rachel:
+    source: sensor.tm_distance_total_rachel
+    name: Treadmill Distance Monthly (Rachel)
+    unique_id: tm_distance_monthly_rachel
+    cycle: monthly
+  tm_distance_daily_guest:
+    source: sensor.tm_distance_total_guest
+    name: Treadmill Distance Daily (Guest)
+    unique_id: tm_distance_daily_guest
+    cycle: daily
+  tm_distance_weekly_guest:
+    source: sensor.tm_distance_total_guest
+    name: Treadmill Distance Weekly (Guest)
+    unique_id: tm_distance_weekly_guest
+    cycle: weekly
+  tm_distance_monthly_guest:
+    source: sensor.tm_distance_total_guest
+    name: Treadmill Distance Monthly (Guest)
+    unique_id: tm_distance_monthly_guest
+    cycle: monthly
+
+# ---------------------------------------------------------------------------
+# Weekly rollups via history_stats (legacy sensor platform). Week = since
+# Monday 00:00 local. "Workouts this week" counts session-active on-transitions
+# (type: count); "time walked this week" is the hours the latch was on.
+sensor:
+  - platform: history_stats
+    name: Treadmill Workouts This Week
+    unique_id: tm_workouts_this_week
+    entity_id: input_boolean.tm_session_active
+    state: "on"
+    type: count
+    start: >-
+      {{ (now().replace(hour=0, minute=0, second=0, microsecond=0)
+          - timedelta(days=now().weekday())).timestamp() }}
+    end: "{{ now().timestamp() }}"
+  - platform: history_stats
+    name: Treadmill Time Walked This Week
+    unique_id: tm_time_walked_this_week
+    entity_id: input_boolean.tm_session_active
+    state: "on"
+    type: time
+    start: >-
+      {{ (now().replace(hour=0, minute=0, second=0, microsecond=0)
+          - timedelta(days=now().weekday())).timestamp() }}
+    end: "{{ now().timestamp() }}"
+
+# ---------------------------------------------------------------------------
+# Session bracketing.
+automation:
+  # START: belt moves (speed crosses 0 -> >0) and no session is already open.
+  # Snapshot the current cumulative distance and the start time; raise the
+  # latch. numeric_state does not fire on unknown/unavailable, so a bridge
+  # reconnect does not spuriously start a session.
+  - id: tm_session_start
+    alias: "Treadmill: session start"
+    mode: single
+    triggers:
+      - trigger: numeric_state
+        entity_id: sensor.treadmill_speed
+        above: 0
+    conditions:
+      - condition: state
+        entity_id: input_boolean.tm_session_active
+        state: "off"
+    actions:
+      - action: input_number.set_value
+        target:
+          entity_id: input_number.tm_session_start_distance
+        data:
+          value: "{{ states('sensor.treadmill_distance') | float(0) }}"
+      - action: input_datetime.set_datetime
+        target:
+          entity_id: input_datetime.tm_session_start
+        data:
+          timestamp: "{{ now().timestamp() }}"
+      - action: input_boolean.turn_on
+        target:
+          entity_id: input_boolean.tm_session_active
+
+  # END: speed has been 0 for 2 minutes while a session is open. Attribute the
+  # session to the currently selected walker: add the session distance (guarding
+  # the console reset-to-0 case) to their total, add the elapsed minutes to
+  # their time total, stamp their last-workout datetime, then drop the latch.
+  - id: tm_session_end
+    alias: "Treadmill: session end"
+    mode: single
+    triggers:
+      - trigger: numeric_state
+        entity_id: sensor.treadmill_speed
+        below: 0.1
+        for: "00:02:00"
+    conditions:
+      - condition: state
+        entity_id: input_boolean.tm_session_active
+        state: "on"
+    actions:
+      - variables:
+          p: "{{ states('input_select.tm_current_walker') | lower }}"
+          cur: "{{ states('sensor.treadmill_distance') | float(0) }}"
+          start_dist: "{{ states('input_number.tm_session_start_distance') | float(0) }}"
+          session_m: "{{ [ (cur - start_dist) if cur >= start_dist else cur, 0 ] | max }}"
+          start_ts: "{{ state_attr('input_datetime.tm_session_start', 'timestamp') | float(0) }}"
+          elapsed_min: >-
+            {{ ((now().timestamp() - start_ts) / 60) | round(1) if start_ts > 0 else 0 }}
+          dist_entity: "input_number.tm_total_distance_{{ p }}"
+          time_entity: "input_number.tm_total_time_min_{{ p }}"
+          date_entity: "input_datetime.tm_last_workout_{{ p }}"
+      - action: input_number.set_value
+        target:
+          entity_id: "{{ dist_entity }}"
+        data:
+          value: "{{ (states(dist_entity) | float(0)) + session_m }}"
+      - action: input_number.set_value
+        target:
+          entity_id: "{{ time_entity }}"
+        data:
+          value: "{{ ((states(time_entity) | float(0)) + elapsed_min) | round(1) }}"
+      - action: input_datetime.set_datetime
+        target:
+          entity_id: "{{ date_entity }}"
+        data:
+          timestamp: "{{ now().timestamp() }}"
+      - action: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.tm_session_active
