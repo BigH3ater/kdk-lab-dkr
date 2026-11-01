@@ -1484,6 +1484,7 @@ slots:
   candidates:
   - site: Spend With Pennies
     url: https://www.spendwithpennies.com/fusilli-with-meat-sauce/
+    selected: true   # owner 2026-10-31: jar of sauce + 1 lb ground beef + noodles
     title: Fusilli with Meat Sauce (jarred)
     rating: 4.97
     count: 33
