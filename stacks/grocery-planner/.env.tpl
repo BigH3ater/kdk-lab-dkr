@@ -17,4 +17,4 @@ TANDOOR_PASS={{ op://kdk-cluster/dashboard-tandoor-rw/password }}
 VIKUNJA_TOKEN={{ op://kdk-cluster/vikunja-api-rw/credential }}
 
 # Set to the Approvals project id (plain number, edit before first deploy):
-VIKUNJA_APPROVALS_PROJECT=
+VIKUNJA_APPROVALS_PROJECT=12
