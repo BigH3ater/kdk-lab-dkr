@@ -306,7 +306,7 @@ def seed_fixed(t, fixed_cfg, cfg, foods_cfg, cats, kws):
                      "amount": i.get("amount", 1), "note": ""}
                     for i in rec.get("ingredients", [])]
             body = {"name": rec["name"], "servings": rec.get("servings", 1),
-                    "servings_text": rec.get("servings_text", ""), "internal": True,
+                    "servings_text": rec.get("servings_text", "")[:32], "internal": True,   # Tandoor max 32
                     "keywords": [{"id": k["id"], "name": k["name"]} for k in kw_objs if k],
                     "steps": [{"instruction": "Buy / prep the weekly items.",
                                "ingredients": ings}]}
