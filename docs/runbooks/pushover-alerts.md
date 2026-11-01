@@ -35,6 +35,13 @@ receiver), so they never page and never flood.
 | `warning` | degraded or suspicious; look soon | Pushover (high) |
 | `info` | expected while you work on X; a provenance record | **email digest only** (not paged) |
 
+An `info` rule may additionally carry **`notify: phone`** (security-adjacent
+signals only — 2FA change, admin write, login from the internet): it then also
+pings a **quiet Pushover** (priority -1) within seconds *and* still lands in the
+e-mail digest (the route sets `continue: true`). It requires `severity: info`;
+do not set it on warning/critical, which already page. See
+[Alerting standards §3/§7](../reference/alerting-standards.md).
+
 **`source` label.** Set on every rule; Alertmanager routes on it:
 
 - `source: loki` — a log-based rule evaluated by the Loki ruler on

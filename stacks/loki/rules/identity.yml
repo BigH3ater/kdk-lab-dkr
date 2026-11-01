@@ -103,6 +103,9 @@ groups:
           severity: info
           source: loki
           scope: identity
+          # Security-adjacent: a 2FA factor change should also ping the phone
+          # (quiet Pushover) promptly, not wait for the info e-mail digest.
+          notify: phone
         annotations:
           summary: "Authelia: a 2FA device (TOTP/WebAuthn) was registered or removed"
           kdk_inferred: "true"

@@ -139,6 +139,9 @@ groups:
           severity: info
           source: loki
           scope: wizarr
+          # Security-adjacent admin mutation: also ping the phone (quiet
+          # Pushover) promptly, not only the info e-mail digest.
+          notify: phone
         annotations:
           summary: "Wizarr admin/settings mutation (expected only while you are working in Wizarr)"
           runbook: docs/runbooks/security-alerts.md#wizarr
