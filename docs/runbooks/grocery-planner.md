@@ -202,7 +202,7 @@ sooner (a low-stock reorder task is Phase 2).
 **Phase 2 idea (not built):** once a freezer inventory exists, the flex dinner
 becomes "ground beef when stock is high, pork or chicken when it's low".
 
-After a rules change, run the tests: `python3 -m pytest stacks/grocery-planner/tests/`.
+After a rules change, run the tests: `cd stacks/grocery-planner && uv run pytest` (uv builds the env from `uv.lock`; add a dependency with `uv add <pkg>`, never by hand in the Dockerfile).
 
 ## Refresh ratings later
 

@@ -36,7 +36,7 @@ tests/                   pytest, no network
 
 ```sh
 # tests (no network)
-python3 -m pytest stacks/grocery-planner/tests/
+cd stacks/grocery-planner && uv run pytest
 
 # seed dry-run (prints the plan; writes nothing)
 python3 -m grocery.seed

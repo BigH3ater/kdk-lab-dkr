@@ -231,13 +231,26 @@ class Tandoor:
         return self.get_all("/api/shopping-list-entry/")
 
     # ---- URL import (recipe-from-source + save) ---------------------------
+    def _post_retry_429(self, path, body, tries=5):
+        """Tandoor rate-limits recipe-from-source (429 after ~100 quick imports,
+        2026-11-01). Pause between imports and back off on 429."""
+        import time
+        for attempt in range(tries):
+            time.sleep(IMPORT_PAUSE_S if attempt == 0 else IMPORT_PAUSE_S * 2 ** (attempt + 2))
+            try:
+                return self.post(path, body)
+            except requests.HTTPError as e:
+                if getattr(e.response, "status_code", None) != 429 or attempt == tries - 1:
+                    raise
+                log.warning("429 from %s, backing off (attempt %d)", path, attempt + 1)
+
     def import_from_url(self, url):
         """Two-step, matching the Tandoor web importer:
         1) POST /api/recipe-from-source/ {url} -> parsed recipe JSON (not saved),
         2) POST /api/recipe/ <that recipe> -> created recipe (returns id).
         Returns (recipe_id, parsed) or raises. Duplicate detection: the source
         response includes `duplicates`; the caller may skip if non-empty."""
-        src = self.post("/api/recipe-from-source/", {"url": url})
+        src = self._post_retry_429("/api/recipe-from-source/", {"url": url})
         if not src or src.get("error"):
             raise RuntimeError(f"import parse failed for {url}: {src and src.get('msg')}")
         recipe = src.get("recipe")
@@ -245,6 +258,9 @@ class Tandoor:
             raise RuntimeError(f"no recipe parsed from {url}")
         created = self.post("/api/recipe/", fit_recipe_limits(recipe))
         return created.get("id"), src
+
+
+IMPORT_PAUSE_S = float(os.environ.get("GROCERY_IMPORT_PAUSE_S", "2"))
 
 
 def recipe_book_payload(name, description="", share_ids=()):
@@ -264,4 +280,22 @@ def fit_recipe_limits(recipe):
     for field, limit in _RECIPE_LIMITS.items():
         if isinstance(out.get(field), str) and len(out[field]) > limit:
             out[field] = out[field][:limit]
+    # The web importer leaves step/ingredient `order` null and the API rejects it
+    # (400 {"steps":{"0":{"ingredients":{"0":{"order":["This field may not be
+    # null."]}}}}}, 2026-11-01). Number them in page order.
+    steps = []
+    for si, st in enumerate(out.get("steps") or []):
+        st = dict(st)
+        if st.get("order") is None:
+            st["order"] = si
+        ings = []
+        for ii, ing in enumerate(st.get("ingredients") or []):
+            ing = dict(ing)
+            if ing.get("order") is None:
+                ing["order"] = ii
+            ings.append(ing)
+        st["ingredients"] = ings
+        steps.append(st)
+    if "steps" in out:
+        out["steps"] = steps
     return out
