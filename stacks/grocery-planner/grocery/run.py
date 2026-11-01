@@ -388,6 +388,76 @@ def run_bulk(cfg):
     return 0
 
 
+def preview(cfg, week_of=None):
+    """Read-only dry run of a weekly build: the meals the generator would plan for
+    the week starting `week_of` (a Sunday; default = the next run's week) and the
+    store lists Tandoor would create from them. Nothing is written."""
+    from . import seed as SD
+    tz = cfg["cadence"]["timezone"]
+    from zoneinfo import ZoneInfo
+    today = datetime.datetime.now(ZoneInfo(tz)).date()
+    if week_of:
+        start = week_of
+        end = start + datetime.timedelta(days=6)
+    else:
+        start, end = next_week_window(today, cfg["cadence"]["plan_start_weekday"])
+    wk = G.week_key(start)
+    t = _tandoor(cfg)
+    season = G.season_for_date(start, cfg.get("seasons"))
+    if _already_planned(t, start, end, wk):
+        print(f"NOTE: {wk} is already planned in Tandoor; the real run will skip it.")
+    recipes = [t.get(f"/api/recipe/{r['id']}/")
+               for r in t.get_all("/api/recipe/", keyword=_kw_id(t, season))]
+    pool = build_pool(recipes, season) + _fixed_pool(t)
+    try:
+        _require_fixed(cfg, pool)
+        entries = G.generate_week(pool, start, cfg)
+    except G.PlanError as e:
+        print(f"PLAN ERROR {wk}: {e}")
+        return 1
+    print(f"== {wk} ({season}) {start:%a %b %-d} - {end:%a %b %-d}: {len(entries)} meal-plan entries")
+    for e in sorted(entries, key=lambda e: (e.date, e.meal_type)):
+        print(f"  {e.date:%a %d}  {e.meal_type:<9} {e.recipe_name[:55]}"
+              f"{'  (leftovers, no shopping)' if e.role == 'leftover' else ''}")
+    _, foods_cfg, _, _ = SD.load_configs()
+    food_cache, lines = {}, {}
+    for e in entries:
+        if e.role == "leftover":
+            continue
+        r = t.get(f"/api/recipe/{e.recipe_id}/")
+        factor = float(e.servings or 2) / float(r.get("servings") or 1)
+        for st in r.get("steps") or []:
+            for i in st.get("ingredients") or []:
+                f = i.get("food") or {}
+                if i.get("is_header") or not f.get("id"):
+                    continue
+                if f["id"] not in food_cache:
+                    food_cache[f["id"]] = t.get(f"/api/food/{f['id']}/")
+                full = food_cache[f["id"]]
+                if full.get("food_onhand") or full.get("ignore_shopping"):
+                    continue
+                if S.is_excluded(full["name"], cfg.get("exclude") or []):
+                    continue
+                cat = (full.get("supermarket_category") or {}).get("name") or \
+                    SD.route_food(full["name"], foods_cfg, cfg["stores"])
+                store, _cad, aisle = S.parse_category(cat)
+                unit = (i.get("unit") or {}).get("name") or ""
+                key = (store or "UNROUTED", aisle or "Other", full["name"].lower())
+                d = lines.setdefault(key, {"name": full["name"], "amt": {}, "recipes": set()})
+                d["amt"][unit] = d["amt"].get(unit, 0) + float(i.get("amount") or 0) * factor
+                d["recipes"].add(r["name"][:30])
+    weekly = set(cfg["stores"].get("weekly_stores") or [])
+    for store in sorted({k[0] for k in lines}):
+        keys = sorted(k for k in lines if k[0] == store)
+        note = "" if store in weekly else " (not on the weekly list: bulk run / on hand)"
+        print(f"\n-- {store}: {len(keys)} lines{note}")
+        for k in keys:
+            d = lines[k]
+            qty = " + ".join(f"{v:g} {u}".strip() for u, v in d["amt"].items() if v)
+            print(f"  [{k[1]}] {d['name']}  {qty}")
+    return 0
+
+
 def main(argv=None):
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
@@ -396,8 +466,15 @@ def main(argv=None):
     ap.add_argument("--poll", action="store_true",
                     default=os.environ.get("GROCERY_POLL", "") == "1",
                     help="weekly poll pass (read the decision)")
+    ap.add_argument("--preview", action="store_true",
+                    help="read-only: print the week the next run would plan, and its store lists")
+    ap.add_argument("--week-of", metavar="YYYY-MM-DD",
+                    help="with --preview: the Sunday the week starts on")
     a = ap.parse_args(argv)
     cfg = load_cfg()
+    if a.preview:
+        wo = datetime.date.fromisoformat(a.week_of) if a.week_of else None
+        return preview(cfg, wo)
     if a.mode == "bulk":
         return run_bulk(cfg)
     return run_weekly(cfg, poll=a.poll)

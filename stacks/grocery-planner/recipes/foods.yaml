@@ -203,6 +203,7 @@ rules:
   # Added 2026-11-01 from the per-recipe shopping test (grocery.cleanup --test):
   # foods the season recipes use that matched no rule.
   # "chicken" (Meat & Seafood) would otherwise win the longest match.
+  - {match: tomato paste,   category: "Target/weekly: Canned"}
   - {match: chicken broth,  category: "Target/weekly: Canned"}
   - {match: chicken stock,  category: "Target/weekly: Canned"}
   - {match: butter,         category: "NewPi/weekly: Dairy & Eggs"}
