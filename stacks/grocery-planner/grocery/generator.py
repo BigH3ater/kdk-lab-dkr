@@ -5,10 +5,13 @@ selected recipes:
 
   * season chosen by date (Spring Mar-May, Summer Jun-Aug, Fall Sep-Nov, Winter
     Dec-Feb);
-  * 7 dinners = 1 fish + 4 chicken breast + 1 ground beef + 1 steak (no
-    legume-only mains; beans as an ingredient are fine);
-  * fish is Sunday; odd ISO week => salmon + Greek beef (feta in beef); even ISO
-    week => tuna + Asian beef (feta in the weekend scramble);
+  * 7 dinners = 1 fish + 2 chicken breast + 2 ground beef + 1 flex + 1 steak;
+    a roast week swaps one ground beef for a slow-cooker roast. No legume-only
+    mains (beans as an ingredient are fine);
+  * the flex dinner alternates pork chop / chicken breast by week (parity);
+  * ground beef dishes vary: no repeat within the week, at most one Asian-style
+    (e.g. beef & broccoli); feta rides on the weekend eggs;
+  * fish is Sunday; odd ISO week => salmon, even ISO week => tuna;
   * a rotating veg side per dinner, no repeat within the week;
   * 2 lunch preps at 4 servings, breakfast + snack feeder recipes once a week;
   * simplicity caps (working_time, ingredient count) as a fail-closed filter;
@@ -107,6 +110,30 @@ def _pick(pool, kind, season, caps, rng, used_ids, n=1, variant=None):
     return chosen
 
 
+def _pick_beef(pool, season, caps, rng, used, n, max_asian):
+    """Pick n distinct ground-beef dishes for the week: no repeat (distinct
+    recipe ids) and at most `max_asian` Asian-style (beef_style == 'asian')."""
+    cands = [r for r in pool
+             if r.get("kind") == "ground_beef" and r.get("season") == season
+             and r["id"] not in used and _eligible(r, caps, "ground_beef")]
+    rng.shuffle(cands)
+    chosen, asian = [], 0
+    for r in cands:
+        if len(chosen) == n:
+            break
+        if r.get("beef_style") == "asian" and asian >= max_asian:
+            continue
+        chosen.append(r)
+        if r.get("beef_style") == "asian":
+            asian += 1
+    if len(chosen) < n:
+        raise PlanError(f"not enough eligible ground_beef for {season}: need {n}, "
+                        f"have {len(chosen)} (<= {max_asian} Asian-style)")
+    for r in chosen:
+        used.add(r["id"])
+    return chosen
+
+
 def generate_week(pool: list[dict], week_start: datetime.date, config: dict) -> list[PlanEntry]:
     caps = config["caps"]
     pr = config["proteins"]
@@ -123,22 +150,34 @@ def generate_week(pool: list[dict], week_start: datetime.date, config: dict) -> 
 
     # ---- dinners -----------------------------------------------------------
     fish_variant = pr["fish_parity"][parity]       # salmon | tuna
-    beef_variant = pr["beef_parity"][parity]       # greek | asian
+    beef_cfg = config.get("beef") or {}
 
     fish_day = _offset(week_start, _DOW[pr["fish_day"]])   # offset of fish weekday
 
     # Roast week? (parity A by default, every other week). On a roast week the
-    # slow-cooker roast replaces ONE chicken dinner: 3 chicken + 1 roast.
+    # slow-cooker roast replaces ONE GROUND-BEEF dinner: 2 beef + 1 roast.
     roast_cfg = config.get("roast") or {}
     roast_week = bool(roast_cfg.get("enabled")) and parity == roast_cfg.get("parity", "A")
-    poultry_n = pr["poultry"] - (1 if roast_week else 0)
+    beef_n = pr["ground_beef"] - (1 if roast_week else 0)
 
-    # Fish: Sunday.
+    # Fish: Sunday. Chicken + steak are fixed counts; ground beef is the week's
+    # distinct dishes (no repeat, <= max_asian Asian-style).
     fish = _pick(pool, "fish", season, caps, rng, used, 1, variant=fish_variant)[0]
-    chicken = _pick(pool, "chicken", season, caps, rng, used, poultry_n)
-    beef = _pick(pool, "ground_beef", season, caps, rng, used, 1, variant=beef_variant)[0]
+    chicken = _pick(pool, "chicken", season, caps, rng, used, pr["poultry"])
     steak = _pick(pool, "steak", season, caps, rng, used, 1)[0]
+    beef = _pick_beef(pool, season, caps, rng, used, beef_n,
+                      beef_cfg.get("max_asian_per_week", 1))
     roast = _pick(pool, "roast", season, caps, rng, used, 1)[0] if roast_week else None
+
+    # Flex dinner: alternates pork chop / chicken breast by week (parity picks the
+    # rotation slot). A chicken flex is an extra chicken dish not already used.
+    flex_cfg = config.get("flex") or {}
+    flex = None
+    if flex_cfg.get("enabled"):
+        rotation = flex_cfg.get("rotation") or ["pork", "chicken"]
+        flex_kind = rotation[(0 if parity == "A" else 1) % len(rotation)]
+        pick_kind = "pork" if flex_kind == "pork" else "chicken"
+        flex = _pick(pool, pick_kind, season, caps, rng, used, 1)[0]
 
     # Day assignment: fish on its day, roast on roast_night (if a roast week),
     # the rest fill the remaining days in a deterministic shuffled order.
@@ -148,7 +187,9 @@ def generate_week(pool: list[dict], week_start: datetime.date, config: dict) -> 
         if rd in mains_by_day:                       # roast_night == fish day: use next free
             rd = next(d for d in range(7) if d not in mains_by_day)
         mains_by_day[rd] = roast
-    other = chicken + [beef, steak]
+    other = chicken + beef + [steak]
+    if flex is not None:
+        other.append(flex)
     rng.shuffle(other)
     days = [d for d in range(7) if d not in mains_by_day]
     for d, rec in zip(days, other):

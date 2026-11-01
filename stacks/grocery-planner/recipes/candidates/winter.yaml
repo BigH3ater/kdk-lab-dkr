@@ -481,178 +481,6 @@ slots:
     checked_on: '2026-10-31'
     notes: Breast with sweet potatoes and broccoli; olive oil only; pecans and dried cranberries are optional-feeling
       extras (flag non-pantry count).
-- slot: winter-beef-a
-  slot_label: Greek ground beef meatballs in tomato sauce WITH FETA
-  candidates:
-  - site: The Lemon Bowl
-    url: https://thelemonbowl.com/greek-meatballs-recipe-gluten-free/
-    title: Keftedes (Baked Greek Meatballs)
-    rating: 4.16
-    count: 32
-    total_time_min: 35
-    yield: 4 servings (makes 28-30 meatballs)
-    ingredients:
-    - 20 oz ground beef (or lamb, turkey, etc.)
-    - 1 large egg
-    - 1/4 cup fresh parsley, minced
-    - 2 cloves garlic, grated
-    - 2 tbsp tomato paste
-    - 2 tbsp grated Parmesan cheese
-    - 1 tbsp dried oregano
-    - 1 tsp ground allspice
-    - 1 tsp salt
-    - 1/2 tsp cayenne (optional)
-    has_beans_lentils: false
-    non_olive_fats:
-    - cooking spray (to grease foil-lined pan)
-    checked_on: '2026-10-31'
-    notes: 'NO CANDIDATE MATCHES FULLY. Read from visible card via WebFetch (no JSON-LD): 4.16 from 32
-      votes, 10 prep + 25 cook = 35 min, 4 servings. Ground beef keftedes with tomato PASTE inside, Parmesan
-      (no feta), NO tomato sauce. Ingredient wording as condensed by fetch tool, not strictly verbatim.'
-  - site: Cooking Classy
-    url: https://www.cookingclassy.com/greek-meatballs-keftedes/
-    title: Greek Meatballs (Keftedes)
-    rating: 5
-    count: 2
-    total_time_min: 55
-    yield: '6'
-    ingredients:
-    - 1 1/2 Tbsp olive oil*
-    - 1 1/2 cups (3.5 oz) stale sourdough breadcrumbs** ((from about 2 slices))
-    - 1/3 cup milk
-    - 2 lbs 85% lean ground beef
-    - 2 tsp salt
-    - 1 tsp black pepper
-    - 2 tsp ground cumin
-    - 1 1/2 tsp dried oregano
-    - 1 tsp ground coriander
-    - 1/4 cup finely chopped fresh parsley
-    - 1/4 cup finely chopped fresh mint (or cilantro)
-    - 1/2 cup finely minced red onion ((chop as small as you mince garlic))
-    - 2 tsp minced garlic
-    - 2 large eggs
-    has_beans_lentils: false
-    non_olive_fats: []
-    checked_on: '2026-10-31'
-    notes: NO tomato sauce and NO feta in the recipe (served with tzatziki/whipped feta per page text);
-      2 lb batch, 85% beef; olive oil used. Count 2 only (rating not meaningful). Would need a tomato
-      sauce + feta added.
-  - site: Taste of Home
-    url: https://www.tasteofhome.com/recipes/greek-meatballs-recipe/
-    title: Greek Lamb Meatballs with Tzatziki Sauce
-    rating: null
-    count: null
-    total_time_min: 40
-    yield: about 3-1/2 dozen meatballs and 2-1/2 cups sauce
-    ingredients:
-    - 1/3 cup whole wheat panko bread crumbs
-    - 1 large egg, beaten
-    - 1 large egg white, beaten
-    - 1 garlic clove, minced
-    - 3/4 teaspoon salt
-    - 1 teaspoon minced fresh mint
-    - 1/2 teaspoon dried basil
-    - 1/4 teaspoon pepper
-    - 3/4 cup crumbled feta cheese
-    - 1-1/2 pounds ground lamb
-    - 1-1/2 cups plain Greek yogurt
-    - 1/2 cup peeled grated cucumber, strained
-    - 2 garlic cloves, minced
-    - 2 teaspoons lemon juice
-    - 1 teaspoon snipped fresh dill
-    - 1/4 teaspoon salt
-    has_beans_lentils: false
-    non_olive_fats: []
-    checked_on: '2026-10-31'
-    notes: Lamb (not beef) meatballs WITH 3/4 cup feta inside, served with tzatziki; no tomato sauce;
-      NO rating shown on page (widget). Beef can be substituted per Taste of Home page for the variant
-      seen in search. No cooking fat listed. Included only because it is the sole real recipe with feta
-      in the meatball.
-  - site: Downshiftology
-    url: https://downshiftology.com/recipes/mediterranean-ground-beef-stir-fry/
-    title: Mediterranean Ground Beef Stir Fry
-    rating: 4.93
-    count: 260
-    total_time_min: 25
-    yield: 4 servings
-    ingredients:
-    - ground beef
-    - olive oil
-    - onion
-    - garlic
-    - oregano
-    - cumin
-    - spinach
-    - cherry tomatoes
-    - feta
-    - salt
-    - pepper
-    - parsley
-    has_beans_lentils: false
-    non_olive_fats: []
-    checked_on: '2026-10-31'
-    notes: Greek/Mediterranean beef with feta + spinach + tomato (no tomato-sauce meatballs available
-      rated; closest strong match).
-- slot: winter-beef-b
-  slot_label: beef and broccoli stir fry (ground beef) - distinct from fall
-  candidates:
-  - site: Well Plated
-    url: https://www.wellplated.com/ground-beef-and-broccoli/
-    title: Ground Beef and Broccoli
-    rating: 4.88
-    count: 71
-    total_time_min: 25
-    yield: '4'
-    ingredients:
-    - ⅓ cup low-sodium soy sauce
-    - ⅓ cup water
-    - 2 tablespoons pure maple syrup (honey, or brown sugar)
-    - 2 tablespoons cornstarch
-    - 1 tablespoon sesame oil
-    - 2 tablespoons canola oil or other neutral high temperature cooking oil (divided)
-    - 1 pound lean ground beef (I used 93% lean)
-    - ¼ teaspoon kosher salt
-    - 1/2 teaspoon ground black pepper
-    - 1 head broccoli (chopped into florets, about 3 cups or 10 ounces)
-    - 2 tablespoons minced fresh ginger (from about a 2-inch piece)
-    - 2 cloves garlic (minced (about 2 teaspoons))
-    - ¼ teaspoon red pepper flakes (plus additional to taste)
-    - 1 small bunch bunch green onions (thinly sliced, white/light green parts and dark green parts divided)
-    - 1 tablespoon sesame seeds (optional for serving)
-    - Cooked brown or white rice (for serving)
-    has_beans_lentils: false
-    non_olive_fats:
-    - 2 tbsp canola oil
-    - 1 tbsp sesame oil
-    checked_on: '2026-10-31'
-    notes: Ground beef (93% lean) and broccoli with ginger-soy sauce; I did not know the fall pick, so
-      confirm distinctness. Count 71.
-  - site: Skinnytaste
-    url: https://www.skinnytaste.com/ground-beef-and-broccoli-stir-fry/
-    title: Ground Beef and Broccoli Stir Fry
-    rating: 4.68
-    count: 221
-    total_time_min: 13
-    yield: '4'
-    ingredients:
-    - ½ cup reduced sodium soy sauce (or gluten-free tamari)
-    - 1 tablespoon honey
-    - 4 cloves garlic (minced)
-    - 1 1-inch piece fresh ginger (peeled and grated)
-    - 1 tablespoon cornstarch
-    - ½ tablespoon sesame oil
-    - 1 pound ground beef (93% lean )
-    - ½ medium yellow onion (chopped)
-    - 1 large head broccoli (cut into florets and blanched*)
-    - 1 tablespoon toasted sesame seeds
-    - 3 medium scallions (sliced on the bias)
-    - cooked rice (or cauliflower rice, for serving (optional))
-    has_beans_lentils: false
-    non_olive_fats:
-    - 1/2 tbsp sesame oil
-    checked_on: '2026-10-31'
-    notes: Ground beef (93% lean) and blanched broccoli with soy-honey-ginger sauce; no cooking oil beyond
-      1/2 tbsp sesame oil in sauce; count 221, 4.68. Confirm distinct from fall pick.
 - slot: winter-steak
   slot_label: sheet-pan steak (sirloin/flank) with root vegetables
   candidates:
@@ -1588,3 +1416,674 @@ slots:
     checked_on: '2026-10-31'
     notes: 'Variety: classic pot roast with vegetables and red wine; olive oil only. Slow cooker, ~15
       min active.'
+- slot: winter-beef-tacos
+  slot_label: ground beef tacos
+  candidates:
+  - site: Spend With Pennies
+    url: https://www.spendwithpennies.com/easy-ground-beef-tacos/
+    title: Easy Ground Beef Tacos
+    rating: 4.91
+    count: 44
+    total_time_min: 30
+    yield: 4 servings
+    ingredients:
+    - 1 lb lean ground beef
+    - 2 tbsp tomato paste
+    - water
+    - 8 taco shells
+    - chili powder
+    - cumin
+    - onion powder
+    - garlic powder
+    - oregano
+    - salt
+    - toppings
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: ''
+  - site: Wholesome Yum
+    url: https://www.wholesomeyum.com/taco-skillet/
+    title: Mexican Taco Skillet
+    rating: 4.92
+    count: 24
+    total_time_min: 30
+    yield: 4 servings
+    ingredients:
+    - 1 tbsp olive oil
+    - 1 lb ground beef
+    - taco seasoning
+    - onion
+    - 3 bell peppers
+    - diced tomatoes
+    - Mexican cheese blend
+    - green onions
+    - sour cream
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: ''
+- slot: winter-beef-spaghetti
+  slot_label: spaghetti with jarred sauce + ground beef
+  candidates:
+  - site: Spend With Pennies
+    url: https://www.spendwithpennies.com/fusilli-with-meat-sauce/
+    title: Fusilli with Meat Sauce (jarred)
+    rating: 4.97
+    count: 33
+    total_time_min: 27
+    yield: 4 servings
+    ingredients:
+    - 1 lb lean ground beef
+    - onion
+    - garlic
+    - Italian seasoning
+    - red wine or beef broth
+    - 24 oz marinara sauce
+    - 8 oz pasta
+    - mozzarella
+    - Parmesan
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Owner's simple jar-sauce + 1 lb beef pasta (any pasta; swap spaghetti).
+  - site: Cooking Classy
+    url: https://www.cookingclassy.com/instant-pot-spaghetti/
+    title: Instant Pot Spaghetti
+    rating: 4.75
+    count: 51
+    total_time_min: 30
+    yield: 4 servings
+    ingredients:
+    - 1 lb ground beef
+    - garlic
+    - spaghetti
+    - four cheese marinara
+    - diced tomatoes
+    - water
+    - basil
+    - Parmesan
+    - olive oil
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: ''
+- slot: winter-beef-broccoli
+  slot_label: ground beef and broccoli
+  candidates:
+  - site: Skinnytaste
+    url: https://www.skinnytaste.com/ground-beef-and-broccoli-stir-fry/
+    title: Ground Beef and Broccoli Stir Fry
+    rating: 4.68
+    count: 221
+    total_time_min: 13
+    yield: 4 servings
+    ingredients:
+    - 1 lb ground beef
+    - broccoli
+    - soy sauce
+    - honey
+    - garlic
+    - ginger
+    - cornstarch
+    - sesame oil
+    - onion
+    - scallions
+    has_beans_lentils: false
+    non_olive_fats:
+    - sesame oil
+    checked_on: '2026-10-31'
+    notes: ''
+  - site: Well Plated
+    url: https://www.wellplated.com/ground-beef-and-broccoli/
+    title: Ground Beef and Broccoli
+    rating: 4.88
+    count: 71
+    total_time_min: 25
+    yield: 4 servings
+    ingredients:
+    - 1 lb ground beef
+    - broccoli
+    - soy sauce
+    - maple syrup
+    - cornstarch
+    - sesame oil
+    - canola oil
+    - ginger
+    - garlic
+    - scallions
+    - rice
+    has_beans_lentils: false
+    non_olive_fats:
+    - canola oil
+    - sesame oil
+    checked_on: '2026-10-31'
+    notes: ''
+- slot: winter-beef-quesadilla
+  slot_label: cheesy ground beef quesadillas
+  candidates:
+  - site: RecipeTin Eats
+    url: https://www.recipetineats.com/crispy-oven-baked-quesadillas/
+    title: Crispy Oven Baked Beef Quesadillas
+    rating: 4.95
+    count: 80
+    total_time_min: 25
+    yield: 4 servings
+    ingredients:
+    - ground beef
+    - tomato paste
+    - corn
+    - black beans
+    - flour tortillas
+    - shredded cheese
+    - olive oil
+    - taco spices
+    has_beans_lentils: true
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: ''
+  - site: Well Plated
+    url: https://www.wellplated.com/ground-beef-quesadillas/
+    title: Ground Beef Quesadillas
+    rating: 5
+    count: 7
+    total_time_min: 25
+    yield: 4 servings
+    ingredients:
+    - 1 lb ground beef
+    - tomato paste
+    - chili powder
+    - cumin
+    - garlic powder
+    - shredded cheese
+    - tortillas
+    - olive oil
+    has_beans_lentils: false
+    non_olive_fats:
+    - butter
+    checked_on: '2026-10-31'
+    notes: ''
+- slot: winter-beef-philly
+  slot_label: Philly cheesesteak (ground beef)
+  candidates:
+  - site: Wholesome Yum
+    url: https://www.wholesomeyum.com/philly-cheesesteak-casserole-recipe/
+    title: Philly Cheesesteak Casserole (ground beef)
+    rating: 4.85
+    count: 108
+    total_time_min: 40
+    yield: 4 servings
+    ingredients:
+    - 2 lb ground beef
+    - 3 bell peppers
+    - onion
+    - cream cheese
+    - chicken broth
+    - Italian seasoning
+    - smoked paprika
+    - garlic powder
+    - provolone cheese
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: ''
+  - site: Taste of Home
+    url: https://www.tasteofhome.com/recipes/sloppy-cheesesteaks/
+    title: Sloppy Cheesesteaks
+    rating: 4.33
+    count: 3
+    total_time_min: 20
+    yield: 4 servings
+    ingredients:
+    - 1 lb ground beef
+    - green pepper
+    - onion
+    - garlic powder
+    - French rolls
+    - provolone cheese
+    - mayonnaise
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: ''
+- slot: winter-beef-sloppy
+  slot_label: sloppy joes / beef skillet
+  candidates:
+  - site: Natasha's Kitchen
+    url: https://natashaskitchen.com/sloppy-joe-recipe/
+    title: Sloppy Joes
+    rating: 4.94
+    count: 2056
+    total_time_min: 30
+    yield: 4 servings
+    ingredients:
+    - 1 lb ground beef
+    - tomato sauce
+    - ketchup
+    - Worcestershire
+    - mustard
+    - brown sugar
+    - olive oil
+    - onion
+    - green bell pepper
+    - garlic
+    - hamburger buns
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: ''
+  - site: Skinnytaste
+    url: https://www.skinnytaste.com/skinny-sloppy-joes/
+    title: Skinny Sloppy Joes
+    rating: 4.83
+    count: 111
+    total_time_min: 30
+    yield: 4 servings
+    ingredients:
+    - 1.25 lb lean ground beef
+    - carrot
+    - onion
+    - garlic
+    - red bell pepper
+    - mushrooms
+    - red wine vinegar
+    - Worcestershire
+    - tomato sauce
+    - tomato paste
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: ''
+- slot: winter-beef-greek
+  slot_label: Greek ground beef with feta
+  candidates:
+  - site: Downshiftology
+    url: https://downshiftology.com/recipes/mediterranean-ground-beef-stir-fry/
+    title: Mediterranean Ground Beef Stir Fry (feta)
+    rating: 4.93
+    count: 260
+    total_time_min: 25
+    yield: 4 servings
+    ingredients:
+    - ground beef
+    - olive oil
+    - onion
+    - garlic
+    - oregano
+    - cumin
+    - spinach
+    - cherry tomatoes
+    - feta
+    - parsley
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Greek-style beef with feta -- when picked it carries the week's feta.
+- slot: winter-beef-chili
+  slot_label: ground beef chili
+  candidates:
+  - site: Natasha's Kitchen
+    url: https://natashaskitchen.com/beef-chili-recipe/
+    title: Beef Chili
+    rating: 4.92
+    count: 308
+    total_time_min: 30
+    yield: 4 servings
+    ingredients:
+    - 2 lb ground beef
+    - onion
+    - carrot
+    - green bell pepper
+    - garlic
+    - diced tomatoes
+    - kidney beans
+    - beef broth
+    - cumin
+    - chili powder
+    has_beans_lentils: true
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: ''
+  - site: Spend With Pennies
+    url: https://www.spendwithpennies.com/the-best-chili-recipe/
+    title: The Best Chili
+    rating: 4.95
+    count: 3113
+    total_time_min: 65
+    yield: 4 servings
+    ingredients:
+    - 2 lb lean ground beef
+    - onion
+    - jalapeno
+    - garlic
+    - chili powder
+    - cumin
+    - green bell pepper
+    - crushed tomatoes
+    - kidney beans
+    - diced tomatoes
+    - beef broth
+    - beer
+    - tomato paste
+    has_beans_lentils: true
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Total 65 min (simmer) exceeds the candidate cap -> rejected on time; the Natasha's one (30
+      min) is the pick.
+- slot: winter-beef-cheeseburger-soup
+  slot_label: cheeseburger soup
+  candidates:
+  - site: Wholesome Yum
+    url: https://www.wholesomeyum.com/recipes/bacon-cheeseburger-soup/
+    title: Cheeseburger Soup (20-min)
+    rating: 4.97
+    count: 85
+    total_time_min: 20
+    yield: 4 servings
+    ingredients:
+    - 1 lb ground beef
+    - cooked bacon
+    - cauliflower
+    - chicken broth
+    - milk
+    - parsley
+    - cheddar cheese
+    - heavy cream
+    has_beans_lentils: false
+    non_olive_fats:
+    - bacon
+    checked_on: '2026-10-31'
+    notes: ''
+  - site: The Recipe Critic
+    url: https://therecipecritic.com/cheeseburger-soup/
+    title: Cheeseburger Soup
+    rating: 4.83
+    count: 167
+    total_time_min: 45
+    yield: 4 servings
+    ingredients:
+    - 1 lb ground beef
+    - onion
+    - carrots
+    - celery
+    - basil
+    - butter
+    - chicken broth
+    - potatoes
+    - flour
+    - Velveeta
+    - milk
+    - sour cream
+    has_beans_lentils: false
+    non_olive_fats:
+    - butter
+    checked_on: '2026-10-31'
+    notes: ''
+- slot: winter-pork-pan-seared
+  slot_label: pan-seared pork chops
+  candidates:
+  - site: Wholesome Yum
+    url: https://www.wholesomeyum.com/pan-seared-pork-chops/
+    title: Pan Seared Pork Chops
+    rating: 4.99
+    count: 59
+    total_time_min: 11
+    yield: 4 servings
+    ingredients:
+    - 4 pork chops (boneless or bone-in)
+    - garlic powder
+    - smoked paprika
+    - thyme
+    - oregano
+    - cayenne
+    - olive oil
+    - salt
+    - pepper
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: ''
+  - site: Spend With Pennies
+    url: https://www.spendwithpennies.com/pan-seared-pork-chops/
+    title: Pan Seared Pork Chops with Herb Butter
+    rating: 4.99
+    count: 88
+    total_time_min: 25
+    yield: 4 servings
+    ingredients:
+    - 2 bone-in pork chops
+    - salt
+    - pepper
+    - vegetable oil
+    - butter
+    - thyme
+    - rosemary
+    - garlic
+    has_beans_lentils: false
+    non_olive_fats:
+    - vegetable oil
+    - butter
+    checked_on: '2026-10-31'
+    notes: ''
+- slot: winter-pork-baked
+  slot_label: baked pork chops
+  candidates:
+  - site: Downshiftology
+    url: https://downshiftology.com/recipes/baked-pork-chops/
+    title: Super Easy Baked Pork Chops
+    rating: 4.99
+    count: 95
+    total_time_min: 25
+    yield: 4 servings
+    ingredients:
+    - 4 pork chops (bone-in or boneless)
+    - olive oil
+    - paprika
+    - brown sugar
+    - garlic powder
+    - onion powder
+    - oregano
+    - salt
+    - pepper
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: ''
+  - site: Spend With Pennies
+    url: https://www.spendwithpennies.com/juicy-baked-pork-chops/
+    title: Juicy Baked Pork Chops
+    rating: 4.95
+    count: 308
+    total_time_min: 60
+    yield: 4 servings
+    ingredients:
+    - 4 boneless pork chops
+    - water
+    - salt
+    - brown sugar
+    - peppercorns
+    - garlic powder
+    - mustard powder
+    - paprika
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Total 60 incl a 30-min brine; active ~30.
+- slot: winter-pork-lemon-herb
+  slot_label: lemon-herb / Greek pork chops
+  candidates:
+  - site: RecipeTin Eats
+    url: https://www.recipetineats.com/lemon-garlic-marinated-pork-chops/
+    title: Lemon Garlic Pork Chops
+    rating: 4.98
+    count: 36
+    total_time_min: 15
+    yield: 4 servings
+    ingredients:
+    - 4 bone-in pork chops
+    - garlic
+    - oregano
+    - lemon zest
+    - lemon juice
+    - olive oil
+    - salt
+    - pepper
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: 15 min active; marinade time extra.
+  - site: Taste of Home
+    url: https://www.tasteofhome.com/recipes/greek-pork-chops/
+    title: Greek Pork Chops
+    rating: 4.72
+    count: 36
+    total_time_min: 25
+    yield: 4 servings
+    ingredients:
+    - 4 boneless pork loin chops
+    - olive oil
+    - lemon juice
+    - Worcestershire
+    - oregano
+    - onion powder
+    - garlic powder
+    - mustard
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: ''
+- slot: winter-pork-honey-garlic
+  slot_label: honey-garlic pork chops
+  candidates:
+  - site: Wholesome Yum
+    url: https://www.wholesomeyum.com/honey-garlic-pork-chops/
+    title: Honey Garlic Pork Chops
+    rating: 5
+    count: 11
+    total_time_min: 15
+    yield: 4 servings
+    ingredients:
+    - 4 pork chops
+    - garlic powder
+    - olive oil
+    - butter
+    - garlic
+    - honey
+    - coconut aminos or soy sauce
+    - apple cider vinegar
+    has_beans_lentils: false
+    non_olive_fats:
+    - butter
+    checked_on: '2026-10-31'
+    notes: ''
+  - site: Well Plated
+    url: https://www.wellplated.com/honey-garlic-pork-chops/
+    title: Honey Garlic Pork Chops
+    rating: 5
+    count: 19
+    total_time_min: 83
+    yield: 4 servings
+    ingredients:
+    - 4 bone-in pork chops
+    - salt
+    - pepper
+    - garlic
+    - honey
+    - olive oil
+    - apple cider vinegar
+    - parsley
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Total 83 incl a long passive rest -> over the candidate cap; the Wholesome Yum one is the pick.
+- slot: winter-pork-smothered
+  slot_label: smothered pork chops
+  candidates:
+  - site: RecipeTin Eats
+    url: https://www.recipetineats.com/french-onion-smothered-pork-chops/
+    title: French Onion Smothered Pork Chops
+    rating: 4.93
+    count: 82
+    total_time_min: 35
+    yield: 4 servings
+    ingredients:
+    - 4 boneless pork chops
+    - garlic powder
+    - onions
+    - garlic
+    - butter
+    - beef broth
+    - flour
+    - cheese slices
+    - rosemary
+    has_beans_lentils: false
+    non_olive_fats:
+    - butter
+    checked_on: '2026-10-31'
+    notes: ''
+  - site: Wholesome Yum
+    url: https://www.wholesomeyum.com/baked-smothered-pork-chops-recipe/
+    title: Smothered Pork Chops
+    rating: 4.92
+    count: 60
+    total_time_min: 60
+    yield: 4 servings
+    ingredients:
+    - 4 boneless pork chops
+    - garlic powder
+    - onion powder
+    - olive oil
+    - onion
+    - garlic
+    - thyme
+    - chicken broth
+    - cream cheese
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Total 60 mostly hands-off oven time; active ~25.
+- slot: winter-pork-sheet-pan
+  slot_label: sheet-pan pork chops
+  candidates:
+  - site: RecipeTin Eats
+    url: https://www.recipetineats.com/oven-baked-pork-chops-with-potatoes/
+    title: Oven Baked Pork Chops with Potatoes
+    rating: 4.92
+    count: 495
+    total_time_min: 40
+    yield: 4 servings
+    ingredients:
+    - 4 pork chops
+    - baby potatoes
+    - Worcestershire
+    - ketchup
+    - soy sauce
+    - brown sugar
+    - olive oil
+    - garlic
+    - apple cider vinegar
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: One-tray bake; add a green vegetable side.
+  - site: Taste of Home
+    url: https://www.tasteofhome.com/recipes/pork-and-asparagus-sheet-pan-dinner/
+    title: Pork Chops and Asparagus Sheet Pan
+    rating: 4.11
+    count: 19
+    total_time_min: 40
+    yield: 4 servings
+    ingredients:
+    - olive oil
+    - new potatoes
+    - asparagus
+    - apple
+    - brown sugar
+    - cinnamon
+    - ginger
+    - 4 boneless pork loin chops
+    - Southwest seasoning
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-10-31'
+    notes: Below the rating threshold; listed as the only true sheet-pan pork+veg option.

@@ -21,6 +21,8 @@ def slot_kind(slot_id: str) -> str:
     s = slot_id
     if s.endswith("-roast"):          # before "side" (roasted-carrots sides contain "roast")
         return "roast"
+    if "pork" in s:
+        return "pork"
     if "fish" in s:
         return "fish"
     if "chicken" in s:
@@ -93,9 +95,20 @@ def score_all(candidate_files: dict, config: dict) -> dict:
 def _variant(slot_id, kind):
     if kind == "fish":
         return "salmon" if slot_id.endswith("-a") else "tuna"
-    if kind == "ground_beef":
-        return "greek" if slot_id.endswith("-a") else "asian"
     return None
+
+
+# Ground-beef dish style (for the <= 1 Asian-style-per-week rule), keyed off the
+# slot id substring. Everything else is "comfort".
+_BEEF_STYLE = {"broccoli": "asian", "chili": "tex-mex", "taco": "tex-mex",
+               "quesadilla": "tex-mex", "spaghetti": "italian", "greek": "greek"}
+
+
+def beef_style_for_slot(slot_id):
+    for k, v in _BEEF_STYLE.items():
+        if k in slot_id:
+            return v
+    return "comfort"
 
 
 def pool_from_selected(scored_slots, season, start_id=1):
@@ -112,6 +125,8 @@ def pool_from_selected(scored_slots, season, start_id=1):
         pool.append({"id": i, "name": f"{slot['slot']}:{slot['chosen']['title'][:40]}",
                      "kind": slot["kind"], "season": season,
                      "variant": _variant(slot["slot"], slot["kind"]),
+                     "beef_style": beef_style_for_slot(slot["slot"])
+                     if slot["kind"] == "ground_beef" else None,
                      "working_time": None, "ingredient_count": None, "servings": 2})
         i += 1
     return pool
@@ -119,8 +134,10 @@ def pool_from_selected(scored_slots, season, start_id=1):
 
 # Minimum distinct recipes the generator needs per season to build any week at
 # either parity (fish is 1/week but both variants are used across the A/B weeks).
-SEASON_MINIMUMS = {"salmon": 1, "tuna": 1, "chicken": 4, "greek": 1, "asian": 1,
-                   "steak": 1, "roast": 1, "side": 7, "lunch": 2}
+# chicken is 3 (2 regular + a possible flex-chicken week); ground_beef is 4
+# (only 1-2 used a week now); pork is 3 (the flex-pork weeks).
+SEASON_MINIMUMS = {"salmon": 1, "tuna": 1, "chicken": 3, "ground_beef": 4,
+                   "pork": 3, "steak": 1, "roast": 1, "side": 7, "lunch": 2}
 
 
 def season_coverage(scored_slots):
@@ -132,8 +149,6 @@ def season_coverage(scored_slots):
         sid, k = slot["slot"], slot["kind"]
         if k == "fish":
             got["salmon" if sid.endswith("-a") else "tuna"] += 1
-        elif k == "ground_beef":
-            got["greek" if sid.endswith("-a") else "asian"] += 1
         elif k in got:
             got[k] += 1
     return got

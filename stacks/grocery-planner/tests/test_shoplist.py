@@ -74,6 +74,16 @@ def test_next_week_window():
     assert start == datetime.date(2026, 3, 8)
     assert end == datetime.date(2026, 3, 14)
     assert start.weekday() == 6
+    # TUESDAY build (new schedule) 2026-03-03 -> still the upcoming Sunday 03-08
+    tstart, tend = R.next_week_window(datetime.date(2026, 3, 3), 6)
+    assert tstart == datetime.date(2026, 3, 8) and tend == datetime.date(2026, 3, 14)
+
+
+def test_due_is_wednesday_before_the_plan_week(cfg):
+    # plan week starts Sunday 2026-03-08 -> order due Wednesday 2026-03-04
+    due, rem = R._due_and_reminder(cfg, datetime.date(2026, 3, 8))
+    assert due.startswith("2026-03-04T20:00")      # Wednesday 20:00
+    assert rem.startswith("2026-03-04T12:00")      # Wednesday noon
 
 
 def test_bulk_due_first_thursday_of_odd_month(cfg):

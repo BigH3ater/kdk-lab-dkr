@@ -23,7 +23,12 @@ recipes:
       - {food: "mushrooms", amount: 8, unit: oz}
       - {food: "tomato", amount: 2, unit: ""}
       - {food: "feta", amount: 1, unit: block}
-      - {food: "protein powder", amount: 1, unit: container}
+      # Breakfast protein = ready-to-drink shakes (NOT powder), 1/person/morning.
+      # Jocko -> Target (weekly, store TBC); Nurri -> Costco (bulk run). Routing
+      # (recipes/foods.yaml) decides which run each lands on, so Nurri is kept
+      # off the weekly list. Chobani yogurt drink stays 7/week weekly from Target.
+      - {food: "Jocko Fuel protein shake, chocolate", amount: 7, unit: bottle}
+      - {food: "Nurri protein shake", amount: 7, unit: bottle}
       - {food: "honey", amount: 1, unit: jar}
       - {food: "extra-virgin olive oil", amount: 1, unit: bottle}
   - name: "Snacks to buy"

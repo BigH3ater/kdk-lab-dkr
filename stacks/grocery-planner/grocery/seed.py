@@ -30,8 +30,9 @@ log = logging.getLogger("grocery.seed")
 
 # keyword vocabulary (brief)
 VOCAB = ["main", "simple", "mediterranean", "veg-side", "lunch-prep", "breakfast",
-         "snack", "fish", "salmon", "tuna", "poultry", "ground-beef", "steak",
-         "roast", "greek", "asian", "feta", "spring", "summer", "fall", "winter"]
+         "snack", "fish", "salmon", "tuna", "poultry", "pork", "ground-beef",
+         "steak", "roast", "comfort", "tex-mex", "asian", "italian", "greek",
+         "feta", "spring", "summer", "fall", "winter"]
 BOOKS = {"spring": "Spring", "summer": "Summer", "fall": "Fall", "winter": "Winter"}
 
 
@@ -50,17 +51,18 @@ def keywords_for_slot(slot_id, kind, season):
     elif kind == "lunch":
         kw |= {"lunch-prep"}
     elif kind == "roast":
-        kw |= {"main", "roast"}        # slow-cooker roast dinner (not tagged simple/mediterranean)
-    elif kind in ("fish", "chicken", "ground_beef", "steak"):
+        kw |= {"main", "roast"}        # slow-cooker roast (not simple/mediterranean)
+    elif kind == "ground_beef":
+        # comfort dishes: ground-beef + the beef-style, no "mediterranean".
+        kw |= {"main", "ground-beef", C.beef_style_for_slot(slot_id)}
+    elif kind == "pork":
+        kw |= {"main", "simple", "pork"}
+    elif kind in ("fish", "chicken", "steak"):
         kw |= {"main", "simple", "mediterranean"}
         if kind == "fish":
             kw |= {"fish", "salmon" if slot_id.endswith("-a") else "tuna"}
         elif kind == "chicken":
             kw |= {"poultry"}
-        elif kind == "ground_beef":
-            kw |= {"ground-beef", "greek" if slot_id.endswith("-a") else "asian"}
-            if slot_id.endswith("-a"):
-                kw |= {"feta"}
         elif kind == "steak":
             kw |= {"steak"}
     return sorted(kw)

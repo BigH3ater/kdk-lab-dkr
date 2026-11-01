@@ -5,7 +5,7 @@ data read from each recipe page's schema.org JSON-LD on the dates shown.
 
 **Scoring:** Bayesian `score = (C*m + n*r)/(C+n)` with `m=4.0`, `C=50`. Verdict: **good** = rating ≥ 4.6 & count ≥ 40; **acceptable** = rating ≥ 4.3 & count ≥ 10; else rejected. The chosen default per slot is the top-scoring good/acceptable candidate (override with `selected: true`).
 
-**Totals:** 96 slots, 228 candidates — good 96, acceptable 79, rejected 53; 30 slots with no good candidate.
+**Totals:** 144 slots, 317 candidates — good 155, acceptable 96, rejected 66; 37 slots with no good candidate.
 
 
 ## Fall
@@ -29,10 +29,6 @@ data read from each recipe page's schema.org JSON-LD on the dates shown.
 | fall-chicken-4  | Baked Lemon Chicken | wellplated.com | 4.85 | 53 | 4.4374 | 100 | rejected | over total-time cap (100 > 60 min) |
 | fall-chicken-5 ★ | Baked Parmesan Crusted Chicken Recipe | foodiecrush.com | 4.99 | 87 | 4.6287 | 35 | good | swap to olive oil (mayonnaise (1/3 cup) or melted butter); p |
 | fall-chicken-5  | Baked Chicken Breast (Juicy, Easy, High- | skinnytaste.com | 4.88 | 83 | 4.5492 | 95 | rejected | over total-time cap (95 > 60 min) |
-| fall-beef-a ★ | Mediterranean Ground Beef Stir Fry | downshiftology.com | 4.93 | 260 | 4.78 | 25 | good | - |
-| fall-beef-a  | Ground Beef Butternut Squash | thecleaneatingcouple.com | 5 | 6 | 4.1071 | 45 | rejected | below acceptable (5 / 6 reviews) |
-| fall-beef-b ★ | Ground Beef and Broccoli Stir Fry | skinnytaste.com | 4.68 | 221 | 4.5545 | 13 | good | swap to olive oil (sesame oil (1/2 tbsp)) |
-| fall-beef-b  | One-Pan Mongolian Beef Noodles with broc | recipetineats.com | 4.5 | 44 | 4.234 | 15 | acceptable | swap to olive oil (plain oil e.g. canola (2 tbsp), sesame oi |
 | fall-steak  | Grilled Steaks with Mushroom Sauce | tasteofhome.com | 4.89 | 18 | 4.2356 | 20 | acceptable | swap to olive oil (butter (1/4 cup)) |
 | fall-steak  | Sirloin with Mushroom Sauce | tasteofhome.com | 4 | 2 | 4.0 | 30 | rejected | below acceptable (4 / 2 reviews) |
 | fall-steak ★ | Filet Mignon Recipe in Mushroom Sauce (V | natashaskitchen.com | 5 | 153 | 4.7537 | 30 | good | swap to olive oil (unsalted butter (4 tbsp), whipping cream  |
@@ -66,6 +62,35 @@ data read from each recipe page's schema.org JSON-LD on the dates shown.
 | fall-lunch-4 ★ | Meal Prep Greek Chicken Rice Bowls | skinnytaste.com | 4.85 | 38 | 4.367 | 60 | acceptable | published total 60 min over 30-min active cap (may include p |
 | fall-roast ★ | Mississippi Pot Roast | Spend With Pennies | 4.98 | 284 | 4.8333 | 505 | good | owner-chosen recipe; reduce or swap to olive oil if wanted ( |
 | fall-roast  | Slow Cooker Pot Roast | RecipeTin Eats | 4.89 | 224 | 4.7276 | 515 | good | slow-cooker: 515 min total is mostly passive; active/prep ti |
+| fall-beef-tacos ★ | Easy Ground Beef Tacos | Spend With Pennies | 4.91 | 44 | 4.426 | 30 | good | - |
+| fall-beef-tacos  | Mexican Taco Skillet | Wholesome Yum | 4.92 | 24 | 4.2984 | 30 | acceptable | - |
+| fall-beef-spaghetti  | Fusilli with Meat Sauce (jarred) | Spend With Pennies | 4.97 | 33 | 4.3857 | 27 | acceptable | - |
+| fall-beef-spaghetti ★ | Instant Pot Spaghetti | Cooking Classy | 4.75 | 51 | 4.3787 | 30 | good | - |
+| fall-beef-broccoli ★ | Ground Beef and Broccoli Stir Fry | Skinnytaste | 4.68 | 221 | 4.5545 | 13 | good | swap to olive oil (sesame oil) |
+| fall-beef-broccoli  | Ground Beef and Broccoli | Well Plated | 4.88 | 71 | 4.5164 | 25 | good | swap to olive oil (canola oil, sesame oil) |
+| fall-beef-quesadilla ★ | Crispy Oven Baked Beef Quesadillas | RecipeTin Eats | 4.95 | 80 | 4.5846 | 25 | good | - |
+| fall-beef-quesadilla  | Ground Beef Quesadillas | Well Plated | 5 | 7 | 4.1228 | 25 | rejected | below acceptable (5 / 7 reviews) |
+| fall-beef-philly ★ | Philly Cheesesteak Casserole (ground bee | Wholesome Yum | 4.85 | 108 | 4.581 | 40 | good | published total 40 min over 30-min active cap (may include p |
+| fall-beef-philly  | Sloppy Cheesesteaks | Taste of Home | 4.33 | 3 | 4.0187 | 20 | rejected | below acceptable (4.33 / 3 reviews) |
+| fall-beef-sloppy ★ | Sloppy Joes | Natasha's Kitchen | 4.94 | 2056 | 4.9177 | 30 | good | - |
+| fall-beef-sloppy  | Skinny Sloppy Joes | Skinnytaste | 4.83 | 111 | 4.5722 | 30 | good | - |
+| fall-beef-greek ★ | Mediterranean Ground Beef Stir Fry (feta | Downshiftology | 4.93 | 260 | 4.78 | 25 | good | - |
+| fall-beef-chili ★ | Beef Chili | Natasha's Kitchen | 4.92 | 308 | 4.7915 | 30 | good | - |
+| fall-beef-chili  | The Best Chili | Spend With Pennies | 4.95 | 3113 | 4.935 | 65 | rejected | over total-time cap (65 > 60 min) |
+| fall-beef-cheeseburger-soup  | Cheeseburger Soup (20-min) | Wholesome Yum | 4.97 | 85 | 4.6107 | 20 | good | swap to olive oil (bacon) |
+| fall-beef-cheeseburger-soup ★ | Cheeseburger Soup | The Recipe Critic | 4.83 | 167 | 4.6388 | 45 | good | swap to olive oil (butter); published total 45 min over 30-m |
+| fall-pork-pan-seared  | Pan Seared Pork Chops | Wholesome Yum | 4.99 | 59 | 4.5359 | 11 | good | - |
+| fall-pork-pan-seared ★ | Pan Seared Pork Chops with Herb Butter | Spend With Pennies | 4.99 | 88 | 4.6313 | 25 | good | swap to olive oil (vegetable oil, butter) |
+| fall-pork-baked  | Super Easy Baked Pork Chops | Downshiftology | 4.99 | 95 | 4.6486 | 25 | good | - |
+| fall-pork-baked ★ | Juicy Baked Pork Chops | Spend With Pennies | 4.95 | 308 | 4.8173 | 60 | good | published total 60 min over 30-min active cap (may include p |
+| fall-pork-lemon-herb ★ | Lemon Garlic Pork Chops | RecipeTin Eats | 4.98 | 36 | 4.4102 | 15 | acceptable | - |
+| fall-pork-lemon-herb  | Greek Pork Chops | Taste of Home | 4.72 | 36 | 4.3014 | 25 | acceptable | - |
+| fall-pork-honey-garlic ★ | Honey Garlic Pork Chops | Wholesome Yum | 5 | 11 | 4.1803 | 15 | acceptable | swap to olive oil (butter) |
+| fall-pork-honey-garlic  | Honey Garlic Pork Chops | Well Plated | 5 | 19 | 4.2754 | 83 | rejected | over total-time cap (83 > 60 min) |
+| fall-pork-smothered ★ | French Onion Smothered Pork Chops | RecipeTin Eats | 4.93 | 82 | 4.5777 | 35 | good | swap to olive oil (butter); published total 35 min over 30-m |
+| fall-pork-smothered  | Smothered Pork Chops | Wholesome Yum | 4.92 | 60 | 4.5018 | 60 | good | published total 60 min over 30-min active cap (may include p |
+| fall-pork-sheet-pan ★ | Oven Baked Pork Chops with Potatoes | RecipeTin Eats | 4.92 | 495 | 4.8356 | 40 | good | published total 40 min over 30-min active cap (may include p |
+| fall-pork-sheet-pan  | Pork Chops and Asparagus Sheet Pan | Taste of Home | 4.11 | 19 | 4.0303 | 40 | rejected | below acceptable (4.11 / 19 reviews) |
 
 ## Spring
 
@@ -89,10 +114,6 @@ data read from each recipe page's schema.org JSON-LD on the dates shown.
 | spring-chicken-5  | Baked Lemon Chicken | wellplated.com | 4.85 | 53 | 4.4374 | 100 | rejected | over total-time cap (100 > 60 min) |
 | spring-chicken-5 ★ | Greek Style Baked Chicken Breasts | thelemonbowl.com | 4.39 | 18 | 4.1032 | 60 | acceptable | published total 60 min over 30-min active cap (may include p |
 | spring-chicken-5  | Lemon Feta Chicken | tasteofhome.com | 5 | 4 | 4.0741 | 25 | rejected | below acceptable (5 / 4 reviews) |
-| spring-beef-a ★ | Mediterranean Ground Beef Stir Fry | downshiftology.com | 4.93 | 260 | 4.78 | 25 | good | - |
-| spring-beef-a  | Beef and Rice with Veggies | recipetineats.com | 4.92 | 117 | 4.6446 | 25 | good | - |
-| spring-beef-b  | Healthy Ground Beef Stir Fry | thecleaneatingcouple.com | 4.96 | 24 | 4.3114 | 35 | acceptable | swap to olive oil (sesame oil); published total 35 min over  |
-| spring-beef-b ★ | Ground Beef and Broccoli Stir Fry | skinnytaste.com | 4.68 | 221 | 4.5545 | 13 | good | swap to olive oil (sesame oil) |
 | spring-steak ★ | Grilled Chimichurri Flank Steak | skinnytaste.com | 4.95 | 36 | 4.3977 | 30 | acceptable | - |
 | spring-steak  | Sirloin Steak Tips (With Chimichurri!) | wholesomeyum.com | 5 | 16 | 4.2424 | 38 | acceptable | published total 38 min over 30-min active cap (may include p |
 | spring-side-asparagus ★ | Oven Roasted Asparagus (Easy Recipe) | wholesomeyum.com | 4.97 | 243 | 4.8045 | 17 | good | - |
@@ -124,6 +145,31 @@ data read from each recipe page's schema.org JSON-LD on the dates shown.
 | spring-lunch-4  | Greek Chicken Bowls | ifoodreal.com | 5 | 2 | 4.0385 | 30 | rejected | too many ingredients (13 > 10) |
 | spring-roast ★ | Mississippi Pot Roast | Spend With Pennies | 4.98 | 284 | 4.8333 | 505 | good | owner-chosen recipe; reduce or swap to olive oil if wanted ( |
 | spring-roast  | Slow Cooker Pot Roast | RecipeTin Eats | 4.89 | 224 | 4.7276 | 515 | good | slow-cooker: 515 min total is mostly passive; active/prep ti |
+| spring-beef-tacos ★ | Easy Ground Beef Tacos | Spend With Pennies | 4.91 | 44 | 4.426 | 30 | good | - |
+| spring-beef-tacos  | Mexican Taco Skillet | Wholesome Yum | 4.92 | 24 | 4.2984 | 30 | acceptable | - |
+| spring-beef-spaghetti  | Fusilli with Meat Sauce (jarred) | Spend With Pennies | 4.97 | 33 | 4.3857 | 27 | acceptable | - |
+| spring-beef-spaghetti ★ | Instant Pot Spaghetti | Cooking Classy | 4.75 | 51 | 4.3787 | 30 | good | - |
+| spring-beef-broccoli ★ | Ground Beef and Broccoli Stir Fry | Skinnytaste | 4.68 | 221 | 4.5545 | 13 | good | swap to olive oil (sesame oil) |
+| spring-beef-broccoli  | Ground Beef and Broccoli | Well Plated | 4.88 | 71 | 4.5164 | 25 | good | swap to olive oil (canola oil, sesame oil) |
+| spring-beef-quesadilla ★ | Crispy Oven Baked Beef Quesadillas | RecipeTin Eats | 4.95 | 80 | 4.5846 | 25 | good | - |
+| spring-beef-quesadilla  | Ground Beef Quesadillas | Well Plated | 5 | 7 | 4.1228 | 25 | rejected | below acceptable (5 / 7 reviews) |
+| spring-beef-philly ★ | Philly Cheesesteak Casserole (ground bee | Wholesome Yum | 4.85 | 108 | 4.581 | 40 | good | published total 40 min over 30-min active cap (may include p |
+| spring-beef-philly  | Sloppy Cheesesteaks | Taste of Home | 4.33 | 3 | 4.0187 | 20 | rejected | below acceptable (4.33 / 3 reviews) |
+| spring-beef-sloppy ★ | Sloppy Joes | Natasha's Kitchen | 4.94 | 2056 | 4.9177 | 30 | good | - |
+| spring-beef-sloppy  | Skinny Sloppy Joes | Skinnytaste | 4.83 | 111 | 4.5722 | 30 | good | - |
+| spring-beef-greek ★ | Mediterranean Ground Beef Stir Fry (feta | Downshiftology | 4.93 | 260 | 4.78 | 25 | good | - |
+| spring-pork-pan-seared  | Pan Seared Pork Chops | Wholesome Yum | 4.99 | 59 | 4.5359 | 11 | good | - |
+| spring-pork-pan-seared ★ | Pan Seared Pork Chops with Herb Butter | Spend With Pennies | 4.99 | 88 | 4.6313 | 25 | good | swap to olive oil (vegetable oil, butter) |
+| spring-pork-baked  | Super Easy Baked Pork Chops | Downshiftology | 4.99 | 95 | 4.6486 | 25 | good | - |
+| spring-pork-baked ★ | Juicy Baked Pork Chops | Spend With Pennies | 4.95 | 308 | 4.8173 | 60 | good | published total 60 min over 30-min active cap (may include p |
+| spring-pork-lemon-herb ★ | Lemon Garlic Pork Chops | RecipeTin Eats | 4.98 | 36 | 4.4102 | 15 | acceptable | - |
+| spring-pork-lemon-herb  | Greek Pork Chops | Taste of Home | 4.72 | 36 | 4.3014 | 25 | acceptable | - |
+| spring-pork-honey-garlic ★ | Honey Garlic Pork Chops | Wholesome Yum | 5 | 11 | 4.1803 | 15 | acceptable | swap to olive oil (butter) |
+| spring-pork-honey-garlic  | Honey Garlic Pork Chops | Well Plated | 5 | 19 | 4.2754 | 83 | rejected | over total-time cap (83 > 60 min) |
+| spring-pork-smothered ★ | French Onion Smothered Pork Chops | RecipeTin Eats | 4.93 | 82 | 4.5777 | 35 | good | swap to olive oil (butter); published total 35 min over 30-m |
+| spring-pork-smothered  | Smothered Pork Chops | Wholesome Yum | 4.92 | 60 | 4.5018 | 60 | good | published total 60 min over 30-min active cap (may include p |
+| spring-pork-sheet-pan ★ | Oven Baked Pork Chops with Potatoes | RecipeTin Eats | 4.92 | 495 | 4.8356 | 40 | good | published total 40 min over 30-min active cap (may include p |
+| spring-pork-sheet-pan  | Pork Chops and Asparagus Sheet Pan | Taste of Home | 4.11 | 19 | 4.0303 | 40 | rejected | below acceptable (4.11 / 19 reviews) |
 
 ## Summer
 
@@ -149,11 +195,6 @@ data read from each recipe page's schema.org JSON-LD on the dates shown.
 | summer-chicken-5 ★ | THE BEST Greek Chicken Marinade | foodiecrush | 4.64 | 684 | 4.5964 | 50 | good | published total 50 min over 30-min active cap (may include p |
 | summer-chicken-5  | Greek Chicken Bowls Recipe | Natasha's Kitchen | 5 | 26 | 4.3421 | 30 | acceptable | - |
 | summer-chicken-5  | Grilled Greek Lemon Chicken | Cooking Classy | 5 | 14 | 4.2188 | 145 | rejected | over total-time cap (145 > 60 min) |
-| summer-beef-a ★ | Smashed Beef Koftas with Yogurt Sauce | RecipeTin Eats | 4.94 | 30 | 4.3525 | 25 | acceptable | - |
-| summer-beef-a  | Gyro Salad with Tzatziki Dressing | Taste of Home | 5 | 3 | 4.0566 | 30 | rejected | too many ingredients (12 > 10) |
-| summer-beef-b ★ | Korean Beef Bowl Recipe | Skinnytaste | 4.95 | 280 | 4.8061 | 30 | good | swap to olive oil (sesame oil (1 tsp), cooking spray (type u |
-| summer-beef-b  | Korean Beef Bowl | Well Plated | 4.87 | 234 | 4.7168 | 20 | good | swap to olive oil (sesame oil (1 tbsp)) |
-| summer-beef-b  | Korean Beef Bowl (Easy In 20 Minutes) | Wholesome Yum | 4.88 | 172 | 4.6818 | 20 | good | swap to olive oil (sesame oil (2 tsp)) |
 | summer-steak ★ | Steak Fajitas | Downshiftology | 5 | 32 | 4.3902 | 50 | acceptable | published total 50 min over 30-min active cap (may include p |
 | summer-steak  | Steak Fajitas | Taste of Home | 4.9 | 21 | 4.2662 | 30 | acceptable | swap to olive oil (canola oil) |
 | summer-steak  | Steak Fajitas | Well Plated | 4.84 | 36 | 4.3516 | 75 | rejected | over total-time cap (75 > 60 min) |
@@ -190,6 +231,31 @@ data read from each recipe page's schema.org JSON-LD on the dates shown.
 | summer-lunch-4  | Chicken Quinoa Salad | Taste of Home | 4 | 1 | 4.0 | 25 | rejected | below acceptable (4 / 1 reviews) |
 | summer-roast ★ | Mississippi Pot Roast | Spend With Pennies | 4.98 | 284 | 4.8333 | 505 | good | owner-chosen recipe; reduce or swap to olive oil if wanted ( |
 | summer-roast  | Slow Cooker Pot Roast | RecipeTin Eats | 4.89 | 224 | 4.7276 | 515 | good | slow-cooker: 515 min total is mostly passive; active/prep ti |
+| summer-beef-tacos ★ | Easy Ground Beef Tacos | Spend With Pennies | 4.91 | 44 | 4.426 | 30 | good | - |
+| summer-beef-tacos  | Mexican Taco Skillet | Wholesome Yum | 4.92 | 24 | 4.2984 | 30 | acceptable | - |
+| summer-beef-spaghetti  | Fusilli with Meat Sauce (jarred) | Spend With Pennies | 4.97 | 33 | 4.3857 | 27 | acceptable | - |
+| summer-beef-spaghetti ★ | Instant Pot Spaghetti | Cooking Classy | 4.75 | 51 | 4.3787 | 30 | good | - |
+| summer-beef-broccoli ★ | Ground Beef and Broccoli Stir Fry | Skinnytaste | 4.68 | 221 | 4.5545 | 13 | good | swap to olive oil (sesame oil) |
+| summer-beef-broccoli  | Ground Beef and Broccoli | Well Plated | 4.88 | 71 | 4.5164 | 25 | good | swap to olive oil (canola oil, sesame oil) |
+| summer-beef-quesadilla ★ | Crispy Oven Baked Beef Quesadillas | RecipeTin Eats | 4.95 | 80 | 4.5846 | 25 | good | - |
+| summer-beef-quesadilla  | Ground Beef Quesadillas | Well Plated | 5 | 7 | 4.1228 | 25 | rejected | below acceptable (5 / 7 reviews) |
+| summer-beef-philly ★ | Philly Cheesesteak Casserole (ground bee | Wholesome Yum | 4.85 | 108 | 4.581 | 40 | good | published total 40 min over 30-min active cap (may include p |
+| summer-beef-philly  | Sloppy Cheesesteaks | Taste of Home | 4.33 | 3 | 4.0187 | 20 | rejected | below acceptable (4.33 / 3 reviews) |
+| summer-beef-sloppy ★ | Sloppy Joes | Natasha's Kitchen | 4.94 | 2056 | 4.9177 | 30 | good | - |
+| summer-beef-sloppy  | Skinny Sloppy Joes | Skinnytaste | 4.83 | 111 | 4.5722 | 30 | good | - |
+| summer-beef-greek ★ | Mediterranean Ground Beef Stir Fry (feta | Downshiftology | 4.93 | 260 | 4.78 | 25 | good | - |
+| summer-pork-pan-seared  | Pan Seared Pork Chops | Wholesome Yum | 4.99 | 59 | 4.5359 | 11 | good | - |
+| summer-pork-pan-seared ★ | Pan Seared Pork Chops with Herb Butter | Spend With Pennies | 4.99 | 88 | 4.6313 | 25 | good | swap to olive oil (vegetable oil, butter) |
+| summer-pork-baked  | Super Easy Baked Pork Chops | Downshiftology | 4.99 | 95 | 4.6486 | 25 | good | - |
+| summer-pork-baked ★ | Juicy Baked Pork Chops | Spend With Pennies | 4.95 | 308 | 4.8173 | 60 | good | published total 60 min over 30-min active cap (may include p |
+| summer-pork-lemon-herb ★ | Lemon Garlic Pork Chops | RecipeTin Eats | 4.98 | 36 | 4.4102 | 15 | acceptable | - |
+| summer-pork-lemon-herb  | Greek Pork Chops | Taste of Home | 4.72 | 36 | 4.3014 | 25 | acceptable | - |
+| summer-pork-honey-garlic ★ | Honey Garlic Pork Chops | Wholesome Yum | 5 | 11 | 4.1803 | 15 | acceptable | swap to olive oil (butter) |
+| summer-pork-honey-garlic  | Honey Garlic Pork Chops | Well Plated | 5 | 19 | 4.2754 | 83 | rejected | over total-time cap (83 > 60 min) |
+| summer-pork-smothered ★ | French Onion Smothered Pork Chops | RecipeTin Eats | 4.93 | 82 | 4.5777 | 35 | good | swap to olive oil (butter); published total 35 min over 30-m |
+| summer-pork-smothered  | Smothered Pork Chops | Wholesome Yum | 4.92 | 60 | 4.5018 | 60 | good | published total 60 min over 30-min active cap (may include p |
+| summer-pork-sheet-pan ★ | Oven Baked Pork Chops with Potatoes | RecipeTin Eats | 4.92 | 495 | 4.8356 | 40 | good | published total 40 min over 30-min active cap (may include p |
+| summer-pork-sheet-pan  | Pork Chops and Asparagus Sheet Pan | Taste of Home | 4.11 | 19 | 4.0303 | 40 | rejected | below acceptable (4.11 / 19 reviews) |
 
 ## Winter
 
@@ -212,12 +278,6 @@ data read from each recipe page's schema.org JSON-LD on the dates shown.
 | winter-chicken-4  | Garlic-Ginger Chicken Stir-Fry | Skinnytaste | 4.83 | 35 | 4.3418 | 35 | acceptable | swap to olive oil (1 tbsp vegetable oil, 2 tbsp toasted sesa |
 | winter-chicken-5 ★ | Maple Dijon Chicken and Vegetables | Well Plated | 4.71 | 44 | 4.3323 | 45 | good | published total 45 min over 30-min active cap (may include p |
 | winter-chicken-5  | Chicken Broccoli and Sweet Potato Sheet  | Cooking Classy | 4.68 | 28 | 4.2441 | 55 | acceptable | published total 55 min over 30-min active cap (may include p |
-| winter-beef-a  | Keftedes (Baked Greek Meatballs) | The Lemon Bowl | 4.16 | 32 | 4.0624 | 35 | rejected | below acceptable (4.16 / 32 reviews) |
-| winter-beef-a  | Greek Meatballs (Keftedes) | Cooking Classy | 5 | 2 | 4.0385 | 55 | rejected | below acceptable (5 / 2 reviews) |
-| winter-beef-a  | Greek Lamb Meatballs with Tzatziki Sauce | Taste of Home | None | None | None | 40 | rejected | no rating found |
-| winter-beef-a ★ | Mediterranean Ground Beef Stir Fry | Downshiftology | 4.93 | 260 | 4.78 | 25 | good | - |
-| winter-beef-b  | Ground Beef and Broccoli | Well Plated | 4.88 | 71 | 4.5164 | 25 | good | swap to olive oil (2 tbsp canola oil, 1 tbsp sesame oil) |
-| winter-beef-b ★ | Ground Beef and Broccoli Stir Fry | Skinnytaste | 4.68 | 221 | 4.5545 | 13 | good | swap to olive oil (1/2 tbsp sesame oil) |
 | winter-steak  | Steak & New Potato Toss | Taste of Home | 4.67 | 9 | 4.1022 | 40 | rejected | below acceptable (4.67 / 9 reviews) |
 | winter-steak  | Steak And Potatoes (One Pan Recipe) | Wholesome Yum | 5 | 6 | 4.1071 | 65 | rejected | over total-time cap (65 > 60 min) |
 | winter-steak  | Sheet-Pan Steak Dinner | Taste of Home | 5 | 2 | 4.0385 | 40 | rejected | below acceptable (5 / 2 reviews) |
@@ -255,3 +315,32 @@ data read from each recipe page's schema.org JSON-LD on the dates shown.
 | winter-lunch-4  | Chicken Burrito | RecipeTin Eats | 4.96 | 93 | 4.6243 | 30 | good | - |
 | winter-roast ★ | Mississippi Pot Roast | Spend With Pennies | 4.98 | 284 | 4.8333 | 505 | good | owner-chosen recipe; reduce or swap to olive oil if wanted ( |
 | winter-roast  | Slow Cooker Pot Roast | RecipeTin Eats | 4.89 | 224 | 4.7276 | 515 | good | slow-cooker: 515 min total is mostly passive; active/prep ti |
+| winter-beef-tacos ★ | Easy Ground Beef Tacos | Spend With Pennies | 4.91 | 44 | 4.426 | 30 | good | - |
+| winter-beef-tacos  | Mexican Taco Skillet | Wholesome Yum | 4.92 | 24 | 4.2984 | 30 | acceptable | - |
+| winter-beef-spaghetti  | Fusilli with Meat Sauce (jarred) | Spend With Pennies | 4.97 | 33 | 4.3857 | 27 | acceptable | - |
+| winter-beef-spaghetti ★ | Instant Pot Spaghetti | Cooking Classy | 4.75 | 51 | 4.3787 | 30 | good | - |
+| winter-beef-broccoli ★ | Ground Beef and Broccoli Stir Fry | Skinnytaste | 4.68 | 221 | 4.5545 | 13 | good | swap to olive oil (sesame oil) |
+| winter-beef-broccoli  | Ground Beef and Broccoli | Well Plated | 4.88 | 71 | 4.5164 | 25 | good | swap to olive oil (canola oil, sesame oil) |
+| winter-beef-quesadilla ★ | Crispy Oven Baked Beef Quesadillas | RecipeTin Eats | 4.95 | 80 | 4.5846 | 25 | good | - |
+| winter-beef-quesadilla  | Ground Beef Quesadillas | Well Plated | 5 | 7 | 4.1228 | 25 | rejected | below acceptable (5 / 7 reviews) |
+| winter-beef-philly ★ | Philly Cheesesteak Casserole (ground bee | Wholesome Yum | 4.85 | 108 | 4.581 | 40 | good | published total 40 min over 30-min active cap (may include p |
+| winter-beef-philly  | Sloppy Cheesesteaks | Taste of Home | 4.33 | 3 | 4.0187 | 20 | rejected | below acceptable (4.33 / 3 reviews) |
+| winter-beef-sloppy ★ | Sloppy Joes | Natasha's Kitchen | 4.94 | 2056 | 4.9177 | 30 | good | - |
+| winter-beef-sloppy  | Skinny Sloppy Joes | Skinnytaste | 4.83 | 111 | 4.5722 | 30 | good | - |
+| winter-beef-greek ★ | Mediterranean Ground Beef Stir Fry (feta | Downshiftology | 4.93 | 260 | 4.78 | 25 | good | - |
+| winter-beef-chili ★ | Beef Chili | Natasha's Kitchen | 4.92 | 308 | 4.7915 | 30 | good | - |
+| winter-beef-chili  | The Best Chili | Spend With Pennies | 4.95 | 3113 | 4.935 | 65 | rejected | over total-time cap (65 > 60 min) |
+| winter-beef-cheeseburger-soup  | Cheeseburger Soup (20-min) | Wholesome Yum | 4.97 | 85 | 4.6107 | 20 | good | swap to olive oil (bacon) |
+| winter-beef-cheeseburger-soup ★ | Cheeseburger Soup | The Recipe Critic | 4.83 | 167 | 4.6388 | 45 | good | swap to olive oil (butter); published total 45 min over 30-m |
+| winter-pork-pan-seared  | Pan Seared Pork Chops | Wholesome Yum | 4.99 | 59 | 4.5359 | 11 | good | - |
+| winter-pork-pan-seared ★ | Pan Seared Pork Chops with Herb Butter | Spend With Pennies | 4.99 | 88 | 4.6313 | 25 | good | swap to olive oil (vegetable oil, butter) |
+| winter-pork-baked  | Super Easy Baked Pork Chops | Downshiftology | 4.99 | 95 | 4.6486 | 25 | good | - |
+| winter-pork-baked ★ | Juicy Baked Pork Chops | Spend With Pennies | 4.95 | 308 | 4.8173 | 60 | good | published total 60 min over 30-min active cap (may include p |
+| winter-pork-lemon-herb ★ | Lemon Garlic Pork Chops | RecipeTin Eats | 4.98 | 36 | 4.4102 | 15 | acceptable | - |
+| winter-pork-lemon-herb  | Greek Pork Chops | Taste of Home | 4.72 | 36 | 4.3014 | 25 | acceptable | - |
+| winter-pork-honey-garlic ★ | Honey Garlic Pork Chops | Wholesome Yum | 5 | 11 | 4.1803 | 15 | acceptable | swap to olive oil (butter) |
+| winter-pork-honey-garlic  | Honey Garlic Pork Chops | Well Plated | 5 | 19 | 4.2754 | 83 | rejected | over total-time cap (83 > 60 min) |
+| winter-pork-smothered ★ | French Onion Smothered Pork Chops | RecipeTin Eats | 4.93 | 82 | 4.5777 | 35 | good | swap to olive oil (butter); published total 35 min over 30-m |
+| winter-pork-smothered  | Smothered Pork Chops | Wholesome Yum | 4.92 | 60 | 4.5018 | 60 | good | published total 60 min over 30-min active cap (may include p |
+| winter-pork-sheet-pan ★ | Oven Baked Pork Chops with Potatoes | RecipeTin Eats | 4.92 | 495 | 4.8356 | 40 | good | published total 40 min over 30-min active cap (may include p |
+| winter-pork-sheet-pan  | Pork Chops and Asparagus Sheet Pan | Taste of Home | 4.11 | 19 | 4.0303 | 40 | rejected | below acceptable (4.11 / 19 reviews) |

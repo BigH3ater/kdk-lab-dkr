@@ -61,10 +61,26 @@ the build agent; you run it after reviewing the candidates.
    matched nothing default to `Target/weekly: Other` and are logged — move them
    to the right category once; the assignment sticks.
 
-7. **First weekly run.** Either wait for Thursday 18:03, or trigger the
-   `grocery-weekly` procedure in Komodo once. Confirm: meal-plan entries for the
-   coming Sun–Sat, a shopping list split New Pi / Target, and a Vikunja approval
-   task. Open `home.kmkdp.com/meal/groceries`.
+7. **First weekly run.** Either wait for the Tuesday 18:03 build pass, or trigger
+   the `grocery-weekly` procedure in Komodo once. Confirm: meal-plan entries for
+   the coming Sun–Sat, a shopping list split New Pi / Target, and a Vikunja
+   approval task due Wednesday 20:00. Open `home.kmkdp.com/meal/groceries`.
+
+## The weekly timeline (owner 2026-11)
+
+New Pi now **delivers on Saturday** and needs 2–3 days' lead, so:
+
+| Day | What |
+|---|---|
+| **Tuesday 18:03** | build pass: plan next week, build the New Pi + Target lists, raise the approval task (due Wed 20:00, reminder Wed noon) |
+| **Wednesday night** | owner approves; the New Pi order must go in by now |
+| **Thursday 07:05** | poll pass records the decision; the page shows the approved lists |
+| **Friday night** | owner places the Target Drive Up order (no lead time) from the same list |
+| **Saturday** | New Pi delivers |
+| **Sunday** | prep day + the fresh-fish dinner (salmon keeps 1–2 days; tuna weeks have no timing constraint) |
+
+The times are config values (`schedule`, `approvals.weekly`); the Komodo crons
+in `komodo/resources.toml` mirror them, off the gitops `:00/:15/:30/:45` slots.
 
 ## Add or swap a recipe
 
@@ -91,22 +107,51 @@ All in `config.yaml`:
 - **Scoring:** `prior_m`, `prior_weight_C`, the `good` / `acceptable` thresholds,
   and `site_count_weight` per site. Lower `good.min_count` if the reachable sites
   give few 100+-review recipes.
-- **Proteins / parity / feta / sides / lunches / snacks / seasons:** the
-  `proteins`, `sides`, `lunches`, `snacks`, `seasons` blocks.
-- **Roast dinner:** the `roast` block — `enabled`, `parity` (which week is a
-  roast week; `A` = odd ISO week = every other week), `night` (**Wednesday**,
-  owner decision 2026-10-31) and `leftovers`. On a roast week a slow-cooker roast
-  replaces one chicken dinner (3 chicken + roast), and the 3.5 lb roast's
-  leftovers are planned as Thursday lunch with no extra beef ordered (the
-  Thursday entry is created without `addshopping`). The Mississippi pot roast is
-  the default pick; the roast beef is Amana freezer stock (`food_onhand`), so only
-  the ranch/au jus packets, pepperoncini and butter reach the Target list. Set
-  `roast.enabled: false` to drop it (every dinner becomes 4 chicken again).
-- **Store routing:** `stores` (aisle order, weekly/bulk stores, freshness
-  defaults) and `recipes/foods.yaml` (per-food category). Move a food's category
-  once in Tandoor to override permanently.
+- **Dinner mix:** `proteins` (fish 1, poultry 2, ground_beef 2, steak 1; a roast
+  week drops ground_beef to 1). `beef` sets the ground-beef variety rule
+  (`no_repeat_within_week`, `max_asian_per_week`); feta rides on the weekend eggs.
+- **Flex dinner:** the `flex` block — `enabled` and `rotation` (default
+  `[pork, chicken]`; parity A → rotation[0], B → rotation[1]). The flex dinner
+  takes one slot to stretch the Amana beef; a chicken flex is an extra chicken
+  dish not already used that week. Set `flex.enabled: false` to drop it (that
+  slot becomes a 3rd ground beef).
+- **Pork chops** are fresh/weekly at New Pi; add candidates in
+  `recipes/candidates/<season>.yaml` under `<season>-pork-*` slots.
+- **Roast dinner:** the `roast` block — `enabled`, `parity` (`A` = odd ISO week =
+  every other week), `night` (**Wednesday**, owner decision) and `leftovers`. On
+  a roast week the roast replaces one **ground-beef** dinner; the 3.5 lb roast's
+  leftovers are the Thursday lunch (the entry is created without `addshopping`).
+  Mississippi pot roast is the default; the roast beef is Amana freezer stock
+  (`food_onhand`), so only the ranch/au jus packets, pepperoncini and butter reach
+  the Target list.
+- **Breakfast protein:** ready-to-drink shakes in "Weekly staples" — Chobani
+  (7/wk, Target, weekly) + Jocko (7/wk) + Nurri (7/wk). Nurri routes to Costco
+  (bulk run, rounded to whole 12-packs). **Jocko's store is unconfirmed**; it
+  defaults to Target/weekly — *owner TODO: say where Jocko is bought* (set its
+  rule in `recipes/foods.yaml`; move to `Costco/bulk` if Costco carries it).
+- **Pets:** dog/pet food is a JustFoodForDogs subscription, budgeted in Actual
+  and **not ordered here** — the config `exclude` list keeps any such item off
+  every store list.
+- **Store routing:** `stores` and `recipes/foods.yaml` (per-food category; a
+  `pack_size` on a bulk rule drives ceil-rounding to whole packs). Move a food's
+  category once in Tandoor to override permanently.
 - **Cadence:** `cadence.bulk_weeks` (N), `bulk_first_week_only`,
-  `bulk_month_parity`.
+  `bulk_month_parity`; weekly times in `schedule` + `approvals.weekly`.
+
+## Amana ground-beef runway
+
+An Amana eighth is ~30 lb ground beef + patties, plus 8 roasts (~3.5 lb each)
+and the steaks. With the current mix, ground-beef **dinners average ~1.5/week**
+(2 most weeks, 1 on the every-other-week roast weeks = (2+1)/2), each ~1 lb for
+two, plus a beef lunch prep in alternate weeks (~0.5 lb/wk). So beef runs
+~1.5 + 0.5 ≈ **2 lb/week** → 30 lb lasts **~15 weeks**, and with the patties
+**~15–18 weeks** — lining up with the **~16 weeks** the 8 roasts last (one every
+other week) and the steaks (~1/week). If the beef runs out first, the owner's
+options are Amana's add-on 1-lb ground-beef packages or reordering the share
+sooner (a low-stock reorder task is Phase 2).
+
+**Phase 2 idea (not built):** once a freezer inventory exists, the flex dinner
+becomes "ground beef when stock is high, pork or chicken when it's low".
 
 After a rules change, run the tests: `python3 -m pytest stacks/grocery-planner/tests/`.
 

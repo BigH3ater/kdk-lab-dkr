@@ -17,7 +17,7 @@ A one-shot on [[kdk-dkr-01]] that turns the owner's meal rules into next week's
 combined [[dashboard|Vikunja]] approval task (paged to the phone by
 [[home-assistant|Home Assistant]], the [approval contract](../runbooks/approval-tasks.md)).
 It is **Tandoor-driven, human-submitted**: everything up to the store's front
-door is automated; a person does the final order at New Pi (Coralville pickup)
+door is automated; a person does the final order at New Pi (Saturday delivery)
 and Target (Drive Up). There is no New Pi / Target ordering API, by design. The
 plan page lives in the dashboard mealplan sidecar at `home.kmkdp.com/meal/groceries`.
 
@@ -27,7 +27,7 @@ plan page lives in the dashboard mealplan sidecar at `home.kmkdp.com/meal/grocer
 
 | Field | Value |
 |---|---|
-| Runs | `grocery-weekly` Thu 18:03 (plan + list + task); `grocery-weekly-poll` Sat 07:05 (read the decision); `grocery-bulk` Thu 18:09 but the job acts only the first Thursday of an odd month (every 2 months, N=8). All: procedure → stack (deploy=false, destroy_before_deploy) on [[kdk-dkr-01]] |
+| Runs | `grocery-weekly` Tue 18:03 (plan + list + task); `grocery-weekly-poll` Thu 07:05 (read the decision); `grocery-bulk` Tue 18:09 but the job acts only the first Tuesday of an odd month (every 2 months, N=8). All: procedure → stack (deploy=false, destroy_before_deploy) on [[kdk-dkr-01]] |
 | Image | `kdk/grocery-planner` built locally (`auto_pull=false`, `run_build=true`); python 3.12-slim + requests + pyyaml, uid 1000, read-only rootfs, no caps, 256 MB, one-shot |
 | Output | stdout JSON lines → Loki (`job="grocery-planner"`); the page `home.kmkdp.com/meal/groceries`; a Vikunja approval task |
 | Secrets | `dashboard-tandoor-rw` (the sidecar's Tandoor account), `vikunja-api-rw` (approval task) — op-injected into `.env` |
@@ -35,30 +35,34 @@ plan page lives in the dashboard mealplan sidecar at `home.kmkdp.com/meal/grocer
 
 ## How a week flows
 
-1. **Thu 18:03** — `grocery-weekly` picks the season by date (Spring Mar–May,
-   Summer Jun–Aug, Fall Sep–Nov, Winter Dec–Feb), generates 7 dinners
-   (1 fish + 4 chicken breast + 1 ground beef + 1 steak), fish on Sunday,
-   salmon/tuna and Greek/Asian beef alternating by ISO-week parity, a rotating
-   veg side per dinner (no repeats), 2 lunch preps at 4 servings, and the
-   weekly-staples + snack feeder recipes. **Every other week (parity A, odd ISO
-   week) a slow-cooker roast replaces one chicken dinner** (3 chicken + 1 roast
-   that week), cooked **Wednesday** (`roast_night`, owner decision 2026-10-31),
-   with its own rotating veg side; the 3.5 lb roast's leftovers are planned as
-   **Thursday lunch** (no extra beef ordered). Roasts are Amana freezer stock, so
-   only the roast recipe's pantry bits (ranch/au jus packets, pepperoncini,
-   butter) reach the Target list. It writes the meal-plan entries
-   (idempotent per week key `gp:<ISO week>`), materializes the shopping list
-   (2 servings; lunches 4; on-hand foods dropped), splits it by the store prefix
-   of each food's supermarket category, and creates **one** combined Vikunja
-   approval task with `APPROVALS-CHOICES: all / newpi / target`, due Fri 20:00,
-   reminder Fri noon.
-2. **Fri** — HA pages the phone; the owner approves both, one store, or lets it
-   lapse (nothing is marked bought).
-3. **Sat 07:05** — `grocery-weekly-poll` reads the decision into the Loki audit
-   trail. The owner opens `home.kmkdp.com/meal/groceries`: New Pi as a tap-to-tick
-   in-store checklist, Target with per-item `target.com` search links for the
-   Drive Up cart, and a manual list with an add box. Ticks write `checked` back
-   to Tandoor, so Tandoor stays the source of truth.
+1. **Tuesday 18:03** — `grocery-weekly` picks the season by date (Spring Mar–May,
+   Summer Jun–Aug, Fall Sep–Nov, Winter Dec–Feb) and generates the 7 dinners for
+   the plan week (Sun→Sat) after the Saturday delivery: Sunday fish + **2 chicken
+   breast + 2 ground beef + 1 flex + 1 steak** (fish variant salmon/tuna by
+   ISO-week parity). The **flex** dinner alternates pork chop / chicken breast by
+   week; ground-beef dishes vary (no repeat, ≤1 Asian-style); feta rides on the
+   weekend eggs. **Every other week (parity A) a Wednesday slow-cooker roast
+   replaces one ground-beef dinner** (`roast_night`, owner decision), with its
+   own veg side and its leftovers planned as **Thursday lunch** (no extra beef).
+   It also plans a rotating veg side per dinner (no repeats), 2 lunch preps at 4
+   servings, and the weekly-staples + snack feeders; writes the meal-plan entries
+   (idempotent per week key `gp:<ISO week>`); materializes the shopping list via
+   the native meal-plan add-to-shopping (2 servings; lunches 4; on-hand + pet
+   foods dropped); splits it by the store prefix of each food's supermarket
+   category; and creates **one** combined Vikunja approval task
+   (`APPROVALS-CHOICES: all / newpi / target`), **due Wednesday 20:00, reminder
+   Wednesday noon** — New Pi needs 2–3 days' lead for the Saturday delivery, so
+   the order must go in by Wednesday night.
+2. **Wednesday** — HA pages the phone; the owner approves both, one store, or lets
+   it lapse (nothing is marked bought). Target Drive Up has no lead time and is
+   still ordered Friday night for the Saturday delivery, from the same list.
+3. **Thursday 07:05** — `grocery-weekly-poll` reads the decision into the Loki
+   audit trail and hides the non-approved store. The owner opens
+   `home.kmkdp.com/meal/groceries`: New Pi as a tap-to-tick checklist, Target with
+   per-item `target.com` search links for the Drive Up cart, and a manual list
+   with an add box. Ticks write `checked` back to Tandoor.
+4. **Saturday** — New Pi delivers; Sunday is prep + the fresh-fish dinner (salmon
+   keeps 1–2 days; tuna weeks have no timing constraint).
 
 ## Design decisions
 
@@ -86,8 +90,8 @@ Bayesian score and a good/acceptable/rejected verdict come from `config.yaml`
 (Allrecipes is out of scope — it blocks bots with HTTP 402). The review table is
 [recipe candidates](../reference/grocery-recipe-candidates.md). The owner-run
 seed runs a **preflight** that refuses to apply if any season is short of the
-generator minimums (1 salmon + 1 tuna + 4 chicken + Greek & Asian beef + 1 steak
-+ 1 slow-cooker roast + 7 sides + 2 lunches), then imports the chosen recipe for each slot through
+generator minimums (1 salmon + 1 tuna + 3 chicken + 4 ground-beef dishes + 3 pork
+chops + 1 steak + 1 slow-cooker roast + 7 sides + 2 lunches), then imports the chosen recipe for each slot through
 Tandoor's URL import (`recipe-from-source`), tags it, adds it to the season book,
 and routes its foods. The fixed breakfast/snack feeders ("Weekly staples",
 "Snacks to buy", "Snack prep") are seeded directly (not URL imports), and the

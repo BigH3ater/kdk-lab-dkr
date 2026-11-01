@@ -561,6 +561,9 @@ _AISLE_ORDER = {
     "Target": ["Pantry & Grains", "Canned", "Oils & Spices", "Condiments", "Dairy",
                "Snacks", "Household", "Other"],
 }
+# Foods that must never show on a store list (dog/pet food is a JustFoodForDogs
+# subscription, budgeted in Actual). Mirrors the grocery-planner config `exclude`.
+_GROCERY_EXCLUDE = ("dog food", "pet food", "dog treats")
 
 
 def _api_write(method: str, path: str, body: dict) -> bool:

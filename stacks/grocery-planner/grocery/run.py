@@ -88,6 +88,8 @@ def build_pool(recipes, season):
             kind = "lunch"
         elif "roast" in names:
             kind = "roast"
+        elif "pork" in names:
+            kind = "pork"
         elif "fish" in names:
             kind = "fish"
         elif "poultry" in names:
@@ -98,18 +100,19 @@ def build_pool(recipes, season):
             kind = "steak"
         else:
             continue
+        beef_style = None
+        if kind == "ground_beef":
+            beef_style = next((s for s in ("comfort", "tex-mex", "asian", "italian",
+                                           "greek") if s in names), "comfort")
         variant = None
         if "salmon" in names:
             variant = "salmon"
         elif "tuna" in names:
             variant = "tuna"
-        elif "greek" in names:
-            variant = "greek"
-        elif "asian" in names:
-            variant = "asian"
         pool.append({
             "id": r["id"], "name": r["name"], "kind": kind, "season": season,
-            "variant": variant, "working_time": r.get("working_time"),
+            "variant": variant, "beef_style": beef_style,
+            "working_time": r.get("working_time"),
             "ingredient_count": _ingredient_count(r), "slot": "",
             "servings": r.get("servings", 2),
         })
@@ -291,14 +294,22 @@ def _vikunja(cfg):
                    int(os.environ["VIKUNJA_APPROVALS_PROJECT"]))
 
 
+_DOW = {"monday": 0, "tuesday": 1, "wednesday": 2, "thursday": 3,
+        "friday": 4, "saturday": 5, "sunday": 6}
+
+
 def _due_and_reminder(cfg, start):
-    """Friday 20:00 CT due + Friday noon reminder for the plan week (the Friday
-    BEFORE the Sunday start)."""
+    """Due + reminder on the configured weekday (default Wednesday) in the week
+    BEFORE the Sunday plan start -- New Pi needs 2-3 days lead for the Saturday
+    delivery, so the order must go in by Wednesday night."""
     from zoneinfo import ZoneInfo
+    w = cfg["approvals"]["weekly"]
     tz = ZoneInfo(cfg["cadence"]["timezone"])
-    friday = start - datetime.timedelta(days=2)   # Sunday start -> previous Friday
-    due = datetime.datetime.combine(friday, datetime.time(cfg["approvals"]["weekly"]["due_hour"]), tz)
-    rem = datetime.datetime.combine(friday, datetime.time(cfg["approvals"]["weekly"]["reminder_hour"]), tz)
+    due_wd = _DOW[w.get("due_weekday", "wednesday")]
+    delta = (start.weekday() - due_wd) % 7 or 7          # the due weekday strictly before start
+    dday = start - datetime.timedelta(days=delta)
+    due = datetime.datetime.combine(dday, datetime.time(w["due_hour"]), tz)
+    rem = datetime.datetime.combine(dday, datetime.time(w["reminder_hour"]), tz)
     return due.isoformat(), rem.isoformat()
 
 
@@ -335,10 +346,26 @@ def run_bulk(cfg):
         return 0
     n = cfg["cadence"]["bulk_weeks"]
     jlog(event="bulk_start", weeks=n, stores=cfg["stores"]["bulk_stores"])
-    # Phase 2 stub: Amana beef eighth-share reorder is a separate low-stock task.
+    # Shelf-stable breakfast items that route to a bulk store (e.g. the Nurri
+    # shakes -> Costco) are ordered N weeks at a time, rounded UP to whole packs.
+    from .seed import route_food
+    foods_cfg = yaml.safe_load(open(os.path.join(STACK, "recipes", "foods.yaml")))
+    fixed = yaml.safe_load(open(os.path.join(STACK, "recipes", "fixed.yaml")))
+    bulk_stores = set(cfg["stores"]["bulk_stores"])
+    packs = []
+    for rec in fixed.get("recipes", []):
+        for ing in rec.get("ingredients", []):
+            store = (route_food(ing["food"], foods_cfg, cfg["stores"]).split("/", 1)[0])
+            if store in bulk_stores:
+                ps = S.food_pack_size(ing["food"], foods_cfg)
+                packs.append({"food": ing["food"], "weekly": ing.get("amount"),
+                              "pack_size": ps, "store": store,
+                              "packs": S.packs_needed(ing.get("amount", 0), n, ps)})
+    jlog(event="bulk_packs", weeks=n, items=packs)
+    # Phase 2 stub: Amana beef eighth-share reorder is a separate low-stock task,
+    # and the full N-week protein/pantry aggregation lands once the weekly path
+    # is live.
     jlog(event="bulk_stub", note="Amana beef reorder is Phase 2; Costco-only bulk here")
-    # The full bulk aggregation reuses run_weekly's laydown over n weeks; kept
-    # minimal per the brief. The owner enables it once the weekly path is live.
     return 0
 
 
