@@ -1,0 +1,148 @@
+# Workout (treadmill) dashboard — sections layout. YAML-mode, shipped from git.
+# Mirrors config/dashboards/roborock.yaml / home.yaml for structure, card styles
+# and the markdown per-item iteration idiom (roborock "Rooms Cleaned", ~l.323).
+#
+# DISPLAY ONLY. The only commands here are the walker helpers:
+#   - input_select.tm_current_walker (who is on the belt)
+#   - script.tm_set_walker_from_user ("I'm walking" — resolves the tapping HA
+#     user -> person -> sets the walker; this is the attribution mechanism).
+# NOTHING here commands the treadmill motor (that is Phase 2 / thud, out of scope).
+#
+# All entities come from config/packages/treadmill.yaml. Live bridge sensors
+# (sensor.treadmill_*) go unavailable/unknown when the bridge or console is off,
+# so the per-person markdown guards every read with float(0) / as_datetime(...,
+# default=none), the way roborock.yaml guards Mr. Slave going offline.
+#
+# DEPLOY / ACTIVATION: see the PR body. pre_deploy copies config/dashboards/*.yaml
+# to the host; a NEW YAML dashboard must then be registered in the host-managed
+# configuration.yaml `lovelace:` block and HA restarted (editing an existing YAML
+# dashboard only needs a browser refresh — per docs/services/home-assistant.md).
+title: Workout
+views:
+- title: Treadmill
+  path: treadmill-workouts
+  icon: mdi:run
+  type: sections
+  max_columns: 3
+  badges:
+  - type: entity
+    entity: input_boolean.tm_session_active
+    name: Session
+  - type: entity
+    entity: input_select.tm_current_walker
+    name: Walker
+  - type: entity
+    entity: sensor.treadmill_speed
+    name: Speed
+  sections:
+
+  - type: grid
+    cards:
+    - type: heading
+      heading: Now
+      icon: mdi:speedometer
+    - type: markdown
+      content: >-
+        {% if is_state('input_boolean.tm_session_active', 'on') -%}
+        **Session in progress** — {{ states('input_select.tm_current_walker') }} is walking.
+        {% else -%}
+        *No session in progress.* Live tiles read 0 until the belt moves.
+        {% endif %}
+    - type: tile
+      entity: sensor.treadmill_speed
+      name: Speed
+      icon: mdi:speedometer
+    - type: tile
+      entity: sensor.treadmill_incline
+      name: Incline
+      icon: mdi:slope-uphill
+    - type: tile
+      entity: sensor.treadmill_distance
+      name: Belt Distance
+      icon: mdi:map-marker-distance
+    - type: tile
+      entity: sensor.tm_session_distance
+      name: This Session
+      icon: mdi:map-marker-distance
+    - type: tile
+      entity: sensor.tm_calorie_rate
+      name: Burn Rate
+      icon: mdi:fire
+    - type: tile
+      entity: sensor.tm_session_calories
+      name: Session Calories
+      icon: mdi:fire
+
+  - type: grid
+    cards:
+    - type: heading
+      heading: Who's Walking
+      icon: mdi:account-switch
+    - type: tile
+      entity: input_select.tm_current_walker
+      name: Current Walker
+      features:
+      - type: select-options
+    - type: button
+      name: I'm Walking
+      icon: mdi:run
+      show_state: false
+      tap_action:
+        action: call-service
+        service: script.tm_set_walker_from_user
+    - type: markdown
+      content: >-
+        Tap **I'm Walking** and Home Assistant sets the walker to whoever you are
+        logged in as (Jacob or Rachel; anyone else is tracked as Guest). The
+        selected walker gets credited with the session when the belt stops — so
+        set it *before* you start.
+
+  - type: grid
+    cards:
+    - type: heading
+      heading: This Week
+      icon: mdi:calendar-week
+    - type: tile
+      entity: sensor.tm_workouts_this_week
+      name: Treadmill Workouts
+      icon: mdi:counter
+    - type: tile
+      entity: sensor.tm_time_walked_this_week
+      name: Time Walked
+      icon: mdi:timer-outline
+    - type: markdown
+      content: >-
+        Counts since **Monday 00:00**. Weekly goal context (4 strength / 2
+        treadmill) is tracked outside Home Assistant — these are the treadmill
+        numbers only.
+
+  - type: grid
+    column_span: 2
+    cards:
+    - type: heading
+      heading: Per Person
+      icon: mdi:account-group
+    - type: markdown
+      content: >-
+        {% set people = [
+          ('Jacob','jacob'),
+          ('Rachel','rachel'),
+          ('Guest','guest'),
+        ] %}
+        {% for name, p in people -%}
+        {% set today = states('sensor.tm_distance_daily_' ~ p) | float(0) -%}
+        {% set week = states('sensor.tm_distance_weekly_' ~ p) | float(0) -%}
+        {% set month = states('sensor.tm_distance_monthly_' ~ p) | float(0) -%}
+        {% set total = states('input_number.tm_total_distance_' ~ p) | float(0) -%}
+        {% set mins = states('input_number.tm_total_time_min_' ~ p) | float(0) -%}
+        {% set dt = as_datetime(states('input_datetime.tm_last_workout_' ~ p), default=none) -%}
+        - **{{ name }}** — today {{ (today / 1000) | round(2) }} km · week {{ (week / 1000) | round(2) }} km · month {{ (month / 1000) | round(2) }} km
+          {{- ' ' }}· total {{ (total / 1000) | round(2) }} km over {{ mins | round(0) | int }} min
+          {%- if dt is none or dt.year < 2020 %} · *no workout tracked yet*
+          {%- else %} · last **{{ relative_time(dt.replace(tzinfo=now().tzinfo)) }} ago**{{ ' ✓' if (now() - dt.replace(tzinfo=now().tzinfo)).days < 1 else '' }}
+          {%- endif %}
+        {% endfor %}
+
+        Today/week/month reset on their utility-meter cycles; **total** is the
+        all-time running tally. A session is credited to whoever was selected as
+        the walker when the belt stopped.
