@@ -64,8 +64,8 @@ data read from each recipe page's schema.org JSON-LD on the dates shown.
 | fall-roast  | Slow Cooker Pot Roast | RecipeTin Eats | 4.89 | 224 | 4.7276 | 515 | good | slow-cooker: 515 min total is mostly passive; active/prep ti |
 | fall-beef-tacos ★ | Easy Ground Beef Tacos | Spend With Pennies | 4.91 | 44 | 4.426 | 30 | good | - |
 | fall-beef-tacos  | Mexican Taco Skillet | Wholesome Yum | 4.92 | 24 | 4.2984 | 30 | acceptable | - |
-| fall-beef-spaghetti  | Fusilli with Meat Sauce (jarred) | Spend With Pennies | 4.97 | 33 | 4.3857 | 27 | acceptable | - |
-| fall-beef-spaghetti ★ | Instant Pot Spaghetti | Cooking Classy | 4.75 | 51 | 4.3787 | 30 | good | - |
+| fall-beef-spaghetti ★ | Fusilli with Meat Sauce (jarred) | Spend With Pennies | 4.97 | 33 | 4.3857 | 27 | acceptable | - |
+| fall-beef-spaghetti  | Instant Pot Spaghetti | Cooking Classy | 4.75 | 51 | 4.3787 | 30 | good | - |
 | fall-beef-broccoli ★ | Ground Beef and Broccoli Stir Fry | Skinnytaste | 4.68 | 221 | 4.5545 | 13 | good | swap to olive oil (sesame oil) |
 | fall-beef-broccoli  | Ground Beef and Broccoli | Well Plated | 4.88 | 71 | 4.5164 | 25 | good | swap to olive oil (canola oil, sesame oil) |
 | fall-beef-quesadilla ★ | Crispy Oven Baked Beef Quesadillas | RecipeTin Eats | 4.95 | 80 | 4.5846 | 25 | good | - |
@@ -147,8 +147,8 @@ data read from each recipe page's schema.org JSON-LD on the dates shown.
 | spring-roast  | Slow Cooker Pot Roast | RecipeTin Eats | 4.89 | 224 | 4.7276 | 515 | good | slow-cooker: 515 min total is mostly passive; active/prep ti |
 | spring-beef-tacos ★ | Easy Ground Beef Tacos | Spend With Pennies | 4.91 | 44 | 4.426 | 30 | good | - |
 | spring-beef-tacos  | Mexican Taco Skillet | Wholesome Yum | 4.92 | 24 | 4.2984 | 30 | acceptable | - |
-| spring-beef-spaghetti  | Fusilli with Meat Sauce (jarred) | Spend With Pennies | 4.97 | 33 | 4.3857 | 27 | acceptable | - |
-| spring-beef-spaghetti ★ | Instant Pot Spaghetti | Cooking Classy | 4.75 | 51 | 4.3787 | 30 | good | - |
+| spring-beef-spaghetti ★ | Fusilli with Meat Sauce (jarred) | Spend With Pennies | 4.97 | 33 | 4.3857 | 27 | acceptable | - |
+| spring-beef-spaghetti  | Instant Pot Spaghetti | Cooking Classy | 4.75 | 51 | 4.3787 | 30 | good | - |
 | spring-beef-broccoli ★ | Ground Beef and Broccoli Stir Fry | Skinnytaste | 4.68 | 221 | 4.5545 | 13 | good | swap to olive oil (sesame oil) |
 | spring-beef-broccoli  | Ground Beef and Broccoli | Well Plated | 4.88 | 71 | 4.5164 | 25 | good | swap to olive oil (canola oil, sesame oil) |
 | spring-beef-quesadilla ★ | Crispy Oven Baked Beef Quesadillas | RecipeTin Eats | 4.95 | 80 | 4.5846 | 25 | good | - |
@@ -233,8 +233,8 @@ data read from each recipe page's schema.org JSON-LD on the dates shown.
 | summer-roast  | Slow Cooker Pot Roast | RecipeTin Eats | 4.89 | 224 | 4.7276 | 515 | good | slow-cooker: 515 min total is mostly passive; active/prep ti |
 | summer-beef-tacos ★ | Easy Ground Beef Tacos | Spend With Pennies | 4.91 | 44 | 4.426 | 30 | good | - |
 | summer-beef-tacos  | Mexican Taco Skillet | Wholesome Yum | 4.92 | 24 | 4.2984 | 30 | acceptable | - |
-| summer-beef-spaghetti  | Fusilli with Meat Sauce (jarred) | Spend With Pennies | 4.97 | 33 | 4.3857 | 27 | acceptable | - |
-| summer-beef-spaghetti ★ | Instant Pot Spaghetti | Cooking Classy | 4.75 | 51 | 4.3787 | 30 | good | - |
+| summer-beef-spaghetti ★ | Fusilli with Meat Sauce (jarred) | Spend With Pennies | 4.97 | 33 | 4.3857 | 27 | acceptable | - |
+| summer-beef-spaghetti  | Instant Pot Spaghetti | Cooking Classy | 4.75 | 51 | 4.3787 | 30 | good | - |
 | summer-beef-broccoli ★ | Ground Beef and Broccoli Stir Fry | Skinnytaste | 4.68 | 221 | 4.5545 | 13 | good | swap to olive oil (sesame oil) |
 | summer-beef-broccoli  | Ground Beef and Broccoli | Well Plated | 4.88 | 71 | 4.5164 | 25 | good | swap to olive oil (canola oil, sesame oil) |
 | summer-beef-quesadilla ★ | Crispy Oven Baked Beef Quesadillas | RecipeTin Eats | 4.95 | 80 | 4.5846 | 25 | good | - |
@@ -317,8 +317,8 @@ data read from each recipe page's schema.org JSON-LD on the dates shown.
 | winter-roast  | Slow Cooker Pot Roast | RecipeTin Eats | 4.89 | 224 | 4.7276 | 515 | good | slow-cooker: 515 min total is mostly passive; active/prep ti |
 | winter-beef-tacos ★ | Easy Ground Beef Tacos | Spend With Pennies | 4.91 | 44 | 4.426 | 30 | good | - |
 | winter-beef-tacos  | Mexican Taco Skillet | Wholesome Yum | 4.92 | 24 | 4.2984 | 30 | acceptable | - |
-| winter-beef-spaghetti  | Fusilli with Meat Sauce (jarred) | Spend With Pennies | 4.97 | 33 | 4.3857 | 27 | acceptable | - |
-| winter-beef-spaghetti ★ | Instant Pot Spaghetti | Cooking Classy | 4.75 | 51 | 4.3787 | 30 | good | - |
+| winter-beef-spaghetti ★ | Fusilli with Meat Sauce (jarred) | Spend With Pennies | 4.97 | 33 | 4.3857 | 27 | acceptable | - |
+| winter-beef-spaghetti  | Instant Pot Spaghetti | Cooking Classy | 4.75 | 51 | 4.3787 | 30 | good | - |
 | winter-beef-broccoli ★ | Ground Beef and Broccoli Stir Fry | Skinnytaste | 4.68 | 221 | 4.5545 | 13 | good | swap to olive oil (sesame oil) |
 | winter-beef-broccoli  | Ground Beef and Broccoli | Well Plated | 4.88 | 71 | 4.5164 | 25 | good | swap to olive oil (canola oil, sesame oil) |
 | winter-beef-quesadilla ★ | Crispy Oven Baked Beef Quesadillas | RecipeTin Eats | 4.95 | 80 | 4.5846 | 25 | good | - |
