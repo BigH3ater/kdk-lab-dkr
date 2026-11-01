@@ -437,7 +437,7 @@ def apply_dedupe(t, dry_run=True):
                     t.post("/api/recipe-book-entry/", {"book": e["book"], "recipe": keep["id"]})
                     keep_books.add(e["book"])
             for m in [m for m in meals if (m.get("recipe") or {}).get("id") == d["id"]]:
-                t.patch(f"/api/meal-plan/{m['id']}/", {"recipe": {"id": keep["id"]}})
+                t.patch(f"/api/meal-plan/{m['id']}/", {"recipe": {"id": keep["id"], "name": keep["name"]}})
         t.patch(f"/api/recipe/{keep['id']}/", {"keywords": list(kw.values())})
         for d in dups:
             t.delete(f"/api/recipe/{d['id']}/")
