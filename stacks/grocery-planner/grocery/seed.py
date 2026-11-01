@@ -342,7 +342,8 @@ def apply_seed(plan, cfg, foods_cfg, fixed_cfg, force=False):
         t.ensure_supermarket_category(name)
     for name in plan["keywords"]:
         t.ensure_keyword(name)
-    books = {name: t.ensure_recipe_book(name) for name in plan["books"]}
+    share_ids = list((cfg.get("tandoor", {}).get("share_with") or {}).values())
+    books = {name: t.ensure_recipe_book(name, share_ids=share_ids) for name in plan["books"]}
     cats = t.supermarket_categories()
     kws = t.keywords()
     seed_fixed(t, fixed_cfg, cfg, foods_cfg, cats, kws)

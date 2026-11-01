@@ -133,3 +133,11 @@ def test_approved_stores_mapping():
     assert approved_stores("target") == {"Target"}
     assert approved_stores("skipped") == set()
     assert approved_stores(None) == set()
+
+
+def test_recipe_book_payload_has_required_shared():
+    # Tandoor 2.7 rejects a recipe-book create without `shared` (2026-11-01).
+    from grocery.tandoor import recipe_book_payload
+    p = recipe_book_payload("Winter", "", [3, 4])
+    assert p["shared"] == [{"id": 3}, {"id": 4}] and p["name"] == "Winter"
+    assert recipe_book_payload("Fall")["shared"] == []
