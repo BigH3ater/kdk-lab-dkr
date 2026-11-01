@@ -1,0 +1,144 @@
+# Ingredient clean-up for the planner's recipes (python -m grocery.cleanup).
+# Imports from recipe sites leave the same food under many names ("garlic",
+# "minced garlic", "garlic cloves"), the same unit under many spellings (tsp /
+# teaspoon / teaspoons) and some lines unread ("▢ 1 pound carrots" stored as a
+# food). The shopping list then shows one line per spelling. The clean-up
+# repoints each ingredient to ONE canonical food + unit (the original text is
+# kept on the ingredient), re-reads the broken lines, marks pantry staples on
+# hand, and adds Tandoor automations so new imports arrive clean.
+#
+# Names are matched lowercase after the food name is tidied (text from "(" on,
+# trailing commas/asterisks and a leading "▢" removed). Only recipes in the four
+# season books + the fixed recipes are touched; personal recipes are not.
+
+# canonical unit: [spellings]. Also created as UNIT_ALIAS automations.
+units:
+  tsp: [teaspoon, teaspoons, t]
+  Tbsp: [tablespoon, tablespoons, tbsp, tbs, tbsp.]
+  cup: [cups, c, cup/250ml]
+  lb: [pound, pounds, lbs, lb.]
+  oz: [ounce, ounces, oz.]
+  g: [gram, grams, g/]
+  clove: [cloves]
+  can: [cans]
+  slice: [slices]
+  ear: [ears]
+  head: [heads]
+  bunch: [bunches]
+  sprig: [sprigs]
+
+# Words the importer wrongly read as a unit ("1 green bell pepper" -> unit
+# "green"). On re-read they go back into the food name. Also created as
+# NEVER_UNIT automations.
+never_unit: [green, red, yellow, orange, bell, garlic, pork, boneless, bone-in, poblano, roma, fresh, persian,
+             chicken, bay, flour, taco, dry, pitted, tightly, pepperoncini, limes,
+             zest, x, to, recipe, batch, "-", "½", 1-inch, 6-inch, 6-oz]
+
+# canonical food: [names that mean the same thing when shopping]. Also created
+# as FOOD_ALIAS automations. Dried herbs/spices stay separate from fresh.
+foods:
+  garlic: [garlic cloves, garlic clove, cloves, clove, minced garlic, garlic minced,
+           cloves garlic, ground garlic, each ground garlic]
+  olive oil: [extra virgin olive oil, extra-virgin olive oil]
+  black pepper: [ground black pepper, freshly ground black pepper, fresh black pepper,
+                 ground pepper, pepper, cracked black pepper]
+  salt: [kosher salt, sea salt, cooking salt / kosher salt, fine salt, table salt]
+  salt and pepper: [salt & pepper, salt and freshly ground black pepper,
+                    kosher salt and freshly ground black pepper,
+                    sea salt and freshly ground black pepper, salt and pepper as desired]
+  chicken breast: [chicken breasts, boneless skinless chicken breast,
+                   boneless skinless chicken breasts, "boneless, skinless chicken breasts",
+                   bonless skinless chicken breasts, skinless chicken breasts, breasts,
+                   organic boneless skinless chicken breasts, boneless chicken breast,
+                   boneless chicken breasts, boneless, boneless skinless,
+                   # Owner rule: chicken BREAST only. Recipes written for thighs
+                   # are shopped (and cooked) with breast.
+                   chicken thighs, boneless skinless chicken thighs,
+                   boneless chicken breast or thighs, skinless chicken thighs]
+  carrots: [carrot, large carrots, diced carrots, grated carrots]
+  onion: [onions, yellow onion, yellow onions, white onion, white onions, chopped onion,
+          minced onion, sweet onion]
+  red onion: [finely chopped red onion, thinly sliced red onion, red onions]
+  bell pepper: [bell peppers, peppers, green bell pepper, red bell pepper, red bell peppers,
+                orange bell pepper, yellow bell pepper, green bell peppers]
+  parsley: [fresh parsley, chopped fresh parsley, fresh chopped parsley,
+            finely chopped fresh parsley, minced fresh parsley, packed fresh parsley,
+            parsley for garnish, flat leaf parsley]
+  cilantro: [chopped fresh cilantro, finely chopped cilantro, cilantro leaves,
+             coriander/cilantro, fresh cilantro]
+  basil: [fresh basil, fresh chopped basil, chopped fresh basil]
+  rosemary: [chopped fresh rosemary, finely chopped fresh rosemary leaves,
+             fresh rosemary]
+  thyme: [fresh thyme]
+  dried thyme: [dried thyme leaves]
+  dried parsley: [dried parsley flakes]
+  feta: [crumbled feta, crumbled feta cheese, feta cheese, feta chunk]
+  parmesan: [grated parmesan cheese, grated parmesan, finely shredded parmesan,
+             parmesan cheese, shredded parmesan]
+  shredded mozzarella: [shredded mozzarella cheese]
+  cherry tomatoes: [cherry or grape tomatoes, halved cherry tomatoes,
+                    pint cherry or grape tomatoes, grape tomatoes]
+  tomatoes: [tomato, ripe tomatoes]
+  roma tomatoes: [roma tomato]
+  tuna: [ahi tuna, tuna steak, tuna steaks]
+  green beans: [cut green beans]
+  broccoli: [broccoli florets, large-cut broccoli florets, small diced broccoli florets,
+             head broccoli]
+  cucumber: [cucumbers, english cucumber, persian cucumbers, japanese cucumbers,
+             or japanese cucumbers, lb cucumbers, persian or japanese cucumbers]
+  lemon: [lemons, of lemon]
+  lemon zest: [zest of lemon]
+  honey: [honey or maple syrup]
+  kalamata olives: []
+  lemon juice: [fresh lemon juice]
+  soy sauce: [low sodium soy sauce, low-sodium soy sauce, reduced sodium soy sauce,
+              reduced-sodium soy sauce, tamari soy sauce]
+  sesame seeds: [toasted sesame seeds, white sesame seeds]
+  chicken broth: [low sodium chicken broth, chicken stock]
+  beef broth: [beef broth/stock, lower sodium beef broth]
+  ginger: [fresh ginger, piece fresh ginger, inch ginger]
+  green onions: [scallions, green onion]
+  butter: [salted butter, unsalted butter]
+  maple syrup: [pure maple syrup]
+  brown sugar: [light brown sugar, packed light-brown sugar]
+  sugar: [granulated sugar]
+  cornstarch: [corn starch]
+  red pepper flakes: [crushed red pepper flakes, red chili flakes]
+  cayenne pepper: [cayenne, pinch cayenne pepper]
+  paprika: [ground paprika]
+  cumin: [ground cumin, each cumin]
+  mushrooms: [white button mushrooms, baby bella mushrooms]
+  rice vinegar: [rice wine vinegar]
+  tzatziki: [tzatziki sauce]
+  sour cream: [2% sour cream or greek yogurt, sour cream or greek yogurt]
+  kidney beans: [can kidney beans]
+  spinach: [baby spinach, box baby spinach, chopped fresh spinach]
+  ground beef: [lean ground beef, beef mince]
+  pork chops: [chops, pork chop, chops / cutlets, pork chops / cutlets, pork cutlets]
+  salmon fillets: [salmon, salmon fillet]
+  potatoes: [peeled and diced potatoes, cubed russet potatoes]
+  baby potatoes: [baby red potatoes, lb baby potatoes]
+  italian seasoning: []
+  minced ginger: []
+  cabbage: [of cabbage]
+  corn kernels: [of corn, frozen or fresh corn kernels]
+
+# Pantry staples: marked on hand (food_onhand), so Tandoor leaves them off the
+# shopping list. Restock them from the manual list on the groceries page.
+# Untick "on hand" on a food in Tandoor to put it back on the list.
+pantry:
+  [salt, salt and pepper, black pepper, black peppercorns, olive oil, vegetable oil,
+   avocado oil, cooking oil, peanut oil, sesame oil, oil, soy sauce, oyster sauce,
+   worcestershire sauce, dijon mustard, garlic powder, onion powder, paprika,
+   smoked paprika, cumin, chili powder, dried oregano, oregano, dried basil,
+   dried thyme, dried parsley, dried rosemary, dried marjoram, italian seasoning,
+   cayenne pepper, red pepper flakes, ground cinnamon, coriander, sugar, brown sugar,
+   honey, maple syrup, cornstarch, flour, all-purpose flour, balsamic vinegar,
+   red wine vinegar, rice vinegar, apple cider vinegar, sesame seeds, water, ice,
+   ketchup, mayonnaise, dry mustard powder, minced ginger, bay leaves]
+
+# Lines that aren't something to buy (a "serve with" heading imported as a
+# food). Marked ignore_shopping.
+not_food: [nothing, optional, toppings as desired, leaves, diced,
+           # sub-recipes listed as an ingredient (made from their own recipe)
+           sauce vierge, best chicken marinade]

@@ -682,9 +682,96 @@ def _item_label(e) -> str:
     return (qty + food).strip()
 
 
+# One line per food: entries for the same food are added up. Units in the same
+# family convert (tsp/Tbsp/cup, oz/lb/g); different families are listed side by
+# side ("garlic: 7 clove + 1 Tbsp"). Names come pre-cleaned by grocery.cleanup.
+_UNIT_FAMILY = {
+    "tsp": ("vol", 1), "teaspoon": ("vol", 1), "teaspoons": ("vol", 1),
+    "tbsp": ("vol", 3), "tablespoon": ("vol", 3), "tablespoons": ("vol", 3),
+    "cup": ("vol", 48), "cups": ("vol", 48),
+    "oz": ("wt", 1), "ounce": ("wt", 1), "ounces": ("wt", 1),
+    "lb": ("wt", 16), "lbs": ("wt", 16), "pound": ("wt", 16), "pounds": ("wt", 16),
+    "g": ("wt", 0.035274), "gram": ("wt", 0.035274), "grams": ("wt", 0.035274),
+    "kg": ("wt", 35.274),
+    "": ("each", 1), "each": ("each", 1), "whole": ("each", 1), "small": ("each", 1),
+    "medium": ("each", 1), "large": ("each", 1),
+}
+_UNIT_SINGULAR = {"cloves": "clove", "slices": "slice", "cans": "can", "heads": "head",
+                  "bunches": "bunch", "ears": "ear", "sprigs": "sprig", "pints": "pint"}
+# What the store sells, for foods bought in a different unit than recipes use.
+_BUY_AS = {"garlic": ("clove", 10, "head")}       # ~10 cloves a head
+
+
+def _fmt_num(x: float) -> str:
+    for whole, frac in ((0.25, "¼"), (0.5, "½"), (0.75, "¾"), (1 / 3, "⅓"), (2 / 3, "⅔")):
+        w = int(x)
+        if abs(x - w - whole) < 0.02:
+            return f"{w}{frac}" if w else frac
+    return f"{x:.1f}".rstrip("0").rstrip(".") if not float(x).is_integer() else str(int(x))
+
+
+def _fmt_family(fam: str, base: float) -> str:
+    if fam == "vol":
+        if base >= 12:                        # >= 1/4 cup
+            return f"{_fmt_num(base / 48)} cup"
+        if base >= 3:
+            return f"{_fmt_num(base / 3)} Tbsp"
+        return f"{_fmt_num(base)} tsp"
+    if fam == "wt":
+        return f"{_fmt_num(base / 16)} lb" if base >= 16 else f"{_fmt_num(base)} oz"
+    return _fmt_num(base)
+
+
+def _combine(entries) -> list[dict]:
+    """[{ids, food, qty, recipes}] -- one per food, in first-seen order."""
+    out: dict[str, dict] = {}
+    for e in entries:
+        food = (e.get("food") or {}).get("name") or "?"
+        key = food.lower()
+        unit = e.get("unit")
+        unit = (unit.get("name") if isinstance(unit, dict) else (unit or "")) or ""
+        unit = _UNIT_SINGULAR.get(unit.lower(), unit)
+        amt = float(e.get("amount") or 0)
+        g = out.setdefault(key, {"ids": [], "food": food, "fam": {}, "other": {}, "recipes": []})
+        g["ids"].append(e["id"])
+        rname = (((e.get("list_recipe_data") or {}).get("recipe_data")) or {}).get("name")
+        if rname and rname not in g["recipes"]:
+            g["recipes"].append(rname)
+        fam = _UNIT_FAMILY.get(unit.lower())
+        if fam:
+            g["fam"][fam[0]] = g["fam"].get(fam[0], 0) + amt * fam[1]
+        else:
+            g["other"][unit] = g["other"].get(unit, 0) + amt
+    items = []
+    for key, g in out.items():
+        parts = [_fmt_family(f, v) for f, v in g["fam"].items() if v]
+        parts += [f"{_fmt_num(v)} {u}" for u, v in g["other"].items() if v]
+        buy = _BUY_AS.get(key)
+        if buy and g["other"].get(buy[0]):
+            n = -(-g["other"][buy[0]] // buy[1])          # round up
+            parts.append(f"≈ {_fmt_num(n)} {buy[2]}")
+        items.append({"ids": g["ids"], "food": g["food"], "qty": " + ".join(parts),
+                      "recipes": g["recipes"]})
+    return items
+
+
+def _grocery_row(item, title: str, link: str = "") -> str:
+    ids = ",".join(str(i) for i in item["ids"])
+    qty = f"<span class='qty'>{escape(item['qty'])}</span>" if item["qty"] else ""
+    src = (f"<span class='src'>{escape(', '.join(item['recipes']))}</span>"
+           if item["recipes"] else "")
+    return ("<div class='gi'>"
+            f"<form class='tickform' method='post' action='groceries/tick'>"
+            f"<input type='hidden' name='id' value='{ids}'>"
+            f"<button class='tick' type='submit' title='{title}'></button></form>"
+            f"<span class='lbl'>{escape(item['food'])}{qty}{src}</span>{link}</div>")
+
+
 GROCERIES_CSS = PAGE_CSS + """
 .gwrap{padding:10px;max-width:760px;margin:0 auto}
 .store{margin-bottom:18px}
+.gi .lbl .qty{color:var(--ember);margin-left:8px;font-family:'JetBrains Mono',monospace;font-size:13px}
+.gi .lbl .src{display:block;color:var(--ash);font-size:11px;margin-top:1px}
 .meals{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px}
 .mcard{background:var(--ink);border:1px solid var(--ink-hairline);border-radius:9px;overflow:hidden;color:var(--paper);text-decoration:none}
 .mcard img,.mcard .noimg{display:block;width:100%;aspect-ratio:4/3;object-fit:cover;background:var(--ink-hairline)}
@@ -772,13 +859,8 @@ def _render_groceries():
         parts.append("<div class='empty2'>Nothing to pick up at New Pi.</div>")
     for aisle, items in np.items():
         parts.append(f"<div class='aisle'>{escape(aisle)}</div>")
-        for e in items:
-            parts.append(
-                "<div class='gi'>"
-                f"<form class='tickform' method='post' action='groceries/tick'>"
-                f"<input type='hidden' name='id' value='{e['id']}'>"
-                "<button class='tick' type='submit' title='got it'></button></form>"
-                f"<span class='lbl'>{escape(_item_label(e))}</span></div>")
+        for item in _combine(items):
+            parts.append(_grocery_row(item, "got it"))
     parts.append("</div>")
     # Target -- list with per-item target.com search links for the Drive Up cart
     parts.append("<div class='store'><h2>Target — Drive Up cart</h2>")
@@ -787,16 +869,11 @@ def _render_groceries():
         parts.append("<div class='empty2'>Nothing to add at Target.</div>")
     for aisle, items in tg.items():
         parts.append(f"<div class='aisle'>{escape(aisle)}</div>")
-        for e in items:
-            food = (e.get("food") or {}).get("name", "")
-            link = "https://www.target.com/s?searchTerm=" + _ulib.quote(food)
-            parts.append(
-                "<div class='gi'>"
-                f"<form class='tickform' method='post' action='groceries/tick'>"
-                f"<input type='hidden' name='id' value='{e['id']}'>"
-                "<button class='tick' type='submit' title='in cart'></button></form>"
-                f"<span class='lbl'>{escape(_item_label(e))}</span>"
-                f"<a class='srch' href='{escape(link)}' target='_blank' rel='noopener'>search ↗</a></div>")
+        for item in _combine(items):
+            link = "https://www.target.com/s?searchTerm=" + _ulib.quote(item["food"])
+            parts.append(_grocery_row(
+                item, "in cart",
+                f"<a class='srch' href='{escape(link)}' target='_blank' rel='noopener'>search ↗</a>"))
     parts.append("</div>")
     # Manual -- ad-hoc items not tied to a recipe, with an add box
     parts.append("<div class='store'><h2>Manual list</h2>"
@@ -828,9 +905,10 @@ def groceries():
 @app.post("/groceries/tick")
 def groceries_tick():
     try:
-        eid = int(request.form["id"])
-        _api_write("PATCH", f"/api/shopping-list-entry/{eid}/", {"checked": True})
-        log.info("grocery entry %s checked", eid)
+        # One row can stand for several entries of the same food ("12,57,90").
+        for eid in [int(x) for x in request.form["id"].split(",") if x.strip()]:
+            _api_write("PATCH", f"/api/shopping-list-entry/{eid}/", {"checked": True})
+            log.info("grocery entry %s checked", eid)
     except Exception:
         log.exception("grocery tick failed")
     return redirect("../groceries", code=303)
