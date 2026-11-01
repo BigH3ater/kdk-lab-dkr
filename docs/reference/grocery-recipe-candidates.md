@@ -5,7 +5,7 @@ data read from each recipe page's schema.org JSON-LD on the dates shown.
 
 **Scoring:** Bayesian `score = (C*m + n*r)/(C+n)` with `m=4.0`, `C=50`. Verdict: **good** = rating ≥ 4.6 & count ≥ 40; **acceptable** = rating ≥ 4.3 & count ≥ 10; else rejected. The chosen default per slot is the top-scoring good/acceptable candidate (override with `selected: true`).
 
-**Totals:** 144 slots, 317 candidates — good 154, acceptable 96, rejected 67; 37 slots with no good candidate.
+**Totals:** 166 slots, 352 candidates — good 178, acceptable 102, rejected 72; 43 slots with no good candidate.
 
 
 ## Fall
@@ -17,9 +17,9 @@ data read from each recipe page's schema.org JSON-LD on the dates shown.
 | fall-fish-a ★ | Dijon Baked Salmon | Downshiftology | 4.84 | 186 | 4.662 | 25 | good | - |
 | fall-fish-b  | Tuna Steak | recipetineats.com | 4.87 | 22 | 4.2658 | 8 | acceptable | - |
 | fall-fish-b ★ | Seared Ahi Tuna with Crispy Sesame Green | jessicagavin.com | 4.74 | 64 | 4.4154 | 30 | good | swap to olive oil (sesame oil (1/2 tsp, flavoring)) |
-| fall-fish-b  | Sesame Crusted Tuna Steak on Arugula | skinnytaste.com | 4.8 | 15 | 4.1846 | 20 | acceptable | swap to olive oil (toasted sesame oil (1 tsp coating + 2 tsp |
+| fall-fish-b  | Sesame Crusted Tuna Steak on Arugula | skinnytaste.com | 4.8 | 15 | 4.1846 | 20 | rejected | owner-excluded ingredient: arugula |
 | fall-chicken-1  | Sheet Pan Chicken with Sweet Potatoes Ap | wellplated.com | 4.86 | 67 | 4.4925 | 55 | good | published total 55 min over 30-min active cap (may include p |
-| fall-chicken-1 ★ | Harvest Chicken Skillet with Sweet Potat | wellplated.com | 4.74 | 181 | 4.5798 | 50 | good | swap to olive oil (bacon (4 slices, rendered)); published to |
+| fall-chicken-1  | Harvest Chicken Skillet with Sweet Potat | wellplated.com | 4.74 | 181 | 4.5798 | 50 | good | swap to olive oil (bacon (4 slices, rendered)); published to |
 | fall-chicken-2  | One Pot Chicken Marsala Orzo | thecleaneatingcouple.com | 5 | 5 | 4.0909 | 45 | rejected | below acceptable (5 / 5 reviews) |
 | fall-chicken-2 ★ | Mediterranean Chicken and Orzo | thecleaneatingcouple.com | 4.78 | 75 | 4.468 | 35 | good | published total 35 min over 30-min active cap (may include p |
 | fall-chicken-2  | Creamy Mushroom and Spinach Orzo (Risoni | recipetineats.com | 4.94 | 61 | 4.5166 | 30 | rejected | not chicken breast |
@@ -34,20 +34,18 @@ data read from each recipe page's schema.org JSON-LD on the dates shown.
 | fall-steak ★ | Filet Mignon Recipe in Mushroom Sauce (V | natashaskitchen.com | 5 | 153 | 4.7537 | 30 | good | swap to olive oil (unsalted butter (4 tbsp), whipping cream  |
 | fall-side-roasted-carrots ★ | Roasted Carrots | loveandlemons.com | 4.94 | 63 | 4.5241 | 20 | good | - |
 | fall-side-roasted-carrots  | Roasted Carrots Recipe | natashaskitchen.com | 4.98 | 46 | 4.4696 | 30 | good | - |
-| fall-side-sauteed-kale ★ | Sautéed Kale | loveandlemons.com | 4.98 | 40 | 4.4356 | 15 | good | - |
+| fall-side-sauteed-kale  | Sautéed Kale | loveandlemons.com | 4.98 | 40 | 4.4356 | 15 | good | - |
 | fall-side-sauteed-kale  | Sauteed Kale | jessicagavin.com | 4.77 | 13 | 4.1589 | 30 | acceptable | - |
-| fall-side-brussels-sprouts ★ | Roasted Brussels Sprouts | loveandlemons.com | 4.92 | 212 | 4.7444 | 35 | good | published total 35 min over 30-min active cap (may include p |
+| fall-side-brussels-sprouts  | Roasted Brussels Sprouts | loveandlemons.com | 4.92 | 212 | 4.7444 | 35 | good | published total 35 min over 30-min active cap (may include p |
 | fall-side-brussels-sprouts  | Roasted Brussels Sprouts | jessicagavin.com | 4.92 | 61 | 4.5056 | 30 | good | - |
 | fall-side-garlicky-green-beans ★ | Sautéed Green Beans with Garlic | recipetineats.com | 4.99 | 58 | 4.5317 | 13 | good | - |
 | fall-side-garlicky-green-beans  | String Beans with Garlic and Oil | skinnytaste.com | 5 | 14 | 4.2188 | 15 | acceptable | - |
-| fall-side-sesame-cabbage-slaw ★ | Asian Slaw with Sesame Ginger Dressing | jessicagavin.com | 4.6 | 30 | 4.225 | 25 | acceptable | swap to olive oil (mayonnaise (2 tbsp, dressing), toasted se |
+| fall-side-sesame-cabbage-slaw  | Asian Slaw with Sesame Ginger Dressing | jessicagavin.com | 4.6 | 30 | 4.225 | 25 | acceptable | swap to olive oil (mayonnaise (2 tbsp, dressing), toasted se |
 | fall-side-sesame-cabbage-slaw  | Asian Slaw Recipe | foodiecrush.com | 5 | 1 | 4.0196 | 10 | rejected | below acceptable (5 / 1 reviews) |
-| fall-side-roasted-cauliflower ★ | Oven Roasted Cauliflower Recipe | natashaskitchen.com | 4.99 | 884 | 4.937 | 30 | good | swap to olive oil (unsalted butter (2 tbsp)) |
+| fall-side-roasted-cauliflower  | Oven Roasted Cauliflower Recipe | natashaskitchen.com | 4.99 | 884 | 4.937 | 30 | good | swap to olive oil (unsalted butter (2 tbsp)) |
 | fall-side-roasted-cauliflower  | Roasted Cauliflower (Easy Recipe) | wholesomeyum.com | 4.98 | 71 | 4.575 | 30 | good | - |
-| fall-side-arugula-feta  | Arugula Feta Salad | ifoodreal.com | 5 | 4 | 4.0741 | 15 | rejected | below acceptable (5 / 4 reviews) |
-| fall-side-arugula-feta ★ | Arugula Salad | skinnytaste.com | 5 | 12 | 4.1935 | 5 | acceptable | - |
 | fall-side-bok-choy  | Easy Bok Choy Recipe (Garlic & Ginger) | downshiftology.com | 5 | 45 | 4.4737 | 15 | good | swap to olive oil (avocado oil (2 tbsp)) |
-| fall-side-bok-choy ★ | How to Cook Bok Choy | jessicagavin.com | 4.91 | 475 | 4.8233 | 17 | good | swap to olive oil (vegetable oil (2 tbsp), sesame oil (1 tbs |
+| fall-side-bok-choy  | How to Cook Bok Choy | jessicagavin.com | 4.91 | 475 | 4.8233 | 17 | good | swap to olive oil (vegetable oil (2 tbsp), sesame oil (1 tbs |
 | fall-side-delicata-squash  | Roasted Butternut Squash | loveandlemons.com | 4.95 | 115 | 4.6621 | 40 | good | published total 40 min over 30-min active cap (may include p |
 | fall-side-delicata-squash ★ | Roasted Butternut Squash | wellplated.com | 4.89 | 582 | 4.8196 | 40 | good | published total 40 min over 30-min active cap (may include p |
 | fall-side-delicata-squash  | Roasted Delicata Squash (Easy Recipe) | wholesomeyum.com | 5 | 11 | 4.1803 | 30 | acceptable | - |
@@ -70,9 +68,10 @@ data read from each recipe page's schema.org JSON-LD on the dates shown.
 | fall-beef-broccoli  | Ground Beef and Broccoli | Well Plated | 4.88 | 71 | 4.5164 | 25 | good | swap to olive oil (canola oil, sesame oil) |
 | fall-beef-quesadilla ★ | Crispy Oven Baked Beef Quesadillas | RecipeTin Eats | 4.95 | 80 | 4.5846 | 25 | good | - |
 | fall-beef-quesadilla  | Ground Beef Quesadillas | Well Plated | 5 | 7 | 4.1228 | 25 | rejected | below acceptable (5 / 7 reviews) |
-| fall-beef-philly ★ | Philly Cheesesteak Casserole (ground bee | Wholesome Yum | 4.85 | 108 | 4.581 | 40 | good | published total 40 min over 30-min active cap (may include p |
+| fall-beef-philly  | Philly Cheesesteak Casserole (ground bee | Wholesome Yum | 4.85 | 108 | 4.581 | 40 | good | published total 40 min over 30-min active cap (may include p |
 | fall-beef-philly  | Sloppy Cheesesteaks | Taste of Home | 4.33 | 3 | 4.0187 | 20 | rejected | below acceptable (4.33 / 3 reviews) |
-| fall-beef-sloppy ★ | Sloppy Joes | Natasha's Kitchen | 4.94 | 2056 | 4.9177 | 30 | good | - |
+| fall-beef-philly ★ | Low Carb Philly Cheesesteak Bowl | EasyHealth LLC | 4.27 | 165 | 4.2072 | 25 | good | - |
+| fall-beef-sloppy  | Sloppy Joes | Natasha's Kitchen | 4.94 | 2056 | 4.9177 | 30 | good | - |
 | fall-beef-sloppy  | Skinny Sloppy Joes | Skinnytaste | 4.83 | 111 | 4.5722 | 30 | good | - |
 | fall-beef-greek ★ | Mediterranean Ground Beef Stir Fry (feta | Downshiftology | 4.93 | 260 | 4.78 | 25 | good | - |
 | fall-beef-chili ★ | Beef Chili | Natasha's Kitchen | 4.92 | 308 | 4.7915 | 30 | good | - |
@@ -83,14 +82,25 @@ data read from each recipe page's schema.org JSON-LD on the dates shown.
 | fall-pork-pan-seared ★ | Pan Seared Pork Chops with Herb Butter | Spend With Pennies | 4.99 | 88 | 4.6313 | 25 | good | swap to olive oil (vegetable oil, butter) |
 | fall-pork-baked  | Super Easy Baked Pork Chops | Downshiftology | 4.99 | 95 | 4.6486 | 25 | good | - |
 | fall-pork-baked ★ | Juicy Baked Pork Chops | Spend With Pennies | 4.95 | 308 | 4.8173 | 60 | good | published total 60 min over 30-min active cap (may include p |
-| fall-pork-lemon-herb ★ | Lemon Garlic Pork Chops | RecipeTin Eats | 4.98 | 36 | 4.4102 | 15 | acceptable | - |
+| fall-pork-lemon-herb  | Lemon Garlic Pork Chops | RecipeTin Eats | 4.98 | 36 | 4.4102 | 15 | acceptable | - |
 | fall-pork-lemon-herb  | Greek Pork Chops | Taste of Home | 4.72 | 36 | 4.3014 | 25 | acceptable | - |
-| fall-pork-honey-garlic ★ | Honey Garlic Pork Chops | Wholesome Yum | 5 | 11 | 4.1803 | 15 | acceptable | swap to olive oil (butter) |
+| fall-pork-honey-garlic  | Honey Garlic Pork Chops | Wholesome Yum | 5 | 11 | 4.1803 | 15 | acceptable | swap to olive oil (butter) |
 | fall-pork-honey-garlic  | Honey Garlic Pork Chops | Well Plated | 5 | 19 | 4.2754 | 83 | rejected | over total-time cap (83 > 60 min) |
 | fall-pork-smothered ★ | French Onion Smothered Pork Chops | RecipeTin Eats | 4.93 | 82 | 4.5777 | 35 | good | swap to olive oil (butter); published total 35 min over 30-m |
 | fall-pork-smothered  | Smothered Pork Chops | Wholesome Yum | 4.92 | 60 | 4.5018 | 60 | good | published total 60 min over 30-min active cap (may include p |
 | fall-pork-sheet-pan ★ | Oven Baked Pork Chops with Potatoes | RecipeTin Eats | 4.92 | 495 | 4.8356 | 40 | good | published total 40 min over 30-min active cap (may include p |
 | fall-pork-sheet-pan  | Pork Chops and Asparagus Sheet Pan | Taste of Home | 4.11 | 19 | 4.0303 | 40 | rejected | below acceptable (4.11 / 19 reviews) |
+| fall-steak-stroganoff  | Beef Stroganoff | Spend With Pennies | 4.94 | 622 | 4.8701 | 40 | good | swap to olive oil (butter); published total 40 min over 30-m |
+| fall-steak-stroganoff  | Beef Stroganoff | Natasha's Kitchen | 4.96 | 2025 | 4.9369 | 30 | good | swap to olive oil (butter, heavy cream) |
+| fall-steak-fajitas  | Steak Fajitas | Downshiftology | 5.0 | 32 | 4.3902 | 50 | acceptable | published total 50 min over 30-min active cap (may include p |
+| fall-steak-fajitas  | Sheet Pan Steak Fajitas | iFoodReal | 4.94 | 16 | 4.2279 | 35 | acceptable | published total 35 min over 30-min active cap (may include p |
+| fall-steak-salad  | Steak Fajita Salad | Skinnytaste | 5.0 | 2 | 4.0385 | 25 | rejected | below acceptable (5.0 / 2 reviews) |
+| fall-steak-salad  | Thai Beef Salad | RecipeTin Eats | 4.98 | 163 | 4.75 | 25 | good | swap to olive oil (grapeseed oil) |
+| fall-side-carrots  | Roasted Carrots | Love & Lemons | 4.94 | 63 | 4.5241 | 35 | good | published total 35 min over 30-min active cap (may include p |
+| fall-side-green-beans  | Sauteed Green Beans with Garlic | RecipeTin Eats | 4.99 | 58 | 4.5317 | 13 | good | - |
+| fall-side-cauliflower  | Roasted Cauliflower | RecipeTin Eats | 4.9 | 39 | 4.3944 | 30 | acceptable | - |
+| fall-side-broccoli  | Roasted Broccoli | Natasha's Kitchen | 4.99 | 146 | 4.7374 | 25 | good | - |
+| fall-side-kale  | Sauteed Kale | Love & Lemons | 4.98 | 40 | 4.4356 | 15 | good | - |
 
 ## Spring
 
@@ -100,7 +110,7 @@ data read from each recipe page's schema.org JSON-LD on the dates shown.
 | spring-fish-a ★ | Baked Salmon Recipe (Easy & Flaky!) | wholesomeyum.com | 4.9 | 118 | 4.6321 | 15 | good | - |
 | spring-fish-a  | Garlic and Dill Roasted Salmon | thelemonbowl.com | 5 | 1 | 4.0196 | 30 | rejected | below acceptable (5 / 1 reviews) |
 | spring-fish-b ★ | Sauce for Seared Tuna | jessicagavin.com | 4.72 | 187 | 4.5681 | 30 | good | swap to olive oil (vegetable oil (or grapeseed oil), sesame  |
-| spring-fish-b  | Sesame Crusted Tuna Steak on Arugula | skinnytaste.com | 4.8 | 15 | 4.1846 | 20 | acceptable | swap to olive oil (toasted sesame oil) |
+| spring-fish-b  | Sesame Crusted Tuna Steak on Arugula | skinnytaste.com | 4.8 | 15 | 4.1846 | 20 | rejected | owner-excluded ingredient: arugula |
 | spring-chicken-1 ★ | THE BEST Greek Chicken Marinade | foodiecrush.com | 4.64 | 684 | 4.5964 | 50 | good | published total 50 min over 30-min active cap (may include p |
 | spring-chicken-1  | Greek Chicken Marinade | ifoodreal.com | 5 | 24 | 4.3243 | 55 | acceptable | published total 55 min over 30-min active cap (may include p |
 | spring-chicken-1  | Grilled Greek Lemon Chicken | cookingclassy.com | 5 | 14 | 4.2188 | 145 | rejected | over total-time cap (145 > 60 min) |
@@ -109,7 +119,7 @@ data read from each recipe page's schema.org JSON-LD on the dates shown.
 | spring-chicken-3 ★ | Sheet Pan Lemon Chicken | wellplated.com | 4.8 | 10 | 4.1333 | 50 | acceptable | published total 50 min over 30-min active cap (may include p |
 | spring-chicken-3  | Sheet Pan Balsamic Chicken & Veggies | thecleaneatingcouple.com | 4.62 | 13 | 4.1279 | 45 | acceptable | published total 45 min over 30-min active cap (may include p |
 | spring-chicken-3  | Sheet Pan Pesto Chicken with Asparagus,  | cookingclassy.com | 5 | 3 | 4.0566 | 35 | rejected | below acceptable (5 / 3 reviews) |
-| spring-chicken-4 ★ | Honey Garlic Chicken Breast | recipetineats.com | 4.97 | 838 | 4.9154 | 12 | good | swap to olive oil (butter) |
+| spring-chicken-4  | Honey Garlic Chicken Breast | recipetineats.com | 4.97 | 838 | 4.9154 | 12 | good | swap to olive oil (butter) |
 | spring-chicken-4  | Baked Honey Garlic Chicken Recipe | ifoodreal.com | 4.96 | 46 | 4.46 | 30 | good | - |
 | spring-chicken-5  | Baked Lemon Chicken | wellplated.com | 4.85 | 53 | 4.4374 | 100 | rejected | over total-time cap (100 > 60 min) |
 | spring-chicken-5 ★ | Greek Style Baked Chicken Breasts | thelemonbowl.com | 4.39 | 18 | 4.1032 | 60 | acceptable | published total 60 min over 30-min active cap (may include p |
@@ -118,27 +128,19 @@ data read from each recipe page's schema.org JSON-LD on the dates shown.
 | spring-steak  | Sirloin Steak Tips (With Chimichurri!) | wholesomeyum.com | 5 | 16 | 4.2424 | 38 | acceptable | published total 38 min over 30-min active cap (may include p |
 | spring-side-asparagus ★ | Oven Roasted Asparagus (Easy Recipe) | wholesomeyum.com | 4.97 | 243 | 4.8045 | 17 | good | - |
 | spring-side-asparagus  | Perfect Roasted Asparagus | wellplated.com | 4.87 | 76 | 4.5248 | 20 | good | - |
-| spring-side-spinach-radish  | Wilted Arugula Salad | tasteofhome.com | 5 | 2 | 4.0385 | 25 | rejected | below acceptable (5 / 2 reviews) |
-| spring-side-spinach-radish ★ | Bright Spring Salad | loveandlemons.com | 4.99 | 100 | 4.66 | 25 | good | - |
-| spring-side-garlicky-spinach ★ | Sautéed Spinach | loveandlemons.com | 4.94 | 64 | 4.5277 | 5 | good | - |
+| spring-side-garlicky-spinach  | Sautéed Spinach | loveandlemons.com | 4.94 | 64 | 4.5277 | 5 | good | - |
 | spring-side-garlicky-spinach  | Garlic Sautéed Spinach | downshiftology.com | 5 | 24 | 4.3243 | 10 | acceptable | - |
-| spring-side-cucumber-radish ★ | Creamy Cucumber Radish Salad Recipe | natashaskitchen.com | 4.95 | 92 | 4.6155 | 10 | good | - |
-| spring-side-cucumber-radish  | Cucumber Radish Salad | downshiftology.com | 4.95 | 18 | 4.2515 | 10 | acceptable | - |
-| spring-side-pea-salad  | Pea Salad Recipe | skinnytaste.com | 4.8 | 5 | 4.0727 | 28 | rejected | below acceptable (4.8 / 5 reviews) |
-| spring-side-pea-salad ★ | Spring Salad with Goats Cheese | recipetineats.com | 4.95 | 17 | 4.241 | 15 | acceptable | - |
-| spring-side-roasted-radishes  | Roasted Radishes | tasteofhome.com | 4.83 | 12 | 4.1606 | 40 | acceptable | published total 40 min over 30-min active cap (may include p |
-| spring-side-roasted-radishes ★ | Roasted Radishes (Easy Recipe) | wholesomeyum.com | 5 | 17 | 4.2537 | 30 | acceptable | - |
+| spring-side-pea-salad  | Pea Salad Recipe | skinnytaste.com | 4.8 | 5 | 4.0727 | 28 | rejected | owner-excluded ingredient: radish |
+| spring-side-pea-salad  | Spring Salad with Goats Cheese | recipetineats.com | 4.95 | 17 | 4.241 | 15 | acceptable | - |
 | spring-side-spinach-feta ★ | Best Strawberry Spinach Salad with Balsa | ifoodreal.com | 5 | 36 | 4.4186 | 18 | acceptable | - |
 | spring-side-spinach-feta  | Strawberry Spinach Salad | loveandlemons.com | 4.88 | 16 | 4.2133 | 20 | acceptable | - |
 | spring-side-sesame-cucumber ★ | Asian Cucumber Salad (Smashed Cucumber S | downshiftology.com | 5 | 34 | 4.4048 | 25 | acceptable | swap to olive oil (sesame oil) |
 | spring-side-sesame-cucumber  | Smashed Cucumber Salad | wholesomeyum.com | 5 | 2 | 4.0385 | 15 | rejected | below acceptable (5 / 2 reviews) |
-| spring-side-arugula-radish  | Arugula Salad | loveandlemons.com | 4.95 | 36 | 4.3977 | 5 | acceptable | - |
-| spring-side-arugula-radish ★ | Arugula Salad with Shaved Parmesan | foodiecrush.com | 4.69 | 170 | 4.5332 | 5 | good | - |
 | spring-lunch-1 ★ | Mediterranean Chicken and Orzo | thecleaneatingcouple.com | 4.78 | 75 | 4.468 | 35 | good | published total 35 min over 30-min active cap (may include p |
 | spring-lunch-1  | Greek Orzo Salad | cookingclassy.com | 4.96 | 22 | 4.2933 | 25 | acceptable | - |
 | spring-lunch-2  | Gyro Meat (Easy Recipe) | wholesomeyum.com | 4.94 | 77 | 4.5699 | 185 | rejected | over total-time cap (185 > 90 min) |
 | spring-lunch-2  | Gyro Recipe | wellplated.com | 4.58 | 7 | 4.0712 | 35 | rejected | below acceptable (4.58 / 7 reviews) |
-| spring-lunch-2 ★ | Gyro Meat Loaf with Tzatziki Sauce | tasteofhome.com | 4.6 | 10 | 4.1 | 75 | acceptable | published total 75 min over 30-min active cap (may include p |
+| spring-lunch-2  | Gyro Meat Loaf with Tzatziki Sauce | tasteofhome.com | 4.6 | 10 | 4.1 | 75 | acceptable | published total 75 min over 30-min active cap (may include p |
 | spring-lunch-3  | Teriyaki Chicken Meal Prep | ifoodreal.com | 5 | 6 | 4.1071 | 35 | rejected | below acceptable (5 / 6 reviews) |
 | spring-lunch-3 ★ | Teriyaki Grilled Chicken and Veggie Rice | cookingclassy.com | 5 | 20 | 4.2857 | 45 | acceptable | published total 45 min over 30-min active cap (may include p |
 | spring-lunch-4 ★ | Meal Prep Greek Chicken Rice Bowls | skinnytaste.com | 4.85 | 38 | 4.367 | 60 | acceptable | published total 60 min over 30-min active cap (may include p |
@@ -153,23 +155,35 @@ data read from each recipe page's schema.org JSON-LD on the dates shown.
 | spring-beef-broccoli  | Ground Beef and Broccoli | Well Plated | 4.88 | 71 | 4.5164 | 25 | good | swap to olive oil (canola oil, sesame oil) |
 | spring-beef-quesadilla ★ | Crispy Oven Baked Beef Quesadillas | RecipeTin Eats | 4.95 | 80 | 4.5846 | 25 | good | - |
 | spring-beef-quesadilla  | Ground Beef Quesadillas | Well Plated | 5 | 7 | 4.1228 | 25 | rejected | below acceptable (5 / 7 reviews) |
-| spring-beef-philly ★ | Philly Cheesesteak Casserole (ground bee | Wholesome Yum | 4.85 | 108 | 4.581 | 40 | good | published total 40 min over 30-min active cap (may include p |
+| spring-beef-philly  | Philly Cheesesteak Casserole (ground bee | Wholesome Yum | 4.85 | 108 | 4.581 | 40 | good | published total 40 min over 30-min active cap (may include p |
 | spring-beef-philly  | Sloppy Cheesesteaks | Taste of Home | 4.33 | 3 | 4.0187 | 20 | rejected | below acceptable (4.33 / 3 reviews) |
-| spring-beef-sloppy ★ | Sloppy Joes | Natasha's Kitchen | 4.94 | 2056 | 4.9177 | 30 | good | - |
+| spring-beef-philly ★ | Low Carb Philly Cheesesteak Bowl | EasyHealth LLC | 4.27 | 165 | 4.2072 | 25 | good | - |
+| spring-beef-sloppy  | Sloppy Joes | Natasha's Kitchen | 4.94 | 2056 | 4.9177 | 30 | good | - |
 | spring-beef-sloppy  | Skinny Sloppy Joes | Skinnytaste | 4.83 | 111 | 4.5722 | 30 | good | - |
 | spring-beef-greek ★ | Mediterranean Ground Beef Stir Fry (feta | Downshiftology | 4.93 | 260 | 4.78 | 25 | good | - |
 | spring-pork-pan-seared  | Pan Seared Pork Chops | Wholesome Yum | 4.99 | 59 | 4.5359 | 11 | good | - |
 | spring-pork-pan-seared ★ | Pan Seared Pork Chops with Herb Butter | Spend With Pennies | 4.99 | 88 | 4.6313 | 25 | good | swap to olive oil (vegetable oil, butter) |
 | spring-pork-baked  | Super Easy Baked Pork Chops | Downshiftology | 4.99 | 95 | 4.6486 | 25 | good | - |
 | spring-pork-baked ★ | Juicy Baked Pork Chops | Spend With Pennies | 4.95 | 308 | 4.8173 | 60 | good | published total 60 min over 30-min active cap (may include p |
-| spring-pork-lemon-herb ★ | Lemon Garlic Pork Chops | RecipeTin Eats | 4.98 | 36 | 4.4102 | 15 | acceptable | - |
+| spring-pork-lemon-herb  | Lemon Garlic Pork Chops | RecipeTin Eats | 4.98 | 36 | 4.4102 | 15 | acceptable | - |
 | spring-pork-lemon-herb  | Greek Pork Chops | Taste of Home | 4.72 | 36 | 4.3014 | 25 | acceptable | - |
-| spring-pork-honey-garlic ★ | Honey Garlic Pork Chops | Wholesome Yum | 5 | 11 | 4.1803 | 15 | acceptable | swap to olive oil (butter) |
+| spring-pork-honey-garlic  | Honey Garlic Pork Chops | Wholesome Yum | 5 | 11 | 4.1803 | 15 | acceptable | swap to olive oil (butter) |
 | spring-pork-honey-garlic  | Honey Garlic Pork Chops | Well Plated | 5 | 19 | 4.2754 | 83 | rejected | over total-time cap (83 > 60 min) |
 | spring-pork-smothered ★ | French Onion Smothered Pork Chops | RecipeTin Eats | 4.93 | 82 | 4.5777 | 35 | good | swap to olive oil (butter); published total 35 min over 30-m |
 | spring-pork-smothered  | Smothered Pork Chops | Wholesome Yum | 4.92 | 60 | 4.5018 | 60 | good | published total 60 min over 30-min active cap (may include p |
 | spring-pork-sheet-pan ★ | Oven Baked Pork Chops with Potatoes | RecipeTin Eats | 4.92 | 495 | 4.8356 | 40 | good | published total 40 min over 30-min active cap (may include p |
 | spring-pork-sheet-pan  | Pork Chops and Asparagus Sheet Pan | Taste of Home | 4.11 | 19 | 4.0303 | 40 | rejected | below acceptable (4.11 / 19 reviews) |
+| spring-steak-stroganoff  | Beef Stroganoff | Spend With Pennies | 4.94 | 622 | 4.8701 | 40 | good | swap to olive oil (butter); published total 40 min over 30-m |
+| spring-steak-stroganoff  | Beef Stroganoff | Natasha's Kitchen | 4.96 | 2025 | 4.9369 | 30 | good | swap to olive oil (butter, heavy cream) |
+| spring-steak-fajitas  | Steak Fajitas | Downshiftology | 5.0 | 32 | 4.3902 | 50 | acceptable | published total 50 min over 30-min active cap (may include p |
+| spring-steak-fajitas  | Sheet Pan Steak Fajitas | iFoodReal | 4.94 | 16 | 4.2279 | 35 | acceptable | published total 35 min over 30-min active cap (may include p |
+| spring-steak-salad  | Steak Fajita Salad | Skinnytaste | 5.0 | 2 | 4.0385 | 25 | rejected | below acceptable (5.0 / 2 reviews) |
+| spring-steak-salad  | Thai Beef Salad | RecipeTin Eats | 4.98 | 163 | 4.75 | 25 | good | swap to olive oil (grapeseed oil) |
+| spring-side-carrots  | Roasted Carrots | Love & Lemons | 4.94 | 63 | 4.5241 | 35 | good | published total 35 min over 30-min active cap (may include p |
+| spring-side-green-beans  | Sauteed Green Beans with Garlic | RecipeTin Eats | 4.99 | 58 | 4.5317 | 13 | good | - |
+| spring-side-cauliflower  | Roasted Cauliflower | RecipeTin Eats | 4.9 | 39 | 4.3944 | 30 | acceptable | - |
+| spring-side-broccoli  | Roasted Broccoli | Natasha's Kitchen | 4.99 | 146 | 4.7374 | 25 | good | - |
+| spring-side-kale  | Sauteed Kale | Love & Lemons | 4.98 | 40 | 4.4356 | 15 | good | - |
 
 ## Summer
 
@@ -189,8 +203,8 @@ data read from each recipe page's schema.org JSON-LD on the dates shown.
 | summer-chicken-3  | Grilled Lemon Chicken | Taste of Home | 4.78 | 18 | 4.2065 | 25 | acceptable | - |
 | summer-chicken-3 ★ | Grilled Chicken Breast | Well Plated | 4.71 | 61 | 4.3902 | 60 | good | published total 60 min over 30-min active cap (may include p |
 | summer-chicken-3  | Easy Juicy Grilled Chicken Breast | iFoodReal | 5 | 11 | 4.1803 | 45 | acceptable | published total 45 min over 30-min active cap (may include p |
-| summer-chicken-4  | Chicken and Green Bean Stir-fry | Jessica Gavin | 4.82 | 16 | 4.1988 | 45 | acceptable | swap to olive oil (peanut oil, sesame oil); published total  |
-| summer-chicken-4 ★ | One Skillet Chicken with Bacon and Green | Skinnytaste | 4.82 | 96 | 4.5392 | 20 | good | swap to olive oil (bacon) |
+| summer-chicken-4 ★ | Chicken and Green Bean Stir-fry | Jessica Gavin | 4.82 | 16 | 4.1988 | 45 | acceptable | swap to olive oil (peanut oil, sesame oil); published total  |
+| summer-chicken-4  | One Skillet Chicken with Bacon and Green | Skinnytaste | 4.82 | 96 | 4.5392 | 20 | good | swap to olive oil (bacon) |
 | summer-chicken-4  | Chicken and Green Bean Stir-Fry | The Lemon Bowl | 3.92 | 47 | 3.9612 | 30 | rejected | below acceptable (3.92 / 47 reviews) |
 | summer-chicken-5 ★ | THE BEST Greek Chicken Marinade | foodiecrush | 4.64 | 684 | 4.5964 | 50 | good | published total 50 min over 30-min active cap (may include p |
 | summer-chicken-5  | Greek Chicken Bowls Recipe | Natasha's Kitchen | 5 | 26 | 4.3421 | 30 | acceptable | - |
@@ -202,7 +216,7 @@ data read from each recipe page's schema.org JSON-LD on the dates shown.
 | summer-side-grilled-zucchini ★ | Perfect Grilled Zucchini | Skinnytaste | 4.77 | 39 | 4.3374 | 25 | acceptable | - |
 | summer-side-tomato-cucumber ★ | Cucumber Tomato Salad (Quick & Easy) | Wholesome Yum | 4.98 | 40 | 4.4356 | 15 | good | - |
 | summer-side-tomato-cucumber  | Cucumber Tomato Salad | Natasha's Kitchen | 5 | 21 | 4.2958 | 10 | acceptable | - |
-| summer-side-grilled-eggplant ★ | Grilled Eggplant | Love and Lemons | 4.94 | 15 | 4.2169 | 30 | acceptable | - |
+| summer-side-grilled-eggplant  | Grilled Eggplant | Love and Lemons | 4.94 | 15 | 4.2169 | 30 | acceptable | - |
 | summer-side-grilled-eggplant  | Grilled Eggplant with Feta | Skinnytaste | 4.84 | 6 | 4.09 | 25 | rejected | below acceptable (4.84 / 6 reviews) |
 | summer-side-tomatoes-basil ★ | Caprese Salad | Natasha's Kitchen | 4.99 | 77 | 4.6002 | 15 | good | - |
 | summer-side-tomatoes-basil  | Caprese Salad Recipe | Love and Lemons | 4.94 | 31 | 4.3598 | 10 | acceptable | - |
@@ -215,7 +229,7 @@ data read from each recipe page's schema.org JSON-LD on the dates shown.
 | summer-side-charred-corn ★ | How to Cook Corn on the Cob (6 Ways!) | Jessica Gavin | 4.8 | 93 | 4.5203 | 30 | good | - |
 | summer-side-charred-corn  | How to Make THE BEST Grilled Corn on the | foodiecrush | 4.74 | 15 | 4.1708 | 17 | acceptable | swap to olive oil (butter (4 tbsp; use olive oil or skip it) |
 | summer-side-charred-corn  | Grilled Corn on The Cob | Skinnytaste | 5 | 2 | 4.0385 | 50 | rejected | below acceptable (5 / 2 reviews) |
-| summer-side-cucumber-avocado ★ | Avocado Cucumber Salad Recipe | Natasha's Kitchen | 4.99 | 79 | 4.6063 | 10 | good | - |
+| summer-side-cucumber-avocado  | Avocado Cucumber Salad Recipe | Natasha's Kitchen | 4.99 | 79 | 4.6063 | 10 | good | - |
 | summer-side-cucumber-avocado  | Cucumber Tomato Avocado Salad | Wholesome Yum | 4.94 | 30 | 4.3525 | 15 | acceptable | - |
 | summer-lunch-1  | Meal Prep Greek Chicken Rice Bowls | Skinnytaste | 4.85 | 38 | 4.367 | 60 | acceptable | published total 60 min over 30-min active cap (may include p |
 | summer-lunch-1  | Farro Salad with Feta, Cucumbers and Sun | Skinnytaste | 4.92 | 36 | 4.3851 | 30 | acceptable | - |
@@ -239,23 +253,30 @@ data read from each recipe page's schema.org JSON-LD on the dates shown.
 | summer-beef-broccoli  | Ground Beef and Broccoli | Well Plated | 4.88 | 71 | 4.5164 | 25 | good | swap to olive oil (canola oil, sesame oil) |
 | summer-beef-quesadilla ★ | Crispy Oven Baked Beef Quesadillas | RecipeTin Eats | 4.95 | 80 | 4.5846 | 25 | good | - |
 | summer-beef-quesadilla  | Ground Beef Quesadillas | Well Plated | 5 | 7 | 4.1228 | 25 | rejected | below acceptable (5 / 7 reviews) |
-| summer-beef-philly ★ | Philly Cheesesteak Casserole (ground bee | Wholesome Yum | 4.85 | 108 | 4.581 | 40 | good | published total 40 min over 30-min active cap (may include p |
+| summer-beef-philly  | Philly Cheesesteak Casserole (ground bee | Wholesome Yum | 4.85 | 108 | 4.581 | 40 | good | published total 40 min over 30-min active cap (may include p |
 | summer-beef-philly  | Sloppy Cheesesteaks | Taste of Home | 4.33 | 3 | 4.0187 | 20 | rejected | below acceptable (4.33 / 3 reviews) |
-| summer-beef-sloppy ★ | Sloppy Joes | Natasha's Kitchen | 4.94 | 2056 | 4.9177 | 30 | good | - |
+| summer-beef-philly ★ | Low Carb Philly Cheesesteak Bowl | EasyHealth LLC | 4.27 | 165 | 4.2072 | 25 | good | - |
+| summer-beef-sloppy  | Sloppy Joes | Natasha's Kitchen | 4.94 | 2056 | 4.9177 | 30 | good | - |
 | summer-beef-sloppy  | Skinny Sloppy Joes | Skinnytaste | 4.83 | 111 | 4.5722 | 30 | good | - |
 | summer-beef-greek ★ | Mediterranean Ground Beef Stir Fry (feta | Downshiftology | 4.93 | 260 | 4.78 | 25 | good | - |
 | summer-pork-pan-seared  | Pan Seared Pork Chops | Wholesome Yum | 4.99 | 59 | 4.5359 | 11 | good | - |
 | summer-pork-pan-seared ★ | Pan Seared Pork Chops with Herb Butter | Spend With Pennies | 4.99 | 88 | 4.6313 | 25 | good | swap to olive oil (vegetable oil, butter) |
 | summer-pork-baked  | Super Easy Baked Pork Chops | Downshiftology | 4.99 | 95 | 4.6486 | 25 | good | - |
 | summer-pork-baked ★ | Juicy Baked Pork Chops | Spend With Pennies | 4.95 | 308 | 4.8173 | 60 | good | published total 60 min over 30-min active cap (may include p |
-| summer-pork-lemon-herb ★ | Lemon Garlic Pork Chops | RecipeTin Eats | 4.98 | 36 | 4.4102 | 15 | acceptable | - |
+| summer-pork-lemon-herb  | Lemon Garlic Pork Chops | RecipeTin Eats | 4.98 | 36 | 4.4102 | 15 | acceptable | - |
 | summer-pork-lemon-herb  | Greek Pork Chops | Taste of Home | 4.72 | 36 | 4.3014 | 25 | acceptable | - |
-| summer-pork-honey-garlic ★ | Honey Garlic Pork Chops | Wholesome Yum | 5 | 11 | 4.1803 | 15 | acceptable | swap to olive oil (butter) |
+| summer-pork-honey-garlic  | Honey Garlic Pork Chops | Wholesome Yum | 5 | 11 | 4.1803 | 15 | acceptable | swap to olive oil (butter) |
 | summer-pork-honey-garlic  | Honey Garlic Pork Chops | Well Plated | 5 | 19 | 4.2754 | 83 | rejected | over total-time cap (83 > 60 min) |
 | summer-pork-smothered ★ | French Onion Smothered Pork Chops | RecipeTin Eats | 4.93 | 82 | 4.5777 | 35 | good | swap to olive oil (butter); published total 35 min over 30-m |
 | summer-pork-smothered  | Smothered Pork Chops | Wholesome Yum | 4.92 | 60 | 4.5018 | 60 | good | published total 60 min over 30-min active cap (may include p |
 | summer-pork-sheet-pan ★ | Oven Baked Pork Chops with Potatoes | RecipeTin Eats | 4.92 | 495 | 4.8356 | 40 | good | published total 40 min over 30-min active cap (may include p |
 | summer-pork-sheet-pan  | Pork Chops and Asparagus Sheet Pan | Taste of Home | 4.11 | 19 | 4.0303 | 40 | rejected | below acceptable (4.11 / 19 reviews) |
+| summer-steak-stroganoff  | Beef Stroganoff | Spend With Pennies | 4.94 | 622 | 4.8701 | 40 | good | swap to olive oil (butter); published total 40 min over 30-m |
+| summer-steak-stroganoff  | Beef Stroganoff | Natasha's Kitchen | 4.96 | 2025 | 4.9369 | 30 | good | swap to olive oil (butter, heavy cream) |
+| summer-steak-fajitas  | Steak Fajitas | Downshiftology | 5.0 | 32 | 4.3902 | 50 | acceptable | published total 50 min over 30-min active cap (may include p |
+| summer-steak-fajitas  | Sheet Pan Steak Fajitas | iFoodReal | 4.94 | 16 | 4.2279 | 35 | acceptable | published total 35 min over 30-min active cap (may include p |
+| summer-steak-salad  | Steak Fajita Salad | Skinnytaste | 5.0 | 2 | 4.0385 | 25 | rejected | below acceptable (5.0 / 2 reviews) |
+| summer-steak-salad  | Thai Beef Salad | RecipeTin Eats | 4.98 | 163 | 4.75 | 25 | good | swap to olive oil (grapeseed oil) |
 
 ## Winter
 
@@ -284,30 +305,28 @@ data read from each recipe page's schema.org JSON-LD on the dates shown.
 | winter-steak ★ | Grilled Flank Steak with Chimichurri | Skinnytaste | 4.95 | 36 | 4.3977 | 30 | acceptable | - |
 | winter-side-roasted-carrots ★ | Roasted Carrots | Love & Lemons | 4.94 | 63 | 4.5241 | 20 | good | - |
 | winter-side-roasted-carrots  | Roasted Carrots Recipe | Natasha's Kitchen | 4.98 | 46 | 4.4696 | 30 | good | - |
-| winter-side-roasted-beets ★ | How to Cook Beets | Jessica Gavin | 4.97 | 202 | 4.7775 | 35 | good | published total 35 min over 30-min active cap (may include p |
-| winter-side-roasted-beets  | Roasted Beets Recipe | Well Plated | 4.77 | 17 | 4.1954 | 55 | acceptable | published total 55 min over 30-min active cap (may include p |
 | winter-side-roasted-cabbage ★ | Roasted Cabbage Steaks | Downshiftology | 4.88 | 25 | 4.2933 | 45 | acceptable | published total 45 min over 30-min active cap (may include p |
 | winter-side-roasted-cabbage  | Simple Roasted Cabbage | Well Plated | 5 | 18 | 4.2647 | 40 | acceptable | swap to olive oil (2 tbsp unsalted butter (or additional oli |
 | winter-side-roasted-broccoli ★ | Roasted Broccoli | Love & Lemons | 4.96 | 208 | 4.774 | 25 | good | - |
 | winter-side-roasted-broccoli  | Roasted Broccoli Recipe | Natasha's Kitchen | 4.99 | 146 | 4.7374 | 20 | good | - |
-| winter-side-garlicky-kale ★ | Sautéed Kale | Love & Lemons | 4.98 | 40 | 4.4356 | 15 | good | - |
+| winter-side-garlicky-kale  | Sautéed Kale | Love & Lemons | 4.98 | 40 | 4.4356 | 15 | good | - |
 | winter-side-garlicky-kale  | Sauteed Kale | Jessica Gavin | 4.77 | 13 | 4.1589 | 30 | acceptable | - |
 | winter-side-bok-choy  | Easy Bok Choy Recipe (Garlic & Ginger) | Downshiftology | 5 | 45 | 4.4737 | 15 | good | swap to olive oil (2 tbsp avocado oil) |
-| winter-side-bok-choy ★ | How to Cook Bok Choy | Jessica Gavin | 4.91 | 475 | 4.8233 | 17 | good | swap to olive oil (2 tbsp vegetable oil, 1 tbsp sesame oil) |
+| winter-side-bok-choy  | How to Cook Bok Choy | Jessica Gavin | 4.91 | 475 | 4.8233 | 17 | good | swap to olive oil (2 tbsp vegetable oil, 1 tbsp sesame oil) |
 | winter-side-bok-choy  | Garlic Bok Choy | The Lemon Bowl | 4.34 | 6 | 4.0364 | 10 | rejected | below acceptable (4.34 / 6 reviews) |
 | winter-side-spinach-feta  | Roast Pumpkin, Spinach and Feta Salad | RecipeTin Eats | 4.98 | 87 | 4.6223 | 35 | good | published total 35 min over 30-min active cap (may include p |
-| winter-side-spinach-feta ★ | Spinach Strawberry Salad | Well Plated | 4.69 | 649 | 4.6406 | 20 | good | - |
+| winter-side-spinach-feta  | Spinach Strawberry Salad | Well Plated | 4.69 | 649 | 4.6406 | 20 | rejected | owner-excluded ingredient: arugula |
 | winter-side-spinach-feta  | My Favorite Spinach Salad Recipe | iFoodReal | 5 | 3 | 4.0566 | 7 | rejected | below acceptable (5 / 3 reviews) |
 | winter-side-sesame-cucumber  | Asian Cucumber Salad (Smashed Cucumber S | Downshiftology | 5 | 34 | 4.4048 | 25 | acceptable | swap to olive oil (1 tbsp sesame oil (dressing, no cooking f |
 | winter-side-sesame-cucumber ★ | Asian Cucumber Salad | Well Plated | 4.66 | 58 | 4.3544 | 15 | good | swap to olive oil (1 tsp sesame oil (dressing)) |
-| winter-side-brussels-sprouts ★ | Roasted Brussels Sprouts | Love & Lemons | 4.92 | 212 | 4.7444 | 35 | good | published total 35 min over 30-min active cap (may include p |
+| winter-side-brussels-sprouts  | Roasted Brussels Sprouts | Love & Lemons | 4.92 | 212 | 4.7444 | 35 | good | published total 35 min over 30-min active cap (may include p |
 | winter-side-brussels-sprouts  | Roasted Brussels Sprouts | Jessica Gavin | 4.92 | 61 | 4.5056 | 30 | good | - |
 | winter-lunch-1 ★ | Meal Prep Greek Chicken Rice Bowls | Skinnytaste | 4.85 | 38 | 4.367 | 60 | acceptable | published total 60 min over 30-min active cap (may include p |
 | winter-lunch-1  | Chicken Veggie and Brown Rice Bowls with | Cooking Classy | 5 | 2 | 4.0385 | 65 | rejected | below acceptable (5 / 2 reviews) |
 | winter-lunch-1  | Southwest Chicken Bowl Recipe | foodiecrush | 4.75 | 39 | 4.3287 | 50 | acceptable | published total 50 min over 30-min active cap (may include p |
 | winter-lunch-2  | Gyro Recipe | Well Plated | 4.58 | 7 | 4.0712 | 35 | rejected | below acceptable (4.58 / 7 reviews) |
 | winter-lunch-2  | Gyro Meat (Easy Recipe) | Wholesome Yum | 4.94 | 77 | 4.5699 | 185 | rejected | over total-time cap (185 > 90 min) |
-| winter-lunch-2 ★ | Favorite Meat Loaf Gyros | Taste of Home | 4.6 | 30 | 4.225 | 90 | acceptable | published total 90 min over 30-min active cap (may include p |
+| winter-lunch-2  | Favorite Meat Loaf Gyros | Taste of Home | 4.6 | 30 | 4.225 | 90 | acceptable | published total 90 min over 30-min active cap (may include p |
 | winter-lunch-3  | Chicken Vegetable Soup (Easy Recipe) | Wholesome Yum | 5 | 4 | 4.0741 | 40 | rejected | below acceptable (5 / 4 reviews) |
 | winter-lunch-3 ★ | Chicken Noodle Vegetable Soup | iFoodReal | 5 | 12 | 4.1935 | 37 | acceptable | swap to olive oil (1 tbsp butter); published total 37 min ov |
 | winter-lunch-4 ★ | Chicken Taco Poblano Rice Bowls | Skinnytaste | 4.97 | 53 | 4.4991 | 25 | good | - |
@@ -323,9 +342,10 @@ data read from each recipe page's schema.org JSON-LD on the dates shown.
 | winter-beef-broccoli  | Ground Beef and Broccoli | Well Plated | 4.88 | 71 | 4.5164 | 25 | good | swap to olive oil (canola oil, sesame oil) |
 | winter-beef-quesadilla ★ | Crispy Oven Baked Beef Quesadillas | RecipeTin Eats | 4.95 | 80 | 4.5846 | 25 | good | - |
 | winter-beef-quesadilla  | Ground Beef Quesadillas | Well Plated | 5 | 7 | 4.1228 | 25 | rejected | below acceptable (5 / 7 reviews) |
-| winter-beef-philly ★ | Philly Cheesesteak Casserole (ground bee | Wholesome Yum | 4.85 | 108 | 4.581 | 40 | good | published total 40 min over 30-min active cap (may include p |
+| winter-beef-philly  | Philly Cheesesteak Casserole (ground bee | Wholesome Yum | 4.85 | 108 | 4.581 | 40 | good | published total 40 min over 30-min active cap (may include p |
 | winter-beef-philly  | Sloppy Cheesesteaks | Taste of Home | 4.33 | 3 | 4.0187 | 20 | rejected | below acceptable (4.33 / 3 reviews) |
-| winter-beef-sloppy ★ | Sloppy Joes | Natasha's Kitchen | 4.94 | 2056 | 4.9177 | 30 | good | - |
+| winter-beef-philly ★ | Low Carb Philly Cheesesteak Bowl | EasyHealth LLC | 4.27 | 165 | 4.2072 | 25 | good | - |
+| winter-beef-sloppy  | Sloppy Joes | Natasha's Kitchen | 4.94 | 2056 | 4.9177 | 30 | good | - |
 | winter-beef-sloppy  | Skinny Sloppy Joes | Skinnytaste | 4.83 | 111 | 4.5722 | 30 | good | - |
 | winter-beef-greek ★ | Mediterranean Ground Beef Stir Fry (feta | Downshiftology | 4.93 | 260 | 4.78 | 25 | good | - |
 | winter-beef-chili ★ | Beef Chili | Natasha's Kitchen | 4.92 | 308 | 4.7915 | 30 | good | - |
@@ -336,11 +356,26 @@ data read from each recipe page's schema.org JSON-LD on the dates shown.
 | winter-pork-pan-seared ★ | Pan Seared Pork Chops with Herb Butter | Spend With Pennies | 4.99 | 88 | 4.6313 | 25 | good | swap to olive oil (vegetable oil, butter) |
 | winter-pork-baked  | Super Easy Baked Pork Chops | Downshiftology | 4.99 | 95 | 4.6486 | 25 | good | - |
 | winter-pork-baked ★ | Juicy Baked Pork Chops | Spend With Pennies | 4.95 | 308 | 4.8173 | 60 | good | published total 60 min over 30-min active cap (may include p |
-| winter-pork-lemon-herb ★ | Lemon Garlic Pork Chops | RecipeTin Eats | 4.98 | 36 | 4.4102 | 15 | acceptable | - |
+| winter-pork-lemon-herb  | Lemon Garlic Pork Chops | RecipeTin Eats | 4.98 | 36 | 4.4102 | 15 | acceptable | - |
 | winter-pork-lemon-herb  | Greek Pork Chops | Taste of Home | 4.72 | 36 | 4.3014 | 25 | acceptable | - |
-| winter-pork-honey-garlic ★ | Honey Garlic Pork Chops | Wholesome Yum | 5 | 11 | 4.1803 | 15 | acceptable | swap to olive oil (butter) |
+| winter-pork-honey-garlic  | Honey Garlic Pork Chops | Wholesome Yum | 5 | 11 | 4.1803 | 15 | acceptable | swap to olive oil (butter) |
 | winter-pork-honey-garlic  | Honey Garlic Pork Chops | Well Plated | 5 | 19 | 4.2754 | 83 | rejected | over total-time cap (83 > 60 min) |
 | winter-pork-smothered ★ | French Onion Smothered Pork Chops | RecipeTin Eats | 4.93 | 82 | 4.5777 | 35 | good | swap to olive oil (butter); published total 35 min over 30-m |
 | winter-pork-smothered  | Smothered Pork Chops | Wholesome Yum | 4.92 | 60 | 4.5018 | 60 | good | published total 60 min over 30-min active cap (may include p |
 | winter-pork-sheet-pan ★ | Oven Baked Pork Chops with Potatoes | RecipeTin Eats | 4.92 | 495 | 4.8356 | 40 | good | published total 40 min over 30-min active cap (may include p |
 | winter-pork-sheet-pan  | Pork Chops and Asparagus Sheet Pan | Taste of Home | 4.11 | 19 | 4.0303 | 40 | rejected | below acceptable (4.11 / 19 reviews) |
+| winter-steak-stroganoff  | Beef Stroganoff | Spend With Pennies | 4.94 | 622 | 4.8701 | 40 | good | swap to olive oil (butter); published total 40 min over 30-m |
+| winter-steak-stroganoff  | Beef Stroganoff | Natasha's Kitchen | 4.96 | 2025 | 4.9369 | 30 | good | swap to olive oil (butter, heavy cream) |
+| winter-steak-fajitas  | Steak Fajitas | Downshiftology | 5.0 | 32 | 4.3902 | 50 | acceptable | published total 50 min over 30-min active cap (may include p |
+| winter-steak-fajitas  | Sheet Pan Steak Fajitas | iFoodReal | 4.94 | 16 | 4.2279 | 35 | acceptable | published total 35 min over 30-min active cap (may include p |
+| winter-steak-salad  | Steak Fajita Salad | Skinnytaste | 5.0 | 2 | 4.0385 | 25 | rejected | below acceptable (5.0 / 2 reviews) |
+| winter-steak-salad  | Thai Beef Salad | RecipeTin Eats | 4.98 | 163 | 4.75 | 25 | good | swap to olive oil (grapeseed oil) |
+| winter-side-frozen-green-beans  | Green Beans with Mushrooms | Natasha's Kitchen | 5.0 | 23 | 4.3151 | 20 | acceptable | swap to olive oil (butter) |
+| winter-side-frozen-green-beans  | Green Bean Casserole | Spend With Pennies | 5.0 | 2102 | 4.9768 | 50 | good | published total 50 min over 30-min active cap (may include p |
+| winter-side-frozen-broccoli  | Roasted Frozen Broccoli | Well Plated | 4.65 | 128 | 4.4674 | 25 | good | - |
+| winter-side-frozen-peas  | Creamed Peas | Spend With Pennies | 5.0 | 54 | 4.5192 | 20 | good | swap to olive oil (butter, light cream) |
+| winter-side-frozen-peas  | Buttered Dill Peas and Carrots | Spend With Pennies | 5.0 | 14 | 4.2188 | 20 | acceptable | swap to olive oil (butter) |
+| winter-side-frozen-mixed  | Cheesy Vegetable Casserole | Spend With Pennies | 5.0 | 28 | 4.359 | 60 | acceptable | published total 60 min over 30-min active cap (may include p |
+| winter-side-frozen-corn  | Southwest Corn | Taste of Home | 4.89 | 19 | 4.2451 | 20 | acceptable | swap to olive oil (butter) |
+| winter-side-frozen-brussels  | Roasted Frozen Brussels Sprouts | Well Plated | 4.67 | 135 | 4.4889 | 40 | good | published total 40 min over 30-min active cap (may include p |
+| winter-side-frozen-brussels  | Roasted Frozen Brussels Sprouts | Wholesome Yum | 4.89 | 53 | 4.458 | 35 | good | swap to olive oil (avocado oil); published total 35 min over |

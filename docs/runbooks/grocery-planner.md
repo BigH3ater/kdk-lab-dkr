@@ -137,6 +137,37 @@ All in `config.yaml`:
   category once in Tandoor to override permanently.
 - **Cadence:** `cadence.bulk_weeks` (N), `bulk_first_week_only`,
   `bulk_month_parity`; weekly times in `schedule` + `approvals.weekly`.
+- **Owner review gate:** `require_owner_approval` (default on). The seed imports,
+  and the generator uses, ONLY candidates with `approved: true` (or
+  `owner_pick: true`). A candidate's owner state lives in the candidate YAML:
+  `approved`, `rejected_by_owner`, `pending_owner_approval` (shown to the owner
+  but not used yet), `owner_pick` (an owner-supplied recipe that bypasses the
+  rating/count gate — the hard rules still apply). The review note
+  (`kodiak-codex/.../grocery-recipes.md`) is the source; `scripts`-free: a `[x]`
+  sets `approved`, `[ ]` sets `rejected_by_owner`.
+- **Excluded ingredients:** `exclude_ingredients` (radish, beet, arugula) — the
+  scorer rejects any candidate whose title/ingredients contain one, in every
+  season.
+- **Short side pool:** `sides.max_repeats_per_week` (default 2). When fewer than
+  7 sides are approved, the generator repeats a side up to this many times (more
+  only if the pool is tiny) so the week still fills; the preflight reports the
+  per-season side count vs 7. Approve more sides to drop the repeats.
+
+## Household space & meal-plan sharing (owner)
+
+Tandoor scopes all data by **Space**. The household space is **"Mack House"
+(id 3)** and the `dashboard` account is a member of exactly that one space
+(confirmed read-only 2026-11-01), so every write — recipes, books, meal plans,
+shopping entries, food categories — lands there automatically. The job still
+**verifies the active space at login and fails loudly** if it isn't the
+configured `tandoor.space` / `space_id`.
+
+**Meal-plan sharing is an owner step.** This Tandoor 2.7 meal-plan API exposes no
+`shared` field, so the job cannot share each entry with jmack/rach
+programmatically (their ids, 3 and 4, are in `tandoor.share_with` for when it
+can). All three household members are in the Mack House space; if jmack or rach
+don't see the plan in their own view, the owner shares it in the Tandoor UI (or
+sets a space-wide default). The weekly run logs a `sharing_note` for the record.
 
 ## Amana ground-beef runway
 

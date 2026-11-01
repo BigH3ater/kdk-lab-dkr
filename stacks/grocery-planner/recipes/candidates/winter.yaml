@@ -80,6 +80,7 @@ slots:
     checked_on: '2026-10-31'
     notes: Dijon-parsley-garlic coating (herb crust style); olive oil only. Fillet is 1.5 lb, easy to
       scale to 2.
+    approved: true
 - slot: winter-fish-b
   slot_label: seared TUNA steak (distinct)
   candidates:
@@ -138,6 +139,7 @@ slots:
     notes: Yield 2 servings. Fats listed are olive oil plus 1/2 tsp sesame oil (minor). Includes optional
       garnishes; green beans are fresh, not legumes in the dried-bean sense (flag only if the household
       counts green beans).
+    approved: true
 - slot: winter-chicken-1
   slot_label: lemon oregano baked chicken breast
   candidates:
@@ -163,6 +165,7 @@ slots:
     checked_on: '2026-10-31'
     notes: Greek yogurt-lemon-oregano marinade for 1 lb breasts (baked, grilled or pan-fried per page).
       Total time 50 min includes the short marinade; 8 ingredients incl. 4 lemons. Easily halved for two.
+    approved: true
   - site: The Lemon Bowl
     url: https://thelemonbowl.com/greek-style-baked-chicken-breasts/
     title: Greek Style Baked Chicken Breasts
@@ -214,6 +217,7 @@ slots:
     notes: Breast + baby red potatoes + carrots with olive oil. Ranch packet + 1 cup mayonnaise + panko
       coating makes it more than 8 non-pantry ingredients (flag), and mayo/ranch are not olive oil. Time
       not in JSON-LD; not verified. Rating count shown is ratingCount 91 (8 written reviews).
+    approved: true
   - site: Well Plated
     url: https://www.wellplated.com/sheet-pan-lemon-chicken/
     title: Sheet Pan Lemon Chicken
@@ -334,6 +338,7 @@ slots:
     notes: Includes 1 cup cut green beans plus corn and peas (fresh/frozen vegetables, not dried beans/legumes).
       Many ingredients (flag >8 non-pantry). Olive oil only; stovetop/slow cooker/Instant Pot options
       on page.
+    approved: true
 - slot: winter-chicken-4
   slot_label: ginger chicken stir fry (chicken breast)
   candidates:
@@ -393,6 +398,7 @@ slots:
     checked_on: '2026-10-31'
     notes: Breast or thighs per ingredient list; ginger in sauce with broccoli and bell peppers. Count
       52 (meets preference).
+    approved: true
   - site: Skinnytaste
     url: https://www.skinnytaste.com/garlic-ginger-chicken-stir-fry/
     title: Garlic-Ginger Chicken Stir-Fry
@@ -456,6 +462,7 @@ slots:
     checked_on: '2026-10-31'
     notes: Breasts pounded to 1/2 inch with carrots, broccoli and red onion in maple-Dijon glaze; olive
       oil only; 13 ingredients incl. pantry items.
+    approved: true
   - site: Cooking Classy
     url: https://www.cookingclassy.com/chicken-broccoli-sweet-potato-sheet-pan-dinner/
     title: Chicken Broccoli and Sweet Potato Sheet Pan Dinner
@@ -577,6 +584,7 @@ slots:
     non_olive_fats: []
     checked_on: '2026-10-31'
     notes: Rated steak main; serve with roasted root vegetables (separate veg-side).
+    approved: true
 - slot: winter-side-roasted-carrots
   slot_label: roasted carrots
   candidates:
@@ -598,6 +606,7 @@ slots:
     non_olive_fats: []
     checked_on: '2026-10-31'
     notes: Olive oil + honey/maple + salt; 2-inch barrels; scale by weight.
+    approved: true
   - site: Natasha's Kitchen
     url: https://natashaskitchen.com/roasted-carrots-recipe/
     title: Roasted Carrots Recipe
@@ -617,56 +626,6 @@ slots:
     non_olive_fats: []
     checked_on: '2026-10-31'
     notes: Olive oil, with optional garlic-parsley olive oil drizzle; 2 lb small carrots (halve).
-- slot: winter-side-roasted-beets
-  slot_label: roasted beets
-  candidates:
-  - site: Jessica Gavin
-    url: https://www.jessicagavin.com/how-to-cook-beets/
-    title: How to Cook Beets
-    rating: 4.97
-    count: 202
-    total_time_min: 35
-    yield: '8'
-    ingredients:
-    - 1 pound beets (2 ½ to 3" in size)
-    - olive oil (for seasoning)
-    - kosher salt (for seasoning)
-    - black pepper (for seasoning)
-    - 1 pound beets (2 ½ to 3" in size)
-    - 2 teaspoons olive oil
-    - ½ teaspoon kosher salt
-    - ¼ teaspoon black pepper
-    - 1 pound beets (2 ½ to 3" in size)
-    - 8 cups water
-    - 1 tablespoon distilled white vinegar
-    - 1 teaspoon kosher salt
-    - 1 pound beets (2 ½ to 3" in size)
-    has_beans_lentils: false
-    non_olive_fats: []
-    checked_on: '2026-10-31'
-    notes: Multi-method page (roasted, steamed, boiled); ingredient JSON lists all methods repeating 1
-      lb beets; roasted needs olive oil, salt, pepper only. Total 35 min is JSON value (roasting may run
-      longer for large beets).
-  - site: Well Plated
-    url: https://www.wellplated.com/roasted-beets/
-    title: Roasted Beets Recipe
-    rating: 4.77
-    count: 17
-    total_time_min: 55
-    yield: '4'
-    ingredients:
-    - 2 pounds beets (about 6 medium or 3 very large)
-    - 1 tablespoon extra-virgin olive oil
-    - 1/2 teaspoon kosher salt
-    - 1/4 teaspoon ground black pepper
-    - 1 tablespoon balsamic vinegar (optional)
-    - 3 tablespoons crumbled goat cheese or feta cheese (or 2 tablespoons grated Parmesan cheese)
-    - Chopped fresh basil (thyme, parsley, or dill)
-    has_beans_lentils: false
-    non_olive_fats: []
-    checked_on: '2026-10-31'
-    notes: Olive oil, balsamic, optional goat/feta cheese; 40 min bake, total 55 min; count 17 (floor
-      met).
 - slot: winter-side-roasted-cabbage
   slot_label: roasted cabbage wedges
   candidates:
@@ -687,6 +646,7 @@ slots:
     non_olive_fats: []
     checked_on: '2026-10-31'
     notes: Olive oil + garlic powder + salt + pepper only; wedges/steaks; count 25.
+    approved: true
   - site: Well Plated
     url: https://www.wellplated.com/roasted-cabbage/
     title: Simple Roasted Cabbage
@@ -729,6 +689,7 @@ slots:
     non_olive_fats: []
     checked_on: '2026-10-31'
     notes: Olive oil, salt, pepper; 12 oz florets; ratingCount 208 (83 reviews).
+    approved: true
   - site: Natasha's Kitchen
     url: https://natashaskitchen.com/roasted-broccoli/
     title: Roasted Broccoli Recipe
@@ -767,6 +728,7 @@ slots:
     non_olive_fats: []
     checked_on: '2026-10-31'
     notes: Olive oil, garlic, lemon; very simple; count 40.
+    rejected_by_owner: true
   - site: Jessica Gavin
     url: https://www.jessicagavin.com/sauteed-kale/
     title: Sauteed Kale
@@ -836,6 +798,7 @@ slots:
     - 1 tbsp sesame oil
     checked_on: '2026-10-31'
     notes: Seared halved bok choy with soy-rice-vinegar sauce; many ingredients (flag); count 475 (9 reviews).
+    rejected_by_owner: true
   - site: The Lemon Bowl
     url: https://thelemonbowl.com/garlic-bok-choy/
     title: Garlic Bok Choy
@@ -911,6 +874,7 @@ slots:
     checked_on: '2026-10-31'
     notes: Spinach + strawberries + feta + pecans + poppy seed dressing; strawberries are out of season
       in winter (flag); count 649; olive oil dressing.
+    approved: true
   - site: iFoodReal
     url: https://ifoodreal.com/favorite-spinach-salad/
     title: My Favorite Spinach Salad Recipe
@@ -981,6 +945,7 @@ slots:
     - 1 tsp sesame oil (dressing)
     checked_on: '2026-10-31'
     notes: Persian cucumbers, rice vinegar, sesame oil, honey-roasted peanuts; count 58.
+    approved: true
 - slot: winter-side-brussels-sprouts
   slot_label: roasted Brussels sprouts
   candidates:
@@ -1004,6 +969,7 @@ slots:
     non_olive_fats: []
     checked_on: '2026-10-31'
     notes: Olive oil roast then lemon-Parmesan finish; ratingCount 212 (58 reviews).
+    rejected_by_owner: true
   - site: Jessica Gavin
     url: https://www.jessicagavin.com/roasted-brussels-sprouts/
     title: Roasted Brussels Sprouts
@@ -1053,6 +1019,7 @@ slots:
     checked_on: '2026-10-31'
     notes: Breast + brown rice + tomato/cucumber/pepper/olives; NOT root vegetables (flag). Olive oil.
       Total 60 min within 90 cap. Meal-prep format.
+    approved: true
   - site: Cooking Classy
     url: https://www.cookingclassy.com/chicken-veggie-brown-rice-bowls-peanut-sauce/
     title: Chicken Veggie and Brown Rice Bowls with Peanut Sauce
@@ -1200,6 +1167,7 @@ slots:
     checked_on: '2026-10-31'
     notes: Beef + lamb, with tzatziki recipe included; served on pita not rice (adapt); total 90 min (prep
       30 + cook 60). Rating 4.6 from 30 reviews (reviewCount); 15+ ingredients.
+    rejected_by_owner: true
 - slot: winter-lunch-3
   slot_label: chicken and vegetable soup meal prep (chicken breast)
   candidates:
@@ -1260,6 +1228,7 @@ slots:
     checked_on: '2026-10-31'
     notes: Diced breast with cabbage, carrots, potatoes, tomatoes, egg noodles; butter is the only fat
       (flag); 8 servings; count 12.
+    approved: true
 - slot: winter-lunch-4
   slot_label: chicken burrito or rice meal-prep bowls (chicken breast, no beans)
   candidates:
@@ -1298,6 +1267,7 @@ slots:
       sour cream optional; count 53. Pinned as the owner default; a newly-eligible bean bowl (RecipeTin
       Chicken Burrito) scores slightly higher — owner may switch.
     selected: true
+    approved: true
   - site: Well Plated
     url: https://www.wellplated.com/chipotle-burrito-bowl/
     title: Burrito Bowl
@@ -1392,6 +1362,7 @@ slots:
     selected: true
     notes: Owner-named default. Slow cooker, ~15 min active; total is passive. Classic 5-ingredient version;
       packets + pepperoncini route to Target, the chuck roast is Amana freezer stock (on hand).
+    approved: true
   - site: RecipeTin Eats
     url: https://www.recipetineats.com/slow-cooker-beef-pot-roast/
     title: Slow Cooker Pot Roast
@@ -1442,6 +1413,7 @@ slots:
     non_olive_fats: []
     checked_on: '2026-10-31'
     notes: ''
+    approved: true
   - site: Wholesome Yum
     url: https://www.wholesomeyum.com/taco-skillet/
     title: Mexican Taco Skillet
@@ -1468,7 +1440,7 @@ slots:
   candidates:
   - site: Spend With Pennies
     url: https://www.spendwithpennies.com/fusilli-with-meat-sauce/
-    selected: true   # owner 2026-10-31: jar of sauce + 1 lb ground beef + noodles
+    selected: true
     title: Fusilli with Meat Sauce (jarred)
     rating: 4.97
     count: 33
@@ -1488,6 +1460,7 @@ slots:
     non_olive_fats: []
     checked_on: '2026-10-31'
     notes: Owner's simple jar-sauce + 1 lb beef pasta (any pasta; swap spaghetti).
+    approved: true
   - site: Cooking Classy
     url: https://www.cookingclassy.com/instant-pot-spaghetti/
     title: Instant Pot Spaghetti
@@ -1535,6 +1508,7 @@ slots:
     - sesame oil
     checked_on: '2026-10-31'
     notes: ''
+    approved: true
   - site: Well Plated
     url: https://www.wellplated.com/ground-beef-and-broccoli/
     title: Ground Beef and Broccoli
@@ -1583,6 +1557,7 @@ slots:
     non_olive_fats: []
     checked_on: '2026-10-31'
     notes: ''
+    approved: true
   - site: Well Plated
     url: https://www.wellplated.com/ground-beef-quesadillas/
     title: Ground Beef Quesadillas
@@ -1628,6 +1603,7 @@ slots:
     non_olive_fats: []
     checked_on: '2026-10-31'
     notes: ''
+    rejected_by_owner: true
   - site: Taste of Home
     url: https://www.tasteofhome.com/recipes/sloppy-cheesesteaks/
     title: Sloppy Cheesesteaks
@@ -1647,6 +1623,30 @@ slots:
     non_olive_fats: []
     checked_on: '2026-10-31'
     notes: ''
+  - site: EasyHealth LLC
+    url: https://easyhealthllc.com/main-dish/low-carb-philly-cheesesteak-bowl/
+    title: Low Carb Philly Cheesesteak Bowl
+    rating: 4.27
+    count: 165
+    total_time_min: 25
+    yield: 4 servings
+    ingredients:
+    - 1 lb lean ground beef
+    - beef broth
+    - Worcestershire sauce
+    - 2 onions
+    - 3 green bell peppers
+    - mushrooms
+    - olive oil
+    - 4 slices provolone cheese
+    - salt and pepper
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-11-01'
+    notes: owner-supplied 2026-11-01
+    approved: true
+    selected: true
+    owner_pick: true
 - slot: winter-beef-sloppy
   slot_label: sloppy joes / beef skillet
   candidates:
@@ -1673,6 +1673,7 @@ slots:
     non_olive_fats: []
     checked_on: '2026-10-31'
     notes: ''
+    rejected_by_owner: true
   - site: Skinnytaste
     url: https://www.skinnytaste.com/skinny-sloppy-joes/
     title: Skinny Sloppy Joes
@@ -1720,6 +1721,7 @@ slots:
     non_olive_fats: []
     checked_on: '2026-10-31'
     notes: Greek-style beef with feta -- when picked it carries the week's feta.
+    approved: true
 - slot: winter-beef-chili
   slot_label: ground beef chili
   candidates:
@@ -1745,6 +1747,7 @@ slots:
     non_olive_fats: []
     checked_on: '2026-10-31'
     notes: ''
+    approved: true
   - site: Spend With Pennies
     url: https://www.spendwithpennies.com/the-best-chili-recipe/
     title: The Best Chili
@@ -1820,6 +1823,7 @@ slots:
     - butter
     checked_on: '2026-10-31'
     notes: ''
+    approved: true
 - slot: winter-pork-pan-seared
   slot_label: pan-seared pork chops
   candidates:
@@ -1866,6 +1870,7 @@ slots:
     - butter
     checked_on: '2026-10-31'
     notes: ''
+    approved: true
 - slot: winter-pork-baked
   slot_label: baked pork chops
   candidates:
@@ -1910,6 +1915,7 @@ slots:
     non_olive_fats: []
     checked_on: '2026-10-31'
     notes: Total 60 incl a 30-min brine; active ~30.
+    approved: true
 - slot: winter-pork-lemon-herb
   slot_label: lemon-herb / Greek pork chops
   candidates:
@@ -1933,6 +1939,7 @@ slots:
     non_olive_fats: []
     checked_on: '2026-10-31'
     notes: 15 min active; marinade time extra.
+    rejected_by_owner: true
   - site: Taste of Home
     url: https://www.tasteofhome.com/recipes/greek-pork-chops/
     title: Greek Pork Chops
@@ -1977,6 +1984,7 @@ slots:
     - butter
     checked_on: '2026-10-31'
     notes: ''
+    rejected_by_owner: true
   - site: Well Plated
     url: https://www.wellplated.com/honey-garlic-pork-chops/
     title: Honey Garlic Pork Chops
@@ -2022,6 +2030,7 @@ slots:
     - butter
     checked_on: '2026-10-31'
     notes: ''
+    approved: true
   - site: Wholesome Yum
     url: https://www.wholesomeyum.com/baked-smothered-pork-chops-recipe/
     title: Smothered Pork Chops
@@ -2067,6 +2076,7 @@ slots:
     non_olive_fats: []
     checked_on: '2026-10-31'
     notes: One-tray bake; add a green vegetable side.
+    approved: true
   - site: Taste of Home
     url: https://www.tasteofhome.com/recipes/pork-and-asparagus-sheet-pan-dinner/
     title: Pork Chops and Asparagus Sheet Pan
@@ -2088,3 +2098,348 @@ slots:
     non_olive_fats: []
     checked_on: '2026-10-31'
     notes: Below the rating threshold; listed as the only true sheet-pan pork+veg option.
+- slot: winter-steak-stroganoff
+  slot_label: beef stroganoff
+  candidates:
+  - site: Spend With Pennies
+    url: https://www.spendwithpennies.com/easy-beef-stroganoff/
+    title: Beef Stroganoff
+    rating: 4.94
+    count: 622
+    total_time_min: 40
+    yield: 4 servings
+    ingredients:
+    - 1 1/2 lb sirloin steak
+    - flour
+    - olive oil
+    - butter
+    - onion
+    - mushrooms
+    - garlic
+    - beef broth
+    - Worcestershire
+    - Dijon
+    - sour cream
+    - egg noodles
+    has_beans_lentils: false
+    non_olive_fats:
+    - butter
+    checked_on: '2026-11-01'
+    notes: ''
+    pending_owner_approval: true
+  - site: Natasha's Kitchen
+    url: https://natashaskitchen.com/beef-stroganoff/
+    title: Beef Stroganoff
+    rating: 4.96
+    count: 2025
+    total_time_min: 30
+    yield: 4 servings
+    ingredients:
+    - 1 lb top sirloin steak
+    - olive oil
+    - butter
+    - onion
+    - mushrooms
+    - garlic
+    - flour
+    - beef broth
+    - heavy cream
+    - sour cream
+    - Worcestershire
+    - Dijon
+    - egg noodles
+    has_beans_lentils: false
+    non_olive_fats:
+    - butter
+    - heavy cream
+    checked_on: '2026-11-01'
+    notes: ''
+    pending_owner_approval: true
+- slot: winter-steak-fajitas
+  slot_label: steak fajitas
+  candidates:
+  - site: Downshiftology
+    url: https://downshiftology.com/recipes/steak-fajitas/
+    title: Steak Fajitas
+    rating: 5.0
+    count: 32
+    total_time_min: 50
+    yield: 4 servings
+    ingredients:
+    - 1 lb flank or skirt steak
+    - onion
+    - 3 bell peppers
+    - olive oil
+    - lime juice
+    - garlic
+    - cumin
+    - chili powder
+    - tortillas
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-11-01'
+    notes: ''
+    pending_owner_approval: true
+  - site: iFoodReal
+    url: https://ifoodreal.com/steak-fajitas-sheet-pan/
+    title: Sheet Pan Steak Fajitas
+    rating: 4.94
+    count: 16
+    total_time_min: 35
+    yield: 4 servings
+    ingredients:
+    - 1.5 lb sirloin/flank/skirt steak
+    - jalapeno
+    - olive oil
+    - lime
+    - taco seasoning
+    - garlic powder
+    - 2 onions
+    - 3 bell peppers
+    - tortillas
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-11-01'
+    notes: ''
+    pending_owner_approval: true
+- slot: winter-steak-salad
+  slot_label: steak salad
+  candidates:
+  - site: Skinnytaste
+    url: https://www.skinnytaste.com/steak-fajita-salad/
+    title: Steak Fajita Salad
+    rating: 5.0
+    count: 2
+    total_time_min: 25
+    yield: 4 servings
+    ingredients:
+    - 1 lb sirloin steak
+    - 3 bell peppers
+    - red onion
+    - olive oil
+    - cumin
+    - romaine
+    - avocado
+    - lime
+    - honey
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-11-01'
+    notes: ''
+    pending_owner_approval: true
+  - site: RecipeTin Eats
+    url: https://www.recipetineats.com/thai-beef-salad/
+    title: Thai Beef Salad
+    rating: 4.98
+    count: 163
+    total_time_min: 25
+    yield: 4 servings
+    ingredients:
+    - sirloin steak
+    - mixed lettuce
+    - cherry tomatoes
+    - red onion
+    - cucumber
+    - cilantro
+    - mint
+    - peanuts
+    - fish sauce
+    - lime juice
+    - chili
+    has_beans_lentils: false
+    non_olive_fats:
+    - grapeseed oil
+    checked_on: '2026-11-01'
+    notes: many fresh herbs; winter-unfriendly
+    pending_owner_approval: true
+- slot: winter-side-frozen-green-beans
+  slot_label: frozen green beans
+  candidates:
+  - site: Natasha's Kitchen
+    url: https://natashaskitchen.com/green-beans-and-mushrooms-recipe/
+    title: Green Beans with Mushrooms
+    rating: 5.0
+    count: 23
+    total_time_min: 20
+    yield: 4 servings
+    ingredients:
+    - 1 lb frozen green beans
+    - olive oil
+    - butter
+    - mushrooms
+    - onion
+    - soy sauce
+    - sesame oil
+    has_beans_lentils: false
+    non_olive_fats:
+    - butter
+    checked_on: '2026-11-01'
+    notes: ''
+    pending_owner_approval: true
+  - site: Spend With Pennies
+    url: https://www.spendwithpennies.com/classic-green-bean-casserole/
+    title: Green Bean Casserole
+    rating: 5.0
+    count: 2102
+    total_time_min: 50
+    yield: 4 servings
+    ingredients:
+    - 4 cups frozen cut green beans
+    - cream of mushroom soup
+    - milk
+    - soy sauce
+    - crispy fried onions
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-11-01'
+    notes: ''
+    pending_owner_approval: true
+- slot: winter-side-frozen-broccoli
+  slot_label: roasted frozen broccoli
+  candidates:
+  - site: Well Plated
+    url: https://www.wellplated.com/roasted-frozen-broccoli/
+    title: Roasted Frozen Broccoli
+    rating: 4.65
+    count: 128
+    total_time_min: 25
+    yield: 4 servings
+    ingredients:
+    - 16 oz frozen broccoli florets
+    - olive oil
+    - salt
+    - pepper
+    - red pepper flakes
+    - lemon
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-11-01'
+    notes: ''
+    pending_owner_approval: true
+- slot: winter-side-frozen-peas
+  slot_label: frozen peas
+  candidates:
+  - site: Spend With Pennies
+    url: https://www.spendwithpennies.com/creamed-peas/
+    title: Creamed Peas
+    rating: 5.0
+    count: 54
+    total_time_min: 20
+    yield: 4 servings
+    ingredients:
+    - 3 cups frozen peas
+    - butter
+    - flour
+    - garlic powder
+    - dill
+    - light cream
+    has_beans_lentils: false
+    non_olive_fats:
+    - butter
+    - light cream
+    checked_on: '2026-11-01'
+    notes: ''
+    pending_owner_approval: true
+  - site: Spend With Pennies
+    url: https://www.spendwithpennies.com/buttery-peas-and-carrots/
+    title: Buttered Dill Peas and Carrots
+    rating: 5.0
+    count: 14
+    total_time_min: 20
+    yield: 4 servings
+    ingredients:
+    - olive oil
+    - carrots
+    - 2 cups frozen green peas
+    - butter
+    - dill
+    has_beans_lentils: false
+    non_olive_fats:
+    - butter
+    checked_on: '2026-11-01'
+    notes: ''
+    pending_owner_approval: true
+- slot: winter-side-frozen-mixed
+  slot_label: frozen mixed vegetables
+  candidates:
+  - site: Spend With Pennies
+    url: https://www.spendwithpennies.com/cheesy-vegetable-casserole/
+    title: Cheesy Vegetable Casserole
+    rating: 5.0
+    count: 28
+    total_time_min: 60
+    yield: 4 servings
+    ingredients:
+    - frozen cut green beans
+    - frozen broccoli cauliflower mix
+    - cream of mushroom soup
+    - milk
+    - cheddar cheese
+    - crispy fried onions
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-11-01'
+    notes: ''
+    pending_owner_approval: true
+- slot: winter-side-frozen-corn
+  slot_label: frozen corn
+  candidates:
+  - site: Taste of Home
+    url: https://www.tasteofhome.com/recipes/southwestern-sauteed-corn/
+    title: Southwest Corn
+    rating: 4.89
+    count: 19
+    total_time_min: 20
+    yield: 4 servings
+    ingredients:
+    - butter
+    - 16 oz frozen corn
+    - tomato
+    - lime juice
+    - cumin
+    - cilantro
+    has_beans_lentils: false
+    non_olive_fats:
+    - butter
+    checked_on: '2026-11-01'
+    notes: ''
+    pending_owner_approval: true
+- slot: winter-side-frozen-brussels
+  slot_label: roasted frozen Brussels sprouts
+  candidates:
+  - site: Well Plated
+    url: https://www.wellplated.com/roasted-frozen-brussels-sprouts/
+    title: Roasted Frozen Brussels Sprouts
+    rating: 4.67
+    count: 135
+    total_time_min: 40
+    yield: 4 servings
+    ingredients:
+    - 24 oz frozen Brussels sprouts
+    - olive oil
+    - salt
+    - pepper
+    - lemon
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-11-01'
+    notes: ''
+    pending_owner_approval: true
+  - site: Wholesome Yum
+    url: https://www.wholesomeyum.com/roasted-frozen-brussels-sprouts-recipe/
+    title: Roasted Frozen Brussels Sprouts
+    rating: 4.89
+    count: 53
+    total_time_min: 35
+    yield: 4 servings
+    ingredients:
+    - 24 oz frozen Brussels sprouts
+    - avocado oil
+    - salt
+    - pepper
+    has_beans_lentils: false
+    non_olive_fats:
+    - avocado oil
+    checked_on: '2026-11-01'
+    notes: ''
+    pending_owner_approval: true

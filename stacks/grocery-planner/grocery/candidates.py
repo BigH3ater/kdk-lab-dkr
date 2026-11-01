@@ -65,15 +65,27 @@ def score_slot(slot: dict, config: dict) -> dict:
         c["reject_reasons"] = ev.reject_reasons
         scored.append(c)
 
-    owner = [c for c in scored if c.get("selected")]
+    # Owner-review gate: when require_owner_approval is on, a candidate is
+    # eligible to be chosen only if the owner approved it (approved / owner_pick);
+    # rejected_by_owner is never chosen; pending_owner_approval waits.
+    require = config.get("require_owner_approval")
+
+    def eligible(c):
+        if c.get("rejected_by_owner"):
+            return False
+        if require and not (c.get("approved") or c.get("owner_pick")):
+            return False
+        return c["verdict"] in ("good", "acceptable")
+
+    owner = [c for c in scored if c.get("selected") and eligible(c)]
     chosen = None
     if owner:
         chosen = owner[0]
     else:
-        good = [c for c in scored if c["verdict"] == "good"]
-        pool = good or [c for c in scored if c["verdict"] == "acceptable"]
-        if pool:
-            chosen = max(pool, key=lambda c: (c["score"] or 0.0))
+        pool = [c for c in scored if eligible(c)]
+        good = [c for c in pool if c["verdict"] == "good"] or pool
+        if good:
+            chosen = max(good, key=lambda c: (c["score"] or 0.0))
 
     return {
         "slot": slot["slot"],
@@ -134,10 +146,13 @@ def pool_from_selected(scored_slots, season, start_id=1):
 
 # Minimum distinct recipes the generator needs per season to build any week at
 # either parity (fish is 1/week but both variants are used across the A/B weeks).
-# chicken is 3 (2 regular + a possible flex-chicken week); ground_beef is 4
-# (only 1-2 used a week now); pork is 3 (the flex-pork weeks).
-SEASON_MINIMUMS = {"salmon": 1, "tuna": 1, "chicken": 3, "ground_beef": 4,
-                   "pork": 3, "steak": 1, "roast": 1, "side": 7, "lunch": 2}
+# The HARD weekly minimums the APPROVED pool must meet for the generator to build
+# a week: 2 chicken + 1 flex-chicken week => 3; 2 ground beef; 1 pork (flex-pork);
+# 1 steak (may repeat week to week); 1 roast; 2 lunches; >=1 side (repeated up to
+# sides.max_repeats_per_week when the pool is short -- SIDE_TARGET is the goal).
+SEASON_MINIMUMS = {"salmon": 1, "tuna": 1, "chicken": 3, "ground_beef": 2,
+                   "pork": 1, "steak": 1, "roast": 1, "side": 1, "lunch": 2}
+SIDE_TARGET = 7
 
 
 def season_coverage(scored_slots):
@@ -155,7 +170,9 @@ def season_coverage(scored_slots):
 
 
 def coverage_shortfalls(scored_by_season):
-    """{season: ["chicken 2/4", ...]} for seasons that can't build a week."""
+    """{season: ["chicken 2/3", ...]} for seasons that CANNOT build a week (hard
+    minimums). Side shortfalls below SIDE_TARGET are NOT here -- the interim
+    repeat rule covers them; see side_shortfalls()."""
     out = {}
     for season, slots in scored_by_season.items():
         got = season_coverage(slots)
@@ -163,6 +180,17 @@ def coverage_shortfalls(scored_by_season):
                  for k in SEASON_MINIMUMS if got[k] < SEASON_MINIMUMS[k]]
         if short:
             out[season] = short
+    return out
+
+
+def side_shortfalls(scored_by_season):
+    """{season: (approved_sides, SIDE_TARGET)} where the approved side pool is
+    below the 7-a-week target -- reported, not blocking (interim repeat covers it)."""
+    out = {}
+    for season, slots in scored_by_season.items():
+        n = season_coverage(slots)["side"]
+        if n < SIDE_TARGET:
+            out[season] = (n, SIDE_TARGET)
     return out
 
 

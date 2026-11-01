@@ -143,6 +143,13 @@ def evaluate_candidate(cand: dict, slot_kind: str, config: dict) -> Evaluation:
     if nipc is not None and nipc > caps["ingredient_max"]:
         rejects.append(f"too many ingredients ({nipc} > {caps['ingredient_max']})")
 
+    # Owner-excluded ingredients (radish/beet/arugula): hard reject in any slot.
+    text = (str(cand.get("title", "")) + " "
+            + " ".join(str(i) for i in (cand.get("ingredients") or []))).lower()
+    for term in (config.get("exclude_ingredients") or []):
+        if str(term).lower() in text:
+            rejects.append(f"owner-excluded ingredient: {term}")
+
     # --- scoring ---
     rating = cand.get("rating")
     count = cand.get("count")
@@ -150,12 +157,17 @@ def evaluate_candidate(cand: dict, slot_kind: str, config: dict) -> Evaluation:
     scaled_count = None if count is None else count / weight
     score = bayesian_score(rating, scaled_count, sc["prior_m"], sc["prior_weight_C"])
 
-    if rating is None or count is None:
-        rejects.append("no rating found")
-
     # --- verdict ---
+    # `owner_pick` (an owner-supplied recipe) overrides the rating/count gate, but
+    # the HARD rules above (beans/legume-only, chicken-breast, time, ingredient
+    # count, excluded ingredients) still apply.
     if rejects:
         verdict = "rejected"
+    elif cand.get("owner_pick"):
+        verdict = "good"
+    elif rating is None or count is None:
+        verdict = "rejected"
+        rejects.append("no rating found")
     elif rating >= sc["good"]["min_rating"] and count >= sc["good"]["min_count"]:
         verdict = "good"
     elif rating >= sc["acceptable"]["min_rating"] and count >= sc["acceptable"]["min_count"]:

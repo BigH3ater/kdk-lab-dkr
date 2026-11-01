@@ -110,6 +110,28 @@ def _pick(pool, kind, season, caps, rng, used_ids, n=1, variant=None):
     return chosen
 
 
+def _pick_sides(pool, season, caps, rng, n, max_repeats):
+    """Return n veg sides. Distinct when >= n are available; otherwise repeat,
+    each side used <= max_repeats (relaxing the cap only if the pool is too small
+    to reach n). Fails only if there are no eligible sides at all."""
+    cands = [r for r in pool if r.get("kind") == "side" and r.get("season") == season
+             and _eligible(r, caps, "side")]
+    rng.shuffle(cands)
+    if not cands:
+        raise PlanError(f"no eligible sides for {season}")
+    if len(cands) >= n:
+        return cands[:n]
+    cap = max_repeats if len(cands) * max_repeats >= n else -(-n // len(cands))
+    chosen, counts, i = [], {}, 0
+    while len(chosen) < n:
+        c = cands[i % len(cands)]
+        i += 1
+        if counts.get(c["id"], 0) < cap:
+            chosen.append(c)
+            counts[c["id"]] = counts.get(c["id"], 0) + 1
+    return chosen
+
+
 def _pick_beef(pool, season, caps, rng, used, n, max_asian):
     """Pick n distinct ground-beef dishes for the week: no repeat (distinct
     recipe ids) and at most `max_asian` Asian-style (beef_style == 'asian')."""
@@ -195,8 +217,11 @@ def generate_week(pool: list[dict], week_start: datetime.date, config: dict) -> 
     for d, rec in zip(days, other):
         mains_by_day[d] = rec
 
-    # Sides: one per dinner, no repeat within the week.
-    side_used: set[int] = set()
+    # Sides: one per dinner. No repeat when >= 7 distinct are available; else the
+    # interim rule repeats a side up to sides.max_repeats_per_week (relaxing only
+    # if the approved pool is tiny) so the week always fills.
+    sides = _pick_sides(pool, season, caps, rng, 7,
+                        config["sides"].get("max_repeats_per_week", 2))
 
     for d in range(7):
         date = week_start + datetime.timedelta(days=d)
@@ -204,9 +229,7 @@ def generate_week(pool: list[dict], week_start: datetime.date, config: dict) -> 
         entries.append(PlanEntry(date, "dinner", main["id"], main["name"], 2,
                                  "dinner-main", main.get("slot", ""), note("dinner")))
         if config["sides"]["per_dinner"]:
-            side = _pick(pool, "side", season, caps, rng,
-                         side_used if config["sides"]["no_repeat_within_week"] else set(),
-                         1)[0]
+            side = sides[d]
             entries.append(PlanEntry(date, "dinner", side["id"], side["name"], 2,
                                      "side", side.get("slot", ""), note("side")))
 

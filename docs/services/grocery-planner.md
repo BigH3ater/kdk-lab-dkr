@@ -88,14 +88,20 @@ recipes per slot with the ratings read from each page's schema.org data. A
 Bayesian score and a good/acceptable/rejected verdict come from `config.yaml`
 (`grocery/scoring.py`); thresholds are calibrated for the **reachable** corpus
 (Allrecipes is out of scope — it blocks bots with HTTP 402). The review table is
-[recipe candidates](../reference/grocery-recipe-candidates.md). The owner-run
-seed runs a **preflight** that refuses to apply if any season is short of the
-generator minimums (1 salmon + 1 tuna + 3 chicken + 4 ground-beef dishes + 3 pork
-chops + 1 steak + 1 slow-cooker roast + 7 sides + 2 lunches), then imports the chosen recipe for each slot through
-Tandoor's URL import (`recipe-from-source`), tags it, adds it to the season book,
-and routes its foods. The fixed breakfast/snack feeders ("Weekly staples",
-"Snacks to buy", "Snack prep") are seeded directly (not URL imports), and the
-weekly run fails loudly if any is missing. See the
+[recipe candidates](../reference/grocery-recipe-candidates.md). **The owner
+approves picks** (`require_owner_approval`, on by default): the seed imports and
+the generator use only `approved`/`owner_pick` candidates; `rejected_by_owner`
+and `pending_owner_approval` are skipped. `exclude_ingredients` (radish, beet,
+arugula) are rejected everywhere. The owner-run seed runs a **preflight** that
+refuses to apply if any season is short of the hard weekly minimums (1 salmon +
+1 tuna + 3 chicken + 2 ground beef + 1 pork + 1 steak + 1 roast + 2 lunches + ≥1
+side; sides below 7 are reported, and the interim repeat rule covers them), then
+imports each chosen recipe through Tandoor's URL import (`recipe-from-source`),
+tags it, adds it to the season book, and routes its foods. Every write lands in
+the **Mack House** space — the job verifies the active space at login and fails
+loudly otherwise. Meal-plan per-entry sharing is an owner step (no `shared` field
+in this API). The fixed breakfast/snack feeders are seeded directly (not URL
+imports), and the weekly run fails loudly if any is missing. See the
 [runbook](../runbooks/grocery-planner.md).
 
 ## What it does not do

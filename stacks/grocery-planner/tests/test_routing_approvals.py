@@ -64,6 +64,15 @@ def test_breakfast_shakes_route(cfg):
     assert _route("Jocko Fuel protein shake, chocolate", cfg) == "Target/weekly: Snacks"
 
 
+def test_frozen_veg_routes_to_target_frozen(cfg):
+    assert _route("16 oz frozen broccoli florets", cfg) == "Target/weekly: Frozen"
+    assert _route("frozen cut green beans", cfg) == "Target/weekly: Frozen"
+    assert _route("frozen Brussels sprouts", cfg) == "Target/weekly: Frozen"
+    # the longer fish rules still win
+    assert _route("frozen salmon", cfg) == "Costco/bulk: Freezer"
+    assert _route("frozen tuna", cfg) == "NewPi/weekly: Meat & Seafood"
+
+
 def test_fish_steaks_are_not_beef(cfg):
     # Karen pass 2: "steak" (beef, Amana) must not swallow fish sold as steaks.
     for name in ("tuna steak", "Tuna steaks", "ahi tuna steak", "salmon steak"):

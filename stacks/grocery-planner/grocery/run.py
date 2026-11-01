@@ -154,7 +154,8 @@ def _tandoor(cfg):
     from .tandoor import Tandoor
     return Tandoor(cfg["tandoor"]["url"], os.environ["TANDOOR_USER"],
                    os.environ["TANDOOR_PASS"],
-                   cfg["tandoor"].get("space", "Mack House")).login()
+                   cfg["tandoor"].get("space", "Mack House"),
+                   space_id=cfg["tandoor"].get("space_id")).login()
 
 
 def _already_planned(t, start, end, wk):
@@ -210,6 +211,14 @@ def run_weekly(cfg, poll=False):
                 "note": e.note, "addshopping": e.role != "leftover"}
         created = t.post("/api/meal-plan/", body)
         mp_ids.append(created.get("id"))
+
+    # Meal-plan sharing: this Tandoor 2.7 API exposes no `shared` field, so the
+    # entries can't be shared with jmack/rach programmatically. All three users
+    # are in the Mack House space (which scopes the data); per-entry sharing is
+    # an owner step (see the runbook). Logged, not failed.
+    jlog(event="sharing_note", week=wk,
+         share_with=list((cfg["tandoor"].get("share_with") or {}).keys()),
+         note="meal-plan 'shared' field absent in Tandoor 2.7 API; owner step")
 
     lists, unrouted, skipped = S.build_store_lists(t.shopping_list_entries(), cfg, "weekly")
     jlog(event="planned", week=wk, season=season, meal_plan_entries=len(mp_ids),

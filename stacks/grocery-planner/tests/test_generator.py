@@ -125,11 +125,27 @@ def test_fish_variant_by_parity(cfg):
         assert _variant(pool, fish.recipe_id) == cfg["proteins"]["fish_parity"][parity]
 
 
-def test_no_repeat_sides_and_lunch_servings(cfg):
+def test_no_repeat_sides_when_pool_is_full(cfg):
+    # make_pool has 8 sides (>= 7) -> all 7 distinct, no repeat.
     entries = G.generate_week(make_pool(), SUNDAY, cfg)
     sides = [e.recipe_id for e in entries if e.role == "side"]
-    assert len(sides) == len(set(sides))
+    assert len(sides) == 7 and len(set(sides)) == 7
     assert all(e.servings == 4 for e in entries if e.role == "lunch")
+
+
+def test_interim_side_repeat_when_pool_is_short(cfg):
+    # only 3 sides approved -> 7 slots filled by repeating, each <= max_repeats
+    # (interim rule relaxes further only if 3*max < 7).
+    pool = [r for r in make_pool() if r["kind"] != "side"]
+    nxt = max(r["id"] for r in pool) + 1
+    for k in range(3):
+        pool.append({"id": nxt + k, "name": f"side{k}", "kind": "side", "season": "spring",
+                     "variant": None, "beef_style": None, "working_time": 20,
+                     "ingredient_count": 6, "servings": 2})
+    entries = G.generate_week(pool, SUNDAY, cfg)
+    sides = [e.recipe_id for e in entries if e.role == "side"]
+    assert len(sides) == 7                 # always fills the week
+    assert set(sides) <= {nxt, nxt + 1, nxt + 2}   # only from the short pool
 
 
 def test_deterministic_per_week(cfg):

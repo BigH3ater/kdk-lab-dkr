@@ -35,6 +35,7 @@ slots:
     checked_on: '2026-10-31'
     notes: Olive oil marinade. 50 min total includes a 30 min marinade; active time is 10 min prep + 10
       min cook. The page does not say wild; buy wild fillets. Scales to 2 by halving.
+    approved: true
   - site: Jessica Gavin
     url: https://www.jessicagavin.com/grilled-salmon/
     title: Grilled Salmon
@@ -143,6 +144,7 @@ slots:
     notes: Pan-sear in a very hot skillet, not grilled; the same method can go on a grill. Total time
       is prep 5 + cook 3 (the page has no totalTime). Yield is 2. The Sauce Vierge is a sub-recipe with
       extra ingredients.
+    approved: true
 - slot: summer-chicken-1
   slot_label: grilled chicken souvlaki (chicken breast)
   candidates:
@@ -168,6 +170,7 @@ slots:
     non_olive_fats: []
     checked_on: '2026-10-31'
     notes: Breast, olive oil. 38 min includes a 30 min marinade. The tzatziki is a separate sub-recipe.
+    approved: true
   - site: RecipeTin Eats
     url: https://www.recipetineats.com/chicken-souvlaki-tzatziki/
     title: Chicken Souvlaki with Tzatziki
@@ -232,6 +235,7 @@ slots:
     checked_on: '2026-10-31'
     notes: Best fit by rating. Butter is replaceable with olive oil per the page. The yellow squash can
       be dropped.
+    approved: true
   - site: Skinnytaste
     url: https://www.skinnytaste.com/chicken-zucchini-noodle-caprese/
     title: Chicken and Zucchini Noodle Caprese
@@ -330,6 +334,7 @@ slots:
     notes: The marinade is not in recipeIngredient; it is a separate Well Plated recipe. The search snippet
       described it as olive oil, garlic, salt, pepper and an acid, but I did not open it. 60 min total
       includes marinating.
+    approved: true
   - site: iFoodReal
     url: https://ifoodreal.com/grilled-chicken-breast/
     title: Easy Juicy Grilled Chicken Breast
@@ -388,7 +393,9 @@ slots:
     - sesame oil
     checked_on: '2026-10-31'
     notes: 'Violations: more than 8 non-pantry ingredients and non-olive oils. 45 min includes a 15 min
-      marinade. Green beans are fresh, not legumes.'
+      marinade. Green beans are fresh, not legumes. owner approved the alt 2026-11-01'
+    approved: true
+    selected: true
   - site: Skinnytaste
     url: https://www.skinnytaste.com/one-skillet-chicken-with-bacon-and-green-beans/
     title: One Skillet Chicken with Bacon and Green Beans
@@ -415,6 +422,7 @@ slots:
     notes: 'Violation: bacon is the cooking fat. This is a skillet dish, not a soy-style stir fry. The
       shallot line is as published: the page reads ''2 tablespoons minced shallot'' in the fetched data,
       and a transcription slip here made it ''2 minced shallot'', so trust the page. 7 non-pantry ingredients.'
+    rejected_by_owner: true
   - site: The Lemon Bowl
     url: https://thelemonbowl.com/chicken-and-green-bean-stir-fry/
     title: Chicken and Green Bean Stir-Fry
@@ -468,6 +476,7 @@ slots:
     checked_on: '2026-10-31'
     notes: 'Highest-evidence match: 684 ratings. Breast, olive oil. 50 min includes a 30 min marinade.
       4 non-pantry ingredients. Scales to 2 by halving.'
+    approved: true
   - site: Natasha's Kitchen
     url: https://natashaskitchen.com/greek-chicken-bowls/
     title: Greek Chicken Bowls Recipe
@@ -558,6 +567,7 @@ slots:
     checked_on: '2026-10-31'
     notes: Olive oil. The toppings (sour cream, guacamole, pico) are optional. Skillet-seared, not grilled.
       50 min includes marinating (prep 20 + cook 30).
+    approved: true
   - site: Taste of Home
     url: https://www.tasteofhome.com/recipes/mexican-steak-fajitas/
     title: Steak Fajitas
@@ -657,6 +667,7 @@ slots:
     non_olive_fats: []
     checked_on: '2026-10-31'
     notes: Olive oil. Higher count; mostly dried-herb pantry items.
+    approved: true
 - slot: summer-side-tomato-cucumber
   slot_label: tomato cucumber salad
   candidates:
@@ -681,6 +692,7 @@ slots:
     non_olive_fats: []
     checked_on: '2026-10-31'
     notes: Meets the preferred threshold (4.98 with 40 ratings). Olive oil.
+    approved: true
   - site: Natasha's Kitchen
     url: https://natashaskitchen.com/cucumber-and-tomato-salad-recipe/
     title: Cucumber Tomato Salad
@@ -732,6 +744,7 @@ slots:
     checked_on: '2026-10-31'
     notes: The page's recipeIngredient also lists a couscous topping. The plain grilled eggplant needs
       only the first 3 lines, so the topping can be skipped. Olive oil.
+    rejected_by_owner: true
   - site: Skinnytaste
     url: https://www.skinnytaste.com/grilled-eggplant-with-feta/
     title: Grilled Eggplant with Feta
@@ -773,6 +786,7 @@ slots:
     non_olive_fats: []
     checked_on: '2026-10-31'
     notes: Olive oil. 4 non-pantry ingredients.
+    approved: true
   - site: Love and Lemons
     url: https://www.loveandlemons.com/caprese-salad/
     title: Caprese Salad Recipe
@@ -816,6 +830,7 @@ slots:
     non_olive_fats: []
     checked_on: '2026-10-31'
     notes: Olive oil. Corn is grilled. 5 non-pantry ingredients.
+    approved: true
   - site: Taste of Home
     url: https://www.tasteofhome.com/recipes/summer-corn-salad/
     title: Summer Corn Salad
@@ -864,6 +879,7 @@ slots:
     checked_on: '2026-10-31'
     notes: Page gives no time data. It is a no-cook salad, plus a salting rest. Sesame oil is the dressing
       fat; it is not a cooking fat.
+    approved: true
   - site: Downshiftology
     url: https://downshiftology.com/recipes/asian-cucumber-salad/
     title: Asian Cucumber Salad (Smashed Cucumber Salad)
@@ -917,6 +933,7 @@ slots:
     non_olive_fats: []
     checked_on: '2026-10-31'
     notes: Highest evidence (516 ratings). Olive oil. About 8 non-pantry ingredients.
+    approved: true
   - site: Natasha's Kitchen
     url: https://natashaskitchen.com/greek-salad/
     title: Easy Greek Salad Recipe
@@ -958,6 +975,7 @@ slots:
     checked_on: '2026-10-31'
     notes: A multi-method guide; the grilled method is one of six. It has the strongest rating evidence
       but is not grill-specific.
+    approved: true
   - site: foodiecrush
     url: https://www.foodiecrush.com/how-to-make-best-easy-grilled-corn/
     title: How to Make THE BEST Grilled Corn on the Cob
@@ -1011,6 +1029,7 @@ slots:
     non_olive_fats: []
     checked_on: '2026-10-31'
     notes: Olive oil, 4 non-pantry ingredients.
+    rejected_by_owner: true
   - site: Wholesome Yum
     url: https://www.wholesomeyum.com/cucumber-tomato-avocado-salad/
     title: Cucumber Tomato Avocado Salad
@@ -1122,6 +1141,7 @@ slots:
     checked_on: '2026-10-31'
     notes: 'Violations: no chicken (add it), more than 8 non-pantry ingredients, and it yields 8. Olive
       oil.'
+    approved: true
 - slot: summer-lunch-2
   slot_label: beef and rice stuffed pepper bowls (ground beef)
   candidates:
@@ -1150,6 +1170,7 @@ slots:
     checked_on: '2026-10-31'
     notes: Olive oil, within the 90 min lunch limit. A baked stuffed pepper rather than a bowl. Yields
       6.
+    approved: true
   - site: Skinnytaste
     url: https://www.skinnytaste.com/stuffed-peppers/
     title: Stuffed Peppers
@@ -1261,6 +1282,7 @@ slots:
     checked_on: '2026-10-31'
     notes: 'Violations: no zucchini (the page uses asparagus or green beans; zucchini would be a swap)
       and more than 8 non-pantry ingredients. Olive oil. Yields 8.'
+    approved: true
   - site: The Lemon Bowl
     url: https://thelemonbowl.com/grilled-chicken-and-vegetable-pasta-salad/
     title: Grilled Chicken and Vegetable Greek Pasta Salad
@@ -1408,6 +1430,7 @@ slots:
     selected: true
     notes: Owner-named default. Slow cooker, ~15 min active; total is passive. Classic 5-ingredient version;
       packets + pepperoncini route to Target, the chuck roast is Amana freezer stock (on hand).
+    approved: true
   - site: RecipeTin Eats
     url: https://www.recipetineats.com/slow-cooker-beef-pot-roast/
     title: Slow Cooker Pot Roast
@@ -1458,6 +1481,7 @@ slots:
     non_olive_fats: []
     checked_on: '2026-10-31'
     notes: ''
+    approved: true
   - site: Wholesome Yum
     url: https://www.wholesomeyum.com/taco-skillet/
     title: Mexican Taco Skillet
@@ -1484,7 +1508,7 @@ slots:
   candidates:
   - site: Spend With Pennies
     url: https://www.spendwithpennies.com/fusilli-with-meat-sauce/
-    selected: true   # owner 2026-10-31: jar of sauce + 1 lb ground beef + noodles
+    selected: true
     title: Fusilli with Meat Sauce (jarred)
     rating: 4.97
     count: 33
@@ -1504,6 +1528,7 @@ slots:
     non_olive_fats: []
     checked_on: '2026-10-31'
     notes: Owner's simple jar-sauce + 1 lb beef pasta (any pasta; swap spaghetti).
+    approved: true
   - site: Cooking Classy
     url: https://www.cookingclassy.com/instant-pot-spaghetti/
     title: Instant Pot Spaghetti
@@ -1551,6 +1576,7 @@ slots:
     - sesame oil
     checked_on: '2026-10-31'
     notes: ''
+    approved: true
   - site: Well Plated
     url: https://www.wellplated.com/ground-beef-and-broccoli/
     title: Ground Beef and Broccoli
@@ -1599,6 +1625,7 @@ slots:
     non_olive_fats: []
     checked_on: '2026-10-31'
     notes: ''
+    approved: true
   - site: Well Plated
     url: https://www.wellplated.com/ground-beef-quesadillas/
     title: Ground Beef Quesadillas
@@ -1644,6 +1671,7 @@ slots:
     non_olive_fats: []
     checked_on: '2026-10-31'
     notes: ''
+    rejected_by_owner: true
   - site: Taste of Home
     url: https://www.tasteofhome.com/recipes/sloppy-cheesesteaks/
     title: Sloppy Cheesesteaks
@@ -1663,6 +1691,30 @@ slots:
     non_olive_fats: []
     checked_on: '2026-10-31'
     notes: ''
+  - site: EasyHealth LLC
+    url: https://easyhealthllc.com/main-dish/low-carb-philly-cheesesteak-bowl/
+    title: Low Carb Philly Cheesesteak Bowl
+    rating: 4.27
+    count: 165
+    total_time_min: 25
+    yield: 4 servings
+    ingredients:
+    - 1 lb lean ground beef
+    - beef broth
+    - Worcestershire sauce
+    - 2 onions
+    - 3 green bell peppers
+    - mushrooms
+    - olive oil
+    - 4 slices provolone cheese
+    - salt and pepper
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-11-01'
+    notes: owner-supplied 2026-11-01
+    approved: true
+    selected: true
+    owner_pick: true
 - slot: summer-beef-sloppy
   slot_label: sloppy joes / beef skillet
   candidates:
@@ -1689,6 +1741,7 @@ slots:
     non_olive_fats: []
     checked_on: '2026-10-31'
     notes: ''
+    rejected_by_owner: true
   - site: Skinnytaste
     url: https://www.skinnytaste.com/skinny-sloppy-joes/
     title: Skinny Sloppy Joes
@@ -1736,6 +1789,7 @@ slots:
     non_olive_fats: []
     checked_on: '2026-10-31'
     notes: Greek-style beef with feta -- when picked it carries the week's feta.
+    approved: true
 - slot: summer-pork-pan-seared
   slot_label: pan-seared pork chops
   candidates:
@@ -1782,6 +1836,7 @@ slots:
     - butter
     checked_on: '2026-10-31'
     notes: ''
+    approved: true
 - slot: summer-pork-baked
   slot_label: baked pork chops
   candidates:
@@ -1826,6 +1881,7 @@ slots:
     non_olive_fats: []
     checked_on: '2026-10-31'
     notes: Total 60 incl a 30-min brine; active ~30.
+    approved: true
 - slot: summer-pork-lemon-herb
   slot_label: lemon-herb / Greek pork chops
   candidates:
@@ -1849,6 +1905,7 @@ slots:
     non_olive_fats: []
     checked_on: '2026-10-31'
     notes: 15 min active; marinade time extra.
+    rejected_by_owner: true
   - site: Taste of Home
     url: https://www.tasteofhome.com/recipes/greek-pork-chops/
     title: Greek Pork Chops
@@ -1893,6 +1950,7 @@ slots:
     - butter
     checked_on: '2026-10-31'
     notes: ''
+    rejected_by_owner: true
   - site: Well Plated
     url: https://www.wellplated.com/honey-garlic-pork-chops/
     title: Honey Garlic Pork Chops
@@ -1938,6 +1996,7 @@ slots:
     - butter
     checked_on: '2026-10-31'
     notes: ''
+    approved: true
   - site: Wholesome Yum
     url: https://www.wholesomeyum.com/baked-smothered-pork-chops-recipe/
     title: Smothered Pork Chops
@@ -1983,6 +2042,7 @@ slots:
     non_olive_fats: []
     checked_on: '2026-10-31'
     notes: One-tray bake; add a green vegetable side.
+    approved: true
   - site: Taste of Home
     url: https://www.tasteofhome.com/recipes/pork-and-asparagus-sheet-pan-dinner/
     title: Pork Chops and Asparagus Sheet Pan
@@ -2004,3 +2064,157 @@ slots:
     non_olive_fats: []
     checked_on: '2026-10-31'
     notes: Below the rating threshold; listed as the only true sheet-pan pork+veg option.
+- slot: summer-steak-stroganoff
+  slot_label: beef stroganoff
+  candidates:
+  - site: Spend With Pennies
+    url: https://www.spendwithpennies.com/easy-beef-stroganoff/
+    title: Beef Stroganoff
+    rating: 4.94
+    count: 622
+    total_time_min: 40
+    yield: 4 servings
+    ingredients:
+    - 1 1/2 lb sirloin steak
+    - flour
+    - olive oil
+    - butter
+    - onion
+    - mushrooms
+    - garlic
+    - beef broth
+    - Worcestershire
+    - Dijon
+    - sour cream
+    - egg noodles
+    has_beans_lentils: false
+    non_olive_fats:
+    - butter
+    checked_on: '2026-11-01'
+    notes: ''
+    pending_owner_approval: true
+  - site: Natasha's Kitchen
+    url: https://natashaskitchen.com/beef-stroganoff/
+    title: Beef Stroganoff
+    rating: 4.96
+    count: 2025
+    total_time_min: 30
+    yield: 4 servings
+    ingredients:
+    - 1 lb top sirloin steak
+    - olive oil
+    - butter
+    - onion
+    - mushrooms
+    - garlic
+    - flour
+    - beef broth
+    - heavy cream
+    - sour cream
+    - Worcestershire
+    - Dijon
+    - egg noodles
+    has_beans_lentils: false
+    non_olive_fats:
+    - butter
+    - heavy cream
+    checked_on: '2026-11-01'
+    notes: ''
+    pending_owner_approval: true
+- slot: summer-steak-fajitas
+  slot_label: steak fajitas
+  candidates:
+  - site: Downshiftology
+    url: https://downshiftology.com/recipes/steak-fajitas/
+    title: Steak Fajitas
+    rating: 5.0
+    count: 32
+    total_time_min: 50
+    yield: 4 servings
+    ingredients:
+    - 1 lb flank or skirt steak
+    - onion
+    - 3 bell peppers
+    - olive oil
+    - lime juice
+    - garlic
+    - cumin
+    - chili powder
+    - tortillas
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-11-01'
+    notes: ''
+    pending_owner_approval: true
+  - site: iFoodReal
+    url: https://ifoodreal.com/steak-fajitas-sheet-pan/
+    title: Sheet Pan Steak Fajitas
+    rating: 4.94
+    count: 16
+    total_time_min: 35
+    yield: 4 servings
+    ingredients:
+    - 1.5 lb sirloin/flank/skirt steak
+    - jalapeno
+    - olive oil
+    - lime
+    - taco seasoning
+    - garlic powder
+    - 2 onions
+    - 3 bell peppers
+    - tortillas
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-11-01'
+    notes: ''
+    pending_owner_approval: true
+- slot: summer-steak-salad
+  slot_label: steak salad
+  candidates:
+  - site: Skinnytaste
+    url: https://www.skinnytaste.com/steak-fajita-salad/
+    title: Steak Fajita Salad
+    rating: 5.0
+    count: 2
+    total_time_min: 25
+    yield: 4 servings
+    ingredients:
+    - 1 lb sirloin steak
+    - 3 bell peppers
+    - red onion
+    - olive oil
+    - cumin
+    - romaine
+    - avocado
+    - lime
+    - honey
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-11-01'
+    notes: ''
+    pending_owner_approval: true
+  - site: RecipeTin Eats
+    url: https://www.recipetineats.com/thai-beef-salad/
+    title: Thai Beef Salad
+    rating: 4.98
+    count: 163
+    total_time_min: 25
+    yield: 4 servings
+    ingredients:
+    - sirloin steak
+    - mixed lettuce
+    - cherry tomatoes
+    - red onion
+    - cucumber
+    - cilantro
+    - mint
+    - peanuts
+    - fish sauce
+    - lime juice
+    - chili
+    has_beans_lentils: false
+    non_olive_fats:
+    - grapeseed oil
+    checked_on: '2026-11-01'
+    notes: many fresh herbs; winter-unfriendly
+    pending_owner_approval: true

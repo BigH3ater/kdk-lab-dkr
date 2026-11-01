@@ -6,7 +6,17 @@
 
 tandoor:
   url: "https://recipes.kmkdp.com"
+  # Household Space. Every write must land here. The job verifies the dashboard
+  # account's ACTIVE space at startup (confirmed live 2026-11-01: the account is
+  # a member of exactly one space, "Mack House" id 3, active=true) and fails
+  # loudly otherwise.
   space: "Mack House"
+  space_id: 3
+  # Household user ids (read-only lookup 2026-11-01: jmack=3, rach=4, dashboard=5)
+  # for meal-plan sharing. NOTE: this Tandoor 2.7 meal-plan API exposes NO
+  # `shared` field, so per-entry sharing is an OWNER STEP (see the runbook); all
+  # three users are in the Mack House space, which already scopes the data.
+  share_with: { jmack: 3, rach: 4 }
   # Tandoor meal types the generator writes into. Names must match Tandoor
   # (confirmed live: /api/meal-type/ has name + order). The seed creates any
   # that are missing.
@@ -224,6 +234,10 @@ roast:
 sides:
   per_dinner: 1                # every dinner gets a rotating veg side
   no_repeat_within_week: true
+  # Interim rule while the approved side pool is short of 7: allow a side to
+  # repeat up to this many times in a week (used only when the pool can't fill
+  # 7 distinct). Drops back to no-repeat once enough sides are approved.
+  max_repeats_per_week: 2
 
 lunches:
   recipes_per_week: 2          # 2 lunch-prep recipes...
@@ -260,9 +274,23 @@ stores:
   # Aisle order within each store (namespace suffix after "<store>/<cadence>: ").
   aisles:
     NewPi:   [Produce, "Meat & Seafood", "Dairy & Eggs", Bakery, Bulk, Other]
-    Target:  ["Pantry & Grains", Canned, "Oils & Spices", Condiments, Dairy, Snacks, Other]
+    Target:  ["Pantry & Grains", Canned, "Oils & Spices", Condiments, Dairy, Frozen, Snacks, Other]
     Costco:  ["Freezer", "Pantry Bulk", "Snacks Bulk", Other]
     Amana:   ["Freezer Beef", Other]
+
+# Owner review gate. When on, the seed imports ONLY recipes the owner approved
+# (approved: true on a candidate, or owner_pick: true), and the generator draws
+# only from them. rejected_by_owner candidates are never chosen;
+# pending_owner_approval candidates show in the review but are not used until
+# approved. Off = fall back to the scored default pick.
+require_owner_approval: true
+
+# Ingredients the owner removed entirely (2026-11-01). The scorer rejects any
+# candidate whose title or ingredients contain one of these, in every season.
+exclude_ingredients:
+  - radish
+  - beet
+  - arugula
 
 # Approvals (Vikunja + HA). The job contract is docs/runbooks/approval-tasks.md.
 # Foods that must NEVER reach a store list, even if a recipe pulls one in. Dog

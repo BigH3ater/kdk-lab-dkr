@@ -176,6 +176,9 @@ rules:
   - {match: brown gravy, category: "Target/weekly: Oils & Spices"}
   - {match: onion soup mix, category: "Target/weekly: Oils & Spices"}
   - {match: pepperoncini, category: "Target/weekly: Canned"}
+  # Frozen vegetables (winter sides) -> Target frozen aisle. The longer
+  # "frozen salmon" (Costco) and "frozen tuna" (New Pi) rules win over this.
+  - {match: frozen,      category: "Target/weekly: Frozen"}
   - {match: dijon,      category: "Target/weekly: Condiments"}
   - {match: mustard,    category: "Target/weekly: Condiments"}
   - {match: mayonnaise, category: "Target/weekly: Condiments"}

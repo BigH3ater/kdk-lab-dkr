@@ -74,6 +74,12 @@ def route_food(name, foods_cfg, stores_cfg):
     beats 'corn', 'olive oil' beats 'oil', 'rice cake' beats 'rice', 'ground
     beef' beats 'beef'), else the shelf-stable freshness default."""
     low = (name or "").lower()
+    # Frozen vegetables -> Target frozen aisle. Handled before longest-match
+    # because a wording like "frozen cut green beans" would otherwise hit the
+    # fresh "green bean" produce rule. Frozen FISH keeps its explicit routing
+    # (frozen salmon -> Costco, frozen tuna -> New Pi).
+    if "frozen" in low and "salmon" not in low and "tuna" not in low:
+        return "Target/weekly: Frozen"
     best = None
     for rule in foods_cfg.get("rules", []):
         m = rule["match"].lower()
@@ -122,6 +128,7 @@ def build_seed_plan(cfg, foods_cfg, fixed_cfg, scored):
         "imports": imports,
         "no_candidate": no_candidate,
         "shortfalls": C.coverage_shortfalls(scored),
+        "side_shortfalls": C.side_shortfalls(scored),
     }
 
 
@@ -144,14 +151,18 @@ def print_plan(plan):
         print(f"\nslots with NO good/acceptable candidate ({len(plan['no_candidate'])}):")
         for s in plan["no_candidate"]:
             print(f"  - {s}  (owner: add a candidate URL or set selected:true, then re-run)")
-    print("\n=== seed preflight (per-season generator minimums) ===")
+    print("\n=== seed preflight (per-season approved pool vs the weekly needs) ===")
     if plan["shortfalls"]:
         for season, short in plan["shortfalls"].items():
             print(f"  FAIL {season}: needs {', '.join(short)}")
-        print("  --apply is blocked until these are filled (or pass --force). See the runbook"
-              " 'owner bookmarklet import' steps.")
+        print("  --apply is blocked until these are filled (or pass --force).")
     else:
-        print("  OK: every season can build a week at both parities.")
+        print("  OK: every season meets the hard weekly minimums (both parities).")
+    if plan["side_shortfalls"]:
+        print("  sides below the 7-a-week target (interim repeat rule covers it; "
+              "approve more sides to remove the repeat):")
+        for season, (n, target) in plan["side_shortfalls"].items():
+            print(f"    - {season}: {n}/{target} approved sides")
 
 
 def render_candidate_markdown(scored, cfg):
@@ -317,7 +328,8 @@ def apply_seed(plan, cfg, foods_cfg, fixed_cfg, force=False):
                          "with --force to seed what exists). See the runbook.")
     from .tandoor import Tandoor
     t = Tandoor(cfg["tandoor"]["url"], os.environ["TANDOOR_USER"],
-                os.environ["TANDOOR_PASS"], cfg["tandoor"].get("space", "Mack House")).login()
+                os.environ["TANDOOR_PASS"], cfg["tandoor"].get("space", "Mack House"),
+                space_id=cfg["tandoor"].get("space_id")).login()
     for name in plan["meal_types"]:
         if name not in t.meal_types():
             t.post("/api/meal-type/", {"name": name})
