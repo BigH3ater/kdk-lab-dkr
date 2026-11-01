@@ -296,18 +296,28 @@ def stream_once(client):
 
     client.publish(AVAIL_TOPIC, "online", qos=1, retain=True)
     last = {}
+    # KEEPALIVE: the DIRCON server closes any client that sends it nothing for
+    # 30s (Java SO_TIMEOUT on its read side). Notifications are server->client
+    # only and do NOT reset that timer, so without this the link drops every
+    # ~30s and reconnect backoff loses data. A cheap DiscoverServices request
+    # every KEEPALIVE seconds keeps the read side fed; its reply is ignored below.
+    KEEPALIVE = 15.0
+    last_ka = time.time()
+    s.settimeout(10)
     while _running:
         beat()
-        s.settimeout(30)  # a quiet gap longer than this = treat as dropped
+        if time.time() - last_ka >= KEEPALIVE:
+            req(DISCOVER_SERVICES)
+            last_ka = time.time()
         try:
             r = recv_pkt(s)
         except socket.timeout:
-            raise ConnectionError("no notifications for 30s")
+            continue  # no data this window; loop (keepalive is handled above)
         if r is None:
             raise ConnectionError("connection closed by peer")
         ident, _rseq, _rc, data = r
         if ident != CHAR_NOTIFY or len(data) < 16:
-            continue
+            continue  # a DiscoverServices (keepalive) reply or other message
         if data[:16] != TREADMILL_DATA:
             continue  # ignore any other characteristic (e.g. RSC 0x2A53)
         vals = parse_treadmill(data[16:])
@@ -315,7 +325,10 @@ def stream_once(client):
             v = vals.get(spec["field"])
             if v is None or last.get(obj) == v:
                 continue  # publish only changed values (gentle on the recorder)
-            client.publish(state_topic(obj), v, qos=0, retain=False)
+            # retained: HA (and a late subscriber) always sees the current value;
+            # the LWT marks the device offline if the bridge dies, so a stale
+            # retained value is never shown as live.
+            client.publish(state_topic(obj), v, qos=0, retain=True)
             last[obj] = v
     s.close()
 
