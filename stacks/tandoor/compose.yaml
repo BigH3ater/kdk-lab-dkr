@@ -51,6 +51,10 @@ services:
       ALLOWED_HOSTS: recipes.kmkdp.com
       # Behind Traefik (TLS terminated) -- trust the https origin for CSRF on login/POST.
       CSRF_TRUSTED_ORIGINS: https://recipes.kmkdp.com
+      # URL-import rate limit per user (Tandoor default 60/hour). The grocery planner's
+      # seed imports ~100 approved recipes in one run and hit 429s at the default
+      # (2026-11-01). Imports need a logged-in user, so this stays an abuse guard.
+      DRF_THROTTLE_RECIPE_URL_IMPORT: "300/hour"
     volumes:
       - /opt/kdk-lab/tandoor/staticfiles:/opt/recipes/staticfiles
       - /opt/kdk-lab/tandoor/mediafiles:/opt/recipes/mediafiles
