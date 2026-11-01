@@ -46,7 +46,12 @@ the build agent; you run it after reviewing the candidates.
 5. **Apply the seed** (writes to Tandoor — idempotent, safe to re-run):
 
    ```sh
-   docker compose -f stacks/grocery-planner/compose.yaml run --rm grocery grocery.seed --apply
+   # on kdk-dkr-01, in the Komodo stack dir (holds the op-rendered .env and the built image)
+   cd /opt/kdk-lab/stacks/grocery-weekly/stacks/grocery-planner
+   sudo docker compose run --rm grocery grocery.seed            # dry run: prints the plan + preflight
+   sudo docker compose run --rm grocery grocery.seed --apply    # writes to Tandoor
+   # success ends with a summary of created recipes/books/categories; an import error
+   # ("No module named grocery") means the image is older than the -I fix: redeploy grocery-weekly first
    ```
 
    This creates the stores + `<store>/<cadence>: <aisle>` categories, the keyword

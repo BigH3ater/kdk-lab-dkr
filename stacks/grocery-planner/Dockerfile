@@ -7,6 +7,11 @@ WORKDIR /app
 COPY grocery/ /app/grocery/
 COPY config.yaml /app/config.yaml
 COPY recipes/ /app/recipes/
+# -I (isolated mode, below) drops the working dir AND PYTHONPATH from sys.path,
+# so `python -I -m grocery.run` could not find /app/grocery (2026-11-01: the first
+# weekly run and the owner's seed both exited with "No module named grocery").
+# A .pth file in the system site-packages is still honoured under -I.
+RUN echo /app > /usr/local/lib/python3.12/site-packages/kdk-grocery-app.pth
 ENV PYTHONUNBUFFERED=1
 # -I: isolated mode so CWD cannot shadow stdlib imports. The module to run is the
 # compose `command` (grocery.run for the job; grocery.seed --apply for the owner
