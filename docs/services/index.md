@@ -18,6 +18,7 @@ Stack definitions live in `stacks/` in the repo; Komodo deploys them from git. O
 | [Trailarr](trailarr.md) | kdk-dkr-01 | https://trailarr.kmkdp.com | trailarr |
 | [net-exporters](net-exporters.md) | kdk-dkr-01 | — (scraped by kdk-mon-01) | net-exporters |
 | [actual-bank-sync](actual-bank-sync.md) | kdk-dkr-01 | — (daily one-shot, Grafana → Loki) | actual-bank-sync |
+| [grocery-planner](grocery-planner.md) | kdk-dkr-01 | home.kmkdp.com/meal/groceries (one-shots: weekly/poll/bulk) | grocery-planner |
 | [Traefik DMZ + tunnel](dmz-proxy.md) | kdk-dkr-dmz-01 | — | dmz-proxy |
 | [Identity](identity.md) | kdk-dkr-dmz-01 | https://sso.kmkdp.com | identity |
 | [Jellyfin](jellyfin.md) | kdk-dkr-dmz-01 | https://jellyfin.kmkdp.com | jellyfin |

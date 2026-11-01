@@ -1,0 +1,58 @@
+# grocery-planner: weekly meal-plan + shopping-list builder on kdk-dkr-01.
+#
+# One-shot job (deploy=false; run by the grocery-weekly / grocery-weekly-poll /
+# grocery-bulk procedures via destroy_before_deploy, like cloudflare-watch). It
+# logs into Tandoor (recipes.kmkdp.com, session auth -- the dashboard mealplan
+# sidecar's django-allauth pattern), generates next week's plan under the owner
+# rules, builds the New Pi + Target shopping list from the plan minus on-hand
+# items, and creates ONE combined Vikunja approval task (job contract:
+# docs/runbooks/approval-tasks.md). Home Assistant pages the phone; the owner
+# approves per store. The grocery page (home.kmkdp.com/meal/groceries, served by
+# the dashboard sidecar) renders the lists and writes ticks back to Tandoor.
+#
+# Three Komodo stacks share this compose, distinguished by `environment`:
+#   grocery-weekly       Thu 18:00  GROCERY_MODE=weekly            (plan + list + task)
+#   grocery-weekly-poll  Sat 07:00  GROCERY_MODE=weekly GROCERY_POLL=1 (read decision)
+#   grocery-bulk         1st Thu/2mo GROCERY_MODE=bulk             (Costco bulk list)
+# Two one-shots can't share a container name on one host, so GROCERY_SUFFIX keeps
+# them distinct. A one-shot exits in seconds (Alloy's running-container discovery
+# misses it), so stdout JSON lines are what Loki gets via the json-file driver;
+# tag job="grocery-planner".
+#
+# Image is built locally (kdk/grocery-planner) -> the stack sets auto_pull=false
+# + run_build=true in komodo/resources.toml (a compose pull of a local kdk/* tag
+# fails). The OWNER seeds Tandoor once, after reviewing the recipe candidates,
+# with:  docker compose -f stacks/grocery-planner/compose.yaml run --rm \
+#           grocery grocery.seed --apply
+name: grocery-planner
+
+x-hardened: &hardened
+  security_opt: ["no-new-privileges:true"]
+  cap_drop: [ALL]
+  read_only: true
+  tmpfs: [/tmp]
+  restart: "no"            # one-shot; run periodically by the procedures
+  pids_limit: 128
+  mem_limit: 256m
+  logging:
+    driver: json-file
+    options: { max-size: "10m", max-file: "3" }
+
+services:
+  grocery:
+    <<: *hardened
+    build:
+      context: .
+      provenance: false     # stable image id across cached builds (containerd store)
+    image: kdk/grocery-planner:latest
+    container_name: grocery-planner${GROCERY_SUFFIX:-}
+    init: true              # python one-shot: tini forwards SIGTERM, reaps children
+    user: "1000:1000"
+    env_file: [.env]        # TANDOOR_USER/PASS, VIKUNJA_TOKEN, VIKUNJA_APPROVALS_PROJECT (op-injected)
+    environment:
+      TZ: America/Chicago
+      TANDOOR_URL: "https://recipes.kmkdp.com"
+      GROCERY_MODE: "${GROCERY_MODE:-weekly}"
+      GROCERY_POLL: "${GROCERY_POLL:-}"
+    labels:
+      kdk.baseline.skip: "healthcheck"   # one-shot job, no long-running endpoint

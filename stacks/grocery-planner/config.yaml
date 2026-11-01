@@ -1,0 +1,256 @@
+# grocery-planner rules & scoring config.
+#
+# Everything the generator, the recipe scorer and the store split read lives
+# here, so changing household rules is a config edit, not a code change. The
+# runbook (docs/runbooks/grocery-planner.md) explains each block. No secrets.
+
+tandoor:
+  url: "https://recipes.kmkdp.com"
+  space: "Mack House"
+  # Tandoor meal types the generator writes into. Names must match Tandoor
+  # (confirmed live: /api/meal-type/ has name + order). The seed creates any
+  # that are missing.
+  meal_types:
+    breakfast: "Breakfast"
+    lunch: "Lunch"
+    dinner: "Dinner"
+
+# Plan cadence. The plan week runs Sunday -> Saturday; the fish/beef A-B parity
+# keys off the Monday inside that span (week_start + 1 day) so each calendar
+# week has a stable parity. Odd ISO week = "A", even = "B".
+cadence:
+  timezone: "America/Chicago"
+  plan_start_weekday: 6        # 6 = Sunday (Python weekday(): Mon=0..Sun=6)
+  bulk_weeks: 8                # N weeks of protein/pantry per bulk run
+  # The bulk procedure fires every Thursday (unambiguous cron), but the job acts
+  # only on the FIRST Thursday of an odd month = every two months (N=8). This
+  # gate lives in code so the schedule avoids cron's day-of-month/day-of-week OR
+  # ambiguity; off-weeks exit immediately.
+  bulk_first_week_only: true
+  bulk_month_parity: odd       # odd | even | any
+
+# Simplicity caps (owner defaults; all configurable). Applied as hard filters to
+# recipe candidates and respected by the generator when it builds the pool.
+#
+# TIME, two numbers on purpose:
+#  * working_time_max is the owner's ACTIVE-cooking rule (§5b). The generator
+#    enforces it against Tandoor's real `working_time` field AFTER import.
+#  * candidate_total_time_max / lunch_total_time_max are the hard caps applied
+#    to a *candidate's* published schema.org totalTime, which bundles passive
+#    marinade/brine/bake/chill time. A candidate over working_time_max but under
+#    the total cap is kept and FLAGGED ("verify active time"), not rejected, so a
+#    30-min-active recipe with a 30-min marinade is not thrown away. Tighten
+#    candidate_total_time_max toward working_time_max to be stricter.
+caps:
+  working_time_max: 30         # minutes, active cooking (dinners + sides); generator enforces on Tandoor working_time
+  lunch_working_time_max: 45   # lunch preps may take longer active time (generator)
+  candidate_total_time_max: 60 # hard reject a candidate whose published TOTAL time exceeds this (bundles passive marinade/bake/rest)
+  lunch_total_time_max: 90     # lunch-prep candidate total-time cap
+  ingredient_max: 10           # non-pantry ingredients ("about 8", configurable)
+  # Pantry staples (seasonings, condiments, common aromatics, cooking liquids and
+  # fats) are NOT counted toward ingredient_max -- the cap gauges how many real
+  # distinct COMPONENTS a dish has, per the brief ("salt, pepper and oil not
+  # counted"). Substring match against the ingredient text, case-insensitive.
+  # This list only affects the ingredient-count filter, not the shopping list
+  # (that uses Tandoor's food_onhand).
+  pantry_staples:
+    # salt / pepper / fats / oils
+    - salt
+    - pepper
+    - black pepper
+    - olive oil
+    - extra-virgin olive oil
+    - extra virgin olive oil
+    - avocado oil
+    - sesame oil
+    - canola oil
+    - vegetable oil
+    - cooking spray
+    - butter
+    # sweeteners / baking
+    - sugar
+    - brown sugar
+    - honey
+    - maple syrup
+    - flour
+    - cornstarch
+    - baking powder
+    - baking soda
+    - breadcrumbs
+    - panko
+    - egg
+    # liquids
+    - water
+    - broth
+    - stock
+    - wine
+    - vinegar
+    - rice vinegar
+    - rice wine
+    - mirin
+    - milk
+    # condiments / sauces
+    - soy sauce
+    - tamari
+    - hoisin
+    - oyster sauce
+    - fish sauce
+    - worcestershire
+    - sriracha
+    - chili garlic
+    - chili crisp
+    - gochujang
+    - dijon
+    - mustard
+    - mayonnaise
+    - tomato paste
+    - tahini
+    # aromatics / herbs / spices (bought in small amounts, flavorings not components)
+    - garlic
+    - ginger
+    - green onion
+    - scallion
+    - shallot
+    - parsley
+    - cilantro
+    - basil
+    - mint
+    - dill
+    - thyme
+    - rosemary
+    - chives
+    - bay leaf
+    - lemon juice
+    - lime juice
+    - lemon zest
+    - garlic powder
+    - onion powder
+    - oregano
+    - cumin
+    - paprika
+    - cinnamon
+    - coriander
+    - red pepper flakes
+    - sesame seed
+    - sesame seeds
+
+# Recipe-candidate scoring. Bayesian average so a 5.0 with 3 reviews does not
+# beat a 4.7 with 3000:  score = (C*m + n*r) / (C + n).
+scoring:
+  prior_m: 4.0                 # m: the prior mean rating
+  prior_weight_C: 50           # C: how many prior reviews the prior is worth
+  # Verdict thresholds use the RAW rating + count (the Bayesian score only
+  # ranks candidates within a slot). Calibrated for the REACHABLE corpus
+  # (2026-10-31): Allrecipes is out of scope -- it blocks bots with HTTP 402 on
+  # purpose, so do not attempt it -- and the reachable sites (Taste of Home plus
+  # the big recipe blogs: RecipeTin Eats, Skinnytaste, Well Plated, Cooking
+  # Classy, Downshiftology, Love & Lemons, Natasha's Kitchen, iFoodReal, Jessica
+  # Gavin, Wholesome Yum, The Clean Eating Couple) report far fewer reviews than
+  # Allrecipes would. Thresholds lowered to match; the Bayesian prior still gates
+  # a 5.0/3 below a 4.7/3000.
+  good:        { min_rating: 4.6, min_count: 40 }
+  acceptable:  { min_rating: 4.3, min_count: 10 }
+  # Per-site count scaling: some sites report far more reviews than others, so
+  # a count can be divided by this weight before the Bayesian blend to keep one
+  # site from dominating. 1.0 = no scaling. Tune after the first refresh.
+  site_count_weight:
+    Allrecipes: 1.0
+    "Food Network": 1.0
+    EatingWell: 1.0
+    "Simply Recipes": 1.0
+    "BBC Good Food": 1.0
+    "Serious Eats": 1.0
+    "Taste of Home": 1.0
+    Delish: 1.0
+    "NYT Cooking": 1.0
+
+# Per-week dinner shape (owner, §5c(4) revision 3). The generator enforces these
+# counts over the 7 dinners and fails closed (logs + picks the next candidate)
+# if the selected pool can't satisfy them.
+proteins:
+  dinners_per_week: 7
+  fish: 1
+  poultry: 4
+  ground_beef: 1
+  steak: 1
+  legume_only_mains: 0         # owner 2026-10-31: no legume-ONLY mains (no meat/fish);
+                               # beans/lentils/chickpeas AS AN INGREDIENT are fine
+                               # (chicken+white-bean chili, black beans in a bowl, a
+                               # chickpea side, hummus snack). Enforced in scoring.py.
+  fish_day: sunday             # fish is Sunday dinner
+  # Parity: A = odd ISO week, B = even ISO week.
+  fish_parity:   { A: salmon, B: tuna }
+  beef_parity:   { A: greek,  B: asian }
+  feta_per_week: 1
+  feta_source:   { A: ground_beef, B: breakfast }   # where the week's feta lives
+  chicken_food: "chicken breast"   # poultry recipes must use ONLY this food
+
+# Slow-cooker roast dinner on a busy weeknight, every other week (owner, from an
+# Amana eighth share = 8 roasts ~3.5 lb each, ~16 weeks of fortnightly roasts).
+# On a roast week the roast REPLACES one chicken dinner (3 chicken + roast that
+# week). Roasts are Amana freezer stock (food_onhand) so they never hit the
+# weekly list; only the recipe's pantry bits (ranch/au jus packets, pepperoncini,
+# butter) are ordered. The 3.5 lb roast feeds more than one dinner for two, so
+# the leftovers are planned as Thursday lunch (no extra beef ordered).
+roast:
+  enabled: true
+  parity: A                    # roast weeks = parity A (odd ISO week) = every other week
+  night: wednesday             # roast_night -- owner decision 2026-10-31 (may change)
+  leftovers: thursday_lunch    # where the leftovers go (documented; no extra shopping)
+
+sides:
+  per_dinner: 1                # every dinner gets a rotating veg side
+  no_repeat_within_week: true
+
+lunches:
+  recipes_per_week: 2          # 2 lunch-prep recipes...
+  servings_each: 4             # ...at 4 servings each (Mon-Thu, 2 people)
+  prep_day: sunday
+
+breakfast:
+  staples_recipe: "Weekly staples"   # planned every week as Breakfast
+
+snacks:
+  buy_recipe: "Snacks to buy"
+  prep_recipe: "Snack prep"
+  per_person_per_day: [2, 3]   # sized to ~35/week for two
+
+# Season by date (owner: by date). Months are 1-12.
+seasons:
+  spring: [3, 4, 5]
+  summer: [6, 7, 8]
+  fall:   [9, 10, 11]
+  winter: [12, 1, 2]
+
+# Store routing. Supermarket categories are namespaced "<store>/<cadence>: <aisle>"
+# (§7.6). The job splits a shopping-list entry by the store prefix of its
+# food.supermarket_category. Ambiguous foods fall back to the freshness rule;
+# per-food overrides live in recipes/foods.yaml.
+stores:
+  order: [NewPi, Target, Costco, Amana]
+  # Which stores each run touches.
+  weekly_stores: [NewPi, Target]
+  bulk_stores: [Costco]        # Amana beef is a separate reorder task (Phase 2 stub)
+  # Default by shelf life when a food has no explicit override.
+  default_fresh: NewPi         # ambiguous perishable -> New Pi
+  default_shelf_stable: Target # ambiguous shelf-stable -> Target
+  # Aisle order within each store (namespace suffix after "<store>/<cadence>: ").
+  aisles:
+    NewPi:   [Produce, "Meat & Seafood", "Dairy & Eggs", Bakery, Bulk, Other]
+    Target:  ["Pantry & Grains", Canned, "Oils & Spices", Condiments, Dairy, Snacks, Other]
+    Costco:  ["Freezer", "Pantry Bulk", "Snacks Bulk", Other]
+    Amana:   ["Freezer Beef", Other]
+
+# Approvals (Vikunja + HA). The job contract is docs/runbooks/approval-tasks.md.
+approvals:
+  vikunja_url: "https://tasks.kmkdp.com"
+  weekly:
+    # One combined task; <=3 mutually-exclusive buttons.
+    choices: "all=Approve both; newpi=New Pi only; target=Target only"
+    due_hour: 20               # Friday 20:00 CT
+    due_weekday: friday
+    reminder_hour: 12          # Friday noon reminder
+  # Poll in a SECOND scheduled pass (see run.py / the procedure), not a long
+  # blocking wait. The weekly procedure runs the build pass Thu 18:00; a poll
+  # pass runs later and on approval marks the store's entries.
+  poll_timeout_min: 10         # bounded in-run poll before handing off to the next pass
