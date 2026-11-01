@@ -175,6 +175,8 @@ class Tandoor:
     def patch(self, path, body):
         r = self.s.patch(f"{self.url}{path}", json=body, headers=self._csrf_headers(),
                          timeout=self.timeout)
+        if r.status_code == 400:
+            log.error("PATCH %s -> 400: %s", path, r.text[:500])
         r.raise_for_status()
         return r.json() if r.text else None
 
@@ -292,6 +294,14 @@ class Tandoor:
         """Every recipe as its detail dict. The list endpoint omits source_url and
         image, so de-duplication and image checks need the detail view."""
         return [self.get(f"/api/recipe/{r['id']}/") for r in self.get_all("/api/recipe/")]
+
+    def put(self, path, body):
+        r = self.s.put(f"{self.url}{path}", json=body, headers=self._csrf_headers(),
+                       timeout=self.timeout)
+        if r.status_code >= 400:
+            log.error("PUT %s -> %s: %s", path, r.status_code, r.text[:300])
+        r.raise_for_status()
+        return r.json() if r.content else {}
 
     def delete(self, path):
         r = self.s.delete(f"{self.url}{path}", headers=self._csrf_headers(),

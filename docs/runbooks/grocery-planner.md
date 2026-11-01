@@ -158,6 +158,33 @@ All in `config.yaml`:
   only if the pool is tiny) so the week still fills; the preflight reports the
   per-season side count vs 7. Approve more sides to drop the repeats.
 
+## Clean up ingredients (one food per line)
+
+Recipe-site imports leave one food under many names ("garlic", "minced garlic",
+"garlic cloves") and some lines unread ("▢ 1 pound carrots"). `grocery.cleanup`
+repoints the season-book and fixed recipes' ingredients to one canonical food and
+unit, marks pantry staples on hand, and adds Tandoor automations so new imports
+arrive clean. Rules live in `recipes/cleanup.yaml`; store routing in `recipes/foods.yaml`.
+Run it from `/opt/kdk-lab/stacks/grocery-weekly/stacks/grocery-planner`:
+
+```bash
+sudo docker compose run --rm grocery grocery.cleanup                 # dry run: every change
+sudo docker compose run --rm grocery grocery.cleanup --test          # per-recipe shopping test, read-only
+sudo docker compose run --rm grocery grocery.cleanup --apply --refresh-list
+sudo docker compose run --rm grocery grocery.cleanup --test-live     # adds each recipe to the list, checks, deletes
+```
+
+`--test` exits non-zero and prints `FIX` lines for a recipe whose shopping lines
+break a rule: an unread name, an unknown unit, dark meat, an excluded ingredient,
+pet food, or a food with no store rule. Fix the YAML and re-run. Re-run the
+clean-up after importing new recipes. Tandoor's food merge is not used (it can't
+be undone); old spellings stay as unused foods. To put a pantry food back on the
+list, untick "on hand" on the food in Tandoor.
+
+The groceries page shows one line per food: same-family units are added up
+(tsp/Tbsp/cup, oz/lb/g), with the recipes underneath; ticking the line ticks all
+its entries.
+
 ## Household, space & meal-plan sharing (owner)
 
 Tandoor scopes data at two levels, both confirmed read-only (dashboard account,

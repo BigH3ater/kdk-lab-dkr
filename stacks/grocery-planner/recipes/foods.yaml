@@ -58,6 +58,7 @@ rules:
   - {match: romaine,    category: "NewPi/weekly: Produce"}
   - {match: kale,       category: "NewPi/weekly: Produce"}
   - {match: cabbage,    category: "NewPi/weekly: Produce"}
+  - {match: celery,     category: "NewPi/weekly: Produce"}
   - {match: bok choy,   category: "NewPi/weekly: Produce"}
   - {match: broccoli,   category: "NewPi/weekly: Produce"}
   - {match: cauliflower,category: "NewPi/weekly: Produce"}
@@ -198,6 +199,26 @@ rules:
   # per the owner rule. pack_size keeps it ceil-roundable if it later moves to
   # the bulk run. OWNER TODO: confirm where Jocko is bought (see runbook).
   - {match: jocko,       category: "Target/weekly: Snacks", pack_size: 12}
+
+  # Added 2026-11-01 from the per-recipe shopping test (grocery.cleanup --test):
+  # foods the season recipes use that matched no rule.
+  - {match: butter,         category: "NewPi/weekly: Dairy & Eggs"}
+  - {match: milk,           category: "NewPi/weekly: Dairy & Eggs"}
+  - {match: ground lamb,    category: "NewPi/weekly: Meat & Seafood"}
+  - {match: pico de gallo,  category: "NewPi/weekly: Produce"}
+  - {match: guacamole,      category: "NewPi/weekly: Produce"}
+  - {match: herbs,          category: "NewPi/weekly: Produce"}
+  - {match: chervil,        category: "NewPi/weekly: Produce"}
+  - {match: wine,           category: "Target/weekly: Pantry & Grains"}
+  - {match: pine nuts,      category: "Target/weekly: Pantry & Grains"}
+  - {match: breadcrumbs,    category: "Target/weekly: Pantry & Grains"}
+  - {match: bread crumbs,   category: "Target/weekly: Pantry & Grains"}
+  - {match: fusilli,        category: "Target/weekly: Pantry & Grains"}
+  - {match: black beans,    category: "Target/weekly: Canned"}
+  - {match: kidney beans,   category: "Target/weekly: Canned"}
+  - {match: artichoke,      category: "Target/weekly: Canned"}
+  - {match: chili crisp,    category: "Target/weekly: Condiments"}
+  - {match: balsamic glaze, category: "Target/weekly: Condiments"}
 
   # ---- Costco: bulk run ----
   - {match: frozen salmon, category: "Costco/bulk: Freezer"}   # salmon fallback only
