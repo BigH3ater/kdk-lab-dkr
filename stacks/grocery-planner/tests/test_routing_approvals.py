@@ -141,3 +141,20 @@ def test_recipe_book_payload_has_required_shared():
     p = recipe_book_payload("Winter", "", [3, 4])
     assert p["shared"] == [{"id": 3}, {"id": 4}] and p["name"] == "Winter"
     assert recipe_book_payload("Fall")["shared"] == []
+
+
+def test_fixed_recipe_servings_text_fits_tandoor():
+    # Tandoor rejects servings_text over 32 characters (400, 2026-11-01).
+    import os, yaml
+    here = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    fixed = yaml.safe_load(open(os.path.join(here, "recipes", "fixed.yaml")))
+    for r in fixed["recipes"]:
+        assert len(r.get("servings_text", "")) <= 32, r["name"]
+
+
+def test_scraped_recipe_trimmed_to_tandoor_limits():
+    from grocery.tandoor import fit_recipe_limits
+    r = fit_recipe_limits({"name": "x" * 200, "servings_text": "6 servings (about 1 1/2 cups each)",
+                           "description": "d" * 600, "steps": []})
+    assert len(r["name"]) == 128 and len(r["servings_text"]) == 32 and len(r["description"]) == 512
+    assert r["steps"] == []

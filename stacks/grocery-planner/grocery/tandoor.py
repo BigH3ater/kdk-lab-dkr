@@ -165,6 +165,10 @@ class Tandoor:
             self.login()
             r = self.s.post(f"{self.url}{path}", json=body, headers=self._csrf_headers(),
                             timeout=self.timeout)
+        if r.status_code == 400:
+            # Tandoor explains a 400 in the body (e.g. {"servings_text": [...]}); log it so
+            # the owner's paste shows the cause, not just the status line.
+            log.error("POST %s -> 400: %s", path, r.text[:500])
         r.raise_for_status()
         return r.json() if r.text else None
 
@@ -239,7 +243,7 @@ class Tandoor:
         recipe = src.get("recipe")
         if not recipe:
             raise RuntimeError(f"no recipe parsed from {url}")
-        created = self.post("/api/recipe/", recipe)
+        created = self.post("/api/recipe/", fit_recipe_limits(recipe))
         return created.get("id"), src
 
 
@@ -247,3 +251,17 @@ def recipe_book_payload(name, description="", share_ids=()):
     """Body for POST /api/recipe-book/ (`shared` is required by Tandoor 2.7)."""
     return {"name": name, "description": description,
             "shared": [{"id": int(i)} for i in share_ids]}
+
+
+# Tandoor 2.7 model field limits that scraped recipes can exceed (a 400 otherwise).
+_RECIPE_LIMITS = {"name": 128, "servings_text": 32, "description": 512}
+
+
+def fit_recipe_limits(recipe):
+    """Trim the text fields Tandoor caps, so a long scraped yield like
+    '6 servings (about 1 1/2 cups each)' doesn't reject the whole import."""
+    out = dict(recipe)
+    for field, limit in _RECIPE_LIMITS.items():
+        if isinstance(out.get(field), str) and len(out[field]) > limit:
+            out[field] = out[field][:limit]
+    return out

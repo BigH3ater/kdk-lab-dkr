@@ -34,7 +34,7 @@ recipes:
       - {food: "extra-virgin olive oil", amount: 1, unit: bottle}
   - name: "Snacks to buy"
     servings: 21
-    servings_text: "~21 portions/week, 2 people (with Snack prep 14 = ~35)"
+    servings_text: "21 portions/week, 2 people"   # + Snack prep 14 = ~35; Tandoor caps this at 32 chars
     keywords: [snack]
     ingredients:
       # shelf-stable -> Target
