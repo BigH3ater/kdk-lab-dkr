@@ -347,12 +347,21 @@ def apply_seed(plan, cfg, foods_cfg, fixed_cfg, force=False):
     cats = t.supermarket_categories()
     kws = t.keywords()
     seed_fixed(t, fixed_cfg, cfg, foods_cfg, cats, kws)
-    existing = {r.get("source_url"): r for r in t.get_all("/api/recipe/")
-                if r.get("source_url")}
+    # Detail view: the list endpoint has no source_url, which made every run
+    # re-import everything (duplicates found 2026-11-01). Lowest id wins per URL.
+    existing = {}
+    for r in sorted(t.recipes_detail(), key=lambda r: r["id"]):
+        if r.get("source_url"):
+            existing.setdefault(r["source_url"], r)
+    imaged = set()   # one image fetch per recipe, even when several slots share it
     for im in plan["imports"]:
         if im["url"] in existing:
             log.info("skip (already imported): %s", im["url"])
             rid = existing[im["url"]]["id"]
+            if not existing[im["url"]].get("image") and rid not in imaged:
+                if t.backfill_image(rid, im["url"]):
+                    log.info("image set for %s (recipe %s)", im["slot"], rid)
+            imaged.add(rid)
         else:
             try:
                 rid, _ = t.import_from_url(im["url"])
@@ -360,6 +369,8 @@ def apply_seed(plan, cfg, foods_cfg, fixed_cfg, force=False):
             except Exception as e:  # noqa: BLE001
                 log.error("import failed for %s (%s): %s", im["slot"], im["url"], e)
                 continue
+            existing[im["url"]] = {"id": rid, "image": True}
+            imaged.add(rid)
         recipe = t.get(f"/api/recipe/{rid}/")
         # MERGE keywords (don't overwrite): a recipe reused across seasons (e.g. a
         # roasted-carrots side in both Fall and Winter) must keep every season's
@@ -379,6 +390,47 @@ def apply_seed(plan, cfg, foods_cfg, fixed_cfg, force=False):
     log.info("seed apply complete")
 
 
+def dedupe_plan(recipes):
+    """Group recipes by source_url; keep the lowest id. Returns
+    [(keeper, [duplicates...])] for groups with more than one recipe."""
+    groups = {}
+    for r in sorted(recipes, key=lambda r: r["id"]):
+        if r.get("source_url"):
+            groups.setdefault(r["source_url"], []).append(r)
+    return [(g[0], g[1:]) for g in groups.values() if len(g) > 1]
+
+
+def apply_dedupe(t, dry_run=True):
+    """Merge duplicate imports into the keeper: union of keywords, the duplicate's
+    book entries and meal-plan entries moved to the keeper, then delete the copy.
+    Prints the plan; writes only with dry_run=False."""
+    plan = dedupe_plan(t.recipes_detail())
+    log.info("dedupe: %d groups, %d extra copies", len(plan), sum(len(d) for _, d in plan))
+    if dry_run:
+        for keep, dups in plan:
+            log.info("  keep %s %r, remove %s", keep["id"], keep["name"][:50], [d["id"] for d in dups])
+        return plan
+    entries = t.get_all("/api/recipe-book-entry/")
+    meals = t.get_all("/api/meal-plan/")
+    for keep, dups in plan:
+        kw = {k["name"]: {"id": k["id"], "name": k["name"]} for k in keep.get("keywords") or []}
+        keep_books = {e["book"] for e in entries if e.get("recipe") == keep["id"]}
+        for d in dups:
+            for k in d.get("keywords") or []:
+                kw.setdefault(k["name"], {"id": k["id"], "name": k["name"]})
+            for e in [e for e in entries if e.get("recipe") == d["id"]]:
+                if e["book"] not in keep_books:
+                    t.post("/api/recipe-book-entry/", {"book": e["book"], "recipe": keep["id"]})
+                    keep_books.add(e["book"])
+            for m in [m for m in meals if (m.get("recipe") or {}).get("id") == d["id"]]:
+                t.patch(f"/api/meal-plan/{m['id']}/", {"recipe": {"id": keep["id"]}})
+        t.patch(f"/api/recipe/{keep['id']}/", {"keywords": list(kw.values())})
+        for d in dups:
+            t.delete(f"/api/recipe/{d['id']}/")
+            log.info("removed duplicate %s (kept %s)", d["id"], keep["id"])
+    return plan
+
+
 def main(argv=None):
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
@@ -386,6 +438,8 @@ def main(argv=None):
     ap.add_argument("--force", action="store_true", help="apply even if the preflight finds gaps")
     ap.add_argument("--refresh", action="store_true", help="re-read candidate ratings into the YAML")
     ap.add_argument("--report", metavar="PATH", help="write the Markdown candidate review table")
+    ap.add_argument("--dedupe", action="store_true",
+                    help="merge duplicate imports (same source URL); dry run unless --apply")
     a = ap.parse_args(argv)
     cfg, foods_cfg, fixed_cfg, cf = load_configs()
     if a.refresh:
@@ -397,6 +451,15 @@ def main(argv=None):
         with open(a.report, "w") as f:
             f.write(render_candidate_markdown(scored, cfg))
         log.info("wrote %s", a.report)
+    if a.dedupe:
+        from .tandoor import Tandoor
+        t = Tandoor(cfg["tandoor"]["url"], os.environ["TANDOOR_USER"],
+                    os.environ["TANDOOR_PASS"], cfg["tandoor"].get("space", "Mack House"),
+                    space_id=cfg["tandoor"].get("space_id"),
+                    household=cfg["tandoor"].get("household"),
+                    household_id=cfg["tandoor"].get("household_id")).login()
+        apply_dedupe(t, dry_run=not a.apply)
+        return 0
     if a.apply:
         apply_seed(plan, cfg, foods_cfg, fixed_cfg, force=a.force)
     else:

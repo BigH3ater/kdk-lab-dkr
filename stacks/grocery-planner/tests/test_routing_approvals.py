@@ -185,3 +185,11 @@ def test_pool_keywords_case_insensitive():
     r = {"id": 2, "name": "Pork chops", "servings": 2,
          "keywords": [{"name": "Pork"}, {"name": "Winter"}], "steps": []}
     assert build_pool([r], "winter")[0]["kind"] == "pork"
+
+
+def test_dedupe_plan_keeps_lowest_id_per_url():
+    from grocery.seed import dedupe_plan
+    rs = [{"id": 134, "source_url": "u1", "name": "a"}, {"id": 65, "source_url": "u1", "name": "a"},
+          {"id": 70, "source_url": "u2", "name": "b"}, {"id": 9, "source_url": None, "name": "c"}]
+    plan = dedupe_plan(rs)
+    assert len(plan) == 1 and plan[0][0]["id"] == 65 and [d["id"] for d in plan[0][1]] == [134]

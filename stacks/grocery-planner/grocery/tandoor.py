@@ -257,7 +257,46 @@ class Tandoor:
         if not recipe:
             raise RuntimeError(f"no recipe parsed from {url}")
         created = self.post("/api/recipe/", fit_recipe_limits(recipe))
-        return created.get("id"), src
+        rid = created.get("id")
+        self.set_image_from_source(rid, src)
+        return rid, src
+
+    def set_image_from_source(self, rid, src):
+        """Creating a recipe from the parsed JSON leaves it without a picture (the
+        web importer uploads it in a second call). PUT /api/recipe/{id}/image/ with
+        image_url as multipart form data (JSON/urlencoded get 415); verified live
+        2026-11-01. Best effort: a missing picture never fails an import."""
+        url = ((src or {}).get("recipe") or {}).get("image_url")
+        if not (rid and url):
+            return False
+        try:
+            r = self.s.put(f"{self.url}/api/recipe/{rid}/image/",
+                           files={"image_url": (None, url)},
+                           headers=self._csrf_headers(), timeout=self.timeout)
+            r.raise_for_status()
+            return True
+        except requests.RequestException as e:
+            log.warning("recipe %s: image not set (%s)", rid, e)
+            return False
+
+    def backfill_image(self, rid, source_url):
+        """Re-parse a recipe's source page and set its picture."""
+        try:
+            src = self._post_retry_429("/api/recipe-from-source/", {"url": source_url})
+        except requests.RequestException as e:
+            log.warning("recipe %s: image backfill parse failed (%s)", rid, e)
+            return False
+        return self.set_image_from_source(rid, src)
+
+    def recipes_detail(self):
+        """Every recipe as its detail dict. The list endpoint omits source_url and
+        image, so de-duplication and image checks need the detail view."""
+        return [self.get(f"/api/recipe/{r['id']}/") for r in self.get_all("/api/recipe/")]
+
+    def delete(self, path):
+        r = self.s.delete(f"{self.url}{path}", headers=self._csrf_headers(),
+                          timeout=self.timeout)
+        r.raise_for_status()
 
 
 IMPORT_PAUSE_S = float(os.environ.get("GROCERY_IMPORT_PAUSE_S", "2"))
