@@ -97,3 +97,10 @@ def test_broth_routes_to_target_not_meat(cfg):
     _, foods_cfg, _, _ = load_configs()
     for name in ("chicken broth", "chicken stock", "beef broth"):
         assert route_food(name, foods_cfg, cfg["stores"]).startswith("Target/"), name
+
+
+def test_seed_keeps_source_servings():
+    import inspect
+    from grocery import seed
+    src = inspect.getsource(seed.apply_seed)
+    assert '"servings": 2' not in src     # never force 2: amounts are written for the source's servings

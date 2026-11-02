@@ -92,6 +92,9 @@ def test_roast_replaces_a_beef_and_leftover_thursday(cfg):
     assert roast_entry.date.weekday() == 2            # Wednesday
     lo = [x for x in e if x.role == "leftover"]
     assert len(lo) == 1 and lo[0].date.weekday() == 3 and lo[0].recipe_id == roast_entry.recipe_id
+    # the roast dinner is shopped for dinner + the leftover lunch; other dinners for 2
+    assert roast_entry.servings == 4
+    assert all(x.servings == 2 for x in e if x.role == "dinner-main" and x is not roast_entry)
 
 
 def test_flex_alternates_pork_and_chicken(cfg):

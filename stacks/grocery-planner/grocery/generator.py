@@ -226,7 +226,10 @@ def generate_week(pool: list[dict], week_start: datetime.date, config: dict) -> 
     for d in range(7):
         date = week_start + datetime.timedelta(days=d)
         main = mains_by_day[d]
-        entries.append(PlanEntry(date, "dinner", main["id"], main["name"], 2,
+        # The roast dinner is shopped for 4: dinner + Thursday leftover lunch for
+        # two (the leftover entry itself adds no shopping).
+        servings = 4 if (roast is not None and main is roast) else 2
+        entries.append(PlanEntry(date, "dinner", main["id"], main["name"], servings,
                                  "dinner-main", main.get("slot", ""), note("dinner")))
         if config["sides"]["per_dinner"]:
             side = sides[d]
