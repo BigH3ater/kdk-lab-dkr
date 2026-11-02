@@ -84,6 +84,25 @@ If that's not `status: ok`, fix DEE first — see
 files. The `tdarr-verify` alert text already correlates the two: it says whether
 the transcode-error rise coincides with DEE being down.
 
+## DEE remux OOM: cover art + sparse subtitles (fixed 2026-11-02)
+
+The §7.4b DEE step remuxes the new DD+ track back with `-max_interleave_delta 0`
+(needed: without it Neptune/Apple TV direct play is silent). That option makes
+ffmpeg hold video in RAM until **every** mapped stream has a packet. Two kinds of
+stream never deliver one in time:
+
+- an MKV **cover-art picture** (mjpeg, one packet) — `-map 0:v` includes it;
+  `-map 0:V` (capital) excludes attached pictures;
+- a **sparse forced-only PGS** subtitle track, which can go an hour between packets.
+
+On 4K DV remuxes this grew past the 36 GiB node cap (`ContainerOOMKilled`), the
+job fell back to the native E-AC3 encode and the title **lost its Atmos**.
+The step now remuxes in **two passes**: (1) `-map 0:V` + the new audio with
+`-max_interleave_delta 0`; (2) add subtitles and chapters from the source with
+the default interleave. Measured on Minority Report (88 GB, cover art + two
+English PGS): old one-pass killed at 11.7 GB in ~35 s; two-pass peak **40 MB**
+(pass 1) and 208 MB (pass 2); audio within 2–5 MB of its video at 0/10/30/60/90 min.
+
 ## OOM — node killed, not just the job
 
 On 2026-10-28 07:57 the node container (`media-tdarr-node-1`) grew to ~43 GB RSS
