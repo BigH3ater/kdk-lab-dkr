@@ -243,8 +243,8 @@ color:var(--ember);padding:10px 12px 0}
 # same-origin from /guides (behind Authelia -- no CDN). shared-nav.js hides the
 # nav inside an iframe, so the dashboard-embedded /meal grid, tasks and weather
 # pages stay bare; the standalone /meal/groceries page gets the full sidebar.
-NAV_HEAD = ('<link rel="stylesheet" href="/guides/shared-nav.css?v=nav20261101b">'
-            '<script defer src="/guides/shared-nav.js?v=nav20261101b"></script>')
+NAV_HEAD = ('<link rel="stylesheet" href="/guides/shared-nav.css?v=nav20261102a">'
+            '<script defer src="/guides/shared-nav.js?v=nav20261102a"></script>')
 
 
 def last_ratings(recipe_ids: set[int]) -> dict[int, int]:

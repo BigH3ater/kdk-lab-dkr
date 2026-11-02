@@ -14,57 +14,39 @@ target: _blank            # service tiles open in a new tab (launcher, not nav)
 # full-width on top; the service directory below is multi-column tiles. Names must
 # match the groups in services.yaml exactly.
 layout:
-  # Two tabs: everyday "Home" and a dedicated "Workout" tab for the treadmill
-  # tracking. gethomepage shows an untabbed group on EVERY tab, so every group is
-  # assigned a tab. Tab order follows first appearance below (Home, then Workout).
   This Week:
-    tab: Home
     style: row
     columns: 1   # the meal-plan week strip spans the full width
   Tasks:
-    tab: Home
     style: row
     columns: 1   # full-width horizontal task strip under the weather
   Household Calendar:
-    tab: Home
     style: row
     columns: 2   # weekly agenda (events visible) + clickable monthly
   Media:
-    tab: Home
     style: column
     columns: 4
   Requests & books:
-    tab: Home
     style: column
     columns: 4
   Photos & recipes:
-    tab: Home
     style: column
     columns: 4
-  Smart Home:
-    tab: Home
+  Home:
     style: column
     columns: 4
   Identity & access:
-    tab: Home
     style: column
     columns: 4
   Infrastructure:
-    tab: Home
     style: column
     columns: 4
   Monitoring & logs:
-    tab: Home
     style: column
     columns: 4
   Docs & notes:
-    tab: Home
     style: column
     columns: 4
-  Workout:
-    tab: Workout
-    style: column
-    columns: 4   # Treadmill (live) + Jacob + Rachel + Guest stat tiles
 
 # Quick links shown in the header.
 quicklaunch:
