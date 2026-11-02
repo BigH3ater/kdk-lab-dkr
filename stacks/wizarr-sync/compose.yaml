@@ -15,7 +15,7 @@
 name: wizarr-sync
 services:
   sync:
-    image: python:3.12.16-alpine@sha256:44bf3bcc455e0c9ccd912b78f39019b2f7e9d2f4fb47c6d6973c7638a99aff14
+    image: python:3.12.16-alpine@sha256:e6dae589c1c05976188fd3bd019afd091445fc533ed2ea29001beddc7368a9c8
     container_name: wizarr-sync
     restart: "no"
     env_file: [.env]          # LLDAP_ADMIN_PASSWORD, JELLYFIN_API_KEY (op-injected)
