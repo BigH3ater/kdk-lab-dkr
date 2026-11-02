@@ -265,6 +265,15 @@ lunches:
 breakfast:
   staples_recipe: "Weekly staples"   # planned every week as Breakfast
 
+# Freezer-limited recipes (owner 2026-11-01): the Amana order holds 2 x 4 lb
+# short ribs and 2 x 2 lb tri-tip, so these recipes appear only on scheduled
+# weeks (ISO week % every_n_weeks == offset) and are excluded otherwise.
+#   short ribs: roast weeks are odd, so offset 1 every 12 weeks -> 2 per 24 weeks.
+#   tri-tip fajitas: every 6 weeks -> 4 steak nights per 24 weeks (2 per tri-tip).
+scheduled:
+  - {tag: short-ribs, kind: roast, every_n_weeks: 12, offset: 1}
+  - {tag: tri-tip,    kind: steak, every_n_weeks: 6,  offset: 3}
+
 # Burger night (owner 2026-11-01): the eighth share's 5 patty packs (4 x 1/3 lb).
 # Every 5th ISO week one CHICKEN dinner becomes "Burger night" (fixed.yaml), so
 # 24 weeks use about 5 packs and the ground-beef balance is unchanged.

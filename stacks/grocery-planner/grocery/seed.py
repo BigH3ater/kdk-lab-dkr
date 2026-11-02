@@ -33,7 +33,10 @@ log = logging.getLogger("grocery.seed")
 VOCAB = ["main", "simple", "mediterranean", "veg-side", "lunch-prep", "breakfast",
          "snack", "fish", "salmon", "tuna", "poultry", "pork", "ground-beef",
          "steak", "roast", "comfort", "tex-mex", "asian", "italian", "greek",
-         "feta", "spring", "summer", "fall", "winter"]
+         "feta", "spring", "summer", "fall", "winter",
+         "beef-lunch", "short-ribs", "tri-tip"]
+# Scheduling tags, set from the slot id (see config `scheduled`, lunches.beef_stir_fry).
+SLOT_TAGS = {"-beef-lunch-": "beef-lunch", "-shortribs-": "short-ribs", "-tritip-": "tri-tip"}
 BOOKS = {"spring": "Spring", "summer": "Summer", "fall": "Fall", "winter": "Winter"}
 
 
@@ -66,6 +69,7 @@ def keywords_for_slot(slot_id, kind, season):
             kw |= {"poultry"}
         elif kind == "steak":
             kw |= {"steak"}
+    kw |= {tag for part, tag in SLOT_TAGS.items() if part in slot_id}
     return sorted(kw)
 
 

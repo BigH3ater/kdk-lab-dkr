@@ -121,6 +121,7 @@ def build_pool(recipes, season):
             "working_time": None,
             "ingredient_count": None, "slot": "",
             "servings": r.get("servings", 2),
+            "tags": sorted(names & {"beef-lunch", "short-ribs", "tri-tip"}),
         })
     return pool
 

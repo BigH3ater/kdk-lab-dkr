@@ -2288,3 +2288,460 @@ slots:
     checked_on: '2026-11-01'
     notes: ''
     pending_owner_approval: true
+# ---- Round 3 (owner-approved 2026-11-01): ground-beef lunches, short ribs, tri-tip ----
+- slot: fall-beef-lunch-potatoes
+  slot_label: ground beef + potato skillet (lunch prep)
+  candidates:
+  - site: wellplated.com
+    url: https://www.wellplated.com/ground-beef-and-potatoes/
+    title: Ground Beef and Potatoes
+    rating: 4.68
+    count: 789
+    total_time_min: 35
+    yield: 4 servings
+    ingredients:
+    - 2 tablespoons canola oil
+    - 1 pound potatoes (peeled and diced into ¼-inch cubes (I used Yukon golds))
+    - 1 pound 93% lean ground beef
+    - 1 small yellow onion (diced)
+    - 1 red bell pepper (diced)
+    - 1 tablespoon Worcestershire sauce
+    - 1 teaspoon Dijon mustard
+    - 2 teaspoons smoked paprika
+    - 1 teaspoon garlic powder
+    - 1 teaspoon dried oregano
+    - 1 teaspoon kosher salt (plus additional to taste)
+    - 1/4 teaspoon ground black pepper
+    - 1 to 2 teaspoons hot sauce (plus additional for serving (I used sriracha))
+    - 2 green onions (sliced)
+    - 'FOR SERVING: non-fat plain Greek yogurt or sour cream'
+    has_beans_lentils: false
+    non_olive_fats:
+    - canola oil
+    checked_on: '2026-11-01'
+    notes: Beef & potato skillet (American/smoked paprika). 35 min total (15 prep), 4 servings, 1 lb 93%
+      lean beef, ~8 non-pantry ingredients. Highest rating count found (789). Potatoes and beef reheat
+      well in the microwave; keep yogurt topping separate. Uses canola oil (swap olive oil easily). |
+      Owner approved 2026-11-01 (round 3).
+    approved: true
+    owner_pick: true
+- slot: fall-beef-lunch-stuffed-pepper
+  slot_label: unstuffed-pepper beef + rice (lunch prep)
+  candidates:
+  - site: spendwithpennies.com
+    url: https://www.spendwithpennies.com/stuffed-pepper-casserole/
+    title: Stuffed Pepper Casserole
+    rating: 4.96
+    count: 106
+    total_time_min: 60
+    yield: 6 servings
+    ingredients:
+    - 1 pound lean ground beef
+    - 1 onion (diced)
+    - 2 cloves garlic (minced)
+    - 2 to 2 ¼ cups diced bell pepper (red, green and/or yellow)
+    - 2 cups beef broth (more as needed)
+    - 14.5 ounces canned diced tomatoes (with juices, 1 can)
+    - 1 ½ cups tomato sauce
+    - 3 tablespoons tomato paste
+    - 1 cup basmati rice (uncooked)
+    - 2 teaspoons Italian seasoning
+    - salt and black pepper (to taste)
+    - 1 cup shredded mozzarella cheese
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-11-01'
+    notes: Unstuffed-pepper style beef & rice, all ground beef. 60 min total but only 20 min prep (rest
+      is unattended simmer/bake). Yield 6 servings from 1 lb beef (lighter portions; ~4 hearty lunches).
+      ~8 non-pantry ingredients, no added fat. Rice casseroles reheat very well; add splash of broth if
+      dry. | Owner approved 2026-11-01 (round 3).
+    approved: true
+    owner_pick: true
+- slot: fall-beef-lunch-hamburger-helper
+  slot_label: cheeseburger pasta (lunch prep)
+  candidates:
+  - site: skinnytaste.com
+    url: https://www.skinnytaste.com/homemade-hamburger-helper/
+    title: Homemade Hamburger Helper Recipe
+    rating: 4.92
+    count: 189
+    total_time_min: 40
+    yield: 4 servings
+    ingredients:
+    - 3/4 pound 93% lean ground beef
+    - 1/2 teaspoon kosher salt
+    - 1/2 cup onion (chopped)
+    - 4 cloves garlic (chopped)
+    - 1/4 teaspoon paprika
+    - 1/4 cup tomato sauce (or tomato passata or puree)
+    - 2 teaspoons Worcestershire sauce
+    - 2 cups chicken broth
+    - 3/4 cups 2% milk (or dairy-free milk for DF)
+    - 8 ounces dry pasta (such as cavatappi, rotini or elbows or small shells or gluten-free pasta if
+      needed)
+    - 1 cup part-skim sharp cheddar cheese (or dairy-free cheese for DF)
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-11-01'
+    notes: Cheeseburger pasta (one-pot). 40 min total (10 prep), 4 servings, but uses 3/4 lb beef (scale
+      to 1 lb if desired). ~7 non-pantry ingredients, no added fat. Creamy pasta thickens in the fridge;
+      reheats well with a splash of milk/broth. Counts 189 ratings. | Owner approved 2026-11-01 (round
+      3).
+    approved: true
+    owner_pick: true
+- slot: fall-beef-lunch-burger-bowl
+  slot_label: burger + sweet potato bowl (lunch prep)
+  candidates:
+  - site: downshiftology.com
+    url: https://downshiftology.com/recipes/sweet-potato-burger-bowl/
+    title: Sweet Potato Burger Bowl
+    rating: 4.99
+    count: 81
+    total_time_min: 60
+    yield: 4 servings
+    ingredients:
+    - 2 pounds sweet potato (2 to 3 potatoes) (cut into ½-inch cubes)
+    - 2 tablespoons extra-virgin olive oil
+    - ½ teaspoon onion powder
+    - ½ teaspoon garlic powder
+    - ½ teaspoon paprika
+    - kosher salt and freshly ground black pepper (to taste)
+    - 1 pound lean ground beef
+    - ½ teaspoon onion powder
+    - ½ teaspoon garlic powder
+    - ½ teaspoon paprika
+    - kosher salt and freshly ground black pepper (to taste)
+    - ¼ cup mayonnaise
+    - 1 ½ tablespoons ketchup
+    - 1 tablespoons sweet pickle relish (chopped extra fine)
+    - ½ tablespoon white vinegar
+    - pinch kosher salt
+    - 3 cups shredded lettuce
+    - 4  Roma tomatoes (deseeded and diced)
+    - 1 cup shredded cheese
+    - ½ cup diced white onion
+    - ½ cup diced Dill pickles
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-11-01'
+    notes: 'Cheeseburger + sweet potato bowl. 4 servings, 1 lb lean beef, olive oil. CONCERNS: 60 min
+      total (20 prep, 40 roasting unattended) and ~12 non-pantry ingredients (above the ~10 target). Meal-prep
+      note: store beef/sweet potato separately from lettuce/tomato/sauce; warm components reheat well,
+      cold toppings added after. Sauce uses mayonnaise. | Owner approved 2026-11-01 (round 3).'
+    approved: true
+    owner_pick: true
+- slot: fall-beef-lunch-taco-skillet
+  slot_label: taco rice skillet (lunch prep)
+  candidates:
+  - site: thecleaneatingcouple.com
+    url: https://thecleaneatingcouple.com/taco-skillet/
+    title: One Pot Taco Skillet
+    rating: 4.96
+    count: 22
+    total_time_min: 45
+    yield: 4 1.5 cup servings
+    ingredients:
+    - 1 tablespoon olive oil
+    - 1 lb ground beef
+    - ½ cup onion (diced)
+    - 1 tablespoon minced garlic
+    - 1/2 tablespoon taco seasoning
+    - 15 oz can tomato sauce (NOT pasta sauce. look for low/no salt!)
+    - 1 cup dry white rice
+    - 2 cup beef broth (low or no salt)
+    - 3 cups bell pepper (diced)
+    - 1 cup shredded cheddar cheese
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-11-01'
+    notes: Taco/burrito rice skillet, one pot. 45 min total but 5 min prep (mostly simmer), 4 x 1.5 cup
+      servings from 1 lb beef, only ~6 non-pantry ingredients, olive oil. Rice-and-beef one-pot meals
+      reheat very well; good base for burrito bowls. Lower count (22). | Owner approved 2026-11-01 (round
+      3).
+    approved: true
+    owner_pick: true
+- slot: fall-beef-lunch-streetcorn
+  slot_label: street-corn beef bowls (lunch prep)
+  candidates:
+  - site: pinchofyum.com
+    url: https://pinchofyum.com/street-corn-beef-and-sweet-potato-bowls
+    title: Street Corn Beef and Sweet Potato Bowls
+    rating: 4.9
+    count: 36
+    total_time_min: 35
+    yield: 4 servings
+    ingredients:
+    - 1 cup cottage cheese, blended until smooth
+    - 2 heaping tablespoons mayo
+    - 2 heaping cups frozen fire-roasted corn, thawed and patted dry
+    - half of a large jalapeño, minced (ribs and seeds removed)
+    - 1/4 cup chopped cilantro
+    - 1/4 cup crumbled Cotija cheese
+    - juice and zest from half of a lime
+    - 1 avocado, cut into chunks (optional)
+    - 1/2 teaspoon Tajín (optional and/or can just be a garnish)
+    - 2 large sweet potatoes, peeled and cubed
+    - 1 tablespoon olive oil
+    - 1 1/2 teaspoons salt
+    - 1 tablespoon olive oil
+    - 1 pound ground beef
+    - 2-3 tablespoons taco seasoning (I use Siete mild taco seasoning, about half the package)
+    - Chips for serving
+    - Pickled red onions for serving
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-11-01'
+    notes: 'Taco beef + roasted sweet potato with street-corn topping. 35 min total (15 prep), 4 servings,
+      1 lb beef, olive oil. Count is reviewCount 36 (no ratingCount on page). CONCERNS: ~13 non-pantry
+      ingredients incl. optional avocado/chips/Tajin; corn topping contains mayo + cottage cheese, keep
+      cold and separate; beef and sweet potatoes reheat well. | Owner approved 2026-11-01 (round 3).'
+    approved: true
+    owner_pick: true
+    owner_override: true
+- slot: fall-beef-lunch-korean
+  slot_label: Korean beef rice bowls (lunch prep)
+  candidates:
+  - site: ifoodreal.com
+    url: https://ifoodreal.com/korean-ground-beef-and-rice-bowls/
+    title: Korean Ground Beef and Rice Bowls
+    rating: 4.97
+    count: 91
+    total_time_min: 30
+    yield: 6 servings
+    ingredients:
+    - 1 pound ground beef (extra lean)
+    - 1 large onion (diced)
+    - 1-2 inch fresh ginger (minced)
+    - 2 large garlic cloves (minced)
+    - 1 tablespoon oil
+    - 1 large bell pepper (diced)
+    - 2 medium zucchini (diced)
+    - 1 small eggplant (diced)
+    - 1 tomato (diced (optional))
+    - 4-5 tablespoons soy sauce (I used Bragg's liquid aminos)
+    - 1 tablespoon rice vinegar
+    - 3 tablespoons maple syrup or honey
+    - Ground black pepper (to taste)
+    - Pinch red pepper flakes
+    - 4 green onion sprigs (finely chopped)
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-11-01'
+    notes: 'Asian-style #1 (Korean). 30 min total (10 prep), 1 lb extra-lean beef, yield 6 servings (~4
+      heartier lunches). Loaded with zucchini/eggplant/pepper which reheat fine (softer). ''oil'' unspecified
+      (use olive). ~7 non-pantry ingredients. Rice not in the ingredient list - cook separately. | Owner
+      approved 2026-11-01 (round 3).'
+    approved: true
+    owner_pick: true
+- slot: fall-shortribs-braised-roast
+  slot_label: bone-in short ribs, oven braise (Amana add-on)
+  candidates:
+  - site: recipetineats.com
+    url: https://www.recipetineats.com/braised-beef-short-ribs-in-red-wine-sauce/
+    title: Braised Beef Short Ribs in Red Wine Sauce
+    rating: 4.96
+    count: 342
+    total_time_min: 195
+    yield: 5 servings
+    ingredients:
+    - 5 - 6  beef short ribs (, 300-400g/10-14oz each (Note 1))
+    - 1.5 tsp each salt and pepper
+    - 2 tbsp olive oil
+    - 3  garlic cloves (, crushed)
+    - 1  large onion (, chopped (brown, yellow or white))
+    - 2  celery ribs (, chopped)
+    - 2  carrots (, chopped)
+    - 2 tbsp tomato paste
+    - 2 cups (500ml)   dry red wine ((Note 2))
+    - 2 cups (500ml)   beef stock/broth, low sodium
+    - 2  sprigs thyme ((optional))
+    - 2  bay leaves
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-11-01'
+    notes: Oven/Dutch-oven braise. 195 min total, only 15 min prep (sear + veg, then 3 h unattended in
+      oven). Calls for 5-6 bone-in short ribs at 300-400 g each (~3.3-5.3 lb) - fits a ~4 lb pack directly;
+      yield 5. ~6 non-pantry ingredients incl. 2 cups red wine. Olive oil. 342 ratings - best-rated, best-counted
+      option. Reheats excellently (better next day). | Owner approved 2026-11-01 (round 3).
+    approved: true
+    owner_pick: true
+- slot: fall-shortribs-instantpot-roast
+  slot_label: bone-in short ribs, Instant Pot (Amana add-on)
+  candidates:
+  - site: wholesomeyum.com
+    url: https://www.wholesomeyum.com/instant-pot-beef-short-ribs-recipe/
+    title: Instant Pot Short Ribs (5 Ingredients)
+    rating: 4.98
+    count: 108
+    total_time_min: 75
+    yield: 6 servings
+    ingredients:
+    - 2 1/2 lb Boneless beef short ribs ((weight without bones, cut into about 12 pieces; *see notes for
+      using bone-in))
+    - 2 tsp Sea salt
+    - 1 tsp Black pepper
+    - 1 tbsp Olive oil
+    - 1 cup Beef broth
+    - 1/4 cup Coconut aminos
+    - 6 cloves Garlic ((minced))
+    - 2 medium Dried bay leaves ((optional))
+    - 2 tbsp Unflavored gelatin powder ((optional))
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-11-01'
+    notes: 'Instant Pot, 5 ingredients. Written for 2 1/2 lb boneless; page note: ''If you prefer to use
+      bone-in, the weight you''ll need is 3-3.5 lb, and you will need to increase the cook time to 50
+      minutes.'' ~4 lb bone-in is slightly over - scale up ~15% or keep same time. 75 min total / 5 min
+      prep as written (longer for bone-in). Olive oil. Lowest hands-on time. Uses coconut aminos + optional
+      gelatin. | Owner approved 2026-11-01 (round 3).'
+    approved: true
+    owner_pick: true
+- slot: fall-shortribs-slowcooker-roast
+  slot_label: bone-in short ribs, slow cooker (Amana add-on)
+  candidates:
+  - site: tasteofhome.com
+    url: https://www.tasteofhome.com/recipes/slow-cooker-short-ribs/
+    title: Slow-Cooker Short Ribs
+    rating: 4.61
+    count: 76
+    total_time_min: 405
+    yield: 6 servings
+    ingredients:
+    - 3 pounds bone-in beef short ribs
+    - 1/2 teaspoon salt
+    - 1/2 teaspoon pepper
+    - 1 tablespoon canola oil
+    - 4 medium carrots, cut into 1-inch pieces
+    - 1 cup beef broth
+    - 4 fresh thyme sprigs
+    - 1 bay leaf
+    - 2 large onions, cut into 1/2-inch wedges
+    - 6 garlic cloves, minced
+    - 1 tablespoon tomato paste
+    - 2 cups dry red wine or beef broth
+    - 4 teaspoons cornstarch
+    - 3 tablespoons cold water
+    - Salt and pepper to taste
+    has_beans_lentils: false
+    non_olive_fats:
+    - canola oil
+    checked_on: '2026-11-01'
+    notes: Slow cooker. 3 lb bone-in short ribs (scale ~1.3x for 4 lb), 6 servings, 6h45 total with 30
+      min prep (sear ribs, then 6-8 h on low). ~5 non-pantry ingredients (carrots, thyme, red wine or
+      broth, tomato paste, cornstarch). Count is reviewCount 76 (no ratingCount). Canola oil for searing.
+      Reheats well. | Owner approved 2026-11-01 (round 3).
+    approved: true
+    owner_pick: true
+- slot: fall-tritip-steak-chili-lime
+  slot_label: tri-tip fajitas (Amana add-on)
+  candidates:
+  - site: cafedelites.com
+    url: https://cafedelites.com/chili-lime-steak-fajitas/
+    title: Chili Lime Steak Fajitas
+    rating: 4.93
+    count: 39
+    total_time_min: 25
+    yield: 4 (2 fajitas per serve)
+    ingredients:
+    - 2 tablespoons olive oil
+    - 1/3 cup lime juice (freshly squeezed )
+    - 2 tablespoons fresh cilantro (chopped)
+    - 2 cloves garlic (crushed)
+    - 1 teaspoon brown sugar
+    - ¾ teaspoon red chilli flakes (adjust to your preference of spice)
+    - ½ teaspoon ground cumin
+    - 1 teaspoon salt
+    - 1 pound steak (rump, skirt or flank steak)
+    - '3 bell peppers (of different colours: red, yellow and green, deseeded and sliced)'
+    - 1 onion (sliced)
+    - 1 avocado (sliced)
+    - 2 flour tortillas (optional)
+    - 2 lettuce leaves (for low carb option)
+    - 1 pinch cilantro (to garnish)
+    - 1 teaspoon sour cream (optional - to serve)
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-11-01'
+    notes: Skillet/grill, 25 min total (plus marinating), olive-oil chili-lime marinade. Written for 1
+      lb rump/skirt/flank - double for 2 lb tri-tip. A page review reads 'Marinated tri tip steak in this
+      marinate today and it was fantastic'. Yield 4 (2 fajitas each). Best rating/count among fajita pages
+      that mention tri-tip (4.93/39). | Owner approved 2026-11-01 (round 3).
+    approved: true
+    owner_pick: true
+- slot: fall-tritip-steak-fajitas-jg
+  slot_label: tri-tip fajitas (Amana add-on)
+  candidates:
+  - site: jessicagavin.com
+    url: https://www.jessicagavin.com/steak-fajitas/
+    title: Steak Fajitas
+    rating: 4.92
+    count: 24
+    total_time_min: 65
+    yield: 8 servings
+    ingredients:
+    - 1 pound skirt steak (flank steak, sirloin, flat iron, or hanger steak)
+    - ½ cup olive oil
+    - 2 tablespoon soy sauce
+    - 1 tablespoon minced jalapeno
+    - 1 tablespoon minced garlic
+    - 1 teaspoon cumin
+    - 1 teaspoon kosher salt
+    - ½ teaspoon black pepper
+    - 1 teaspoon lime zest
+    - 2 tablespoons lime juice
+    - 2 tablespoons olive oil (divided)
+    - 1 ½ cups sliced white onion (¼" thick)
+    - 1 ½ cup sliced zucchini (¼" thick)
+    - 8 ounces brown mushrooms (rinsed, dried, and quartered)
+    - 3 cups sliced bell pepper (¼" thick, red, green, and yellow)
+    - ½ teaspoon kosher salt
+    - ¼ teaspoon black pepper
+    - ¼ cup cilantro leaves (chopped)
+    - 8 tortillas (flour or corn, 6" in size)
+    has_beans_lentils: false
+    non_olive_fats: []
+    checked_on: '2026-11-01'
+    notes: Grill or skillet, 65 min total (incl. 45 min prep/marinate), yield 8, olive oil marinade. Written
+      for 1 lb skirt (or flank, sirloin, flat iron, hanger) - double for 2 lb tri-tip. A commenter used
+      the marinade on grilled tri-tip and the author replied endorsing it. Adds zucchini and mushrooms
+      (~9 non-pantry ingredients). | Owner approved 2026-11-01 (round 3).
+    approved: true
+    owner_pick: true
+    owner_override: true
+- slot: fall-tritip-steak-savor
+  slot_label: tri-tip fajitas (Amana add-on)
+  candidates:
+  - site: savorthebest.com
+    url: https://savorthebest.com/tri-tip-fajitas/
+    title: Tri-Tip Fajitas
+    rating: 5
+    count: 3
+    total_time_min: 20
+    yield: 4 Servings
+    ingredients:
+    - ¼ cup vegetable oil
+    - ½ cup fresh lime juice
+    - 2-3 garlic cloves (grated or minced)
+    - ½ jalapeño pepper (seeded and minced)
+    - 3 tablespoons chopped cilantro
+    - 1 teaspoon ground cumin
+    - ½ teaspoon salt
+    - ¼ teaspoon ground black pepper
+    - 1 teaspoon brown sugar
+    - 8 ounces Tri-Tip roast
+    - 2 tablespoons vegetable oil
+    - 1 onion (sliced)
+    - ½ red onion (sliced)
+    - 3 bell peppers (red, yellow and green)
+    - 4 flour tortillas (10 inches)
+    - Lime wedges (salsa and sour cream)
+    has_beans_lentils: false
+    non_olive_fats:
+    - vegetable oil
+    checked_on: '2026-11-01'
+    notes: The only reachable page written explicitly for tri-tip, but for LEFTOVER cooked tri-tip roast
+      (8 oz, shredded) - not raw 2 lb tri-tip; 20 min total, yield 4. Would need the tri-tip roasted/grilled
+      first and the recipe scaled ~4x. Vegetable oil. Low count (5.0 from 3 ratings). | Owner approved
+      2026-11-01 (round 3).
+    approved: true
+    owner_pick: true

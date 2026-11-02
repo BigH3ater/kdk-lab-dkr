@@ -133,7 +133,9 @@ def evaluate_candidate(cand: dict, slot_kind: str, config: dict) -> Evaluation:
     else:
         hard_cap = _total_time_cap(slot_kind, caps)
         if tmin is not None:
-            if tmin > hard_cap:
+            if tmin > hard_cap and cand.get("owner_override"):
+                flags.append(f"owner override: {tmin} min over the {hard_cap}-min cap")
+            elif tmin > hard_cap:
                 rejects.append(f"over total-time cap ({tmin} > {hard_cap} min)")
             elif tmin > active_cap:
                 flags.append(f"published total {tmin} min over {active_cap}-min active cap "
@@ -141,7 +143,12 @@ def evaluate_candidate(cand: dict, slot_kind: str, config: dict) -> Evaluation:
 
     nipc = _non_pantry_ingredient_count(cand.get("ingredients"), caps["pantry_staples"])
     if nipc is not None and nipc > caps["ingredient_max"]:
-        rejects.append(f"too many ingredients ({nipc} > {caps['ingredient_max']})")
+        # owner_override (an approved recipe the owner wants despite the caps) lifts
+        # only the time and ingredient-count caps; safety rules below still apply.
+        if cand.get("owner_override"):
+            flags.append(f"owner override: {nipc} ingredients over {caps['ingredient_max']}")
+        else:
+            rejects.append(f"too many ingredients ({nipc} > {caps['ingredient_max']})")
 
     # Owner-excluded ingredients (radish/beet/arugula): hard reject in any slot.
     text = (str(cand.get("title", "")) + " "
