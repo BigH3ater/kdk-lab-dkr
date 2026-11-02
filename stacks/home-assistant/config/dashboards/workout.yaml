@@ -150,290 +150,243 @@ views:
 - title: Strength
   path: strength
   icon: mdi:dumbbell
-  type: sections
-  max_columns: 3
-  sections:
+  type: masonry
+  cards:
+  - type: markdown
+    content: >-
+      Log the **weight (lb)** and **reps** you did each session — tap a number to edit.
+      Progression graphs are on the **Progress** tab; targets + form cues on **Plan**.
+  - type: entities
+    title: Lower A · Mon
+    show_header_toggle: false
+    state_color: false
+    entities:
+    - type: section
+      label: Box Squat
+    - entity: input_number.ex_box_squat_weight
+      name: Weight (lb)
+      icon: mdi:weight-pound
+    - entity: input_number.ex_box_squat_reps
+      name: Reps
+      icon: mdi:counter
+    - type: section
+      label: Romanian Deadlift
+    - entity: input_number.ex_rdl_weight
+      name: Weight (lb)
+      icon: mdi:weight-pound
+    - entity: input_number.ex_rdl_reps
+      name: Reps
+      icon: mdi:counter
+    - type: section
+      label: Calf Raise
+    - entity: input_number.ex_calf_raise_weight
+      name: Weight (lb)
+      icon: mdi:weight-pound
+    - entity: input_number.ex_calf_raise_reps
+      name: Reps
+      icon: mdi:counter
+  - type: entities
+    title: Upper A · Tue
+    show_header_toggle: false
+    state_color: false
+    entities:
+    - type: section
+      label: Incline Press
+    - entity: input_number.ex_incline_press_weight
+      name: Weight (lb)
+      icon: mdi:weight-pound
+    - entity: input_number.ex_incline_press_reps
+      name: Reps
+      icon: mdi:counter
+    - type: section
+      label: Chest-Supported Row
+    - entity: input_number.ex_cs_row_weight
+      name: Weight (lb)
+      icon: mdi:weight-pound
+    - entity: input_number.ex_cs_row_reps
+      name: Reps
+      icon: mdi:counter
+    - type: section
+      label: Shoulder Press
+    - entity: input_number.ex_shoulder_press_weight
+      name: Weight (lb)
+      icon: mdi:weight-pound
+    - entity: input_number.ex_shoulder_press_reps
+      name: Reps
+      icon: mdi:counter
+    - type: section
+      label: Hammer Curl
+    - entity: input_number.ex_hammer_curl_weight
+      name: Weight (lb)
+      icon: mdi:weight-pound
+    - entity: input_number.ex_hammer_curl_reps
+      name: Reps
+      icon: mdi:counter
+    - type: section
+      label: Triceps Extension
+    - entity: input_number.ex_triceps_ext_weight
+      name: Weight (lb)
+      icon: mdi:weight-pound
+    - entity: input_number.ex_triceps_ext_reps
+      name: Reps
+      icon: mdi:counter
+    - type: section
+      label: Farmer Carry
+    - entity: input_number.ex_farmer_weight
+      name: Weight (lb)
+      icon: mdi:weight-pound
+    - entity: input_number.ex_farmer_reps
+      name: Reps
+      icon: mdi:counter
+    - type: section
+      label: Wrist Curl
+    - entity: input_number.ex_wrist_curl_weight
+      name: Weight (lb)
+      icon: mdi:weight-pound
+    - entity: input_number.ex_wrist_curl_reps
+      name: Reps
+      icon: mdi:counter
+  - type: entities
+    title: Lower B · Thu
+    show_header_toggle: false
+    state_color: false
+    entities:
+    - type: section
+      label: Hip Thrust
+    - entity: input_number.ex_hip_thrust_weight
+      name: Weight (lb)
+      icon: mdi:weight-pound
+    - entity: input_number.ex_hip_thrust_reps
+      name: Reps
+      icon: mdi:counter
+    - type: section
+      label: Single-Leg RDL
+    - entity: input_number.ex_sl_rdl_weight
+      name: Weight (lb)
+      icon: mdi:weight-pound
+    - entity: input_number.ex_sl_rdl_reps
+      name: Reps
+      icon: mdi:counter
+  - type: entities
+    title: Upper B · Fri
+    show_header_toggle: false
+    state_color: false
+    entities:
+    - type: section
+      label: One-Arm Row
+    - entity: input_number.ex_one_arm_row_weight
+      name: Weight (lb)
+      icon: mdi:weight-pound
+    - entity: input_number.ex_one_arm_row_reps
+      name: Reps
+      icon: mdi:counter
+    - type: section
+      label: Flat Press
+    - entity: input_number.ex_flat_press_weight
+      name: Weight (lb)
+      icon: mdi:weight-pound
+    - entity: input_number.ex_flat_press_reps
+      name: Reps
+      icon: mdi:counter
+    - type: section
+      label: Lateral Raise
+    - entity: input_number.ex_lateral_raise_weight
+      name: Weight (lb)
+      icon: mdi:weight-pound
+    - entity: input_number.ex_lateral_raise_reps
+      name: Reps
+      icon: mdi:counter
+    - type: section
+      label: Rear Fly
+    - entity: input_number.ex_rear_fly_weight
+      name: Weight (lb)
+      icon: mdi:weight-pound
+    - entity: input_number.ex_rear_fly_reps
+      name: Reps
+      icon: mdi:counter
+    - type: section
+      label: Suitcase Carry
+    - entity: input_number.ex_suitcase_weight
+      name: Weight (lb)
+      icon: mdi:weight-pound
+    - entity: input_number.ex_suitcase_reps
+      name: Reps
+      icon: mdi:counter
+  - type: entities
+    title: Hands · daily
+    show_header_toggle: false
+    state_color: false
+    entities:
+    - type: section
+      label: Finger Extension
+    - entity: input_number.ex_finger_ext_weight
+      name: Weight (lb)
+      icon: mdi:weight-pound
+    - entity: input_number.ex_finger_ext_reps
+      name: Reps
+      icon: mdi:counter
 
-  - type: grid
-    column_span: 3
-    cards:
-    - type: markdown
-      content: >-
-        Log the **weight (lb)** and **reps** you did each session — tap a number to edit.
-        Home Assistant keeps the history; the **progression** graphs are below.
-        (Targets + form cues are on the **Plan** tab.)
-
-  - type: grid
-    cards:
-    - type: heading
-      heading: Lower A · Mon
-      icon: mdi:arrow-down-bold-box
-    - type: entities
-      title: Lower A — log
-      show_header_toggle: false
-      entities:
-      - type: section
-        label: Box Squat
-      - entity: input_number.ex_box_squat_weight
-        name: Weight (lb)
-        icon: mdi:weight-pound
-      - entity: input_number.ex_box_squat_reps
-        name: Reps
-        icon: mdi:counter
-      - type: section
-        label: Romanian Deadlift
-      - entity: input_number.ex_rdl_weight
-        name: Weight (lb)
-        icon: mdi:weight-pound
-      - entity: input_number.ex_rdl_reps
-        name: Reps
-        icon: mdi:counter
-      - type: section
-        label: Calf Raise
-      - entity: input_number.ex_calf_raise_weight
-        name: Weight (lb)
-        icon: mdi:weight-pound
-      - entity: input_number.ex_calf_raise_reps
-        name: Reps
-        icon: mdi:counter
-
-  - type: grid
-    cards:
-    - type: heading
-      heading: Upper A · Tue
-      icon: mdi:arm-flex
-    - type: entities
-      title: Upper A — log
-      show_header_toggle: false
-      entities:
-      - type: section
-        label: Incline Press
-      - entity: input_number.ex_incline_press_weight
-        name: Weight (lb)
-        icon: mdi:weight-pound
-      - entity: input_number.ex_incline_press_reps
-        name: Reps
-        icon: mdi:counter
-      - type: section
-        label: Chest-Supported Row
-      - entity: input_number.ex_cs_row_weight
-        name: Weight (lb)
-        icon: mdi:weight-pound
-      - entity: input_number.ex_cs_row_reps
-        name: Reps
-        icon: mdi:counter
-      - type: section
-        label: Shoulder Press
-      - entity: input_number.ex_shoulder_press_weight
-        name: Weight (lb)
-        icon: mdi:weight-pound
-      - entity: input_number.ex_shoulder_press_reps
-        name: Reps
-        icon: mdi:counter
-      - type: section
-        label: Hammer Curl
-      - entity: input_number.ex_hammer_curl_weight
-        name: Weight (lb)
-        icon: mdi:weight-pound
-      - entity: input_number.ex_hammer_curl_reps
-        name: Reps
-        icon: mdi:counter
-      - type: section
-        label: Triceps Extension
-      - entity: input_number.ex_triceps_ext_weight
-        name: Weight (lb)
-        icon: mdi:weight-pound
-      - entity: input_number.ex_triceps_ext_reps
-        name: Reps
-        icon: mdi:counter
-      - type: section
-        label: Farmer Carry
-      - entity: input_number.ex_farmer_weight
-        name: Weight (lb)
-        icon: mdi:weight-pound
-      - entity: input_number.ex_farmer_reps
-        name: Reps
-        icon: mdi:counter
-      - type: section
-        label: Wrist Curl
-      - entity: input_number.ex_wrist_curl_weight
-        name: Weight (lb)
-        icon: mdi:weight-pound
-      - entity: input_number.ex_wrist_curl_reps
-        name: Reps
-        icon: mdi:counter
-
-  - type: grid
-    cards:
-    - type: heading
-      heading: Lower B · Thu
-      icon: mdi:arrow-down-bold-box-outline
-    - type: entities
-      title: Lower B — log
-      show_header_toggle: false
-      entities:
-      - type: section
-        label: Hip Thrust
-      - entity: input_number.ex_hip_thrust_weight
-        name: Weight (lb)
-        icon: mdi:weight-pound
-      - entity: input_number.ex_hip_thrust_reps
-        name: Reps
-        icon: mdi:counter
-      - type: section
-        label: Single-Leg RDL
-      - entity: input_number.ex_sl_rdl_weight
-        name: Weight (lb)
-        icon: mdi:weight-pound
-      - entity: input_number.ex_sl_rdl_reps
-        name: Reps
-        icon: mdi:counter
-
-  - type: grid
-    cards:
-    - type: heading
-      heading: Upper B · Fri
-      icon: mdi:arm-flex-outline
-    - type: entities
-      title: Upper B — log
-      show_header_toggle: false
-      entities:
-      - type: section
-        label: One-Arm Row
-      - entity: input_number.ex_one_arm_row_weight
-        name: Weight (lb)
-        icon: mdi:weight-pound
-      - entity: input_number.ex_one_arm_row_reps
-        name: Reps
-        icon: mdi:counter
-      - type: section
-        label: Flat Press
-      - entity: input_number.ex_flat_press_weight
-        name: Weight (lb)
-        icon: mdi:weight-pound
-      - entity: input_number.ex_flat_press_reps
-        name: Reps
-        icon: mdi:counter
-      - type: section
-        label: Lateral Raise
-      - entity: input_number.ex_lateral_raise_weight
-        name: Weight (lb)
-        icon: mdi:weight-pound
-      - entity: input_number.ex_lateral_raise_reps
-        name: Reps
-        icon: mdi:counter
-      - type: section
-        label: Rear Fly
-      - entity: input_number.ex_rear_fly_weight
-        name: Weight (lb)
-        icon: mdi:weight-pound
-      - entity: input_number.ex_rear_fly_reps
-        name: Reps
-        icon: mdi:counter
-      - type: section
-        label: Suitcase Carry
-      - entity: input_number.ex_suitcase_weight
-        name: Weight (lb)
-        icon: mdi:weight-pound
-      - entity: input_number.ex_suitcase_reps
-        name: Reps
-        icon: mdi:counter
-
-  - type: grid
-    cards:
-    - type: heading
-      heading: Hands · daily
-      icon: mdi:hand-back-right
-    - type: entities
-      title: Hands — log
-      show_header_toggle: false
-      entities:
-      - type: section
-        label: Finger Extension
-      - entity: input_number.ex_finger_ext_weight
-        name: Weight (lb)
-        icon: mdi:weight-pound
-      - entity: input_number.ex_finger_ext_reps
-        name: Reps
-        icon: mdi:counter
-
-  - type: grid
-    column_span: 3
-    cards:
-    - type: heading
-      heading: Weight progression (90 days)
-      icon: mdi:chart-line
-
-  - type: grid
-    cards:
-    - type: history-graph
-      title: Lower A · Mon
-      hours_to_show: 2160
-      entities:
-      - entity: input_number.ex_box_squat_weight
-        name: Box Squat
-      - entity: input_number.ex_rdl_weight
-        name: Romanian Deadlift
-      - entity: input_number.ex_calf_raise_weight
-        name: Calf Raise
-
-  - type: grid
-    cards:
-    - type: history-graph
-      title: Upper A · Tue
-      hours_to_show: 2160
-      entities:
-      - entity: input_number.ex_incline_press_weight
-        name: Incline Press
-      - entity: input_number.ex_cs_row_weight
-        name: Chest-Supported Row
-      - entity: input_number.ex_shoulder_press_weight
-        name: Shoulder Press
-      - entity: input_number.ex_hammer_curl_weight
-        name: Hammer Curl
-      - entity: input_number.ex_triceps_ext_weight
-        name: Triceps Extension
-      - entity: input_number.ex_farmer_weight
-        name: Farmer Carry
-      - entity: input_number.ex_wrist_curl_weight
-        name: Wrist Curl
-
-  - type: grid
-    cards:
-    - type: history-graph
-      title: Lower B · Thu
-      hours_to_show: 2160
-      entities:
-      - entity: input_number.ex_hip_thrust_weight
-        name: Hip Thrust
-      - entity: input_number.ex_sl_rdl_weight
-        name: Single-Leg RDL
-
-  - type: grid
-    cards:
-    - type: history-graph
-      title: Upper B · Fri
-      hours_to_show: 2160
-      entities:
-      - entity: input_number.ex_one_arm_row_weight
-        name: One-Arm Row
-      - entity: input_number.ex_flat_press_weight
-        name: Flat Press
-      - entity: input_number.ex_lateral_raise_weight
-        name: Lateral Raise
-      - entity: input_number.ex_rear_fly_weight
-        name: Rear Fly
-      - entity: input_number.ex_suitcase_weight
-        name: Suitcase Carry
-
-  - type: grid
-    cards:
-    - type: history-graph
-      title: Hands · daily
-      hours_to_show: 2160
-      entities:
-      - entity: input_number.ex_finger_ext_weight
-        name: Finger Extension
+- title: Progress
+  path: progress
+  icon: mdi:chart-line
+  type: masonry
+  cards:
+  - type: history-graph
+    title: Lower A · Mon
+    hours_to_show: 2160
+    entities:
+    - entity: input_number.ex_box_squat_weight
+      name: Box Squat
+    - entity: input_number.ex_rdl_weight
+      name: Romanian Deadlift
+    - entity: input_number.ex_calf_raise_weight
+      name: Calf Raise
+  - type: history-graph
+    title: Upper A · Tue
+    hours_to_show: 2160
+    entities:
+    - entity: input_number.ex_incline_press_weight
+      name: Incline Press
+    - entity: input_number.ex_cs_row_weight
+      name: Chest-Supported Row
+    - entity: input_number.ex_shoulder_press_weight
+      name: Shoulder Press
+    - entity: input_number.ex_hammer_curl_weight
+      name: Hammer Curl
+    - entity: input_number.ex_triceps_ext_weight
+      name: Triceps Extension
+    - entity: input_number.ex_farmer_weight
+      name: Farmer Carry
+    - entity: input_number.ex_wrist_curl_weight
+      name: Wrist Curl
+  - type: history-graph
+    title: Lower B · Thu
+    hours_to_show: 2160
+    entities:
+    - entity: input_number.ex_hip_thrust_weight
+      name: Hip Thrust
+    - entity: input_number.ex_sl_rdl_weight
+      name: Single-Leg RDL
+  - type: history-graph
+    title: Upper B · Fri
+    hours_to_show: 2160
+    entities:
+    - entity: input_number.ex_one_arm_row_weight
+      name: One-Arm Row
+    - entity: input_number.ex_flat_press_weight
+      name: Flat Press
+    - entity: input_number.ex_lateral_raise_weight
+      name: Lateral Raise
+    - entity: input_number.ex_rear_fly_weight
+      name: Rear Fly
+    - entity: input_number.ex_suitcase_weight
+      name: Suitcase Carry
+  - type: history-graph
+    title: Hands · daily
+    hours_to_show: 2160
+    entities:
+    - entity: input_number.ex_finger_ext_weight
+      name: Finger Extension
 
 - title: Plan
   path: plan
