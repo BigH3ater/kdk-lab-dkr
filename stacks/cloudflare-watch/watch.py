@@ -404,7 +404,28 @@ def check_rule_drift(mode: str, zone_id: str) -> None:
     dns_changed = (prev_dns is not None) and (prev_dns != dns_sha)
     changed = rules_changed or dns_changed
 
-    state.update(rules_sha=rules_sha, dns_sha=dns_sha, last_run=now_iso())
+    # Name what changed in DNS, not only that the fingerprint moved (2026-11-02:
+    # a removed jellyfin.kmkdp.com record showed up as "dns_changed" only).
+    # The record list is kept in state from this version on; a state written by
+    # an older version has none, so the first diff after the upgrade is unknown.
+    key = lambda r: f'{r["type"]} {r["name"]}{" (proxied)" if r.get("proxied") else ""}'
+    now_set = {key(r) for r in dns}
+    prev_list = state.get("dns_records")
+    dns_added = sorted(now_set - set(prev_list)) if prev_list is not None else []
+    dns_removed = sorted(set(prev_list) - now_set) if prev_list is not None else []
+    parts = []
+    if dns_added:
+        parts.append("added: " + ", ".join(dns_added))
+    if dns_removed:
+        parts.append("removed: " + ", ".join(dns_removed))
+    if dns_changed and prev_list is None:
+        parts.append("records changed (no previous record list to compare)")
+    if rules_changed:
+        parts.append("firewall/rate-limit rules changed")
+    diff = "; ".join(parts)[:300]
+
+    state.update(rules_sha=rules_sha, dns_sha=dns_sha, dns_records=sorted(now_set),
+                 last_run=now_iso())
     saved = _save_state(state)
 
     status = "ok"
@@ -417,7 +438,8 @@ def check_rule_drift(mode: str, zone_id: str) -> None:
          prev_rules_sha=prev_rules, prev_dns_sha=prev_dns,
          custom_count=len(custom_rules), ratelimit_count=len(rl_rules),
          dns_count=len(dns), changed=changed, rules_changed=rules_changed,
-         dns_changed=dns_changed, first_run=first_run, state_saved=saved)
+         dns_changed=dns_changed, first_run=first_run, state_saved=saved,
+         dns_added=dns_added, dns_removed=dns_removed, diff=diff)
 
 
 # ------------------------------------------------------------------------- main

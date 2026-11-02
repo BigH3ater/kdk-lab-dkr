@@ -64,7 +64,7 @@ groups:
       # rate-limit rules, or the DNS record set, were edited.
       - alert: CloudflareRuleDrift
         expr: |
-          sum(count_over_time({container="cloudflare-watch-weekly"}
+          sum by (diff) (count_over_time({container="cloudflare-watch-weekly"}
             | json | check="rule_drift" | changed="true" [8d])) > 0
         for: 0m
         labels:
@@ -72,7 +72,7 @@ groups:
           source: loki
           scope: cloudflare-watch
         annotations:
-          summary: "Cloudflare custom/rate-limit rules or DNS records for kmkdp.com changed since last week"
+          summary: "Cloudflare rules or DNS for kmkdp.com changed since last week: {{ $labels.diff }}"
           runbook: docs/runbooks/security-alerts.md#cloudflare-watch
 
       # The hourly watch stopped reporting (procedure disabled, job failing

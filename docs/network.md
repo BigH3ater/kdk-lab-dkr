@@ -75,7 +75,7 @@ Clients join with `tailscale up --accept-routes` (DNS accepted by default). The 
 **not** masquerade (`--snat-subnet-routes=false`, 2026-10-26): lab hosts see the client's
 tailnet address (100.64.0.0/10) and reply via the UniFi static route `100.64.0.0/10 → 10.1.20.20`.
 That route is load-bearing — if it disappears, remote access dies while the router looks healthy. Only
-the Cloudflare tunnel hostnames (`sso.kmkdp.com`, `jellyfin.kmkdp.com`) have public DNS records;
+the Cloudflare tunnel hostname (`sso.kmkdp.com`) has a public DNS record (`jellyfin.kmkdp.com` was taken off the tunnel 2026-10-31; remote Jellyfin is Tailscale-only);
 every other `*.kmkdp.com` name resolves only through lab DNS, i.e. only on the LAN or the tailnet.
 
 ### Public path (Cloudflare tunnel, since 2026-10-28)

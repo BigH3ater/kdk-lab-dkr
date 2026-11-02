@@ -23,7 +23,7 @@ Media server on the DMZ node with Intel Arc A380 QSV transcode; public via the C
 | Purpose | Streaming server for the TV/movie library |
 | Status | 🟢 Live — login + playback work; plugins Active |
 | Host | [[kdk-dkr-dmz-01]], `/dev/dri` mapped (i915) |
-| Endpoint | `https://jellyfin.kmkdp.com` (LAN + Cloudflare tunnel) |
+| Endpoint | `https://jellyfin.kmkdp.com` (LAN + Tailscale; off the Cloudflare tunnel since 2026-10-31) |
 | Edge | Five-rule Cloudflare design (admin-API block, anonymous-stream block, OIDC skip, bots, non-US) plus a credential-path rate limit; verify with `scripts/edge-probe.sh` |
 | Image | `ghcr.io/linuxserver/jellyfin:12.3ubu2604-ls56` — 12.x line, pinned; server and plugins move together |
 | Deploy | Komodo stack `jellyfin` (git-linked) |
