@@ -443,9 +443,15 @@ PAGE_TEMPLATE = """<!DOCTYPE html>
   (function () {{
     try {{
       document.documentElement.className += " js";
+      var valid = {{}};
+      document.querySelectorAll(".day[data-day]").forEach(function (s) {{
+        valid[s.getAttribute("data-day")] = true;
+      }});
       var ids = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
       var today = ids[new Date().getDay()] || "mon";
-      function show(day) {{
+
+      function show(day, scroll) {{
+        if (!valid[day]) {{ return; }}
         document.querySelectorAll(".day").forEach(function (s) {{
           s.classList.toggle("active", s.getAttribute("data-day") === day);
         }});
@@ -453,23 +459,34 @@ PAGE_TEMPLATE = """<!DOCTYPE html>
           a.classList.toggle("active", a.getAttribute("data-day") === day);
         }});
         try {{ history.replaceState(null, "", "#" + day); }} catch (e) {{}}
-        window.scrollTo(0, 0);
+        if (scroll) {{
+          var sec = document.querySelector('.day[data-day="' + day + '"]');
+          if (sec && sec.scrollIntoView) {{
+            try {{ sec.scrollIntoView({{ behavior: "auto", block: "start" }}); }} catch (e) {{}}
+          }}
+        }}
       }}
-      document.querySelectorAll(".daynav a[data-day]").forEach(function (a) {{
-        a.addEventListener("click", function (e) {{
-          e.preventDefault();
-          show(a.getAttribute("data-day"));
-        }});
+
+      // Any in-page #day link switches the day: the day tabs AND the week-table links.
+      document.addEventListener("click", function (e) {{
+        var a = e.target.closest && e.target.closest('a[href^="#"]');
+        if (!a) {{ return; }}
+        var day = a.getAttribute("href").slice(1);
+        if (valid[day]) {{ e.preventDefault(); show(day, true); }}
       }});
-      // Permanent "Today" badge on today's section + its tab.
+      // Back/forward and shared #hash links.
+      window.addEventListener("hashchange", function () {{
+        show((location.hash || "").replace("#", ""), true);
+      }});
+
+      // Today's section keeps its "Today" badge (on the SECTION only, never the
+      // tab) so the orange highlight always marks the SELECTED day, not today.
       var tsec = document.getElementById(today);
       if (tsec) {{ tsec.classList.add("today"); }}
-      document.querySelectorAll('.daynav a[data-day="' + today + '"]').forEach(
-        function (a) {{ a.classList.add("today"); }});
-      // Open the requested #hash day if it exists, else today.
+
+      // Initial day: a shared #hash wins, else today. No scroll on first load.
       var want = (location.hash || "").replace("#", "");
-      var ok = want && document.querySelector('.day[data-day="' + want + '"]');
-      show(ok ? want : today);
+      show(valid[want] ? want : today, false);
     }} catch (e) {{ /* no-op: no 'js' class added, so every day stays visible */ }}
   }})();
 </script>
