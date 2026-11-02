@@ -105,18 +105,26 @@ be **registered** in the host-managed `configuration.yaml` (not in the repo):
 lovelace:
   mode: storage
   dashboards:
-    treadmill-workouts:
+    workout:                       # -> https://homeassistant.kmkdp.com/workout
       mode: yaml
-      title: Workouts
+      title: Workout
       icon: mdi:run
       show_in_sidebar: true
       filename: dashboards/workout.yaml
 ```
 
-Then restart Home Assistant (Developer Tools → YAML → Restart, or
-`action: homeassistant.restart`). Slice 2's `treadmill.yaml` package is a
-drop-in under `config/packages/` (auto-included); its first activation also
-needs a one-time HA restart because it introduces new entities.
+The `workout` url_path is what the Kodiak left-sidebar **Workout** link points at
+(`shared-nav.js` -> `homeassistant.kmkdp.com/workout`). Then restart Home
+Assistant (Developer Tools → YAML → Restart, or `action: homeassistant.restart`).
+Slice 2's `treadmill.yaml` package is a drop-in under `config/packages/`
+(auto-included); its first activation also needs a one-time HA restart because it
+introduces new entities.
+
+The dashboard's **Exercise Plan** card is an iframe of the host-managed guide at
+`https://home.kmkdp.com/guides/workout/workout.html` (the plan + per-move
+diagrams, generated from the vault). It renders only once that guide is deployed
+on the dashboard host and the viewer has an Authelia session (shared across
+`*.kmkdp.com`); until then that card is blank while the tracking cards work.
 
 ## Slice 2 host-side: thud → HA webhook secret + console profiles
 
