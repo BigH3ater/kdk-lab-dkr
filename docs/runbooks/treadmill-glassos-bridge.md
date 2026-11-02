@@ -118,6 +118,34 @@ Then restart Home Assistant (Developer Tools → YAML → Restart, or
 drop-in under `config/packages/` (auto-included); its first activation also
 needs a one-time HA restart because it introduces new entities.
 
+## Slice 2 host-side: thud → HA webhook secret + console profiles
+
+`treadmill.yaml` includes the `tm_walker_from_thud` automation, which lets the
+console set the active walker in HA automatically (no dashboard button needed).
+It needs one host secret and two console profiles.
+
+1. **Add the webhook id to the host `secrets.yaml`** (host-managed, never in the
+   repo). It must match the id already configured on the console in
+   `files/kdk-ha.conf` (`webhook_url=https://homeassistant.kmkdp.com/api/webhook/<id>`):
+
+   ```yaml
+   # /opt/kdk-lab/home-assistant/config/secrets.yaml  (host-managed)
+   tm_webhook_id: thud-xxxxxxxxxxxxxxxxxxxxxxxx
+   ```
+
+   The random id is the only credential on this webhook, so it stays a
+   `!secret`. Restart HA once so the `tm_walker_from_thud` webhook registers.
+
+2. **Create the console profiles** in thud named exactly **`Jacob`** and
+   **`Rachel`** (tap the User chip → Add User). These match the
+   `input_select.tm_current_walker` options; any other profile maps to `Guest`.
+
+3. **Verify:** switch the active profile on the console (or start a walk). thud
+   POSTs `{"event":"profile","profile":"Jacob"}`; `input_select.tm_current_walker`
+   should flip to `Jacob` within a second (Developer Tools → States, or the
+   automation trace). The speed-based session automations then attribute the
+   walk's distance/time/calories to that walker.
+
 ## Troubleshooting
 
 - **Device shows unavailable in HA** — the bridge publishes
