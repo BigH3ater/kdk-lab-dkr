@@ -56,7 +56,7 @@ def test_counts_and_fish_on_sunday(cfg):
     s = G.plan_summary(G.generate_week(pool, SUNDAY, cfg))
     assert s["dinners"] == 7
     assert s["sides"] == 7
-    assert s["lunches"] == 2
+    assert s["lunches"] == 3            # 6 lunch days x 2 people = 3 batches x 4
     assert s["breakfast"] == 1 and s["snacks"] == 2
     fish = [e for e in G.generate_week(pool, SUNDAY, cfg)
             if e.role == "dinner-main" and _kind(pool, e.recipe_id) == "fish"][0]
@@ -182,3 +182,24 @@ def _kind(pool, rid):
 
 def _variant(pool, rid):
     return next(r["variant"] for r in pool if r["id"] == rid)
+
+
+def test_beef_stir_fry_lunch_on_roast_weeks_only(cfg):
+    pool = make_pool()
+    names = cfg["lunches"]["beef_stir_fry"]["recipes"]
+    ids = {}
+    for n in names:                      # the two stir fries, as ground-beef dinners too
+        ids[n] = len(pool) + 1
+        pool.append({"id": ids[n], "name": n, "kind": "ground_beef", "season": "spring",
+                     "variant": None, "beef_style": "asian", "working_time": 20,
+                     "ingredient_count": 6, "servings": 4})
+    for parity, sun in _parity_sundays().items():
+        e = G.generate_week(pool, sun, cfg)
+        lunches = [x for x in e if x.role == "lunch"]
+        assert len(lunches) == 3 and all(x.servings == 4 for x in lunches)
+        beef_l = [x for x in lunches if x.recipe_id in ids.values()]
+        dinners = {x.recipe_id for x in e if x.role == "dinner-main"}
+        if parity == cfg["lunches"]["beef_stir_fry"]["parity"]:
+            assert len(beef_l) == 1 and beef_l[0].recipe_id not in dinners
+        else:
+            assert not beef_l

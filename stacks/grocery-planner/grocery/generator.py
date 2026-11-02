@@ -236,11 +236,21 @@ def generate_week(pool: list[dict], week_start: datetime.date, config: dict) -> 
             entries.append(PlanEntry(date, "dinner", side["id"], side["name"], 2,
                                      "side", side.get("slot", ""), note("side")))
 
-    # ---- lunches: 2 preps at 4 servings, on the prep day -------------------
+    # ---- lunches: N preps at 4 servings, on the prep day -------------------
     prep_day = _offset(week_start, _DOW[config["lunches"]["prep_day"]])
     prep_date = week_start + datetime.timedelta(days=prep_day)
-    lunches = _pick(pool, "lunch", season, caps, rng, used,
-                    config["lunches"]["recipes_per_week"])
+    bsf = config["lunches"].get("beef_stir_fry") or {}
+    beef_lunch = None
+    if bsf.get("enabled") and parity == bsf.get("parity", "A"):
+        names = {n.lower() for n in bsf.get("recipes") or []}
+        cands = [r for r in pool if r.get("name", "").lower() in names and r["id"] not in used]
+        rng.shuffle(cands)
+        beef_lunch = cands[0] if cands else None      # none free/seeded: plain lunches
+    n_lunch = config["lunches"]["recipes_per_week"] - (1 if beef_lunch else 0)
+    lunches = _pick(pool, "lunch", season, caps, rng, used, n_lunch)
+    if beef_lunch:
+        used.add(beef_lunch["id"])
+        lunches.append(beef_lunch)
     for rec in lunches:
         entries.append(PlanEntry(prep_date, "lunch", rec["id"], rec["name"],
                                  config["lunches"]["servings_each"], "lunch",
