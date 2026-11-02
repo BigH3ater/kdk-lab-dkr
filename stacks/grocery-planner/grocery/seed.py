@@ -385,7 +385,10 @@ def apply_seed(plan, cfg, foods_cfg, fixed_cfg, force=False):
             if name not in merged:
                 k = kws.get(name) or t.ensure_keyword(name)
                 merged[name] = {"id": k["id"], "name": k["name"]}
-        t.patch(f"/api/recipe/{rid}/", {"keywords": list(merged.values()), "servings": 2})
+        # Keep the source's servings: the ingredient amounts are written for it, and
+        # Tandoor scales a meal plan by plan servings / recipe servings. Forcing 2
+        # here made every list buy the full 4-8 serving recipe (2026-11-01).
+        t.patch(f"/api/recipe/{rid}/", {"keywords": list(merged.values())})
         book_id = books[im["book"]]["id"]
         if (book_id, rid) not in in_book:
             t.post("/api/recipe-book-entry/", {"book": book_id, "recipe": rid})
@@ -445,6 +448,35 @@ def apply_dedupe(t, dry_run=True):
     return plan
 
 
+def fix_servings(t, fixed_cfg, dry_run=True):
+    """Restore each imported planner recipe's servings to its source page's value
+    (the ingredient amounts are written for it). Fixed recipes and recipes with
+    no source URL are left alone. Returns [(id, name, old, new)]."""
+    from .cleanup import planner_recipe_ids
+    fixed = {r["name"] for r in fixed_cfg.get("recipes") or []}
+    out = []
+    for rid in planner_recipe_ids(t, fixed_cfg):
+        r = t.get(f"/api/recipe/{rid}/")
+        if r["name"] in fixed or not r.get("source_url"):
+            continue
+        try:
+            src = t._post_retry_429("/api/recipe-from-source/", {"url": r["source_url"]})
+        except Exception as e:  # noqa: BLE001
+            log.error("servings: could not read %s (%s): %s", rid, r["source_url"], e)
+            continue
+        new = int((src.get("recipe") or {}).get("servings") or 0)
+        old = int(r.get("servings") or 0)
+        if new <= 0 or new == old:
+            continue
+        out.append((rid, r["name"], old, new))
+        log.info("  %s %s: servings %s -> %s", rid, r["name"][:45], old, new)
+        if not dry_run:
+            text = ((src.get("recipe") or {}).get("servings_text") or "")[:32]
+            t.patch(f"/api/recipe/{rid}/", {"servings": new, "servings_text": text})
+    log.info("servings: %d recipe(s) %s", len(out), "fixed" if not dry_run else "to fix (dry run)")
+    return out
+
+
 def main(argv=None):
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
@@ -452,6 +484,8 @@ def main(argv=None):
     ap.add_argument("--force", action="store_true", help="apply even if the preflight finds gaps")
     ap.add_argument("--refresh", action="store_true", help="re-read candidate ratings into the YAML")
     ap.add_argument("--report", metavar="PATH", help="write the Markdown candidate review table")
+    ap.add_argument("--fix-servings", action="store_true",
+                    help="restore imported recipes' servings from their source; dry run unless --apply")
     ap.add_argument("--dedupe", action="store_true",
                     help="merge duplicate imports (same source URL); dry run unless --apply")
     a = ap.parse_args(argv)
@@ -465,14 +499,17 @@ def main(argv=None):
         with open(a.report, "w") as f:
             f.write(render_candidate_markdown(scored, cfg))
         log.info("wrote %s", a.report)
-    if a.dedupe:
+    if a.dedupe or a.fix_servings:
         from .tandoor import Tandoor
         t = Tandoor(cfg["tandoor"]["url"], os.environ["TANDOOR_USER"],
                     os.environ["TANDOOR_PASS"], cfg["tandoor"].get("space", "Mack House"),
                     space_id=cfg["tandoor"].get("space_id"),
                     household=cfg["tandoor"].get("household"),
                     household_id=cfg["tandoor"].get("household_id")).login()
-        apply_dedupe(t, dry_run=not a.apply)
+        if a.fix_servings:
+            fix_servings(t, fixed_cfg, dry_run=not a.apply)
+        else:
+            apply_dedupe(t, dry_run=not a.apply)
         return 0
     if a.apply:
         apply_seed(plan, cfg, foods_cfg, fixed_cfg, force=a.force)
