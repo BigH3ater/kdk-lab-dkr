@@ -18,7 +18,7 @@
 name: dmz-proxy
 services:
   traefik:
-    image: traefik:v3.7.16@sha256:1336e85aaed293bd63d005086e0dd013b04078b26aaeb1c18b26a2f928af7e65
+    image: traefik:v3.7.17@sha256:30ff62491aacdb862ceb8c9edcf2627da638d7deafdd4b6dab32fe34f8aa3e90
     container_name: traefik
     restart: unless-stopped
     security_opt: ["no-new-privileges:true"]
@@ -132,7 +132,7 @@ services:
       options: { max-size: "10m", max-file: "3" }
 
   cloudflared:
-    image: cloudflare/cloudflared:2026.10.5@sha256:1b1d34d0a9c0bfca9de72db8460d328db3f19edd2b96169114e3e893a97bbe53
+    image: cloudflare/cloudflared:2026.10.7@sha256:4955524aeaa379e154023d5a027c250f7b35041a2e7e950cf13f144bc9b9c5ba
     container_name: cloudflared
     restart: unless-stopped
     user: "65532"
