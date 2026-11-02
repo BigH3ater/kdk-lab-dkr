@@ -83,3 +83,25 @@ Kodiak:
   table-row-alternative-background-color: "#2b2825"
   scrollbar-thumb-color: "#423d38"
   codemirror-property: "#c9743f"
+  # --- inputs / dropdowns / menus: dark fill + light ink. Without these, MDC
+  #     text fields and selects fall back to a WHITE fill while the theme's text
+  #     stays paper -> light-on-white, unreadable (the password field, the
+  #     weight/reps number boxes, the walker dropdown, selected menu items). ---
+  mdc-text-field-fill-color: "#2b2825"            # ink-surface
+  mdc-text-field-ink-color: "#ece2d0"             # paper
+  mdc-text-field-label-ink-color: "#8d8377"       # ash
+  mdc-text-field-disabled-ink-color: "#6b6358"
+  mdc-text-field-idle-line-color: "#423d38"
+  mdc-text-field-hover-line-color: "#8d8377"
+  mdc-select-fill-color: "#2b2825"
+  mdc-select-ink-color: "#ece2d0"
+  mdc-select-label-ink-color: "#8d8377"
+  mdc-select-idle-line-color: "#423d38"
+  mdc-select-dropdown-icon-color: "#8d8377"
+  mdc-menu-surface-fill-color: "#2b2825"
+  paper-input-container-input-color: "#ece2d0"
+  paper-input-container-color: "#8d8377"
+  paper-listbox-background-color: "#2b2825"
+  paper-listbox-color: "#ece2d0"
+  # selected sidebar item: dark highlight so the ember selected-text stays readable
+  sidebar-selected-background-color: "#2b2825"
