@@ -61,15 +61,15 @@ views:
       name: Belt Distance
       icon: mdi:map-marker-distance
     - type: tile
-      entity: sensor.tm_session_distance
+      entity: sensor.treadmill_session_distance
       name: This Session
       icon: mdi:map-marker-distance
     - type: tile
-      entity: sensor.tm_calorie_rate
+      entity: sensor.treadmill_calorie_rate
       name: Burn Rate
       icon: mdi:fire
     - type: tile
-      entity: sensor.tm_session_calories
+      entity: sensor.treadmill_session_calories
       name: Session Calories
       icon: mdi:fire
 
@@ -103,11 +103,11 @@ views:
       heading: This Week
       icon: mdi:calendar-week
     - type: tile
-      entity: sensor.tm_workouts_this_week
+      entity: sensor.treadmill_workouts_this_week
       name: Treadmill Workouts
       icon: mdi:counter
     - type: tile
-      entity: sensor.tm_time_walked_this_week
+      entity: sensor.treadmill_time_walked_this_week
       name: Time Walked
       icon: mdi:timer-outline
     - type: markdown
@@ -130,9 +130,9 @@ views:
           ('Guest','guest'),
         ] %}
         {% for name, p in people -%}
-        {% set today = states('sensor.tm_distance_daily_' ~ p) | float(0) -%}
-        {% set week = states('sensor.tm_distance_weekly_' ~ p) | float(0) -%}
-        {% set month = states('sensor.tm_distance_monthly_' ~ p) | float(0) -%}
+        {% set today = states('sensor.treadmill_distance_daily_' ~ p) | float(0) -%}
+        {% set week = states('sensor.treadmill_distance_weekly_' ~ p) | float(0) -%}
+        {% set month = states('sensor.treadmill_distance_monthly_' ~ p) | float(0) -%}
         {% set total = states('input_number.tm_total_distance_' ~ p) | float(0) -%}
         {% set mins = states('input_number.tm_total_time_min_' ~ p) | float(0) -%}
         {% set dt = as_datetime(states('input_datetime.tm_last_workout_' ~ p), default=none) -%}
@@ -146,3 +146,21 @@ views:
         Today/week/month reset on their utility-meter cycles; **total** is the
         all-time running tally. A session is credited to whoever was selected as
         the walker when the belt stopped.
+
+  # The exercise plan (strength/treadmill days + per-move diagrams) lives in the
+  # host-managed guide at /guides/workout/workout.html (generated from the vault,
+  # personal content kept OUT of the public repo). It is embedded here so the one
+  # Workout page shows both the tracking AND the plan with pictures. The guide's
+  # shared sidebar bails out inside an iframe, so only the plan content renders.
+  # Needs the guide deployed on the dashboard host + the viewer's Authelia session
+  # (shared across *.kmkdp.com).
+  - type: grid
+    column_span: 3
+    cards:
+    - type: heading
+      heading: Exercise Plan
+      icon: mdi:clipboard-text
+    - type: iframe
+      url: https://home.kmkdp.com/guides/workout/workout.html
+      title: Your plan — step by step with diagrams
+      aspect_ratio: 155%

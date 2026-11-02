@@ -300,47 +300,47 @@ template:
 # source's total_increasing resets automatically.
 utility_meter:
   tm_distance_daily_jacob:
-    source: sensor.tm_distance_total_jacob
+    source: sensor.treadmill_distance_total_jacob
     name: Treadmill Distance Daily (Jacob)
     unique_id: tm_distance_daily_jacob
     cycle: daily
   tm_distance_weekly_jacob:
-    source: sensor.tm_distance_total_jacob
+    source: sensor.treadmill_distance_total_jacob
     name: Treadmill Distance Weekly (Jacob)
     unique_id: tm_distance_weekly_jacob
     cycle: weekly
   tm_distance_monthly_jacob:
-    source: sensor.tm_distance_total_jacob
+    source: sensor.treadmill_distance_total_jacob
     name: Treadmill Distance Monthly (Jacob)
     unique_id: tm_distance_monthly_jacob
     cycle: monthly
   tm_distance_daily_rachel:
-    source: sensor.tm_distance_total_rachel
+    source: sensor.treadmill_distance_total_rachel
     name: Treadmill Distance Daily (Rachel)
     unique_id: tm_distance_daily_rachel
     cycle: daily
   tm_distance_weekly_rachel:
-    source: sensor.tm_distance_total_rachel
+    source: sensor.treadmill_distance_total_rachel
     name: Treadmill Distance Weekly (Rachel)
     unique_id: tm_distance_weekly_rachel
     cycle: weekly
   tm_distance_monthly_rachel:
-    source: sensor.tm_distance_total_rachel
+    source: sensor.treadmill_distance_total_rachel
     name: Treadmill Distance Monthly (Rachel)
     unique_id: tm_distance_monthly_rachel
     cycle: monthly
   tm_distance_daily_guest:
-    source: sensor.tm_distance_total_guest
+    source: sensor.treadmill_distance_total_guest
     name: Treadmill Distance Daily (Guest)
     unique_id: tm_distance_daily_guest
     cycle: daily
   tm_distance_weekly_guest:
-    source: sensor.tm_distance_total_guest
+    source: sensor.treadmill_distance_total_guest
     name: Treadmill Distance Weekly (Guest)
     unique_id: tm_distance_weekly_guest
     cycle: weekly
   tm_distance_monthly_guest:
-    source: sensor.tm_distance_total_guest
+    source: sensor.treadmill_distance_total_guest
     name: Treadmill Distance Monthly (Guest)
     unique_id: tm_distance_monthly_guest
     cycle: monthly
