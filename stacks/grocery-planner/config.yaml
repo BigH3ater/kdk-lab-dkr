@@ -247,9 +247,20 @@ sides:
   max_repeats_per_week: 2
 
 lunches:
-  recipes_per_week: 2          # 2 lunch-prep recipes...
-  servings_each: 4             # ...at 4 servings each (Mon-Thu, 2 people)
+  # Owner 2026-11-01: lunches on weekends too -> 6 lunch days x 2 people = 12
+  # servings = 3 prep batches x 4 servings (was 2 x 4 for Mon-Thu).
+  recipes_per_week: 3
+  servings_each: 4
   prep_day: sunday
+  # A ground-beef stir fry as one of the 3 batches every other week, to eat up
+  # the Amana share's ground beef (the share holds more ground than the dinners
+  # use). Parity A = the roast weeks, which have only one ground-beef dinner, so
+  # every week ends up with two ground-beef meals. Never the week's beef dinner.
+  beef_stir_fry:
+    enabled: true
+    parity: A
+    recipes: ["Ground Beef and Broccoli Stir Fry", "Mediterranean Ground Beef Stir Fry",
+              "Low Carb Philly Cheesesteak Bowl"]       # owner 2026-11-01
 
 breakfast:
   staples_recipe: "Weekly staples"   # planned every week as Breakfast

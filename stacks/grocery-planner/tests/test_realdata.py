@@ -52,7 +52,7 @@ def test_real_candidates_build_a_week_both_parities(cfg, season):
     for start in (d1, d2):
         entries = G.generate_week(pool, start, cfg)          # must NOT raise PlanError
         s = G.plan_summary(entries)
-        assert s["dinners"] == 7 and s["sides"] == 7 and s["lunches"] == 2
+        assert s["dinners"] == 7 and s["sides"] == 7 and s["lunches"] == cfg["lunches"]["recipes_per_week"]
         assert s["breakfast"] == 1 and s["snacks"] == 2      # fixed feeders placed
         mains = [kind.get(e.recipe_id) for e in entries if e.role == "dinner-main"]
         parity = G.parity_for_week(start)
