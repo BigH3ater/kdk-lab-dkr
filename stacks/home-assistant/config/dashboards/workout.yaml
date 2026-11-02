@@ -159,14 +159,14 @@ views:
     cards:
     - type: markdown
       content: >-
-        Log the **weight (lb)** and **reps** you did each session — tap a number to
-        edit. Home Assistant keeps the history, so the progression graphs fill in
-        over time. (Targets + form cues are on the **Plan** tab.)
+        Log the **weight (lb)** and **reps** you did each session — tap a number to edit.
+        Home Assistant keeps the history; the **progression** graphs are below.
+        (Targets + form cues are on the **Plan** tab.)
 
   - type: grid
     cards:
     - type: heading
-      heading: Lower A
+      heading: Lower A · Mon
       icon: mdi:arrow-down-bold-box
     - type: entities
       title: Lower A — log
@@ -196,21 +196,11 @@ views:
       - entity: input_number.ex_calf_raise_reps
         name: Reps
         icon: mdi:counter
-    - type: history-graph
-      title: Lower A — weight progression (90d)
-      hours_to_show: 2160
-      entities:
-      - entity: input_number.ex_box_squat_weight
-        name: Box Squat
-      - entity: input_number.ex_rdl_weight
-        name: Romanian Deadlift
-      - entity: input_number.ex_calf_raise_weight
-        name: Calf Raise
 
   - type: grid
     cards:
     - type: heading
-      heading: Upper A
+      heading: Upper A · Tue
       icon: mdi:arm-flex
     - type: entities
       title: Upper A — log
@@ -272,29 +262,11 @@ views:
       - entity: input_number.ex_wrist_curl_reps
         name: Reps
         icon: mdi:counter
-    - type: history-graph
-      title: Upper A — weight progression (90d)
-      hours_to_show: 2160
-      entities:
-      - entity: input_number.ex_incline_press_weight
-        name: Incline Press
-      - entity: input_number.ex_cs_row_weight
-        name: Chest-Supported Row
-      - entity: input_number.ex_shoulder_press_weight
-        name: Shoulder Press
-      - entity: input_number.ex_hammer_curl_weight
-        name: Hammer Curl
-      - entity: input_number.ex_triceps_ext_weight
-        name: Triceps Extension
-      - entity: input_number.ex_farmer_weight
-        name: Farmer Carry
-      - entity: input_number.ex_wrist_curl_weight
-        name: Wrist Curl
 
   - type: grid
     cards:
     - type: heading
-      heading: Lower B
+      heading: Lower B · Thu
       icon: mdi:arrow-down-bold-box-outline
     - type: entities
       title: Lower B — log
@@ -316,19 +288,11 @@ views:
       - entity: input_number.ex_sl_rdl_reps
         name: Reps
         icon: mdi:counter
-    - type: history-graph
-      title: Lower B — weight progression (90d)
-      hours_to_show: 2160
-      entities:
-      - entity: input_number.ex_hip_thrust_weight
-        name: Hip Thrust
-      - entity: input_number.ex_sl_rdl_weight
-        name: Single-Leg RDL
 
   - type: grid
     cards:
     - type: heading
-      heading: Upper B
+      heading: Upper B · Fri
       icon: mdi:arm-flex-outline
     - type: entities
       title: Upper B — log
@@ -374,8 +338,81 @@ views:
       - entity: input_number.ex_suitcase_reps
         name: Reps
         icon: mdi:counter
+
+  - type: grid
+    cards:
+    - type: heading
+      heading: Hands · daily
+      icon: mdi:hand-back-right
+    - type: entities
+      title: Hands — log
+      show_header_toggle: false
+      entities:
+      - type: section
+        label: Finger Extension
+      - entity: input_number.ex_finger_ext_weight
+        name: Weight (lb)
+        icon: mdi:weight-pound
+      - entity: input_number.ex_finger_ext_reps
+        name: Reps
+        icon: mdi:counter
+
+  - type: grid
+    column_span: 3
+    cards:
+    - type: heading
+      heading: Weight progression (90 days)
+      icon: mdi:chart-line
+
+  - type: grid
+    cards:
     - type: history-graph
-      title: Upper B — weight progression (90d)
+      title: Lower A · Mon
+      hours_to_show: 2160
+      entities:
+      - entity: input_number.ex_box_squat_weight
+        name: Box Squat
+      - entity: input_number.ex_rdl_weight
+        name: Romanian Deadlift
+      - entity: input_number.ex_calf_raise_weight
+        name: Calf Raise
+
+  - type: grid
+    cards:
+    - type: history-graph
+      title: Upper A · Tue
+      hours_to_show: 2160
+      entities:
+      - entity: input_number.ex_incline_press_weight
+        name: Incline Press
+      - entity: input_number.ex_cs_row_weight
+        name: Chest-Supported Row
+      - entity: input_number.ex_shoulder_press_weight
+        name: Shoulder Press
+      - entity: input_number.ex_hammer_curl_weight
+        name: Hammer Curl
+      - entity: input_number.ex_triceps_ext_weight
+        name: Triceps Extension
+      - entity: input_number.ex_farmer_weight
+        name: Farmer Carry
+      - entity: input_number.ex_wrist_curl_weight
+        name: Wrist Curl
+
+  - type: grid
+    cards:
+    - type: history-graph
+      title: Lower B · Thu
+      hours_to_show: 2160
+      entities:
+      - entity: input_number.ex_hip_thrust_weight
+        name: Hip Thrust
+      - entity: input_number.ex_sl_rdl_weight
+        name: Single-Leg RDL
+
+  - type: grid
+    cards:
+    - type: history-graph
+      title: Upper B · Fri
       hours_to_show: 2160
       entities:
       - entity: input_number.ex_one_arm_row_weight
@@ -391,23 +428,8 @@ views:
 
   - type: grid
     cards:
-    - type: heading
-      heading: Hands
-      icon: mdi:hand-back-right
-    - type: entities
-      title: Hands — log
-      show_header_toggle: false
-      entities:
-      - type: section
-        label: Finger Extension
-      - entity: input_number.ex_finger_ext_weight
-        name: Weight (lb)
-        icon: mdi:weight-pound
-      - entity: input_number.ex_finger_ext_reps
-        name: Reps
-        icon: mdi:counter
     - type: history-graph
-      title: Hands — weight progression (90d)
+      title: Hands · daily
       hours_to_show: 2160
       entities:
       - entity: input_number.ex_finger_ext_weight
