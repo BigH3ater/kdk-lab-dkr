@@ -74,6 +74,48 @@ booleans in HomeKit + a dashboard card) were removed 2026-09-21. Now:
 - Node-RED stamps `input_datetime.rr_last_clean_<room>` when it dispatches
   rooms (it is the sole dispatcher) and `rr_next_run` from the schedule.
 
+### Restarts and failures (2026-11-02)
+
+The daily-run flow is hardened against Home Assistant / Node-RED restarts and
+reports a failed mop:
+
+- **HA restart / reconnect.** The `unavailable → X` flap no longer fires the
+  state-change triggers (`t_idle`, `t_86`, `t_dock`, `t_croom` ignore
+  unavailable/unknown previous states), so a reconnect can't cancel a run or
+  falsely complete the "Fill water" chore. The dock-waits
+  (`wait dock (A)/(B)/(rest)/(mop)`) only see a state *change*, so a dock that
+  happens during a reconnect would otherwise hang them to timeout; a
+  `home_assistant_client` **ready/states-loaded** handler (`ev_hareconn` →
+  `f_hareconn`) checks, if a run is active and the robot is already
+  docked/charging, which wait is pending and advances it the same way the
+  wait's success output would. Each dock-wait is armed with a generation token
+  (`arm_*` nodes); a guard on both of its outputs drops a stale firing, so the
+  wait that was bypassed on reconnect can't later double-advance the run or trip
+  its timeout into a spurious cancel.
+- **Node-RED restart.** `settings.js` now has a `contextStorage` **file** store
+  (localfilesystem under `/data/context`); the run tracker `rr_run` and the
+  water-refill throttle `vik_fill_last` are written there, so they survive a
+  restart (the rest of the run flags stay in memory by design — a restart ends
+  the run anyway). A startup check (`i_boot` → `f_boot`, ~30 s after start)
+  finds an interrupted run: if the robot is no longer cleaning it marks the run
+  interrupted with **no room stamps** and pushes a *"Run interrupted by a
+  restart — tap Daily clean to resume"* alert. **The file store only exists
+  once `settings.js` is deployed, so deploy the stack before importing a
+  `flows.json` that uses it (see below).**
+- **Missed / failed mop.** Mop day is Wednesday (`getDay()===3`). It is also due
+  as a **catch-up** if `input_datetime.rr_last_mop_run` predates this week's
+  Wednesday 00:00, so a failed Wednesday mops on the next successful run that
+  week (one clean tank = one pass, so still one mop/week). Any mop that does not
+  complete — dock/battery/routine timeout, give-up, or a start-time skip — sends
+  **one** urgent `rr_mop_failed` alert (`f_mopfail`) and does **not** stamp
+  `rr_last_mop_run`, so the catch-up fires. A mid-sweep recharge that fails to
+  resume (progress reset to 0, or charged & full for ~10 min, or 150 min cap) is
+  detected by the recharge watcher (`d_rcpoll` → `f_rcpoll`) and routed to the
+  mop gate **without** stamping the unfinished rooms, with an `rr_no_resume`
+  alert (it no longer waits out a 240-min timeout and then stamps everything).
+
+Function-node logic has unit tests: `node stacks/home-assistant/node-red/tests/flow-logic.test.js`.
+
 ## Verify
 
 ```sh

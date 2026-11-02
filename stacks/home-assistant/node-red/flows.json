@@ -1183,7 +1183,7 @@
         "type": "function",
         "z": "rr_tab_1",
         "name": "start daily run",
-        "func": "flow.set('rr_cancel', false);\nconst d=new Date().getDay();\nmsg.mopDay=(d===3);  // Wednesday only (owner 2026-11-02; was Monday): one clean tank lasts one mop pass\nreturn msg;",
+        "func": "flow.set('rr_cancel', false);\nflow.set('rr_pending', '');\nconst _ha = global.get('homeassistant') || {};\nconst _st = (Object.values(_ha).find(v => v && v.states) || {}).states || {};\n// Mop day = Wednesday (owner 2026-11-02; was Monday) OR a catch-up when the\n// last mop run predates this week's Wednesday 00:00. One clean tank = one pass.\nconst n = new Date();\nconst back = (n.getDay() - 3 + 7) % 7;\nconst wedMid = new Date(n.getFullYear(), n.getMonth(), n.getDate() - back).getTime();\nconst lmr = _st['input_datetime.rr_last_mop_run'] || {};\nconst lastTs = (lmr.attributes && lmr.attributes.timestamp ? lmr.attributes.timestamp * 1000\n    : (lmr.state ? Date.parse(String(lmr.state).replace(' ', 'T')) : 0)) || 0;\nmsg.mopDay = (n.getDay() === 3) || (lastTs < wedMid);\nreturn msg;",
         "outputs": 1,
         "timeout": 0,
         "noerr": 0,
@@ -1256,7 +1256,7 @@
         "y": 495,
         "wires": [
             [
-                "w_42"
+                "arm_42"
             ]
         ],
         "g": "g_mbr"
@@ -1420,7 +1420,7 @@
         "y": 638,
         "wires": [
             [
-                "w_48",
+                "arm_48",
                 "f_ev_zb"
             ]
         ],
@@ -1589,7 +1589,7 @@
         "y": 885,
         "wires": [
             [
-                "w_54",
+                "arm_54",
                 "f_ev_rest"
             ]
         ],
@@ -1819,7 +1819,7 @@
         "type": "function",
         "z": "rr_tab_1",
         "name": "mop day?",
-        "func": "const d=new Date().getDay();\nif (d!==3) return [null,msg,null];  // mop day = Wednesday only (owner 2026-11-02; was Monday)\nif (flow.get('rr_mop_skip')) {\n    return [null, msg, {notify:{title:'Vacuum: mop pass skipped',\n        message:'Today is a mop day but the dock had a problem at start (see earlier alert). Vacuum pass done; mop skipped.',\n        tag:'rr_mop_skipped', urgent:false}}];\n}\nreturn [msg,null,null];",
+        "func": "const _ha = global.get('homeassistant') || {};\nconst _st = (Object.values(_ha).find(v => v && v.states) || {}).states || {};\n// Mop day = Wednesday (owner 2026-11-02; was Monday) OR a catch-up: last mop\n// run predates this week's Wednesday 00:00, so a failed Wednesday mops on the\n// next successful run this week. One clean tank lasts one pass.\nconst n = new Date();\nconst back = (n.getDay() - 3 + 7) % 7;\nconst wedMid = new Date(n.getFullYear(), n.getMonth(), n.getDate() - back).getTime();\nconst lmr = _st['input_datetime.rr_last_mop_run'] || {};\nconst lastTs = (lmr.attributes && lmr.attributes.timestamp ? lmr.attributes.timestamp * 1000\n    : (lmr.state ? Date.parse(String(lmr.state).replace(' ', 'T')) : 0)) || 0;\nconst today = n.getDay() === 3;\nconst mopDue = today || (lastTs < wedMid);\nflow.set('rr_mop_pending', mopDue);\nif (!mopDue) return [null, msg, null];        // not a mop day, already mopped this week -> vacuum only\nif (flow.get('rr_mop_skip')) {                 // preflight found a dock/water problem at start\n    msg.rr_mop_reason = 'the dock had a problem at start (see the earlier alert), so the mop pass was skipped';\n    return [null, null, msg];\n}\nreturn [msg, null, null];",
         "outputs": 3,
         "timeout": 0,
         "noerr": 0,
@@ -1836,7 +1836,7 @@
                 "s_67"
             ],
             [
-                "lo_n_mop"
+                "f_mopfail"
             ]
         ],
         "g": "g_sweep"
@@ -1919,7 +1919,7 @@
         "y": 1050,
         "wires": [
             [
-                "w_62",
+                "arm_62",
                 "f_ev_mop"
             ]
         ],
@@ -1951,7 +1951,7 @@
         "y": 1050,
         "wires": [
             [
-                "d_mopchk"
+                "g_w62"
             ],
             [
                 "f_to_w_62"
@@ -1990,8 +1990,8 @@
         "type": "function",
         "z": "rr_tab_1",
         "name": "mop routine finished?",
-        "func": "if (flow.get('rr_cancel')) { node.status({fill:'red',text:'cancelled'}); return [null, null]; }\nconst _ha = global.get('homeassistant') || {};\nconst _st = (Object.values(_ha).find(v => v && v.states) || {}).states || {};\n// The \"Mopping\" routine is several jobs (one per room/area). The robot docks\n// and washes between them, and recharges mid-routine with the job still open\n// (binary_sensor cleaning stays on). Only call the pass done once cleaning has\n// been off for a few minutes; otherwise wait for the current job to end (2026-10-19:\n// the first 15-min step was logged as the whole pass, the rest ran ~3 h).\nconst c = _st['binary_sensor.mr_slave_cleaning_2'] || {};\nconst offFor = c.state === 'off' ? (Date.now() - Date.parse(c.last_changed)) / 1000 : 0;\nconst n = (msg.rr_mop_docks || 0) + 1;\nmsg.rr_mop_docks = n;\nif (c.state === 'off' && offFor >= 150) {\n    node.status({fill:'green', text:`mop pass done after ${n} dock(s)`});\n    return [msg, null];\n}\nif (n >= 40) {\n    node.status({fill:'yellow', text:`giving up after ${n} docks; marking done`});\n    return [msg, null];\n}\nnode.status({fill:'blue', text:`routine still running (dock ${n}, cleaning ${c.state || '?'})`});\nreturn [null, msg];",
-        "outputs": 2,
+        "func": "if (flow.get('rr_cancel')) { node.status({fill:'red',text:'cancelled'}); return [null, null, null]; }\nconst _ha = global.get('homeassistant') || {};\nconst _st = (Object.values(_ha).find(v => v && v.states) || {}).states || {};\n// The \"Mopping\" routine is several jobs (one per room/area). The robot docks\n// and washes between them, and recharges mid-routine with the job still open\n// (binary_sensor cleaning stays on). Only call the pass done once cleaning has\n// been off for a few minutes; otherwise wait for the current job to end (2026-10-19:\n// the first 15-min step was logged as the whole pass, the rest ran ~3 h).\nconst c = _st['binary_sensor.mr_slave_cleaning_2'] || {};\nconst offFor = c.state === 'off' ? (Date.now() - Date.parse(c.last_changed)) / 1000 : 0;\nconst n = (msg.rr_mop_docks || 0) + 1;\nmsg.rr_mop_docks = n;\nif (c.state === 'off' && offFor >= 150) {\n    node.status({fill:'green', text:`mop pass done after ${n} dock(s)`});\n    return [msg, null, null];\n}\nif (n >= 40) {\n    node.status({fill:'red', text:`gave up after ${n} docks`});\n    msg.rr_mop_reason = 'the mop routine never reported finished after ' + n + ' dock cycles';\n    return [null, null, msg];\n}\nnode.status({fill:'blue', text:`routine still running (dock ${n}, cleaning ${c.state || '?'})`});\nreturn [null, msg, null];",
+        "outputs": 3,
         "timeout": 0,
         "noerr": 0,
         "initialize": "",
@@ -2005,6 +2005,9 @@
             ],
             [
                 "w_mopoff"
+            ],
+            [
+                "f_mopfail"
             ]
         ],
         "g": "g_sweep"
@@ -2038,7 +2041,7 @@
                 "d_mopchk"
             ],
             [
-                "d_mopchk"
+                "f_mopoff_to"
             ]
         ],
         "g": "g_sweep"
@@ -2079,7 +2082,7 @@
         "type": "function",
         "z": "rr_tab_1",
         "name": "stamp last_mop_run",
-        "func": "msg.payload={timestamp: Math.floor(Date.now()/1000)}; return msg;",
+        "func": "flow.set('rr_mop_pending', false);\nmsg.payload = {timestamp: Math.floor(Date.now() / 1000)};\nreturn msg;",
         "outputs": 1,
         "timeout": 0,
         "noerr": 0,
@@ -2284,10 +2287,10 @@
         "forType": "num",
         "forUnits": "minutes",
         "ignorePrevStateNull": true,
-        "ignorePrevStateUnknown": false,
-        "ignorePrevStateUnavailable": false,
-        "ignoreCurrentStateUnknown": false,
-        "ignoreCurrentStateUnavailable": false,
+        "ignorePrevStateUnknown": true,
+        "ignorePrevStateUnavailable": true,
+        "ignoreCurrentStateUnknown": true,
+        "ignoreCurrentStateUnavailable": true,
         "outputProperties": [],
         "x": 1480,
         "y": 1807,
@@ -2581,7 +2584,7 @@
         "type": "function",
         "z": "rr_tab_1",
         "name": "vik: fetch Fill water (46)",
-        "func": "// throttle: a flapping shortage sensor must not spam completions\nconst last = flow.get('vik_fill_last') || 0;\nif (Date.now() - last < 6*3600*1000) return null;\nflow.set('vik_fill_last', Date.now());\nmsg.url='https://tasks.kmkdp.com/api/v1/tasks/46';\nmsg.method='GET';\nmsg.headers={};\nreturn msg;",
+        "func": "// throttle: a flapping shortage sensor must not spam completions\nconst last = flow.get('vik_fill_last', 'file') || 0;\nif (Date.now() - last < 6*3600*1000) return null;\nflow.set('vik_fill_last', Date.now(), 'file');\nmsg.url='https://tasks.kmkdp.com/api/v1/tasks/46';\nmsg.method='GET';\nmsg.headers={};\nreturn msg;",
         "outputs": 1,
         "timeout": 0,
         "noerr": 0,
@@ -3046,8 +3049,8 @@
         "forType": "num",
         "forUnits": "minutes",
         "ignorePrevStateNull": true,
-        "ignorePrevStateUnknown": false,
-        "ignorePrevStateUnavailable": false,
+        "ignorePrevStateUnknown": true,
+        "ignorePrevStateUnavailable": true,
         "ignoreCurrentStateUnknown": true,
         "ignoreCurrentStateUnavailable": true,
         "outputProperties": [
@@ -3115,8 +3118,8 @@
         "forType": "num",
         "forUnits": "minutes",
         "ignorePrevStateNull": true,
-        "ignorePrevStateUnknown": false,
-        "ignorePrevStateUnavailable": false,
+        "ignorePrevStateUnknown": true,
+        "ignorePrevStateUnavailable": true,
         "ignoreCurrentStateUnknown": true,
         "ignoreCurrentStateUnavailable": true,
         "outputProperties": [
@@ -3163,7 +3166,7 @@
         "type": "function",
         "z": "rr_tab_1",
         "name": "run tracker",
-        "func": "\n// Phase-level run tracker. Publishes sensor.rr_run_progress via HA REST (out 0)\n// and emits guarded room stamps (out 1, same shape s_room consumes).\nconst REST_ROOMS = ['master_bedroom_closet','master_bathroom','bathroom_1',\n    'bedroom_1','kitchen','living_room','front_door_entry','garage_entrance',\n    'half_bath','laundry_room','hallway','rachels_office'];\nlet run = flow.get('rr_run') || {active:false, phase:'', cancelled:false, near:''};\nconst evt = msg.rr_evt;\nlet stamp = null;\nswitch (evt) {\n    case 'start':\n        run = {active:true, phase:'Master bedroom \u2014 zone A', cancelled:false, near:''};\n        break;\n    case 'zoneB':\n        run.phase = 'Master bedroom \u2014 zone B'; break;\n    case 'zbdone':\n        if (run.active && !run.cancelled && !flow.get('rr_cancel') && !flow.get('rr_mbr_short')) {\n            stamp = {stamp:'input_datetime.rr_last_clean_master_bedroom',\n                     ts: Math.floor(Date.now()/1000)};\n            run.phase = 'Dock \u2014 emptying before main sweep';\n        }\n        break;\n    case 'rest':\n        run.phase = 'Main floor sweep (12 rooms)'; break;\n    case 'restdone':\n        if (run.active && !run.cancelled && !flow.get('rr_cancel')) {\n            stamp = {stamp: REST_ROOMS.map(r => 'input_datetime.rr_last_clean_' + r),\n                     ts: Math.floor(Date.now()/1000)};\n            run.phase = 'Main sweep complete';\n        }\n        break;\n    case 'recharge':\n        if (run.active && !run.cancelled) run.phase = 'Main sweep \u2014 recharging, resumes at 80%';\n        break;\n    case 'mop':\n        run.phase = 'Mop pass (all floors)'; break;\n    case 'done':\n        run.phase = run.cancelled ? 'Cancelled' : 'Complete';\n        run.active = false; run.near = '';\n        break;\n    case 'cancel':\n        run.cancelled = true; run.active = false;\n        run.phase = 'Cancelled \u2014 returning to dock';\n        break;\n    case 'failed':\n        run.cancelled = true; run.active = false; run.near = '';\n        run.phase = msg.rr_phase || 'Failed';\n        break;\n    case 'idle':\n        if (run.active && !run.cancelled) {\n            run.cancelled = true; run.active = false;\n            flow.set('rr_cancel', true);\n            run.phase = 'Stopped by hand \u2014 rest of run cancelled';\n        } else { return null; }\n        break;\n    case 'dock':\n        run.phase = msg.rr_phase || run.phase; break;\n    case 'room':\n        if (!run.active) return null;\n        run.near = String(msg.payload || '');\n        break;\n    default:\n        return null;\n}\nflow.set('rr_run', run);\nconst prog = {payload: {phase: run.phase.substring(0,255), near: (run.near || '').substring(0,100)}};\nreturn [[prog], stamp ? [{payload: stamp}] : []];\n",
+        "func": "\n// Phase-level run tracker. Publishes sensor.rr_run_progress via HA REST (out 0)\n// and emits guarded room stamps (out 1, same shape s_room consumes).\nconst REST_ROOMS = ['master_bedroom_closet','master_bathroom','bathroom_1',\n    'bedroom_1','kitchen','living_room','front_door_entry','garage_entrance',\n    'half_bath','laundry_room','hallway','rachels_office'];\nlet run = flow.get('rr_run', 'file') || {active:false, phase:'', cancelled:false, near:''};\nconst evt = msg.rr_evt;\nlet stamp = null;\nswitch (evt) {\n    case 'start':\n        run = {active:true, phase:'Master bedroom \u2014 zone A', cancelled:false, near:''};\n        break;\n    case 'zoneB':\n        run.phase = 'Master bedroom \u2014 zone B'; break;\n    case 'zbdone':\n        if (run.active && !run.cancelled && !flow.get('rr_cancel') && !flow.get('rr_mbr_short')) {\n            stamp = {stamp:'input_datetime.rr_last_clean_master_bedroom',\n                     ts: Math.floor(Date.now()/1000)};\n            run.phase = 'Dock \u2014 emptying before main sweep';\n        }\n        break;\n    case 'rest':\n        run.phase = 'Main floor sweep (12 rooms)'; break;\n    case 'restdone':\n        if (run.active && !run.cancelled && !flow.get('rr_cancel')) {\n            stamp = {stamp: REST_ROOMS.map(r => 'input_datetime.rr_last_clean_' + r),\n                     ts: Math.floor(Date.now()/1000)};\n            run.phase = 'Main sweep complete';\n        }\n        break;\n    case 'recharge':\n        if (run.active && !run.cancelled) run.phase = 'Main sweep \u2014 recharging, resumes at 80%';\n        break;\n    case 'mop':\n        run.phase = 'Mop pass (all floors)'; break;\n    case 'done':\n        run.phase = run.cancelled ? 'Cancelled' : 'Complete';\n        run.active = false; run.near = '';\n        break;\n    case 'cancel':\n        run.cancelled = true; run.active = false;\n        run.phase = 'Cancelled \u2014 returning to dock';\n        break;\n    case 'failed':\n        run.cancelled = true; run.active = false; run.near = '';\n        run.phase = msg.rr_phase || 'Failed';\n        break;\n    case 'idle':\n        if (run.active && !run.cancelled) {\n            run.cancelled = true; run.active = false;\n            flow.set('rr_cancel', true);\n            run.phase = 'Stopped by hand \u2014 rest of run cancelled';\n        } else { return null; }\n        break;\n    case 'dock':\n        run.phase = msg.rr_phase || run.phase; break;\n    case 'room':\n        if (!run.active) return null;\n        run.near = String(msg.payload || '');\n        break;\n    default:\n        return null;\n}\nflow.set('rr_run', run, 'file');\nconst prog = {payload: {phase: run.phase.substring(0,255), near: (run.near || '').substring(0,100)}};\nreturn [[prog], stamp ? [{payload: stamp}] : []];\n",
         "outputs": 2,
         "timeout": 0,
         "noerr": 0,
@@ -3216,7 +3219,7 @@
         "id": "f_pre",
         "type": "function",
         "name": "preflight (dock / water)",
-        "func": "const _ha = global.get('homeassistant') || {};\nconst _st = (Object.values(_ha).find(v => v && v.states) || {}).states || {};\nconst st = id => (_st[id] && _st[id].state);\n\nconst probs = [];\nif (st('binary_sensor.mr_slave_water_shortage_2') === 'on') probs.push('clean-water tank is empty');\nconst dock = st('sensor.mr_slave_dock_dock_error');\nif (dock && !['ok','unknown','unavailable'].includes(dock)) probs.push('dock reports ' + dock.replace(/_/g,' '));\nconst verr = st('vacuum.mr_slave_2') === 'error' ? st('sensor.mr_slave_vacuum_error_2') : null;\nif (verr && verr !== 'none') probs.push('robot error ' + verr.replace(/_/g,' '));\nflow.set('rr_mop_skip', probs.length > 0);\nflow.set('rr_mbr_short', false);\nflow.set('rr_zone_t', Date.now());\nif (!Object.keys(_st).length) node.warn('preflight: HA state store empty, skipping checks');\nconst d = new Date().getDay();\nconst mopDay = (d === 3);  // Wednesday (owner 2026-11-02)\nlet note = null;\nif (probs.length) {\n    note = {notify: {title: 'Vacuum: check the dock',\n        message: 'Starting the daily clean, but the ' + probs.join(' and ') + '. ' +\n                 (mopDay ? 'Vacuum pass only \u2014 today\\'s mop pass will be skipped.' : 'Vacuum pass only.'),\n        tag: 'rr_preflight', urgent: false}};\n}\nnode.status(probs.length ? {fill:'yellow',text:probs.join(', ')} : {fill:'green',text:'ok'});\nreturn [msg, note];\n",
+        "func": "const _ha = global.get('homeassistant') || {};\nconst _st = (Object.values(_ha).find(v => v && v.states) || {}).states || {};\nconst st = id => (_st[id] && _st[id].state);\n\nconst probs = [];\nif (st('binary_sensor.mr_slave_water_shortage_2') === 'on') probs.push('clean-water tank is empty');\nconst dock = st('sensor.mr_slave_dock_dock_error');\nif (dock && !['ok','unknown','unavailable'].includes(dock)) probs.push('dock reports ' + dock.replace(/_/g,' '));\nconst verr = st('vacuum.mr_slave_2') === 'error' ? st('sensor.mr_slave_vacuum_error_2') : null;\nif (verr && verr !== 'none') probs.push('robot error ' + verr.replace(/_/g,' '));\nflow.set('rr_mop_skip', probs.length > 0);\nflow.set('rr_mbr_short', false);\nflow.set('rr_zone_t', Date.now());\nif (!Object.keys(_st).length) node.warn('preflight: HA state store empty, skipping checks');\n// Mop due = Wednesday (owner 2026-11-02) OR a missed Wednesday not yet caught\n// up. rr_mop_pending lets the stall/stop alerts mention the mop won't run.\nconst n = new Date();\nconst back = (n.getDay() - 3 + 7) % 7;\nconst wedMid = new Date(n.getFullYear(), n.getMonth(), n.getDate() - back).getTime();\nconst lmr = _st['input_datetime.rr_last_mop_run'] || {};\nconst lastTs = (lmr.attributes && lmr.attributes.timestamp ? lmr.attributes.timestamp * 1000\n    : (lmr.state ? Date.parse(String(lmr.state).replace(' ', 'T')) : 0)) || 0;\nconst mopDay = (n.getDay() === 3) || (lastTs < wedMid);\nflow.set('rr_mop_pending', mopDay);\nlet note = null;\nif (probs.length) {\n    note = {notify: {title: 'Vacuum: check the dock',\n        message: 'Starting the daily clean, but the ' + probs.join(' and ') + '. ' +\n                 (mopDay ? 'Vacuum pass only \u2014 today\\'s mop pass will be skipped.' : 'Vacuum pass only.'),\n        tag: 'rr_preflight', urgent: false}};\n}\nnode.status(probs.length ? {fill:'yellow',text:probs.join(', ')} : {fill:'green',text:'ok'});\nreturn [msg, note];",
         "outputs": 2,
         "timeout": 0,
         "noerr": 0,
@@ -3546,7 +3549,7 @@
         "id": "f_to_w_42",
         "type": "function",
         "name": "timeout: Master bedroom zone A",
-        "func": "msg.rr_stage = \"Master bedroom zone A\"; msg.rr_mins = 40; return msg;",
+        "func": "if (msg.rr_wgen !== flow.get('rr_waitgen')) { node.status({fill:'grey',shape:'ring',text:'stale wait ignored'}); return null; }\nif (flow.get('rr_cancel')) { node.status({fill:'red',text:'cancelled'}); return null; }\nflow.set('rr_pending', '');\nmsg.rr_stage = \"Master bedroom zone A\"; msg.rr_mins = 40; return msg;",
         "outputs": 1,
         "timeout": 0,
         "noerr": 0,
@@ -3567,7 +3570,7 @@
         "id": "f_to_w_48",
         "type": "function",
         "name": "timeout: Master bedroom zone B",
-        "func": "msg.rr_stage = \"Master bedroom zone B\"; msg.rr_mins = 40; return msg;",
+        "func": "if (msg.rr_wgen !== flow.get('rr_waitgen')) { node.status({fill:'grey',shape:'ring',text:'stale wait ignored'}); return null; }\nif (flow.get('rr_cancel')) { node.status({fill:'red',text:'cancelled'}); return null; }\nflow.set('rr_pending', '');\nmsg.rr_stage = \"Master bedroom zone B\"; msg.rr_mins = 40; return msg;",
         "outputs": 1,
         "timeout": 0,
         "noerr": 0,
@@ -3588,7 +3591,7 @@
         "id": "f_to_w_54",
         "type": "function",
         "name": "timeout: Main floor sweep",
-        "func": "msg.rr_stage = \"Main floor sweep\"; msg.rr_mins = 150; return msg;",
+        "func": "if (msg.rr_wgen !== flow.get('rr_waitgen')) { node.status({fill:'grey',shape:'ring',text:'stale wait ignored'}); return null; }\nif (flow.get('rr_cancel')) { node.status({fill:'red',text:'cancelled'}); return null; }\nflow.set('rr_pending', '');\nmsg.rr_stage = \"Main floor sweep\"; msg.rr_mins = 150; return msg;",
         "outputs": 1,
         "timeout": 0,
         "noerr": 0,
@@ -3608,8 +3611,8 @@
     {
         "id": "f_to_w_62",
         "type": "function",
-        "name": "timeout: Mop pass",
-        "func": "msg.rr_stage = \"Mop pass\"; msg.rr_mins = 120; return msg;",
+        "name": "mop dock timeout",
+        "func": "if (msg.rr_wgen !== flow.get('rr_waitgen')) { node.status({fill:'grey',shape:'ring',text:'stale wait ignored'}); return null; }\nif (flow.get('rr_cancel')) { node.status({fill:'red',text:'cancelled'}); return null; }\nflow.set('rr_pending', '');\nmsg.rr_mop_reason = 'the robot did not return to the dock within 120 min during the mop pass';\nreturn msg;",
         "outputs": 1,
         "timeout": 0,
         "noerr": 0,
@@ -3620,7 +3623,7 @@
         "y": 1105,
         "wires": [
             [
-                "lo_stop_62"
+                "f_mopfail"
             ]
         ],
         "z": "rr_tab_1",
@@ -3630,7 +3633,7 @@
         "id": "f_stall",
         "type": "function",
         "name": "stall -> alert + cancel",
-        "func": "const _ha = global.get('homeassistant') || {};\nconst _st = (Object.values(_ha).find(v => v && v.states) || {}).states || {};\nconst st = id => (_st[id] && _st[id].state);\n\nflow.set('rr_cancel', true);\nconst status = st('sensor.mr_slave_status_2') || 'unknown';\nconst notify = {notify: {title: 'Vacuum: daily clean stopped', message: msg.rr_stage + ' did not finish within ' + msg.rr_mins + ' min.' + ' Vacuum is ' +\n    status.replace(/_/g,' ') + '. The rest of today\\'s run is cancelled.', tag: 'rr_run_failed', urgent: true}};\nconst evt = {rr_evt: 'failed', rr_phase: 'Stalled \u2014 ' + msg.rr_stage};\nnode.status({fill:'red', text: 'Stalled \u2014 ' + msg.rr_stage});\nreturn [notify, evt, {payload: 'restore'}];\n",
+        "func": "const _ha = global.get('homeassistant') || {};\nconst _st = (Object.values(_ha).find(v => v && v.states) || {}).states || {};\nconst st = id => (_st[id] && _st[id].state);\n\nflow.set('rr_cancel', true);\nconst status = st('sensor.mr_slave_status_2') || 'unknown';\nconst mopNote = flow.get('rr_mop_pending') ? ' Today\\'s mop pass will not run; a catch-up mop runs on the next successful daily clean this week.' : '';\nconst notify = {notify: {title: 'Vacuum: daily clean stopped', message: msg.rr_stage + ' did not finish within ' + msg.rr_mins + ' min.' + ' Vacuum is ' +\n    status.replace(/_/g,' ') + '. The rest of today\\'s run is cancelled.' + mopNote, tag: 'rr_run_failed', urgent: true}};\nconst evt = {rr_evt: 'failed', rr_phase: 'Stalled \u2014 ' + msg.rr_stage};\nnode.status({fill:'red', text: 'Stalled \u2014 ' + msg.rr_stage});\nreturn [notify, evt, {payload: 'restore'}];",
         "outputs": 3,
         "timeout": 0,
         "noerr": 0,
@@ -3683,7 +3686,7 @@
         "id": "f_fail",
         "type": "function",
         "name": "command failed -> alert + cancel",
-        "func": "const _ha = global.get('homeassistant') || {};\nconst _st = (Object.values(_ha).find(v => v && v.states) || {}).states || {};\nconst st = id => (_st[id] && _st[id].state);\n\nflow.set('rr_cancel', true);\nconst status = st('sensor.mr_slave_status_2') || 'unknown';\nconst notify = {notify: {title: 'Vacuum: daily clean stopped', message: 'Step \"' + ((msg.error && msg.error.source && msg.error.source.name) || '?') + '\" failed: ' + ((msg.error && msg.error.message) || 'unknown error') + '.' + ' Vacuum is ' +\n    status.replace(/_/g,' ') + '. The rest of today\\'s run is cancelled.', tag: 'rr_run_failed', urgent: true}};\nconst evt = {rr_evt: 'failed', rr_phase: 'Failed \u2014 ' + ((msg.error && msg.error.source && msg.error.source.name) || 'command error')};\nnode.status({fill:'red', text: 'Failed \u2014 ' + ((msg.error && msg.error.source && msg.error.source.name) || 'command error')});\nreturn [notify, evt, {payload: 'restore'}];\n",
+        "func": "const _ha = global.get('homeassistant') || {};\nconst _st = (Object.values(_ha).find(v => v && v.states) || {}).states || {};\nconst st = id => (_st[id] && _st[id].state);\n\nflow.set('rr_cancel', true);\nconst status = st('sensor.mr_slave_status_2') || 'unknown';\nconst mopNote = flow.get('rr_mop_pending') ? ' Today\\'s mop pass will not run; a catch-up mop runs on the next successful daily clean this week.' : '';\nconst notify = {notify: {title: 'Vacuum: daily clean stopped', message: 'Step \"' + ((msg.error && msg.error.source && msg.error.source.name) || '?') + '\" failed: ' + ((msg.error && msg.error.message) || 'unknown error') + '.' + ' Vacuum is ' +\n    status.replace(/_/g,' ') + '. The rest of today\\'s run is cancelled.' + mopNote, tag: 'rr_run_failed', urgent: true}};\nconst evt = {rr_evt: 'failed', rr_phase: 'Failed \u2014 ' + ((msg.error && msg.error.source && msg.error.source.name) || 'command error')};\nnode.status({fill:'red', text: 'Failed \u2014 ' + ((msg.error && msg.error.source && msg.error.source.name) || 'command error')});\nreturn [notify, evt, {payload: 'restore'}];",
         "outputs": 3,
         "timeout": 0,
         "noerr": 0,
@@ -3773,7 +3776,7 @@
         "id": "f_short_A",
         "type": "function",
         "name": "short zone A?",
-        "func": "\nconst mins = (Date.now() - (flow.get('rr_zone_t') || Date.now())) / 60000;\nnode.status({fill: mins < 5 ? 'yellow' : 'green', text: mins.toFixed(1) + ' min'});\nif (mins >= 5) return [msg, null];\nflow.set('rr_mbr_short', true);\nreturn [msg, {notify: {title: 'Vacuum: bedroom zone A ended early',\n    message: 'Master bedroom zone A was back at the dock after ' + mins.toFixed(1) +\n             ' min (normally ~20). The run continues; the bedroom is not marked cleaned.',\n    tag: 'rr_short_zone', urgent: false}}];\n",
+        "func": "if (msg.rr_wgen !== flow.get('rr_waitgen')) { node.status({fill:'grey',shape:'ring',text:'stale wait ignored'}); return null; }\nif (flow.get('rr_cancel')) { node.status({fill:'red',text:'cancelled'}); return null; }\nflow.set('rr_pending', '');\n\nconst mins = (Date.now() - (flow.get('rr_zone_t') || Date.now())) / 60000;\nnode.status({fill: mins < 5 ? 'yellow' : 'green', text: mins.toFixed(1) + ' min'});\nif (mins >= 5) return [msg, null];\nflow.set('rr_mbr_short', true);\nreturn [msg, {notify: {title: 'Vacuum: bedroom zone A ended early',\n    message: 'Master bedroom zone A was back at the dock after ' + mins.toFixed(1) +\n             ' min (normally ~20). The run continues; the bedroom is not marked cleaned.',\n    tag: 'rr_short_zone', urgent: false}}];\n",
         "outputs": 2,
         "timeout": 0,
         "noerr": 0,
@@ -3797,7 +3800,7 @@
         "id": "f_short_B",
         "type": "function",
         "name": "short zone B?",
-        "func": "\nconst mins = (Date.now() - (flow.get('rr_zone_t') || Date.now())) / 60000;\nnode.status({fill: mins < 5 ? 'yellow' : 'green', text: mins.toFixed(1) + ' min'});\nif (mins >= 5) return [msg, null];\nflow.set('rr_mbr_short', true);\nreturn [msg, {notify: {title: 'Vacuum: bedroom zone B ended early',\n    message: 'Master bedroom zone B was back at the dock after ' + mins.toFixed(1) +\n             ' min (normally ~20). The run continues; the bedroom is not marked cleaned.',\n    tag: 'rr_short_zone', urgent: false}}];\n",
+        "func": "if (msg.rr_wgen !== flow.get('rr_waitgen')) { node.status({fill:'grey',shape:'ring',text:'stale wait ignored'}); return null; }\nif (flow.get('rr_cancel')) { node.status({fill:'red',text:'cancelled'}); return null; }\nflow.set('rr_pending', '');\n\nconst mins = (Date.now() - (flow.get('rr_zone_t') || Date.now())) / 60000;\nnode.status({fill: mins < 5 ? 'yellow' : 'green', text: mins.toFixed(1) + ' min'});\nif (mins >= 5) return [msg, null];\nflow.set('rr_mbr_short', true);\nreturn [msg, {notify: {title: 'Vacuum: bedroom zone B ended early',\n    message: 'Master bedroom zone B was back at the dock after ' + mins.toFixed(1) +\n             ' min (normally ~20). The run continues; the bedroom is not marked cleaned.',\n    tag: 'rr_short_zone', urgent: false}}];\n",
         "outputs": 2,
         "timeout": 0,
         "noerr": 0,
@@ -3952,8 +3955,7 @@
         "links": [
             "lo_stop_42",
             "lo_stop_48",
-            "lo_stop_54",
-            "lo_stop_62"
+            "lo_stop_54"
         ],
         "x": 150,
         "y": 1215,
@@ -4000,9 +4002,11 @@
             "lo_n_pre",
             "lo_n_shA",
             "lo_n_shB",
-            "lo_n_mop",
             "lo_n_stop",
-            "lo_n_dock"
+            "lo_n_dock",
+            "lo_n_boot",
+            "lo_n_rc",
+            "lo_n_mopfail"
         ],
         "x": 1780,
         "y": 75,
@@ -4129,20 +4133,6 @@
         "g": "g_mbr"
     },
     {
-        "id": "lo_n_mop",
-        "type": "link out",
-        "z": "rr_tab_1",
-        "name": "\u2192 notify",
-        "mode": "link",
-        "links": [
-            "li_notify"
-        ],
-        "x": 2256,
-        "y": 984,
-        "wires": [],
-        "g": "g_sweep"
-    },
-    {
         "id": "lo_n_stop",
         "type": "link out",
         "z": "rr_tab_1",
@@ -4195,20 +4185,6 @@
         ],
         "x": 1476,
         "y": 940,
-        "wires": [],
-        "g": "g_sweep"
-    },
-    {
-        "id": "lo_stop_62",
-        "type": "link out",
-        "z": "rr_tab_1",
-        "name": "\u2192 stop",
-        "mode": "link",
-        "links": [
-            "li_stop"
-        ],
-        "x": 1268,
-        "y": 1105,
         "wires": [],
         "g": "g_sweep"
     },
@@ -4380,7 +4356,12 @@
             "s_41",
             "i_nx1",
             "f_nx",
-            "s_nx"
+            "s_nx",
+            "i_boot",
+            "f_boot",
+            "lo_n_boot",
+            "ev_hareconn",
+            "f_hareconn"
         ],
         "x": 20,
         "y": 20,
@@ -4454,7 +4435,9 @@
             "lo_stop_48",
             "lo_n_shB",
             "f_ev_zbdone",
-            "lo_tr_zbd"
+            "lo_tr_zbd",
+            "arm_42",
+            "arm_48"
         ],
         "x": 20,
         "y": 440,
@@ -4486,7 +4469,6 @@
             "f_58",
             "lo_mop",
             "s_67",
-            "lo_n_mop",
             "f_ev_rest",
             "lo_tr_rest",
             "f_to_w_54",
@@ -4507,7 +4489,16 @@
             "f_ev_mop",
             "lo_tr_mop",
             "f_to_w_62",
-            "lo_stop_62"
+            "d_rcpoll",
+            "f_rcpoll",
+            "lo_n_rc",
+            "f_mopfail",
+            "lo_n_mopfail",
+            "f_mopbat_to",
+            "f_mopoff_to",
+            "arm_54",
+            "arm_62",
+            "g_w62"
         ],
         "x": 20,
         "y": 830,
@@ -4693,51 +4684,15 @@
         "libs": [],
         "x": 1700,
         "y": 860,
-        "func": "if (flow.get('rr_cancel')) { node.status({fill:'red',text:'cancelled'}); return [null, null]; }\nconst _ha = global.get('homeassistant') || {};\nconst _st = (Object.values(_ha).find(v => v && v.states) || {}).states || {};\nconst st = id => (_st[id] && _st[id].state);\n// Docked after the 12-room sweep. A finished job comes home with charge to\n// spare and progress reset to 0. Docking at ~14% with progress still >0 means\n// the battery ran out mid-sweep: the robot recharges and RESUMES on its own at\n// 80% (Roborock recharge & resume). Treating that as done restored vac_and_mop\n// before the resume, so the rest of the sweep mopped every day (2026-10-15..18).\nconst batt = Number(st('sensor.mr_slave_battery_2'));\nconst prog = Number(st('sensor.mr_slave_cleaning_progress_2'));\nconst n = msg.rr_recharges || 0;\nif (batt <= 20 && prog > 0 && prog < 95 && n < 2) {\n    msg.rr_recharges = n + 1; msg.rr_evt = 'recharge';\n    node.status({fill:'yellow', text:`recharging: ${batt}% batt, ${prog}% done (#${n + 1})`});\n    return [null, msg];\n}\nnode.status({fill:'green', text:`sweep done: ${batt}% batt, ${prog}%`});\nreturn [msg, null];",
+        "func": "if (msg.rr_wgen !== flow.get('rr_waitgen')) { node.status({fill:'grey',shape:'ring',text:'stale wait ignored'}); return [null, null]; }\nif (flow.get('rr_cancel')) { node.status({fill:'red',text:'cancelled'}); return [null, null]; }\nflow.set('rr_pending', '');\nconst _ha = global.get('homeassistant') || {};\nconst _st = (Object.values(_ha).find(v => v && v.states) || {}).states || {};\nconst st = id => (_st[id] && _st[id].state);\n// Docked after the 12-room sweep. A finished job comes home with charge to\n// spare and progress reset to 0. Docking at ~14% with progress still >0 means\n// the battery ran out mid-sweep: the robot recharges and RESUMES on its own at\n// 80% (Roborock recharge & resume). Treating that as done restored vac_and_mop\n// before the resume, so the rest of the sweep mopped every day (2026-10-15..18).\nconst batt = Number(st('sensor.mr_slave_battery_2'));\nconst prog = Number(st('sensor.mr_slave_cleaning_progress_2'));\nconst n = msg.rr_recharges || 0;\nif (batt <= 20 && prog > 0 && prog < 95 && n < 2) {\n    msg.rr_recharges = n + 1; msg.rr_evt = 'recharge';\n    node.status({fill:'yellow', text:`recharging: ${batt}% batt, ${prog}% done (#${n + 1})`});\n    return [null, msg];\n}\nnode.status({fill:'green', text:`sweep done: ${batt}% batt, ${prog}%`});\nreturn [msg, null];",
         "wires": [
             [
                 "d_55",
                 "f_ev_restdone"
             ],
             [
-                "w_rc",
+                "d_rcpoll",
                 "lo_tr_rch"
-            ]
-        ],
-        "z": "rr_tab_1",
-        "g": "g_sweep"
-    },
-    {
-        "id": "w_rc",
-        "type": "ha-wait-until",
-        "name": "wait resume (after recharge)",
-        "server": "38978576.ca0eea",
-        "outputs": 2,
-        "outputProperties": [],
-        "entityId": "sensor.mr_slave_status_2",
-        "entityIdType": "exact",
-        "property": "state",
-        "comparator": "is",
-        "value": "segment_cleaning",
-        "valueType": "str",
-        "timeout": "240",
-        "timeoutType": "num",
-        "timeoutUnits": "minutes",
-        "entityLocation": "",
-        "entityLocationType": "none",
-        "checkCurrentState": true,
-        "blockInputOverrides": true,
-        "outputThenReasons": false,
-        "x": 1700,
-        "y": 920,
-        "wires": [
-            [
-                "w_54",
-                "f_ev_rest"
-            ],
-            [
-                "d_55",
-                "f_ev_restdone"
             ]
         ],
         "z": "rr_tab_1",
@@ -4787,7 +4742,7 @@
                 "lo_mop"
             ],
             [
-                "lo_mop"
+                "f_mopbat_to"
             ]
         ]
     },
@@ -4844,8 +4799,8 @@
         "forType": "num",
         "forUnits": "minutes",
         "ignorePrevStateNull": true,
-        "ignorePrevStateUnknown": false,
-        "ignorePrevStateUnavailable": false,
+        "ignorePrevStateUnknown": true,
+        "ignorePrevStateUnavailable": true,
         "ignoreCurrentStateUnknown": true,
         "ignoreCurrentStateUnavailable": true,
         "outputProperties": [
@@ -5053,5 +5008,388 @@
         "x": 925,
         "y": 2570,
         "wires": []
+    },
+    {
+        "id": "ev_hareconn",
+        "type": "server-events",
+        "z": "rr_tab_1",
+        "name": "HA reconnect (client ready)",
+        "server": "38978576.ca0eea",
+        "version": 3,
+        "exposeAsEntityConfig": "",
+        "eventType": "home_assistant_client",
+        "waitForRunning": false,
+        "outputProperties": [
+            {
+                "property": "payload",
+                "propertyType": "msg",
+                "value": "",
+                "valueType": "eventData"
+            },
+            {
+                "property": "topic",
+                "propertyType": "msg",
+                "value": "",
+                "valueType": "triggerId"
+            }
+        ],
+        "x": 170,
+        "y": 500,
+        "wires": [
+            [
+                "f_hareconn"
+            ]
+        ],
+        "g": "g_start"
+    },
+    {
+        "id": "f_hareconn",
+        "type": "function",
+        "z": "rr_tab_1",
+        "name": "reconnect: advance pending dock-wait",
+        "func": "// HA reconnect recovery. The dock-waits (w_42/48/54/62, checkCurrentState:false)\n// only react to a state CHANGE. If the robot docks while HA is restarting or the\n// websocket is reconnecting, the dock arrives in the replayed states_loaded as an\n// unchanged value, the wait never fires and it hangs to its (long) timeout. On the\n// client 'states_loaded'/'running' event, if a run is active and the robot is\n// already docked/charging, push the run forward the same way the pending wait's\n// success output would -- and bump rr_waitgen so the abandoned wait's own later\n// success/timeout is dropped by its guard. One recovery per phase per run.\n// out0 -> f_short_A (w_42), out1 -> f_short_B (w_48), out2 -> d_rc (w_54), out3 -> g_w62 (w_62)\nconst NONE = [null, null, null, null];\nconst ev = String((msg.payload && msg.payload.event) || msg.payload || msg.topic || '');\n// states_loaded/running are the client events that mean HA states are live again;\n// match loosely so a version that prefixes or wraps the name still triggers.\nif (!/states_loaded|running/.test(ev)) return NONE;\n\nconst run = flow.get('rr_run', 'file');\nif (!run || !run.active || run.cancelled || flow.get('rr_cancel')) return NONE;\n\nconst nowMs = Date.now();\nif (nowMs - (run.reconnAt || 0) < 60000) return NONE;   // throttle the states_loaded+running burst\n\nconst _ha = global.get('homeassistant') || {};\nconst _st = (Object.values(_ha).find(v => v && v.states) || {}).states || {};\nconst st = id => (_st[id] && _st[id].state);\nconst docked = st('sensor.mr_slave_status_2') === 'charging' || st('vacuum.mr_slave_2') === 'docked';\nif (!docked) return NONE;   // nothing stuck; the wait is still valid\n\nconst phase = run.phase || '';\nif (run.recoveredPhase === phase) return NONE;   // already recovered this phase\n\n// phase -> [output index, the dock-wait that should currently be armed]\nlet i = -1, wid = '';\nif (phase.indexOf('zone A') >= 0)                { i = 0; wid = 'w_42'; }\nelse if (phase.indexOf('zone B') >= 0)           { i = 1; wid = 'w_48'; }\nelse if (phase.indexOf('Main floor sweep') >= 0) { i = 2; wid = 'w_54'; }\nelse if (phase.indexOf('Mop pass') >= 0)         { i = 3; wid = 'w_62'; }\nelse return NONE;   // this phase has no dock-wait pending (delays survive a reconnect)\n\n// only recover if that wait is actually the armed/pending one (not already fired,\n// not mid mop-routine loop) -- otherwise we'd inject a duplicate into a live stage.\nif (flow.get('rr_pending') !== wid) return NONE;\n\nconst g = (flow.get('rr_waitgen') || 0) + 1;\nflow.set('rr_waitgen', g);   // invalidate the abandoned wait\nflow.set('rr_pending', '');\nmsg.rr_wgen = g;             // this msg is now the current generation -> passes the guard\nrun.reconnAt = nowMs; run.recoveredPhase = phase;\nflow.set('rr_run', run, 'file');\n\nconst out = NONE.slice();\nout[i] = msg;\nconst names = ['wait dock (A)/w_42', 'wait dock (B)/w_48', 'wait dock (rest)/w_54', 'wait dock (mop)/w_62'];\nnode.warn('HA reconnect: robot docked while \"' + phase + '\" pending; advancing ' + names[i]);\nnode.status({fill:'blue', text:'reconnect: ' + names[i]});\nreturn out;",
+        "outputs": 4,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 460,
+        "y": 500,
+        "wires": [
+            [
+                "f_short_A"
+            ],
+            [
+                "f_short_B"
+            ],
+            [
+                "d_rc"
+            ],
+            [
+                "g_w62"
+            ]
+        ],
+        "g": "g_start"
+    },
+    {
+        "id": "i_boot",
+        "type": "inject",
+        "z": "rr_tab_1",
+        "name": "startup: check for interrupted run",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": true,
+        "onceDelay": "30",
+        "topic": "",
+        "payload": "",
+        "payloadType": "str",
+        "x": 180,
+        "y": 440,
+        "wires": [
+            [
+                "f_boot"
+            ]
+        ],
+        "g": "g_start"
+    },
+    {
+        "id": "f_boot",
+        "type": "function",
+        "z": "rr_tab_1",
+        "name": "startup: interrupted run?",
+        "func": "// Startup check (~30 s after Node-RED starts). rr_run now survives a restart\n// (settings.js contextStorage 'file' store), but in-flight ha-wait-until nodes\n// and delays do NOT. If a run was active when Node-RED went down and the robot\n// is no longer cleaning, the run is orphaned: mark it interrupted (no room\n// stamps) and tell both phones. If the robot is still cleaning, leave the run\n// flagged but warn the automation lost track of it.\n// out0 -> f_track (tracker 'failed', updates dashboard, no stamps), out1 -> notify\nconst run = flow.get('rr_run', 'file');\nif (!run || !run.active) { node.status({fill:'grey', text:'no active run'}); return [null, null]; }\n\nconst _ha = global.get('homeassistant') || {};\nconst _st = (Object.values(_ha).find(v => v && v.states) || {}).states || {};\nconst st = id => (_st[id] && _st[id].state);\nif (!Object.keys(_st).length) { node.warn('startup check: HA states not loaded yet, skipping'); return [null, null]; }\n\nconst status = st('sensor.mr_slave_status_2');\nconst cleaning = st('binary_sensor.mr_slave_cleaning_2') === 'on'\n    || st('vacuum.mr_slave_2') === 'cleaning'\n    || ['segment_cleaning','zoned_cleaning','spot_cleaning','room_cleaning','cleaning'].includes(status);\n\nif (cleaning) {\n    node.status({fill:'yellow', text:'restart: robot still cleaning'});\n    return [null, {notify: {title: 'Vacuum: automation restarted mid-run',\n        message: 'Node-RED restarted while a clean was running. The robot is still going, but the automation lost track of this run and will not advance it or mark rooms. Tap Daily clean after it docks if anything was missed.',\n        tag: 'rr_restart', urgent: false}}];\n}\n\nnode.status({fill:'red', text:'restart: run interrupted'});\nconst evt = {rr_evt: 'failed', rr_phase: 'Interrupted by a restart'};\nconst notify = {notify: {title: 'Vacuum: run interrupted by a restart',\n    message: 'Node-RED restarted during a clean and the robot is no longer cleaning. The run was stopped and no rooms were marked. Tap Daily clean to resume.',\n    tag: 'rr_restart', urgent: false}};\nreturn [evt, notify];",
+        "outputs": 2,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 470,
+        "y": 440,
+        "wires": [
+            [
+                "f_track"
+            ],
+            [
+                "lo_n_boot"
+            ]
+        ],
+        "g": "g_start"
+    },
+    {
+        "id": "lo_n_boot",
+        "type": "link out",
+        "z": "rr_tab_1",
+        "name": "\u2192 notify",
+        "mode": "link",
+        "links": [
+            "li_notify"
+        ],
+        "x": 760,
+        "y": 440,
+        "wires": [],
+        "g": "g_start"
+    },
+    {
+        "id": "d_rcpoll",
+        "type": "delay",
+        "name": "recharge poll (2 min)",
+        "pauseType": "delay",
+        "timeout": "2",
+        "timeoutUnits": "minutes",
+        "rate": "1",
+        "nbRateUnits": "1",
+        "rateUnits": "second",
+        "randomFirst": "1",
+        "randomLast": "5",
+        "randomUnits": "seconds",
+        "drop": false,
+        "allowrate": false,
+        "outputs": 1,
+        "x": 1700,
+        "y": 780,
+        "wires": [
+            [
+                "f_rcpoll"
+            ]
+        ],
+        "z": "rr_tab_1",
+        "g": "g_sweep"
+    },
+    {
+        "id": "f_rcpoll",
+        "type": "function",
+        "z": "rr_tab_1",
+        "name": "resume or resume-drop?",
+        "func": "// Recharge watcher (replaces the single 'wait resume' wait, which hung for its\n// whole timeout and then wrongly stamped every room). Polled every 2 min while\n// the robot recharges mid-sweep.\n//   resumed  -> status segment_cleaning: hand back to wait dock (rest) (out0)\n//   dropped  -> progress reset to 0, or charged & battery >= 95 for ~10 min, or\n//               150-min cap: robot will NOT resume. Go to the mop gate via d_55\n//               WITHOUT f_ev_restdone (unfinished rooms stay unmarked) + notify.\n//   waiting  -> loop back to d_rcpoll (out3)\n// out0 -> [w_54, f_ev_rest], out1 -> d_55, out2 -> notify, out3 -> d_rcpoll\nif (flow.get('rr_cancel')) { node.status({fill:'red',text:'cancelled'}); return [null,null,null,null]; }\nconst _ha = global.get('homeassistant') || {};\nconst _st = (Object.values(_ha).find(v => v && v.states) || {}).states || {};\nconst st = id => (_st[id] && _st[id].state);\nconst status = st('sensor.mr_slave_status_2');\nconst batt = Number(st('sensor.mr_slave_battery_2'));\nconst prog = Number(st('sensor.mr_slave_cleaning_progress_2'));\n\n// Resumed on its own (Roborock recharge & resume): the dock wait takes over again.\nif (status === 'segment_cleaning') {\n    node.status({fill:'green', text:'resumed'});\n    return [msg, null, null, null];\n}\n\nconst n = (msg.rr_rc_polls || 0) + 1;\nmsg.rr_rc_polls = n;\nconst chargedFull = !isNaN(batt) && batt >= 95 && ['charging','charged','docked'].includes(status);\nmsg.rr_rc_full = (msg.rr_rc_full || 0) + (chargedFull ? 1 : 0);\n\nconst dropped = (!isNaN(prog) && prog === 0) || msg.rr_rc_full >= 5 || n >= 75;\nif (dropped) {\n    const why = n >= 75 ? 'did not resume within 150 min'\n        : (prog === 0 ? 'cleared its resume flag (progress reset to 0) after recharging'\n        : 'finished charging but did not resume');\n    node.status({fill:'yellow', text:'no resume: ' + why});\n    const notify = {notify: {title: 'Vacuum: did not resume after recharge',\n        message: 'The robot recharged mid-sweep but ' + why + '. Skipping the rest of the sweep and moving on; the unfinished rooms are left unmarked.',\n        tag: 'rr_no_resume', urgent: true}};\n    return [null, msg, notify, null];\n}\nnode.status({fill:'blue', text:`waiting resume: ${batt}% batt, ${prog}% done (poll ${n})`});\nreturn [null, null, null, msg];",
+        "outputs": 4,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1960,
+        "y": 780,
+        "wires": [
+            [
+                "arm_54",
+                "f_ev_rest"
+            ],
+            [
+                "d_55"
+            ],
+            [
+                "lo_n_rc"
+            ],
+            [
+                "d_rcpoll"
+            ]
+        ],
+        "g": "g_sweep"
+    },
+    {
+        "id": "lo_n_rc",
+        "type": "link out",
+        "z": "rr_tab_1",
+        "name": "\u2192 notify",
+        "mode": "link",
+        "links": [
+            "li_notify"
+        ],
+        "x": 2200,
+        "y": 720,
+        "wires": [],
+        "g": "g_sweep"
+    },
+    {
+        "id": "f_mopfail",
+        "type": "function",
+        "z": "rr_tab_1",
+        "name": "mop failed -> alert (rr_mop_failed)",
+        "func": "// Central mop-failure notice: one alert (tag rr_mop_failed, urgent) whenever the\n// weekly mop pass does not complete. Deliberately does NOT stamp\n// input_datetime.rr_last_mop_run, so f_58's catch-up re-runs the mop on the next\n// successful daily clean this week. Clears rr_mop_pending so the stall/stop\n// alerts don't also mention the mop. out0 -> notify, out1 -> restore vacuum + done.\nflow.set('rr_mop_pending', false);\nconst reason = msg.rr_mop_reason || 'it did not finish';\nconst notify = {notify: {title: 'Vacuum: weekly mop did not finish',\n    message: 'The weekly mop pass did not complete: ' + reason + '. A catch-up mop will run on the next successful daily clean before next Wednesday.',\n    tag: 'rr_mop_failed', urgent: true}};\nnode.status({fill:'red', text:'mop failed'});\nreturn [notify, msg];",
+        "outputs": 2,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1560,
+        "y": 1160,
+        "wires": [
+            [
+                "lo_n_mopfail"
+            ],
+            [
+                "s_66"
+            ]
+        ],
+        "g": "g_sweep"
+    },
+    {
+        "id": "lo_n_mopfail",
+        "type": "link out",
+        "z": "rr_tab_1",
+        "name": "\u2192 notify",
+        "mode": "link",
+        "links": [
+            "li_notify"
+        ],
+        "x": 1820,
+        "y": 1160,
+        "wires": [],
+        "g": "g_sweep"
+    },
+    {
+        "id": "f_mopbat_to",
+        "type": "function",
+        "z": "rr_tab_1",
+        "name": "mop battery timeout",
+        "func": "msg.rr_mop_reason = 'the battery did not reach 80% within 180 min, so the mop pass could not start';\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 2540,
+        "y": 845,
+        "wires": [
+            [
+                "f_mopfail"
+            ]
+        ],
+        "g": "g_sweep"
+    },
+    {
+        "id": "f_mopoff_to",
+        "type": "function",
+        "z": "rr_tab_1",
+        "name": "mop routine timeout",
+        "func": "msg.rr_mop_reason = 'the mop routine did not report finished within 300 min';\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1660,
+        "y": 1105,
+        "wires": [
+            [
+                "f_mopfail"
+            ]
+        ],
+        "g": "g_sweep"
+    },
+    {
+        "id": "arm_42",
+        "type": "function",
+        "z": "rr_tab_1",
+        "name": "arm wait (A)",
+        "func": "// Arm 'w_42': bump the wait generation + mark it pending, and stamp the\n// msg so this wait's own success/timeout can be told apart from a stale firing\n// left armed after an HA-reconnect recovery (f_hareconn).\nconst g = (flow.get('rr_waitgen') || 0) + 1;\nflow.set('rr_waitgen', g);\nflow.set('rr_pending', 'w_42');\nmsg.rr_wgen = g;\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1180,
+        "y": 450,
+        "wires": [
+            [
+                "w_42"
+            ]
+        ],
+        "g": "g_mbr"
+    },
+    {
+        "id": "arm_48",
+        "type": "function",
+        "z": "rr_tab_1",
+        "name": "arm wait (B)",
+        "func": "// Arm 'w_48': bump the wait generation + mark it pending, and stamp the\n// msg so this wait's own success/timeout can be told apart from a stale firing\n// left armed after an HA-reconnect recovery (f_hareconn).\nconst g = (flow.get('rr_waitgen') || 0) + 1;\nflow.set('rr_waitgen', g);\nflow.set('rr_pending', 'w_48');\nmsg.rr_wgen = g;\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1180,
+        "y": 595,
+        "wires": [
+            [
+                "w_48"
+            ]
+        ],
+        "g": "g_mbr"
+    },
+    {
+        "id": "arm_54",
+        "type": "function",
+        "z": "rr_tab_1",
+        "name": "arm wait (rest)",
+        "func": "// Arm 'w_54': bump the wait generation + mark it pending, and stamp the\n// msg so this wait's own success/timeout can be told apart from a stale firing\n// left armed after an HA-reconnect recovery (f_hareconn).\nconst g = (flow.get('rr_waitgen') || 0) + 1;\nflow.set('rr_waitgen', g);\nflow.set('rr_pending', 'w_54');\nmsg.rr_wgen = g;\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1180,
+        "y": 840,
+        "wires": [
+            [
+                "w_54"
+            ]
+        ],
+        "g": "g_sweep"
+    },
+    {
+        "id": "arm_62",
+        "type": "function",
+        "z": "rr_tab_1",
+        "name": "arm wait (mop)",
+        "func": "// Arm 'w_62': bump the wait generation + mark it pending, and stamp the\n// msg so this wait's own success/timeout can be told apart from a stale firing\n// left armed after an HA-reconnect recovery (f_hareconn).\nconst g = (flow.get('rr_waitgen') || 0) + 1;\nflow.set('rr_waitgen', g);\nflow.set('rr_pending', 'w_62');\nmsg.rr_wgen = g;\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 940,
+        "y": 1105,
+        "wires": [
+            [
+                "w_62"
+            ]
+        ],
+        "g": "g_sweep"
+    },
+    {
+        "id": "g_w62",
+        "type": "function",
+        "z": "rr_tab_1",
+        "name": "guard: stale mop dock?",
+        "func": "if (msg.rr_wgen !== flow.get('rr_waitgen')) { node.status({fill:'grey',shape:'ring',text:'stale wait ignored'}); return null; }\nif (flow.get('rr_cancel')) { node.status({fill:'red',text:'cancelled'}); return null; }\nflow.set('rr_pending', '');\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1180,
+        "y": 1160,
+        "wires": [
+            [
+                "d_mopchk"
+            ]
+        ],
+        "g": "g_sweep"
     }
 ]

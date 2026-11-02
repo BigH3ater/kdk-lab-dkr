@@ -69,6 +69,20 @@ module.exports = {
     exportGlobalContextKeys: false,
     externalModules: {},
 
+    // Run-state persistence across a Node-RED restart (added 2026-11-02). The
+    // `default` store stays in memory so the Home Assistant integration's global
+    // `states` cache (server node: enableGlobalContextStore) is NOT serialised to
+    // disk on every flush. Only the keys written with the explicit `file` store --
+    // rr_run (the daily-run tracker, for the startup interrupted-run check) and
+    // vik_fill_last (the water-refill Vikunja throttle) -- are persisted, under
+    // /data/context (the /data bind mount in compose.yaml survives a restart).
+    // localfilesystem batches writes on flushInterval (seconds); the store dir is
+    // created automatically on first start, so there is no one-time manual step.
+    contextStorage: {
+        default: { module: "memory" },
+        file: { module: "localfilesystem", config: { flushInterval: 30 } },
+    },
+
     editorTheme: {
         palette: {},
         projects: { enabled: false, workflow: { mode: "manual" } },
