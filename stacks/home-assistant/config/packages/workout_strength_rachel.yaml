@@ -1,0 +1,282 @@
+# Strength log for RACHEL — per-exercise weight (lb) + reps (her own helpers,
+# same lift set as Jacob's). Entity ids: input_number.ex_<name>_weight_rachel / _reps_rachel.
+# Generic exercise names + Lower/Upper day grouping only; no health details or
+# prescribed loads (those live in the host-managed guide). You update these each
+# session; HA's recorder keeps the history, so the Strength dashboard's graphs show
+# progression over time. Entity ids: input_number.ex_<name>_weight / _reps.
+input_number:
+  # --- Lower A ---
+  ex_box_squat_weight_rachel:
+    name: Box Squat weight
+    min: 0
+    max: 200
+    step: 0.5
+    unit_of_measurement: lb
+    mode: box
+    icon: mdi:weight-pound
+  ex_box_squat_reps_rachel:
+    name: Box Squat reps
+    min: 0
+    max: 50
+    step: 1
+    mode: box
+    icon: mdi:counter
+  ex_rdl_weight_rachel:
+    name: Romanian Deadlift weight
+    min: 0
+    max: 200
+    step: 0.5
+    unit_of_measurement: lb
+    mode: box
+    icon: mdi:weight-pound
+  ex_rdl_reps_rachel:
+    name: Romanian Deadlift reps
+    min: 0
+    max: 50
+    step: 1
+    mode: box
+    icon: mdi:counter
+  ex_calf_raise_weight_rachel:
+    name: Calf Raise weight
+    min: 0
+    max: 200
+    step: 0.5
+    unit_of_measurement: lb
+    mode: box
+    icon: mdi:weight-pound
+  ex_calf_raise_reps_rachel:
+    name: Calf Raise reps
+    min: 0
+    max: 50
+    step: 1
+    mode: box
+    icon: mdi:counter
+  # --- Upper A ---
+  ex_incline_press_weight_rachel:
+    name: Incline Press weight
+    min: 0
+    max: 200
+    step: 0.5
+    unit_of_measurement: lb
+    mode: box
+    icon: mdi:weight-pound
+  ex_incline_press_reps_rachel:
+    name: Incline Press reps
+    min: 0
+    max: 50
+    step: 1
+    mode: box
+    icon: mdi:counter
+  ex_cs_row_weight_rachel:
+    name: Chest-Supported Row weight
+    min: 0
+    max: 200
+    step: 0.5
+    unit_of_measurement: lb
+    mode: box
+    icon: mdi:weight-pound
+  ex_cs_row_reps_rachel:
+    name: Chest-Supported Row reps
+    min: 0
+    max: 50
+    step: 1
+    mode: box
+    icon: mdi:counter
+  ex_shoulder_press_weight_rachel:
+    name: Shoulder Press weight
+    min: 0
+    max: 200
+    step: 0.5
+    unit_of_measurement: lb
+    mode: box
+    icon: mdi:weight-pound
+  ex_shoulder_press_reps_rachel:
+    name: Shoulder Press reps
+    min: 0
+    max: 50
+    step: 1
+    mode: box
+    icon: mdi:counter
+  ex_hammer_curl_weight_rachel:
+    name: Hammer Curl weight
+    min: 0
+    max: 200
+    step: 0.5
+    unit_of_measurement: lb
+    mode: box
+    icon: mdi:weight-pound
+  ex_hammer_curl_reps_rachel:
+    name: Hammer Curl reps
+    min: 0
+    max: 50
+    step: 1
+    mode: box
+    icon: mdi:counter
+  ex_triceps_ext_weight_rachel:
+    name: Triceps Extension weight
+    min: 0
+    max: 200
+    step: 0.5
+    unit_of_measurement: lb
+    mode: box
+    icon: mdi:weight-pound
+  ex_triceps_ext_reps_rachel:
+    name: Triceps Extension reps
+    min: 0
+    max: 50
+    step: 1
+    mode: box
+    icon: mdi:counter
+  ex_farmer_weight_rachel:
+    name: Farmer Carry weight
+    min: 0
+    max: 200
+    step: 0.5
+    unit_of_measurement: lb
+    mode: box
+    icon: mdi:weight-pound
+  ex_farmer_reps_rachel:
+    name: Farmer Carry reps
+    min: 0
+    max: 50
+    step: 1
+    mode: box
+    icon: mdi:counter
+  ex_wrist_curl_weight_rachel:
+    name: Wrist Curl weight
+    min: 0
+    max: 200
+    step: 0.5
+    unit_of_measurement: lb
+    mode: box
+    icon: mdi:weight-pound
+  ex_wrist_curl_reps_rachel:
+    name: Wrist Curl reps
+    min: 0
+    max: 50
+    step: 1
+    mode: box
+    icon: mdi:counter
+  # --- Lower B ---
+  ex_hip_thrust_weight_rachel:
+    name: Hip Thrust weight
+    min: 0
+    max: 200
+    step: 0.5
+    unit_of_measurement: lb
+    mode: box
+    icon: mdi:weight-pound
+  ex_hip_thrust_reps_rachel:
+    name: Hip Thrust reps
+    min: 0
+    max: 50
+    step: 1
+    mode: box
+    icon: mdi:counter
+  ex_sl_rdl_weight_rachel:
+    name: Single-Leg RDL weight
+    min: 0
+    max: 200
+    step: 0.5
+    unit_of_measurement: lb
+    mode: box
+    icon: mdi:weight-pound
+  ex_sl_rdl_reps_rachel:
+    name: Single-Leg RDL reps
+    min: 0
+    max: 50
+    step: 1
+    mode: box
+    icon: mdi:counter
+  # --- Upper B ---
+  ex_one_arm_row_weight_rachel:
+    name: One-Arm Row weight
+    min: 0
+    max: 200
+    step: 0.5
+    unit_of_measurement: lb
+    mode: box
+    icon: mdi:weight-pound
+  ex_one_arm_row_reps_rachel:
+    name: One-Arm Row reps
+    min: 0
+    max: 50
+    step: 1
+    mode: box
+    icon: mdi:counter
+  ex_flat_press_weight_rachel:
+    name: Flat Press weight
+    min: 0
+    max: 200
+    step: 0.5
+    unit_of_measurement: lb
+    mode: box
+    icon: mdi:weight-pound
+  ex_flat_press_reps_rachel:
+    name: Flat Press reps
+    min: 0
+    max: 50
+    step: 1
+    mode: box
+    icon: mdi:counter
+  ex_lateral_raise_weight_rachel:
+    name: Lateral Raise weight
+    min: 0
+    max: 200
+    step: 0.5
+    unit_of_measurement: lb
+    mode: box
+    icon: mdi:weight-pound
+  ex_lateral_raise_reps_rachel:
+    name: Lateral Raise reps
+    min: 0
+    max: 50
+    step: 1
+    mode: box
+    icon: mdi:counter
+  ex_rear_fly_weight_rachel:
+    name: Rear Fly weight
+    min: 0
+    max: 200
+    step: 0.5
+    unit_of_measurement: lb
+    mode: box
+    icon: mdi:weight-pound
+  ex_rear_fly_reps_rachel:
+    name: Rear Fly reps
+    min: 0
+    max: 50
+    step: 1
+    mode: box
+    icon: mdi:counter
+  ex_suitcase_weight_rachel:
+    name: Suitcase Carry weight
+    min: 0
+    max: 200
+    step: 0.5
+    unit_of_measurement: lb
+    mode: box
+    icon: mdi:weight-pound
+  ex_suitcase_reps_rachel:
+    name: Suitcase Carry reps
+    min: 0
+    max: 50
+    step: 1
+    mode: box
+    icon: mdi:counter
+  # --- Hands ---
+  ex_finger_ext_weight_rachel:
+    name: Finger Extension weight
+    min: 0
+    max: 200
+    step: 0.5
+    unit_of_measurement: lb
+    mode: box
+    icon: mdi:weight-pound
+  ex_finger_ext_reps_rachel:
+    name: Finger Extension reps
+    min: 0
+    max: 50
+    step: 1
+    mode: box
+    icon: mdi:counter

@@ -105,16 +105,26 @@ be **registered** in the host-managed `configuration.yaml` (not in the repo):
 lovelace:
   mode: storage
   dashboards:
-    workout:                       # -> https://homeassistant.kmkdp.com/workout
+    workout:                       # -> https://homeassistant.kmkdp.com/workout   (Jacob)
       mode: yaml
-      title: Workout
+      title: Workout · Jacob
       icon: mdi:run
       show_in_sidebar: true
       filename: dashboards/workout.yaml
+    workout-rachel:                # -> https://homeassistant.kmkdp.com/workout-rachel
+      mode: yaml
+      title: Workout · Rachel
+      icon: mdi:run
+      show_in_sidebar: true
+      filename: dashboards/workout_rachel.yaml
 ```
 
-The `workout` url_path is what the Kodiak left-sidebar **Workout** link points at
-(`shared-nav.js` -> `homeassistant.kmkdp.com/workout`). Then restart Home
+The two `workout` / `workout-rachel` url_paths are what the Kodiak left-sidebar
+**Workout · Jacob** / **Workout · Rachel** links point at. Rachel's dashboard is a
+mirror of Jacob's (shared Treadmill + Plan views) whose Strength view logs her own
+`input_number.ex_*_rachel` helpers (package `workout_strength_rachel.yaml`, same
+lift set). Those new helpers need a one-time HA restart to register, like Jacob's.
+Then restart Home
 Assistant (Developer Tools → YAML → Restart, or `action: homeassistant.restart`).
 Slice 2's `treadmill.yaml` package is a drop-in under `config/packages/`
 (auto-included); its first activation also needs a one-time HA restart because it
