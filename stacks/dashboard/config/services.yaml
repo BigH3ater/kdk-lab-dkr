@@ -100,6 +100,11 @@
 # "unknown". The tm_daily_*/tm_weekly_* utility_meter entity_ids below are the
 # PLANNED names -- reconcile them with slice-2's treadmill.yaml before merge.
 - Workout:
+  - Workout Plan:
+      icon: mdi-clipboard-text
+      href: https://home.kmkdp.com/guides/workout/workout.html
+      target: _blank
+      description: Your exercise plan — step by step with pictures
   - Treadmill:
       icon: mdi-run
       href: https://homeassistant.kmkdp.com/
@@ -278,7 +283,7 @@
       siteMonitor: https://recipes.kmkdp.com/
       description: Tandoor recipes, meal plan & shopping (own login)
 
-- Home:
+- Smart Home:
   - Home Assistant:
       icon: home-assistant
       href: https://homeassistant.kmkdp.com/
