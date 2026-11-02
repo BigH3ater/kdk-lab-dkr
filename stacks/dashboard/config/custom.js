@@ -9,7 +9,7 @@
   if (document.getElementById("kodiak-nav-loader")) { return; }
   var s = document.createElement("script");
   s.id = "kodiak-nav-loader";
-  s.src = "/guides/shared-nav.js?v=nav20261101b";
+  s.src = "/guides/shared-nav.js?v=nav20261102a";
   s.defer = true;
   (document.head || document.documentElement).appendChild(s);
 })();

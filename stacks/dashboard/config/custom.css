@@ -7,7 +7,7 @@
 /* The shared Kodiak sidebar styling -- the one source used by the guides and the
    /meal pages too (served same-origin from /guides, behind Authelia). custom.js
    loads the matching /guides/shared-nav.js. */
-@import url('/guides/shared-nav.css?v=nav20261101b');
+@import url('/guides/shared-nav.css?v=nav20261102a');
 
 :root {
   --ink: #1b1a18; --rust: #9d4a25; --paper: #ece2d0;
