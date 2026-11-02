@@ -147,20 +147,201 @@ views:
         all-time running tally. A session is credited to whoever was selected as
         the walker when the belt stopped.
 
-  # The exercise plan (strength/treadmill days + per-move diagrams) lives in the
-  # host-managed guide at /guides/workout/workout.html (generated from the vault,
-  # personal content kept OUT of the public repo). It is embedded here so the one
-  # Workout page shows both the tracking AND the plan with pictures. The guide's
-  # shared sidebar bails out inside an iframe, so only the plan content renders.
-  # Needs the guide deployed on the dashboard host + the viewer's Authelia session
-  # (shared across *.kmkdp.com).
+- title: Strength
+  path: strength
+  icon: mdi:dumbbell
+  type: sections
+  max_columns: 3
+  sections:
+
   - type: grid
     column_span: 3
     cards:
+    - type: markdown
+      content: >-
+        Log the **weight (lb)** and **reps** you actually did each session — the
+        numbers are editable right here. Home Assistant keeps the history, so the
+        progression graphs below fill in over time. (Targets + form cues live on the
+        **Plan** tab.)
+
+  - type: grid
+    cards:
     - type: heading
-      heading: Exercise Plan
-      icon: mdi:clipboard-text
-    - type: iframe
-      url: https://home.kmkdp.com/guides/workout/workout.html
-      title: Your plan — step by step with diagrams
-      aspect_ratio: 155%
+      heading: Lower A
+      icon: mdi:arrow-down-bold-box
+    - type: entities
+      title: Lower A — log
+      entities:
+      - entity: input_number.ex_box_squat_weight
+        name: Box Squat — weight
+      - entity: input_number.ex_box_squat_reps
+        name: Box Squat — reps
+      - entity: input_number.ex_rdl_weight
+        name: Romanian Deadlift — weight
+      - entity: input_number.ex_rdl_reps
+        name: Romanian Deadlift — reps
+      - entity: input_number.ex_calf_raise_weight
+        name: Calf Raise — weight
+      - entity: input_number.ex_calf_raise_reps
+        name: Calf Raise — reps
+    - type: history-graph
+      title: Lower A — weight progression (90d)
+      hours_to_show: 2160
+      entities:
+      - entity: input_number.ex_box_squat_weight
+        name: Box Squat
+      - entity: input_number.ex_rdl_weight
+        name: Romanian Deadlift
+      - entity: input_number.ex_calf_raise_weight
+        name: Calf Raise
+
+  - type: grid
+    cards:
+    - type: heading
+      heading: Upper A
+      icon: mdi:arm-flex
+    - type: entities
+      title: Upper A — log
+      entities:
+      - entity: input_number.ex_incline_press_weight
+        name: Incline Press — weight
+      - entity: input_number.ex_incline_press_reps
+        name: Incline Press — reps
+      - entity: input_number.ex_cs_row_weight
+        name: Chest-Supported Row — weight
+      - entity: input_number.ex_cs_row_reps
+        name: Chest-Supported Row — reps
+      - entity: input_number.ex_shoulder_press_weight
+        name: Shoulder Press — weight
+      - entity: input_number.ex_shoulder_press_reps
+        name: Shoulder Press — reps
+      - entity: input_number.ex_hammer_curl_weight
+        name: Hammer Curl — weight
+      - entity: input_number.ex_hammer_curl_reps
+        name: Hammer Curl — reps
+      - entity: input_number.ex_triceps_ext_weight
+        name: Triceps Extension — weight
+      - entity: input_number.ex_triceps_ext_reps
+        name: Triceps Extension — reps
+      - entity: input_number.ex_farmer_weight
+        name: Farmer Carry — weight
+      - entity: input_number.ex_farmer_reps
+        name: Farmer Carry — reps
+      - entity: input_number.ex_wrist_curl_weight
+        name: Wrist Curl — weight
+      - entity: input_number.ex_wrist_curl_reps
+        name: Wrist Curl — reps
+    - type: history-graph
+      title: Upper A — weight progression (90d)
+      hours_to_show: 2160
+      entities:
+      - entity: input_number.ex_incline_press_weight
+        name: Incline Press
+      - entity: input_number.ex_cs_row_weight
+        name: Chest-Supported Row
+      - entity: input_number.ex_shoulder_press_weight
+        name: Shoulder Press
+      - entity: input_number.ex_hammer_curl_weight
+        name: Hammer Curl
+      - entity: input_number.ex_triceps_ext_weight
+        name: Triceps Extension
+      - entity: input_number.ex_farmer_weight
+        name: Farmer Carry
+      - entity: input_number.ex_wrist_curl_weight
+        name: Wrist Curl
+
+  - type: grid
+    cards:
+    - type: heading
+      heading: Lower B
+      icon: mdi:arrow-down-bold-box-outline
+    - type: entities
+      title: Lower B — log
+      entities:
+      - entity: input_number.ex_hip_thrust_weight
+        name: Hip Thrust — weight
+      - entity: input_number.ex_hip_thrust_reps
+        name: Hip Thrust — reps
+      - entity: input_number.ex_sl_rdl_weight
+        name: Single-Leg RDL — weight
+      - entity: input_number.ex_sl_rdl_reps
+        name: Single-Leg RDL — reps
+    - type: history-graph
+      title: Lower B — weight progression (90d)
+      hours_to_show: 2160
+      entities:
+      - entity: input_number.ex_hip_thrust_weight
+        name: Hip Thrust
+      - entity: input_number.ex_sl_rdl_weight
+        name: Single-Leg RDL
+
+  - type: grid
+    cards:
+    - type: heading
+      heading: Upper B
+      icon: mdi:arm-flex-outline
+    - type: entities
+      title: Upper B — log
+      entities:
+      - entity: input_number.ex_one_arm_row_weight
+        name: One-Arm Row — weight
+      - entity: input_number.ex_one_arm_row_reps
+        name: One-Arm Row — reps
+      - entity: input_number.ex_flat_press_weight
+        name: Flat Press — weight
+      - entity: input_number.ex_flat_press_reps
+        name: Flat Press — reps
+      - entity: input_number.ex_lateral_raise_weight
+        name: Lateral Raise — weight
+      - entity: input_number.ex_lateral_raise_reps
+        name: Lateral Raise — reps
+      - entity: input_number.ex_rear_fly_weight
+        name: Rear Fly — weight
+      - entity: input_number.ex_rear_fly_reps
+        name: Rear Fly — reps
+      - entity: input_number.ex_suitcase_weight
+        name: Suitcase Carry — weight
+      - entity: input_number.ex_suitcase_reps
+        name: Suitcase Carry — reps
+    - type: history-graph
+      title: Upper B — weight progression (90d)
+      hours_to_show: 2160
+      entities:
+      - entity: input_number.ex_one_arm_row_weight
+        name: One-Arm Row
+      - entity: input_number.ex_flat_press_weight
+        name: Flat Press
+      - entity: input_number.ex_lateral_raise_weight
+        name: Lateral Raise
+      - entity: input_number.ex_rear_fly_weight
+        name: Rear Fly
+      - entity: input_number.ex_suitcase_weight
+        name: Suitcase Carry
+
+  - type: grid
+    cards:
+    - type: heading
+      heading: Hands
+      icon: mdi:hand-back-right
+    - type: entities
+      title: Hands — log
+      entities:
+      - entity: input_number.ex_finger_ext_weight
+        name: Finger Extension — weight
+      - entity: input_number.ex_finger_ext_reps
+        name: Finger Extension — reps
+    - type: history-graph
+      title: Hands — weight progression (90d)
+      hours_to_show: 2160
+      entities:
+      - entity: input_number.ex_finger_ext_weight
+        name: Finger Extension
+
+- title: Plan
+  path: plan
+  icon: mdi:clipboard-text
+  type: panel
+  cards:
+  - type: iframe
+    url: https://home.kmkdp.com/guides/workout/workout.html
+    aspect_ratio: 150%
