@@ -23,7 +23,8 @@ def _fixed_pool(start_id):
     fixed = yaml.safe_load(open(os.path.join(STACK, "recipes", "fixed.yaml")))
     pool, i = [], start_id
     for r in fixed["recipes"]:
-        kind = "staple" if "breakfast" in (r.get("keywords") or []) else "snack"
+        kws = r.get("keywords") or []
+        kind = "staple" if "breakfast" in kws else "burger" if "burger-night" in kws else "snack"
         pool.append({"id": i, "name": r["name"], "kind": kind, "season": None,
                      "variant": None, "working_time": None,
                      "ingredient_count": None, "servings": r.get("servings", 7)})
@@ -66,7 +67,10 @@ def test_real_candidates_build_a_week_both_parities(cfg, season):
         assert mains.count("roast") == (1 if roast_week else 0)
         assert mains.count("ground_beef") == (1 if roast_week else 2)
         assert mains.count("pork") == (1 if flex_kind == "pork" else 0)
-        assert mains.count("chicken") == 2 + (0 if flex_kind == "pork" else 1)
+        bn = cfg["burger_night"]
+        burger_week = bn["enabled"] and int(G.week_key(start).split("W")[1]) % bn["every_n_weeks"] == 0
+        assert mains.count("burger") == (1 if burger_week else 0)
+        assert mains.count("chicken") == 2 + (0 if flex_kind == "pork" else 1) - (1 if burger_week else 0)
         assert s["leftovers"] == (1 if roast_week else 0)
 
 

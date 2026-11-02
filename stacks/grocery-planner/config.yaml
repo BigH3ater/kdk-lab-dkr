@@ -265,6 +265,14 @@ lunches:
 breakfast:
   staples_recipe: "Weekly staples"   # planned every week as Breakfast
 
+# Burger night (owner 2026-11-01): the eighth share's 5 patty packs (4 x 1/3 lb).
+# Every 5th ISO week one CHICKEN dinner becomes "Burger night" (fixed.yaml), so
+# 24 weeks use about 5 packs and the ground-beef balance is unchanged.
+burger_night:
+  enabled: true
+  every_n_weeks: 5
+  recipe: "Burger night"
+
 snacks:
   buy_recipe: "Snacks to buy"
   prep_recipe: "Snack prep"

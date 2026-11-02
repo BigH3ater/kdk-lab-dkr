@@ -248,7 +248,7 @@ def _fixed_pool(t):
     """Fetch the fixed breakfast/snack feeder recipes (season-independent) and
     return them as pool items by name, so the generator can place them."""
     out, seen = [], set()
-    for kw in ("breakfast", "snack"):
+    for kw in ("breakfast", "snack", "burger-night"):
         kid = _kw_id(t, kw)
         if not kid:
             continue
@@ -257,7 +257,7 @@ def _fixed_pool(t):
                 continue
             seen.add(r["id"])
             out.append({"id": r["id"], "name": r["name"],
-                        "kind": "staple" if kw == "breakfast" else "snack",
+                        "kind": {"breakfast": "staple", "snack": "snack"}.get(kw, "burger"),
                         "season": None, "variant": None, "working_time": None,
                         "ingredient_count": None, "servings": r.get("servings", 7)})
     return out
