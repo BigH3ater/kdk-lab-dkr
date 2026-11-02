@@ -185,7 +185,14 @@ def generate_week(pool: list[dict], week_start: datetime.date, config: dict) -> 
     # Fish: Sunday. Chicken + steak are fixed counts; ground beef is the week's
     # distinct dishes (no repeat, <= max_asian Asian-style).
     fish = _pick(pool, "fish", season, caps, rng, used, 1, variant=fish_variant)[0]
-    chicken = _pick(pool, "chicken", season, caps, rng, used, pr["poultry"])
+    # Burger night: every Nth ISO week one chicken dinner becomes the fixed
+    # "Burger night" recipe (Amana patties). Skipped quietly if not seeded.
+    bn = config.get("burger_night") or {}
+    burger = None
+    if bn.get("enabled") and int(wk.split("W")[1]) % int(bn.get("every_n_weeks", 5)) == 0:
+        burger = _by_name(pool, bn.get("recipe", "Burger night"))
+    chicken = _pick(pool, "chicken", season, caps, rng, used,
+                    pr["poultry"] - (1 if burger else 0))
     steak = _pick(pool, "steak", season, caps, rng, used, 1)[0]
     beef = _pick_beef(pool, season, caps, rng, used, beef_n,
                       beef_cfg.get("max_asian_per_week", 1))
@@ -209,7 +216,7 @@ def generate_week(pool: list[dict], week_start: datetime.date, config: dict) -> 
         if rd in mains_by_day:                       # roast_night == fish day: use next free
             rd = next(d for d in range(7) if d not in mains_by_day)
         mains_by_day[rd] = roast
-    other = chicken + beef + [steak]
+    other = chicken + beef + [steak] + ([burger] if burger else [])
     if flex is not None:
         other.append(flex)
     rng.shuffle(other)

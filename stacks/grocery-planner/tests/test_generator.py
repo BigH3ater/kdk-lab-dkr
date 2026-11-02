@@ -203,3 +203,29 @@ def test_beef_stir_fry_lunch_on_roast_weeks_only(cfg):
             assert len(beef_l) == 1 and beef_l[0].recipe_id not in dinners
         else:
             assert not beef_l
+
+
+def test_burger_night_replaces_one_chicken_every_5th_week(cfg):
+    import datetime as dt
+    pool = make_pool()
+    pool.append({"id": 999, "name": "Burger night", "kind": "burger", "season": None,
+                 "variant": None, "working_time": None, "ingredient_count": None, "servings": 2})
+    sun = dt.date(2027, 3, 7)              # spring Sundays (make_pool is spring-only)
+    seen_burger = seen_plain = False
+    for w in range(10):
+        s = sun + dt.timedelta(weeks=w)
+        e = G.generate_week(pool, s, cfg)
+        mains = [x for x in e if x.role == "dinner-main"]
+        assert len(mains) == 7
+        burger = [x for x in mains if x.recipe_id == 999]
+        n_chicken = sum(1 for x in mains if _kind(pool, x.recipe_id) == "chicken")
+        if int(G.week_key(s).split("W")[1]) % cfg["burger_night"]["every_n_weeks"] == 0:
+            seen_burger = True
+            assert len(burger) == 1 and burger[0].servings == 2
+        else:
+            seen_plain = True
+            assert not burger
+        # burger weeks have one chicken dinner fewer than the same-parity plain week
+        base = 2 + (0 if _flex_kind(cfg, G.parity_for_week(s)) == "pork" else 1)
+        assert n_chicken == base - (1 if burger else 0)
+    assert seen_burger and seen_plain
