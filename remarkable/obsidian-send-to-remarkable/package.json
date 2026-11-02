@@ -13,7 +13,7 @@
     "@types/node": "20.19.43",
     "builtin-modules": "3.3.0",
     "esbuild": "0.28.2",
-    "obsidian": "1.7.2",
+    "obsidian": "1.14.4",
     "tslib": "2.6.3",
     "typescript": "5.4.5"
   },
