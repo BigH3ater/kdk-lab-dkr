@@ -83,11 +83,16 @@ groups:
       # and require DownstreamStatus=~"2.." so only a change the server actually
       # applied counts — a rejected (4xx/5xx) attempt is not a completed change.
       # Real completed user/policy changes (any other UA, 2xx) stay in scope.
+      # Path = a user change only: /Users (update, ?userId=), /Users/New,
+      # /Users/Password, /Users/{32-hex id}[/Policy|/Password]. Sign-ins
+      # (/Users/AuthenticateByName, /Users/AuthenticateWithQuickConnect) matched
+      # the old "/[^/]+" segment and fired on every login (2026-11-01: 41 of 52
+      # matches in 7 days); the 11 real changes still match.
       - alert: JellyfinUserPolicyChange
         expr: |
           sum by (client) (count_over_time({host="kdk-dkr-dmz-01", container="traefik"}
             |= "jellyfin.kmkdp.com" | json | RequestHost="jellyfin.kmkdp.com"
-            | RequestMethod=~"POST|DELETE" | RequestPath=~"(?i)/users(/new|/[^/]+/policy|/[^/]+)?(\\?.*)?"
+            | RequestMethod=~"POST|DELETE" | RequestPath=~"(?i)/users(/new|/password|/[0-9a-f]{32}(/policy|/password)?)?([?].*)?"
             | ClientHost != ip("10.211.2.0/24")
             | request_User_Agent!~"kdk-edge-probe.*" | DownstreamStatus=~"2.."
             | label_format client="{{ if .request_Cf_Connecting_Ip }}{{ .request_Cf_Connecting_Ip }}{{ else }}{{ .ClientHost }}{{ end }}" [15m])) > 0
