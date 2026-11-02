@@ -271,10 +271,16 @@ seasons:
 # food.supermarket_category. Ambiguous foods fall back to the freshness rule;
 # per-food overrides live in recipes/foods.yaml.
 stores:
-  order: [NewPi, Target, Costco, Amana]
+  order: [NewPi, Target, Costco, Amana, OConnell]
   # Which stores each run touches.
   weekly_stores: [NewPi, Target]
   bulk_stores: [Costco]        # Amana beef is a separate reorder task (Phase 2 stub)
+  # Freezer stock: bought in bulk ahead of time and kept frozen, so it is marked
+  # on hand and never appears on a weekly list. Amana = the eighth beef share;
+  # OConnell = O'Connell Organic Acres chicken breast + boneless pork chops
+  # (owner 2026-11-01), delivered frozen by the farm van on the Iowa City route
+  # (3rd Monday monthly) or FedEx. `grocery.run --freezer` sizes the orders.
+  freezer_stock_stores: [Amana, OConnell]
   # Default by shelf life when a food has no explicit override.
   default_fresh: NewPi         # ambiguous perishable -> New Pi
   default_shelf_stable: Target # ambiguous shelf-stable -> Target
@@ -284,6 +290,7 @@ stores:
     Target:  ["Pantry & Grains", Canned, "Oils & Spices", Condiments, Dairy, Frozen, Snacks, Other]
     Costco:  ["Freezer", "Pantry Bulk", "Snacks Bulk", Other]
     Amana:   ["Freezer Beef", Other]
+    OConnell: ["Freezer", Other]
 
 # Owner review gate. When on, the seed imports ONLY recipes the owner approved
 # (approved: true on a candidate, or owner_pick: true), and the generator draws

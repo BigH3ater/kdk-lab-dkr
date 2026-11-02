@@ -458,6 +458,91 @@ def preview(cfg, week_of=None):
     return 0
 
 
+_TO_LB = {"lb": 1.0, "lbs": 1.0, "pound": 1.0, "pounds": 1.0, "oz": 1 / 16, "ounce": 1 / 16,
+          "ounces": 1 / 16, "g": 1 / 453.6, "kg": 2.2046}
+
+
+def _food_rule(name, foods_cfg):
+    """The longest foods.yaml rule matching `name` (same rule route_food uses)."""
+    low, best = (name or "").lower(), None
+    for rule in foods_cfg.get("rules", []):
+        m = rule["match"].lower()
+        if m in low and (best is None or len(m) > len(best["match"])):
+            best = rule
+    return best or {}
+
+
+def freezer_usage(cfg, weeks=4, week_of=None):
+    """Read-only: plan the next `weeks` weeks the way the Tuesday build would and
+    total the freezer-stock foods they use (Amana beef, O'Connell chicken breast
+    and pork chops), in pounds and in packs where foods.yaml gives pack_lb. This
+    sizes the monthly O'Connell order and shows how far the beef share goes.
+    Each week is planned independently, as the real runs are."""
+    import math
+    from . import seed as SD
+    tz = cfg["cadence"]["timezone"]
+    from zoneinfo import ZoneInfo
+    today = datetime.datetime.now(ZoneInfo(tz)).date()
+    start = week_of or next_week_window(today, cfg["cadence"]["plan_start_weekday"])[0]
+    _, foods_cfg, _, _ = SD.load_configs()
+    t = _tandoor(cfg)
+    recipes_by_season, rcache = {}, {}
+    totals, other_units = {}, {}
+    for w in range(weeks):
+        s = start + datetime.timedelta(weeks=w)
+        season = G.season_for_date(s, cfg.get("seasons"))
+        if season not in recipes_by_season:
+            recipes_by_season[season] = [t.get(f"/api/recipe/{r['id']}/")
+                                         for r in t.get_all("/api/recipe/", keyword=_kw_id(t, season))]
+        pool = build_pool(recipes_by_season[season], season) + _fixed_pool(t)
+        try:
+            entries = G.generate_week(pool, s, cfg)
+        except G.PlanError as e:
+            print(f"PLAN ERROR {G.week_key(s)}: {e}")
+            continue
+        for e in entries:
+            if e.role == "leftover":
+                continue
+            r = rcache.get(e.recipe_id) or t.get(f"/api/recipe/{e.recipe_id}/")
+            rcache[e.recipe_id] = r
+            factor = float(e.servings or 2) / float(r.get("servings") or 1)
+            for st in r.get("steps") or []:
+                for i in st.get("ingredients") or []:
+                    name = (i.get("food") or {}).get("name") or ""
+                    cat = SD.route_food(name, foods_cfg, cfg["stores"]) if name else ""
+                    if not name or not SD.is_freezer_stock(cat, cfg["stores"]):
+                        continue
+                    store = cat.split("/", 1)[0]
+                    rule = _food_rule(name, foods_cfg)
+                    amt = float(i.get("amount") or 0) * factor
+                    unit = ((i.get("unit") or {}).get("name") or "").lower()
+                    if unit in _TO_LB:
+                        lb = amt * _TO_LB[unit]
+                    elif unit in ("", "each", "whole", "small", "medium", "large") and rule.get("each_lb"):
+                        lb = amt * rule["each_lb"]
+                    else:
+                        k = (store, rule.get("match", name))
+                        other_units.setdefault(k, {}).setdefault(unit, 0)
+                        other_units[k][unit] += amt
+                        continue
+                    k = (store, rule.get("match", name))
+                    totals[k] = totals.get(k, 0) + lb
+    end = start + datetime.timedelta(weeks=weeks) - datetime.timedelta(days=1)
+    print(f"== freezer stock used {start:%b %-d} - {end:%b %-d %Y} ({weeks} weeks)")
+    for store in sorted({k[0] for k in list(totals) + list(other_units)}):
+        print(f"-- {store}")
+        for (st, food), lb in sorted(totals.items()):
+            if st != store:
+                continue
+            pack = _food_rule(food, foods_cfg).get("pack_lb")
+            packs = f"  -> {math.ceil(lb / pack)} pack(s) of ~{pack} lb" if pack else ""
+            print(f"  {food:<22} {lb:6.1f} lb{packs}")
+        for (st, food), units in sorted(other_units.items()):
+            if st == store:
+                print(f"  {food:<22} " + " + ".join(f"{v:g} {u}" for u, v in units.items()))
+    return 0
+
+
 def main(argv=None):
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
@@ -469,9 +554,15 @@ def main(argv=None):
     ap.add_argument("--preview", action="store_true",
                     help="read-only: print the week the next run would plan, and its store lists")
     ap.add_argument("--week-of", metavar="YYYY-MM-DD",
-                    help="with --preview: the Sunday the week starts on")
+                    help="with --preview/--freezer: the Sunday the (first) week starts on")
+    ap.add_argument("--freezer", action="store_true",
+                    help="read-only: freezer stock (Amana beef, O'Connell chicken/pork) used over --weeks")
+    ap.add_argument("--weeks", type=int, default=4, help="with --freezer: how many weeks (default 4)")
     a = ap.parse_args(argv)
     cfg = load_cfg()
+    if a.freezer:
+        wo = datetime.date.fromisoformat(a.week_of) if a.week_of else None
+        return freezer_usage(cfg, a.weeks, wo)
     if a.preview:
         wo = datetime.date.fromisoformat(a.week_of) if a.week_of else None
         return preview(cfg, wo)

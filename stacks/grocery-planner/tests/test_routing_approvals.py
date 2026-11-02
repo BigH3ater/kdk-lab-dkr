@@ -30,7 +30,8 @@ def test_longest_key_routing(cfg):
 
 def test_beef_and_steak_are_amana(cfg):
     assert _route("sirloin steak", cfg) == "Amana/bulk: Freezer Beef"
-    assert _route("chicken breast", cfg) == "NewPi/weekly: Meat & Seafood"
+    assert _route("chicken breast", cfg) == "OConnell/monthly: Freezer"   # owner 2026-11-01
+    assert _route("chicken broth", cfg).startswith("Target/")
     assert _route("salmon fillet", cfg) == "NewPi/weekly: Meat & Seafood"
     assert _route("chuck roast", cfg) == "Amana/bulk: Freezer Beef"
 
@@ -45,8 +46,8 @@ def test_tuna_is_newpi_weekly_salmon_fallback_costco(cfg):
 
 
 def test_pork_and_target_comfort_items(cfg):
-    assert _route("boneless pork chop", cfg) == "NewPi/weekly: Meat & Seafood"
-    assert _route("pork loin chop", cfg) == "NewPi/weekly: Meat & Seafood"
+    assert _route("boneless pork chop", cfg) == "OConnell/monthly: Freezer"
+    assert _route("pork loin chop", cfg) == "OConnell/monthly: Freezer"
     assert _route("flour tortillas", cfg) == "Target/weekly: Pantry & Grains"
     assert _route("taco shells", cfg) == "Target/weekly: Pantry & Grains"
     assert _route("shredded cheese", cfg) == "Target/weekly: Dairy"
@@ -193,3 +194,10 @@ def test_dedupe_plan_keeps_lowest_id_per_url():
           {"id": 70, "source_url": "u2", "name": "b"}, {"id": 9, "source_url": None, "name": "c"}]
     plan = dedupe_plan(rs)
     assert len(plan) == 1 and plan[0][0]["id"] == 65 and [d["id"] for d in plan[0][1]] == [134]
+
+
+def test_freezer_stock_stores(cfg):
+    from grocery.seed import is_freezer_stock
+    assert is_freezer_stock("Amana/bulk: Freezer Beef", cfg["stores"])
+    assert is_freezer_stock("OConnell/monthly: Freezer", cfg["stores"])
+    assert not is_freezer_stock("NewPi/weekly: Meat & Seafood", cfg["stores"])

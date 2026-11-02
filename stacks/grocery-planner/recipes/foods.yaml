@@ -15,11 +15,14 @@
 # shelf-stable -> Target. Move a food's category once in Tandoor to override.
 rules:
   # ---- New Pi: weekly perishables ----
-  - {match: chicken breast,     category: "NewPi/weekly: Meat & Seafood"}
+  # Chicken breast and pork chops: O'Connell Organic Acres freezer stock (owner
+  # 2026-11-01). 2 breasts / about 1.1 lb a pack; boneless chops 2 / about 1 lb a
+  # pack. each_lb converts recipe counts ("3 chicken breasts") to pounds.
+  - {match: chicken breast,     category: "OConnell/monthly: Freezer", pack_lb: 1.1, each_lb: 0.55}
   - {match: chicken,            category: "NewPi/weekly: Meat & Seafood"}
   # Pork chops: fresh/weekly at New Pi (the flex dinner's pork weeks).
-  - {match: pork chop,          category: "NewPi/weekly: Meat & Seafood"}
-  - {match: pork loin chop,     category: "NewPi/weekly: Meat & Seafood"}
+  - {match: pork chop,          category: "OConnell/monthly: Freezer", pack_lb: 1.0, each_lb: 0.5}
+  - {match: pork loin chop,     category: "OConnell/monthly: Freezer", pack_lb: 1.0, each_lb: 0.5}
   - {match: salmon,             category: "NewPi/weekly: Meat & Seafood"}
   # Tuna at New Pi is frozen, salmon is fresh -- both ordered weekly from New Pi
   # (tuna is NOT a Costco bulk item). The 1-2 day fresh-fish timing rule applies

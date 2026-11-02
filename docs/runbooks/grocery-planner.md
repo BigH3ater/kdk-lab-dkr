@@ -172,6 +172,20 @@ It prints the meals per day, then each store's lines by aisle. Look for repeats,
 lines under `Other` (a missing rule in `recipes/foods.yaml`), and anything that
 should be on hand. If the week is already planned it says so; the real run skips it.
 
+## Freezer stock: Amana beef, O'Connell chicken + pork
+
+Chicken breast and boneless pork chops come from O'Connell Organic Acres (frozen;
+farm van on the Iowa City route, 3rd Monday monthly, or FedEx) and beef from the
+Amana eighth share. Both stores are `stores.freezer_stock_stores`: their foods are
+marked on hand and never appear on a weekly list. Size an order from the menu:
+
+```bash
+sudo docker compose run --rm grocery grocery.run --freezer                 # next 4 weeks
+sudo docker compose run --rm grocery grocery.run --freezer --weeks 16      # one beef share
+```
+
+It prints pounds per food and, where `foods.yaml` gives `pack_lb`, packs to order.
+
 ## Clean up ingredients (one food per line)
 
 Recipe-site imports leave one food under many names ("garlic", "minced garlic",
