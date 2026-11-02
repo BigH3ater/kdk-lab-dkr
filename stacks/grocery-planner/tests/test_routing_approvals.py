@@ -201,3 +201,19 @@ def test_freezer_stock_stores(cfg):
     assert is_freezer_stock("Amana/bulk: Freezer Beef", cfg["stores"])
     assert is_freezer_stock("OConnell/monthly: Freezer", cfg["stores"])
     assert not is_freezer_stock("NewPi/weekly: Meat & Seafood", cfg["stores"])
+
+
+def test_spices_go_to_penzeys_fresh_herbs_stay_produce(cfg):
+    for name in ("chili powder", "ground cumin", "smoked paprika", "dried oregano", "dried basil",
+                 "garlic powder", "black pepper", "red pepper flakes", "italian seasoning",
+                 "taco seasoning", "bay leaves", "ground ginger"):
+        assert _route(name, cfg) == "Penzeys/restock: Spices", name
+    for name in ("basil", "parsley", "thyme", "rosemary", "ginger", "garlic", "red bell pepper"):
+        assert _route(name, cfg).startswith("NewPi/weekly: Produce"), name
+    assert _route("ranch seasoning mix", cfg).startswith("Target/")
+    assert _route("Tri-Tip roast", cfg) == "Amana/bulk: Freezer Beef"
+
+
+def test_penzeys_is_a_stock_store(cfg):
+    from grocery.seed import is_freezer_stock
+    assert is_freezer_stock("Penzeys/restock: Spices", cfg["stores"])

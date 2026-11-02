@@ -77,7 +77,8 @@ def is_freezer_stock(cat_name, stores_cfg):
     """True for a category in a freezer-stock store (Amana beef share, O'Connell):
     bought ahead and kept frozen, so marked on hand and never on a weekly list."""
     store = (cat_name or "").split("/", 1)[0]
-    return store in (stores_cfg.get("freezer_stock_stores") or ["Amana"])
+    return store in (stores_cfg.get("stock_stores") or stores_cfg.get("freezer_stock_stores")
+                     or ["Amana"])
 
 
 def route_food(name, foods_cfg, stores_cfg):
