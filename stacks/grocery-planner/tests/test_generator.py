@@ -229,3 +229,44 @@ def test_burger_night_replaces_one_chicken_every_5th_week(cfg):
         base = 2 + (0 if _flex_kind(cfg, G.parity_for_week(s)) == "pork" else 1)
         assert n_chicken == base - (1 if burger else 0)
     assert seen_burger and seen_plain
+
+
+def test_scheduled_short_ribs_and_tri_tip(cfg):
+    """Short ribs only on their scheduled roast weeks, tri-tip only on its steak
+    weeks; never otherwise (the freezer holds a fixed number of each)."""
+    import datetime as dt
+    pool = make_pool()
+    pool.append({"id": 901, "name": "Short ribs", "kind": "roast", "season": "spring",
+                 "variant": None, "working_time": None, "ingredient_count": None,
+                 "servings": 5, "tags": ["short-ribs"]})
+    pool.append({"id": 902, "name": "Tri-tip fajitas", "kind": "steak", "season": "spring",
+                 "variant": None, "working_time": None, "ingredient_count": None,
+                 "servings": 4, "tags": ["tri-tip"]})
+    rules = {r["tag"]: r for r in cfg["scheduled"]}
+    sun = dt.date(2027, 3, 7)
+    hits = {"short-ribs": 0, "tri-tip": 0}
+    for w in range(13):                                   # spring only (make_pool)
+        s = sun + dt.timedelta(weeks=w)
+        n = int(G.week_key(s).split("W")[1])
+        mains = {x.recipe_id for x in G.generate_week(pool, s, cfg) if x.role == "dinner-main"}
+        sr, tt = rules["short-ribs"], rules["tri-tip"]
+        roast_week = G.parity_for_week(s) == cfg["roast"]["parity"]
+        want_sr = roast_week and n % sr["every_n_weeks"] == sr["offset"]
+        want_tt = n % tt["every_n_weeks"] == tt["offset"]
+        assert (901 in mains) == want_sr, (s, n)
+        assert (902 in mains) == want_tt, (s, n)
+        hits["short-ribs"] += want_sr
+        hits["tri-tip"] += want_tt
+    assert hits["tri-tip"] >= 2
+
+
+def test_owner_override_lifts_only_time_and_ingredient_caps(cfg):
+    from grocery.scoring import evaluate_candidate
+    long = {"rating": 4.9, "count": 50, "total_time_min": 65, "site": "x",
+            "ingredients": ["1 lb flank steak"], "has_beans_lentils": False,
+            "non_olive_fats": []}
+    assert evaluate_candidate(dict(long), "steak", cfg).verdict == "rejected"
+    assert evaluate_candidate(dict(long, owner_override=True), "steak", cfg).verdict != "rejected"
+    radish = dict(long, total_time_min=20, ingredients=["1 lb flank steak", "4 radishes"],
+                  owner_override=True, owner_pick=True)
+    assert evaluate_candidate(radish, "steak", cfg).verdict == "rejected"   # excluded food still rejects

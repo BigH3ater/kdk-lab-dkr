@@ -193,10 +193,14 @@ def generate_week(pool: list[dict], week_start: datetime.date, config: dict) -> 
         burger = _by_name(pool, bn.get("recipe", "Burger night"))
     chicken = _pick(pool, "chicken", season, caps, rng, used,
                     pr["poultry"] - (1 if burger else 0))
-    steak = _pick(pool, "steak", season, caps, rng, used, 1)[0]
+    steak = _scheduled(pool, "steak", season, caps, rng, used, wk, config) or \
+        _pick(_unscheduled(pool, "steak", wk, config), "steak", season, caps, rng, used, 1)[0]
     beef = _pick_beef(pool, season, caps, rng, used, beef_n,
                       beef_cfg.get("max_asian_per_week", 1))
-    roast = _pick(pool, "roast", season, caps, rng, used, 1)[0] if roast_week else None
+    roast = None
+    if roast_week:
+        roast = _scheduled(pool, "roast", season, caps, rng, used, wk, config) or \
+            _pick(_unscheduled(pool, "roast", wk, config), "roast", season, caps, rng, used, 1)[0]
 
     # Flex dinner: alternates pork chop / chicken breast by week (parity picks the
     # rotation slot). A chicken flex is an extra chicken dish not already used.
@@ -250,7 +254,9 @@ def generate_week(pool: list[dict], week_start: datetime.date, config: dict) -> 
     beef_lunch = None
     if bsf.get("enabled") and parity == bsf.get("parity", "A"):
         names = {n.lower() for n in bsf.get("recipes") or []}
-        cands = [r for r in pool if r.get("name", "").lower() in names and r["id"] not in used]
+        cands = [r for r in pool if (r.get("name", "").lower() in names
+                                     or "beef-lunch" in (r.get("tags") or ()))
+                 and r["id"] not in used]
         rng.shuffle(cands)
         beef_lunch = cands[0] if cands else None      # none free/seeded: plain lunches
     n_lunch = config["lunches"]["recipes_per_week"] - (1 if beef_lunch else 0)
@@ -293,6 +299,37 @@ def _offset(week_start, target_weekday):
         if (week_start + datetime.timedelta(days=d)).weekday() == target_weekday:
             return d
     return 0
+
+
+def _week_no(wk):
+    return int(wk.split("W")[1])
+
+
+def _rules(config, kind):
+    return [r for r in (config.get("scheduled") or []) if r.get("kind") == kind]
+
+
+def _scheduled(pool, kind, season, caps, rng, used, wk, config):
+    """Freezer-limited recipes (config `scheduled`): on a scheduled week the
+    `kind` slot IS one of the tagged recipes (e.g. short ribs on a roast week).
+    Returns the pick, or None when this isn't a scheduled week / none is seeded."""
+    for rule in _rules(config, kind):
+        if _week_no(wk) % int(rule["every_n_weeks"]) != int(rule.get("offset", 0)):
+            continue
+        cands = [r for r in pool if r.get("kind") == kind and r.get("season") == season
+                 and rule["tag"] in (r.get("tags") or ()) and r["id"] not in used]
+        if cands:
+            rng.shuffle(cands)
+            used.add(cands[0]["id"])
+            return cands[0]
+    return None
+
+
+def _unscheduled(pool, kind, wk, config):
+    """The pool without the freezer-limited recipes of `kind`, so they only appear
+    on their scheduled weeks (the freezer holds a fixed number of them)."""
+    tags = {r["tag"] for r in _rules(config, kind)}
+    return [r for r in pool if not (r.get("kind") == kind and tags & set(r.get("tags") or ()))]
 
 
 def _by_name(pool, name):

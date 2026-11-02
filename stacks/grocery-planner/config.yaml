@@ -265,6 +265,15 @@ lunches:
 breakfast:
   staples_recipe: "Weekly staples"   # planned every week as Breakfast
 
+# Freezer-limited recipes (owner 2026-11-01): the Amana order holds 2 x 4 lb
+# short ribs and 2 x 2 lb tri-tip, so these recipes appear only on scheduled
+# weeks (ISO week % every_n_weeks == offset) and are excluded otherwise.
+#   short ribs: roast weeks are odd, so offset 1 every 12 weeks -> 2 per 24 weeks.
+#   tri-tip fajitas: every 6 weeks -> 4 steak nights per 24 weeks (2 per tri-tip).
+scheduled:
+  - {tag: short-ribs, kind: roast, every_n_weeks: 12, offset: 1}
+  - {tag: tri-tip,    kind: steak, every_n_weeks: 6,  offset: 3}
+
 # Burger night (owner 2026-11-01): the eighth share's 5 patty packs (4 x 1/3 lb).
 # Every 5th ISO week one CHICKEN dinner becomes "Burger night" (fixed.yaml), so
 # 24 weeks use about 5 packs and the ground-beef balance is unchanged.
@@ -290,7 +299,7 @@ seasons:
 # food.supermarket_category. Ambiguous foods fall back to the freshness rule;
 # per-food overrides live in recipes/foods.yaml.
 stores:
-  order: [NewPi, Target, Costco, Amana, OConnell]
+  order: [NewPi, Target, Costco, Amana, OConnell, Penzeys]
   # Which stores each run touches.
   weekly_stores: [NewPi, Target]
   bulk_stores: [Costco]        # Amana beef is a separate reorder task (Phase 2 stub)
@@ -299,7 +308,8 @@ stores:
   # OConnell = O'Connell Organic Acres chicken breast + boneless pork chops
   # (owner 2026-11-01), delivered frozen by the farm van on the Iowa City route
   # (3rd Monday monthly) or FedEx. `grocery.run --freezer` sizes the orders.
-  freezer_stock_stores: [Amana, OConnell]
+  # Penzeys = spices (owner 2026-11-01): pantry stock, restocked online.
+  stock_stores: [Amana, OConnell, Penzeys]
   # Default by shelf life when a food has no explicit override.
   default_fresh: NewPi         # ambiguous perishable -> New Pi
   default_shelf_stable: Target # ambiguous shelf-stable -> Target
@@ -310,6 +320,7 @@ stores:
     Costco:  ["Freezer", "Pantry Bulk", "Snacks Bulk", Other]
     Amana:   ["Freezer Beef", Other]
     OConnell: ["Freezer", Other]
+    Penzeys: [Spices, Other]
 
 # Owner review gate. When on, the seed imports ONLY recipes the owner approved
 # (approved: true on a candidate, or owner_pick: true), and the generator draws

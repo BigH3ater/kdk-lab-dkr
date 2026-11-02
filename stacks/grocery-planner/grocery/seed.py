@@ -33,7 +33,10 @@ log = logging.getLogger("grocery.seed")
 VOCAB = ["main", "simple", "mediterranean", "veg-side", "lunch-prep", "breakfast",
          "snack", "fish", "salmon", "tuna", "poultry", "pork", "ground-beef",
          "steak", "roast", "comfort", "tex-mex", "asian", "italian", "greek",
-         "feta", "spring", "summer", "fall", "winter"]
+         "feta", "spring", "summer", "fall", "winter",
+         "beef-lunch", "short-ribs", "tri-tip"]
+# Scheduling tags, set from the slot id (see config `scheduled`, lunches.beef_stir_fry).
+SLOT_TAGS = {"-beef-lunch-": "beef-lunch", "-shortribs-": "short-ribs", "-tritip-": "tri-tip"}
 BOOKS = {"spring": "Spring", "summer": "Summer", "fall": "Fall", "winter": "Winter"}
 
 
@@ -66,6 +69,7 @@ def keywords_for_slot(slot_id, kind, season):
             kw |= {"poultry"}
         elif kind == "steak":
             kw |= {"steak"}
+    kw |= {tag for part, tag in SLOT_TAGS.items() if part in slot_id}
     return sorted(kw)
 
 
@@ -73,7 +77,8 @@ def is_freezer_stock(cat_name, stores_cfg):
     """True for a category in a freezer-stock store (Amana beef share, O'Connell):
     bought ahead and kept frozen, so marked on hand and never on a weekly list."""
     store = (cat_name or "").split("/", 1)[0]
-    return store in (stores_cfg.get("freezer_stock_stores") or ["Amana"])
+    return store in (stores_cfg.get("stock_stores") or stores_cfg.get("freezer_stock_stores")
+                     or ["Amana"])
 
 
 def route_food(name, foods_cfg, stores_cfg):

@@ -103,7 +103,7 @@ foods:
   brown sugar: [light brown sugar, packed light-brown sugar]
   sugar: [granulated sugar]
   cornstarch: [corn starch]
-  red pepper flakes: [crushed red pepper flakes, red chili flakes]
+  red pepper flakes: [crushed red pepper flakes, red chili flakes, red chilli flakes]
   cayenne pepper: [cayenne, pinch cayenne pepper]
   paprika: [ground paprika]
   cumin: [ground cumin, each cumin]
@@ -119,6 +119,13 @@ foods:
   potatoes: [peeled and diced potatoes, cubed russet potatoes]
   baby potatoes: [baby red potatoes, lb baby potatoes]
   italian seasoning: []
+  vegetable oil: [canola oil]
+  mayonnaise: [mayo, heaping tablespoons mayo]
+  jalapeño: [jalapeno, jalapenos, jalapeños, "half of a large jalapeño, minced"]
+  bay leaves: [dried bay leaves, bay leaf]
+  water: [cold water, warm water, hot water]
+  tortilla chips: [chips for serving, chips]
+  tri-tip: [tri-tip roast, whole tri-tip]
   minced ginger: []
   cabbage: [of cabbage]
   corn kernels: [of corn, frozen or fresh corn kernels]
@@ -139,6 +146,6 @@ pantry:
 
 # Lines that aren't something to buy (a "serve with" heading imported as a
 # food). Marked ignore_shopping.
-not_food: [nothing, optional, toppings as desired, leaves, diced,
+not_food: [nothing, optional, toppings as desired, leaves, diced, for serving,
            # sub-recipes listed as an ingredient (made from their own recipe)
            sauce vierge, best chicken marinade]

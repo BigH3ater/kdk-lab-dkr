@@ -121,6 +121,7 @@ def build_pool(recipes, season):
             "working_time": None,
             "ingredient_count": None, "slot": "",
             "servings": r.get("servings", 2),
+            "tags": sorted(names & {"beef-lunch", "short-ribs", "tri-tip"}),
         })
     return pool
 
@@ -458,6 +459,10 @@ def preview(cfg, week_of=None):
     return 0
 
 
+_TO_TSP = {"tsp": 1.0, "teaspoon": 1.0, "teaspoons": 1.0, "tbsp": 3.0, "tablespoon": 3.0,
+           "tablespoons": 3.0, "cup": 48.0, "cups": 48.0, "pinch": 1 / 16, "dash": 1 / 8}
+_JAR_TSP = 12.0     # a Penzeys 1/4-cup jar is 12 tsp
+
 _TO_LB = {"lb": 1.0, "lbs": 1.0, "pound": 1.0, "pounds": 1.0, "oz": 1 / 16, "ounce": 1 / 16,
           "ounces": 1 / 16, "g": 1 / 453.6, "kg": 2.2046}
 
@@ -487,7 +492,7 @@ def freezer_usage(cfg, weeks=4, week_of=None):
     _, foods_cfg, _, _ = SD.load_configs()
     t = _tandoor(cfg)
     recipes_by_season, rcache = {}, {}
-    totals, other_units = {}, {}
+    totals, other_units, tsp_totals = {}, {}, {}
     for w in range(weeks):
         s = start + datetime.timedelta(weeks=w)
         season = G.season_for_date(s, cfg.get("seasons"))
@@ -516,6 +521,10 @@ def freezer_usage(cfg, weeks=4, week_of=None):
                     rule = _food_rule(name, foods_cfg)
                     amt = float(i.get("amount") or 0) * factor
                     unit = ((i.get("unit") or {}).get("name") or "").lower()
+                    if store == "Penzeys" and unit in _TO_TSP:      # spices: by volume
+                        k = (store, rule.get("match", name))
+                        tsp_totals[k] = tsp_totals.get(k, 0) + amt * _TO_TSP[unit]
+                        continue
                     if unit in _TO_LB:
                         lb = amt * _TO_LB[unit]
                     elif unit in ("", "each", "whole", "small", "medium", "large") and rule.get("each_lb"):
@@ -528,8 +537,8 @@ def freezer_usage(cfg, weeks=4, week_of=None):
                     k = (store, rule.get("match", name))
                     totals[k] = totals.get(k, 0) + lb
     end = start + datetime.timedelta(weeks=weeks) - datetime.timedelta(days=1)
-    print(f"== freezer stock used {start:%b %-d} - {end:%b %-d %Y} ({weeks} weeks)")
-    for store in sorted({k[0] for k in list(totals) + list(other_units)}):
+    print(f"== stock used {start:%b %-d} - {end:%b %-d %Y} ({weeks} weeks)")
+    for store in sorted({k[0] for k in list(totals) + list(other_units) + list(tsp_totals)}):
         print(f"-- {store}")
         for (st, food), lb in sorted(totals.items()):
             if st != store:
@@ -537,6 +546,10 @@ def freezer_usage(cfg, weeks=4, week_of=None):
             pack = _food_rule(food, foods_cfg).get("pack_lb")
             packs = f"  -> {math.ceil(lb / pack)} pack(s) of ~{pack} lb" if pack else ""
             print(f"  {food:<22} {lb:6.1f} lb{packs}")
+        for (st, food), tsp in sorted(tsp_totals.items(), key=lambda x: -x[1]):
+            if st == store:
+                jars = math.ceil(tsp / _JAR_TSP)
+                print(f"  {food:<22} {tsp:6.1f} tsp  -> ~{jars} x 1/4-cup jar")
         for (st, food), units in sorted(other_units.items()):
             if st == store:
                 print(f"  {food:<22} " + " + ".join(f"{v:g} {u}" for u, v in units.items()))
@@ -555,8 +568,9 @@ def main(argv=None):
                     help="read-only: print the week the next run would plan, and its store lists")
     ap.add_argument("--week-of", metavar="YYYY-MM-DD",
                     help="with --preview/--freezer: the Sunday the (first) week starts on")
-    ap.add_argument("--freezer", action="store_true",
-                    help="read-only: freezer stock (Amana beef, O'Connell chicken/pork) used over --weeks")
+    ap.add_argument("--stock", "--freezer", dest="freezer", action="store_true",
+                    help="read-only: stock-store use (Amana beef, O'Connell chicken/pork, Penzeys "
+                         "spices) over --weeks")
     ap.add_argument("--weeks", type=int, default=4, help="with --freezer: how many weeks (default 4)")
     a = ap.parse_args(argv)
     cfg = load_cfg()

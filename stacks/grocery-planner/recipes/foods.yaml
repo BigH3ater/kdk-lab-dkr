@@ -167,13 +167,44 @@ rules:
   - {match: soy sauce,  category: "Target/weekly: Oils & Spices"}
   - {match: hoisin,     category: "Target/weekly: Oils & Spices"}
   - {match: honey,      category: "Target/weekly: Oils & Spices"}
-  - {match: oregano,    category: "Target/weekly: Oils & Spices"}
-  - {match: cumin,      category: "Target/weekly: Oils & Spices"}
-  - {match: paprika,    category: "Target/weekly: Oils & Spices"}
-  - {match: cinnamon,   category: "Target/weekly: Oils & Spices"}
-  - {match: chili powder,category: "Target/weekly: Oils & Spices"}
-  - {match: spice,      category: "Target/weekly: Oils & Spices"}
-  - {match: seasoning,  category: "Target/weekly: Oils & Spices"}
+  # Spices: Penzeys (owner 2026-11-01), a stock store like Amana/O'Connell -- kept
+  # on hand, restocked from `grocery.run --stock`. Fresh herbs (basil, parsley,
+  # thyme, rosemary, cilantro) and fresh ginger/garlic stay New Pi produce; the
+  # dried/ground forms are Penzeys. Ranch/au jus packets stay Target.
+  - {match: dried oregano,     category: "Penzeys/restock: Spices"}
+  - {match: oregano,           category: "Penzeys/restock: Spices"}
+  - {match: dried basil,       category: "Penzeys/restock: Spices"}
+  - {match: dried thyme,       category: "Penzeys/restock: Spices"}
+  - {match: dried rosemary,    category: "Penzeys/restock: Spices"}
+  - {match: dried parsley,     category: "Penzeys/restock: Spices"}
+  - {match: dried marjoram,    category: "Penzeys/restock: Spices"}
+  - {match: cumin,             category: "Penzeys/restock: Spices"}
+  - {match: paprika,           category: "Penzeys/restock: Spices"}
+  - {match: smoked paprika,    category: "Penzeys/restock: Spices"}
+  - {match: cinnamon,          category: "Penzeys/restock: Spices"}
+  - {match: chili powder,      category: "Penzeys/restock: Spices"}
+  - {match: garlic powder,     category: "Penzeys/restock: Spices"}
+  - {match: onion powder,      category: "Penzeys/restock: Spices"}
+  - {match: italian seasoning, category: "Penzeys/restock: Spices"}
+  - {match: cayenne,           category: "Penzeys/restock: Spices"}
+  - {match: red pepper flakes, category: "Penzeys/restock: Spices"}
+  - {match: crushed red pepper, category: "Penzeys/restock: Spices"}
+  - {match: black pepper,      category: "Penzeys/restock: Spices"}
+  - {match: peppercorns,       category: "Penzeys/restock: Spices"}
+  - {match: taco seasoning,    category: "Penzeys/restock: Spices"}
+  - {match: fajita seasoning,  category: "Penzeys/restock: Spices"}
+  - {match: bay leaves,        category: "Penzeys/restock: Spices"}
+  - {match: bay leaf,          category: "Penzeys/restock: Spices"}
+  - {match: ground coriander,  category: "Penzeys/restock: Spices"}
+  - {match: nutmeg,            category: "Penzeys/restock: Spices"}
+  - {match: ground ginger,     category: "Penzeys/restock: Spices"}
+  - {match: dry mustard,       category: "Penzeys/restock: Spices"}
+  - {match: curry powder,      category: "Penzeys/restock: Spices"}
+  - {match: chipotle powder,   category: "Penzeys/restock: Spices"}
+  - {match: allspice,          category: "Penzeys/restock: Spices"}
+  - {match: ground cloves,     category: "Penzeys/restock: Spices"}
+  - {match: seasoning,         category: "Penzeys/restock: Spices"}
+  - {match: spice,             category: "Penzeys/restock: Spices"}
   # Mississippi pot-roast pantry (the roast beef itself is Amana/on-hand):
   - {match: ranch,      category: "Target/weekly: Oils & Spices"}
   - {match: au jus,     category: "Target/weekly: Oils & Spices"}
@@ -207,6 +238,18 @@ rules:
   # foods the season recipes use that matched no rule.
   # "chicken" (Meat & Seafood) would otherwise win the longest match.
   - {match: tomato paste,   category: "Target/weekly: Canned"}
+  - {match: seasoning mix,  category: "Target/weekly: Oils & Spices"}   # packets (ranch) beat Penzeys "seasoning"
+  - {match: ranch seasoning, category: "Target/weekly: Oils & Spices"}
+  - {match: jalapeño,       category: "NewPi/weekly: Produce"}
+  - {match: jalapeno,       category: "NewPi/weekly: Produce"}
+  - {match: relish,         category: "Target/weekly: Condiments"}
+  - {match: coconut aminos, category: "Target/weekly: Condiments"}
+  - {match: gelatin,        category: "Target/weekly: Pantry & Grains"}
+  - {match: tajín,          category: "Target/weekly: Oils & Spices"}
+  - {match: tajin,          category: "Target/weekly: Oils & Spices"}
+  - {match: chips,          category: "Target/weekly: Snacks"}
+  - {match: tri-tip,        category: "Amana/bulk: Freezer Beef"}
+  - {match: short rib,      category: "Amana/bulk: Freezer Beef"}
   - {match: hamburger buns, category: "NewPi/weekly: Bakery"}
   - {match: pickles,        category: "Target/weekly: Condiments"}
   - {match: chicken broth,  category: "Target/weekly: Canned"}

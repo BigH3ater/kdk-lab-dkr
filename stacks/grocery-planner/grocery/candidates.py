@@ -112,7 +112,8 @@ def _variant(slot_id, kind):
 
 # Ground-beef dish style (for the <= 1 Asian-style-per-week rule), keyed off the
 # slot id substring. Everything else is "comfort".
-_BEEF_STYLE = {"broccoli": "asian", "chili": "tex-mex", "taco": "tex-mex",
+_BEEF_STYLE = {"broccoli": "asian", "korean": "asian", "streetcorn": "tex-mex",
+               "chili": "tex-mex", "taco": "tex-mex",
                "quesadilla": "tex-mex", "spaghetti": "italian", "greek": "greek"}
 
 
