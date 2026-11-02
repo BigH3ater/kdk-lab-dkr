@@ -20,10 +20,12 @@
 # NOTHING here commands the treadmill — this package only reads. Motor control
 # is Phase 2 (thud), out of scope.
 #
-# MULTI-USER MODEL: input_select.tm_current_walker names who is on the belt
-# (set by the slice-3 dashboard's "I'm walking" button via
-# script.tm_set_walker_from_user, which resolves the pressing HA user to a
-# person). A session is bracketed by two automations (speed > 0 starts it,
+# MULTI-USER MODEL: input_select.tm_current_walker names who is on the belt. It
+# is set automatically by the console (thud POSTs its active profile to the
+# tm_walker_from_thud webhook below), and can also be set by the slice-3
+# dashboard's "I'm walking" button (script.tm_set_walker_from_user, which
+# resolves the pressing HA user to a person) or selected by hand. A session is
+# bracketed by two automations (speed > 0 starts it,
 # speed 0 for 2 min ends it); on end, the session's distance/time are added to
 # the selected walker's running totals and their last-workout datetime is
 # stamped — the per-person pattern mirrors roborock.yaml's rr_last_clean_<room>.
@@ -448,3 +450,41 @@ automation:
       - action: input_boolean.turn_off
         target:
           entity_id: input_boolean.tm_session_active
+
+  # thud (the console workout UI) POSTs its ACTIVE PROFILE here whenever the
+  # user switches profile or starts/ends a run, so the correct person is
+  # attributed automatically — no dashboard "I'm walking" button required. This
+  # ONLY keeps input_select.tm_current_walker in sync with the console; the
+  # speed-based start/end automations above still bracket the session and add
+  # the distance/time/calories to whoever this walker is (so we do NOT use the
+  # webhook's distance_m/duration_s here — that would double-count).
+  #
+  # Auth: the random webhook id IS the only credential, so it is a host
+  # !secret (tm_webhook_id in secrets.yaml), never committed. The console is on
+  # a different VLAN than HA and so is not seen as "local" -> local_only: false.
+  # Payloads: {"event":"profile|run_start|run_end","profile":"<name>", ...}.
+  - id: tm_walker_from_thud
+    alias: "Treadmill: set walker from thud webhook"
+    mode: queued
+    max: 10
+    triggers:
+      - trigger: webhook
+        webhook_id: !secret tm_webhook_id
+        allowed_methods:
+          - POST
+        local_only: false
+    conditions:
+      - condition: template
+        value_template: >-
+          {{ trigger.json.event in ['profile', 'run_start', 'run_end']
+             and trigger.json.profile is defined }}
+    actions:
+      - variables:
+          profile: "{{ trigger.json.profile | default('') }}"
+          opts: "{{ state_attr('input_select.tm_current_walker', 'options') }}"
+          walker: "{{ profile if profile in opts else 'Guest' }}"
+      - action: input_select.select_option
+        target:
+          entity_id: input_select.tm_current_walker
+        data:
+          option: "{{ walker }}"
