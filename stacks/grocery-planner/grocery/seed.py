@@ -69,6 +69,13 @@ def keywords_for_slot(slot_id, kind, season):
     return sorted(kw)
 
 
+def is_freezer_stock(cat_name, stores_cfg):
+    """True for a category in a freezer-stock store (Amana beef share, O'Connell):
+    bought ahead and kept frozen, so marked on hand and never on a weekly list."""
+    store = (cat_name or "").split("/", 1)[0]
+    return store in (stores_cfg.get("freezer_stock_stores") or ["Amana"])
+
+
 def route_food(name, foods_cfg, stores_cfg):
     """Return the supermarket-category name for a food by the LONGEST matching
     rule (most specific wins, so 'crushed tomato' beats 'tomato', 'popcorn'
@@ -285,7 +292,7 @@ def _route_recipe_foods(t, recipe, foods_cfg, cfg, cats):
             cat = cats.get(cat_name) or t.ensure_supermarket_category(cat_name)
             cats[cat_name] = cat
             body = {"supermarket_category": {"id": cat["id"], "name": cat_name}}
-            if cat_name.startswith("Amana/"):     # eighth-share freezer stock -> on hand
+            if is_freezer_stock(cat_name, cfg["stores"]):   # freezer stock -> on hand
                 body["food_onhand"] = True
             t.patch(f"/api/food/{fid}/", body)
 

@@ -327,11 +327,14 @@ def run(t, cc, cfg, foods_cfg, fixed_cfg, apply=False, refresh_list=False):
         cur = (f.get("supermarket_category") or {}).get("name") if isinstance(f.get("supermarket_category"), dict) else None
         # Route foods with no store, and foods parked in a store's "Other" default
         # once a rule matches them (a food moved by hand to a real aisle stays).
-        if cat_name != cur and (not cur or (cur.endswith(": Other") and not cat_name.endswith(": Other"))):
+        # Freezer-stock routing is a plan decision (where the meat comes from), so
+        # it always wins, even over an aisle set earlier.
+        if cat_name != cur and (not cur or (cur.endswith(": Other") and not cat_name.endswith(": Other"))
+                                or S.is_freezer_stock(cat_name, cfg["stores"])):
             cat = cats.get(cat_name) or (t.ensure_supermarket_category(cat_name) if apply else {"id": None})
             cats[cat_name] = cat
             body["supermarket_category"] = {"id": cat["id"], "name": cat_name}
-            if cat_name.startswith("Amana/"):
+            if S.is_freezer_stock(cat_name, cfg["stores"]):
                 body["food_onhand"] = True
         if body:
             log.info("  food %r: %s", name, ", ".join(
@@ -456,7 +459,7 @@ def validate_recipes(t, cc, cfg, foods_cfg, fixed_cfg, live=False):
                     low = food.lower()
                     cur = foods.get(low) or {}
                     cat = S.route_food(food, foods_cfg, cfg["stores"])
-                    if (cur.get("food_onhand") or low in maps.pantry or cat.startswith("Amana/")
+                    if (cur.get("food_onhand") or low in maps.pantry or S.is_freezer_stock(cat, cfg["stores"])
                             or cur.get("ignore_shopping") or low in maps.not_food):
                         continue
                     lines.append((food, unit, body.get("amount", ing.get("amount") or 0)))
