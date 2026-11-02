@@ -3,7 +3,7 @@ FROM python:3.12.16-slim@sha256:8523d6abeb48ceae0b7240d30c5808fc26cb79c1a635bacd
 # dashboard mealplan sidecar), generates next week's plan, builds the two-store
 # shopping list, and creates a Vikunja approval task. requests + pyyaml only.
 # Dependencies via uv from the committed uv.lock (owner 2026-11-01: use uv).
-COPY --from=ghcr.io/astral-sh/uv:0.11.28@sha256:0f36cb9361a3346885ca3677e3767016687b5a170c1a6b88465ec14aefec90aa /uv /usr/local/bin/uv
+COPY --from=ghcr.io/astral-sh/uv:0.13.6@sha256:af22a52f5eafef3d78e551599d405c02df61919d18028f0cea8eda93bc9986d0 /uv /usr/local/bin/uv
 WORKDIR /app
 COPY pyproject.toml uv.lock /app/
 ENV UV_LINK_MODE=copy UV_COMPILE_BYTECODE=1 UV_PYTHON_DOWNLOADS=never
