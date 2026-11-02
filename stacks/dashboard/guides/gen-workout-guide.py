@@ -400,6 +400,12 @@ PAGE_TEMPLATE = """<!DOCTYPE html>
   .everyday {{ margin-top:10px; padding-left:12px;
     border-left:2px solid var(--line); }}
   .everyday .step {{ background:transparent; border:none; padding:6px 0; margin:0; }}
+  /* One day at a time: once JS runs (html.js), show only the selected day's
+     section — like the groceries page. Without JS every day stays visible. */
+  html.js .day {{ display:none; }}
+  html.js .day.active {{ display:block; }}
+  .daynav a.active {{ color:var(--ink); background:var(--accent);
+    border-color:var(--accent); font-weight:600; }}
 </style>
 </head>
 <body>
@@ -430,23 +436,41 @@ PAGE_TEMPLATE = """<!DOCTYPE html>
   </footer>
   </div>
 <script>
-  /* Highlight and open today's section by default. Date handling mirrors the
-     defensive style in shared-nav.js (wrap in try/catch, bail quietly). */
+  /* One day at a time: the day tabs show ONLY the chosen day's section (like the
+     groceries page) instead of scrolling one long list. Defaults to today; a
+     shared "#fri" link still wins. Progressive enhancement — the html.js gate
+     means every day stays visible if this script fails. */
   (function () {{
     try {{
+      document.documentElement.className += " js";
       var ids = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
-      var today = ids[new Date().getDay()];
-      if (!today) {{ return; }}
-      var sec = document.getElementById(today);
-      if (sec) {{ sec.classList.add("today"); }}
+      var today = ids[new Date().getDay()] || "mon";
+      function show(day) {{
+        document.querySelectorAll(".day").forEach(function (s) {{
+          s.classList.toggle("active", s.getAttribute("data-day") === day);
+        }});
+        document.querySelectorAll(".daynav a[data-day]").forEach(function (a) {{
+          a.classList.toggle("active", a.getAttribute("data-day") === day);
+        }});
+        try {{ history.replaceState(null, "", "#" + day); }} catch (e) {{}}
+        window.scrollTo(0, 0);
+      }}
+      document.querySelectorAll(".daynav a[data-day]").forEach(function (a) {{
+        a.addEventListener("click", function (e) {{
+          e.preventDefault();
+          show(a.getAttribute("data-day"));
+        }});
+      }});
+      // Permanent "Today" badge on today's section + its tab.
+      var tsec = document.getElementById(today);
+      if (tsec) {{ tsec.classList.add("today"); }}
       document.querySelectorAll('.daynav a[data-day="' + today + '"]').forEach(
         function (a) {{ a.classList.add("today"); }});
-      // Jump to today's section on first load only when no explicit #hash was
-      // requested, so a shared "#fri" link still wins.
-      if (!location.hash && sec) {{
-        sec.scrollIntoView({{ behavior: "auto", block: "start" }});
-      }}
-    }} catch (e) {{ /* no-op: the full plan is still there, just not pre-scrolled */ }}
+      // Open the requested #hash day if it exists, else today.
+      var want = (location.hash || "").replace("#", "");
+      var ok = want && document.querySelector('.day[data-day="' + want + '"]');
+      show(ok ? want : today);
+    }} catch (e) {{ /* no-op: no 'js' class added, so every day stays visible */ }}
   }})();
 </script>
 <script src="../shared-nav.js?v={v}" defer></script>
