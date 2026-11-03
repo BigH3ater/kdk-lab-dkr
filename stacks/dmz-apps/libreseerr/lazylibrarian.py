@@ -1,0 +1,288 @@
+import json
+import logging
+import re
+from typing import Optional
+
+import requests
+
+logger = logging.getLogger(__name__)
+
+# ─── LOCAL PATCH (libreseerr v0.9.1) ──────────────────────────────────────────
+# See stacks/dmz-apps/compose.yaml for the full rationale. Two fixes versus
+# upstream v0.9.1:
+#   1. Queue format is configurable (queue_type) so the audiobook server marks
+#      AudioBook Wanted instead of always eBook.
+#   2. search_books()/lookup_by_isbn() rank results best-first so create_request
+#      and the add_book fallback (both take results[0]) stop grabbing the box
+#      set / bundle that LazyLibrarian+Hardcover tends to return first.
+# Everything else is byte-identical to upstream. Drop this patch once upstream
+# fixes both issues.
+
+# Titles that are collections/box sets rather than the single requested book.
+_BUNDLE_PATTERNS = [
+    re.compile(r"box\s*-?\s*set", re.I),
+    re.compile(r"\bbundle\b", re.I),
+    re.compile(r"\bomnibus\b", re.I),
+    re.compile(r"\bcollection\b", re.I),
+    re.compile(r"\banthology\b", re.I),
+    re.compile(r"\b\d+\s*-?\s*books?\s+set\b", re.I),   # "7 Books Set", "7-Book Set"
+    re.compile(r"\bbooks?\s+set\b", re.I),               # "Books Set"
+    re.compile(r"\bbooks?\s+\d+\s*[-–]\s*\d+\b", re.I),  # "Books 1-7"
+    re.compile(r"\bvolumes?\s+\w+\s*[-–]\s*(?:volume\s+)?\w+\b", re.I),  # "Volume I - Volume V"
+]
+
+_WORD_RE = re.compile(r"[^\w\s]", re.UNICODE)
+_WS_RE = re.compile(r"\s+")
+_ARTICLE_RE = re.compile(r"^(?:a|an|the)\s+")
+
+
+def _normalize(text: str) -> str:
+    """Lowercase, drop punctuation, collapse whitespace."""
+    t = (text or "").lower()
+    t = _WORD_RE.sub(" ", t)
+    t = _WS_RE.sub(" ", t).strip()
+    return t
+
+
+def _normalize_title(title: str) -> str:
+    """Normalize a title: drop a ': subtitle', punctuation, case and leading article."""
+    t = (title or "").split(":", 1)[0]
+    t = _normalize(t)
+    t = _ARTICLE_RE.sub("", t)
+    return t
+
+
+def is_bundle(title: str) -> bool:
+    """True when the title looks like a box set / bundle / collection, not one book."""
+    t = title or ""
+    return any(p.search(t) for p in _BUNDLE_PATTERNS)
+
+
+def _fuzz(record: dict, *keys: str) -> Optional[float]:
+    """First present numeric fuzz field (LazyLibrarian findBook match %), else None."""
+    for k in keys:
+        v = record.get(k)
+        if v in (None, ""):
+            continue
+        try:
+            return float(v)
+        except (TypeError, ValueError):
+            return None
+    return None
+
+
+def _score_record(record: dict, query_norm: str) -> float:
+    """Score one LazyLibrarian findBook/searchItem record against a normalized query.
+
+    Higher is better. Ordering of signals (strongest first):
+      1. box set / bundle / collection titles are heavily deprioritised;
+      2. an exact-ish normalised title match (+ author match) wins;
+      3. then LazyLibrarian's own fuzz fields break remaining ties.
+    Nothing is dropped — this only reorders.
+    """
+    title_norm = _normalize_title(record.get("bookname", ""))
+    author_norm = _normalize(record.get("authorname", ""))
+
+    score = 0.0
+    if is_bundle(record.get("bookname", "")):
+        score -= 1000.0
+    # The query from app.py is "<title> <author>"; a real single book has its
+    # whole normalised title inside the query, and so does its author.
+    if title_norm and title_norm in query_norm:
+        score += 100.0
+    if author_norm and author_norm in query_norm:
+        score += 50.0
+    fuzz = _fuzz(record, "highest_fuzz", "book_fuzz", "author_fuzz")
+    if fuzz is not None:
+        score += max(0.0, min(fuzz, 100.0))
+    # Tie-breaker: prefer the shorter (less compound) title.
+    score -= len(title_norm) * 0.001
+    return score
+
+
+def rank_books(records: list, query: str) -> list:
+    """Return LazyLibrarian records reordered best-first for `query` (stable)."""
+    if not isinstance(records, list):
+        return records
+    query_norm = _normalize_title(query)
+    return sorted(records, key=lambda r: _score_record(r, query_norm), reverse=True)
+# ─── end LOCAL PATCH ──────────────────────────────────────────────────────────
+
+
+class LazyLibrarianClient:
+    """Client for interacting with a LazyLibrarian instance."""
+
+    def __init__(self, base_url: str, api_key: str, queue_type: str = "eBook"):
+        self.base_url = base_url.rstrip("/")
+        self.api_key = api_key
+        # LOCAL PATCH: queueBook type ("eBook" or "AudioBook"); see module header.
+        self.queue_type = queue_type
+        self.session = requests.Session()
+
+    def _get(self, cmd: str, **params) -> dict | list | str:
+        """Make a GET request to the LazyLibrarian API."""
+        query = {"apikey": self.api_key, "cmd": cmd}
+        query.update(params)
+        resp = self.session.get(f"{self.base_url}/api", params=query, timeout=15)
+        resp.raise_for_status()
+        try:
+            return resp.json()
+        except (ValueError, requests.exceptions.JSONDecodeError):
+            return resp.text.strip()
+
+    def test_connection(self) -> dict:
+        """Test connection to the LazyLibrarian instance."""
+        result = self._get("getVersion")
+        if isinstance(result, str):
+            return {"version": result}
+        if isinstance(result, list) and result:
+            return result[0] if isinstance(result[0], dict) else {"version": str(result[0])}
+        if isinstance(result, dict):
+            return result
+        return {"version": "unknown"}
+
+    def search_books(self, query: str) -> list:
+        """Search for books by name using findBook."""
+        result = self._get("findBook", name=query)
+        if not isinstance(result, list):
+            return []
+        result = rank_books(result, query)  # LOCAL PATCH: best-first, drop bundles
+        return [
+            {
+                "title": b.get("bookname", "Unknown"),
+                "author": {
+                    "authorName": b.get("authorname", "Unknown"),
+                    "foreignAuthorId": b.get("authorid", ""),
+                },
+                "foreignBookId": b.get("bookid", ""),
+                "foreignEditionId": b.get("bookisbn", ""),
+                "overview": b.get("bookdesc", ""),
+                "releaseDate": b.get("bookdate", ""),
+                "ratings": {"value": float(b.get("bookrate", 0))} if b.get("bookrate") else {},
+            }
+            for b in result
+        ]
+
+    def lookup_by_isbn(self, isbn: str) -> list:
+        """Look up a book by ISBN using searchItem."""
+        result = self._get("searchItem", item=isbn)
+        if not isinstance(result, list):
+            return []
+        result = rank_books(result, isbn)  # LOCAL PATCH: best-first, drop bundles
+        return [
+            {
+                "title": b.get("bookname", "Unknown"),
+                "author": {
+                    "authorName": b.get("authorname", "Unknown"),
+                    "foreignAuthorId": b.get("authorid", ""),
+                },
+                "foreignBookId": b.get("bookid", ""),
+                "foreignEditionId": b.get("bookisbn", ""),
+                "overview": b.get("bookdesc", ""),
+                "releaseDate": b.get("bookdate", ""),
+            }
+            for b in result
+        ]
+
+    def lookup_author(self, name: str) -> list:
+        """Look up an author by name using findAuthor."""
+        result = self._get("findAuthor", name=name)
+        if not isinstance(result, list):
+            return []
+        return [
+            {
+                "authorName": a.get("authorname", "Unknown"),
+                "foreignAuthorId": a.get("authorid", ""),
+            }
+            for a in result
+        ]
+
+    def get_quality_profiles(self) -> list:
+        """Return a synthetic quality profile since LazyLibrarian doesn't have them."""
+        return [{"id": 1, "name": "Default"}]
+
+    def get_root_folders(self) -> list:
+        """Return a synthetic root folder since LazyLibrarian manages its own paths."""
+        return [{"path": "/books"}]
+
+    def add_book(self, book_data: dict, quality_profile_id: int, root_folder: str) -> dict:
+        """Add a book to LazyLibrarian and mark it as wanted."""
+        book_id = book_data.get("foreignBookId", "")
+        title = book_data.get("title", "Unknown")
+
+        if not book_id:
+            # Try to find the book first
+            results = self.search_books(f"{title} {book_data.get('author', {}).get('authorName', '')}")
+            if results:
+                book_id = results[0].get("foreignBookId", "")
+
+        if not book_id:
+            raise ValueError(f"Could not find book ID for '{title}' in LazyLibrarian")
+
+        # Add the book to the database
+        logger.info("Adding book to LazyLibrarian: '%s' (id=%s)", title, book_id)
+        add_result = self._get("addBook", id=book_id)
+        logger.info("addBook result: %s", add_result)
+
+        # Mark the book as wanted to trigger a search
+        # LOCAL PATCH: honour self.queue_type (AudioBook vs eBook); see module header.
+        queue_result = self._get("queueBook", id=book_id, type=self.queue_type)
+        logger.info("queueBook result: %s", queue_result)
+
+        return {
+            "id": book_id,
+            "title": title,
+            "foreignBookId": book_id,
+        }
+
+    def get_queue(self) -> list:
+        """Get wanted books (equivalent to a download queue)."""
+        result = self._get("getWanted")
+        if not isinstance(result, list):
+            return []
+        return [
+            {
+                "title": b.get("bookname", "Unknown"),
+                "status": "downloading",
+                "size": 0,
+                "sizeleft": 0,
+                "bookId": b.get("bookid", ""),
+            }
+            for b in result
+        ]
+
+    def get_book_status(self, book_id: int) -> Optional[dict]:
+        """Get the status of a specific book."""
+        # LazyLibrarian doesn't have a direct "get book by ID" for status,
+        # so we check snatched books
+        result = self._get("getSnatched")
+        if isinstance(result, list):
+            for b in result:
+                if str(b.get("bookid", "")) == str(book_id):
+                    return {
+                        "id": book_id,
+                        "title": b.get("bookname", "Unknown"),
+                        "statistics": {"bookFileCount": 1},
+                    }
+        return None
+
+    def get_books(self) -> list:
+        """Get all books from the LazyLibrarian library."""
+        result = self._get("getBooks")
+        if not isinstance(result, list):
+            return []
+        return result
+
+    def get_history(self) -> list:
+        """Get snatched/download history."""
+        result = self._get("getSnatched")
+        if not isinstance(result, list):
+            return []
+        return [
+            {
+                "title": b.get("bookname", "Unknown"),
+                "status": "completed",
+                "date": b.get("added", ""),
+            }
+            for b in result
+        ]
