@@ -1,0 +1,36 @@
+[project]
+name = "dee-wrapper"
+version = "0.1.0"
+description = "FastAPI wrapper around DeeZy/DEE for Dolby DD+ encoding of TrueHD sources; runs on the Windows DEE VM, not in the cluster"
+requires-python = ">=3.14"
+dependencies = [
+    # Same fastapi extra as services/truenas-wrapper/pyproject.toml --
+    # confirmed live there that bare fastapi + a separate uvicorn dependency
+    # is NOT enough, `fastapi run` still fails asking for this exact extra.
+    "fastapi[standard-no-fastapi-cloud-cli]>=0.115",
+]
+
+[tool.uv]
+package = false
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "pytest-cov>=6.0",
+    # TestClient needs httpx at runtime; it is a dev-only need here because
+    # unlike the cluster wrappers this service never makes outbound HTTP
+    # calls of its own.
+    "httpx>=0.27",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+
+[tool.coverage.run]
+source = ["."]
+branch = true
+omit = ["tests/*"]
+
+[tool.coverage.report]
+fail_under = 100
