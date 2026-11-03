@@ -818,6 +818,7 @@ access_control:
         - 'bazarr.kmkdp.com'
         - 'tdarr.kmkdp.com'
         - 'chaptarr.kmkdp.com'
+        - 'lazylibrarian.kmkdp.com'   # PR #331; missing -> default deny (403)
         - 'trailarr.kmkdp.com'   # was missing -> default deny (403) since trailarr landed
         - 'jellystat.kmkdp.com'  # PR #54
       subject:
