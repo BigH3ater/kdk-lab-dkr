@@ -30,11 +30,6 @@
       "nvd_cpe": "cpe:2.3:a:busybox:busybox",
       "note": "base/utility image; floating `stable` tag, verdict is always Unknown"
     },
-    "chaptarr/chaptarr": {
-      "github": "Chaptarr/chaptarr",
-      "confirm": true,
-      "note": "Readarr fork; confirm it publishes GitHub advisories"
-    },
     "cloudflare/cloudflared": {
       "github": "cloudflare/cloudflared",
       "note": "no OSV mapping: cloudflared's YYYY.M.P tags are not Go module versions"
