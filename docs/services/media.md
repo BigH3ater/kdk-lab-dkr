@@ -23,7 +23,7 @@ Acquisition, subtitles, request-library management and GPU transcode on kdk-dkr-
 | Purpose | Sonarr/Radarr/Prowlarr/Bazarr/SABnzbd + Tdarr NVENC transcode |
 | Status | 🟢 Live — each UI 302s to SSO; arr health clean |
 | Host | [[kdk-dkr-01]] |
-| Endpoints | `prowlarr / sabnzbd / sonarr / radarr / bazarr / chaptarr / lazylibrarian / tdarr .kmkdp.com` |
+| Endpoints | `prowlarr / sabnzbd / sonarr / radarr / bazarr / lazylibrarian / tdarr .kmkdp.com` |
 | Deploy | Komodo stack `media` (git-linked, `op inject` pre_deploy) |
 | Storage | `/opt/kdk-lab/media/<app>` (config); bulk on `/mnt/media/{tv,movies,staging,quarantine}` + `/mnt/dee-exchange` |
 | Blast radius | No new downloads/imports/transcodes; Jellyfin playback unaffected |
@@ -64,7 +64,7 @@ No dashboard. Host probes via [[kdk-mon-01]]; alerts → Pushover.
 
 ## Architecture
 
-Each app joins `default` + `proxy`; ports are `prowlarr 9696`, `sabnzbd 8080`, `sonarr 8989`, `radarr 7878`, `bazarr 6767`, `chaptarr 8789`, `lazylibrarian 5299`, `tdarr 8265`. [LazyLibrarian](lazylibrarian.md) is the single-book / audiobook manager behind the DMZ [Libreseerr](seerr.md) (adds one requested title at a time, vs Chaptarr following whole authors); it is the first service here on the compose-baseline hardening anchor. Tdarr also publishes node RPC `8266` (on `10.1.20.20`) for the external RGB-Nebula 4090 Windows node, which is no longer registered (see the [Tdarr runbook](../runbooks/tdarr-troubleshooting.md)); transcoding runs on the local node. Sonarr/Radarr have a higher-priority `/api` router without ForwardAuth so the DMZ Seerr can use the API with a key. The local node `tdarr-node` (`kdk-tdarr-nvenc-01`) uses the NVIDIA runtime and the GTX 1050 Ti; flow encodes to HEVC with NVENC and re-encodes any AV1 source (software decode). Tdarr 3.x (Rust engine).
+Each app joins `default` + `proxy`; ports are `prowlarr 9696`, `sabnzbd 8080`, `sonarr 8989`, `radarr 7878`, `bazarr 6767`, `lazylibrarian 5299`, `tdarr 8265`. [LazyLibrarian](lazylibrarian.md) is the only book / audiobook manager (it replaced Chaptarr, decommissioned 2026-11-03), behind the DMZ [Libreseerr](seerr.md) and adding one requested title at a time; it is the first service here on the compose-baseline hardening anchor. Tdarr also publishes node RPC `8266` (on `10.1.20.20`) for the external RGB-Nebula 4090 Windows node, which is no longer registered (see the [Tdarr runbook](../runbooks/tdarr-troubleshooting.md)); transcoding runs on the local node. Sonarr/Radarr have a higher-priority `/api` router without ForwardAuth so the DMZ Seerr can use the API with a key. The local node `tdarr-node` (`kdk-tdarr-nvenc-01`) uses the NVIDIA runtime and the GTX 1050 Ti; flow encodes to HEVC with NVENC and re-encodes any AV1 source (software decode). Tdarr 3.x (Rust engine).
 
 ## Configuration
 
@@ -96,7 +96,7 @@ procedure, and the connection-refresh steps after an arr API-key rotation.
 | Secret (1P item) | Used for | Class | Rotate live? |
 |---|---|---|---|
 | `kdk-dee-01-api-token` | Tdarr DEE wrapper auth | 🟢 self-service | yes — rotate + redeploy |
-| arr API keys | app-to-app auth | 🟢 self-service | regenerate in each app UI; update consumers (Prowlarr, Seerr, Bazarr, Trailarr, Libreseerr for Chaptarr); arr-upgrade-search / arr-list-guard / tdarr-remediate read `config.xml` and need nothing |
+| arr API keys | app-to-app auth | 🟢 self-service | regenerate in each app UI; update consumers (Prowlarr, Seerr, Bazarr, Trailarr, Libreseerr for LazyLibrarian); arr-upgrade-search / arr-list-guard / tdarr-remediate read `config.xml` and need nothing |
 | `kdk-ops/trailarr-admin` | Trailarr web login | 🟢 self-service | one-off `WEBUI_PASSWORD` start (see [Trailarr](trailarr.md)) |
 
 ## User Guide

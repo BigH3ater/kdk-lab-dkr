@@ -1553,7 +1553,7 @@ pre_deploy.command = "sh -c '. /etc/komodo/op.env && op inject -f -i .env.tpl -o
 webhook_enabled = true
 
 # Internal Calibre Content Server (Tailscale-only) on kdk-dkr-01. `server` serves the
-# ebook library over OPDS on :8081; `import` folds Chaptarr's ebook downloads
+# ebook library over OPDS on :8081; `import` folds LazyLibrarian's ebook downloads
 # (/mnt/media/books/ebook) into the Calibre library every 15m. The reMarkable's
 # KOReader pulls over the tailnet (http://10.1.20.20:8081/opds) when online -- a pull
 # model that doesn't need the tablet awake, unlike book-sync. Locally built (no registry).

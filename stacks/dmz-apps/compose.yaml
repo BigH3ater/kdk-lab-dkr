@@ -19,8 +19,9 @@ services:
       traefik.http.routers.seerr.entrypoints: "websecure"
       traefik.http.services.seerr.loadbalancer.server.port: "5055"
 
-  # Libreseerr — Overseerr-style "request a book" UI that hands off to Chaptarr
-  # (Readarr v1 API). Reaches Chaptarr via internal Traefik (extra_hosts). OIDC
+  # Libreseerr — Overseerr-style "request a book" UI that hands off to
+  # LazyLibrarian (its LazyLibrarian backend; it replaced Chaptarr, decommissioned
+  # 2026-11-03). Reaches LazyLibrarian via internal Traefik (extra_hosts). OIDC
   # (Authelia) is configured in the app UI post-deploy; SECRET_KEY keeps Flask
   # sessions stable across restarts.
   libreseerr:
@@ -30,13 +31,12 @@ services:
     env_file: [.env]                 # SECRET_KEY (op-injected)
     environment:
       PYTHONUNBUFFERED: "1"
-      # gunicorn's default 30 s worker timeout killed /api/request mid-flight: adding a
-      # new author to Chaptarr takes ~25 s (it pulls the whole catalog), then add_book
-      # fetches the full /api/v1/book list (~9 MB, ~8 s). The killed worker returned an
-      # HTML error page, and the UI showed "JSON.parse: unexpected character".
+      # gunicorn's default 30 s worker timeout killed /api/request mid-flight:
+      # LazyLibrarian add/search calls can still run tens of seconds (author
+      # import + book search). The killed worker returned an HTML error page, and
+      # the UI showed "JSON.parse: unexpected character". 180 s keeps headroom.
       GUNICORN_CMD_ARGS: "--timeout 180"
     extra_hosts:
-      - "chaptarr.kmkdp.com:10.1.20.20"   # Chaptarr API via internal Traefik
       - "lazylibrarian.kmkdp.com:10.1.20.20"   # LazyLibrarian API via internal Traefik (DMZ has no internal DNS for it)
     volumes:
       - /mnt/appdata/libreseerr:/app/data

@@ -175,7 +175,7 @@ so DoH-using browsers simply fail closed off-LAN rather than leak.
 Check AdGuard **blocklists** before blaming the remote service: the HaGeZi
 "Most Abused TLDs" list wildcards whole TLDs (`.life` bit us 2026-09-21 —
 Nzb.su's new home nzb.life answered 0.0.0.0, surfacing as
-`Connection refused (nzb.life:443)` in Chaptarr/Prowlarr). Diagnose with
+`Connection refused (nzb.life:443)` in Prowlarr). Diagnose with
 `dig @10.1.1.53 <domain>` → `0.0.0.0` = blocked. Fix: allowlist rule
 `@@||<domain>^$important` in user rules on the ORIGIN (10.1.1.120), then make
 sure adguardhome-sync has propagated to the replicas (`docker restart

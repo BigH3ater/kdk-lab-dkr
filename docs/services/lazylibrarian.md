@@ -3,16 +3,16 @@ title: LazyLibrarian
 host: kdk-dkr-01
 stack: media
 tier: internal
-status: deploying
+status: live
 storage: yes
 secrets: [lazylibrarian-api, audiobookshelf-api-root]
 updated: 2026-11-03
-tags: [homelab/stack, tier/internal, status/deploying]
+tags: [homelab/stack, tier/internal, status/live]
 ---
 
 # LazyLibrarian
 
-Book and **audiobook** manager behind the DMZ [[seerr|Libreseerr]] request UI. Runs in the [[media]] stack on kdk-dkr-01, beside [[media|Chaptarr]] (which stays as it is). Every UI is behind Authelia ForwardAuth; the `/api` path is bypassed so the DMZ Libreseerr can use the API with a key.
+The **only** book and **audiobook** manager, behind the DMZ [[seerr|Libreseerr]] request UI. Runs in the [[media]] stack on kdk-dkr-01. It replaced Chaptarr, which was decommissioned 2026-11-03 (the books already on disk under `/mnt/media/books/{ebook,audiobook}` belong to the library and stayed). Every UI is behind Authelia ForwardAuth; the `/api` path is bypassed so the DMZ Libreseerr can use the API with a key.
 
 **Related:** [[kdk-dkr-01]] · [[media]] · [[seerr]] · [[audiobookshelf]] · [[traefik]]
 
@@ -20,18 +20,18 @@ Book and **audiobook** manager behind the DMZ [[seerr|Libreseerr]] request UI. R
 
 | Field | Value |
 |---|---|
-| Purpose | Add **one requested book/audiobook at a time** (vs Chaptarr, which follows a whole author's catalogue) |
-| Status | 🟡 Deploying — compose + hook merged; owner does the post-deploy UI setup below |
+| Purpose | Add **one requested book/audiobook at a time** (vs Chaptarr, which it replaced, which followed a whole author's catalogue) |
+| Status | 🟢 Live — sole book/audiobook manager (replaced Chaptarr, decommissioned 2026-11-03); owner completes the post-deploy UI setup below |
 | Host | [[kdk-dkr-01]] |
 | Endpoint | `https://lazylibrarian.kmkdp.com` (LAN/Tailscale only; never on the Cloudflare tunnel) |
 | Image | `lscr.io/linuxserver/lazylibrarian:fc698c6c-ls388` (upstream rolling git-hash build, 2026-11-02; actively maintained) |
 | Deploy | Komodo stack `media` (git-linked, `op inject` pre_deploy) |
 | Storage | `/opt/kdk-lab/media/lazylibrarian` (config); libraries on `/mnt/media/books/{ebook,audiobook}`, downloads `/mnt/media/staging` |
-| Blast radius | Independent of Chaptarr/Sonarr/Radarr; no existing library touched |
+| Blast radius | Independent of Sonarr/Radarr; no existing library touched |
 
 ## Why it exists
 
-Chaptarr (a Readarr fork) follows **whole authors**: adding one monitors the entire catalogue (George R.R. Martin pulled 2,973 of 3,065 works, including translations and box sets) and is slow enough that Libreseerr's 30 s calls time out. LazyLibrarian adds a single requested title and marks only that title Wanted. Libreseerr already ships a LazyLibrarian backend (`/app/lazylibrarian.py`), so the switch is a config change on the Libreseerr side.
+Chaptarr (a Readarr fork), which this replaced, followed **whole authors**: adding one monitored the entire catalogue (George R.R. Martin pulled 2,973 of 3,065 works, including translations and box sets) and was slow enough that Libreseerr's 30 s calls timed out. LazyLibrarian adds a single requested title and marks only that title Wanted. Libreseerr already ships a LazyLibrarian backend (`/app/lazylibrarian.py`), so the switch was a config change on the Libreseerr side. Chaptarr was decommissioned 2026-11-03.
 
 ## Verify
 
@@ -210,7 +210,7 @@ Libreseerr (`/app/lazylibrarian.py`, container on [[kdk-dkr-dmz-01]]) selects th
 }
 ```
 
-Keys confirmed from the running container: each of `ebook` and `audiobook` has `url`, `api_key`, `server_software` (today both are a 7-char value — `readarr` — pointing at Chaptarr; `url` is 26 chars = `https://chaptarr.kmkdp.com`). **No key values were read; only lengths.** The URL reaches LazyLibrarian via the internal Traefik `/api` bypass; the DMZ needs the same `extra_hosts`/firewall path it already uses for Chaptarr (`lazylibrarian.kmkdp.com -> 10.1.20.20`, port 443).
+Keys confirmed from the running container: each of `ebook` and `audiobook` has `url`, `api_key`, `server_software`. Before the switch both were `readarr` -> `https://chaptarr.kmkdp.com`; after the switch both are `lazylibrarian` -> `https://lazylibrarian.kmkdp.com`. **No key values were read.** The URL reaches LazyLibrarian via the internal Traefik `/api` bypass; the DMZ needs the `extra_hosts`/firewall path `lazylibrarian.kmkdp.com -> 10.1.20.20` (port 443). The firewall IP rule (`allow_ctr libreseerr 10.1.20.20 tcp 443`) is IP-based and already open; the `extra_hosts` entry is added in a separate PR (`fix/libreseerr-lazylibrarian-host`).
 
 **Contract Libreseerr actually uses** (from `lazylibrarian.py`): `GET {url}/api?apikey=<key>&cmd=<cmd>`, with `getVersion` (test), `findBook&name=` (search), `searchItem&item=<isbn>` (ISBN), `findAuthor&name=`, `addBook&id=<bookid>`, `queueBook&id=<bookid>&type=eBook`, `getWanted`, `getSnatched`, `getBooks`.
 
@@ -232,7 +232,7 @@ If the number is wrong/absent, check `SeriesDisplay` in LazyLibrarian (Add Serie
 | Problem | Cause | Validate |
 |---|---|---|
 | UI loops to SSO | normal; API clients must use `/api` | `curl ".../api?cmd=getVersion&apikey=…"` returns a version |
-| Libreseerr "connection failed" | DMZ can't resolve/reach internal Traefik | DMZ `extra_hosts` must map `lazylibrarian.kmkdp.com -> 10.1.20.20`, firewall `192.168.191.20 -> 10.1.20.20:443` open (same as Chaptarr) |
+| Libreseerr "connection failed" | DMZ can't resolve/reach internal Traefik | DMZ `extra_hosts` must map `lazylibrarian.kmkdp.com -> 10.1.20.20`, firewall `192.168.191.20 -> 10.1.20.20:443` open (same IP path the DMZ already uses) |
 | Whole author got monitored | New*/NewAuthor* statuses not Skipped | `Config -> Processing -> Status` — all four = Skipped |
 | ABS shows series name but no number | OPF missing or `SeriesDisplay` empty | check `metadata.opf` in the folder; `docker logs lazylibrarian \| grep abs-notify` |
 | ABS never shows the new book | scan not triggered / token wrong | hook log shows `ABS scan requested: HTTP 200`; 401/403 = bad token; DNS/firewall to the DMZ |
@@ -296,5 +296,5 @@ op read op://kdk-ops/audiobookshelf-api-root/credential | \
 
 ## Rollback
 
-1. In Libreseerr `config.json`, set `ebook`/`audiobook` `server_software` back to `readarr` and `url` back to `https://chaptarr.kmkdp.com`; restart libreseerr. Chaptarr resumes serving requests immediately.
-2. If removing LazyLibrarian: delete the `lazylibrarian` service (and the `x-hardened`/hook additions) from `stacks/media/compose.yaml`, redeploy the `media` stack with `--remove-orphans` (already set), and remove `/opt/kdk-lab/media/lazylibrarian` and `/etc/kdk/abs-notify.env` on the host. The ABS library and existing audiobooks are untouched (the hook only adds `metadata.opf` sidecars, which ABS ignores once removed).
+1. Reverting to Chaptarr is **no longer a quick config flip** — Chaptarr was decommissioned 2026-11-03. It requires reverting the decommission PR (re-add the `chaptarr` service to `stacks/media/compose.yaml` and its Authelia/DNS/dashboard entries), restoring the archived config `/opt/kdk-lab/media/chaptarr-archive-2026-11-03.tgz`, redeploying `media`, then pointing Libreseerr's `ebook`/`audiobook` `server_software` back to `readarr` / `https://chaptarr.kmkdp.com`. This is only possible before the archive is deleted (~1 week grace, see the decommission PR).
+2. If removing LazyLibrarian: delete the `lazylibrarian` service (and the hook additions) from `stacks/media/compose.yaml`, redeploy the `media` stack with `--remove-orphans` (already set), and remove `/opt/kdk-lab/media/lazylibrarian` and `/etc/kdk/abs-notify.env` on the host. The ABS library and existing audiobooks are untouched (the hook only adds `metadata.opf` sidecars, which ABS ignores once removed).
