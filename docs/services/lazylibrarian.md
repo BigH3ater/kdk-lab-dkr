@@ -6,7 +6,7 @@ tier: internal
 status: deploying
 storage: yes
 secrets: [lazylibrarian-api, audiobookshelf-api-root]
-updated: 2026-11-02
+updated: 2026-11-03
 tags: [homelab/stack, tier/internal, status/deploying]
 ---
 
@@ -156,6 +156,48 @@ Standalones (no `SeriesDisplay`) get no OPF and no series folder; the scan still
 
 Leave "Run on snatch" unticked. The ABS token and library id are supplied to the container from the host (see [Secret Rotation](#secret-rotation)); `ABS_URL`/`ABS_LIBRARY_ID` are set in the compose. Click **Test** — with no books yet it logs and exits 0.
 
+## Import trigger (SABnzbd → LazyLibrarian)
+
+LazyLibrarian only schedules its `PostProcessor` job **while something is Snatched**, and it can fail to re-add that job after a snatch. On 2026-11-03 `showJobs` listed no PostProcessor and a completed download (*Mavericks*, category `lazylibrarian`) sat ~25 min in `/data/media/staging/lazylibrarian` until `forceProcess` was called by hand.
+
+The fix is **event-driven**: a SABnzbd post-processing script on the `lazylibrarian` category. When a job in that category finishes successfully, SABnzbd runs the script, which calls LazyLibrarian's API over the shared stack network:
+
+```
+GET http://lazylibrarian:5299/api?apikey=<key>&cmd=forceProcess
+```
+
+so the completed download is imported immediately — no wait for LazyLibrarian's scheduler. `sabnzbd` and `lazylibrarian` share the media stack `default` network, so the service name `lazylibrarian` resolves (same as Prowlarr pointing at `http://lazylibrarian:5299`).
+
+**Repo-managed** — `stacks/media/sabnzbd/scripts/lazylibrarian-process.py`, mounted read-only at `/scripts` in the `sabnzbd` service. Stdlib only. It reads SABnzbd's post-processing status (`SAB_PP_STATUS`, positional `argv[7]`; `0` = OK) and calls `forceProcess` **only on success**, retrying a transient failure up to 3 times (a 401/403 bad key is not retried). It **always exits 0** so a trigger error never fails SABnzbd's post-processing, and prints exactly one line (SABnzbd shows a script's last stdout line in its history). The API key is never printed.
+
+The LazyLibrarian base URL (`LL_URL`, non-secret) is set in the compose `environment`; the API key (`LL_API_KEY`, secret) comes from the host `env_file` `/etc/kdk/sab-ll.env` with `required: false`, exactly like the `lazylibrarian` service's `/etc/kdk/abs-notify.env` — so a missing file can never stop the media stack.
+
+### Owner hand steps (in order)
+
+1. **Put the LazyLibrarian API key on the host** (op runs only on the owner's laptop; never commit it):
+
+   ```bash
+   op read op://kdk-ops/lazylibrarian-api-rw/credential | \
+     ssh kdkadmin@10.1.20.20 'sudo tee /etc/kdk/sab-ll.env >/dev/null <<<"LL_API_KEY=$(cat)" && sudo chown root:root /etc/kdk/sab-ll.env && sudo chmod 600 /etc/kdk/sab-ll.env'
+   ```
+
+2. **(Optional) inspect SABnzbd's current config** before the UI step — read-only, never printing the `api_key` lines:
+
+   ```bash
+   ssh -o BatchMode=yes kdkadmin@10.1.20.20 \
+     'sudo grep -nE "^script_dir|^\[\[lazylibrarian\]\]" -A6 /opt/kdk-lab/media/sabnzbd/sabnzbd.ini'
+   ```
+
+3. **Redeploy** the `media` stack in Komodo (picks up the compose mount + env).
+
+4. **Set the Scripts Folder** — SABnzbd → **Config → Folders → Scripts Folder** = `/scripts`, Save. (config.ini: `[misc] script_dir = /scripts`.)
+
+5. **Assign the script to the category** — SABnzbd → **Config → Categories → `lazylibrarian`** → **Script** = `lazylibrarian-process.py`, Save. (config.ini: the `[[lazylibrarian]]` category's `script = lazylibrarian-process.py`.)
+
+   Steps 4–5 can instead be done with the SABnzbd API `mode=set_config` (`[misc] script_dir=/scripts` and the category's `script`).
+
+6. **Verify**: snatch (or re-grab) a book; on completion SABnzbd's **History** shows the job's script line `lazylibrarian-process: forceProcess requested for '…' (HTTP 200)` and LazyLibrarian imports it without the ~25 min wait. `docker logs sabnzbd` carries the same line.
+
 ## Libreseerr integration
 
 Libreseerr (`/app/lazylibrarian.py`, container on [[kdk-dkr-dmz-01]]) selects this backend when a server's `server_software` is `lazylibrarian`. Switch both the ebook and audiobook backends in `/mnt/appdata/libreseerr/config.json`:
@@ -220,15 +262,20 @@ Listens on `5299`, joins `default` + `proxy`. Traefik routes `lazylibrarian.kmkd
 | Path / setting | What it is |
 |---|---|
 | `stacks/media/compose.yaml` (`lazylibrarian`) | image, volumes, Traefik + `/api` labels, ABS env, hook mount, hardening |
+| `stacks/media/compose.yaml` (`sabnzbd`) | `./sabnzbd/scripts:/scripts:ro` mount, `LL_URL` env, `sab-ll.env` env_file (import trigger) |
 | `stacks/media/lazylibrarian/hooks/abs-notify.py` | post-import hook: audiobook OPF (series) + ABS rescan |
+| `stacks/media/sabnzbd/scripts/lazylibrarian-process.py` | SABnzbd category script: calls LazyLibrarian `forceProcess` on a completed download |
 | `/opt/kdk-lab/media/lazylibrarian/config.ini` | all UI settings (owner-managed; not in the repo) |
+| `/opt/kdk-lab/media/sabnzbd/sabnzbd.ini` | SABnzbd config incl. `script_dir` + category `script` (owner-managed UI; not in the repo) |
 | `/etc/kdk/abs-notify.env` (host) | `ABS_API_TOKEN=…` (op-read; mounted via `env_file`, never committed) |
+| `/etc/kdk/sab-ll.env` (host) | `LL_API_KEY=…` for the import trigger (op-read; `env_file` on `sabnzbd`, never committed) |
 
 ## Secret Rotation
 
 | Secret | Use | How |
 |---|---|---|
 | `kdk-cluster/lazylibrarian-api` | LazyLibrarian API key for Libreseerr + Prowlarr | regenerate in `Config -> Interface`, update `op`, re-inject Libreseerr/Prowlarr |
+| `kdk-ops/lazylibrarian-api-rw` | LazyLibrarian API key for the SABnzbd import trigger | `op read op://kdk-ops/lazylibrarian-api-rw/credential` → `/etc/kdk/sab-ll.env` as `LL_API_KEY=…` (root:root 600); see [Import trigger](#import-trigger-sabnzbd--lazylibrarian) |
 | `kdk-ops/audiobookshelf-api-root` | ABS admin token for the rescan hook | from the host file below |
 
 On the owner's laptop (op runs only there):

@@ -36,6 +36,21 @@ services:
   sabnzbd:
     <<: *common
     image: ghcr.io/linuxserver/sabnzbd:5.1.3-ls278@sha256:3ac1c9ea03bafa2588dd8acdcb809857bae305e71d2d90e11d689c78076a9c01
+    environment:
+      <<: *env
+      # Non-secret base URL for the `lazylibrarian` post-processing trigger
+      # (sabnzbd/scripts/lazylibrarian-process.py). Same `default` network as
+      # the lazylibrarian service, reached by its compose service name -- like
+      # Prowlarr's http://lazylibrarian:5299.
+      LL_URL: "http://lazylibrarian:5299"
+    env_file:
+      # Host-managed secret, op-read hand step (see docs/services/lazylibrarian.md):
+      # one line, LL_API_KEY=... . Mounted via env_file (read at compose time),
+      # never committed. required: false so a missing file can never stop the
+      # whole media stack from starting -- mirrors the lazylibrarian service's
+      # /etc/kdk/abs-notify.env; the trigger just logs that LL_API_KEY is unset.
+      - path: /etc/kdk/sab-ll.env
+        required: false
     volumes:
       - /opt/kdk-lab/media/sabnzbd:/config
       # Incomplete stays on local SSD for fast assembly + par2 repair.
@@ -45,6 +60,13 @@ services:
       # instant hardlink instead of a full copy. Do NOT bind subdirs separately
       # (staging + library on different mounts => EXDEV => copy fallback).
       - /mnt/media:/data/media
+      # Post-processing scripts. Read-only: SABnzbd only executes them. The
+      # `lazylibrarian` category's script calls LazyLibrarian forceProcess on a
+      # completed download (LazyLibrarian's PostProcessor is only scheduled while
+      # something is Snatched and can miss re-adding the job). Owner sets the
+      # Scripts Folder to /scripts and the category's Script in the UI -- see
+      # docs/services/lazylibrarian.md ("Import trigger").
+      - ./sabnzbd/scripts:/scripts:ro
     labels:
       traefik.enable: "true"
       traefik.http.routers.sabnzbd.rule: "Host(`sabnzbd.kmkdp.com`)"
