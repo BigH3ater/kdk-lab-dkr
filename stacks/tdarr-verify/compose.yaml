@@ -1,8 +1,10 @@
 # Hourly Tdarr transcode-failure validator on kdk-dkr-01 (tdarr-verify
 # procedure). Pages Pushover when the DEE wrapper is down, the Tdarr server is
-# unreachable, or the transcode-error count rises. Logic in verify.sh (mounted,
-# so Compose interpolation never touches its shell $variables). Joins the media
-# stack's host to reach the tdarr server (published :8266) and DEE (10.1.1.130).
+# unreachable, or the transcode-error count rises. Logic in verify.sh + lib.sh
+# (both mounted, so Compose interpolation never touches their shell $variables;
+# verify.sh sources /lib.sh for DEE health classification and alert de-dup).
+# Joins the media stack's host to reach the tdarr server (published :8266) and
+# DEE (10.1.1.130 / 10.1.1.131).
 name: tdarr-verify
 services:
   verify:
@@ -14,3 +16,4 @@ services:
       - /etc/kdk:/kdk
       - /mnt/media:/media   # rw: auto re-interleave swaps fixed files in (step 6)
       - ./verify.sh:/verify.sh:ro
+      - ./lib.sh:/lib.sh:ro   # DEE classification + alert de-dup; sourced by verify.sh

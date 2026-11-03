@@ -247,8 +247,42 @@ eligible again on the next run.
 ## The verify one-shot
 
 `stacks/tdarr-verify` (alpine, `network_mode: host` on `kdk-dkr-01`) runs hourly
-via a Komodo procedure (`0 40 * * * *`, off the `gitops-sync` slots). It pages
-on: DEE `/healthz` ≠ 200/ok (priority 1), the Tdarr server unreachable
-(priority 1), and a rise in transcode-error / health-error / iso counts against
-the baselines in `/etc/kdk/tdarr-verify.count`. It's silent when clean. To
-extend it, see [Add a Pushover alert](pushover-alerts.md).
+via a Komodo procedure (`0 40 * * * *`, off the `gitops-sync` slots). The alert
+logic lives in `verify.sh`, which sources `lib.sh` (DEE health classification +
+alert de-duplication); both are bind-mounted into the container. It is silent
+when clean. To extend it, see [Add a Pushover alert](pushover-alerts.md).
+
+### Alert semantics (de-duplicated, 2026-11-03)
+
+Every alert is a **signal** with a stable **fingerprint**, a severity
+(`fail`/`warn`) and a kind (`sticky`/`edge`). The fingerprint keys on the
+problem's identity and **never on changing numbers** (e.g. free-GB), so the same
+ongoing problem fingerprints identically every run.
+
+- **DEE `/healthz`** is probed on **both** wrappers (`kdk-dee-01` 10.1.1.130 and
+  `kdk-dee-02` 10.1.1.131). With **one** wrapper sick and the other healthy
+  (`dee_up >= 1`), that is a **WARN** (priority 0) — Tdarr keeps working at half
+  DEE capacity. **Both** down/degraded is a **FAIL** (priority 1). DEE
+  fingerprints are `dee:<host>:<status>:<reason>`, e.g.
+  `dee:kdk-dee-01:degraded:low-disk`. The message carries the `*_free_gb` vs
+  `min_free_gb` values and says **"low disk on C: (DeeZy temp?)"** when the work
+  drive is at/under the floor — that is the DeeZy temp-folder pile-up (see
+  [Troubleshoot the Windows DEE VM](windows-vm-dee.md); the wrapper now sweeps
+  them, `tools/dee-wrapper`).
+- **Tdarr server unreachable** is a `sticky` FAIL (`tdarr:server:unreachable`).
+- **Transcode-error / health-error / iso rises, interleave fix results, and
+  quarantine moves** are `edge` signals (transcode rise = FAIL; the rest WARN),
+  fingerprinted per class or per file (e.g. `interleave-fail:<name>`).
+
+**De-dup rule:** a signal is notified only when its fingerprint is **new**, has
+**changed**, or has been continuously present for **24 h** (one daily reminder).
+So an unchanged problem never repeats hourly — the regression this replaced was
+`kdk-dee-01` paging a priority-1 FAIL every hour for 8 hours on 2026-11-03 while
+`kdk-dee-02` stayed healthy. When a previously alerted **sticky** fingerprint
+clears, one priority-0 **"recovered"** message is sent; `edge` events clear
+silently. Count baselines persist in `/etc/kdk/tdarr-verify.count`; alert state
+(fingerprints + first-seen/last-notified) in `/etc/kdk/tdarr-verify.alerts`.
+
+Offline tests for the classification and de-dup logic:
+`sh stacks/tdarr-verify/tests/run-tests.sh` (stubs `curl`/`push`, injects the
+state file and clock; no network or VM).

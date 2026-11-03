@@ -1,11 +1,13 @@
 #!/bin/sh
 # Tdarr transcode/health validation + alerting. Runs hourly (tdarr-verify
 # procedure) on kdk-dkr-01 and pages Pushover on:
-#   * DEE wrapper down (kdk-dee-01/-02:8484 /healthz; both single-slot wrappers
-#     behind dee-lb are probed) -- dependency for all
-#     lossless-audio (DTS-HD MA / TrueHD) transcodes; its 2026-09-11 outage
-#     silently failed ~78 files. Correlated: if transcode errors are ALSO rising
-#     while DEE is down, the alert names that exact scenario.
+#   * DEE wrapper down/degraded (kdk-dee-01/-02:8484 /healthz; both single-slot
+#     wrappers behind dee-lb are probed) -- dependency for all lossless-audio
+#     (DTS-HD MA / TrueHD) transcodes; its 2026-09-11 outage silently failed
+#     ~78 files. With ONE wrapper sick and the other healthy Tdarr keeps working
+#     at half DEE capacity, so that is a WARN (priority 0); only with BOTH down
+#     is it a FAIL (priority 1). Correlated: if transcode errors are ALSO rising
+#     while DEE has no capacity, the alert names that exact scenario.
 #   * Tdarr server unreachable (localhost:8266).
 #   * Transcode-error count rising vs last run (names sample files).
 #   * Health-check failures rising -- unreadable/corrupt files (FFprobe empty).
@@ -24,52 +26,49 @@
 #     Fixed -> WARN; fix failed (original untouched) -> FAIL.
 #   * Files newly moved to /data/quarantine by the flow's FAIL branch -- these
 #     never show up as "Transcode error" in the file DB.
-# FAIL -> Pushover priority 1, WARN -> priority 0, clean -> silent (no hourly
-# spam). Baselines persist in /kdk/tdarr-verify.count as "te=.. he=.. iso=..".
+#
+# De-duplication (lib.sh): every alert is a fingerprinted SIGNAL. A signal is
+# notified only when its fingerprint is new, has changed, or has been present
+# 24h (one daily reminder), so an unchanged problem never repeats hourly (the
+# kdk-dee-01 low-disk page every hour on 2026-11-03). A cleared STICKY problem
+# (DEE health, Tdarr server) sends one priority-0 "resolved"; edge events (rises,
+# per-file fix/quarantine results) clear silently. FAIL -> priority 1,
+# WARN/resolved -> priority 0, nothing notable -> silent. Count baselines persist
+# in /kdk/tdarr-verify.count; alert state in /kdk/tdarr-verify.alerts.
 apk add --no-cache curl jq >/dev/null 2>&1 || true
 . /kdk/pushover.env
+. "$(dirname "$0")/lib.sh"
 DEE1="http://10.1.1.130:8484/healthz"   # kdk-dee-01
 DEE2="http://10.1.1.131:8484/healthz"   # kdk-dee-02
 TDARR="http://localhost:8266"
 STATE=/kdk/tdarr-verify.count
 THRESH=${TDARR_ERR_THRESHOLD:-1}
-PROB=""; WARN=""
+
+push() {
+  curl -s --max-time 25 \
+    --form-string "token=$PUSHOVER_TOKEN" --form-string "user=$PUSHOVER_USER" \
+    --form-string "priority=$1" --form-string "title=$2" \
+    --form-string "message=$(printf '%b' "$3")" \
+    https://api.pushover.net/1/messages.json >/dev/null
+}
+
+signals_init   # collect alert signals; finalize() de-dups + sends at the end
+
 # Reference point for "since the last run" (STATE is rewritten every run).
 LAST=/tmp/last-run; if [ -f "$STATE" ]; then touch -r "$STATE" "$LAST"; else touch -d '-1 hour' "$LAST"; fi
-add_prob() { PROB="$PROB\n- $1"; }
-add_warn() { WARN="$WARN\n- $1"; }
 
-# 1. DEE wrapper health -- both single-slot wrappers behind dee-lb. A dead second
-#    slot still pages (add_prob); DEE_DOWN (the transcode-correlation flag used in
-#    section 3) is set only when NO slot is up, i.e. the flow has no DEE capacity.
-DEE_DOWN=0; dee_up=0
-check_dee() {  # $1 = host label, $2 = /healthz url
-  r=$(curl -s -m 10 -w '\n%{http_code}' "$2" 2>/dev/null)
-  code=$(printf '%s' "$r" | tail -1); body=$(printf '%s' "$r" | sed '$d')
-  if [ "$code" != "200" ]; then
-    add_prob "DEE wrapper DOWN ($1:8484 /healthz http=$code) -- restart the dee-wrapper task on $1"
-  elif ! printf '%s' "$body" | grep -q '"status":"ok"'; then
-    add_prob "DEE wrapper unhealthy ($1): $body"
-  elif printf '%s' "$body" | grep -q '"exchange_reachable":false'; then
-    add_prob "DEE dee-exchange share unreachable ($1): $body"
-  else
-    dee_up=$((dee_up + 1))
-  fi
-}
-check_dee "kdk-dee-01" "$DEE1"
-check_dee "kdk-dee-02" "$DEE2"
-[ "$dee_up" -eq 0 ] && DEE_DOWN=1
+# 1. DEE wrapper health -- both single-slot wrappers behind dee-lb. One sick
+#    wrapper with the other healthy is a WARN; both down is a FAIL. dee_check
+#    sets dee_up and DEE_DOWN (the transcode-correlation flag used in section 3).
+dee_check "$DEE1" "$DEE2"
 
 # 2. One file-DB dump -> transcode-error / health-error / iso counts + samples
 resp=$(curl -s -m 90 -X POST "$TDARR/api/v2/cruddb" -H 'content-type: application/json' \
   -d '{"data":{"collection":"FileJSONDB","mode":"getAll"}}' 2>/dev/null)
 if [ -z "$resp" ] || ! printf '%s' "$resp" | jq -e . >/dev/null 2>&1; then
-  add_prob "Tdarr server unreachable or bad response ($TDARR)"
-  push() { curl -s --max-time 25 --form-string "token=$PUSHOVER_TOKEN" --form-string "user=$PUSHOVER_USER" \
-    --form-string "priority=$1" --form-string "title=$2" --form-string "message=$(printf '%b' "$3")" \
-    https://api.pushover.net/1/messages.json >/dev/null; }
-  printf 'TDARR VALIDATION FAILED:%b\n' "$PROB"
-  push 1 "kdk-lab Tdarr FAILED" "Tdarr validation failed:$PROB"
+  add_signal "tdarr:server:unreachable" fail sticky \
+    "Tdarr server unreachable or bad response ($TDARR)"
+  finalize
   exit 0
 fi
 
@@ -91,22 +90,26 @@ echo "transcode-error=$te (was $pte) | health-error=$he (was $phe) | iso=$iso (w
 if [ "$te" -gt "$pte" ] && [ $((te - pte)) -ge "$THRESH" ]; then
   d=$((te - pte)); list=$(printf '%s' "$te_files" | sed 's/^/    /')
   if [ "$DEE_DOWN" = 1 ]; then
-    add_prob "TRANSCODE FAILURES +$d (now $te) WHILE DEE IS DOWN -- lossless-audio (DTS-HD MA/TrueHD) files erroring because the DEE wrapper is unavailable. Fix DEE first, then re-queue. Sample:\n$list"
+    add_signal "transcode:rising:dee-down" fail edge \
+      "TRANSCODE FAILURES +$d (now $te) WHILE DEE HAS NO CAPACITY -- lossless-audio (DTS-HD MA/TrueHD) files erroring because no DEE wrapper is available. Fix DEE first, then re-queue. Sample:\n$list"
   else
-    add_prob "TRANSCODE FAILURES +$d (now $te), DEE is healthy -- check node/flow (av1-pipeline). Sample:\n$list"
+    add_signal "transcode:rising" fail edge \
+      "TRANSCODE FAILURES +$d (now $te), DEE is healthy -- check node/flow (av1-pipeline). Sample:\n$list"
   fi
 fi
 
 # 4. Health-check failures rising (unreadable/corrupt: FFprobe empty)
 if [ "$he" -gt "$phe" ] && [ $((he - phe)) -ge "$THRESH" ]; then
   list=$(printf '%s' "$he_files" | sed 's/^/    /')
-  add_warn "HEALTH-CHECK FAILURES +$((he - phe)) (now $he) -- unreadable/corrupt files. Sample:\n$list"
+  add_signal "health:rising" warn edge \
+    "HEALTH-CHECK FAILURES +$((he - phe)) (now $he) -- unreadable/corrupt files. Sample:\n$list"
 fi
 
 # 5. .iso files present (can't be transcoded; will error) -- alert when new ones appear
 if [ "$iso" -gt 0 ] && [ "$iso" -gt "$piso" ]; then
   list=$(printf '%s' "$iso_files" | sed 's/^/    /')
-  add_warn "$iso .iso disc image(s) in library (can't transcode -- exclude/convert/remove):\n$list"
+  add_signal "iso:present" warn edge \
+    "$iso .iso disc image(s) in library (can't transcode -- exclude/convert/remove):\n$list"
 fi
 
 # 6. Recently changed library files: audio interleaved from the start? Auto-fix.
@@ -143,39 +146,31 @@ recent=$(find /media/movies /media/tv -name '*.mkv' ! -name '.*' -mmin -1560 -mm
 if [ -n "$recent" ]; then
   apk add --no-cache ffmpeg >/dev/null 2>&1 || true
   busy=$(curl -s -m 20 "$TDARR/api/v2/get-nodes" 2>/dev/null)
-  fixed=""; failed=""; deferred=""; budget=3
+  deferred=""; budget=3
   while IFS= read -r f; do
     [ "$(audio_share "$f")" -ge 10 ] && continue
-    case "$busy" in *"${f##*/}"*) deferred="$deferred\n    (busy in Tdarr) ${f##*/}"; continue;; esac
-    if [ "$budget" -le 0 ]; then deferred="$deferred\n    (next run) ${f##*/}"; continue; fi
+    base=${f##*/}
+    case "$busy" in *"$base"*) deferred="$deferred\n    (busy in Tdarr) $base"; continue;; esac
+    if [ "$budget" -le 0 ]; then deferred="$deferred\n    (next run) $base"; continue; fi
     budget=$((budget - 1)); r=$(reinterleave "$f"); echo "$r"
-    case "$r" in FIXED*) fixed="$fixed\n    $r";; *) failed="$failed\n    $r";; esac
+    case "$r" in
+      FIXED*) add_signal "interleave-fixed:$base" warn edge \
+                "Audio re-interleaved automatically (original in quarantine/interleave-backup): $r";;
+      *)      add_signal "interleave-fail:$base" fail edge \
+                "AUDIO NOT INTERLEAVED and auto-fix FAILED (original untouched; silent on Apple TV/Neptune): $r";;
+    esac
   done <<EOF2
 $recent
 EOF2
-  [ -n "$fixed" ] && add_warn "Audio re-interleaved automatically (originals in quarantine/interleave-backup):$fixed"
-  [ -n "$failed" ] && add_prob "AUDIO NOT INTERLEAVED and auto-fix FAILED (original untouched; silent on Apple TV/Neptune):$failed"
-  [ -n "$deferred" ] && add_warn "Non-interleaved audio, fix deferred:$deferred"
+  [ -n "$deferred" ] && add_signal "interleave:deferred" warn edge \
+    "Non-interleaved audio, fix deferred:$deferred"
 fi
 
 # 7. Files the flow moved to quarantine since the last run
-q=$(find /media/quarantine -type f -name '*.mkv' ! -path '*/interleave-backup/*' -newer "$LAST" 2>/dev/null | sed 's#.*/#    #' | head -6)
-[ -n "$q" ] && add_warn "Flow FAILed file(s) moved to quarantine since last run (check the job report):\n$q"
+find /media/quarantine -type f -name '*.mkv' ! -path '*/interleave-backup/*' -newer "$LAST" 2>/dev/null | head -6 | while IFS= read -r qf; do
+  qb=${qf##*/}
+  add_signal "quarantine:$qb" warn edge \
+    "Flow FAILed file moved to quarantine since last run (check the job report): $qb"
+done
 
-push() {
-  curl -s --max-time 25 \
-    --form-string "token=$PUSHOVER_TOKEN" --form-string "user=$PUSHOVER_USER" \
-    --form-string "priority=$1" --form-string "title=$2" \
-    --form-string "message=$(printf '%b' "$3")" \
-    https://api.pushover.net/1/messages.json >/dev/null
-}
-
-if [ -n "$PROB" ]; then
-  printf 'TDARR VALIDATION FAILED:%b%b\n' "$PROB" "$WARN"
-  push 1 "kdk-lab Tdarr FAILED" "Tdarr validation failed:$PROB${WARN:+\nWARN:$WARN}"
-elif [ -n "$WARN" ]; then
-  printf 'TDARR warnings:%b\n' "$WARN"
-  push 0 "kdk-lab Tdarr: attention" "Warnings:$WARN"
-else
-  echo "TDARR OK -- DEE healthy, server up, transcode/health errors steady, no new .iso (te=$te he=$he iso=$iso)"
-fi
+finalize
