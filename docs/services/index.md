@@ -12,6 +12,7 @@ Stack definitions live in `stacks/` in the repo; Komodo deploys them from git. O
 | [Docs](docs.md) | kdk-dkr-01 | https://docs.kmkdp.com | docs |
 | [1Password Connect](op-connect.md) | kdk-dkr-01 | 10.1.20.20:8080 (token) | op-connect |
 | [Media stack](media.md) | kdk-dkr-01 | per-app | media |
+| [LazyLibrarian](lazylibrarian.md) | kdk-dkr-01 | https://lazylibrarian.kmkdp.com | media |
 | [Apps](apps.md) | kdk-dkr-01 | various | apps |
 | [Calibre](calibre.md) | kdk-dkr-01 | https://calibre.kmkdp.com | calibre |
 | [Obsidian to reMarkable](obsidian-to-koreader.md) | kdk-dkr-01 | — (SSH to tablet) | obsidian-to-koreader |

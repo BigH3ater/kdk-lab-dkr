@@ -136,6 +136,79 @@ services:
       traefik.http.routers.chaptarr-api.service: "chaptarr"
       traefik.http.services.chaptarr.loadbalancer.server.port: "8789"
 
+  # LazyLibrarian: book + AUDIOBOOK manager behind the DMZ Libreseerr request UI.
+  # Runs beside Chaptarr (which stays, following whole authors for ebooks). Added
+  # because Chaptarr/Readarr monitors a whole author's catalogue (e.g. GRRM =
+  # 2,973 books) and is slow enough to time out Libreseerr's 30 s calls;
+  # LazyLibrarian adds one requested book at a time. Libreseerr already ships a
+  # LazyLibrarian backend (/app/lazylibrarian.py). Lives in this stack (not its
+  # own) so it shares the single /mnt/media:/data/media mount -- imports hardlink
+  # instead of copy, exactly like sonarr/radarr/chaptarr -- and the `proxy` net.
+  # First service here on the compose-baseline anchor (docs/reference/
+  # compose-baseline.md); the rest of this stack is hardened in a later sweep.
+  # API lives under /api (verified: LazyLibrarianClient GETs {base}/api?cmd=...),
+  # so a higher-priority /api router bypasses ForwardAuth for the DMZ Libreseerr,
+  # mirroring chaptarr-api / sonarr-api.
+  lazylibrarian:
+    <<: *common
+    image: lscr.io/linuxserver/lazylibrarian:fc698c6c-ls388@sha256:c3f85478fd1e04da83adcdbfc1f7c3b409340db05e6ddb7bceb0731691248d7b
+    # LazyLibrarian ships no semver tag; linuxserver pins the upstream git hash +
+    # their build (fc698c6c-ls388, 2026-11-02). The @sha256 digest makes the
+    # deploy reproducible and lets Renovate track it (baseline image-pin rule).
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: [ALL]
+    # s6-overlay (LinuxServer): chown /config and drop to abc. See the baseline
+    # doc, "LinuxServer.io images (s6-overlay)".
+    cap_add: [CHOWN, SETUID, SETGID, DAC_OVERRIDE, FOWNER]
+    pids_limit: 512
+    mem_limit: 1g
+    environment:
+      <<: *env
+      # Audiobookshelf rescan target for the post-import hook (abs-notify.py).
+      # ABS reads the audiobook NFS read-only from the DMZ host with no cross-host
+      # inotify, so a new import is invisible until a scan is requested. ABS_URL +
+      # library id are non-secret; the token comes from the host env_file below.
+      ABS_URL: "https://audiobookshelf.kmkdp.com"
+      ABS_LIBRARY_ID: "da91339b-cfd5-43ca-8104-fde4271bf011"
+    env_file:
+      # Host-managed secret, op-read hand step (see docs/services/lazylibrarian.md):
+      # one line, ABS_API_TOKEN=... . Mounted via env_file (read at compose time),
+      # never committed. required: false so a missing file can never stop the whole
+      # media stack (sabnzbd/sonarr/radarr) from starting; the hook just skips the
+      # ABS scan and logs "ABS_API_TOKEN ... not all set" until the file exists.
+      - path: /etc/kdk/abs-notify.env
+        required: false
+    volumes:
+      - /opt/kdk-lab/media/lazylibrarian:/config
+      # Single media mount so imports hardlink. Book libraries live under
+      # /data/media/books/{ebook,audiobook}; downloads at /data/media/staging --
+      # same mount as sabnzbd/sonarr/radarr/chaptarr. Never split this.
+      - /mnt/media:/data/media
+      # Post-import hook (LazyLibrarian "Custom" notifier -> CUSTOM_SCRIPT).
+      # Read-only: LazyLibrarian only executes it. Writes the audiobook OPF to the
+      # /data/media volume and POSTs the ABS scan.
+      - ./lazylibrarian/hooks:/hooks:ro
+    healthcheck:
+      # LinuxServer image bundles curl; the web UI answers 200 at root.
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:5299/ -o /dev/null || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.lazylibrarian.rule: "Host(`lazylibrarian.kmkdp.com`)"
+      traefik.http.routers.lazylibrarian.middlewares: "forwardauth@file"
+      # /api bypass (no ForwardAuth) so API-key clients (DMZ Libreseerr) reach the
+      # API without an Authelia redirect -- mirrors chaptarr-api/sonarr-api.
+      traefik.http.routers.lazylibrarian-api.rule: "Host(`lazylibrarian.kmkdp.com`) && PathPrefix(`/api`)"
+      traefik.http.routers.lazylibrarian-api.priority: "100"
+      traefik.http.routers.lazylibrarian-api.service: "lazylibrarian"
+      traefik.http.services.lazylibrarian.loadbalancer.server.port: "5299"
+      # s6 writes /run at startup and the app has no env to relocate it; read_only
+      # genuinely breaks the image (baseline doc, LinuxServer note).
+      kdk.baseline.skip: "read_only"
+
   # Audiobookshelf moved to its own DMZ stack (stacks/audiobookshelf, internet-
   # facing via the Cloudflare tunnel + Authelia OIDC). It reads /mnt/media/books/
   # audiobook read-only from dmz-01; podcasts live on dmz-01 local disk (the DMZ

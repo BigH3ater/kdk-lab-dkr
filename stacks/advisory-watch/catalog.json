@@ -301,6 +301,12 @@
     "lldap/lldap": {
       "github": "lldap/lldap"
     },
+    "lscr.io/linuxserver/lazylibrarian": {
+      "feed": "https://gitlab.com/LazyLibrarian/LazyLibrarian/-/tags?format=atom",
+      "tag_is_version": false,
+      "confirm": true,
+      "note": "upstream is on GitLab (no GitHub advisories, no CVE/CPE found); rolling git-hash releases, linuxserver tag is <hash>-lsNNN so never comparable. Feed catches security-keyword tag notes; OS/library CVEs come from trivy-scan."
+    },
     "nandyalu/trailarr": {
       "github": "nandyalu/trailarr"
     },
