@@ -30,6 +30,11 @@ services:
     env_file: [.env]                 # SECRET_KEY (op-injected)
     environment:
       PYTHONUNBUFFERED: "1"
+      # gunicorn's default 30 s worker timeout killed /api/request mid-flight: adding a
+      # new author to Chaptarr takes ~25 s (it pulls the whole catalog), then add_book
+      # fetches the full /api/v1/book list (~9 MB, ~8 s). The killed worker returned an
+      # HTML error page, and the UI showed "JSON.parse: unexpected character".
+      GUNICORN_CMD_ARGS: "--timeout 180"
     extra_hosts:
       - "chaptarr.kmkdp.com:10.1.20.20"   # Chaptarr API via internal Traefik
     volumes:
