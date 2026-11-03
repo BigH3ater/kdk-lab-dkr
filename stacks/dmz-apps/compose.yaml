@@ -37,6 +37,7 @@ services:
       GUNICORN_CMD_ARGS: "--timeout 180"
     extra_hosts:
       - "chaptarr.kmkdp.com:10.1.20.20"   # Chaptarr API via internal Traefik
+      - "lazylibrarian.kmkdp.com:10.1.20.20"   # LazyLibrarian API via internal Traefik (DMZ has no internal DNS for it)
     volumes:
       - /mnt/appdata/libreseerr:/app/data
       # LOCAL PATCH of upstream libreseerr v0.9.1 (see libreseerr/*.py headers).
