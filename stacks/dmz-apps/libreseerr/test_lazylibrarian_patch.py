@@ -136,3 +136,14 @@ class TestQueueTypeFromCaller(unittest.TestCase):
 
     def test_no_server_type_in_caller_defaults_ebook(self):
         self.assertEqual(LazyLibrarianClient("http://ll.example", "key").queue_type, "eBook")
+
+
+class TestAddBookWaits(unittest.TestCase):
+    def test_addbook_called_with_wait(self):
+        calls = []
+        client = LazyLibrarianClient("http://ll.example", "key")
+        client._get = lambda cmd, **p: (calls.append((cmd, p)) or "OK")
+        client.add_book({"foreignBookId": "644", "title": "A Game of Thrones"}, 1, "/books")
+        add = [p for c, p in calls if c == "addBook"]
+        self.assertEqual(add, [{"id": "644", "wait": 1}])
+        self.assertEqual([c for c, _ in calls], ["addBook", "queueBook"])
