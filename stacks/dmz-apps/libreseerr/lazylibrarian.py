@@ -1,6 +1,7 @@
 import json
 import logging
 import re
+import sys
 from typing import Optional
 
 import requests
@@ -112,10 +113,23 @@ def rank_books(records: list, query: str) -> list:
 class LazyLibrarianClient:
     """Client for interacting with a LazyLibrarian instance."""
 
-    def __init__(self, base_url: str, api_key: str, queue_type: str = "eBook"):
+    def __init__(self, base_url: str, api_key: str, queue_type: Optional[str] = None):
         self.base_url = base_url.rstrip("/")
         self.api_key = api_key
         # LOCAL PATCH: queueBook type ("eBook" or "AudioBook"); see module header.
+        # Upstream app.get_client(server_type) builds one client per type with
+        # the same URL and key, so the type isn't passed in. Rather than vendor
+        # all of app.py to change one line, read `server_type` from the caller's
+        # frame (get_client's local). An explicit queue_type wins; anything
+        # unexpected falls back to upstream's eBook.
+        if queue_type is None:
+            queue_type = "eBook"
+            try:
+                caller = sys._getframe(1).f_locals
+                if caller.get("server_type") == "audiobook":
+                    queue_type = "AudioBook"
+            except Exception:  # noqa: BLE001
+                pass
         self.queue_type = queue_type
         self.session = requests.Session()
 

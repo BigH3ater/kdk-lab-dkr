@@ -119,3 +119,20 @@ class QueueTypeTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestQueueTypeFromCaller(unittest.TestCase):
+    """Upstream get_client(server_type) passes no type; the client reads it."""
+
+    def _get_client(self, server_type):
+        # Mirrors app.get_client's shape: a local named server_type.
+        return LazyLibrarianClient("http://ll.example", "key")
+
+    def test_audiobook_server_queues_audiobook(self):
+        self.assertEqual(self._get_client("audiobook").queue_type, "AudioBook")
+
+    def test_ebook_server_queues_ebook(self):
+        self.assertEqual(self._get_client("ebook").queue_type, "eBook")
+
+    def test_no_server_type_in_caller_defaults_ebook(self):
+        self.assertEqual(LazyLibrarianClient("http://ll.example", "key").queue_type, "eBook")

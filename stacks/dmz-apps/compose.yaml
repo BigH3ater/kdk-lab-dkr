@@ -43,8 +43,9 @@ services:
       # Two upstream bugs in the LazyLibrarian client, hit once the book source
       # is switched to LazyLibrarian/Hardcover:
       #   1. add_book() always queued type=eBook, so audiobook requests marked
-      #      the *ebook* Wanted. The client now takes a queue_type; app.py's
-      #      get_client() passes AudioBook for the audiobook server.
+      #      the *ebook* Wanted. The client now picks AudioBook when upstream's
+      #      get_client(server_type) builds it for the audiobook server (only
+      #      lazylibrarian.py is overridden; app.py stays upstream).
       #   2. create_request()/add_book() take results[0], and findBook returns
       #      box sets / bundles first ("...7 Books Set"). search_books() now
       #      ranks results best-first so the single requested book wins.
@@ -53,7 +54,6 @@ services:
       # these files at these paths and re-verify the patch (drop it entirely if
       # upstream fixes both issues). Diff + upstream issue text: see the PR.
       - ./libreseerr/lazylibrarian.py:/app/lazylibrarian.py:ro
-      - ./libreseerr/app.py:/app/app.py:ro
     networks: [proxy-dmz]
     labels:
       traefik.enable: "true"
