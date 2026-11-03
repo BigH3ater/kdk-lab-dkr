@@ -42,6 +42,7 @@ Optional:
 
 import os
 import re
+import sqlite3
 import ssl
 import sys
 import time
@@ -89,6 +90,38 @@ def parse_series(series_display: str):
     if m:
         return (m.group(1).strip(" .-#"), m.group(2))
     return (first, "")
+
+
+def series_from_db(book_id: str):
+    """
+    SeriesDisplay is often still empty at import time even when LazyLibrarian
+    knows the series: Hardcover-sourced books get member/series rows straight
+    away (seen 2026-11-02: Columbus Day = member HC1086 #1, SeriesDisplay NULL).
+    Read the first series for this BookID from LazyLibrarian's own database,
+    read-only. LL_DB overrides the path.
+    """
+    if not book_id:
+        return ("", "")
+    db = os.environ.get("LL_DB", "/config/lazylibrarian.db")
+    try:
+        con = sqlite3.connect(f"file:{db}?mode=ro", uri=True, timeout=5)
+        try:
+            row = con.execute(
+                "SELECT s.SeriesName, m.SeriesNum FROM member m "
+                "JOIN series s ON s.SeriesID = m.SeriesID "
+                "WHERE m.BookID = ? ORDER BY m.rowid LIMIT 1",
+                (book_id,),
+            ).fetchone()
+        finally:
+            con.close()
+    except Exception as e:  # noqa: BLE001
+        log(f"series lookup in {db} failed: {type(e).__name__}: {e}")
+        return ("", "")
+    if not row or not row[0]:
+        return ("", "")
+    name = str(row[0]).strip()
+    num = "" if row[1] in (None, "", "None") else str(row[1]).strip()
+    return ("", "") if name.lower() in ("none", "null") else (name, num)
 
 
 def build_opf(title: str, author: str, series: str, index: str) -> str:
@@ -176,6 +209,8 @@ def main() -> int:
         if not rel.startswith(".."):
             author = rel.split(os.sep)[0]
     series, index = parse_series(data.get("SeriesDisplay") or "")
+    if not series:
+        series, index = series_from_db(data.get("BookID") or "")
 
     try:
         write_opf(folder, title, author, series, index)
