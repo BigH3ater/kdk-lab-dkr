@@ -77,7 +77,9 @@ def parse_series(series_display: str):
     if not series_display:
         return ("", "")
     first = series_display.split("<br>")[0].strip()
-    if not first:
+    # LazyLibrarian passes a missing value as the literal string "None"
+    # (str(None)); seen on A Game of Thrones, 2026-11-02.
+    if not first or first.lower() in ("none", "null"):
         return ("", "")
     # '... #6', '... # 6', '... Book 6', or a trailing number.
     m = re.search(r"^(.*?)[\s,]*(?:#|book\s*)\s*([0-9]+(?:\.[0-9]+)?)\s*$", first, re.I)
@@ -166,7 +168,13 @@ def main() -> int:
     audio_file = data.get("AudioFile") or ""
     folder = os.path.dirname(audio_file) if audio_file else ""
     title = data.get("BookName") or ""
+    # The books row has no AuthorName (AuthorID only); fall back to the
+    # library layout Author/[Series/]Title -> first path segment.
     author = data.get("AuthorName") or ""
+    if not author and folder:
+        rel = os.path.relpath(folder, os.environ.get("ABS_AUDIO_ROOT", "/data/media/books/audiobook"))
+        if not rel.startswith(".."):
+            author = rel.split(os.sep)[0]
     series, index = parse_series(data.get("SeriesDisplay") or "")
 
     try:
