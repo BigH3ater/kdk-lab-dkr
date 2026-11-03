@@ -235,7 +235,11 @@ class LazyLibrarianClient:
 
         # Add the book to the database
         logger.info("Adding book to LazyLibrarian: '%s' (id=%s)", title, book_id)
-        add_result = self._get("addBook", id=book_id)
+        # LOCAL PATCH: addBook runs in a background thread and returns "OK"
+        # immediately, so an immediate queueBook answers "Invalid id: <id>"
+        # and the request is silently never queued (seen 2026-11-03 on 31 of 31
+        # books). wait=1 makes LazyLibrarian finish the add first.
+        add_result = self._get("addBook", id=book_id, wait=1)
         logger.info("addBook result: %s", add_result)
 
         # Mark the book as wanted to trigger a search
