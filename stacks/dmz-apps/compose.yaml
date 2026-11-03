@@ -39,6 +39,21 @@ services:
       - "chaptarr.kmkdp.com:10.1.20.20"   # Chaptarr API via internal Traefik
     volumes:
       - /mnt/appdata/libreseerr:/app/data
+      # LOCAL PATCH of upstream libreseerr v0.9.1 (see libreseerr/*.py headers).
+      # Two upstream bugs in the LazyLibrarian client, hit once the book source
+      # is switched to LazyLibrarian/Hardcover:
+      #   1. add_book() always queued type=eBook, so audiobook requests marked
+      #      the *ebook* Wanted. The client now picks AudioBook when upstream's
+      #      get_client(server_type) builds it for the audiobook server (only
+      #      lazylibrarian.py is overridden; app.py stays upstream).
+      #   2. create_request()/add_book() take results[0], and findBook returns
+      #      box sets / bundles first ("...7 Books Set"). search_books() now
+      #      ranks results best-first so the single requested book wins.
+      # Files are mounted read-only over the image's copies. The image is
+      # DIGEST-PINNED, so a Renovate bump must re-check that upstream still has
+      # these files at these paths and re-verify the patch (drop it entirely if
+      # upstream fixes both issues). Diff + upstream issue text: see the PR.
+      - ./libreseerr/lazylibrarian.py:/app/lazylibrarian.py:ro
     networks: [proxy-dmz]
     labels:
       traefik.enable: "true"
