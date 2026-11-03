@@ -5,9 +5,9 @@
 #
 # Two services from one locally-built image (calibre = calibre-server + calibredb):
 #   server  -- runs `calibre-server` on :8081 (web reader + OPDS at /opds).
-#   import  -- every INTERVAL, `calibredb add` any EPUB/ebook that Chaptarr has
+#   import  -- every INTERVAL, `calibredb add` any EPUB/ebook that LazyLibrarian has
 #              downloaded into /mnt/media/books/ebook (mounted :ro) into the Calibre
-#              library, de-duping by title/author. This is what turns Chaptarr's raw
+#              library, de-duping by title/author. This is what turns LazyLibrarian's raw
 #              output folder into a browsable Calibre library.
 #
 # IMPORT ROUTES THROUGH THE RUNNING SERVER, NOT the library path directly.
@@ -121,7 +121,7 @@ services:
       INCOMING: /incoming
       INTERVAL: "900"
     volumes:
-      # Chaptarr's ebook root (host /mnt/media/books/ebook = Chaptarr /data/media/books/ebook).
+      # LazyLibrarian's ebook root (host /mnt/media/books/ebook = LazyLibrarian /data/media/books/ebook).
       # No /library mount: import adds through the server and never touches the DB on disk.
       - /mnt/media/books/ebook:/incoming:ro
     depends_on:

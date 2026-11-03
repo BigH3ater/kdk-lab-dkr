@@ -286,8 +286,8 @@ identity_providers:
         - policy: 'two_factor'
           subject:
             - ['group:audiobookshelf-users']
-      # Libreseerr auto-creates OIDC users and hands every user the Chaptarr key
-      # (request-apps audit H-L3): household only.
+      # Libreseerr auto-creates OIDC users and hands every user the LazyLibrarian
+      # key (request-apps audit H-L3): household only.
       libreseerr_access:
         default_policy: 'deny'
         rules:
@@ -817,7 +817,6 @@ access_control:
         - 'prowlarr.kmkdp.com'
         - 'bazarr.kmkdp.com'
         - 'tdarr.kmkdp.com'
-        - 'chaptarr.kmkdp.com'
         - 'lazylibrarian.kmkdp.com'   # PR #331; missing -> default deny (403)
         - 'trailarr.kmkdp.com'   # was missing -> default deny (403) since trailarr landed
         - 'jellystat.kmkdp.com'  # PR #54

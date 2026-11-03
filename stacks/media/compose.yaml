@@ -117,9 +117,10 @@ services:
       traefik.http.routers.radarr-api.service: "radarr"
       traefik.http.services.radarr.loadbalancer.server.port: "7878"
 
-  # Ebooks are managed by Chaptarr (the maintained Readarr replacement), defined
-  # below; the book-sync stack reconciles /data/media/books to the tablet (direct
-  # SSH, add + delete). Readarr (archived upstream) was removed 2026-09-16.
+  # Books (ebooks + audiobooks) are managed by LazyLibrarian, defined below. It
+  # replaced Chaptarr, which was decommissioned 2026-11-03 (Readarr, archived
+  # upstream, was removed 2026-09-16). The books already on disk under
+  # /mnt/media/books/{ebook,audiobook} belong to the library and stay.
 
   bazarr:
     <<: *common
@@ -135,42 +136,18 @@ services:
       traefik.http.routers.bazarr.middlewares: "forwardauth@file"
       traefik.http.services.bazarr.loadbalancer.server.port: "6767"
 
-  chaptarr:
-    <<: *common
-    image: chaptarr/chaptarr:0.9.965@sha256:bb00d67cbe1485d1cd61ef178362a29b42aa08f86b290841aab4b115ad2647a6
-    environment:
-      <<: *env
-      CHAPTARR__AUTH__METHOD: External
-    volumes:
-      - /opt/kdk-lab/media/chaptarr:/config
-      # Single media mount so imports hardlink (downloads /data/media/staging,
-      # ebook root folder /data/media/books) -- same layout as sonarr/radarr.
-      # /mnt/media/books feeds the book-sync stack (reconcile to the tablet).
-      - /mnt/media:/data/media
-    labels:
-      traefik.enable: "true"
-      traefik.http.routers.chaptarr.rule: "Host(`chaptarr.kmkdp.com`)"
-      traefik.http.routers.chaptarr.middlewares: "forwardauth@file"
-      # /api bypass (no ForwardAuth) so API-key clients (e.g. DMZ Libreseerr) can use the
-      # API without an Authelia redirect — mirrors sonarr-api/radarr-api.
-      traefik.http.routers.chaptarr-api.rule: "Host(`chaptarr.kmkdp.com`) && PathPrefix(`/api`)"
-      traefik.http.routers.chaptarr-api.priority: "100"
-      traefik.http.routers.chaptarr-api.service: "chaptarr"
-      traefik.http.services.chaptarr.loadbalancer.server.port: "8789"
-
-  # LazyLibrarian: book + AUDIOBOOK manager behind the DMZ Libreseerr request UI.
-  # Runs beside Chaptarr (which stays, following whole authors for ebooks). Added
-  # because Chaptarr/Readarr monitors a whole author's catalogue (e.g. GRRM =
-  # 2,973 books) and is slow enough to time out Libreseerr's 30 s calls;
-  # LazyLibrarian adds one requested book at a time. Libreseerr already ships a
-  # LazyLibrarian backend (/app/lazylibrarian.py). Lives in this stack (not its
-  # own) so it shares the single /mnt/media:/data/media mount -- imports hardlink
-  # instead of copy, exactly like sonarr/radarr/chaptarr -- and the `proxy` net.
-  # First service here on the compose-baseline anchor (docs/reference/
-  # compose-baseline.md); the rest of this stack is hardened in a later sweep.
-  # API lives under /api (verified: LazyLibrarianClient GETs {base}/api?cmd=...),
-  # so a higher-priority /api router bypasses ForwardAuth for the DMZ Libreseerr,
-  # mirroring chaptarr-api / sonarr-api.
+  # LazyLibrarian: the book + AUDIOBOOK manager behind the DMZ Libreseerr request
+  # UI. It replaced Chaptarr (decommissioned 2026-11-03): Chaptarr/Readarr
+  # monitored a whole author's catalogue (e.g. GRRM = 2,973 books) and was slow
+  # enough to time out Libreseerr's 30 s calls, whereas LazyLibrarian adds one
+  # requested book at a time. Libreseerr already ships a LazyLibrarian backend
+  # (/app/lazylibrarian.py). Lives in this stack (not its own) so it shares the
+  # single /mnt/media:/data/media mount -- imports hardlink instead of copy,
+  # exactly like sonarr/radarr -- and the `proxy` net. First service here on the
+  # compose-baseline anchor (docs/reference/compose-baseline.md); the rest of
+  # this stack is hardened in a later sweep. API lives under /api (verified:
+  # LazyLibrarianClient GETs {base}/api?cmd=...), so a higher-priority /api router
+  # bypasses ForwardAuth for the DMZ Libreseerr, mirroring sonarr-api / radarr-api.
   lazylibrarian:
     <<: *common
     image: lscr.io/linuxserver/lazylibrarian:fc698c6c-ls388@sha256:c3f85478fd1e04da83adcdbfc1f7c3b409340db05e6ddb7bceb0731691248d7b
@@ -204,7 +181,7 @@ services:
       - /opt/kdk-lab/media/lazylibrarian:/config
       # Single media mount so imports hardlink. Book libraries live under
       # /data/media/books/{ebook,audiobook}; downloads at /data/media/staging --
-      # same mount as sabnzbd/sonarr/radarr/chaptarr. Never split this.
+      # same mount as sabnzbd/sonarr/radarr. Never split this.
       - /mnt/media:/data/media
       # Post-import hook (LazyLibrarian "Custom" notifier -> CUSTOM_SCRIPT).
       # Read-only: LazyLibrarian only executes it. Writes the audiobook OPF to the
@@ -222,7 +199,7 @@ services:
       traefik.http.routers.lazylibrarian.rule: "Host(`lazylibrarian.kmkdp.com`)"
       traefik.http.routers.lazylibrarian.middlewares: "forwardauth@file"
       # /api bypass (no ForwardAuth) so API-key clients (DMZ Libreseerr) reach the
-      # API without an Authelia redirect -- mirrors chaptarr-api/sonarr-api.
+      # API without an Authelia redirect -- mirrors sonarr-api/radarr-api.
       traefik.http.routers.lazylibrarian-api.rule: "Host(`lazylibrarian.kmkdp.com`) && PathPrefix(`/api`)"
       traefik.http.routers.lazylibrarian-api.priority: "100"
       traefik.http.routers.lazylibrarian-api.service: "lazylibrarian"
@@ -234,7 +211,7 @@ services:
   # Audiobookshelf moved to its own DMZ stack (stacks/audiobookshelf, internet-
   # facing via the Cloudflare tunnel + Authelia OIDC). It reads /mnt/media/books/
   # audiobook read-only from dmz-01; podcasts live on dmz-01 local disk (the DMZ
-  # media NFS is read-only). Chaptarr still lays out /mnt/media/books/audiobook.
+  # media NFS is read-only). LazyLibrarian lays out /mnt/media/books/audiobook.
 
   # Wizarr MOVED to its own DMZ stack (stacks/wizarr on kdk-dkr-dmz-01) so it can
   # be internet-facing via the Cloudflare tunnel with path-scoped public exposure

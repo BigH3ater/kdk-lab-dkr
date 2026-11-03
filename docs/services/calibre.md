@@ -56,7 +56,7 @@ ssh kdkadmin@10.1.20.20 'docker exec calibre-server calibredb --with-library htt
 | Direction | Thing | What breaks without it |
 |---|---|---|
 | Needs | [[traefik]] (`proxy` network) | no `calibre.kmkdp.com` ingress / TLS |
-| Needs | `/mnt/media/books/ebook` (Chaptarr output, `:ro`) | nothing to import |
+| Needs | `/mnt/media/books/ebook` (LazyLibrarian output, `:ro`) | nothing to import |
 | Needed by | reMarkable / KOReader | no OPDS pull source |
 
 ## Observability
@@ -90,7 +90,7 @@ Both services meet the [compose baseline](../reference/compose-baseline.md)
 |---|---|
 | `stacks/calibre/compose.yaml` | the two services + Traefik labels (no `forwardauth`) |
 | `/opt/kdk-lab/calibre/library` | the Calibre library (`metadata.db` + books) |
-| `/mnt/media/books/ebook` | Chaptarr's ebook output, the import source (`:ro`) |
+| `/mnt/media/books/ebook` | LazyLibrarian's ebook output, the import source (`:ro`) |
 | Komodo stack `calibre` | server kdk-dkr-01, `run_build = true`, webhook on |
 
 ## Secret Rotation
@@ -100,7 +100,7 @@ built locally.
 
 ## User Guide
 
-Books that Chaptarr downloads into `/mnt/media/books/ebook` are imported
+Books that LazyLibrarian downloads into `/mnt/media/books/ebook` are imported
 automatically within 15 minutes and then show up in the OPDS catalog.
 
 **Add the catalog in KOReader (reMarkable) once:** top menu → the search/globe

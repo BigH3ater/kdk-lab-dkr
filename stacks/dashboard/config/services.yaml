@@ -153,10 +153,10 @@
       href: https://libreseerr.kmkdp.com/
       siteMonitor: https://libreseerr.kmkdp.com/
       description: Ask for a new ebook or audiobook (own login)
-  - Chaptarr:
-      icon: chaptarr
-      href: https://chaptarr.kmkdp.com/
-      siteMonitor: https://chaptarr.kmkdp.com/
+  - LazyLibrarian:
+      icon: lazylibrarian
+      href: https://lazylibrarian.kmkdp.com/
+      siteMonitor: https://lazylibrarian.kmkdp.com/
       description: Ebook & audiobook library manager (SSO)
   - Calibre:
       icon: calibre-web
