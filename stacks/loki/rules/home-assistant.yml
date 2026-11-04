@@ -24,6 +24,7 @@ groups:
           scope: home-assistant
         annotations:
           summary: "Home Assistant: more than 3 invalid logins/tokens in 10m"
+          description: "The homeassistant container on kdk-dkr-02 logged more than 3 invalid logins or tokens in 10m. The HA log line has the source IP; ip_bans.yaml in the HA config dir lists bans."
           runbook: docs/runbooks/security-alerts.md#home-assistant
 
       # Needs http.login_attempts_threshold set in configuration.yaml.
@@ -37,6 +38,7 @@ groups:
           scope: home-assistant
         annotations:
           summary: "Home Assistant banned an IP after failed logins"
+          description: "The homeassistant container on kdk-dkr-02 logged Banned IP after failed logins. Check the IP in the line and ip_bans.yaml in the HA config dir."
           runbook: docs/runbooks/security-alerts.md#home-assistant
 
       # Needs `logger: custom_components.auth_oidc: info`.
@@ -51,6 +53,7 @@ groups:
           scope: home-assistant
         annotations:
           summary: "Home Assistant: OIDC login by a user other than jmack/rach"
+          description: "Home Assistant on kdk-dkr-02 logged an OIDC login for a user other than jmack/rach. Check Settings People, remove the user if unknown and check the Authelia group that grants HA."
           runbook: docs/runbooks/security-alerts.md#home-assistant
 
       # Needs the package automation that writes user_added/user_updated/
@@ -65,6 +68,7 @@ groups:
           scope: home-assistant
         annotations:
           summary: "Home Assistant user added/changed/removed (SECURITY log line)"
+          description: "Home Assistant on kdk-dkr-02 logged a SECURITY line (user added, updated or removed). Check Settings People for the change."
           runbook: docs/runbooks/security-alerts.md#home-assistant
 
       # Needs logging.console.audit: true in Node-RED settings.js.
@@ -78,6 +82,7 @@ groups:
           scope: home-assistant
         annotations:
           summary: "Node-RED flows were deployed or restarted"
+          description: "The node-red container on kdk-dkr-02 logged a flow deploy or restart. Expected when you deploy flows; otherwise check who reached the editor."
           runbook: docs/runbooks/security-alerts.md#home-assistant
 
       # Meaningful once Node-RED has adminAuth.
@@ -91,6 +96,7 @@ groups:
           scope: home-assistant
         annotations:
           summary: "Node-RED: more than 3 failed admin logins / permission denials in 10m"
+          description: "The node-red container on kdk-dkr-02 logged more than 3 failed admin logins or permission denials in 10m: someone is at the editor. Check the source in docker logs node-red."
           runbook: docs/runbooks/security-alerts.md#home-assistant
 
       - alert: ZigbeePermitJoinOrNewDevice
@@ -104,6 +110,7 @@ groups:
           scope: home-assistant
         annotations:
           summary: "zigbee2mqtt: permit-join opened or a new device joined"
+          description: "zigbee2mqtt on kdk-dkr-02 logged permit-join enabled or a device joining. Expected while pairing; otherwise disable permit-join in z2m and check the device list."
           runbook: docs/runbooks/security-alerts.md#home-assistant
 
       - alert: MosquittoAuthFailure
@@ -117,6 +124,7 @@ groups:
           scope: home-assistant
         annotations:
           summary: "Mosquitto rejected a client (not authorised / bad credentials)"
+          description: "mosquitto on kdk-dkr-02 rejected a client as not authorised or with bad credentials. Usually a client with old credentials after a rotation; otherwise a LAN probe (docker logs mosquitto has the client id)."
           runbook: docs/runbooks/security-alerts.md#home-assistant
 
       # Scrypted/Homebridge own-account auth + admin actions. Strings are still
@@ -141,7 +149,10 @@ groups:
           severity: warning
           source: loki
           scope: home-assistant
+          # Inferred log text since 2026-10-28: promote (drop this label) or
+          # delete the rule by 2026-11-27 (alerting-standards §3).
+          kdk_inferred: "true"
         annotations:
           summary: "{{ $labels.container }}: login failure, new user or plugin install"
-          kdk_inferred: "true"
+          description: "{{ $labels.container }} on kdk-dkr-03 logged a login failure, a user creation or a plugin install (camera-plugin login failures excluded). Check users and plugins in the Scrypted UI."
           runbook: docs/runbooks/security-alerts.md#home-assistant

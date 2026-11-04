@@ -193,6 +193,8 @@ inhibit_rules:
   # (~18 targets down across 4 hosts/subnets = 15+ pages). While it fires,
   # suppress the per-target reachability alerts so a blackout pages ONCE; the
   # detail stays in the Alertmanager UI. No `equal`: a blackout is global, so
-  # every one of these is part of the same incident.
+  # every one of these is part of the same incident. SmartHomeProbeExporterDown
+  # and IdracExporterDown (up==0 targets the blackout counts) added 2026-11-04.
+  # AlertmanagerDown is deliberately NOT inhibited: it is the pipeline itself.
   - source_matchers: ['alertname="MonitoringBlackout"']
-    target_matchers: ['alertname=~"InstanceDown|EndpointDown|SmartHomeEndpointDown|CadvisorDown|NetExporterDown"']
+    target_matchers: ['alertname=~"InstanceDown|EndpointDown|SmartHomeEndpointDown|CadvisorDown|NetExporterDown|SmartHomeProbeExporterDown|IdracExporterDown"']

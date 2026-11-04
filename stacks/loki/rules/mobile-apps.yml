@@ -20,9 +20,12 @@ groups:
           severity: warning
           source: loki
           scope: mobile-apps
+          # Inferred log text since 2026-10-28: promote (drop this label) or
+          # delete the rule by 2026-11-27 (alerting-standards §3).
+          kdk_inferred: "true"
         annotations:
           summary: "Audiobookshelf: more than 5 failed logins in 10m"
-          kdk_inferred: "true"
+          description: "The audiobookshelf container on kdk-dkr-dmz-01 logged more than 5 failed logins in 10m (inferred log text). ABS has no lockout; find the client and block it at the WAF."
           runbook: docs/runbooks/security-alerts.md#mobile-apps
 
       - alert: AbsNewUserOrApiKey
@@ -34,9 +37,12 @@ groups:
           severity: warning
           source: loki
           scope: mobile-apps
+          # Inferred log text since 2026-10-28: promote (drop this label) or
+          # delete the rule by 2026-11-27 (alerting-standards §3).
+          kdk_inferred: "true"
         annotations:
           summary: "Audiobookshelf: a user or API key was created"
-          kdk_inferred: "true"
+          description: "The audiobookshelf container on kdk-dkr-dmz-01 logged a user or API key creation (inferred log text). Check ABS Settings Users and API keys that it is expected."
           runbook: docs/runbooks/security-alerts.md#mobile-apps
 
       - alert: ImmichLoginFailures
@@ -51,6 +57,7 @@ groups:
           scope: mobile-apps
         annotations:
           summary: "Immich: more than 5 failed logins in 10m"
+          description: "The DMZ Traefik logged more than 5 401s on /api/auth/login for immich.kmkdp.com in 10m. Find the client in the traefik lines; block a public IP at the WAF."
           runbook: docs/runbooks/security-alerts.md#mobile-apps
 
       - alert: ImmichAdminApiFromInternet
@@ -65,6 +72,7 @@ groups:
           scope: mobile-apps
         annotations:
           summary: "Immich admin API reached through the tunnel"
+          description: "The DMZ Traefik logged an Immich admin/system-config/api-keys/libraries API request on immich.kmkdp.com through the tunnel, which should never be routed. Remove the public hostname until the WAF path block is fixed."
           runbook: docs/runbooks/security-alerts.md#mobile-apps
 
       - alert: ImmichMassDownload
@@ -79,6 +87,7 @@ groups:
           scope: mobile-apps
         annotations:
           summary: "Immich: more than 500 original/download requests in 15m (bulk export or a stolen session)"
+          description: "The DMZ Traefik logged more than 500 Immich download/original requests in 15m (bulk export or a stolen session). Check Immich Administration Users sessions and revoke unknown ones."
           runbook: docs/runbooks/security-alerts.md#mobile-apps
 
       - alert: TandoorLoginFailures
@@ -93,6 +102,7 @@ groups:
           scope: mobile-apps
         annotations:
           summary: "Tandoor: more than 5 failed logins in 10m"
+          description: "The DMZ Traefik logged more than 5 400/401s on the Tandoor allauth login for recipes.kmkdp.com in 10m. Tandoor has no lockout; find the client and block it at the WAF."
           runbook: docs/runbooks/security-alerts.md#mobile-apps
 
       - alert: TandoorAdminFromInternet
@@ -107,4 +117,5 @@ groups:
           scope: mobile-apps
         annotations:
           summary: "Tandoor /admin reached through the tunnel"
+          description: "The DMZ Traefik logged a request to /admin on recipes.kmkdp.com through the tunnel, which should never be routed. Remove the public hostname until the WAF path block is fixed."
           runbook: docs/runbooks/security-alerts.md#mobile-apps

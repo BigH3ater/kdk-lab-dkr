@@ -53,10 +53,11 @@ groups:
           severity: warning      # critical | warning | info
           source: loki           # required: Alertmanager routes on it
           scope: wizarr          # = the file / family
+          # kdk_inferred: "true"  # label, only when the log text was not seen in this lab
         annotations:
           summary: "Wizarr: {{ $labels.ClientHost }} hit /j or /join more than 30 times in 5m"
+          description: "One sentence: what matched, on which host/container, what to check first."
           runbook: docs/runbooks/security-alerts.md#wizarr
-          # kdk_inferred: "true"  # only when the log text was not seen in this lab
 ```
 
 Conventions (from `stacks/loki/rules/*`):
@@ -72,7 +73,7 @@ Conventions (from `stacks/loki/rules/*`):
 - Public-IP checks use `ip()` CIDR filters (`ClientHost != ip("10.0.0.0/8")`), not
   prefix regexes.
 - Router names in the log are `<entrypoint>-<router>@docker`: match `.*<router>@docker`.
-- Annotation names have no dots (`kdk_inferred`, not `kdk.inferred`).
+- Label and annotation names have no dots (`kdk_inferred`, not `kdk.inferred`).
 - A series label named `severity` is overwritten by the rule's `severity`; copy it
   to another name first (see `adv_severity` in `advisories.yml`).
 - `runbook` = `docs/runbooks/security-alerts.md#<family>`, and that anchor exists.

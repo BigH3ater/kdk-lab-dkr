@@ -18,17 +18,19 @@ groups:
     rules:
       # Tunnel not healthy on 2 of the recent hourly runs (API status != healthy,
       # or the probe fallback got no 2xx/3xx). Two runs = not a single blip.
+      # State rule: for: 5m debounce per alerting-standards §5.
       - alert: CloudflareTunnelUnhealthy
         expr: |
           sum(count_over_time({container="cloudflare-watch"}
             | json | check="tunnel" | status="fail" [2h30m])) >= 2
-        for: 0m
+        for: 5m
         labels:
           severity: warning
           source: loki
           scope: cloudflare-watch
         annotations:
           summary: "Cloudflare tunnel for kmkdp.com reported unhealthy on 2+ hourly checks"
+          description: "cloudflare-watch reported check=tunnel status=fail on 2+ hourly runs in 2h30m. Check Zero Trust Networks Tunnels, docker logs cloudflared on kdk-dkr-dmz-01 and curl -I https://sso.kmkdp.com."
           runbook: docs/runbooks/security-alerts.md#cloudflare-watch
 
       # Universal SSL edge certificate under 14 days (warn) or expired (fail).
@@ -43,6 +45,7 @@ groups:
           scope: cloudflare-watch
         annotations:
           summary: "Cloudflare edge cert for kmkdp.com expiring: {{ $labels.days_left }} days left ({{ $labels.issuer }})"
+          description: "cloudflare-watch check=edge_cert is warn/fail: the Universal SSL edge cert has {{ $labels.days_left }} days left. Cloudflare normally auto-renews; check SSL/TLS Edge Certificates for a stuck validation."
           runbook: docs/runbooks/security-alerts.md#cloudflare-watch
 
       # A zone setting drifted from the expected policy (min_tls_version,
@@ -58,6 +61,7 @@ groups:
           scope: cloudflare-watch
         annotations:
           summary: "A Cloudflare zone setting for kmkdp.com drifted from policy (see the watch line's drift field)"
+          description: "cloudflare-watch check=zone_settings failed: a kmkdp.com zone setting left the expected policy. Read the drift field of the latest line; fix it in the dashboard or update EXPECTED_SETTINGS in watch.py if intended."
           runbook: docs/runbooks/security-alerts.md#cloudflare-watch
 
       # The weekly rule/DNS sha changed since the last run: custom-firewall or
@@ -73,6 +77,7 @@ groups:
           scope: cloudflare-watch
         annotations:
           summary: "Cloudflare rules or DNS for kmkdp.com changed since last week: {{ $labels.diff }}"
+          description: "The weekly cloudflare-watch rule_drift sha changed: a custom firewall / rate-limit rule or a DNS record was edited. Review Security WAF and DNS in the dashboard; if intended, the next weekly run makes it the baseline."
           runbook: docs/runbooks/security-alerts.md#cloudflare-watch
 
       # The hourly watch stopped reporting (procedure disabled, job failing
@@ -88,4 +93,5 @@ groups:
           scope: cloudflare-watch
         annotations:
           summary: "No cloudflare-watch output in Loki for 3h (hourly check silent)"
+          description: "No {container=cloudflare-watch} line in Loki for 3h, so the hourly edge checks are not reporting. Check Komodo Procedures cloudflare-watch history, docker logs cloudflare-watch on kdk-log-01 and /etc/kdk/cloudflare-watch.env."
           runbook: docs/runbooks/security-alerts.md#cloudflare-watch

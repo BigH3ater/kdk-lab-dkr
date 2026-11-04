@@ -35,7 +35,8 @@ groups:
             At least 10 scrape targets and/or blackbox probes are down at once --
             a correlated reachability loss, not a single service. The individual
             InstanceDown/EndpointDown/SmartHomeEndpointDown/CadvisorDown/
-            NetExporterDown alerts are inhibited; open the Alertmanager UI to see
+            NetExporterDown/SmartHomeProbeExporterDown/IdracExporterDown alerts
+            are inhibited; open the Alertmanager UI to see
             which targets. Check the kdk-mon-01 uplink/DNS and the path to the
             affected hosts/subnets before assuming each service failed.
 
@@ -44,7 +45,7 @@ groups:
       - alert: InstanceDown
         expr: up{job="node-external"} == 0
         for: 5m
-        labels: {severity: critical, source: external-monitor, scope: service}
+        labels: {severity: critical, source: external-monitor, scope: hosts}
         annotations:
           summary: "service: node_exporter down ({{ $labels.instance }})"
           runbook: docs/runbooks/pushover-alerts.md#service-and-host-alerts
@@ -53,7 +54,7 @@ groups:
       - alert: CadvisorDown
         expr: up{job="cadvisor"} == 0
         for: 5m
-        labels: {severity: warning, source: external-monitor, scope: service}
+        labels: {severity: warning, source: external-monitor, scope: hosts}
         annotations:
           summary: "service: cAdvisor down ({{ $labels.instance }})"
           runbook: docs/runbooks/pushover-alerts.md#service-and-host-alerts
@@ -62,7 +63,7 @@ groups:
       - alert: NetExporterDown
         expr: up{job=~"unpoller|adguard|snmp"} == 0
         for: 10m
-        labels: {severity: warning, source: external-monitor, scope: service}
+        labels: {severity: warning, source: external-monitor, scope: hosts}
         annotations:
           summary: "service: {{ $labels.job }} exporter down on kdk-dkr-01"
           runbook: docs/runbooks/pushover-alerts.md#service-and-host-alerts
@@ -73,7 +74,7 @@ groups:
           node_filesystem_avail_bytes{fstype!~"tmpfs|overlay|squashfs",mountpoint="/"}
           / node_filesystem_size_bytes{mountpoint="/"} < 0.10
         for: 30m
-        labels: {severity: warning, source: external-monitor, scope: service}
+        labels: {severity: warning, source: external-monitor, scope: hosts}
         annotations:
           summary: "service: root filesystem below 10% free ({{ $labels.instance }})"
           runbook: docs/runbooks/pushover-alerts.md#service-and-host-alerts
@@ -86,7 +87,7 @@ groups:
           (1 - node_memory_MemAvailable_bytes{instance!="10.1.3.5:9100"}
            / node_memory_MemTotal_bytes{instance!="10.1.3.5:9100"}) > 0.90
         for: 15m
-        labels: {severity: warning, source: external-monitor, scope: service}
+        labels: {severity: warning, source: external-monitor, scope: hosts}
         annotations:
           summary: "service: memory above 90% ({{ $labels.instance }})"
           runbook: docs/runbooks/pushover-alerts.md#service-and-host-alerts
@@ -111,11 +112,13 @@ groups:
         for: 0m
         labels: {severity: warning, source: external-monitor, scope: containers}
         annotations:
-          summary: "{{ $labels.service }} OOM-killed on {{ $labels.host }}"
+          # Non-compose containers (e.g. kdk-remux-test) have no `service` label:
+          # fall back to the container name so the summary is never subject-less.
+          summary: "{{ if $labels.service }}{{ $labels.service }}{{ else }}{{ $labels.name }}{{ end }} OOM-killed on {{ $labels.host }}"
           runbook: docs/runbooks/pushover-alerts.md#containers
           description: >-
-            The kernel OOM killer fired for container {{ $labels.name }}
-            (stack {{ $labels.stack }}) on {{ $labels.host }}. A single job hit
+            The kernel OOM killer fired for container {{ $labels.name }}{{ if $labels.stack }}
+            (stack {{ $labels.stack }}){{ end }} on {{ $labels.host }}. A single job hit
             the container mem_limit and was killed; the host stayed up. Check the
             container's memory ceiling and the workload that ballooned (for
             tdarr-node: a software-decoded 4K source or a DEE remux).

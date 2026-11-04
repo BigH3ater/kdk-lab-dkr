@@ -141,7 +141,8 @@ Each Prometheus rule group carries a `scope` label (= the group) and a
 
 ## Service and host alerts
 
-`stacks/monitoring/prometheus/rules/service.yml` (`scope: service`). Host and
+`stacks/monitoring/prometheus/rules/service.yml` (`scope: hosts` for the host
+group, `service` for endpoints/certs, `containers`, `availability`). Host and
 service availability from kdk-mon-01's external vantage point.
 
 | Alert | First checks |
@@ -225,7 +226,7 @@ The severity ladder, the required `severity` / `source` / `scope` labels and
 grouping/repeat targets are defined once in [The standard](#the-standard)
 above. Per-rule conventions for new Loki rules are in
 [Add a Loki alert rule](add-loki-alert-rule.md). `LokiShippingStalled` carries
-`host` instead of `scope` by design (`absent_over_time` has no series to carry it).
+`scope: shipping` plus a static `host` label (`absent_over_time` has no series to carry it).
 
 ## Komodo manual deploy
 

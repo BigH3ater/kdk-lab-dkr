@@ -27,7 +27,7 @@ alerts are e-mailed as a digest (the `email-info` receiver), not paged.
   Or in the UI: `https://alertmanager.kmkdp.com` (Authelia) → Silences; the
   Pushover link opens it. A permanent false positive is a rule fix (PR), not a
   long silence. Adding or changing a rule: [Add a Loki alert rule](add-loki-alert-rule.md).
-- **Inferred wording** (`kdk_inferred: "true"` annotation): the log text was
+- **Inferred wording** (`kdk_inferred: "true"` label; promote or delete within 30 days): the log text was
   guessed from upstream docs, not seen here. When one fires, check the real line
   and tighten the regex; when you test one and it does not fire, fix the regex.
 - **Real compromise?** Stop exposure first (Cloudflare dashboard → tunnel →
@@ -153,8 +153,8 @@ alerts are e-mailed as a digest (the `email-info` receiver), not paged.
 
 ## Shipping
 
-`shipping.yml`: one `LokiShippingStalled` rule per host (no `scope`/`runbook`
-labels; the `host` label names the silent host).
+`shipping.yml`: one `LokiShippingStalled` rule per host (`scope: shipping`; the
+extra `host` label names the silent host).
 
 | Alert | First checks |
 |---|---|

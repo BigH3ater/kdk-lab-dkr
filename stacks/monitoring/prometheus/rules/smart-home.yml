@@ -2,7 +2,8 @@
 #
 # This file is why kdk-mon-01's Prometheus now has a rule_files entry at all --
 # it recorded metrics but never alerted, so the 2026-08-30 Home Assistant outage
-# was invisible from here. These fire into the local Alertmanager -> ntfy.
+# was invisible from here. These fire into the local Alertmanager, which
+# routes them to Pushover (critical also e-mail; see alertmanager.yml).
 groups:
   - name: smart-home-availability
     rules:
