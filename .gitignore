@@ -1,4 +1,6 @@
 .env
+# op-rendered secrets appended to .env by some pre_deploy steps (host clone only)
+.env.op
 *.pending
 node_modules/
 .DS_Store

@@ -3,10 +3,11 @@
 Weekly (default): generate next week's meal plan under the owner rules, write the
 entries (idempotent per week key), build the two-store shopping list from the
 plan minus on-hand items, create ONE combined Vikunja approval task, and — in the
-poll pass — mark the approved store's entries. Logs JSON lines to stdout for Loki.
+poll pass — mark the approved store's entries. Logs JSON lines to stdout and
+pushes them to Loki (job=grocery-planner).
 
-  python -m grocery.run --mode weekly            # build pass (Thu 18:00): plan + list + task
-  python -m grocery.run --mode weekly --poll     # poll pass (later): read decision, mark approved
+  python -m grocery.run --mode weekly            # build pass (Tue 18:03): plan + list + task
+  python -m grocery.run --mode weekly --poll     # poll pass (Thu 07:05): read decision, mark approved
   python -m grocery.run --mode bulk              # N-week Costco bulk list + its own task
 
 POLL STRATEGY (justified): the approval is asynchronous and durable (the Vikunja
@@ -36,10 +37,71 @@ STACK = os.path.dirname(HERE)
 log = logging.getLogger("grocery.run")
 
 
+# Direct Loki push (the cloudflare-watch pattern): this is a one-shot that exits
+# in seconds, so the host Alloy's discovery.docker (running containers only)
+# never scrapes it. Every jlog line is also pushed to Loki at the end of the run
+# as {job="grocery-planner", container="grocery-planner<GROCERY_SUFFIX>",
+# host=NODE_NAME}. Empty LOKI_URL disables the push; a push failure is logged
+# to stderr and never changes the exit code.
+_LINES: list[str] = []
+
+
 def jlog(**kw):
-    """One structured JSON line to stdout for Loki (job=grocery-planner)."""
+    """One structured JSON line to stdout (and, at exit, to Loki)."""
     kw.setdefault("job", "grocery-planner")
-    print(json.dumps(kw, default=str), flush=True)
+    text = json.dumps(kw, default=str)
+    print(text, flush=True)
+    _LINES.append(text)
+
+
+def loki_stream_labels(env=None):
+    env = os.environ if env is None else env
+    return {"job": "grocery-planner",
+            "container": "grocery-planner" + (env.get("GROCERY_SUFFIX") or "").strip(),
+            "host": (env.get("NODE_NAME") or "kdk-dkr-01").strip()}
+
+
+def loki_body(lines, labels, base_ns):
+    """Loki push body: one stream, one value per line, strictly increasing ns."""
+    return {"streams": [{"stream": labels,
+                         "values": [[str(base_ns + i), ln] for i, ln in enumerate(lines)]}]}
+
+
+def loki_push(url, lines, labels, tries=3, opener=None):
+    """POST the lines to <url>/loki/api/v1/push. Raises after `tries` failures."""
+    import time
+    import urllib.request
+    opener = opener or urllib.request.urlopen
+    req = urllib.request.Request(
+        url.rstrip("/") + "/loki/api/v1/push",
+        data=json.dumps(loki_body(lines, labels, time.time_ns())).encode(),
+        headers={"Content-Type": "application/json"}, method="POST")
+    for attempt in range(tries):
+        try:
+            opener(req, timeout=10).read()
+            return
+        except Exception:  # noqa: BLE001
+            if attempt == tries - 1:
+                raise
+            time.sleep(3)
+
+
+def flush_to_loki(env=None, opener=None):
+    """Push every jlog line of this run. Never raises; returns lines pushed."""
+    env = os.environ if env is None else env
+    url = (env.get("LOKI_URL") or "").strip()
+    if not url or not _LINES:
+        return 0
+    labels = loki_stream_labels(env)
+    try:
+        loki_push(url, list(_LINES), labels, opener=opener)
+    except Exception as e:  # noqa: BLE001
+        print(f'level=warn msg="loki push failed" container={labels["container"]} '
+              f'lines={len(_LINES)} err="{type(e).__name__}: {e}"', file=sys.stderr, flush=True)
+        return 0
+    n = len(_LINES)
+    _LINES.clear()
+    return n
 
 
 # ---- pure helpers (unit tested) -------------------------------------------
@@ -573,6 +635,16 @@ def main(argv=None):
                          "spices) over --weeks")
     ap.add_argument("--weeks", type=int, default=4, help="with --freezer: how many weeks (default 4)")
     a = ap.parse_args(argv)
+    try:
+        return _dispatch(a)
+    except Exception as e:  # noqa: BLE001 -- record the crash in Loki, then re-raise
+        jlog(event="run_error", mode=a.mode, poll=a.poll, error=f"{type(e).__name__}: {e}")
+        raise
+    finally:
+        flush_to_loki()
+
+
+def _dispatch(a):
     cfg = load_cfg()
     if a.freezer:
         wo = datetime.date.fromisoformat(a.week_of) if a.week_of else None

@@ -11,13 +11,16 @@
 # the dashboard sidecar) renders the lists and writes ticks back to Tandoor.
 #
 # Three Komodo stacks share this compose, distinguished by `environment`:
-#   grocery-weekly       Thu 18:00  GROCERY_MODE=weekly            (plan + list + task)
-#   grocery-weekly-poll  Sat 07:00  GROCERY_MODE=weekly GROCERY_POLL=1 (read decision)
-#   grocery-bulk         1st Thu/2mo GROCERY_MODE=bulk             (Costco bulk list)
+#   grocery-weekly       Tue 18:03  GROCERY_MODE=weekly             (plan + list + task)
+#   grocery-weekly-poll  Thu 07:05  GROCERY_POLL=1 GROCERY_SUFFIX=-poll (read decision)
+#   grocery-bulk         Tue 18:09  GROCERY_MODE=bulk GROCERY_SUFFIX=-bulk (Costco list;
+#                                   the job acts only the 1st Tuesday of an odd month)
 # Two one-shots can't share a container name on one host, so GROCERY_SUFFIX keeps
-# them distinct. A one-shot exits in seconds (Alloy's running-container discovery
-# misses it), so stdout JSON lines are what Loki gets via the json-file driver;
-# tag job="grocery-planner".
+# them distinct. Komodo writes `environment` to .env and pre_deploy APPENDS the
+# op-rendered secrets (.env.op), so .env carries both (never overwrite it).
+# A one-shot exits in seconds, before Alloy's discovery.docker (running
+# containers only) can scrape it, so the job also pushes its JSON lines to Loki
+# itself (LOKI_URL): {job="grocery-planner", container="grocery-planner<suffix>"}.
 #
 # Image is built locally (kdk/grocery-planner) -> the stack sets auto_pull=false
 # + run_build=true in komodo/resources.toml (a compose pull of a local kdk/* tag
@@ -48,11 +51,14 @@ services:
     container_name: grocery-planner${GROCERY_SUFFIX:-}
     init: true              # python one-shot: tini forwards SIGTERM, reaps children
     user: "1000:1000"
-    env_file: [.env]        # TANDOOR_USER/PASS, VIKUNJA_TOKEN, VIKUNJA_APPROVALS_PROJECT (op-injected)
+    env_file: [.env]        # GROCERY_* (Komodo) + TANDOOR_USER/PASS, VIKUNJA_TOKEN, VIKUNJA_APPROVALS_PROJECT (op, appended)
     environment:
       TZ: America/Chicago
       TANDOOR_URL: "https://recipes.kmkdp.com"
       GROCERY_MODE: "${GROCERY_MODE:-weekly}"
       GROCERY_POLL: "${GROCERY_POLL:-}"
+      GROCERY_SUFFIX: "${GROCERY_SUFFIX:-}"            # -> the Loki `container` label
+      LOKI_URL: "${LOKI_URL:-http://10.1.20.21:3100}"   # direct push (kdk-log-01); empty disables
+      NODE_NAME: "${NODE_NAME:-kdk-dkr-01}"             # host label on the Loki stream
     labels:
       kdk.baseline.skip: "healthcheck"   # one-shot job, no long-running endpoint
