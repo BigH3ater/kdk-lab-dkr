@@ -214,7 +214,7 @@
         "y": 3270
       },
       "inputsDB": {
-        "code": "module.exports = async (args) => {\n  // Compare where the VIDEO actually ends (last packets, found by seeking to\n  // the end) in the original vs the new file. The container duration is not\n  // trustworthy: releases carry inflated headers (Band of Brothers: 67 min\n  // header, 55:41 of video) and longer extra tracks the flow drops (Brave's\n  // commentary), which failed this check ~300x in a week on identical video.\n  // Output 1 = within 99.9-100.1%; 2 = outside or unmeasurable (-> quarantine).\n  const { execFileSync } = require('child_process');\n  const ffprobe = args.ffprobePath || 'tdarr-ffprobe';\n  const videoEnd = (file) => {\n    const out = execFileSync(ffprobe, ['-v', 'error', '-select_streams', 'v:0',\n      '-read_intervals', '999999%', '-show_entries', 'packet=pts_time,dts_time,duration_time',\n      '-of', 'csv=p=0', file], { stdio: 'pipe', maxBuffer: 16 * 1024 * 1024 }).toString();\n    let end = 0;\n    for (const line of out.split('\\n')) {\n      // VC-1 in MKV has no packet pts (N/A), only dts (2010 (1984): original\n      // measured 0 s, NaN %, quarantined 40+ times), so fall back to dts.\n      const [pts, dts, dur] = line.split(',').map(Number);\n      const t = Number.isFinite(pts) ? pts : dts;\n      if (Number.isFinite(t)) end = Math.max(end, t + (Number.isFinite(dur) ? dur : 0));\n    }\n    return end;\n  };\n  const orig = videoEnd(args.originalLibraryFile._id);\n  const now = videoEnd(args.inputFileObj._id);\n  const pct = orig > 0 ? (now / orig) * 100 : NaN;\n  args.jobLog(`video end: original ${orig.toFixed(3)}s, new ${now.toFixed(3)}s (${pct.toFixed(3)}%)\\n`);\n  const ok = pct >= 99.9 && pct <= 100.1;\n  return { outputFileObj: args.inputFileObj, outputNumber: ok ? 1 : 2, variables: args.variables };\n};\n"
+        "code": "module.exports = async (args) => {\n  // Compare where the VIDEO actually ends (last packets, found by seeking to\n  // the end) in the original vs the new file. The container duration is not\n  // trustworthy: releases carry inflated headers (Band of Brothers: 67 min\n  // header, 55:41 of video) and longer extra tracks the flow drops (Brave's\n  // commentary), which failed this check ~300x in a week on identical video.\n  // Output 1 = within 99.9-100.1%; 2 = outside or unmeasurable (-> quarantine).\n  const { execFileSync } = require('child_process');\n  const ffprobe = args.ffprobePath || 'tdarr-ffprobe';\n  const videoEnd = (file) => {\n    const out = execFileSync(ffprobe, ['-v', 'error', '-select_streams', 'v:0',\n      '-read_intervals', '999999%', '-show_entries', 'packet=pts_time,dts_time,duration_time',\n      '-of', 'csv=p=0', file], { stdio: 'pipe', maxBuffer: 16 * 1024 * 1024 }).toString();\n    let end = 0;\n    for (const line of out.split('\\n')) {\n      // VC-1 in MKV has no packet pts (N/A), only dts (2010 (1984): original\n      // measured 0 s, NaN %, quarantined 40+ times), so fall back to dts.\n      const [pts, dts, dur] = line.split(',').map(Number);\n      const t = Number.isFinite(pts) ? pts : dts;\n      if (Number.isFinite(t)) end = Math.max(end, t + (Number.isFinite(dur) ? dur : 0));\n    }\n    return end;\n  };\n  const orig = videoEnd(args.originalLibraryFile._id);\n  const now = videoEnd(args.inputFileObj._id);\n  const pct = orig > 0 ? (now / orig) * 100 : NaN;\n  args.jobLog(`video end: original ${orig.toFixed(3)}s, new ${now.toFixed(3)}s (${pct.toFixed(3)}%)\\n`);\n  // Never replace a file that had audio with one that has none (2026-11-03:\n  // Ran and Incendies were stripped of all audio and still passed this check).\n  const audioCount = (file) => execFileSync(ffprobe, ['-v', 'error', '-select_streams', 'a',\n    '-show_entries', 'stream=index', '-of', 'csv=p=0', file], { stdio: 'pipe' })\n    .toString().split('\\n').filter((l) => l.trim()).length;\n  const aOrig = audioCount(args.originalLibraryFile._id);\n  const aNew = audioCount(args.inputFileObj._id);\n  args.jobLog(`audio streams: original ${aOrig}, new ${aNew}\\n`);\n  const ok = pct >= 99.9 && pct <= 100.1 && !(aOrig > 0 && aNew === 0);\n  return { outputFileObj: args.inputFileObj, outputNumber: ok ? 1 : 2, variables: args.variables };\n};\n"
       }
     },
     {
@@ -435,9 +435,9 @@
       }
     },
     {
-      "name": "6. English audio present? (gate: only then drop foreign audio)",
+      "name": "6. Real (non-commentary) English audio present? (gate: only then drop foreign audio)",
       "sourceRepo": "Community",
-      "pluginName": "checkStreamProperty",
+      "pluginName": "customFunction",
       "version": "1.0.0",
       "id": "langGate1080",
       "position": {
@@ -445,16 +445,13 @@
         "y": 1910
       },
       "inputsDB": {
-        "streamType": "audio",
-        "propertyToCheck": "tags.language",
-        "valuesToMatch": "eng",
-        "condition": "includes"
+        "code": "module.exports = async (args) => {\n  // 6. Gate: drop foreign audio ONLY when a real English track exists.\n  // checkStreamProperty(\"tags.language includes eng\") also matched English\n  // COMMENTARY tracks, so on 2026-11-03 Ran (1985, jpn + eng commentaries) and\n  // Incendies (2010, fre + eng commentary) lost every audio track: 6a dropped\n  // the foreign main track, then 6b dropped the commentaries. A track counts as\n  // English only if its language is eng and its title is not commentary /\n  // audio description. Output 1 = drop foreign audio (6a); 2 = keep it (6b only).\n  const streams = ((args.inputFileObj.ffProbeData || {}).streams || []).filter((s) => s.codec_type === 'audio');\n  const AUX = /commentary|description|descriptive|visually impaired/i;\n  const realEng = streams.filter((s) => {\n    const t = s.tags || {};\n    return (t.language || '').toLowerCase() === 'eng' && !AUX.test(t.title || '');\n  });\n  args.jobLog(`[langgate] audio=${streams.length} real-english=${realEng.length} -> ${realEng.length ? 'drop foreign' : 'keep foreign'}\\n`);\n  return { outputFileObj: args.inputFileObj, outputNumber: realEng.length ? 1 : 2, variables: args.variables };\n};\n"
       }
     },
     {
-      "name": "6. English audio present? (gate: only then drop foreign audio)",
+      "name": "6. Real (non-commentary) English audio present? (gate: only then drop foreign audio)",
       "sourceRepo": "Community",
-      "pluginName": "checkStreamProperty",
+      "pluginName": "customFunction",
       "version": "1.0.0",
       "id": "langGate4k",
       "position": {
@@ -462,10 +459,7 @@
         "y": 1910
       },
       "inputsDB": {
-        "streamType": "audio",
-        "propertyToCheck": "tags.language",
-        "valuesToMatch": "eng",
-        "condition": "includes"
+        "code": "module.exports = async (args) => {\n  // 6. Gate: drop foreign audio ONLY when a real English track exists.\n  // checkStreamProperty(\"tags.language includes eng\") also matched English\n  // COMMENTARY tracks, so on 2026-11-03 Ran (1985, jpn + eng commentaries) and\n  // Incendies (2010, fre + eng commentary) lost every audio track: 6a dropped\n  // the foreign main track, then 6b dropped the commentaries. A track counts as\n  // English only if its language is eng and its title is not commentary /\n  // audio description. Output 1 = drop foreign audio (6a); 2 = keep it (6b only).\n  const streams = ((args.inputFileObj.ffProbeData || {}).streams || []).filter((s) => s.codec_type === 'audio');\n  const AUX = /commentary|description|descriptive|visually impaired/i;\n  const realEng = streams.filter((s) => {\n    const t = s.tags || {};\n    return (t.language || '').toLowerCase() === 'eng' && !AUX.test(t.title || '');\n  });\n  args.jobLog(`[langgate] audio=${streams.length} real-english=${realEng.length} -> ${realEng.length ? 'drop foreign' : 'keep foreign'}\\n`);\n  return { outputFileObj: args.inputFileObj, outputNumber: realEng.length ? 1 : 2, variables: args.variables };\n};\n"
       }
     },
     {
