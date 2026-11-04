@@ -11,11 +11,38 @@
 # suite (see stacks/jellyfin/plugins.yaml). Rollback: pin 10.11.11 and restore
 # /opt/kdk-lab/jellyfin-pre12-2026-10-25 on kdk-dkr-dmz-01.
 name: jellyfin
+
+# Compose hardening baseline (docs/reference/compose-baseline.md; posture
+# 10.Homelab/Security/jellyfin-posture-2026-10.md M2, hardening plan batch 6).
+# The service merges it with `<<: *hardened` and overrides only what it needs.
+x-hardened: &hardened
+  security_opt: ["no-new-privileges:true"]
+  cap_drop: [ALL]
+  restart: unless-stopped
+  logging:
+    driver: json-file
+    options: { max-size: "10m", max-file: "3" }
+
 services:
   jellyfin:
+    <<: *hardened
     image: ghcr.io/linuxserver/jellyfin:12.3ubu2604-ls56@sha256:4212ca390fbc6bd5002048d2d2ce2b8a5b1ad278ec4cbabe6519869117404308
     container_name: jellyfin
-    restart: unless-stopped
+    # s6-overlay (LinuxServer): the root supervisor chowns /config, adds abc to the
+    # /dev/dri render group and drops to abc (uid 1000) for jellyfin/ffmpeg. See the
+    # baseline doc, "LinuxServer.io images (s6-overlay)".
+    #   CHOWN, FOWNER, DAC_OVERRIDE: init chown/chmod of /config and /run files
+    #   SETUID, SETGID: s6-setuidgid / setgroups when dropping to abc
+    #   KILL: the root supervisor signals the abc-owned jellyfin process on stop
+    #         (hardening plan per-stack table)
+    # /dev/dri needs no capability: access is the device cgroup + render group.
+    cap_add: [CHOWN, SETUID, SETGID, DAC_OVERRIDE, FOWNER, KILL]
+    # Sized from the running container 2026-11-04 (up since 10-30): docker stats
+    # 2.7 GiB, cgroup anon ~0.9 GiB, pids.peak 142. The 6 GiB transcode tmpfs below
+    # is charged to THIS cgroup (shmem), so the limit = working set + full tmpfs +
+    # headroom; page cache is reclaimed under the limit. Host has 23 GiB.
+    mem_limit: 10g
+    pids_limit: 2048
     environment:
       PUID: "1000"
       PGID: "1000"
@@ -47,8 +74,19 @@ services:
       - /config/cache/transcodes:size=6g,mode=1777
     # identity_ldap: LDAPS to lldap.kmkdp.com:6360 (alias on that internal network;
     # lldap is no longer on proxy-dmz). Created by stacks/identity.
+    healthcheck:
+      # Jellyfin answers "Healthy" on /health without auth; the LSIO image ships curl.
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8096/health -o /dev/null || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 120s
     networks: [proxy-dmz, identity_ldap]
     labels:
+      kdk.baseline.exception: "devices: /dev/dri for Arc A380 QSV transcode"
+      # s6 writes /run, /etc (render group) and /tmp at start; read_only breaks LSIO
+      # images (baseline doc, LinuxServer note; posture M2).
+      kdk.baseline.skip: "read_only"
       traefik.enable: "true"
       traefik.http.routers.jellyfin.rule: "Host(`jellyfin.kmkdp.com`)"
       # Public: LAN entrypoint + the cloudflared-only `tunnel` entrypoint.
