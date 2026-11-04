@@ -17,6 +17,8 @@ it) is version-controlled at `stacks/media/tdarr-flows/hevc-pipeline.json`.
 Sync it with `scripts/tdarr-flow-sync.sh export|diff|import` (repo is the
 source of truth; `import` pushes via the cruddb API and restarts tdarr so the
 server drops its in-memory copy — verified the API persists flow updates).
+`diff` compares the **parsed** JSON (sorted keys, non-ASCII literal), so the
+export's `\u00a7` vs the repo's `§` is no longer reported as a mismatch.
 After editing the flow in the tdarr UI instead, run `export` and commit so
 the repo copy doesn't go stale.
 
@@ -76,10 +78,13 @@ DD+); if it's down they all fail with a terminal "Failed to move file" after the
 native-E-AC3 fallback.
 
 ```sh
-curl -s http://10.1.1.130:8484/healthz
+curl -s http://10.1.1.130:8484/healthz   # kdk-dee-01
+curl -s http://10.1.1.131:8484/healthz   # kdk-dee-02
 ```
 
-If that's not `status: ok`, fix DEE first — see
+The flow talks to neither directly: it posts to **dee-lb** (HAProxy on
+`kdk-dkr-01`, `10.1.20.20:8484`, stats on `:8405`), which fronts both wrappers.
+If a wrapper is not `status: ok`, fix DEE first — see
 [Troubleshoot the Windows DEE VM](windows-vm-dee.md) — then re-queue the errored
 files. The `tdarr-verify` alert text already correlates the two: it says whether
 the transcode-error rise coincides with DEE being down.
@@ -103,6 +108,35 @@ the default interleave. Measured on Minority Report (88 GB, cover art + two
 English PGS): old one-pass killed at 11.7 GB in ~35 s; two-pass peak **40 MB**
 (pass 1) and 208 MB (pass 2); audio within 2–5 MB of its video at 0/10/30/60/90 min.
 
+### When the DEE step fails anyway (2026-11-04)
+
+- **Pass 2 retry without subtitles.** If pass 2 (subs + chapters) fails for any
+  reason other than an OOM kill (ffmpeg `SIGKILL`), the step retries **once**
+  from the same pass-1 file with video + the new DD+ audio + chapters and **no
+  subtitles**. Atmos is kept; only the subs are lost. Pass 1 and its
+  `-max_interleave_delta 0` are unchanged. A "subs dropped" output is findable
+  two ways:
+  - the job report has a `[dee] SUBS DROPPED:` line;
+  - the file carries the global tag `KDK_DEE_SUBS_DROPPED=1`:
+    `ffprobe -v error -show_entries format_tags=KDK_DEE_SUBS_DROPPED -of csv=p=0 <file>`
+    (prints `1`). Re-grab or re-run those titles when you have time.
+- **Native E-AC3 fallback** (pass 1 failed, the retry failed, an OOM, or the
+  wrapper failed) keeps subs but **loses Atmos**. On Atmos sources the job report
+  says `ATMOS LOST`. This is how 42 Atmos-tagged library titles ended up as plain
+  6-channel E-AC3 by 2026-11-04 (list in the vault, Tdarr review 2026-11-04 §8).
+- **The cause is logged.** On every failure the job report has the **last
+  2000 characters** of ffmpeg's stderr (it used to keep the first 300 characters
+  of the error, which were just the command line, so the 2026-11-03 Two Towers
+  pass-2 cause was lost). ffmpeg runs with `-nostats` and a 64 MiB pipe buffer:
+  Node's `execFileSync` default of 1 MiB would SIGTERM ffmpeg (`ENOBUFS`) if a
+  long remux printed more than that.
+- **No orphans on the exchange share.** The `catch` path now also removes the
+  job's `outbound/*.tdarr.ec3`, not just `inbound/`. Before this, every "DEE ok,
+  remux failed" job left its encoded track behind (27 files, 28 GB, by
+  2026-11-04). After a forced failure,
+  `ssh kdkadmin@10.1.20.20 'ls -l /mnt/dee-exchange/outbound/*.ec3'` should show
+  nothing new.
+
 ## OOM — node killed, not just the job
 
 On 2026-10-28 07:57 the node container (`media-tdarr-node-1`) grew to ~43 GB RSS
@@ -112,15 +146,17 @@ are a **software-decoded 4K source** (AV1 branch, `hardwareDecoding=false`) or a
 **DEE remux** with `-max_interleave_delta 0` (ffmpeg buffers until both streams
 are ready).
 
-The node now has `mem_limit: 24g` / `memswap_limit: 24g` (swap off for the
-cgroup) and `pids_limit: 4096` in `stacks/media/compose.yaml`, so a runaway
+The node has `mem_limit: 36g` / `memswap_limit: 36g` (swap off for the
+cgroup) and `pids_limit: 4096` in `stacks/media/compose.yaml` (raised from 24g
+on 2026-10-31; a PR to lower it to **16g** is pending, because since the
+two-pass remux node RSS has peaked at 2.1 GiB). A runaway
 encode hits the cgroup limit and the kernel kills *that ffmpeg* — the job fails
 and the flow holds the file — while the host and the node stay up.
 
 An OOM kill is visible as the Prometheus alert **`ContainerOOMKilled`**
 (`stacks/monitoring/prometheus/rules/service.yml`, from cAdvisor
 `container_oom_events_total`). If it fires for `tdarr-node` repeatedly, a single
-title genuinely needs more than 24 GB (very large 4K software decode) — raise
+title genuinely needs more than the cap (very large 4K software decode) — raise
 `mem_limit` for that run, or route the title to a lower-memory path, rather than
 removing the cap.
 
@@ -130,14 +166,41 @@ ssh kdkadmin@10.1.20.20 'sudo docker inspect media-tdarr-node-1 \
   --format "mem={{.HostConfig.Memory}} swap={{.HostConfig.MemorySwap}} pids={{.HostConfig.PidsLimit}}"'
 ```
 
-## Single-worker concurrency (Atmos preservation)
+## DEE concurrency: two slots behind dee-lb (Atmos preservation)
 
-The DEE wrapper is **single-slot**. With more than one transcode worker, a
-second dispatch gets `503 encoder busy` and the flow falls back to native
-ffmpeg E-AC-3 — which **loses Atmos** on Atmos titles. Keep the DEE-dispatching
-node at **one** transcode worker (`transcodegpu:1`, `transcodecpu:0`) so
-dispatches serialize. `autoAcceptTranscodes` is off, so outputs wait for manual
-accept and originals stay intact.
+Each DEE wrapper is **single-slot**, but there are two of them (`kdk-dee-01`,
+`kdk-dee-02`) behind **dee-lb** (HAProxy, `leastconn`, `maxconn 1` per
+backend). The node runs **two** transcode workers (`transcodegpu:2`,
+`transcodecpu:0`; `TARGET_GPU_WORKERS=2` in `tdarr-backlog`). When both slots
+are busy the LB queues the request. If the flow still gets a `503`, it **waits**
+(60 × 60 s, up to 1 h) instead of falling back to native E-AC3, which would lose
+Atmos. Drop to `transcodegpu:1` only if one wrapper is down for a long time.
+
+**Outputs replace originals automatically.** No `autoAcceptTranscodes` gate
+applies here: the libraries run the flow, and step "8. PASS" is
+`replaceOriginalFile`. A file is replaced in place once step 7 passes (video end
+time within 99.9–100.1 % and, since 2026-11-03, not all audio lost). Files that
+fail step 7 go to `/data/quarantine` or are held for review.
+
+## Foreign-audio rule (2026-11-03)
+
+Step "6. Real (non-commentary) English audio present?" (`langGate1080` /
+`langGate4k`, custom functions) drops foreign audio (6a) **only if** there is
+an English track whose title does not say commentary or description. If not
+(e.g. *Ran*: Japanese main track plus English commentaries only), 6a is skipped
+and the foreign main track is kept. 6b still drops commentary. Step 7 also
+refuses to replace a file that had audio with one that has none. This happened
+to *Ran* and *Incendies*, which were re-grabbed.
+
+## Long DEE encodes: the 7200 s timeout
+
+The wrapper kills a DeeZy encode after `DEE_WRAPPER_TIMEOUT_SECONDS` (default
+**7200 s**, `tools/dee-wrapper/main.py`). The flow's HTTP socket timeout is
+**7800 s**, so it always outlasts the wrapper. Long 4K TrueHD Atmos titles can
+exceed 2 h. *Return of the King* Extended timed out on 2026-11-03 and fell back
+to plain E-AC3. To fix that, raise `DEE_WRAPPER_TIMEOUT_SECONDS` on **both**
+Windows wrappers (see [Troubleshoot the Windows DEE VM](windows-vm-dee.md)) and
+raise the flow's socket timeout in `dee1` so it stays above the wrapper's value.
 
 ## Node flapping / jobs stuck in limbo
 
@@ -175,11 +238,10 @@ art. Queuing them all at once would park new downloads behind days of
 remuxes, so `/etc/kdk/tdarr-backlog.list` on `kdk-dkr-01` (highest value
 first) is drained by the hourly `tdarr-backlog` procedure: when fewer than
 `MIN_QUEUED` (3) files are Queued it re-queues the next `BATCH` (6). Empty list
-= no-op. While it drains, the node runs **one** transcode worker so two
-lossless jobs cannot collide on the single-slot DEE wrapper (the DEE step
-retries a 503 for 5 minutes, then falls back to native E-AC3 and the Atmos
-bed is lost). The first run that finds the list empty raises the node back to
-`TARGET_GPU_WORKERS` (2) through `alter-worker-limit` and sends one Pushover
+= no-op. (Until 2026-10-29 the node ran **one** worker while the list
+drained, because there was only one DEE slot. With two wrappers behind dee-lb
+and the 1 h busy wait it runs two.) The first run that finds the list empty
+raises the node to `TARGET_GPU_WORKERS` (2) through `alter-worker-limit` and sends one Pushover
 note ("tdarr-backlog done"); after that every run is a no-op.
 
 ## Re-queueing errored files
