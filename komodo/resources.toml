@@ -2042,12 +2042,19 @@ executions = [
 # distinguished by `environment` (GROCERY_MODE/GROCERY_POLL/GROCERY_SUFFIX) --
 # the cloudflare-watch pattern. The image is built locally (kdk/grocery-planner),
 # so auto_pull=false + run_build=true (a compose pull of a local kdk/* tag
-# fails). pre_deploy op-injects .env (dashboard-tandoor-rw + vikunja-api-rw).
-# Logs JSON lines to stdout -> Loki (job="grocery-planner").
+# fails). Komodo's Write-Environment stage writes `environment` to .env BEFORE
+# pre_deploy; pre_deploy op-injects dashboard-tandoor-rw + vikunja-api-rw into
+# .env.op and APPENDS it to .env. Until 2026-11-04 it overwrote .env, dropping
+# GROCERY_* (the 11-03 bulk run lost its suffix + mode and produced no container;
+# weekly was unaffected because it relies on the compose defaults). Every stack
+# sets `environment`, so Komodo rewrites .env each deploy and the append never
+# stacks up. Each run prints JSON lines to stdout AND pushes them to Loki directly
+# (job="grocery-planner", container="grocery-planner[-poll|-bulk]"): a one-shot
+# exits before Alloy's discovery.docker can scrape it.
 #   grocery-weekly       Tue 18:03  plan + two-store list + one combined Vikunja task
 #   grocery-weekly-poll  Thu 07:05  read the approval decision (audit log)
 #   grocery-bulk         Tue 18:09  Costco bulk list; the JOB gates to the first
-#                                   Thursday of an odd month (every 2 months, N=8)
+#                                   Tuesday of an odd month (every 2 months, N=8)
 [[stack]]
 tags = ["kdk-lab"]
 name = "grocery-weekly"
@@ -2061,7 +2068,9 @@ run_directory = "stacks/grocery-planner"
 auto_pull = false   # image is built locally (kdk/grocery-planner) -> skip compose pull
 run_build = true
 destroy_before_deploy = true   # one locked down+up so the one-shot re-runs
-pre_deploy.command = "sh -c '. /etc/komodo/op.env && op inject -f -i .env.tpl -o .env'"
+environment = "GROCERY_MODE=weekly"   # explicit: Komodo then always rewrites .env
+# Append op-rendered vars; never clobber the .env Komodo wrote from `environment`.
+pre_deploy.command = "sh -c '. /etc/komodo/op.env && op inject -f -i .env.tpl -o .env.op && cat .env.op >> .env'"
 
 [[stack]]
 tags = ["kdk-lab"]
@@ -2077,7 +2086,8 @@ auto_pull = false
 run_build = true
 destroy_before_deploy = true
 environment = "GROCERY_POLL=1\nGROCERY_SUFFIX=-poll"
-pre_deploy.command = "sh -c '. /etc/komodo/op.env && op inject -f -i .env.tpl -o .env'"
+# Append op-rendered vars; never clobber the .env Komodo wrote from `environment`.
+pre_deploy.command = "sh -c '. /etc/komodo/op.env && op inject -f -i .env.tpl -o .env.op && cat .env.op >> .env'"
 
 [[stack]]
 tags = ["kdk-lab"]
@@ -2093,7 +2103,8 @@ auto_pull = false
 run_build = true
 destroy_before_deploy = true
 environment = "GROCERY_MODE=bulk\nGROCERY_SUFFIX=-bulk"
-pre_deploy.command = "sh -c '. /etc/komodo/op.env && op inject -f -i .env.tpl -o .env'"
+# Append op-rendered vars; never clobber the .env Komodo wrote from `environment`.
+pre_deploy.command = "sh -c '. /etc/komodo/op.env && op inject -f -i .env.tpl -o .env.op && cat .env.op >> .env'"
 
 [[procedure]]
 tags = ["kdk-lab"]

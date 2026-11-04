@@ -385,6 +385,19 @@ public rating, and demote dishes the household rates low (Phase 2).
   check the dashboard mealplan container log (`dashboard-mealplan`) for a
   re-login loop.
 
+- **A scheduled run left no trace.** Query Loki
+  `{job="grocery-planner"}` (container `grocery-planner`, `-poll`, `-bulk`);
+  every run pushes its JSON lines there itself, plus a `run_error` line if it
+  crashed. No lines at all means the container never started: check the
+  Komodo update for the stack (pre_deploy / Compose Up). On kdk-dkr-01 the
+  stack's `.env` must list the `GROCERY_*` keys (from the stack `environment`)
+  **and** the four op keys (key names only:
+  `sudo cut -d= -f1 /opt/kdk-lab/stacks/<stack>/stacks/grocery-planner/.env`).
+  A `.env` with only the op keys means pre_deploy overwrote it again
+  (poll runs as a plain weekly pass; bulk collides with the weekly container
+  name). `loki push failed` on stderr means Loki was down; the stdout copy is
+  still in `docker logs grocery-planner<suffix>`.
+
 ## Rollback
 
 1. Remove the three `grocery-*` stacks and procedures from

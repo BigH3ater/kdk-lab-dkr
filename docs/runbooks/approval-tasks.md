@@ -84,9 +84,9 @@ non-recurring task:
   task (absolute, or relative to the due date). When a reminder time arrives and
   the task is still open, the poll re-sends the notification under the same
   `tag`, replacing the old one. Each reminder fires once.
-- Example (weekly grocery): created Thu 18:00 CT, `due_date` Fri 20:00, one
-  reminder at Fri 12:00 (i.e. a reminder 8 h before the due date). If still open
-  at noon Friday, the phone re-alerts; nothing auto-resolves at 20:00.
+- Example (weekly grocery): created Tue 18:03 CT, `due_date` Wed 20:00, one
+  reminder at Wed 12:00 (i.e. a reminder 8 h before the due date). If still open
+  at noon Wednesday, the phone re-alerts; nothing auto-resolves at 20:00.
 
 ### Declare custom buttons (optional)
 
