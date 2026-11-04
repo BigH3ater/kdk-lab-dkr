@@ -12,6 +12,12 @@
  *   - Wednesday mop due / Thursday catch-up after a failed Wednesday / no double mop
  *   - resume-drop after recharge -> mop gate, no stamping
  *   - every mop-failure path emits exactly one rr_mop_failed notify
+ *
+ * 2026-11-04 (fix/roborock-mop-catchup-water, after the Tue 11-03 double mop):
+ *   - shared rrMopDue rule: Wed unless a mop ran in 48 h; catch-up Thu/Fri only
+ *   - f_mopchk needs a 20-min quiet window + robot home; water shortage = failed
+ *   - mid-pass water watch (t_mopwater -> f_mopwater -> f_mopfail), one alert
+ *   - f_rc: a sweep under 10 min with no progress does not stamp the 12 rooms
  */
 const fs = require("fs");
 const path = require("path");
@@ -265,7 +271,8 @@ console.log("Wiring -- structural rewires and deletions");
 {
   ok(!byId["w_rc"], "w_rc deleted (replaced by d_rcpoll/f_rcpoll)");
   ok(!byId["lo_stop_62"] && !byId["lo_n_mop"], "orphaned link-outs removed");
-  eq(byId["f_rc"].wires, [["d_55", "f_ev_restdone"], ["d_rcpoll", "lo_tr_rch"]], "f_rc recharge -> d_rcpoll");
+  eq(byId["f_rc"].wires, [["d_55", "f_ev_restdone"], ["d_rcpoll", "lo_tr_rch"], ["d_55"], ["lo_n_short"]],
+     "f_rc recharge -> d_rcpoll, short sweep -> d_55 (no restdone) + notify");
   eq(byId["f_58"].wires, [["w_mopbat"], ["s_67"], ["f_mopfail"]], "f_58 out2 -> f_mopfail");
   eq(byId["f_mopchk"].wires, [["s_63"], ["w_mopoff"], ["f_mopfail"]], "f_mopchk out2 -> f_mopfail");
   eq(byId["w_mopbat"].wires, [["lo_mop"], ["f_mopbat_to"]], "w_mopbat timeout -> f_mopbat_to");
@@ -284,6 +291,172 @@ console.log("Wiring -- structural rewires and deletions");
   eq(byId["g_w62"].wires, [["d_mopchk"]], "g_w62 -> d_mopchk");
   eq(byId["f_rcpoll"].wires, [["arm_54", "f_ev_rest"], ["d_55"], ["lo_n_rc"], ["d_rcpoll"]], "f_rcpoll resume re-arms via arm_54");
   eq(byId["f_hareconn"].wires, [["f_short_A"], ["f_short_B"], ["d_rc"], ["g_w62"]], "f_hareconn out3 -> g_w62");
+}
+
+
+// ===========================================================================
+// 2026-11-04: mop catch-up / routine-end / water / short-sweep fixes
+const DAY = 864e5;
+const at = (d, h, m) => new Date(2026, 10, d, h, m || 0, 0).getTime();   // November 2026, local
+const MON = at(2, 9), TUE = at(3, 9), WED2 = at(4, 9), THU2 = at(5, 9), FRI = at(6, 9), SAT = at(7, 12);
+const PREV_WED_MOP = at(4, 10) - 7 * DAY;     // Wed 10-28 10:00 (a good mop last week)
+const OLD_MOP = at(4, 10) - 12 * DAY;         // Fri 10-23 10:00 (the stamp before 11-03)
+const TUE_MOP = at(3, 10, 4);                 // Tue 11-03 10:04 (the catch-up that drained the tank)
+const gMop = (lastMopMs, extra) => mkGlobal(Object.assign(state({ "input_datetime.rr_last_mop_run": lastMop(lastMopMs) }), extra || {}));
+const mopGate = (now, lastMopMs, flowInit) => withDate(now, () => run("f_58", {}, mkFlow(flowInit || {}), gMop(lastMopMs)));
+const isMop = (r) => !!(r[0] && !r[1] && !r[2]);
+const isVacOnly = (r) => !!(!r[0] && r[1] && !r[2]);
+
+console.log("A -- rrMopDue helper is one rule in every node");
+{
+  const re = /\/\/ --- rrMopDue:[\s\S]*?\/\/ --- end rrMopDue ---/;
+  const copies = ["f_35", "f_pre", "f_58", "f_nx"].map((id) => (byId[id].func.match(re) || [null])[0]);
+  ok(copies.every((c) => c), "rrMopDue block present in f_35, f_pre, f_58, f_nx");
+  ok(copies.every((c) => c === copies[0]), "rrMopDue block byte-identical in all four nodes");
+  ok(!flows.some((n) => n.func && /wedMid/.test(n.func)), "old wedMid rule gone from every node");
+}
+
+console.log("A -- f_58 mop gate: no Mon/Tue catch-up, Thu/Fri catch-up, 48 h rule");
+{
+  ok(isVacOnly(mopGate(MON, OLD_MOP)), "Mon with a stale stamp -> no catch-up (vacuum only)");
+  ok(isVacOnly(mopGate(TUE, OLD_MOP)), "Tue with a stale stamp -> no catch-up (the 11-03 double mop)");
+  ok(isVacOnly(mopGate(SAT, OLD_MOP)), "Sat with a stale stamp -> no catch-up");
+  ok(isMop(mopGate(WED2, PREV_WED_MOP)), "Wed, last mop a week ago -> mop");
+  ok(isMop(mopGate(WED2, OLD_MOP)), "Wed, last mop 12 days ago -> mop");
+  ok(isVacOnly(mopGate(WED2, TUE_MOP)), "Wed within 48 h of a Tue mop -> scheduled mop skipped");
+  ok(isMop(mopGate(THU2, PREV_WED_MOP)), "Thu after a missed Wed -> catch-up mop");
+  ok(isMop(mopGate(FRI, PREV_WED_MOP)), "Fri after a missed Wed (and Thu) -> catch-up mop");
+  ok(isVacOnly(mopGate(THU2, at(4, 10))), "Thu after a good Wed -> no double mop");
+  ok(isVacOnly(mopGate(FRI, at(4, 10))), "Fri after a good Wed -> no double mop");
+  ok(isVacOnly(mopGate(THU2, TUE_MOP)), "Thu after a Tue mop (Wed skipped) -> week already mopped");
+  ok(isVacOnly(mopGate(FRI, TUE_MOP)), "Fri after a Tue mop (Wed skipped) -> week already mopped");
+  ok(isVacOnly(mopGate(THU2, at(3, 20))), "Thu 09:00 after a Tue 20:00 mop -> within 48 h, no mop");
+  // catch-up day still honours the start-of-run water gate
+  const r = mopGate(THU2, PREV_WED_MOP, { rr_mop_skip: true });
+  ok(!r[0] && !r[1] && r[2] && /skipped/.test(r[2].rr_mop_reason), "Thu catch-up with an empty tank at start -> skip -> mop-failed");
+  // f_35 / f_pre use the same answer
+  const msg35 = withDate(TUE, () => run("f_35", {}, mkFlow({}), gMop(OLD_MOP)));
+  ok(msg35.mopDay === false, "f_35 Tue stale stamp -> mopDay false");
+  ok(withDate(THU2, () => run("f_35", {}, mkFlow({}), gMop(PREV_WED_MOP))).mopDay === true, "f_35 Thu catch-up -> mopDay true");
+  const fp = mkFlow({});
+  withDate(TUE, () => run("f_pre", {}, fp, gMop(OLD_MOP)));
+  ok(fp.get("rr_mop_pending") === false, "f_pre Tue stale stamp -> rr_mop_pending false");
+  const fp2 = mkFlow({});
+  const pre = withDate(WED2, () => run("f_pre", {}, fp2, gMop(PREV_WED_MOP, state({ "binary_sensor.mr_slave_water_shortage_2": "on" }))));
+  ok(fp2.get("rr_mop_skip") === true && /mop pass will be skipped/.test(pre[1].notify.message), "f_pre Wed + empty tank -> skip + notice");
+  // f_35 resets the mop-pass water watch for a new run
+  const f35 = mkFlow({ rr_mop_inpass: 123, rr_mop_water: true });
+  withDate(TUE, () => run("f_35", {}, f35, gMop(OLD_MOP)));
+  ok(f35.get("rr_mop_inpass") === 0 && f35.get("rr_mop_water") === false, "f_35 clears the water-watch flags");
+}
+
+console.log("A -- f_nx next-mop display follows the same rule");
+{
+  const nextMop = (now, g) => {
+    const out = withDate(now, () => run("f_nx", {}, mkFlow({}), g))[0];
+    const m = out.find((o) => o.payload.ent === "input_datetime.rr_next_mop");
+    return m && m.payload.ts * 1000;
+  };
+  eq(nextMop(TUE, gMop(OLD_MOP)), at(4, 8, 30), "Tue, stale stamp -> next mop Wed 08:30 (not today)");
+  eq(nextMop(WED2, gMop(PREV_WED_MOP)), at(5, 8, 30), "Wed after the 08:30 slot, not mopped -> Thu 08:30 catch-up");
+  eq(nextMop(THU2, gMop(at(4, 10))), at(11, 8, 30), "Thu after a good Wed -> next Wed");
+  eq(nextMop(MON, gMop(at(1, 12) - DAY)), at(4, 8, 30), "Mon after a Sat mop -> Wed (outside 48 h)");
+  eq(nextMop(TUE, mkGlobal({})), at(4, 8, 30), "states not loaded -> plain next Wednesday");
+}
+
+console.log("B -- f_mopchk: routine end needs a 20-min quiet window + robot home");
+{
+  const T = at(3, 10, 5);
+  const iso = (ms) => new Date(ms).toISOString();
+  const g = (offMs, extra) => mkGlobal(Object.assign(state({
+    "binary_sensor.mr_slave_cleaning_2": { state: "off", last_changed: iso(offMs) },
+    "sensor.mr_slave_status_2": "charging", "vacuum.mr_slave_2": "docked",
+    "binary_sensor.mr_slave_water_shortage_2": "off" }), extra || {}));
+  const chk = (msg, flow, gl) => withDate(T, () => run("f_mopchk", msg, flow || mkFlow({}), gl));
+  // the 11-03 case: 3-5 min into an 8-min gap between routine steps -> NOT done
+  let r = chk({}, null, g(T - 4 * 60e3));
+  ok(!r[0] && r[1] && !r[2], "4-min gap between routine steps (docked) -> keep waiting, no stamp");
+  r = chk({}, null, g(T - 19 * 60e3));
+  ok(!r[0] && r[1], "19 min quiet -> still waiting");
+  const fdone = mkFlow({ rr_mop_inpass: T - 3 * 3600e3 });
+  r = chk({}, fdone, g(T - 21 * 60e3));
+  ok(r[0] && !r[1] && !r[2], "21 min quiet + docked/charging -> pass done (out0 -> stamp)");
+  ok(fdone.get("rr_mop_inpass") === 0, "pass done closes the water watch");
+  r = chk({}, null, g(T - 30 * 60e3, state({ "vacuum.mr_slave_2": "idle", "sensor.mr_slave_status_2": "idle" })));
+  ok(!r[0] && r[1], "30 min quiet but robot not home -> not done");
+  r = chk({}, null, g(T - 30 * 60e3, state({ "sensor.mr_slave_status_2": "washing_the_mop" })));
+  ok(!r[0] && r[1], "30 min quiet but dock washing -> not done");
+  // polling through the quiet window doesn't burn the dock-cycle budget
+  const gq = g(T - 5 * 60e3);
+  const m1 = chk({}, null, gq)[1];
+  const m2 = chk(m1, null, gq)[1];
+  ok(m1.rr_mop_docks === 1 && m2.rr_mop_docks === 1 && m2.rr_mop_polls === 2, "same off-transition polled twice -> 1 dock, 2 polls");
+  // poll cap: off the dock forever -> give up via f_mopfail
+  r = chk({ rr_mop_polls: 119, rr_mop_docks: 3 }, null, g(T - 30 * 60e3, state({ "vacuum.mr_slave_2": "idle", "sensor.mr_slave_status_2": "idle" })));
+  ok(!r[0] && !r[1] && r[2] && /6 h/.test(r[2].rr_mop_reason), "120 checks without settling -> give up (out2)");
+  // tank ran dry -> failed, never done
+  const fw = mkFlow({ rr_mop_inpass: T - 3600e3 });
+  r = chk({}, fw, g(T - 25 * 60e3, state({ "binary_sensor.mr_slave_water_shortage_2": "on" })));
+  ok(!r[0] && !r[1] && r[2] && /ran out/.test(r[2].rr_mop_reason), "water_shortage on at the check -> mop failed, not done");
+  ok(fw.get("rr_mop_water") === true, "water failure flagged for the rest of the pass");
+  // after the water watch fired, the loop stops silently
+  eq(chk({}, mkFlow({ rr_mop_water: true }), g(T - 25 * 60e3)), [null, null, null], "rr_mop_water set -> loop ends, no second outcome");
+}
+
+console.log("B -- mid-pass water watch: t_mopwater -> f_mopwater -> f_mopfail");
+{
+  const t = byId["t_mopwater"];
+  ok(t && t.type === "server-state-changed" && t.entities.entity[0] === "binary_sensor.mr_slave_water_shortage_2" && t.ifState === "on",
+     "t_mopwater watches water_shortage_2 -> on");
+  ok(t.ignorePrevStateUnavailable && t.ignoreCurrentStateUnavailable && t.ignorePrevStateUnknown, "t_mopwater ignores unavailable/unknown");
+  eq(t.wires, [["f_mopwater"], []], "t_mopwater -> f_mopwater");
+  eq(byId["f_mopwater"].wires, [["f_mopfail"]], "f_mopwater -> f_mopfail");
+  ok(byId["g_sweep"].nodes.includes("t_mopwater") && byId["g_sweep"].nodes.includes("f_mopwater"), "new nodes are in g_sweep");
+  // f_ev_mop arms the watch
+  const fe = mkFlow({ rr_mop_water: true });
+  withDate(TUE, () => run("f_ev_mop", {}, fe));
+  ok(fe.get("rr_mop_inpass") === TUE && fe.get("rr_mop_water") === false, "f_ev_mop arms the water watch");
+  // water runs out 2 h 18 min into the pass (11-03 12:06)
+  const f = mkFlow({ rr_mop_inpass: at(3, 9, 48), rr_run: { active: true }, rr_mop_pending: true });
+  const m = withDate(at(3, 12, 6), () => run("f_mopwater", { payload: "on" }, f));
+  ok(m && m.rr_mop_water === true && /138 min into the mop pass/.test(m.rr_mop_reason), "f_mopwater mid-pass -> mop-failed msg with minutes");
+  const out = run("f_mopfail", m, f);
+  ok(out[0] && out[0].notify.tag === "rr_mop_failed" && out[0].notify.urgent === true && out[1], "-> one urgent rr_mop_failed + restore");
+  ok(/Thursday or Friday/.test(out[0].notify.message), "mop-failed wording names the Thu/Fri catch-up");
+  // later failure paths of the same pass are dropped (no second alert)
+  eq(run("f_mopfail", run("f_mopoff_to", {}, f), f), [null, null], "later routine timeout after the water alert -> dropped");
+  // outside a pass / no active run / already flagged -> nothing
+  eq(run("f_mopwater", {}, mkFlow({ rr_mop_inpass: 0, rr_run: { active: true } })), null, "water shortage outside a mop pass -> ignored");
+  eq(run("f_mopwater", {}, mkFlow({ rr_mop_inpass: 5, rr_run: { active: false } })), null, "no active run -> ignored");
+  eq(run("f_mopwater", {}, mkFlow({ rr_mop_inpass: 5, rr_run: { active: true }, rr_mop_water: true })), null, "already flagged -> ignored");
+  // the watch never stamps rr_last_mop_run: f_mopfail still routes to restore only
+  eq(byId["f_mopfail"].wires, [["lo_n_mopfail"], ["s_66"]], "f_mopfail wiring unchanged (never s_65)");
+}
+
+console.log("C -- f_rc: a short sweep does not stamp the 12 rooms");
+{
+  const T = at(3, 9, 25);
+  const g = (extra) => mkGlobal(Object.assign(state({ "sensor.mr_slave_battery_2": "66", "sensor.mr_slave_cleaning_progress_2": "0" }), extra || {}));
+  const rc = (msg, gl) => withDate(T, () => run("f_rc", Object.assign({ rr_wgen: 1 }, msg), mkFlow({ rr_waitgen: 1 }), gl || g()));
+  // the 11-03 case: home ~3.5 min after the sweep started, progress 0
+  let r = rc({ rr_sweep_t0: T - 210e3 });
+  ok(!r[0] && !r[1] && r[2] && r[3], "3.5-min sweep -> out2 (d_55, no restdone) + out3 notify");
+  ok(r[3].notify.tag === "rr_sweep_short" && /3\.5 min/.test(r[3].notify.message), "short-sweep notice says how long");
+  r = rc({ rr_sweep_t0: T - 75 * 60e3 });
+  ok(r[0] && !r[1] && !r[2] && !r[3], "75-min sweep -> done, rooms stamped (out0)");
+  r = rc({}, g(state({ "sensor.mr_slave_cleaning_time_2": "102" })));
+  ok(!r[0] && r[2], "no start time on the msg -> falls back to cleaning_time (102 s) -> short");
+  r = rc({}, g());
+  ok(r[0] && !r[2], "no start time and no cleaning_time -> unchanged behaviour (stamp)");
+  r = rc({ rr_sweep_t0: T - 4 * 60e3 }, g(state({ "sensor.mr_slave_battery_2": "14", "sensor.mr_slave_cleaning_progress_2": "40" })));
+  ok(!r[0] && r[1] && !r[2], "low battery mid-sweep -> recharge path unchanged");
+  // arm_54 stamps the sweep start once and keeps it across a resume
+  const m = {};
+  withDate(T - 60e3, () => run("arm_54", m, mkFlow({})));
+  const first = m.rr_sweep_t0;
+  withDate(T, () => run("arm_54", m, mkFlow({})));
+  ok(first === T - 60e3 && m.rr_sweep_t0 === first, "arm_54 sets rr_sweep_t0 once (kept across a resume)");
+  ok(byId["li_notify"].links.includes("lo_n_short") && byId["lo_n_short"].links[0] === "li_notify", "lo_n_short <-> li_notify linked");
 }
 
 // ===========================================================================

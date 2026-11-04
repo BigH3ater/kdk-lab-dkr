@@ -89,12 +89,17 @@ script:
               actions: "{{ actions | default([]) }}"
               push:
                 interruption-level: "{{ 'time-sensitive' if urgent | default(false) | bool else 'active' }}"
-      - action: notify.mobile_app_iphone
-        continue_on_error: true
-        data: "{{ payload }}"
-      - action: notify.mobile_app_rachels_phone
-        continue_on_error: true
-        data: "{{ payload }}"
+      # One branch per phone. continue_on_error does not cover a notifier that
+      # doesn't exist (notify.mobile_app_rachels_phone failed 115x in a week, 2026-11),
+      # so the phones run in parallel: one bad notifier can't block the other.
+      # Rachel's service name is the one approval_tasks.yaml uses (PR #287).
+      - parallel:
+          - action: notify.mobile_app_iphone
+            continue_on_error: true
+            data: "{{ payload }}"
+          - action: notify.mobile_app_rachels_master_iphone
+            continue_on_error: true
+            data: "{{ payload }}"
 
 # Open maintenance chores from Vikunja (project 6 "Robot Vacuum"). Token is
 # host-managed at /config/.vikunja_token (0600, not in git; holds the HA stack's
@@ -285,8 +290,9 @@ automation:
   # Clean-water tank empty. The dock reports it as dock_error water_empty (seen
   # 2026-10-09 and 10-18); the robot's own water_shortage flag is a second
   # source. 10 min debounce so pulling the tank for a swap doesn't page. A
-  # time-sensitive repeat at 07:45 on Wednesday (the only mop day since 2026-11-02, was Monday:
-  # one tank lasts one mop pass) if it's still empty before the 08:30 run.
+  # time-sensitive repeat at 07:45 on a mop day (input_datetime.rr_next_mop is today:
+  # Wednesday, or a Thursday/Friday catch-up; Node-RED f_nx computes it with the same
+  # rule as the mop gate; one tank lasts one mop pass) if it's still empty before 08:30.
   # Vacuum-only days don't need water, so no morning nag on those. Clears from
   # both phones once the dock is happy again.
   - id: rr_water_empty_alert
@@ -336,17 +342,18 @@ automation:
           empty: >-
             {{ is_state('sensor.mr_slave_dock_dock_error', 'water_empty')
                or is_state('binary_sensor.mr_slave_water_shortage_2', 'on') }}
+          mop_today: "{{ states('input_datetime.rr_next_mop')[:10] == now().strftime('%Y-%m-%d') }}"
       - choose:
           - conditions: >-
               {{ empty and (trigger.id in ['empty', 'recheck']
-                            or (trigger.id == 'morning' and now().weekday() == 2)) }}
+                            or (trigger.id == 'morning' and mop_today)) }}
             sequence:
               - action: script.rr_notify
                 data:
                   title: "Mr. Slave needs clean water"
                   message: >-
                     The clean-water tank is empty. Fill it (or drop in the spare)
-                    before Wednesday's mop pass{{ ' — it is skipped without water' if now().weekday() == 2 else '' }}.
+                    before the next mop pass{{ ' this morning — it is skipped without water' if mop_today else '' }}.
                   tag: rr_water_empty
                   urgent: "{{ trigger.id == 'morning' }}"
           - conditions: "{{ trigger.id == 'refilled' and not empty }}"

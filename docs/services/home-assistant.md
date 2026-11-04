@@ -102,13 +102,31 @@ reports a failed mop:
   restart — tap Daily clean to resume"* alert. **The file store only exists
   once `settings.js` is deployed, so deploy the stack before importing a
   `flows.json` that uses it (see below).**
-- **Missed / failed mop.** Mop day is Wednesday (`getDay()===3`). It is also due
-  as a **catch-up** if `input_datetime.rr_last_mop_run` predates this week's
-  Wednesday 00:00, so a failed Wednesday mops on the next successful run that
-  week (one clean tank = one pass, so still one mop/week). Any mop that does not
-  complete — dock/battery/routine timeout, give-up, or a start-time skip — sends
-  **one** urgent `rr_mop_failed` alert (`f_mopfail`) and does **not** stamp
-  `rr_last_mop_run`, so the catch-up fires. A mid-sweep recharge that fails to
+- **Mop day and catch-up (2026-11-04).** One rule, `rrMopDue`, sits byte-identical
+  in `f_35`, `f_pre`, `f_58` (the mop gate) and `f_nx` (`rr_next_mop`); the tests
+  fail if the copies drift. One clean tank lasts one mop pass, so at most one a week:
+
+  | Day | Mop? |
+  |---|---|
+  | Wednesday | yes, unless `input_datetime.rr_last_mop_run` is within the last 48 h |
+  | Thursday, Friday | catch-up only if no mop since this week's Monday 00:00 (Wednesday was missed) and none in 48 h |
+  | Saturday to Tuesday | never (11-03: a Tuesday catch-up emptied the tank the day before the Wednesday mop) |
+
+  The start-of-run water/dock gate (`f_pre` → `rr_mop_skip`) still applies on
+  every mop day. The 07:45 "needs clean water" nag fires when `rr_next_mop` is
+  today, so it follows a catch-up day too.
+- **Mop-pass end and failures.** HA exposes no routine-step entity, so `f_mopchk`
+  calls the 7-job "Mopping" routine done only after cleaning has been off for
+  **20 min** with the robot home (docked/charging) and not washing; gaps between
+  routine steps (8.5 min on 11-03) no longer count as the end. A mid-pass water
+  watch (`t_mopwater` → `f_mopwater`) fires when
+  `binary_sensor.mr_slave_water_shortage_2` turns on during a pass. Any mop that
+  does not complete (water ran out, dock/battery/routine timeout, give-up, or a
+  start-time skip) sends **one** urgent `rr_mop_failed` alert (`f_mopfail`) and
+  does **not** stamp `rr_last_mop_run`, so the next eligible day re-runs it.
+- **Main sweep sanity.** `f_rc` does not stamp the 12 rooms if the sweep came
+  home in under 10 min with progress 0 (11-03: 1.7 min); the run moves on and an
+  `rr_sweep_short` notice goes out. A mid-sweep recharge that fails to
   resume (progress reset to 0, or charged & full for ~10 min, or 150 min cap) is
   detected by the recharge watcher (`d_rcpoll` → `f_rcpoll`) and routed to the
   mop gate **without** stamping the unfinished rooms, with an `rr_no_resume`
