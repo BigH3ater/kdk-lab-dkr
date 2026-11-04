@@ -18,6 +18,10 @@
  *   - f_mopchk needs a 20-min quiet window + robot home; water shortage = failed
  *   - mid-pass water watch (t_mopwater -> f_mopwater -> f_mopfail), one alert
  *   - f_rc: a sweep under 10 min with no progress does not stamp the 12 rooms
+ *
+ * 2026-11-04 (fix/roborock-dashboard-2, after the robot's own mop routine):
+ *   - f_ev_idle: error -> idle is not "Stopped by hand"
+ *   - f_track 'job': a robot-started job replaces the last run's final phase
  */
 const fs = require("fs");
 const path = require("path");
@@ -457,6 +461,36 @@ console.log("C -- f_rc: a short sweep does not stamp the 12 rooms");
   withDate(T, () => run("arm_54", m, mkFlow({})));
   ok(first === T - 60e3 && m.rr_sweep_t0 === first, "arm_54 sets rr_sweep_t0 once (kept across a resume)");
   ok(byId["li_notify"].links.includes("lo_n_short") && byId["lo_n_short"].links[0] === "li_notify", "lo_n_short <-> li_notify linked");
+}
+
+// ===========================================================================
+console.log("D -- error -> idle is not a manual stop; robot-started jobs replace a stale phase");
+{
+  eq(run("f_ev_idle", { data: { old_state: { state: "error" } } }), null, "f_ev_idle error->idle suppressed");
+  ok(run("f_ev_idle", { data: { old_state: { state: "docked" } } }).rr_evt === "idle", "f_ev_idle docked->idle still fires");
+  // cleaning_2 -> on trigger wiring
+  const t = byId["t_jobon"];
+  ok(t && t.type === "server-state-changed" && t.entities.entity[0] === "binary_sensor.mr_slave_cleaning_2" && t.ifState === "on",
+     "t_jobon watches cleaning_2 -> on");
+  ok(t.ignorePrevStateUnavailable === true && t.ignorePrevStateUnknown === true && t.ignoreCurrentStateUnavailable === true,
+     "t_jobon ignores unavailable/unknown");
+  ok(t.wires[0][0] === "f_ev_job" && byId["f_ev_job"].wires[0][0] === "f_track", "t_jobon -> f_ev_job -> f_track");
+  ok(byId["g_track"].nodes.includes("t_jobon") && byId["g_track"].nodes.includes("f_ev_job"), "new nodes in the tracker group");
+  eq(run("f_ev_job", {}).rr_evt, "job", "f_ev_job emits job");
+  // no Node-RED run: the stale phase is replaced, near cleared
+  const f1 = mkFlow({ rr_run: { active: false, phase: "Stopped by hand — rest of run cancelled", cancelled: true, near: "Bedroom1" } });
+  const r1 = run("f_track", { rr_evt: "job" }, f1);
+  ok(/outside the daily run/.test(r1[0][0].payload.phase) && r1[0][0].payload.near === "", "job with no run -> phase replaced, near cleared");
+  ok(r1[1].length === 0, "job -> no room stamps");
+  // second flip (wash visit) writes the same text
+  const r1b = run("f_track", { rr_evt: "job" }, f1);
+  eq(r1b[0][0].payload.phase, r1[0][0].payload.phase, "repeat job flip -> same phase");
+  // inside a Node-RED run or mop pass: untouched
+  const f2 = mkFlow({ rr_run: { active: true, phase: "Main floor sweep (12 rooms)", cancelled: false, near: "" } });
+  eq(run("f_track", { rr_evt: "job" }, f2), null, "job during an active run -> ignored");
+  eq(f2.get("rr_run").phase, "Main floor sweep (12 rooms)", "active run phase kept");
+  const f3 = mkFlow({ rr_run: { active: false, phase: "Mop pass (all floors)", cancelled: false, near: "" }, rr_mop_inpass: 1 });
+  eq(run("f_track", { rr_evt: "job" }, f3), null, "job during a mop pass -> ignored");
 }
 
 // ===========================================================================

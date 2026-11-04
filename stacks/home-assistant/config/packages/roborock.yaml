@@ -339,6 +339,88 @@ template:
             {{ {'kind': k, 'title': titles.get(k, 'Mr. Slave has an error'),
                 'fix': fixes.get(k, 'Check the Roborock app for details.')} }}
 
+  # Job state from the robot itself (2026-11-04 mop run). The robot's own
+  # routines (app "Mopping" button, HomeKit) leave select.mr_slave_cleaning_mode
+  # at vac_and_mop and input_text.rr_run_phase untouched, so these do not use
+  # either as proof of a mop run.
+  # - rr_job_active: a job is open. cleaning_2 drops OFF for ~40-70 s at every
+  #   wash/empty dock visit (status charging, then segment_cleaning before
+  #   cleaning_2 is back), so the robot's cleaning and dock-visit statuses
+  #   count too and delay_off bridges the gap.
+  # - rr_recharge_pause: low-battery pause mid-job (pauses at <= 20 %, keeps
+  #   progress, resumes by itself at 80 %): charging with cleaning_2 still on
+  #   and progress > 0. delay_on 1 min: a wash visit passes through charging
+  #   with cleaning_2 on for 10-20 s.
+  # - rr_mopping_now: job open AND (the dock is washing the mop, or it washed
+  #   during this job, or the robot is cleaning with mop settings and pads +
+  #   water box attached). Pads are always on this robot, so they only count
+  #   together with the mop settings; washes are the hard proof.
+  - binary_sensor:
+      - name: rr_job_active
+        unique_id: rr_job_active
+        icon: mdi:robot-vacuum
+        delay_off: "00:02:00"
+        state: >-
+          {{ is_state('binary_sensor.mr_slave_cleaning_2', 'on')
+             or states('sensor.mr_slave_status_2') in
+                ['cleaning', 'segment_cleaning', 'zoned_cleaning', 'spot_cleaning',
+                 'going_to_wash_the_mop', 'washing_the_mop', 'emptying_the_bin', 'returning_home'] }}
+      - name: rr_recharge_pause
+        unique_id: rr_recharge_pause
+        icon: mdi:battery-charging-medium
+        delay_on: "00:01:00"
+        state: >-
+          {{ states('sensor.mr_slave_status_2') in ['charging', 'charging_complete']
+             and is_state('binary_sensor.mr_slave_cleaning_2', 'on')
+             and states('sensor.mr_slave_cleaning_progress_2') | float(0) > 0 }}
+      - name: rr_mopping_now
+        unique_id: rr_mopping_now
+        icon: mdi:water
+        state: >-
+          {% set st = states('sensor.mr_slave_status_2') %}
+          {% set washing = st in ['going_to_wash_the_mop', 'washing_the_mop']
+                           or is_state('switch.mr_slave_dock_mop_washing', 'on') %}
+          {% set mop_set = states('select.mr_slave_cleaning_mode') in ['vac_and_mop', 'mop']
+                           and states('select.mr_slave_mop_intensity_2') not in ['off', 'unknown', 'unavailable']
+                           and is_state('binary_sensor.mr_slave_mop_attached_2', 'on')
+                           and is_state('binary_sensor.mr_slave_water_box_attached_2', 'on') %}
+          {{ is_state('binary_sensor.rr_job_active', 'on')
+             and (washing or states('sensor.rr_job_washes') | int(0) > 0
+                  or (mop_set and is_state('binary_sensor.mr_slave_cleaning_2', 'on'))) }}
+
+  # Mop washes in the current job: +1 each time the status turns
+  # washing_the_mop; back to 0 when cleaning starts after >= 20 min off (a new
+  # job; the wash/empty visits are ~1 min, gaps between routine steps up to
+  # ~8 min, f_mopchk uses the same 20-min quiet window). Not reset on
+  # sensor.mr_slave_last_clean_begin_2: that updates when a job ENDS.
+  - triggers:
+      - trigger: state
+        id: wash
+        entity_id: sensor.mr_slave_status_2
+        to: washing_the_mop
+        not_from: [unknown, unavailable]
+      - trigger: state
+        id: start
+        entity_id: binary_sensor.mr_slave_cleaning_2
+        from: "off"
+        to: "on"
+    sensor:
+      - name: rr_job_washes
+        unique_id: rr_job_washes
+        icon: mdi:water-sync
+        state: >-
+          {% set n = this.state | int(0) %}
+          {% if trigger.id == 'wash' %}{{ n + 1 }}
+          {% elif (trigger.to_state.last_changed - trigger.from_state.last_changed).total_seconds() >= 1200 %}0
+          {% else %}{{ n }}{% endif %}
+        attributes:
+          job_start: >-
+            {% if trigger.id == 'start'
+                  and (trigger.to_state.last_changed - trigger.from_state.last_changed).total_seconds() >= 1200 %}{{ now().isoformat() }}
+            {% else %}{{ this.attributes.get('job_start', '') }}{% endif %}
+          last_wash: >-
+            {{ now().isoformat() if trigger.id == 'wash' else this.attributes.get('last_wash', '') }}
+
 # Off-charger alert. 2026-10-12: the vacuum went charger_disconnected on the
 # dock, idled on battery, and powered itself off exactly 12 h later; two daily
 # runs then failed against an unavailable entity with no phone alert. Fire while
@@ -368,6 +450,13 @@ automation:
         id: charging
         entity_id: sensor.mr_slave_status_2
         to: [charging, charging_complete]
+    # Docking only runs the automation when an off-charger alert is out. The
+    # charging trigger fires on every dock visit (5 times in the 2026-11-04 mop
+    # run: each wash, empty and the recharge pause); gating it here keeps those
+    # out of last_triggered and the dashboard logbook. The recharge pause is
+    # status charging, never in the off_charger list.
+    conditions:
+      - "{{ trigger.id != 'charging' or is_state('input_boolean.rr_off_charger_alerted', 'on') }}"
     actions:
       - choose:
           - conditions: "{{ trigger.id == 'off_charger' }}"
@@ -396,9 +485,7 @@ automation:
                   urgent: true
               - action: input_boolean.turn_on
                 target: { entity_id: input_boolean.rr_off_charger_alerted }
-          - conditions: >-
-              {{ trigger.id == 'charging'
-                 and is_state('input_boolean.rr_off_charger_alerted', 'on') }}
+          - conditions: "{{ trigger.id == 'charging' }}"
             sequence:
               - action: script.rr_notify
                 data:
