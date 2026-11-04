@@ -48,7 +48,6 @@ immich/immich-machine-learning: no-new-privileges,cap_drop,read_only,pids_limit,
 immich/immich-postgres: no-new-privileges,cap_drop,read_only,pids_limit,mem_limit,logging,healthcheck
 immich/immich-server: no-new-privileges,cap_drop,read_only,pids_limit,mem_limit,logging,healthcheck
 immich/immich-valkey: no-new-privileges,cap_drop,read_only,pids_limit,mem_limit,logging,healthcheck
-jellyfin/jellyfin: no-new-privileges,cap_drop,read_only,pids_limit,mem_limit,logging,healthcheck,devices
 jellystat/jellystat: no-new-privileges,cap_drop,read_only,pids_limit,mem_limit
 jellystat/jellystat-db: no-new-privileges,cap_drop,read_only,pids_limit,mem_limit
 komodo/core: no-new-privileges,cap_drop,read_only,pids_limit,mem_limit,logging,healthcheck

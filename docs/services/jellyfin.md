@@ -26,6 +26,7 @@ Media server on the DMZ node with Intel Arc A380 QSV transcode; public via the C
 | Endpoint | `https://jellyfin.kmkdp.com` (LAN + Tailscale; off the Cloudflare tunnel since 2026-10-31) |
 | Edge | Five-rule Cloudflare design (admin-API block, anonymous-stream block, OIDC skip, bots, non-US) plus a credential-path rate limit; verify with `scripts/edge-probe.sh` |
 | Image | `ghcr.io/linuxserver/jellyfin:12.3ubu2604-ls56` — 12.x line, pinned; server and plugins move together |
+| Hardening | compose baseline: `cap_drop: [ALL]` + `cap_add` CHOWN/SETUID/SETGID/DAC_OVERRIDE/FOWNER/KILL (s6 init), `no-new-privileges`, `mem_limit 10g` (includes the 6G transcode tmpfs), `pids_limit 2048`, `/health` healthcheck; exceptions `devices` (/dev/dri) and skip `read_only` (s6) |
 | Deploy | Komodo stack `jellyfin` (git-linked) |
 | Storage | `/opt/kdk-lab/jellyfin/config` on local disk (DB, cache, plugins; byte-for-byte from k3s); images/metadata on NFS `/mnt/appdata/jellyfin/metadata` → `/config/data/metadata`; library RO from `/mnt/media` |
 | Blast radius | No streaming; requests via Seerr still queue |
