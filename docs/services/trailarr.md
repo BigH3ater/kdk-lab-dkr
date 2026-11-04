@@ -5,7 +5,7 @@ stack: trailarr
 tier: internal
 status: live
 secrets: [trailarr-admin]
-updated: 2026-10-30
+updated: 2026-11-04
 tags: [homelab/service, tier/internal, status/live, media]
 ---
 
@@ -52,6 +52,7 @@ plays it as a Trailer extra.
 | Forgotten web login | `WEBUI_PASSWORD` is hashed once at start-up | run the one-off reset below |
 | `could not read the media data` in logs | an arr API key rotated; the connection copy is stale | refresh the connection (see Secret Rotation) |
 | No trailers for a title | title not covered by the `new` policy (added before the switch) | expected — only newly added titles are monitored |
+| `/opt/kdk-lab/trailarr/.env` is `644` | container not started through the compose `entrypoint` loop (or < 15 s since start) | `sudo stat -c '%a' /opt/kdk-lab/trailarr /opt/kdk-lab/trailarr/.env` → `700` `600` |
 | 502 at the URL | `trailarr` not healthy / wrong port | `docker logs trailarr`; service port is 7889 |
 
 ### Reset the web login (forgotten password)
@@ -101,7 +102,7 @@ Trailer downloads run server-side via `yt-dlp`.
 | Path / setting | What it is |
 |---|---|
 | `stacks/trailarr/compose.yaml` | the service + Traefik labels (`forwardauth@file`) |
-| `/opt/kdk-lab/trailarr` | Trailarr config (`/config`) |
+| `/opt/kdk-lab/trailarr` | Trailarr config (`/config`); kept `0700`, `.env` `0600` by the compose `entrypoint` loop (the image `chmod -R 755`s it on every start) |
 | Radarr/Sonarr connections | `monitor=none` → sync → `new` (new titles only) |
 | Komodo stack `trailarr` | server kdk-dkr-01, webhook on |
 
