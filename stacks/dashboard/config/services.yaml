@@ -162,7 +162,7 @@
       icon: calibre-web
       href: https://calibre.kmkdp.com/
       siteMonitor: https://calibre.kmkdp.com/
-      description: Ebook library & OPDS catalog (own login)
+      description: Ebook library & OPDS catalog (LAN, no login)
   - Wizarr:
       icon: wizarr
       href: https://wizarr.kmkdp.com/admin
@@ -279,4 +279,4 @@
       icon: mdi-book-open-variant
       href: https://docs.kmkdp.com/
       siteMonitor: https://docs.kmkdp.com/
-      description: Homelab documentation site (SSO)
+      description: Homelab documentation site (LAN, no login)

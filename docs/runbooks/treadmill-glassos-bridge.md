@@ -105,7 +105,7 @@ be **registered** in the host-managed `configuration.yaml` (not in the repo):
 lovelace:
   mode: storage
   dashboards:
-    workout:                       # -> https://homeassistant.kmkdp.com/workout   (Jacob)
+    treadmill-workouts:            # -> https://homeassistant.kmkdp.com/treadmill-workouts   (Jacob)
       mode: yaml
       title: Workout · Jacob
       icon: mdi:run
@@ -119,7 +119,7 @@ lovelace:
       filename: dashboards/workout_rachel.yaml
 ```
 
-The two `workout` / `workout-rachel` url_paths are what the Kodiak left-sidebar
+The two `treadmill-workouts` / `workout-rachel` url_paths are what the Kodiak left-sidebar
 **Workout · Jacob** / **Workout · Rachel** links point at. Rachel's dashboard is a
 mirror of Jacob's (shared Treadmill + Plan views) whose Strength view logs her own
 `input_number.ex_*_rachel` helpers (package `workout_strength_rachel.yaml`, same
