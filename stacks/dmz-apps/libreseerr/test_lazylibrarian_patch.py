@@ -146,4 +146,93 @@ class TestAddBookWaits(unittest.TestCase):
         client.add_book({"foreignBookId": "644", "title": "A Game of Thrones"}, 1, "/books")
         add = [p for c, p in calls if c == "addBook"]
         self.assertEqual(add, [{"id": "644", "wait": 1}])
-        self.assertEqual([c for c, _ in calls], ["addBook", "queueBook"])
+        self.assertEqual([c for c, _ in calls],
+                         ["addBook", "getAllBooks", "getAllBooks", "queueBook", "searchBook"])
+
+
+def _scripted(replies):
+    """A _get stand-in answering per command from `replies` (default "OK")."""
+    calls = []
+
+    def _get(cmd, **params):
+        calls.append((cmd, params))
+        r = replies.get(cmd, "OK")
+        if isinstance(r, Exception):
+            raise r
+        return r(params) if callable(r) else r
+    return _get, calls
+
+
+class TestAddBookReplies(unittest.TestCase):
+    BOOK = {"foreignBookId": "431272", "title": "The Effective Engineer"}
+
+    def _client(self, replies, queue_type="AudioBook"):
+        client = LazyLibrarianClient("http://ll.example", "key", queue_type=queue_type)
+        client._get, calls = _scripted(replies)
+        return client, calls
+
+    def test_addbook_false_raises(self):
+        client, calls = self._client({"addBook": False})
+        with self.assertRaises(ValueError):
+            client.add_book(self.BOOK, 1, "/books")
+        self.assertNotIn("queueBook", [c for c, _ in calls])
+
+    def test_invalid_id_from_queuebook_raises(self):
+        client, calls = self._client({"addBook": True, "getAllBooks": [],
+                                      "queueBook": "Invalid id: 431272"})
+        with self.assertRaises(ValueError):
+            client.add_book(self.BOOK, 1, "/books")
+        self.assertNotIn("searchBook", [c for c, _ in calls])
+
+    def test_api_error_dict_raises(self):
+        client, _ = self._client({"addBook": {"Success": False, "Error": {"Code": 405}}})
+        with self.assertRaises(ValueError):
+            client.add_book(self.BOOK, 1, "/books")
+
+    def test_success_queues_then_searches_same_type(self):
+        client, calls = self._client({"addBook": True, "getAllBooks": []})
+        out = client.add_book(self.BOOK, 1, "/books")
+        self.assertEqual(out["id"], "431272")
+        q = [p for c, p in calls if c == "queueBook"]
+        s = [p for c, p in calls if c == "searchBook"]
+        self.assertEqual(q, [{"id": "431272", "type": "AudioBook"}])
+        self.assertEqual(s, [{"id": "431272", "type": "AudioBook"}])
+
+    def test_open_book_is_not_requeued(self):
+        def all_books(params):
+            if params == {"audiostatus": "Open"}:
+                return [{"BookID": "431272", "AudioStatus": "Open"}]
+            return []
+        client, calls = self._client({"addBook": True, "getAllBooks": all_books})
+        out = client.add_book(self.BOOK, 1, "/books")
+        self.assertTrue(out.get("already_available"))
+        cmds = [c for c, _ in calls]
+        self.assertNotIn("queueBook", cmds)
+        self.assertNotIn("searchBook", cmds)
+
+    def test_ebook_client_checks_ebook_status(self):
+        client, calls = self._client({"addBook": True, "getAllBooks": []}, queue_type="eBook")
+        client.add_book(self.BOOK, 1, "/books")
+        looked = [p for c, p in calls if c == "getAllBooks"]
+        self.assertEqual(looked, [{"status": "Open"}, {"status": "Have"}])
+
+    def test_status_lookup_error_still_queues(self):
+        client, calls = self._client({"addBook": True, "getAllBooks": RuntimeError("down")})
+        client.add_book(self.BOOK, 1, "/books")
+        self.assertIn("queueBook", [c for c, _ in calls])
+
+    def test_search_error_is_not_fatal(self):
+        client, _ = self._client({"addBook": True, "getAllBooks": [],
+                                  "searchBook": RuntimeError("timeout")})
+        self.assertEqual(client.add_book(self.BOOK, 1, "/books")["id"], "431272")
+
+    def test_reply_ok_variants(self):
+        ok = lazylibrarian._reply_ok
+        self.assertTrue(ok(True))
+        self.assertTrue(ok("OK"))
+        self.assertTrue(ok("true"))
+        self.assertFalse(ok(False))
+        self.assertFalse(ok("false"))
+        self.assertFalse(ok("Invalid id: 1"))
+        self.assertFalse(ok({"Success": False}))
+        self.assertFalse(ok(None))
