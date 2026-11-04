@@ -110,12 +110,48 @@ def _unit_of(entry):
     return u if isinstance(u, str) else None
 
 
-def build_store_lists(entries, config, run_mode="weekly"):
+def _parse_dt(value, default_tz):
+    """ISO datetime (Tandoor returns offset-aware, e.g. ...-06:00 or Z) -> aware
+    datetime; a naive value is read in `default_tz`. None if unparseable."""
+    import datetime as _dt
+    if not value:
+        return None
+    try:
+        d = _dt.datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return d if d.tzinfo else d.replace(tzinfo=default_tz)
+
+
+def is_open(entry, now):
+    """True if the entry is still to buy: not checked and not delayed into the
+    future. Tandoor's list endpoint returns unchecked entries PLUS entries
+    checked in the last `shopping_recent_days` (<= 14), and it does not filter
+    `delay_until` at all (read from the 2.7 ShoppingListEntryViewSet), so both
+    must be dropped here -- the dashboard page applies the same rule."""
+    if entry.get("checked"):
+        return False
+    until = _parse_dt(entry.get("delay_until"), now.tzinfo)
+    return not (until and until > now)
+
+
+def entry_mealplan_id(entry):
+    """The meal-plan id an entry was added for (via its ShoppingListRecipe), or
+    None for an ad-hoc entry (the page's add box, a manual Tandoor add)."""
+    lr = entry.get("list_recipe_data")
+    return lr.get("mealplan") if isinstance(lr, dict) else None
+
+
+def build_store_lists(entries, config, run_mode="weekly", now=None):
     """Return (store_lists, unrouted, skipped_onhand).
 
     store_lists: {store: StoreList} limited to the run's stores (weekly ->
     stores.weekly_stores, bulk -> stores.bulk_stores). unrouted: [Item] with no
-    parseable store (owner must assign a category). skipped_onhand: count."""
+    parseable store (owner must assign a category). skipped_onhand: count.
+    Checked and future-delayed entries are not on any list (see is_open);
+    `now` (aware datetime) defaults to the current UTC time."""
+    import datetime as _dt
+    now = now or _dt.datetime.now(_dt.timezone.utc)
     stores_cfg = config["stores"]
     run_stores = set(stores_cfg["weekly_stores"] if run_mode == "weekly"
                      else stores_cfg["bulk_stores"])
@@ -126,6 +162,8 @@ def build_store_lists(entries, config, run_mode="weekly"):
     skipped = 0
 
     for e in entries:
+        if not is_open(e, now):
+            continue                           # bought (recently checked) or hidden until later
         food = _food_of(e)
         if is_excluded(food.get("name", ""), excludes):
             continue                           # dog/pet food etc. -- never ordered here
