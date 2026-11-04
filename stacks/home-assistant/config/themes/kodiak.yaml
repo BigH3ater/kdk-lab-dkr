@@ -105,3 +105,14 @@ Kodiak:
   paper-listbox-color: "#ece2d0"
   # selected sidebar item: dark highlight so the ember selected-text stays readable
   sidebar-selected-background-color: "#2b2825"
+  # --- xiaomi-vacuum-map-card (Roborock Map tab, dashboards/roborock.yaml) ---
+  # Each room's label is its segment number, drawn centred on the room's tap
+  # bubble; the robot glyph in the bubble is hidden (size 0) so the number reads.
+  # The bubble stays the tap target (labels ignore pointer events).
+  map-card-room-icon-size: "0px"
+  map-card-room-icon-wrapper-size: "38px"
+  map-card-room-icon-background-color: "#1b1a18"   # ink (readable on every room colour)
+  map-card-room-icon-background-color-selected: "#c9743f"  # ember
+  map-card-room-label-font-size: "20px"
+  map-card-room-label-color: "#ece2d0"             # paper
+  map-card-room-label-color-selected: "#1b1a18"    # ink on ember

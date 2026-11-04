@@ -6,7 +6,7 @@ tier: apps
 status: live
 storage: yes
 secrets: [home-assistant-nodered-token, node-red-admin, node-red-credential-secret, zigbee2mqtt-frontend-token, kdk-ups-01-nut-upsd, scrypted-admin, homeassistant-oidc-client, vikunja-api-ro, vikunja-api-approvals]
-updated: 2026-10-28
+updated: 2026-11-04
 tags: [homelab/stack, tier/apps, status/live]
 ---
 
@@ -56,7 +56,8 @@ local-only `node-red` user (admin, required by the websocket nodes) instead of t
   The family reaches it same-tab from the home.kmkdp.com Kodiak sidebar.
 - **Roborock** (`/roborock-vac`) — sections *Current status*, *Rooms*, *Mop run*,
   *Alerts*, *Maintenance*, plus the **Map** tab (HACS
-  `lovelace-xiaomi-vacuum-map-card`, manual calibration — do not re-derive). See
+  `lovelace-xiaomi-vacuum-map-card`, manual calibration — do not re-derive;
+  rooms numbered by segment id with a Key card below). See
   [Roborock dashboard](#roborock-dashboard-2026-11-04).
 - **Homelab** (`/homelab-hw`) — iDRAC gauges for [[kdk-hyp-01]] and
   [[kdk-nas-01]], the [[nut]] UPS, and CPU/memory/uptime for all monitored hosts.
@@ -91,6 +92,43 @@ Rules the page follows:
   alert stays quiet while the robot reports an error (the error alert has
   already paged). Follow-up, not built: the 1-3 s `clean_carousel_*` blips
   (six on 11-03) never page; a repeat counter would catch a failing wash tray.
+
+### Map tab: numbered rooms, key, path colour (2026-11-04)
+
+The Map tab (`/roborock-vac/map`) is a panel view holding a `vertical-stack`:
+the `xiaomi-vacuum-map-card` on top, a markdown **Key** below.
+
+- **Numbers.** Each of the 13 `predefined_selections` has `label.text` = its
+  segment id ("1".."13"), centred on the room's tap bubble. The Kodiak theme
+  carries the card's `map-card-room-*` variables (glyph hidden, ink bubble,
+  20 px paper number, ember when selected); the view sets `theme: Kodiak` so
+  the tab looks the same whatever theme the browser picked. Tap-to-select is
+  unchanged. Theme edits need Developer Tools → YAML → *Themes* reload (or
+  "Reload all YAML"); dashboard edits only a browser refresh.
+- **Key.** The table `# | Dashboard name | Robot app name | Notes` under the
+  map is the only place the number → name mapping is written. A correction
+  is a one-row edit there. The robot-app column is "?" until the owner
+  matches each number to the app's name (the app still uses the old labels,
+  see *Room names* above). Renaming a **helper** (tile, `input_button`,
+  Node-RED stamp) is a separate, bigger change: package + Rooms tiles + flows.
+- **Calibration** (3 points, mm → px on the 1728 × 1568 image) is unchanged;
+  do not re-derive.
+- **Path colour.** The image is drawn by HA's Roborock integration
+  (`vacuum-map-parser-roborock`) with the library's default palette; the path
+  is light blue (147, 194, 238), the same as rooms 2 and 12, so it vanishes on
+  them. Neither the integration nor the card has a colour option. The
+  integration's options do have **Show rooms**: off makes every room fill
+  transparent, so the map shows walls, the dock, the robot and the path on
+  the card's dark ink surface, where the light-blue path stands out. The
+  numbers and the Key replace the room colours. Hand step (UI, not in git):
+  Settings → Devices & services → Roborock → ⚙ Configure → untick
+  **Show rooms** → Submit; the integration reloads and the next map update
+  redraws. Revert = tick it again. Optional in the same form: **Mop path**
+  draws a wide translucent white band where it mopped. Status: not applied
+  (owner decision). If the rooms must keep their colours *and* the path must
+  show, the only route is a separate renderer (python-roborock +
+  vacuum-map-parser with a custom palette) serving a PNG to a generic camera;
+  not built.
 
 ### Mop runs, dock visits and recharge pauses (2026-11-04)
 
