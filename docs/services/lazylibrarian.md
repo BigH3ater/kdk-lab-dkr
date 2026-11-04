@@ -6,7 +6,7 @@ tier: internal
 status: live
 storage: yes
 secrets: [lazylibrarian-api, audiobookshelf-api-root]
-updated: 2026-11-03
+updated: 2026-11-04
 tags: [homelab/stack, tier/internal, status/live]
 ---
 
@@ -41,7 +41,7 @@ curl -s -o /dev/null -w '%{http_code}\n' https://lazylibrarian.kmkdp.com/       
 # API bypass (needs the API key; see Secret Rotation):
 curl -s "https://lazylibrarian.kmkdp.com/api?cmd=getVersion&apikey=$LL_API_KEY"     # version string
 # On the host:
-docker ps --filter name=lazylibrarian --format '{{.Status}}'                        # healthy
+sudo docker ps --filter name=lazylibrarian --format '{{.Status}}'                        # healthy
 ```
 
 ## Post-deploy setup (owner, in the LazyLibrarian web UI)
@@ -61,7 +61,7 @@ sudo chown -R 1000:1000 /opt/kdk-lab/media/lazylibrarian
 - Enable **Use NZB**, add a **SABnzbd** downloader.
 - Host `sabnzbd`, Port `8080` (same Docker network; or `http://sabnzbd:8080`).
 - API key: SABnzbd's API key (SABnzbd UI -> Config -> General).
-- Category: `books` (or leave blank). SAB completes into `/data/media/staging`, which LazyLibrarian reads as a download directory (step 4).
+- Category: `lazylibrarian` (the live value, `sab_cat` in `config.ini`). The SABnzbd category of the same name has folder `lazylibrarian`, so SAB completes into `/data/media/staging/lazylibrarian`, which LazyLibrarian reads as its download directory (step 3), and runs the import-trigger script (see Import trigger).
 
 ### 2. Indexers (`Config -> Providers`)
 
@@ -75,7 +75,7 @@ If Prowlarr's app sync does not cover LazyLibrarian in your Prowlarr version, ad
 
 ### 3. Downloaded-book directory (`Config -> Processing -> Folders`)
 
-- **Download Directories:** `/data/media/staging` (comma-separated list; this is where SAB drops completed books — the single media mount, so imports hardlink).
+- **Download Directories:** `/data/media/staging/lazylibrarian` (comma-separated list; the live `download_dir`; this is where SAB drops completed books — the single media mount, so imports hardlink).
 
 ### 4. Libraries — the ebook/audiobook split (`Config -> Processing -> Folders`)
 

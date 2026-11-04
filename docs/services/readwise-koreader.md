@@ -6,7 +6,7 @@ tier: internal
 status: live
 storage: yes
 secrets: [readwise-token-ro, remarkable-device]
-updated: 2026-10-30
+updated: 2026-11-04
 tags: [homelab/service, tier/internal, status/live, books, remarkable]
 ---
 
@@ -18,6 +18,12 @@ highlighted in KOReader and the highlights flow back to Obsidian through the
 existing `koreader-highlights` job. Phase 1 of the `remarkable-readwise-app`
 design. Revived 2026-10-30 (originally built 2026-09-18, retired 2026-10-29 for
 never being live-validated).
+
+> **Status 2026-11-04: live.** The `readwise-koreader` procedure fires every 3 h and the
+> container exits 0 (last run 06:10Z). Loki shows 3 `ok` runs on 2026-10-30 and 37 `skip`
+> runs since (`reason: tablet_unreachable`); the state file still holds the one document
+> delivered on 2026-10-30. So the job works, but nothing new has reached the tablet since
+> then: it was asleep or off the tailnet at every `:10` run.
 
 **Related:** [[kdk-dkr-01]] · [[calibre]] · the `koreader-highlights`,
 `obsidian-to-koreader` tablet jobs · `remarkable/README.md`
@@ -51,7 +57,14 @@ flowchart LR
 ## Verify
 
 ```bash
-# last run summary line in Loki (job=readwise-koreader)
+# on the host: last run exited 0
+ssh kdkadmin@10.1.20.20 'sudo docker inspect readwise-koreader -f "{{.State.FinishedAt}} exit={{.State.ExitCode}}"'
+# last week of run results from Loki (counts by status; run from kdk-mon-01):
+ssh kdkadmin@10.1.20.30 "curl -sG http://10.1.20.21:3100/loki/api/v1/query_range \
+  --data-urlencode 'query=sum by (status) (count_over_time({container=\"readwise-koreader\"} |= \"status\" | json [7d]))' \
+  --data-urlencode \"start=\$(date -d '-1 hour' +%s)000000000\" --data-urlencode 'step=3600'" | head -c 300
+#   one series per status: {"status":"ok"} and {"status":"skip"} with their 7-day counts
+# from a laptop with op, dry list against the live API (counts + titles only):
 # from a laptop with op, dry list against the live API (counts + titles only):
 READWISE_TOKEN="$(op read op://kdk-cluster/readwise-token-ro/credential)" \
   python3 - <<'PY'

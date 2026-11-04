@@ -33,7 +33,7 @@ Acquisition, subtitles, request-library management and GPU transcode on kdk-dkr-
 ```bash
 curl -s -o /dev/null -w '%{http_code}\n' https://sonarr.kmkdp.com/          # 302 (SSO gate)
 curl -s -o /dev/null -w '%{http_code}\n' -H "X-Api-Key: $KEY" https://sonarr.kmkdp.com/api/v3/health  # 200 (bypass)
-docker exec media-tdarr-node-1 nvidia-smi -L                                # GTX 1050 Ti listed
+sudo docker exec media-tdarr-node-1 nvidia-smi -L                                # GTX 1050 Ti listed
 ```
 
 ## Troubleshooting

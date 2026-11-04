@@ -6,7 +6,7 @@ tier: internal
 status: live
 storage: yes
 secrets: []
-updated: 2026-10-30
+updated: 2026-11-04
 tags: [homelab/service, tier/internal, status/live, books]
 ---
 
@@ -36,10 +36,10 @@ exposure as the legacy raw `:8081`).
 ## Verify
 
 ```bash
-ssh kdkadmin@10.1.20.20 'docker ps --filter name=calibre --format "{{.Names}} {{.Status}}"'   # both Up (healthy)
+ssh kdkadmin@10.1.20.20 'sudo docker ps --filter name=calibre --format "{{.Names}} {{.Status}}"'   # both Up (healthy)
 curl -s -o /dev/null -w '%{http_code}\n' https://calibre.kmkdp.com/opds                        # 200 (no SSO redirect)
 # served catalog size (through the server) == books on disk; they must match:
-ssh kdkadmin@10.1.20.20 'docker exec calibre-server calibredb --with-library http://localhost:8081/ list | tail -n +2 | wc -l'
+ssh kdkadmin@10.1.20.20 'sudo docker exec calibre-server calibredb --with-library http://localhost:8081/ list | tail -n +2 | wc -l'
 ```
 
 ## Troubleshooting

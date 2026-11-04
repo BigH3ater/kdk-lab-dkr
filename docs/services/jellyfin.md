@@ -6,13 +6,13 @@ tier: dmz
 status: live
 storage: yes
 secrets: [jellyfin-oidc]
-updated: 2026-10-30
+updated: 2026-11-04
 tags: [homelab/stack, tier/dmz, status/live]
 ---
 
 # Jellyfin
 
-Media server on the DMZ node with Intel Arc A380 QSV transcode; public via the Cloudflare tunnel with its own login (LDAP plugin, plus Authelia SSO on the web UI via the SSO Authentication plugin), no ForwardAuth.
+Media server on the DMZ node with Intel Arc A380 QSV transcode; **LAN + Tailscale only** since 2026-10-31 (off the Cloudflare tunnel, no public DNS record), with its own login (LDAP plugin, plus Authelia SSO on the web UI via the SSO Authentication plugin), no ForwardAuth.
 
 **Related:** [[kdk-dkr-dmz-01]] · [[dmz-proxy]] · [[media]] · [[seerr]] · [[identity]] · [[jellyfin-sso]]
 
@@ -24,7 +24,7 @@ Media server on the DMZ node with Intel Arc A380 QSV transcode; public via the C
 | Status | 🟢 Live — login + playback work; plugins Active |
 | Host | [[kdk-dkr-dmz-01]], `/dev/dri` mapped (i915) |
 | Endpoint | `https://jellyfin.kmkdp.com` (LAN + Tailscale; off the Cloudflare tunnel since 2026-10-31) |
-| Edge | Five-rule Cloudflare design (admin-API block, anonymous-stream block, OIDC skip, bots, non-US) plus a credential-path rate limit; verify with `scripts/edge-probe.sh` |
+| Edge | Not published. The tunnel ingress has no Jellyfin hostname and the zone has no `jellyfin` record (the edge answers 530 when forced to a Cloudflare IP). The five-rule WAF design (admin-API block, anonymous-stream block, OIDC skip, bots, non-US) plus the credential-path rate limit stays in place for a re-publish. Re-publishing is an owner procedure in the vault note `jellyfin-public-readiness-2026-11-04` (10.Homelab/Security); `scripts/edge-probe.sh` is its baseline step. The router keeps `entrypoints: websecure,tunnel` (`stacks/jellyfin/compose.yaml`), so a re-publish is a Cloudflare-side change only |
 | Image | `ghcr.io/linuxserver/jellyfin:12.3ubu2604-ls56` — 12.x line, pinned; server and plugins move together |
 | Deploy | Komodo stack `jellyfin` (git-linked) |
 | Storage | `/opt/kdk-lab/jellyfin/config` on local disk (DB, cache, plugins; byte-for-byte from k3s); images/metadata on NFS `/mnt/appdata/jellyfin/metadata` → `/config/data/metadata`; library RO from `/mnt/media` |
@@ -33,8 +33,10 @@ Media server on the DMZ node with Intel Arc A380 QSV transcode; public via the C
 ## Verify
 
 ```bash
-curl -s -o /dev/null -w '%{http_code}\n' https://jellyfin.kmkdp.com/health   # 200
-docker exec jellyfin ls /dev/dri                                             # renderD128 present
+curl -s -o /dev/null -w '%{http_code}\n' https://jellyfin.kmkdp.com/health   # 200 (LAN or tailnet)
+dig +short jellyfin.kmkdp.com @1.1.1.1                                       # empty: not public
+curl -s -o /dev/null -w '%{http_code}\n' --resolve jellyfin.kmkdp.com:443:104.21.93.54 https://jellyfin.kmkdp.com/health   # 530: no tunnel route
+sudo docker exec jellyfin ls /dev/dri                                             # renderD128 present
 ```
 In the dashboard, an active transcode shows `(hw)`, watched state is present, all plugins read Active.
 
@@ -53,13 +55,13 @@ In the dashboard, an active transcode shows `(hw)`, watched state is present, al
 | Episode metadata: "Error in The Open Movie Database" JSON errors | OMDb episode endpoint returns malformed JSON | OMDb removed from the Shows library fetchers (movies keep it) |
 | Intro Skipper: "ffmpeg did not exit within 60000ms" | two 4K software decodes in parallel on the DMZ VM | `MaxParallelism=1` in IntroSkipper.xml |
 | Watched/resume state lost | config not copied byte-for-byte | restore `/opt/kdk-lab/jellyfin/config` from the migration tar |
-| Playback buffers off-LAN | Cloudflare free-plan proxy throttling | test on LAN to isolate |
+| Playback buffers off-LAN | remote clients come over Tailscale and hit the Internet streaming bitrate limit (Networking) | test on LAN to isolate; raise the remote bitrate limit |
 
 ## Dependencies
 
 | Direction | Thing | What breaks without it |
 |---|---|---|
-| Needs | [[dmz-proxy]] + tunnel | ingress + public access |
+| Needs | [[dmz-proxy]] (websecure entrypoint) | LAN/tailnet ingress |
 | Needs | A380 `/dev/dri` | hardware transcode (falls back to CPU) |
 | Needs | `/mnt/media` (NFS, RO) | no library content |
 | Needed by | [[seerr]] | request fulfilment + user auth |
@@ -169,4 +171,4 @@ Takeaway: the backup opens, is internally consistent, and reproduces production 
 
 ## User Guide
 
-Users log in at `jellyfin.kmkdp.com` with their directory account (Wizarr issues invites). In a browser, use the username/password form or **Sign in with SSO**. On a TV or phone, use Quick Connect (approve the code from a signed-in browser) or the directory password. Playback, resume, and favourites carry over from the k3s instance.
+Users log in at `jellyfin.kmkdp.com` (at home, or away over Tailscale) with their directory account (Wizarr issues invites). In a browser, use the username/password form or **Sign in with SSO**. On a TV or phone, use Quick Connect (approve the code from a signed-in browser) or the directory password. Playback, resume, and favourites carry over from the k3s instance.

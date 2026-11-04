@@ -35,7 +35,7 @@ render to SVG at build time via the internal [[kroki]] service.
 
 A `/state` lock keeps the watcher and the one-shot from processing the same request twice.
 
-**Related:** [[kdk-dkr-01]] · [[kroki]] · [[calibre]] · [[obsidian-headless]] · remarkable-ocr · koreader-highlights
+**Related:** [[kdk-dkr-01]] · [[kroki]] · [[calibre]] · `obsidian-headless` (vault mirror stack, no page) · remarkable-ocr · koreader-highlights
 
 ## At a glance
 
@@ -56,9 +56,9 @@ A `/state` lock keeps the watcher and the one-shot from processing the same requ
 
 ```bash
 # the procedure's last run logs (on kdk-dkr-01)
-ssh kdkadmin@10.1.20.20 'docker logs obsidian-to-koreader --tail 20'
+ssh kdkadmin@10.1.20.20 'sudo docker logs obsidian-to-koreader --tail 20'
 # the watcher's heartbeat + recent deliveries
-ssh kdkadmin@10.1.20.20 'docker logs obsidian-to-koreader-watcher --tail 20'
+ssh kdkadmin@10.1.20.20 'sudo docker logs obsidian-to-koreader-watcher --tail 20'
 # tablet has the vault PDFs (when awake); tailnet first, LAN fallback
 ssh root@100.103.233.103 'ls -R /home/root/books/kodiak-codex' 2>/dev/null \
   || ssh root@10.1.30.245 'ls -R /home/root/books/kodiak-codex'
@@ -84,7 +84,7 @@ watcher is ever down, the 6-hourly procedure sweeps the queue; run the Komodo
 
 | Direction | Thing | What breaks without it |
 |---|---|---|
-| Needs | [[obsidian-headless]] vault mirror (`/opt/kdk-lab/obsidian/vault`) | nothing to render |
+| Needs | `obsidian-headless` vault mirror (`/opt/kdk-lab/obsidian/vault`) | nothing to render |
 | Needs | the tablet reachable over SSH (tailnet/LAN) + `RM_PW` | no delivery (requests stay queued) |
 | Needs | [[kroki]] on the `kroki_default` network | Mermaid diagrams fall back to source text (does not fail the note) |
 | Needed by | the owner reading notes on the tablet in KOReader | — |

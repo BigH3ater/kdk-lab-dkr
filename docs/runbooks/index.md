@@ -11,6 +11,7 @@ illustrative.
 - [Deploy a new service (Komodo + Traefik + GitOps)](deploy-new-service.md) — add a stack, route it through Traefik, ship it via the GitOps loop.
 - [Add a Pushover alert](pushover-alerts.md) — wire a new alert into the per-host watchdog or a verify one-shot.
 - [Troubleshoot the Windows DEE VM](windows-vm-dee.md) — the FastAPI DeeZy wrapper, its SMB mount, and the scheduled task.
+- [Add a second DEE instance (kdk-dee-02)](dee-second-instance.md) — clone the Windows DEE VM as a second Tdarr DEE worker.
 - [Troubleshoot Tdarr transcodes](tdarr-troubleshooting.md) — transcode/health errors, the DEE dependency, node flapping.
 - [Jellyfin transcoding (ramdisk + Arc QSV)](jellyfin-transcoding.md) — the RAM-disk transcode scratch and the Arc A380 QSV/HDR settings.
 - [Jellyfin SSO (Authelia OIDC)](jellyfin-sso.md) — install the SSO Authentication plugin, the `jellyfin` client secret, the login button, Quick Connect tests.

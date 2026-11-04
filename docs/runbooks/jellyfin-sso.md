@@ -74,7 +74,7 @@ restart. Then:
 
 ```bash
 curl -s https://sso.kmkdp.com/api/health                                        # {"status":"OK"}
-ssh kdkadmin@192.168.191.20 'docker logs authelia --since 5m 2>&1 | grep -iE "level=(error|fatal)|jellyfin"'   # nothing
+ssh kdkadmin@192.168.191.20 'sudo docker logs authelia --since 5m 2>&1 | grep -iE "level=(error|fatal)|jellyfin"'   # nothing
 ```
 
 ## 4. Install the plugin (Jellyfin dashboard, from the LAN)

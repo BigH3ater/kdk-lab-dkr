@@ -32,7 +32,7 @@ Unmetered secrets path for every stack's `op inject` pre-deploy; reads the `kdk-
 
 ```bash
 ssh kdkadmin@10.1.20.20 'curl -fsS http://10.1.20.20:8080/heartbeat'   # .
-docker ps --filter name=onepassword-connect --format '{{.Names}} {{.Status}}'  # api + sync Up
+sudo docker ps --filter name=onepassword-connect --format '{{.Names}} {{.Status}}'  # api + sync Up
 ```
 
 ## Troubleshooting
