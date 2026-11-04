@@ -278,5 +278,5 @@
   - Docs:
       icon: mdi-book-open-variant
       href: https://docs.kmkdp.com/
-      siteMonitor: https://docs.kmkdp.com/
+      siteMonitor: https://docs.kmkdp.com/healthz   # Authelia bypass; / is now a 302 to sso
       description: Homelab documentation site (LAN, no login)
