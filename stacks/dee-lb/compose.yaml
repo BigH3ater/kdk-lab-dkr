@@ -12,7 +12,7 @@
 name: dee-lb
 services:
   haproxy:
-    image: haproxy:3.0.7-alpine@sha256:7965ed622cc3be1311e9fc52c70a3f509b6bdcd9601f2b83e4eac05c3f8d829b
+    image: haproxy:3.4.7-alpine@sha256:2caaf8b1a1ef67f3f1ea9b721f2821675d3ba4500fb518e23884fecb93e8dbaa
     container_name: dee-lb
     restart: unless-stopped
     user: "99:99"                       # image's haproxy user; binds unprivileged ports only
