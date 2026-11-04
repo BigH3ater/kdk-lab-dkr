@@ -6,7 +6,7 @@ tier: apps
 status: new
 storage: no
 secrets: [dashboard-tandoor-rw, vikunja-api-rw]
-updated: 2026-10-31
+updated: 2026-11-04
 tags: [homelab/stack, tier/apps, status/new, tandoor, grocery]
 ---
 
@@ -27,9 +27,9 @@ plan page lives in the dashboard mealplan sidecar at `home.kmkdp.com/meal/grocer
 
 | Field | Value |
 |---|---|
-| Runs | `grocery-weekly` Tue 18:03 (plan + list + task); `grocery-weekly-poll` Thu 07:05, 12:05, 17:05 (apply the decision; later passes catch a late decision, repeats are no-ops); `grocery-bulk` Tue 18:09 but the job acts only the first Tuesday of an odd month (every 2 months, N=8). All: procedure → stack (deploy=false, destroy_before_deploy) on [[kdk-dkr-01]] |
+| Runs | `grocery-weekly` Tue 18:03 (plan + list + task); `grocery-weekly-poll` Thu 07:05, 12:05, 17:05 (apply the decision; later passes catch a late decision, repeats are no-ops). Both: procedure → stack (deploy=false, destroy_before_deploy) on [[kdk-dkr-01]] |
 | Image | `kdk/grocery-planner` built locally (`auto_pull=false`, `run_build=true`); python 3.12-slim + requests + pyyaml, uid 1000, read-only rootfs, no caps, 256 MB, one-shot |
-| Output | stdout JSON lines, also pushed straight to Loki by the job (`{job="grocery-planner", container="grocery-planner"|"grocery-planner-poll"|"grocery-planner-bulk"}`; a one-shot exits before Alloy can scrape it); the page `home.kmkdp.com/meal/groceries`; a Vikunja approval task |
+| Output | stdout JSON lines, also pushed straight to Loki by the job (`{job="grocery-planner", container="grocery-planner"|"grocery-planner-poll"}`; a one-shot exits before Alloy can scrape it); the page `home.kmkdp.com/meal/groceries`; a Vikunja approval task |
 | Secrets | `dashboard-tandoor-rw` (the sidecar's Tandoor account), `vikunja-api-rw` (approval task) — op-injected into `.env.op` and **appended** to the `.env` Komodo writes from the stack `environment` (`GROCERY_MODE`/`GROCERY_POLL`/`GROCERY_SUFFIX`); overwriting `.env` drops those |
 | Blast radius | writes Tandoor meal-plan + shopping-list entries and one Vikunja task; never orders or pays |
 
@@ -79,11 +79,10 @@ plan page lives in the dashboard mealplan sidecar at `home.kmkdp.com/meal/grocer
   blocking wait. The approval is asynchronous and durable (the Vikunja task is
   the record), so the build pass exits immediately and the poll pass reads the
   outcome later. No long-lived container.
-- **Bulk schedule:** the `grocery-bulk` procedure fires **every Tuesday**, but
-  the job gates to the **first Tuesday of an odd month** (every two months,
-  N = 8 weeks) in code — this keeps the cron unambiguous (no day-of-month /
-  day-of-week OR surprise). Costco only; the Amana beef eighth-share reorder is
-  Phase 2 (a low-stock task, stubbed).
+- **No Costco bulk run:** dropped 2026-11-04 (owner: it only ever listed one
+  item). Costco-routed foods (Nurri shakes, the frozen-salmon fallback) are on
+  no list; the weekly build covers New Pi + Target only. Costco is bought by
+  hand.
 
 ## Recipes are real, imported, and scored
 

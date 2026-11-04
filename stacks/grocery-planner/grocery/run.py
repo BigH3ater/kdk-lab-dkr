@@ -1,4 +1,4 @@
-"""Weekly (and bulk) grocery run — the one-shot Komodo job.
+"""Weekly grocery run — the one-shot Komodo job.
 
 Weekly (default): generate next week's meal plan under the owner rules, write the
 entries (idempotent per week key), build the two-store shopping list from the
@@ -8,7 +8,6 @@ pushes them to Loki (job=grocery-planner).
 
   python -m grocery.run --mode weekly            # build pass (Tue 18:03): plan + list + task
   python -m grocery.run --mode weekly --poll     # poll pass (Thu 07:05/12:05/17:05): apply decision
-  python -m grocery.run --mode bulk              # N-week Costco bulk list + its own task
 
 POLL STRATEGY (justified): the approval is asynchronous and durable (the Vikunja
 task IS the record), so the build pass exits immediately after creating the task
@@ -113,21 +112,6 @@ def next_week_window(today, start_weekday=6):
     days = 7 if days == 0 else days          # always the NEXT one, not today
     start = today + datetime.timedelta(days=days)
     return start, start + datetime.timedelta(days=6)
-
-
-def bulk_due(today, cfg):
-    """True if `today` is a bulk day: first week of the month (if configured) and
-    the right month parity (odd/even/any). The procedure fires every Tuesday;
-    this gate makes it act every two months."""
-    cad = cfg["cadence"]
-    if cad.get("bulk_first_week_only", True) and today.day > 7:
-        return False
-    parity = cad.get("bulk_month_parity", "any")
-    if parity == "odd" and today.month % 2 == 0:
-        return False
-    if parity == "even" and today.month % 2 == 1:
-        return False
-    return True
 
 
 def _ingredient_count(recipe):
@@ -446,40 +430,6 @@ def _create_weekly_task(cfg, wk, start, lists):
         log.error("could not create approval task: %s", e)
 
 
-def run_bulk(cfg):
-    """N-week Costco bulk list. Lays down the upcoming N weeks' plans (season per
-    week), sums Costco-routed + on-hand-eligible items, and creates a bulk task.
-    Minimal: Amana beef reorder is Phase 2 (stub)."""
-    from zoneinfo import ZoneInfo
-    today = datetime.datetime.now(ZoneInfo(cfg["cadence"]["timezone"])).date()
-    if not bulk_due(today, cfg):
-        jlog(event="bulk_skip", reason="not a bulk week", date=today)
-        return 0
-    n = cfg["cadence"]["bulk_weeks"]
-    jlog(event="bulk_start", weeks=n, stores=cfg["stores"]["bulk_stores"])
-    # Shelf-stable breakfast items that route to a bulk store (e.g. the Nurri
-    # shakes -> Costco) are ordered N weeks at a time, rounded UP to whole packs.
-    from .seed import route_food
-    foods_cfg = yaml.safe_load(open(os.path.join(STACK, "recipes", "foods.yaml")))
-    fixed = yaml.safe_load(open(os.path.join(STACK, "recipes", "fixed.yaml")))
-    bulk_stores = set(cfg["stores"]["bulk_stores"])
-    packs = []
-    for rec in fixed.get("recipes", []):
-        for ing in rec.get("ingredients", []):
-            store = (route_food(ing["food"], foods_cfg, cfg["stores"]).split("/", 1)[0])
-            if store in bulk_stores:
-                ps = S.food_pack_size(ing["food"], foods_cfg)
-                packs.append({"food": ing["food"], "weekly": ing.get("amount"),
-                              "pack_size": ps, "store": store,
-                              "packs": S.packs_needed(ing.get("amount", 0), n, ps)})
-    jlog(event="bulk_packs", weeks=n, items=packs)
-    # Phase 2 stub: Amana beef eighth-share reorder is a separate low-stock task,
-    # and the full N-week protein/pantry aggregation lands once the weekly path
-    # is live.
-    jlog(event="bulk_stub", note="Amana beef reorder is Phase 2; Costco-only bulk here")
-    return 0
-
-
 def preview(cfg, week_of=None):
     """Read-only dry run of a weekly build: the meals the generator would plan for
     the week starting `week_of` (a Sunday; default = the next run's week) and the
@@ -541,7 +491,7 @@ def preview(cfg, week_of=None):
     weekly = set(cfg["stores"].get("weekly_stores") or [])
     for store in sorted({k[0] for k in lines}):
         keys = sorted(k for k in lines if k[0] == store)
-        note = "" if store in weekly else " (not on the weekly list: bulk run / on hand)"
+        note = "" if store in weekly else " (not on the weekly list: bought by hand / on hand)"
         print(f"\n-- {store}: {len(keys)} lines{note}")
         for k in keys:
             d = lines[k]
@@ -650,7 +600,7 @@ def freezer_usage(cfg, weeks=4, week_of=None):
 def main(argv=None):
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    ap.add_argument("--mode", choices=["weekly", "bulk"],
+    ap.add_argument("--mode", choices=["weekly"],
                     default=os.environ.get("GROCERY_MODE", "weekly"))
     ap.add_argument("--poll", action="store_true",
                     default=os.environ.get("GROCERY_POLL", "") == "1",
@@ -681,8 +631,6 @@ def _dispatch(a):
     if a.preview:
         wo = datetime.date.fromisoformat(a.week_of) if a.week_of else None
         return preview(cfg, wo)
-    if a.mode == "bulk":
-        return run_bulk(cfg)
     return run_weekly(cfg, poll=a.poll)
 
 

@@ -2043,7 +2043,7 @@ executions = [
 ]
 
 # ---- grocery-planner: weekly meal-plan + shopping-list builder -------------
-# Three one-shot stacks share stacks/grocery-planner (deploy=false,
+# Two one-shot stacks share stacks/grocery-planner (deploy=false,
 # destroy_before_deploy = a fresh locked down+up each run), on kdk-dkr-01, each
 # distinguished by `environment` (GROCERY_MODE/GROCERY_POLL/GROCERY_SUFFIX) --
 # the cloudflare-watch pattern. The image is built locally (kdk/grocery-planner),
@@ -2051,16 +2051,15 @@ executions = [
 # fails). Komodo's Write-Environment stage writes `environment` to .env BEFORE
 # pre_deploy; pre_deploy op-injects dashboard-tandoor-rw + vikunja-api-rw into
 # .env.op and APPENDS it to .env. Until 2026-11-04 it overwrote .env, dropping
-# GROCERY_* (the 11-03 bulk run lost its suffix + mode and produced no container;
-# weekly was unaffected because it relies on the compose defaults). Every stack
-# sets `environment`, so Komodo rewrites .env each deploy and the append never
-# stacks up. Each run prints JSON lines to stdout AND pushes them to Loki directly
-# (job="grocery-planner", container="grocery-planner[-poll|-bulk]"): a one-shot
+# GROCERY_* (the 11-03 Costco bulk run lost its suffix + mode and produced no
+# container; weekly was unaffected because it relies on the compose defaults).
+# The bulk run itself was dropped 2026-11-04 (owner: one item, not worth a
+# run). Every stack sets `environment`, so Komodo rewrites .env each deploy
+# and the append never stacks up. Each run prints JSON lines to stdout AND pushes them to Loki directly
+# (job="grocery-planner", container="grocery-planner[-poll]"): a one-shot
 # exits before Alloy's discovery.docker can scrape it.
 #   grocery-weekly       Tue 18:03  plan + two-store list + one combined Vikunja task
 #   grocery-weekly-poll  Thu 07:05/12:05/17:05  apply the approval decision
-#   grocery-bulk         Tue 18:09  Costco bulk list; the JOB gates to the first
-#                                   Tuesday of an odd month (every 2 months, N=8)
 [[stack]]
 tags = ["kdk-lab"]
 name = "grocery-weekly"
@@ -2092,23 +2091,6 @@ auto_pull = false
 run_build = true
 destroy_before_deploy = true
 environment = "GROCERY_POLL=1\nGROCERY_SUFFIX=-poll"
-# Append op-rendered vars; never clobber the .env Komodo wrote from `environment`.
-pre_deploy.command = "sh -c '. /etc/komodo/op.env && op inject -f -i .env.tpl -o .env.op && cat .env.op >> .env'"
-
-[[stack]]
-tags = ["kdk-lab"]
-name = "grocery-bulk"
-deploy = false   # run Tue 18:09 by the grocery-bulk procedure (job gates to every 2 months)
-[stack.config]
-compose_cmd_wrapper = "/usr/local/sbin/kdk-compose-config-redact [[COMPOSE_COMMAND]]"   # redact env values from the stored Compose Config log (komodo#1636)
-compose_cmd_wrapper_include = ["config"]
-server = "kdk-dkr-01"
-repo = "BigH3ater/kdk-lab-dkr"
-run_directory = "stacks/grocery-planner"
-auto_pull = false
-run_build = true
-destroy_before_deploy = true
-environment = "GROCERY_MODE=bulk\nGROCERY_SUFFIX=-bulk"
 # Append op-rendered vars; never clobber the .env Komodo wrote from `environment`.
 pre_deploy.command = "sh -c '. /etc/komodo/op.env && op inject -f -i .env.tpl -o .env.op && cat .env.op >> .env'"
 
@@ -2147,22 +2129,4 @@ name = "poll"
 enabled = true
 executions = [
   { execution.type = "DeployStack", execution.params.stack = "grocery-weekly-poll", enabled = true },
-]
-
-[[procedure]]
-tags = ["kdk-lab"]
-name = "grocery-bulk"
-[procedure.config]
-schedule_format = "Cron"
-# Every TUESDAY 18:09 CT (moved with the weekly run); the job acts only on the
-# FIRST Tuesday of an odd month (every two months, N=8 weeks) and exits
-# otherwise. Cron stays unambiguous (no day-of-month/day-of-week OR surprise).
-schedule = "0 9 18 * * Tue"
-schedule_enabled = true
-schedule_timezone = "America/Chicago"
-[[procedure.config.stage]]
-name = "bulk"
-enabled = true
-executions = [
-  { execution.type = "DeployStack", execution.params.stack = "grocery-bulk", enabled = true },
 ]

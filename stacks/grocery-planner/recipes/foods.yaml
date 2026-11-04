@@ -10,7 +10,8 @@
 #
 # Owner routing (§6): produce + all fresh proteins + fresh fish + chicken breast
 # weekly -> New Pi; grains/canned/oils/spices/shelf-stable + Chobani -> Target;
-# bulk frozen proteins + bulk pantry -> Costco (bulk run); beef eighth share ->
+# bulk frozen proteins + bulk pantry -> Costco (no run lists it since the bulk
+# run was dropped 2026-11-04; bought by hand); beef eighth share ->
 # Amana freezer stock (Phase 2 reorder).  Ambiguous fresh -> New Pi, ambiguous
 # shelf-stable -> Target. Move a food's category once in Tandoor to override.
 #
@@ -245,8 +246,7 @@ rules:
   - {match: protein bar,category: "Target/weekly: Snacks"}
   # Jocko Fuel ready-to-drink protein shake (12-pack). Store UNKNOWN (owner has
   # not said); Costco carrying it is unconfirmed, so it defaults to Target/weekly
-  # per the owner rule. pack_size keeps it ceil-roundable if it later moves to
-  # the bulk run. OWNER TODO: confirm where Jocko is bought (see runbook).
+  # per the owner rule. pack_size keeps it ceil-roundable. OWNER TODO: confirm where Jocko is bought (see runbook).
   - {match: jocko,       category: "Target/weekly: Snacks", pack_size: 12}
 
   # Added 2026-11-01 from the per-recipe shopping test (grocery.cleanup --test):
@@ -287,11 +287,10 @@ rules:
   - {match: chili crisp,    category: "Target/weekly: Condiments"}
   - {match: balsamic glaze, category: "Target/weekly: Condiments"}
 
-  # ---- Costco: bulk run ----
+  # ---- Costco: bought by hand (bulk run dropped 2026-11-04; no list) ----
   - {match: frozen salmon, category: "Costco/bulk: Freezer"}   # salmon fallback only
-  # Ready-to-drink breakfast protein shakes (shelf-stable -> bulk run). Nurri is
-  # a Costco item (11 fl oz, 12-pack). pack_size drives ceil-rounding to whole
-  # packs on the bulk list.
+  # Ready-to-drink breakfast protein shakes (shelf-stable). Nurri is a Costco
+  # item (11 fl oz, 12-pack); pack_size is kept for whole-pack rounding.
   - {match: nurri,         category: "Costco/bulk: Snacks Bulk", pack_size: 12}
   # Dog food is a JustFoodForDogs subscription -- NOT ordered here (budgeted in
   # Actual). It is also in the config `exclude` list so a stray ingredient can
