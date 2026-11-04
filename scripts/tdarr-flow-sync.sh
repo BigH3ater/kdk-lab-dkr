@@ -22,7 +22,14 @@ FILE="$REPO_DIR/stacks/media/tdarr-flows/$FLOW.json"
 fetch() {
   curl -sf -X POST "$TDARR/api/v2/cruddb" -H 'Content-Type: application/json' \
     -d "{\"data\":{\"collection\":\"FlowsJSONDB\",\"mode\":\"getById\",\"docID\":\"$FLOW\"}}" \
-    | python3 -c 'import json,sys; print(json.dumps(json.load(sys.stdin), indent=2))'
+    | python3 -c 'import json,sys; print(json.dumps(json.load(sys.stdin), indent=2, ensure_ascii=False))'
+}
+
+# Canonical form for comparing: parsed JSON, sorted keys, non-ASCII kept
+# literal. A text diff of the raw files reported a false mismatch on every
+# non-ASCII character ("§" vs "\u00a7") although the parsed flows were equal.
+canon() {
+  python3 -c 'import json,sys; print(json.dumps(json.load(open(sys.argv[1])), indent=2, sort_keys=True, ensure_ascii=False))' "$1"
 }
 
 case "${1:-}" in
@@ -31,7 +38,13 @@ case "${1:-}" in
     echo "exported $FLOW -> $FILE"
     ;;
   diff)
-    fetch | diff -u - "$FILE" && echo "repo matches live ($FLOW)"
+    tmp="$(mktemp -d)"
+    trap 'rm -rf "$tmp"' EXIT
+    fetch > "$tmp/live.json"
+    canon "$tmp/live.json" > "$tmp/live.canon"
+    canon "$FILE" > "$tmp/repo.canon"
+    diff -u --label "live:$FLOW" --label "repo:$FLOW" "$tmp/live.canon" "$tmp/repo.canon" \
+      && echo "repo matches live ($FLOW, parsed JSON)"
     ;;
   import)
     python3 - "$FILE" "$FLOW" <<'PY'
