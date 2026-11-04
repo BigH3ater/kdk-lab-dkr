@@ -156,7 +156,7 @@ scrape_configs:
     static_configs:
       - targets:
           - "https://komodo.kmkdp.com"
-          - "https://docs.kmkdp.com"
+          - "https://docs.kmkdp.com/healthz"   # anonymous nginx path (Authelia bypass ^/healthz$)
           - "https://sso.kmkdp.com"
           - "https://users.kmkdp.com"
           - "https://seerr.kmkdp.com"

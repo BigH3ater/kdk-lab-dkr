@@ -797,6 +797,14 @@ access_control:
         - 'prowlarr.kmkdp.com'
       resources:
         - '^/ping$'
+    # docs.kmkdp.com: nginx's anonymous `location /healthz` (returns "ok") for the
+    # blackbox probe and the Homepage siteMonitor; exact path only, the site itself
+    # falls through to the two_factor rule below.
+    - policy: bypass
+      domain:
+        - 'docs.kmkdp.com'
+      resources:
+        - '^/healthz$'
     - policy: two_factor
       domain:
         - 'home.kmkdp.com'
@@ -828,6 +836,13 @@ access_control:
     - policy: two_factor
       domain:
         - 'komodo.kmkdp.com'
+      subject:
+        - ['group:internal-users']
+    # Docs site (Quartz/nginx, internal Traefik, forwardauth@file). Same gate as the
+    # other LAN admin tools; it documents every host, port and runbook.
+    - policy: two_factor
+      domain:
+        - 'docs.kmkdp.com'
       subject:
         - ['group:internal-users']
     # Alertmanager UI (file-provider route on the internal Traefik; it has no
