@@ -408,7 +408,13 @@ write_files:
       }
 
       ctr_ips() {     # all IPv4 addresses of a running container, space separated
-        docker inspect -f '{{range .NetworkSettings.Networks}}{{if .IPAddress}}{{.IPAddress}} {{end}}{{end}}' "$1" 2>/dev/null || true
+        # Docker 29.8 prints the literal "invalid IP" for an exited container's networks
+        # (seen on dmz-01 2026-11-04: trivy-scan-report between weekly runs), which
+        # iptables-restore rejects and takes the whole policy down with it. Keep only
+        # dotted-quad addresses; an exited container then falls through to "not
+        # running" below (fail closed), exactly as an absent one does.
+        docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}} {{end}}' "$1" 2>/dev/null \
+          | tr ' ' '\n' | grep -Ex '([0-9]{1,3}\.){3}[0-9]{1,3}' | tr '\n' ' ' || true
       }
 
       dns_servers() { # the host's upstream resolvers (what Docker's embedded DNS uses)
