@@ -6,7 +6,7 @@ tier: internal
 status: live
 storage: yes
 secrets: [kdk-dee-01-api-token]
-updated: 2026-10-30
+updated: 2026-11-04
 tags: [homelab/stack, tier/internal, status/live]
 ---
 
@@ -42,6 +42,7 @@ sudo docker exec media-tdarr-node-1 nvidia-smi -L                               
 |---|---|---|
 | arr indexer/download-client points at old cluster | stale `*.media.svc.cluster.local` host | in the app, host should be `sabnzbd` / `prowlarr` (compose service name) |
 | SABnzbd returns 403 to arr | Host header not whitelisted | `grep host_whitelist /opt/kdk-lab/media/sabnzbd/sabnzbd.ini` includes `sabnzbd` |
+| SABnzbd page refused from a phone on Tailscale; log `Refused connection from: ::ffff:10.208.15.8 (X-Forwarded-For: 100.64.x.x)` | `local_ranges` lacks the tailnet `100.64.0.0/10` (SABnzbd checks the Traefik-set X-Forwarded-For) | `sudo docker logs --since 1h media-sabnzbd-1 2>&1 \| grep -c 'Refused connection'` is 0; `grep -E '^(inet_exposure\|local_ranges)' /opt/kdk-lab/media/sabnzbd/sabnzbd.ini` matches the Configuration row |
 | Seerr can't reach Sonarr/Radarr API | DMZ→internal firewall closed | operator must open `192.168.191.20 → 10.1.20.20:443` |
 | Tdarr idle with jobs queued | staged jobs pinned to dead nodes / 0 workers | clear StagedJSONDB; set transcode workers to 1 |
 | Transcode drops Atmos to native E-AC3 | both DEE slots busy or down (503 from `dee-lb`) | check both wrappers' /healthz + HAProxy stats on `127.0.0.1:8405` (kdk-dkr-01); the flow waits up to 1 h for a slot before the native E-AC3 fallback |
@@ -74,6 +75,7 @@ Each app joins `default` + `proxy`; ports are `prowlarr 9696`, `sabnzbd 8080`, `
 | `*__AUTH__METHOD=External` | arr UIs trust Authelia; API keys still gate `/api` |
 | `<app>/config.xml` `<ApiKey>` | per-app API key (not in 1P) |
 | `sabnzbd/sabnzbd.ini` `host_whitelist` | accepted Host headers |
+| `sabnzbd/sabnzbd.ini` `inet_exposure` / `local_ranges` (host-managed, set in Config → Special) | `inet_exposure = 0` (no external access) and `local_ranges = 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 100.64.0.0/10`. A non-empty `local_ranges` **replaces** SABnzbd's built-in private ranges, so the three RFC 1918 blocks must stay listed or LAN clients, Traefik and the arrs are refused. `100.64.0.0/10` is the tailnet: the subnet router does not masquerade, so tailnet clients reach Traefik with their 100.64 address, Traefik writes it into X-Forwarded-For (no `forwardedHeaders.trustedIPs`, so client-sent XFF is dropped), and SABnzbd (`verify_xff_header = 1`) requires every XFF hop to be local. Tailnet clients are trusted admin sources here, and Authelia (`two_factor`, `group:internal-users`) plus SABnzbd's own login still gate the UI, so the narrow range is preferred over raising `inet_exposure`. Set 2026-11-04 after iPhone-on-Tailscale refusals |
 | Radarr → Settings → Import Lists | 15 lists (13 TMDb directors, IMDb Popular, IMDb Top 250); `listSyncLevel=disabled`. Language block = `stacks/arr-list-guard` (`LANGUAGES` env) |
 
 
