@@ -26,6 +26,7 @@ groups:
           scope: edge
         annotations:
           summary: "Non-US request reached the origin through the tunnel ({{ $labels.request_Cf_Ipcountry }}): the Cloudflare geo rule or a skip rule has a gap"
+          description: "A tunnel request from country {{ $labels.request_Cf_Ipcountry }} reached the DMZ Traefik on kdk-dkr-dmz-01. Find the host/path in the traefik line and check the Cloudflare WAF geo rule and any skip rule matching that path."
           runbook: docs/runbooks/security-alerts.md#edge
 
       # The lab's own synthetic probe (UA `kdk-edge-probe/1`, scripts/edge-probe.sh)
@@ -46,6 +47,7 @@ groups:
           scope: edge
         annotations:
           summary: "More than 60 401/403 per 5m from tunnel traffic for 5m (credential stuffing or a scanner)"
+          description: "Tunnel traffic at the DMZ Traefik took more than 60 401/403 per 5m for 5m (edge probe excluded). Group the lines by ClientHost and RequestHost: one IP = WAF block, many IPs on one host = check that app's lockout."
           runbook: docs/runbooks/security-alerts.md#edge
 
       # Path set mirrors the Cloudflare "Block admin APIs" rule. /System/Endpoint,
@@ -71,6 +73,7 @@ groups:
           scope: edge
         annotations:
           summary: "A Jellyfin admin path reached the origin through the tunnel: the Cloudflare WAF block rule was bypassed or is missing"
+          description: "A non-probe request to a Jellyfin admin path on jellyfin.kmkdp.com reached the DMZ Traefik through the tunnel (any status). Check the WAF block rule expression and Jellyfin Activity for what it did; pull jellyfin.kmkdp.com off the tunnel until fixed."
           runbook: docs/runbooks/security-alerts.md#edge
 
       # The lab's own edge-probe canary for the same WAF block rule: it hits these
@@ -91,6 +94,7 @@ groups:
           scope: edge
         annotations:
           summary: "The lab's edge probe reached a Jellyfin admin path through the tunnel: the Cloudflare block rule is missing that path"
+          description: "The lab's kdk-edge-probe request to a Jellyfin admin path reached the DMZ Traefik through the tunnel, so the Cloudflare block rule is missing that path. Fix the WAF rule expression."
           runbook: docs/runbooks/security-alerts.md#edge
 
       # Canary for the strip-cf middleware on the LAN entrypoint (PR #68). Traefik
@@ -109,6 +113,7 @@ groups:
           scope: edge
         annotations:
           summary: "Cf-Connecting-Ip seen on the LAN entrypoint (websecure): the strip-cf middleware is not applied there"
+          description: "A request on the websecure (LAN) entrypoint of the DMZ Traefik still carried Cf-Connecting-Ip after the middleware chain, so strip-cf is not applied there. Check the dmz-proxy websecure middlewares flag; ClientHost names the client."
           runbook: docs/runbooks/security-alerts.md#edge
 
       - alert: CloudflaredOutdated
@@ -121,16 +126,19 @@ groups:
           scope: edge
         annotations:
           summary: "cloudflared reports a newer release: bump the pinned tag in stacks/dmz-proxy (or merge the Renovate PR)"
+          description: "cloudflared on kdk-dkr-dmz-01 logged that it is outdated. Merge the Renovate PR for cloudflare/cloudflared or bump the pinned tag in stacks/dmz-proxy."
           runbook: docs/runbooks/security-alerts.md#edge
 
+      # Health/state rule: for: 5m debounce per alerting-standards §5.
       - alert: CloudflaredEdgeFlapping
         expr: |
           sum(count_over_time({host="kdk-dkr-dmz-01", container="cloudflared"} |= "Lost connection with the edge" [30m])) > 4
-        for: 0m
+        for: 5m
         labels:
           severity: warning
           source: loki
           scope: edge
         annotations:
           summary: "cloudflared lost its edge connection more than 4 times in 30m (WAN/ISP or Cloudflare side)"
+          description: "cloudflared on kdk-dkr-dmz-01 logged Lost connection with the edge more than 4 times in 30m. Check UniFi internet health, the Cloudflare status page and docker logs cloudflared."
           runbook: docs/runbooks/security-alerts.md#edge

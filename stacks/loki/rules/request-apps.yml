@@ -21,6 +21,7 @@ groups:
           scope: request-apps
         annotations:
           summary: "Seerr: more than 10 failed sign-ins in 10m"
+          description: "The seerr container on kdk-dkr-dmz-01 logged more than 10 Failed sign-in attempt lines in 10m. Find the client; one public IP = WAF block."
           runbook: docs/runbooks/security-alerts.md#request-apps
 
       # 2. Seerr login POST failures at the edge, per client.
@@ -38,6 +39,7 @@ groups:
           scope: request-apps
         annotations:
           summary: "Seerr: more than 5 failed login POSTs in 10m from {{ $labels.client }}"
+          description: "The DMZ Traefik logged more than 5 failed (4xx/5xx) Seerr login POSTs in 10m from {{ $labels.client }}. One public IP = WAF block."
           runbook: docs/runbooks/security-alerts.md#request-apps
 
       # 3. Seerr settings/user write from the internet (expect 0).
@@ -54,6 +56,7 @@ groups:
           scope: request-apps
         annotations:
           summary: "Seerr: settings or user write succeeded through the tunnel"
+          description: "The DMZ Traefik logged a successful Seerr settings or user write through the tunnel. Check who made it in Seerr Users; only admins should manage settings."
           runbook: docs/runbooks/security-alerts.md#request-apps
 
       # 4. Seerr user created/imported or permissions changed (log text).
@@ -68,6 +71,7 @@ groups:
           scope: request-apps
         annotations:
           summary: "Seerr: a user was created/imported or permissions changed (wizarr-sync imports invitees)"
+          description: "The seerr container on kdk-dkr-dmz-01 logged a user creation/import or a permissions change. Expected after a Wizarr invite (wizarr-sync imports invitees); otherwise check Seerr Users."
           runbook: docs/runbooks/security-alerts.md#request-apps
 
       # 5. Non-US traffic reaching Seerr/Libreseerr through the tunnel.
@@ -83,6 +87,7 @@ groups:
           scope: request-apps
         annotations:
           summary: "Non-US request ({{ $labels.request_Cf_Ipcountry }}) reached Seerr/Libreseerr through the tunnel"
+          description: "A tunnel request from country {{ $labels.request_Cf_Ipcountry }} reached Seerr or Libreseerr at the DMZ Traefik. Check the Cloudflare WAF geo rule and any skip rule for these hosts."
           runbook: docs/runbooks/security-alerts.md#request-apps
 
       # 6. Libreseerr local-login failures (the app does not log them; Traefik does).
@@ -98,6 +103,7 @@ groups:
           scope: request-apps
         annotations:
           summary: "Libreseerr: more than 5 failed logins in 10m"
+          description: "The DMZ Traefik logged more than 5 401s on /api/auth/login for libreseerr.kmkdp.com in 10m. Find the client; one public IP = WAF block."
           runbook: docs/runbooks/security-alerts.md#request-apps
 
       # 7a. Libreseerr auto-provisioned an OIDC account.
@@ -111,6 +117,7 @@ groups:
           scope: request-apps
         annotations:
           summary: "Libreseerr auto-provisioned an OIDC user"
+          description: "The libreseerr container on kdk-dkr-dmz-01 logged Auto-provisioned OIDC user. Expected after a new person first signs in through Authelia; otherwise check Libreseerr users."
           runbook: docs/runbooks/security-alerts.md#request-apps
 
       # 7b. Libreseerr account/config writes.
@@ -130,19 +137,21 @@ groups:
           notify: phone
         annotations:
           summary: "Libreseerr users/config/OIDC/LDAP write (expected only while you administer it)"
+          description: "The DMZ Traefik logged a successful POST/PUT/DELETE to the Libreseerr users, config, OIDC or LDAP API. Expected while you administer it; otherwise check who holds an admin session."
           runbook: docs/runbooks/security-alerts.md#request-apps
 
-      # 8. Seerr error rate.
+      # 8. Seerr error rate. A rate rule, not a tripwire: for: 5m (alerting-standards §5).
       - alert: SeerrErrorRate
         expr: |
           sum(count_over_time({host="kdk-dkr-dmz-01", container="seerr"} |= "[error]" [15m])) > 50
-        for: 0m
+        for: 5m
         labels:
           severity: warning
           source: loki
           scope: request-apps
         annotations:
           summary: "Seerr logged more than 50 errors in 15m"
+          description: "The seerr container on kdk-dkr-dmz-01 logged more than 50 [error] lines in 15m for 5m. Check docker logs seerr | grep error; usually Jellyfin or Radarr connectivity, not security."
           runbook: docs/runbooks/security-alerts.md#request-apps
 
       # 9. Image pull / container create / crash for the request apps on dmz-01
@@ -158,4 +167,5 @@ groups:
           scope: request-apps
         annotations:
           summary: "Seerr/Libreseerr image pulled, container recreated or crashed on kdk-dkr-dmz-01"
+          description: "docker-event-watch on kdk-dkr-dmz-01 logged a pull, create or die for a Seerr/Libreseerr container. Expected after a deploy or Renovate merge; otherwise check docker events and the image digest."
           runbook: docs/runbooks/security-alerts.md#request-apps

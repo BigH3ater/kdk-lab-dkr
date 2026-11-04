@@ -30,6 +30,7 @@ groups:
           scope: advisories
         annotations:
           summary: "{{ $labels.image }}:{{ $labels.tag }} is affected by {{ $labels.id }} ({{ $labels.adv_severity }})"
+          description: "advisory-watch matched a Critical/High advisory whose verdict is Vulnerable for the pinned tag. Open the advisory url in the advisory-watch line and bump the image (Renovate PR or a pin at fixed_in or later)."
           runbook: docs/runbooks/security-alerts.md#advisories
 
       - alert: AdvisoryNeedsReview
@@ -44,6 +45,7 @@ groups:
           scope: advisories
         annotations:
           summary: "{{ $labels.id }} ({{ $labels.adv_severity }}) for {{ $labels.image }}: pinned tag {{ $labels.tag }} not comparable, check by hand"
+          description: "advisory-watch could not compare the pinned tag (latest, floating, digest or an RSS/NVD item) against a Critical/High advisory. Read the advisory and decide by hand; pinning an exact tag lets the next run decide."
           runbook: docs/runbooks/security-alerts.md#advisories
 
       - alert: TrivyFixableCritical
@@ -57,6 +59,7 @@ groups:
           scope: advisories
         annotations:
           summary: "{{ $labels.image }} on {{ $labels.host }} has a fixable CRITICAL vulnerability ({{ $labels.top_cve }})"
+          description: "The weekly trivy-scan on {{ $labels.host }} found a CRITICAL CVE with a fix available in {{ $labels.image }}. Grafana Security Advisories Trivy table shows top_pkg/top_fixed; a newer tag or a rebuild on a current base usually fixes it."
           runbook: docs/runbooks/security-alerts.md#advisories
 
       # The weekly jobs stopped reporting (procedure disabled, job failing before
@@ -73,6 +76,7 @@ groups:
           scope: advisories
         annotations:
           summary: "No advisory-watch output in Loki for 8 days"
+          description: "No job=advisory-watch line reached Loki in 8 days (one missed Monday run). Check Komodo Procedures run history and docker logs advisory-watch on kdk-log-01."
           runbook: docs/runbooks/security-alerts.md#advisories
 
       - alert: TrivyScanSilent
@@ -85,4 +89,5 @@ groups:
           scope: advisories
         annotations:
           summary: "No trivy-scan output in Loki for 8 days"
+          description: "No job=trivy line reached Loki in 8 days (one missed Monday run). Check Komodo Procedures run history and docker logs trivy-scan-report on the compose hosts."
           runbook: docs/runbooks/security-alerts.md#advisories

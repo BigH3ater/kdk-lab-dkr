@@ -129,8 +129,8 @@ Live examples (`alertmanager.yml`):
   it is unrelated.
 - `MonitoringBlackout` (service.yml `availability` group; fires when
   `count(up==0) + count(probe_success==0) >= 10`) inhibits `InstanceDown`,
-  `EndpointDown`, `SmartHomeEndpointDown`, `CadvisorDown` and `NetExporterDown`,
-  so a correlated reachability loss pages **once** instead of 15+ times (the
+  `EndpointDown`, `SmartHomeEndpointDown`, `CadvisorDown`, `NetExporterDown`,
+  `SmartHomeProbeExporterDown` and `IdracExporterDown`, so a correlated reachability loss pages **once** instead of 15+ times (the
   2026-10-27 02:10–02:50 blackout, ~18 targets down across 4 hosts/subnets). The
   per-target detail stays visible in the Alertmanager UI.
 
@@ -194,7 +194,7 @@ docker run --rm -v "$PWD/stacks/monitoring/prometheus:/p:ro" \
 
 ```sh
 docker run --rm -v "$PWD/stacks/monitoring/alertmanager:/a:ro" \
-  --entrypoint amtool prom/alertmanager:v0.34.1 \
+  --entrypoint amtool prom/alertmanager:v0.34.2 \
   check-config /a/alertmanager.yml
 ```
 
@@ -202,15 +202,18 @@ docker run --rm -v "$PWD/stacks/monitoring/alertmanager:/a:ro" \
 on the host by the monitoring `pre_deploy`, not in git; `amtool check-config`
 validates structure and templates without them.)
 
-**Log rules (LogQL):** there is no `lokitool` in the ruler image; lint with the
-logcli/loki image or confirm against the live ruler on kdk-log-01:
+**Log rules (LogQL):** there is no offline LogQL linter in this repo (the
+`grafana/loki` image is distroless and ships no `lokitool`; `-verify-config`
+checks the server config, not rule files). Before merging, YAML-parse the
+files and check the §3/§4 fields; after the deploy, the live ruler on
+kdk-log-01 is the authoritative check, and it exits non-zero on failure:
 
 ```sh
-# syntax of every rule file (cortextool-style check via the loki image)
-docker run --rm -v "$PWD/stacks/loki/rules:/r:ro" \
-  grafana/loki:3.7.9 -config.file=/dev/null -verify-config 2>/dev/null || true
-# authoritative: the ruler loads clean and nothing is unhealthy
-curl -s http://10.1.20.21:3100/prometheus/api/v1/rules | jq '.data.groups | length'
+# before merge: every rule file parses
+for f in stacks/loki/rules/*.yml; do python3 -c 'import sys,yaml; yaml.safe_load(open(sys.argv[1]))' "$f" || echo "BAD $f"; done
+# after deploy (from kdk-mon-01): the ruler loaded every group and no rule is unhealthy
+curl -sf http://10.1.20.21:3100/prometheus/api/v1/rules \
+  | jq -e '(.data.groups | length) > 0 and ([.data.groups[].rules[] | select(.health != "ok")] | length == 0)'
 ```
 
 Prefer replaying a new log rule's LogQL over a past window in Grafana Explore

@@ -34,6 +34,27 @@ tests:
               runbook: "docs/runbooks/pushover-alerts.md#containers"
               description: "The kernel OOM killer fired for container media-tdarr-node-1 (stack media) on kdk-dkr-01. A single job hit the container mem_limit and was killed; the host stayed up. Check the container's memory ceiling and the workload that ballooned (for tdarr-node: a software-decoded 4K source or a DEE remux)."
 
+  # A non-compose container (no `service` label, e.g. the kdk-remux-test
+  # one-shot on 2026-11-02) falls back to the container name in the summary.
+  - interval: 1m
+    input_series:
+      - series: 'container_oom_events_total{name="kdk-remux-test",host="kdk-dkr-01"}'
+        values: '0+0x15 1+0x5'
+    alert_rule_test:
+      - eval_time: 18m
+        alertname: ContainerOOMKilled
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              source: external-monitor
+              scope: containers
+              name: kdk-remux-test
+              host: kdk-dkr-01
+            exp_annotations:
+              summary: "kdk-remux-test OOM-killed on kdk-dkr-01"
+              runbook: "docs/runbooks/pushover-alerts.md#containers"
+              description: "The kernel OOM killer fired for container kdk-remux-test on kdk-dkr-01. A single job hit the container mem_limit and was killed; the host stayed up. Check the container's memory ceiling and the workload that ballooned (for tdarr-node: a software-decoded 4K source or a DEE remux)."
+
   # No OOM in the window -> ContainerOOMKilled does not fire (flat counter).
   - interval: 1m
     input_series:
@@ -59,7 +80,7 @@ tests:
           - exp_labels:
               severity: critical
               source: external-monitor
-              scope: service
+              scope: hosts
               job: node-external
               instance: "10.1.20.20:9100"
             exp_annotations:
@@ -103,7 +124,7 @@ tests:
             exp_annotations:
               summary: "monitoring blackout: 10+ targets unreachable from kdk-mon-01"
               runbook: "docs/runbooks/pushover-alerts.md#monitoring-blackout"
-              description: "At least 10 scrape targets and/or blackbox probes are down at once -- a correlated reachability loss, not a single service. The individual InstanceDown/EndpointDown/SmartHomeEndpointDown/CadvisorDown/ NetExporterDown alerts are inhibited; open the Alertmanager UI to see which targets. Check the kdk-mon-01 uplink/DNS and the path to the affected hosts/subnets before assuming each service failed."
+              description: "At least 10 scrape targets and/or blackbox probes are down at once -- a correlated reachability loss, not a single service. The individual InstanceDown/EndpointDown/SmartHomeEndpointDown/CadvisorDown/ NetExporterDown/SmartHomeProbeExporterDown/IdracExporterDown alerts are inhibited; open the Alertmanager UI to see which targets. Check the kdk-mon-01 uplink/DNS and the path to the affected hosts/subnets before assuming each service failed."
 
   # A single host reboot (2 scrape targets down) is below N=10: MonitoringBlackout
   # stays quiet and the individual alerts page with their detail.
