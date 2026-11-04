@@ -16,6 +16,10 @@
 #   pumps water, so it is shown as stale once the clean tank was reseated.
 # - The robot's own room names (current_room_2, rr_run_near) are the app's old
 #   labels (Bathroom2 = the dock spot), not the 13 helper names.
+# - Job / mop / pause state comes from the robot (binary_sensor.rr_job_active,
+#   rr_mopping_now, rr_recharge_pause, sensor.rr_job_washes in the package),
+#   never from cleaning_2 alone (it drops off ~1 min at every dock visit) or
+#   the mode select (the robot's own routines leave it at vac_and_mop).
 # Grid: every tile is 6 of 12 columns (two per row on a phone), buttons 4.
 title: Roborock
 views:
@@ -62,7 +66,7 @@ views:
       grid_options: {columns: 6}
       visibility:
       - condition: state
-        entity: binary_sensor.mr_slave_cleaning_2
+        entity: binary_sensor.rr_job_active
         state: 'on'
     - type: tile
       entity: sensor.mr_slave_dock_dock_error
@@ -71,7 +75,7 @@ views:
       grid_options: {columns: 6}
       visibility:
       - condition: state
-        entity: binary_sensor.mr_slave_cleaning_2
+        entity: binary_sensor.rr_job_active
         state_not: 'on'
     - type: markdown
       grid_options: {columns: 12}
@@ -80,7 +84,10 @@ views:
         {%- set v = states('vacuum.mr_slave_2') -%}
         {%- set st = states('sensor.mr_slave_status_2') -%}
         {%- set code = states('sensor.mr_slave_vacuum_error_2') -%}
-        {%- set cleaning = is_state('binary_sensor.mr_slave_cleaning_2', 'on') -%}
+        {%- set job = is_state('binary_sensor.rr_job_active', 'on') -%}
+        {%- set pause = is_state('binary_sensor.rr_recharge_pause', 'on') -%}
+        {%- set mopping = is_state('binary_sensor.rr_mopping_now', 'on') -%}
+        {%- set washes = states('sensor.rr_job_washes') | int(0) -%}
         {%- set vo = states.vacuum.mr_slave_2 -%}
         {%- if v in ['unavailable', 'unknown'] -%}
         <ha-alert alert-type="error">Mr. Slave is offline. Scheduled cleans fail until it reconnects: seat it on the dock and press power.</ha-alert>
@@ -91,16 +98,22 @@ views:
         {%- if words in ['unknown', 'unavailable'] %}{% set words = code | replace('_', ' ') %}{% endif %}
         <ha-alert alert-type="error" title="{{ adv.title | default('Mr. Slave has an error') }}">{{ words[:1] | upper }}{{ words[1:] }}. {{ adv.fix | default('') }}</ha-alert>
         {% endif %}
-        - **State:** {{ st | replace('_', ' ') | capitalize }}{{ (' · since ' ~ hm(vo.last_changed)) if vo else '' }}
+        {%- if pause %}
+        <ha-alert alert-type="info" title="Paused to recharge">{{ states('sensor.mr_slave_battery_2') }} % · resumes at 80 % by itself ({{ states('sensor.mr_slave_cleaning_progress_2') }} % of the job done){{ ' · mop run' if mopping else '' }}. This is not the end of the run.</ha-alert>
+        {%- endif %}
+        - **State:** {% if pause %}Paused to recharge · {{ states('sensor.mr_slave_battery_2') }} % · resumes at 80 %{% else %}{{ st | replace('_', ' ') | capitalize }}{{ (' · since ' ~ hm(vo.last_changed)) if vo else '' }}{% endif %}
         - **Battery:** {{ states('sensor.mr_slave_battery_2') }} %{{ ' · charging' if is_state('binary_sensor.mr_slave_charging_2', 'on') else '' }}
         {%- set near = states('input_text.rr_run_near') %}
         {%- set room = near if near not in ['', 'unknown', 'unavailable'] else states('sensor.mr_slave_current_room_2') %}
-        - **Room:** {% if cleaning and room not in ['unknown', 'unavailable'] %}near {{ room }} *(robot's own room name)*{% elif v == 'docked' %}on the dock{% else %}not cleaning{% endif %}
+        - **Room:** {% if pause %}on the dock, recharging mid-job{% elif job and st in ['going_to_wash_the_mop', 'washing_the_mop', 'emptying_the_bin', 'charging'] %}at the dock mid-job ({{ st | replace('_', ' ') }}){% elif job and room not in ['unknown', 'unavailable'] %}near {{ room }} *(robot's own room name)*{% elif v == 'docked' %}on the dock{% else %}not cleaning{% endif %}
         {%- set phase = states('input_text.rr_run_phase') %}
         {%- set po = states.input_text.rr_run_phase %}
-        - **Run:** {% if phase in ['', 'unknown', 'unavailable'] %}none tracked yet{% else %}{{ phase }}{{ (' · ' ~ hm(po.last_changed)) if po else '' }}{% endif %}
+        - **{{ 'Run' if job else 'Last run' }}:** {% if phase in ['', 'unknown', 'unavailable'] %}none tracked yet{% else %}{{ phase }}{{ (' · ' ~ hm(po.last_changed)) if po else '' }}{% endif %}
         {%- set mode = states('select.mr_slave_cleaning_mode') %}
-        - **Mode:** {{ {'vacuum': 'Vacuum only', 'vac_and_mop': 'Vacuum + mop', 'mop': 'Mop only'}.get(mode, mode | replace('_', ' ')) }}
+        - **Mode:** {{ {'vacuum': 'Vacuum only', 'vac_and_mop': 'Vacuum + mop', 'mop': 'Mop only'}.get(mode, mode | replace('_', ' ')) }} *(setting; the robot's own routines don't change it)*
+        {%- if mopping %}
+        - **Mopping:** yes{{ (' · ' ~ washes ~ ' mop wash' ~ ('es' if washes != 1 else '') ~ ' this job') if washes else ' · no wash yet this job' }}
+        {%- endif %}
         {%- set de = states('sensor.mr_slave_dock_dock_error') %}
         {%- set act = [] %}
         {%- if is_state('switch.mr_slave_dock_dust_emptying', 'on') or st == 'emptying_the_bin' %}{% set act = act + ['emptying the bin'] %}{% endif %}
@@ -116,7 +129,7 @@ views:
         {%- set b = states('sensor.mr_slave_last_clean_begin_2') %}
         {%- set e = states('sensor.mr_slave_last_clean_end_2') %}
         {%- if as_timestamp(b, 0) > 0 %}
-        - **Last job:** {{ hm(b) }} → {{ hm(e) if as_timestamp(e, 0) >= as_timestamp(b, 0) else 'running' }}{% if as_timestamp(e, 0) >= as_timestamp(b, 0) %}{% set m = ((as_timestamp(e) - as_timestamp(b)) / 60) | round(0) | int %} ({{ m // 60 }} h {{ m % 60 }} min){% endif %}
+        - **Last finished job:** {{ hm(b) }} → {{ hm(e) if as_timestamp(e, 0) >= as_timestamp(b, 0) else 'running' }}{% if as_timestamp(e, 0) >= as_timestamp(b, 0) %}{% set m = ((as_timestamp(e) - as_timestamp(b)) / 60) | round(0) | int %} ({{ m // 60 }} h {{ m % 60 }} min){% endif %}
         {%- endif %}
         {%- endif %}
     - type: button
@@ -396,11 +409,19 @@ views:
         {%- set st = states('sensor.mr_slave_status_2') -%}
         {%- set lm = state_attr('input_datetime.rr_last_mop_run', 'timestamp') | float(0) -%}
         {%- set nm = state_attr('input_datetime.rr_next_mop', 'timestamp') | float(0) -%}
-        {%- if phase.startswith('Mop pass') -%}
-        <ha-alert alert-type="info" title="Mopping now">{{ phase }}. The pass counts as done only after 20 quiet minutes back on the dock.</ha-alert>
+        {%- set job = is_state('binary_sensor.rr_job_active', 'on') -%}
+        {%- set mopping = is_state('binary_sensor.rr_mopping_now', 'on') or (job and phase.startswith('Mop pass')) -%}
+        {%- set pause = is_state('binary_sensor.rr_recharge_pause', 'on') -%}
+        {%- set washes = states('sensor.rr_job_washes') | int(0) -%}
+        {%- set who = phase if phase.startswith('Mop pass') else "Robot's own mop routine (app or HomeKit)" -%}
+        {%- set wtxt = (washes ~ ' wash' ~ ('es' if washes != 1 else '') ~ ' so far') if washes else 'no wash yet' -%}
+        {%- if mopping and pause -%}
+        <ha-alert alert-type="info" title="Mop run paused to recharge">{{ who }} · {{ states('sensor.mr_slave_battery_2') }} % · resumes at 80 % by itself · {{ wtxt }}.</ha-alert>
+        {%- elif mopping -%}
+        <ha-alert alert-type="info" title="Mopping now">{{ who }} · {{ st | replace('_', ' ') }} · {{ wtxt }}.{{ ' The pass counts as done only after 20 quiet minutes back on the dock.' if phase.startswith('Mop pass') else '' }}</ha-alert>
         {%- endif %}
 
-        - **Dock now:** {% if 'wash' in st or is_state('switch.mr_slave_dock_mop_washing', 'on') %}washing the mop{% elif is_state('binary_sensor.mr_slave_dock_mop_drying', 'on') %}drying the mop, {{ ((states('sensor.mr_slave_dock_mop_drying_remaining_time') | float(0)) / 60) | round(0) | int }} min left{% else %}not washing or drying{% endif %}
+        - **Dock now:** {% if 'wash' in st or is_state('switch.mr_slave_dock_mop_washing', 'on') %}washing the mop{{ (' (wash ' ~ washes ~ ' this job)') if washes else '' }}{% elif is_state('binary_sensor.mr_slave_dock_mop_drying', 'on') %}drying the mop, {{ ((states('sensor.mr_slave_dock_mop_drying_remaining_time') | float(0)) / 60) | round(0) | int }} min left{% else %}not washing or drying{% endif %}
         - **Last mop pass:** {% if lm < 946684800 %}none recorded{% else %}{{ when(lm) }} · {{ rel(lm) }}{% endif %}
         - **Next mop pass:** {% if nm < 946684800 %}not scheduled{% else %}{{ when(nm) }} · in {{ rel(nm) }}{% endif %}
         - **Clean tank:** {{ '⚠️ out or empty' if is_state('binary_sensor.mr_slave_dock_clean_water_box', 'on') else '✅ in the dock' }}

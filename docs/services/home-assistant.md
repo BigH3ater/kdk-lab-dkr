@@ -92,6 +92,30 @@ Rules the page follows:
   already paged). Follow-up, not built: the 1-3 s `clean_carousel_*` blips
   (six on 11-03) never page; a repeat counter would catch a failing wash tray.
 
+### Mop runs, dock visits and recharge pauses (2026-11-04)
+
+Learned from the robot's own "Mopping" routine on 11-04 (5 washes, one
+low-battery pause). The robot's routines leave `select.mr_slave_cleaning_mode`
+at `vac_and_mop` and do not touch `rr_run_phase`, so the page reads the job
+from the robot through four package helpers:
+
+| Helper | On / value when | Why |
+|---|---|---|
+| `binary_sensor.rr_job_active` | `cleaning_2` on, or status is a cleaning or dock-visit status (going to wash, washing, emptying, returning); 2 min `delay_off` | `cleaning_2` drops off for ~40-70 s at every wash/empty visit; tiles keyed on it flickered |
+| `binary_sensor.rr_recharge_pause` | status `charging`/`charging_complete` with `cleaning_2` still on and progress > 0, for 1 min | Pauses at ≤ 20 %, resumes by itself at 80 %; shown as "Paused to recharge · X % · resumes at 80 %", never as idle or finished |
+| `sensor.rr_job_washes` | +1 each time status turns `washing_the_mop`; 0 when cleaning starts after ≥ 20 min off | Wash count for the current job. Not reset on `last_clean_begin_2`: that sensor updates when a job **ends** |
+| `binary_sensor.rr_mopping_now` | job active and (dock washing, or washed this job, or cleaning with mop mode + flow + pads and water box attached) | Washes are the proof; pads are always attached on this robot, so they count only with the mop settings |
+
+- An app/HomeKit job that is vacuum-only but leaves the select at
+  `vac_and_mop` shows as mopping until it ends; a wash count of 0 is the hint.
+- Node-RED (`f_track`): when the robot starts cleaning outside a daily run or
+  mop pass, the phase becomes "Robot job started outside the daily run", so
+  an old "Stopped by hand" no longer sits on the page. `error → idle` (an error
+  being cleared) is no longer logged as a manual stop.
+- `rr_off_charger_alert` only runs on docking when an off-charger alert is out
+  (`input_boolean.rr_off_charger_alerted`), so wash visits and the recharge
+  pause no longer show as triggers in the logbook.
+
 ## Roborock ↔ Vikunja bridge (Node-RED)
 
 The old duplicate schedulers (Node-RED maintenance timers + `rr_maint_*`

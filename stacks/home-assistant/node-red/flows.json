@@ -3076,7 +3076,7 @@
         "type": "function",
         "z": "rr_tab_1",
         "name": "evt: idle",
-        "func": "// returning -> idle = robot gave up on the dock; group 8 retries it.\nconst old = msg.data && msg.data.old_state && msg.data.old_state.state;\nif (old === 'returning') return null;\nmsg.rr_evt = 'idle';\nreturn msg;",
+        "func": "// returning -> idle = robot gave up on the dock; group 8 retries it.\n// error -> idle = the error was cleared (button press or the robot timing\n// out), not a manual stop. 2026-11-04 robot_trapped 09:33 -> idle 09:43 was\n// logged \"Stopped by hand\" and cancelled the run; the text sat on the\n// dashboard all day. rr_stuck_alert already paged the error; the run's own\n// dock wait / timeout decides what happens next.\nconst old = msg.data && msg.data.old_state && msg.data.old_state.state;\nif (old === 'returning' || old === 'error') return null;\nmsg.rr_evt = 'idle';\nreturn msg;",
         "outputs": 1,
         "timeout": 0,
         "noerr": 0,
@@ -3162,11 +3162,80 @@
         "g": "g_track"
     },
     {
+        "id": "t_jobon",
+        "type": "server-state-changed",
+        "z": "rr_tab_1",
+        "name": "robot started cleaning",
+        "server": "38978576.ca0eea",
+        "version": 6,
+        "outputs": 2,
+        "exposeAsEntityConfig": "",
+        "entities": {
+            "entity": [
+                "binary_sensor.mr_slave_cleaning_2"
+            ],
+            "substring": [],
+            "regex": []
+        },
+        "outputInitially": false,
+        "stateType": "str",
+        "ifState": "on",
+        "ifStateType": "str",
+        "ifStateOperator": "is",
+        "outputOnlyOnStateChange": true,
+        "for": "0",
+        "forType": "num",
+        "forUnits": "minutes",
+        "ignorePrevStateNull": true,
+        "ignorePrevStateUnknown": true,
+        "ignorePrevStateUnavailable": true,
+        "ignoreCurrentStateUnknown": true,
+        "ignoreCurrentStateUnavailable": true,
+        "outputProperties": [
+            {
+                "property": "payload",
+                "propertyType": "msg",
+                "value": "",
+                "valueType": "entityState"
+            }
+        ],
+        "x": 1480,
+        "y": 1380,
+        "wires": [
+            [
+                "f_ev_job"
+            ],
+            []
+        ],
+        "g": "g_track"
+    },
+    {
+        "id": "f_ev_job",
+        "type": "function",
+        "z": "rr_tab_1",
+        "name": "evt: job started",
+        "func": "msg.rr_evt = 'job';\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1740,
+        "y": 1380,
+        "wires": [
+            [
+                "f_track"
+            ]
+        ],
+        "g": "g_track"
+    },
+    {
         "id": "f_track",
         "type": "function",
         "z": "rr_tab_1",
         "name": "run tracker",
-        "func": "\n// Phase-level run tracker. Publishes sensor.rr_run_progress via HA REST (out 0)\n// and emits guarded room stamps (out 1, same shape s_room consumes).\nconst REST_ROOMS = ['master_bedroom_closet','master_bathroom','bathroom_1',\n    'bedroom_1','kitchen','living_room','front_door_entry','garage_entrance',\n    'half_bath','laundry_room','hallway','rachels_office'];\nlet run = flow.get('rr_run', 'file') || {active:false, phase:'', cancelled:false, near:''};\nconst evt = msg.rr_evt;\nlet stamp = null;\nswitch (evt) {\n    case 'start':\n        run = {active:true, phase:'Master bedroom \u2014 zone A', cancelled:false, near:''};\n        break;\n    case 'zoneB':\n        run.phase = 'Master bedroom \u2014 zone B'; break;\n    case 'zbdone':\n        if (run.active && !run.cancelled && !flow.get('rr_cancel') && !flow.get('rr_mbr_short')) {\n            stamp = {stamp:'input_datetime.rr_last_clean_master_bedroom',\n                     ts: Math.floor(Date.now()/1000)};\n            run.phase = 'Dock \u2014 emptying before main sweep';\n        }\n        break;\n    case 'rest':\n        run.phase = 'Main floor sweep (12 rooms)'; break;\n    case 'restdone':\n        if (run.active && !run.cancelled && !flow.get('rr_cancel')) {\n            stamp = {stamp: REST_ROOMS.map(r => 'input_datetime.rr_last_clean_' + r),\n                     ts: Math.floor(Date.now()/1000)};\n            run.phase = 'Main sweep complete';\n        }\n        break;\n    case 'recharge':\n        if (run.active && !run.cancelled) run.phase = 'Main sweep \u2014 recharging, resumes at 80%';\n        break;\n    case 'mop':\n        run.phase = 'Mop pass (all floors)'; break;\n    case 'done':\n        run.phase = run.cancelled ? 'Cancelled' : 'Complete';\n        run.active = false; run.near = '';\n        break;\n    case 'cancel':\n        run.cancelled = true; run.active = false;\n        run.phase = 'Cancelled \u2014 returning to dock';\n        break;\n    case 'failed':\n        run.cancelled = true; run.active = false; run.near = '';\n        run.phase = msg.rr_phase || 'Failed';\n        break;\n    case 'idle':\n        if (run.active && !run.cancelled) {\n            run.cancelled = true; run.active = false;\n            flow.set('rr_cancel', true);\n            run.phase = 'Stopped by hand \u2014 rest of run cancelled';\n        } else { return null; }\n        break;\n    case 'dock':\n        run.phase = msg.rr_phase || run.phase; break;\n    case 'room':\n        if (!run.active) return null;\n        run.near = String(msg.payload || '');\n        break;\n    default:\n        return null;\n}\nflow.set('rr_run', run, 'file');\nconst prog = {payload: {phase: run.phase.substring(0,255), near: (run.near || '').substring(0,100)}};\nreturn [[prog], stamp ? [{payload: stamp}] : []];\n",
+        "func": "\n// Phase-level run tracker. Publishes sensor.rr_run_progress via HA REST (out 0)\n// and emits guarded room stamps (out 1, same shape s_room consumes).\nconst REST_ROOMS = ['master_bedroom_closet','master_bathroom','bathroom_1',\n    'bedroom_1','kitchen','living_room','front_door_entry','garage_entrance',\n    'half_bath','laundry_room','hallway','rachels_office'];\nlet run = flow.get('rr_run', 'file') || {active:false, phase:'', cancelled:false, near:''};\nconst evt = msg.rr_evt;\nlet stamp = null;\nswitch (evt) {\n    case 'start':\n        run = {active:true, phase:'Master bedroom \u2014 zone A', cancelled:false, near:''};\n        break;\n    case 'zoneB':\n        run.phase = 'Master bedroom \u2014 zone B'; break;\n    case 'zbdone':\n        if (run.active && !run.cancelled && !flow.get('rr_cancel') && !flow.get('rr_mbr_short')) {\n            stamp = {stamp:'input_datetime.rr_last_clean_master_bedroom',\n                     ts: Math.floor(Date.now()/1000)};\n            run.phase = 'Dock \u2014 emptying before main sweep';\n        }\n        break;\n    case 'rest':\n        run.phase = 'Main floor sweep (12 rooms)'; break;\n    case 'restdone':\n        if (run.active && !run.cancelled && !flow.get('rr_cancel')) {\n            stamp = {stamp: REST_ROOMS.map(r => 'input_datetime.rr_last_clean_' + r),\n                     ts: Math.floor(Date.now()/1000)};\n            run.phase = 'Main sweep complete';\n        }\n        break;\n    case 'recharge':\n        if (run.active && !run.cancelled) run.phase = 'Main sweep \u2014 recharging, resumes at 80%';\n        break;\n    case 'mop':\n        run.phase = 'Mop pass (all floors)'; break;\n    case 'done':\n        run.phase = run.cancelled ? 'Cancelled' : 'Complete';\n        run.active = false; run.near = '';\n        break;\n    case 'cancel':\n        run.cancelled = true; run.active = false;\n        run.phase = 'Cancelled \u2014 returning to dock';\n        break;\n    case 'failed':\n        run.cancelled = true; run.active = false; run.near = '';\n        run.phase = msg.rr_phase || 'Failed';\n        break;\n    case 'idle':\n        if (run.active && !run.cancelled) {\n            run.cancelled = true; run.active = false;\n            flow.set('rr_cancel', true);\n            run.phase = 'Stopped by hand \u2014 rest of run cancelled';\n        } else { return null; }\n        break;\n    case 'dock':\n        run.phase = msg.rr_phase || run.phase; break;\n    case 'job':\n        // The robot started cleaning (cleaning_2 -> on). Inside a Node-RED run\n        // or mop pass this is just the next stage. Otherwise it is a job from\n        // the Roborock app, HomeKit or a room button: replace the last run's\n        // final phase so the dashboard does not show e.g. \"Stopped by hand\"\n        // from hours ago (2026-11-04 13:15 mop routine). cleaning_2 also flips\n        // off/on at every wash or empty visit; rewriting the same text is a no-op.\n        // (Not sensor.mr_slave_last_clean_begin_2: it updates when a job ENDS.)\n        if (run.active || flow.get('rr_mop_inpass')) return null;\n        run.phase = 'Robot job started outside the daily run (app, HomeKit or a room button)';\n        run.near = '';\n        break;\n    case 'room':\n        if (!run.active) return null;\n        run.near = String(msg.payload || '');\n        break;\n    default:\n        return null;\n}\nflow.set('rr_run', run, 'file');\nconst prog = {payload: {phase: run.phase.substring(0,255), near: (run.near || '').substring(0,100)}};\nreturn [[prog], stamp ? [{payload: stamp}] : []];\n",
         "outputs": 2,
         "timeout": 0,
         "noerr": 0,
@@ -4556,12 +4625,14 @@
             "s_phase",
             "s_near",
             "li_stamp",
-            "s_room"
+            "s_room",
+            "t_jobon",
+            "f_ev_job"
         ],
         "x": 1350,
         "y": 1160,
         "w": 1100,
-        "h": 243
+        "h": 265
     },
     {
         "id": "g_manual",
