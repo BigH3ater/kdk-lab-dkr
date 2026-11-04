@@ -31,8 +31,8 @@ Small internal utilities on kdk-dkr-01: time, AdGuard replication, a Proton SMTP
 ## Verify
 
 ```bash
-docker ps --filter name=ntp --filter name=adguardhome-sync --format '{{.Names}} {{.Status}}'
-docker logs adguardhome-sync 2>&1 | tail -3          # last sync ok to dns-02/03
+sudo docker ps --filter name=ntp --filter name=adguardhome-sync --format '{{.Names}} {{.Status}}'
+sudo docker logs adguardhome-sync 2>&1 | tail -3          # last sync ok to dns-02/03
 ```
 
 ## Troubleshooting
@@ -57,7 +57,7 @@ The vacuum (VLAN 30, internet blocked) opens TLS to `api-slave.kmkdp.com:555` on
 Verify (read-only, from `kdk-dkr-01`):
 
 ```bash
-docker logs roborock-cert-lego 2>&1 | tail      # last run: obtained/renewed api-slave.kmkdp.com, or "no renewal needed"
+sudo docker logs roborock-cert-lego 2>&1 | tail      # last run: obtained/renewed api-slave.kmkdp.com, or "no renewal needed"
 echo | openssl s_client -connect 10.1.20.20:555 -servername api-slave.kmkdp.com 2>/dev/null \
   | openssl x509 -noout -subject -dates          # CN=api-slave.kmkdp.com, notAfter advances after renewal+restart
 ```

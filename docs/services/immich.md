@@ -33,7 +33,7 @@ Photo and video backup, LAN/tailnet only (router on the DMZ Traefik's `websecure
 
 ```bash
 curl -s -o /dev/null -w '%{http_code}\n' https://immich.kmkdp.com/api/server/ping   # 200
-docker exec immich-postgres pg_isready -U immich                                     # accepting
+sudo docker exec immich-postgres pg_isready -U immich                                     # accepting
 ```
 
 ## Troubleshooting

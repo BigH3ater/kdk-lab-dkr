@@ -6,7 +6,7 @@ tier: infra
 status: live
 storage: no
 secrets: [kdk-ups-01-nut-upsd]
-updated: 2026-10-17
+updated: 2026-11-04
 tags: [homelab/stack, tier/infra, status/live]
 ---
 
@@ -31,6 +31,7 @@ plugged into a host by USB.
 | Clients | [[kdk-nas-01]] (TrueNAS native UPS service, SLAVE mode, → `10.1.3.62`) and [[kdk-hyp-01]] (Proxmox `nut-client` upsmon, → `10.1.30.22`) — both **secondary**, both shut down on low battery |
 | Low-battery margin | `ignorelb` + `override.battery.charge.low=30` / `runtime.low=360` → LB fires with **~6 min** of runtime, not the card's ~3 min |
 | Consumer | [[home-assistant]] NUT integration (battery, load, status, voltages) |
+| Mode (2026-11-04) | upsd `SERVER: primary`; both clients connected (`upsc -c eaton-5px@localhost` lists `10.1.3.5` and `10.1.1.100`); hyp-01 `nut-monitor` active + enabled. The read-only `secondary` mode of 2026-10-26 (clients disabled) lasted one evening and is **not** in force |
 
 ## Verify
 
@@ -39,12 +40,14 @@ plugged into a host by USB.
 ssh kdkadmin@10.1.30.22 'sudo docker exec nut-upsd-1 upsc eaton-5px@localhost' | \
   grep -E 'ups.status|battery.charge:|ups.load:|battery.(charge|runtime).low:'
 # expect: ups.status: OL CHRG (or OL), battery.charge.low: 30, battery.runtime.low: 360
+ssh kdkadmin@10.1.30.22 'sudo docker exec nut-upsd-1 upsc -c eaton-5px@localhost'   # 10.1.3.5, 10.1.1.100, 127.0.0.1
+ssh kdkadmin@10.1.30.22 'ip route get 10.1.3.63'                                     # dev eth1.1 src 10.1.3.62
 ```
 
 ```sh
 # clients see the UPS
 ssh kdkadmin@10.1.3.5   'upsc eaton-5px@10.1.3.62 | grep ups.status'    # TrueNAS
-ssh kdkadmin@10.1.1.100 'systemctl is-active nut-monitor'               # Proxmox
+ssh kdkadmin@10.1.1.100 'systemctl is-active nut-monitor'               # Proxmox: active
 ```
 
 `ups.status`: `OL` on line power, `OB` on battery, `OB LB` when low (shutdown
@@ -105,15 +108,16 @@ upstream master. `DEADTIME` only promotes a dead on-battery UPS to low-battery.
 recreates upsd **only** on a deliberate `ups.conf` merge, while unrelated merges stay a
 no-op (compose does NOT content-hash a `configs: file:` — the earlier "content-hashed"
 assumption was wrong, so edits had silently not been applying); (3) `SERVER: primary`
-restored, hyp-01 `nut-monitor` and the TrueNAS UPS service re-enabled.
+restored, hyp-01 `nut-monitor` and the TrueNAS UPS service re-enabled. The label landed
+attended on 2026-10-30 17:00-17:05Z (both monitors stopped first, no incident); an
+unchanged `ups.conf` deploy leaves upsd `Running` with no recreate.
 
 > [!danger] A `ups.conf` merge recreates upsd — attended merge only
 > The recreate trigger is deliberate, but a recreate is still a recreate: during a
 > battery self-test or a network blip it can shut kdk-hyp-01 down (this incident).
-> As of 2026-10-29 kdk-hyp-01's `nut-monitor` is **enabled and active** in `secondary`
-> mode (`MONITOR eaton-5px@10.1.30.22:3493 1 … secondary`), so the one-time upsd
-> recreate this label introduces — and every later `ups.conf` merge — still carries the
-> 2026-10-26 risk window. Merge only with a person running this procedure:
+> kdk-hyp-01's `nut-monitor` is **enabled and active** as a `secondary` client
+> (`MONITOR eaton-5px@10.1.30.22:3493 1 … secondary`; re-checked 2026-11-04), so every
+> `ups.conf` merge still carries the 2026-10-26 risk window. Merge only with a person running this procedure:
 >
 > 1. On kdk-hyp-01: `sudo systemctl stop nut-monitor`.
 > 2. Confirm the UPS is not calibrating: `upsc eaton-5px@10.1.30.22 ups.status` — it must

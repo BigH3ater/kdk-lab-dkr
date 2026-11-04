@@ -90,7 +90,7 @@ curl -s -o /dev/null -w '%{http_code}\n' https://homeassistant.kmkdp.com/     # 
 
 ## Architecture
 
-Runs its own `traefik:v3.7.16` on `80/443` for the home-automation names, plus `homeassistant 2026.10.4`, `zigbee2mqtt 2.14.2` (frontend auth token), `node-red 5.0.9` (adminAuth, encrypted credentials), `mosquitto 2.0.22` (five containers; Dockge removed 2026-09-20). Periphery on `8120`. These names resolve to `10.1.30.21` (see [[network]]).
+Runs its own `traefik:v3.7.17` on `80/443` for the home-automation names, plus `homeassistant 2026.10.4`, `zigbee2mqtt 2.14.3` (frontend auth token), `node-red 5.0.9` (adminAuth, encrypted credentials), `mosquitto 2.0.22` (five containers; Dockge removed 2026-09-20). Periphery on `8120`. These names resolve to `10.1.30.21` (see [[network]]).
 
 ### Storage map
 

@@ -12,5 +12,7 @@ Security posture reports are kept in the Obsidian vault (`10.Homelab/Security/`)
 - [Runbooks](runbooks/index.md) — deploy a hardened service, add an alert or a Loki rule, rotate a secret, Renovate PRs, post-merge validation, security alerts, DEE VM, Tdarr
 - Processes: [Komodo GitOps](komodo-gitops.md) · [Backups](backups.md)
 - [Reference](reference/index.md): [compose hardening baseline](reference/compose-baseline.md), [Docker IPAM plan](reference/docker-ipam.md)
-- Hosts: [kdk-dkr-01](hosts/kdk-dkr-01.md) · [kdk-dkr-dmz-01](hosts/kdk-dkr-dmz-01.md) · [kdk-dkr-02](hosts/kdk-dkr-02.md) · [kdk-dkr-03](hosts/kdk-dkr-03.md) · [kdk-mon-01](hosts/kdk-mon-01.md) · [kdk-log-01](hosts/kdk-log-01.md)
+- Hosts: [kdk-dkr-01](hosts/kdk-dkr-01.md) · [kdk-dkr-dmz-01](hosts/kdk-dkr-dmz-01.md) · [kdk-dkr-02](hosts/kdk-dkr-02.md) · [kdk-dkr-03](hosts/kdk-dkr-03.md) · [kdk-dkr-04](hosts/kdk-dkr-04.md) (building) · [kdk-mon-01](hosts/kdk-mon-01.md) · [kdk-log-01](hosts/kdk-log-01.md)
+- Infrastructure hosts: [kdk-hyp-01](hosts/kdk-hyp-01.md) (Proxmox) · [kdk-nas-01](hosts/kdk-nas-01.md) (TrueNAS) · [kdk-dee-01](hosts/kdk-dee-01.md) (Windows DEE VM)
 - Services: see the [services index](services/index.md)
+- [Backlog & TODOs](backlog.md) (last reviewed 2026-09-15; the live task list is in the vault)

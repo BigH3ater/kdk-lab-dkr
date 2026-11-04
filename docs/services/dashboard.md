@@ -36,7 +36,7 @@ the Remote-User header drives rating/task attribution.
 ## Verify
 
 ```bash
-docker ps --filter name=homepage --filter name=vikunja --filter name=dashboard-guides --filter name=dashboard-mealplan --format '{{.Names}} {{.Status}}'
+sudo docker ps --filter name=homepage --filter name=vikunja --filter name=dashboard-guides --filter name=dashboard-mealplan --format '{{.Names}} {{.Status}}'
 curl -s -o /dev/null -w '%{http_code}\n' https://home.kmkdp.com/            # 200
 curl -s -o /dev/null -w '%{http_code}\n' https://home.kmkdp.com/guides/     # 200
 curl -s -o /dev/null -w '%{http_code}\n' https://tasks.kmkdp.com/           # 200

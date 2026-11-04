@@ -48,7 +48,7 @@ arr apps, not on the DMZ tunnel. Resolves only on the LAN/tailnet (lab DNS).
 - After first-run config, the dashboard shows the Jellyfin libraries and a sync runs.
 
 ```bash
-ssh kdkadmin@10.1.20.20 'docker ps --filter name=jellystat --format "{{.Names}} {{.Status}}"'
+ssh kdkadmin@10.1.20.20 'sudo docker ps --filter name=jellystat --format "{{.Names}} {{.Status}}"'
 ssh kdkadmin@10.1.20.20 'ls -t /mnt/backup/dkr/kdk-dkr-01/pgdump | head'   # jellystat-<date>.sql.gz after first nightly backup
 ```
 

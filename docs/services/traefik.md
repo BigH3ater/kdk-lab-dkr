@@ -6,13 +6,15 @@ tier: infra
 status: live
 storage: yes
 secrets: [cloudflare-dns-acme-hosts]
-updated: 2026-09-12
+updated: 2026-11-04
 tags: [homelab/stack, tier/infra, status/live]
 ---
 
 # Traefik — internal ingress
 
 Terminates TLS and host-routes every internal `*.kmkdp.com` service on kdk-dkr-01, gating most behind Authelia ForwardAuth.
+
+This is one of **three** Traefiks, all `traefik:v3.7.17`: this one (internal apps), the DMZ one with the Cloudflare tunnel entrypoint and `strip-cf` ([[dmz-proxy]]), and the file-provider-only one on the Home Assistant Pi ([[kdk-dkr-02]], `stacks/home-assistant`).
 
 **Related:** [[kdk-dkr-01]] · [[identity]] · [[dmz-proxy]]
 
@@ -22,8 +24,8 @@ Terminates TLS and host-routes every internal `*.kmkdp.com` service on kdk-dkr-0
 |---|---|
 | Purpose | Reverse proxy + ACME wildcard certs for internal services |
 | Status | 🟢 Live — serves 80/443, wildcard cert valid |
-| Host | [[kdk-dkr-01]], ports `80`/`443` |
-| Image | `traefik:v3.7.16` (pinned; Renovate proposes updates) |
+| Host | [[kdk-dkr-01]], ports `80`/`443` bound to `10.1.20.20` only (VLAN 20; not the storage NIC, not docker0). LAN, tailnet (routed to 10.1.20.20) and DMZ→443 all arrive there |
+| Image | `traefik:v3.7.17` + `ghcr.io/tecnativa/docker-socket-proxy:v0.5.0` (both digest-pinned; Renovate proposes updates) |
 | Deploy | Komodo stack `proxy` (git-linked) |
 | Cert | `kmkdp.com` + `*.kmkdp.com`, ACME DNS-01 via Cloudflare, stored `/opt/kdk-lab/proxy/letsencrypt/acme.json` |
 | Blast radius | Every internal `*.kmkdp.com` service is unreachable |
@@ -31,16 +33,19 @@ Terminates TLS and host-routes every internal `*.kmkdp.com` service on kdk-dkr-0
 ## Verify
 
 ```bash
-curl -s -o /dev/null -w '%{http_code}\n' https://komodo.kmkdp.com/    # 200/302, valid TLS
-docker logs traefik 2>&1 | grep -i acme | tail -3                     # certificate obtained/renewed
+curl -s -o /dev/null -w '%{http_code} ssl=%{ssl_verify_result}\n' https://komodo.kmkdp.com/   # 302 ssl=0 (valid TLS)
+echo | openssl s_client -connect 10.1.20.20:443 -servername komodo.kmkdp.com 2>/dev/null | openssl x509 -noout -subject -enddate
+#   subject=CN = kmkdp.com, notAfter more than 30 days away (renewal is automatic at 30 days)
+ssh kdkadmin@10.1.20.20 'sudo docker ps --filter name=traefik --format "{{.Names}} {{.Status}}"'   # traefik Up, traefik-socket-proxy Up (healthy)
 ```
 
 ## Troubleshooting
 
 | Problem | Cause | Command to validate |
 |---|---|---|
-| A service 404s at Traefik | Container not on the `proxy` network or missing labels | `docker inspect <c> --format '{{json .NetworkSettings.Networks}}'` shows `proxy` |
-| Cert not issued | Cloudflare DNS token missing/invalid | `docker logs traefik 2>&1 | grep -i "acme\|cloudflare"` |
+| A service 404s at Traefik | Container not on the `proxy` network or missing labels | `sudo docker inspect <c> --format '{{json .NetworkSettings.Networks}}'` shows `proxy` |
+| Cert not issued | Cloudflare DNS token missing/invalid | `sudo docker logs traefik 2>&1 \| grep -i "acme\|cloudflare"` (quiet when the stored cert is valid: ACME only logs at issue/renewal) |
+| Every Docker-label route 404s, file routes (grafana, alertmanager) still work | socket proxy down, so the Docker provider sees no containers | `sudo docker ps --filter name=traefik-socket-proxy` healthy; `sudo docker logs traefik 2>&1 \| grep -i 'provider.*docker'` |
 | UI reachable without login | Router missing `forwardauth@file` middleware | check the service's `traefik.http.routers.<r>.middlewares` label |
 
 ## Dependencies
@@ -57,7 +62,7 @@ No dashboard. `blackbox-http-app` on [[kdk-mon-01]] probes routed hosts; alerts 
 
 ## Architecture
 
-Docker provider (label discovery on the `proxy` network) + file provider (`./dynamic`). `web:80` redirects to `websecure:443`; `websecure` carries the `cf` resolver wildcard. `forwardauth@file` (in `dynamic/middlewares.yml`) forwards auth to `https://sso.kmkdp.com`.
+Docker provider (label discovery on the `proxy` network, `exposedbydefault=false`) through a **read-only socket proxy**: Traefik reads the Docker API at `tcp://socket-proxy:2375` on the internal `sockproxy` network (no egress); the socket proxy (`traefik-socket-proxy`) is the stack's only `docker.sock` mount and allows GET/HEAD on containers, events, version and ping only (`POST=0`). Plus the file provider (`./dynamic`, watched). `web:80` redirects to `websecure:443`; `websecure` carries the `cf` resolver wildcard. `forwardauth@file` (in `dynamic/middlewares.yml`) forwards auth to `https://sso.kmkdp.com/api/authz/forward-auth` with `maxResponseBodySize` 1 MiB. Access log is JSON to stdout (headers dropped except `User-Agent`), shipped by Alloy to Loki (`{container="traefik"} | json`).
 
 ## Configuration
 
@@ -65,6 +70,7 @@ Docker provider (label discovery on the `proxy` network) + file provider (`./dyn
 |---|---|
 | `stacks/proxy/compose.yaml` | Entrypoints, ACME resolver, provider config |
 | `stacks/proxy/dynamic/middlewares.yml` | `forwardauth@file` → Authelia |
+| `stacks/proxy/dynamic/grafana.yml` | `grafana.kmkdp.com` → `http://10.1.20.30:3000` (no ForwardAuth here: Grafana does its own Authelia OIDC login) |
 | `stacks/proxy/dynamic/alertmanager.yml` | `alertmanager.kmkdp.com` → `http://10.1.20.30:9093` behind `forwardauth` (2026-10-28, PR #85; DNS from `EXTRA` in dns-reconcile) |
 | Per-service labels | `traefik.http.routers.<name>.rule` + `.middlewares` |
 

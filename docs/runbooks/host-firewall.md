@@ -139,12 +139,12 @@ systemctl list-timers kdk-docker-user.timer
 dmz-01 (enforce):
 
 ```sh
-docker exec jellyfin sh -c 'timeout 3 bash -c "</dev/tcp/172.16.30.2/2049" && echo OPEN || echo blocked'   # blocked
-docker exec jellyfin sh -c 'timeout 3 bash -c "</dev/tcp/172.16.30.50/22" && echo OPEN || echo blocked'    # blocked
-docker exec jellyfin sh -c 'timeout 3 bash -c "</dev/tcp/10.211.2.1/8120" && echo OPEN || echo blocked'    # blocked (host_guard)
-docker exec seerr node -e "require('net').connect(443,'10.1.20.20').on('connect',()=>{console.log('open');process.exit(0)}).on('error',e=>{console.log(e.code);process.exit(1)})"   # open (exception)
-docker exec wizarr python3 -c 'import socket;s=socket.socket();s.settimeout(3);print(s.connect_ex(("10.1.20.20",443)))'  # non-zero
-docker exec seerr wget -qO- --timeout=5 http://jellyfin:8096/health                                        # bridge-local: Healthy
+sudo docker exec jellyfin sh -c 'timeout 3 bash -c "</dev/tcp/172.16.30.2/2049" && echo OPEN || echo blocked'   # blocked
+sudo docker exec jellyfin sh -c 'timeout 3 bash -c "</dev/tcp/172.16.30.50/22" && echo OPEN || echo blocked'    # blocked
+sudo docker exec jellyfin sh -c 'timeout 3 bash -c "</dev/tcp/10.211.2.1/8120" && echo OPEN || echo blocked'    # blocked (host_guard)
+sudo docker exec seerr node -e "require('net').connect(443,'10.1.20.20').on('connect',()=>{console.log('open');process.exit(0)}).on('error',e=>{console.log(e.code);process.exit(1)})"   # open (exception)
+sudo docker exec wizarr python3 -c 'import socket;s=socket.socket();s.settimeout(3);print(s.connect_ex(("10.1.20.20",443)))'  # non-zero
+sudo docker exec seerr wget -qO- --timeout=5 http://jellyfin:8096/health                                        # bridge-local: Healthy
 ```
 
 (`nc -zvw2 172.16.30.2 2049` is the same check where the image ships `nc`.) Also: a

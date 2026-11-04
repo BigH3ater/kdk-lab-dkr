@@ -1,92 +1,79 @@
 ---
 title: Actual Budget
 tags: [homelab/service, finance, lan, oidc]
-updated: 2026-09-20
+updated: 2026-11-04
 ---
 
 # Actual Budget (budget.kmkdp.com)
 
 Envelope/YNAB-style household budgeting for the Macks. **One shared budget file**
-(jmack + wife). LAN-only on **kdk-dkr-01**; no DMZ, no Cloudflare tunnel. Remote
+(jmack + wife), kept in Actual's **Envelope** budgeting mode and **end-to-end (E2E)
+encrypted**. LAN-only on **kdk-dkr-01**; no DMZ, no Cloudflare tunnel. Remote
 phone access is over **Tailscale** (subnet router advertises 10.1.20.0/24; tailnet
 DNS resolves `budget.kmkdp.com`). Auth is **Authelia OIDC** (`client_id: actual`).
 
-- Stack: `stacks/actual/compose.yaml` — image `actualbudget/actual-server` (pinned).
-- Data: `/opt/kdk-lab/actual/data` (SQLite + sync files) — swept by the nightly
-  `/opt/kdk-lab` rsync (`stacks/backup-dkr-01`) and shipped offsite to Proton
-  (`stacks/backup-offsite`). No backup change needed.
-- Bank sync: **SimpleFIN** (native in Actual) is linked. Actual has no server-side
-  scheduler, so a person presses **Bank Sync** (All Accounts → Bank Sync). By owner
-  decision (2026-10-31), **no automated job writes to the budget**: the daily
-  `actual-bank-sync` one-shot (#263) was retired before it ever ran. Manual CSV/QFX
-  import still works as a fallback.
+| Field | Value |
+|---|---|
+| Image | `docker.io/actualbudget/actual-server:26.10.0` (digest-pinned; running 26.10.0 on 2026-11-04). Renovate PR #305 proposes 26.11.0 (see Upgrades) |
+| Stack | `stacks/actual/compose.yaml`, Komodo stack `actual` (`deploy = true`, `pre_deploy` `op inject` of `.env.tpl`) |
+| Data | `/opt/kdk-lab/actual/data` (SQLite `server-files/account.sqlite` + the encrypted sync file under `user-files/`) |
+| Backup | swept by the nightly `/opt/kdk-lab` rsync (`stacks/backup-dkr-01`) and shipped offsite (`stacks/backup-offsite`). The sync file is encrypted with the E2E key, so **a restore is only useful with that key** (1Password, `kdk-ops/actual-e2e`) |
+| Bank sync | **SimpleFIN** (native in Actual), linked at the server level. A person presses **Bank Sync**. By owner decision (2026-10-31) **no automated job writes to the budget**: the daily `actual-bank-sync` one-shot (#263) was retired before it ever ran. Manual CSV/QFX import still works as a fallback |
 
-## OIDC (Authelia) facts
-
-- Redirect URI to register: `https://budget.kmkdp.com/openid/callback`
-- Discovery: `https://sso.kmkdp.com/.well-known/openid-configuration`
-- Env (in compose): `ACTUAL_LOGIN_METHOD=openid`, `ACTUAL_OPENID_CLIENT_ID=actual`,
-  `ACTUAL_OPENID_SERVER_HOSTNAME=https://budget.kmkdp.com`; secret via `.env` (op-injected).
-- **Bootstrap:** first successful OIDC login claims server ownership. Recommended to
-  deploy with password login first, create the shared budget, verify, then switch to
-  `openid` and have jmack log in first.
-
-## Deploy procedure (permissioned lane — runs against op/hosts/Komodo)
-
-These steps write secrets, edit the fragile Authelia config, and touch hosts, so they
-are NOT done by the planning/build subagent. Run them from the permissioned lane.
-
-1. **Create the OIDC secret** (writable vault):
-   - store a strong random plaintext at
-     `op://kdk-cluster/authelia-app-secrets/actual_oidc_plaintext`.
-   - generate the Authelia PBKDF2 hash of that same plaintext:
-     `docker exec authelia authelia crypto hash generate pbkdf2 --variant sha512 --password '<plaintext>'`
-   - place the **hash** on the DMZ FIRST at
-     `/opt/kdk-lab/identity/authelia-secrets/authelia-app-secrets/actual_client_secret`.
-2. **Add the Authelia client block** (see below) to
-   `stacks/identity/authelia/configuration.yml`, refresh the DMZ identity clone, then
-   **validate before restart** (a bad edit crash-loops all SSO):
-   `docker exec -e X_AUTHELIA_CONFIG_FILTERS=template authelia authelia config validate`
-   — only restart Authelia if validate passes.
-3. Commit + push `stacks/actual/` + `komodo/resources.toml` (+ the Authelia change),
-   run the `gitops-sync` procedure (or Komodo API), and `DeployStack actual`.
-4. Verify (below).
-
-### Authelia client block (add after the `tandoor` client)
-
-```yaml
-      - client_id: 'actual'
-        client_name: 'Actual Budget'
-        client_secret: '{{ secret "/secrets/authelia-app-secrets/actual_client_secret" }}'
-        public: false
-        redirect_uris:
-          - 'https://budget.kmkdp.com/openid/callback'
-        scopes:
-          - 'openid'
-          - 'email'
-          - 'profile'
-        grant_types:
-          - 'authorization_code'
-        response_types:
-          - 'code'
-        authorization_policy: 'two_factor'
-        consent_mode: 'auto'
-        require_pkce: false
-```
+Budget contents, figures and the budget agents' runs live only in the vault
+(`1. Projects/household-budget/`), never in this repo.
 
 ## Verify
 
-- Komodo shows `actual` **Deployed / running** (not just Created) on kdk-dkr-01.
-- `https://budget.kmkdp.com` serves on the LAN.
-- OIDC round-trips through `sso.kmkdp.com` for jmack; first login claims ownership.
-- The shared budget file is creatable; both users open the same file.
-- Remote: `budget.kmkdp.com` resolves and loads over Tailscale off-home.
+```bash
+curl -s -o /dev/null -w '%{http_code}\n' https://budget.kmkdp.com/          # 200 (LAN or tailnet)
+ssh kdkadmin@10.1.20.20 'sudo docker ps --filter name=actual --format "{{.Image}} {{.Status}}"'
+#   actualbudget/actual-server:26.10.0 Up ...
+# E2E still on (counts only; opens the server DB read-only):
+ssh kdkadmin@10.1.20.20 'sudo python3 -c "import sqlite3;c=sqlite3.connect(\"file:/opt/kdk-lab/actual/data/server-files/account.sqlite?mode=ro\",uri=True);print(c.execute(\"select count(*),sum(encrypt_keyid is not null) from files where deleted=0\").fetchone())"'
+#   (1, 1)  = one live budget file, encrypted
+```
+
+Then in the browser: the login goes through `sso.kmkdp.com` and the shared budget opens.
+
+## OIDC (Authelia) facts
+
+- Redirect URI: `https://budget.kmkdp.com/openid/callback` (client `actual` in
+  `stacks/identity/authelia/configuration.yml`, `two_factor`, no PKCE)
+- Discovery: `https://sso.kmkdp.com/.well-known/openid-configuration`
+- Env (in compose): `ACTUAL_LOGIN_METHOD=openid`, `ACTUAL_OPENID_CLIENT_ID=actual`,
+  `ACTUAL_OPENID_SERVER_HOSTNAME=https://budget.kmkdp.com`,
+  `ACTUAL_OPENID_DISCOVERY_URL`; the client secret via `.env` (op-injected from
+  `op://kdk-cluster/authelia-app-secrets/actual_oidc_plaintext`; Authelia holds the
+  pbkdf2 digest in `.../authelia-app-secrets/actual_client_secret` on the DMZ).
+- The first OIDC login claimed server ownership (jmack, 2026-09-20). If OIDC ever
+  breaks: set the login method to password and redeploy.
+
+## Upgrades
+
+- Before merging an Actual image bump, take one copy that does not depend on the
+  nightly mirror (the rsync is `--delete`, so a bad upgrade night is mirrored):
+  *Settings -> Export* in Actual (a decrypted zip, kept on the laptop), or a read-only
+  `sudo tar` of `/opt/kdk-lab/actual/data`.
+- **26.11.0 (PR #305, open):** a SimpleFIN bridge on a private address needs
+  `ACTUAL_SIMPLEFIN_ALLOWED_NETWORKS` (not this household: it uses the public bridge).
+  A new per-client setting syncs linked accounts on an interval while Actual is open;
+  leave it **off** (no automated writer). Payees, Rules, Bank Sync and Tags move from
+  the sidebar into Settings. After the merge: one manual Bank Sync, and check the
+  auto-sync setting is off.
+
+## History
+
+Deployed 2026-09-20 (commit db05af4) with the client block above and the
+first-login ownership claim. The original permissioned-lane install steps (secret
+creation, Authelia client block, validate-before-restart) are in git history of this
+page (`git log -p docs/services/actual.md`); use [[rotate-a-secret]] for the client
+secret today.
 
 ## Second user (wife / "rach") — do NOT create without being asked
 
-OIDC login requires an Authelia identity. Creating one means adding a user to the
-Authelia user backend (the file-based `users_database.yml` referenced by the identity
-stack, or LLDAP if that is the backend) with username, hashed password, email, and the
-group the `two_factor` policy expects — then the user enrolls a 2FA factor at
-`sso.kmkdp.com`. This is a change to the production identity system and is left for the
-user to authorize explicitly.
+OIDC login requires an Authelia identity. Authelia's user backend is **LLDAP**
+([[identity]]): creating one means an LLDAP account at `users.kmkdp.com`, then the
+user enrolls a 2FA factor at `sso.kmkdp.com` (the `actual` client is `two_factor`).
+This is a change to the production identity system and is left for the owner to
+authorize explicitly.

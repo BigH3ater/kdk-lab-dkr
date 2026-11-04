@@ -83,18 +83,18 @@ python3 -m json.tool /etc/docker/daemon.json >/dev/null && echo json-ok
 
 # 2. Reload: applies live-restore only (reloadable), containers untouched
 sudo systemctl reload docker
-docker info --format '{{.LiveRestoreEnabled}}'          # -> true. If false: STOP, do not restart.
+sudo docker info --format '{{.LiveRestoreEnabled}}'          # -> true. If false: STOP, do not restart.
 
 # 3. Restart: applies the rest. live-restore keeps every container running.
 sudo systemctl restart docker
-docker info --format '{{.LiveRestoreEnabled}} {{.LoggingDriver}}'   # -> true json-file
-docker ps --format '{{.Names}} {{.Status}}' | grep -v ' Up ' || echo all-up
+sudo docker info --format '{{.LiveRestoreEnabled}} {{.LoggingDriver}}'   # -> true json-file
+sudo docker ps --format '{{.Names}} {{.Status}}' | grep -v ' Up ' || echo all-up
 
 # 4. Recreate so log-opts / no-new-privileges / userland-proxy reach every container.
-#    Komodo: Deploy each stack on this server (or `docker compose up -d --force-recreate`
+#    Komodo: Deploy each stack on this server (or `sudo docker compose up -d --force-recreate`
 #    in each stack dir). NEVER the `nut` stack on dkr-03: leave it running; it picks up
 #    the defaults whenever it is next recreated on purpose.
-docker inspect -f '{{.Name}} nnp={{.HostConfig.SecurityOpt}} log={{.HostConfig.LogConfig.Config}}' $(docker ps -q)
+sudo docker inspect -f '{{.Name}} nnp={{.HostConfig.SecurityOpt}} log={{.HostConfig.LogConfig.Config}}' $(sudo docker ps -q)
 ps -C docker-proxy -o pid= | wc -l                       # -> 0 once everything is recreated
 ```
 

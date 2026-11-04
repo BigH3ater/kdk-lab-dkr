@@ -23,7 +23,7 @@ DMZ ingress: Traefik terminates TLS and host-routes the public services, and clo
 | Purpose | Reverse proxy + tunnel for DMZ/public services |
 | Status | 🟢 Live — 443 serves; tunnel connected |
 | Host | [[kdk-dkr-dmz-01]] (192.168.191.20), published ports `80`/`443`; tunnel entrypoint `8443` on `proxy-dmz` only |
-| Images | `traefik:v3.7.16`, `cloudflare/cloudflared:2026.10.5` (pinned; Renovate proposes updates) |
+| Images | `traefik:v3.7.17`, `cloudflare/cloudflared:2026.10.7`, `ghcr.io/tecnativa/docker-socket-proxy:v0.5.0` (digest-pinned; Renovate proposes updates) |
 | Fixed IPs (`proxy-dmz` 10.211.2.0/24) | cloudflared `10.211.2.2`, traefik `10.211.2.3`; dynamic range `10.211.2.128/25` |
 | Deploy | Komodo stack `dmz-proxy` (git-linked, `op inject` pre_deploy) |
 | Cert | `kmkdp.com` + `*.kmkdp.com`, ACME DNS-01 via Cloudflare |
@@ -33,15 +33,15 @@ DMZ ingress: Traefik terminates TLS and host-routes the public services, and clo
 
 ```bash
 curl -s -o /dev/null -w '%{http_code}\n' https://sso.kmkdp.com/     # 200, valid TLS
-docker logs cloudflared 2>&1 | grep -i "registered tunnel" | tail -2
+sudo docker logs cloudflared 2>&1 | grep -i "registered tunnel" | tail -2
 ```
-Off-LAN, only the tunnel hostnames (`sso`, `jellyfin`; `wizarr` invitee paths once published) answer, with a `server: cloudflare` header.
+Off-LAN, only the tunnel hostnames answer, with a `server: cloudflare` header. Today that is `sso` alone: `jellyfin` left the tunnel on 2026-10-31 (no DNS record; see [[jellyfin]]), and the `wizarr` invitee paths are not published.
 
 ```bash
-docker inspect cloudflared traefik -f '{{.Name}} {{(index .NetworkSettings.Networks "proxy-dmz").IPAddress}}'   # .2 / .3
-docker inspect traefik -f '{{.State.Health.Status}}'                                                          # healthy
+sudo docker inspect cloudflared traefik -f '{{.Name}} {{(index .NetworkSettings.Networks "proxy-dmz").IPAddress}}'   # .2 / .3
+sudo docker inspect traefik -f '{{.State.Health.Status}}'                                                          # healthy
 # tunnel entrypoint serves only tunnel routers (throwaway client on proxy-dmz; 8443 is not published):
-docker run --rm --network proxy-dmz curlimages/curl:8.17.0 -sk -o /dev/null -w '%{http_code}\n' \
+sudo docker run --rm --network proxy-dmz curlimages/curl:8.17.0 -sk -o /dev/null -w '%{http_code}\n' \
   --resolve immich.kmkdp.com:8443:10.211.2.3 https://immich.kmkdp.com:8443/        # 404
 ```
 

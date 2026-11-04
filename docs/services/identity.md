@@ -34,12 +34,12 @@ Single sign-on for every `*.kmkdp.com` service; lives on the DMZ node so authent
 ```bash
 curl -s -o /dev/null -w '%{http_code}\n' https://sso.kmkdp.com/     # 200
 curl -s https://sso.kmkdp.com/api/health                           # {"status":"OK"}
-docker exec authelia-postgres pg_isready -U authelia               # accepting connections
-docker top authelia -eo uid,comm                                   # 8091 authelia (never 0)
+sudo docker exec authelia-postgres pg_isready -U authelia               # accepting connections
+sudo docker top authelia -o pid,uid,comm                           # UID 8091 authelia (never 0)
 curl -s -o /dev/null -w '%{http_code}\n' https://users.kmkdp.com/   # 302 -> sso.kmkdp.com
 curl -s https://radarr.kmkdp.com/ping                              # {"status":"OK"} without a session
-docker exec jellyfin nc -zvw2 lldap.kmkdp.com 6360                 # open (identity_ldap)
-docker exec seerr nc -zvw2 lldap 3890                              # fails: lldap is not on proxy-dmz
+sudo docker exec jellyfin nc -zvw2 lldap.kmkdp.com 6360                 # open (identity_ldap)
+sudo docker exec seerr nc -zvw2 lldap 3890                              # fails: lldap is not on proxy-dmz
 ```
 Then log in at `sso.kmkdp.com` with an existing user + TOTP.
 
@@ -166,7 +166,7 @@ Before merge (in this order):
 4. On kdk-dkr-dmz-01: `sudo chown -R 8091:8091 /opt/kdk-lab/identity/authelia-secrets`.
 5. Hash the two plaintext client secrets, one at a time, writing the digest over the plaintext (the apps keep the plaintext):
    ```bash
-   docker run --rm -it ghcr.io/authelia/authelia:4.39.28 \
+   sudo docker run --rm -it ghcr.io/authelia/authelia:4.39.28 \
      authelia crypto hash generate pbkdf2 --variant sha512   # paste the existing secret at the prompt
    # copy the "Digest: $pbkdf2-sha512$..." value (without "Digest: ") into
    #   /opt/kdk-lab/identity/authelia-secrets/authelia-app-secrets/grafana_client_secret

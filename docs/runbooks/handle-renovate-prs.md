@@ -1,5 +1,6 @@
 ---
 title: Handle Renovate PRs
+updated: 2026-11-04
 ---
 
 # Handle Renovate PRs
@@ -13,7 +14,8 @@ updates](../komodo-gitops.md#dependency-updates-renovate). Dashboard: the
 ## 1. Read the dashboard
 
 - **Open PRs**: `renovate/dmz-patch`, `renovate/internal-patch`, one PR per minor.
-- **Pending approval**: majors and the NUT digest. Tick a box only when you plan
+- **Pending approval**: majors (one per package; GitHub Actions and the `backup-*`
+  pg_dump clients are exempt). Tick a box only when you plan
   to merge it this session.
 - **Rate-limited**: waits for the weekend window and `prHourlyLimit 2`.
 - **Repository problems / lookup failures**: fix the config (example: PR #83
@@ -48,9 +50,11 @@ Merge on a quiet evening when the PR touches `home-assistant`,
 
 ## 4. Special cases
 
-- **NUT** (`stacks/nut/`): never a version PR. A digest refresh needs a dashboard
-  tick and a person watching. Recreating upsd once shut down kdk-hyp-01
-  ([NUT](../services/nut.md)).
+- **NUT** (`stacks/nut/`): Renovate never opens a NUT PR. Both rules in
+  `renovate.json` are `enabled: false` (tag/pin updates for `stacks/nut/**`, and
+  digest refreshes for `instantlinux/nut-upsd`). Refresh the digest by hand on a
+  chosen day with a person watching, using the attended procedure on the
+  [NUT](../services/nut.md) page: recreating upsd once shut down kdk-hyp-01.
 - **kdk-mon-01** has `auto_pull = false` (Docker Hub rate-limits the Pi). A
   changed tag still pulls because the image is missing; if the pull is denied:
   `ssh kdkadmin@10.1.20.30 'sudo docker pull <image:tag>'`, then Deploy

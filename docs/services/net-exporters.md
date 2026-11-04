@@ -31,7 +31,7 @@ dashboards). They live here, not on mon-01, to keep the alerting Pi lean.
 ## Verify
 
 ```bash
-ssh kdkadmin@10.1.20.20 'docker ps --filter name=unpoller --filter name=adguard-exporter --filter name=snmp-exporter --format "{{.Names}} {{.Status}}"'
+ssh kdkadmin@10.1.20.20 'sudo docker ps --filter name=unpoller --filter name=adguard-exporter --filter name=snmp-exporter --format "{{.Names}} {{.Status}}"'
 curl -s http://10.1.20.20:9130/metrics | head   # unpoller (UniFi)
 curl -s http://10.1.20.20:9618/metrics | head   # adguard-exporter
 curl -s http://10.1.20.20:9116/metrics | head   # snmp-exporter

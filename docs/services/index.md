@@ -17,15 +17,20 @@ Stack definitions live in `stacks/` in the repo; Komodo deploys them from git. O
 | [Calibre](calibre.md) | kdk-dkr-01 | https://calibre.kmkdp.com | calibre |
 | [Obsidian to reMarkable](obsidian-to-koreader.md) | kdk-dkr-01 | — (SSH to tablet) | obsidian-to-koreader |
 | [Trailarr](trailarr.md) | kdk-dkr-01 | https://trailarr.kmkdp.com | trailarr |
+| [Home dashboard](dashboard.md) | kdk-dkr-01 | https://home.kmkdp.com | dashboard |
+| [Actual Budget](actual.md) | kdk-dkr-01 | https://budget.kmkdp.com (LAN + tailnet) | actual |
+| [Jellystat](jellystat.md) | kdk-dkr-01 | https://jellystat.kmkdp.com | jellystat |
+| [Kroki](kroki.md) | kdk-dkr-01 | — (internal `kroki_default` network) | kroki |
+| [readwise-koreader](readwise-koreader.md) | kdk-dkr-01 | — (one-shot every 3 h, SSH to tablet) | readwise-koreader |
 | [net-exporters](net-exporters.md) | kdk-dkr-01 | — (scraped by kdk-mon-01) | net-exporters |
 | [grocery-planner](grocery-planner.md) | kdk-dkr-01 | home.kmkdp.com/meal/groceries (one-shots: weekly/poll/bulk) | grocery-planner |
 | [Traefik DMZ + tunnel](dmz-proxy.md) | kdk-dkr-dmz-01 | — | dmz-proxy |
 | [Identity](identity.md) | kdk-dkr-dmz-01 | https://sso.kmkdp.com | identity |
-| [Jellyfin](jellyfin.md) | kdk-dkr-dmz-01 | https://jellyfin.kmkdp.com | jellyfin |
+| [Jellyfin](jellyfin.md) | kdk-dkr-dmz-01 | https://jellyfin.kmkdp.com (LAN + tailnet) | jellyfin |
 | [Audiobookshelf](audiobookshelf.md) | kdk-dkr-dmz-01 | https://audiobookshelf.kmkdp.com | audiobookshelf |
 | [Immich](immich.md) | kdk-dkr-dmz-01 | https://immich.kmkdp.com | immich |
 | [Tandoor](tandoor.md) | kdk-dkr-dmz-01 | https://recipes.kmkdp.com | tandoor |
-| [Seerr](seerr.md) | kdk-dkr-dmz-01 | https://seerr.kmkdp.com | dmz-apps |
+| [Seerr + Libreseerr](seerr.md) | kdk-dkr-dmz-01 | https://seerr.kmkdp.com, https://libreseerr.kmkdp.com | dmz-apps |
 | [Wizarr](wizarr.md) | kdk-dkr-dmz-01 | https://wizarr.kmkdp.com | wizarr |
 | [Backups](backups.md) | both VMs | — | backup-* |
 | [Observability](observability.md) | kdk-mon-01 + kdk-log-01 | https://grafana.kmkdp.com (fallback http://10.1.20.30:3000) | monitoring, loki, observability-agent |

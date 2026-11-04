@@ -6,7 +6,7 @@ tier: dmz
 status: live
 storage: yes
 secrets: []
-updated: 2026-10-28
+updated: 2026-11-04
 tags: [homelab/stack, tier/dmz, status/live]
 ---
 
@@ -14,14 +14,16 @@ tags: [homelab/stack, tier/dmz, status/live]
 
 Media request UI, LAN/tailnet only (its router is on the DMZ Traefik's `websecure` entrypoint only, not the Cloudflare tunnel — see [[dmz-proxy]]), authenticating against Jellyfin accounts.
 
-**Related:** [[kdk-dkr-dmz-01]] · [[jellyfin]] · [[media]] · [[dmz-proxy]]
+The same stack (`dmz-apps`) runs **Libreseerr**, the book request page: it hands requests to [[lazylibrarian]] (Chaptarr until its decommission on 2026-11-03) through internal Traefik (`extra_hosts` `lazylibrarian.kmkdp.com → 10.1.20.20`).
+
+**Related:** [[kdk-dkr-dmz-01]] · [[jellyfin]] · [[media]] · [[lazylibrarian]] · [[dmz-proxy]]
 
 ## At a glance
 
 | Field | Value |
 |---|---|
 | Purpose | Users request TV/movies; Seerr forwards to Sonarr/Radarr |
-| Status | 🟢 Live — Jellyfin link works; Sonarr/Radarr pending a firewall rule |
+| Status | 🟢 Live — Jellyfin link works; Sonarr/Radarr reachable from the container (DMZ → `10.1.20.20:443` open, `/ping` 200 on 2026-11-04) |
 | Host | [[kdk-dkr-dmz-01]] |
 | Endpoint | `https://seerr.kmkdp.com` |
 | Image | `ghcr.io/seerr-team/seerr:v3.5.1` (3.5.0 moved Jellyfin auth to the `Authorization: MediaBrowser` header Jellyfin 12 requires) |
@@ -33,7 +35,9 @@ Media request UI, LAN/tailnet only (its router is on the DMZ Traefik's `websecur
 
 ```bash
 curl -s -o /dev/null -w '%{http_code}\n' https://seerr.kmkdp.com/          # 200/307
-docker exec seerr getent hosts sonarr.kmkdp.com                            # 10.1.20.20 (extra_hosts)
+sudo docker exec seerr getent hosts sonarr.kmkdp.com                            # 10.1.20.20 (extra_hosts)
+sudo docker exec seerr wget -q -S -O /dev/null https://radarr.kmkdp.com/ping 2>&1 | grep -m1 HTTP   # HTTP/1.1 200 OK
+sudo docker exec libreseerr getent hosts lazylibrarian.kmkdp.com               # 10.1.20.20
 ```
 In Settings, the Jellyfin, Sonarr, and Radarr integrations each test green.
 
@@ -41,7 +45,7 @@ In Settings, the Jellyfin, Sonarr, and Radarr integrations each test green.
 
 | Problem | Cause | Command to validate |
 |---|---|---|
-| Sonarr/Radarr test fails ("connection refused/timeout") | DMZ→internal firewall closed | operator must open `192.168.191.20 → 10.1.20.20:443` |
+| Sonarr/Radarr test fails ("connection refused/timeout") | DMZ→internal path closed (UniFi rule or the DMZ host's DOCKER-USER exception for `10.1.20.20:443`, see [[host-firewall]]) | the `wget .../ping` line in Verify; the UniFi rule `192.168.191.20 → 10.1.20.20:443` must exist |
 | arr hostnames don't resolve on the DMZ | public DNS points them at the DMZ, not internal Traefik | `extra_hosts` maps `sonarr/radarr.kmkdp.com → 10.1.20.20` |
 | Jellyfin link broken | wrong `externalHostname` scheme | must be `https://jellyfin.kmkdp.com` (lowercase scheme) |
 
@@ -50,7 +54,7 @@ In Settings, the Jellyfin, Sonarr, and Radarr integrations each test green.
 | Direction | Thing | What breaks without it |
 |---|---|---|
 | Needs | [[jellyfin]] | user auth + library status |
-| Needs | [[media]] Sonarr/Radarr `/api` | request fulfilment (needs the firewall rule) |
+| Needs | [[media]] Sonarr/Radarr `/api` | request fulfilment (over DMZ → `10.1.20.20:443`) |
 | Needs | [[dmz-proxy]] | ingress (LAN/tailnet) |
 
 ## Observability

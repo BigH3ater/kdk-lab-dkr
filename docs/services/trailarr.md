@@ -38,7 +38,7 @@ never transcodes these files.
 ## Verify
 
 ```bash
-ssh kdkadmin@10.1.20.20 'docker ps --filter name=trailarr --format "{{.Names}} {{.Status}}"'   # trailarr Up
+ssh kdkadmin@10.1.20.20 'sudo docker ps --filter name=trailarr --format "{{.Names}} {{.Status}}"'   # trailarr Up
 curl -s -o /dev/null -w '%{http_code}\n' https://trailarr.kmkdp.com/   # 302 to sso.kmkdp.com (Authelia)
 ```
 
