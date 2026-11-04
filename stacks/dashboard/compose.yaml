@@ -136,6 +136,15 @@ services:
       TANDOOR_URL: "https://recipes.kmkdp.com"
       TANDOOR_SPACE: "Mack House"
       TZ: America/Chicago
+    volumes:
+      # Read-only view of the grocery-planner's store-routing table so the New Pi
+      # groceries tab can link each item to its market.newpi.coop product (the
+      # `newpi_url` on a NewPi rule). Same single source of truth the weekly run
+      # uses -- no second copy. `../../` is the Komodo repo clone root (same
+      # pattern as docs/docs-to-vault), so the path resolves inside the clone.
+      # Single-file bind mount: read once at startup, so a foods.yaml edit shows
+      # up on the next dashboard redeploy (the container is recreated then).
+      - ../../stacks/grocery-planner/recipes/foods.yaml:/app/foods.yaml:ro
     networks: [default, proxy]
     labels:
       traefik.enable: "true"

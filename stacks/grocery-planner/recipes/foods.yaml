@@ -13,6 +13,21 @@
 # bulk frozen proteins + bulk pantry -> Costco (bulk run); beef eighth share ->
 # Amana freezer stock (Phase 2 reorder).  Ambiguous fresh -> New Pi, ambiguous
 # shelf-stable -> Target. Move a food's category once in Tandoor to override.
+#
+# New Pi product links (optional): a NewPi rule may carry `newpi_url` (and an
+# optional `newpi_note` with the size/brand that disambiguates the pick), e.g.
+#   - {match: spinach, category: "NewPi/weekly: Produce",
+#      newpi_url: "https://market.newpi.coop/product/39574", newpi_note: "organic baby spinach, 5 oz"}
+# The groceries page (home.kmkdp.com/meal/groceries) reads this same file
+# (mounted read-only into the dashboard mealplan sidecar) and turns the matching
+# New Pi line into a tap-to-order link via the SAME longest-match rule the seed
+# uses to route the food -- so the link always comes from the rule that put the
+# food at New Pi. A food with no newpi_url just shows a small "no link yet"
+# marker. New Pi runs the Local Food Marketplace storefront (a JS app); product
+# ids are global and share-safe (`/product/<id>` resolves after a one-time store
+# pick). Find an id with scripts/newpi_lookup.py or by opening the product in the
+# app and copying its URL. Add links only when you are sure of the product --
+# a wrong link is worse than none, and this repo is public (no prices here).
 rules:
   # ---- New Pi: weekly perishables ----
   # Chicken breast and pork chops: O'Connell Organic Acres freezer stock (owner

@@ -158,6 +158,67 @@ All in `config.yaml`:
   only if the pool is tiny) so the week still fills; the preflight reports the
   per-season side count vs 7. Approve more sides to drop the repeats.
 
+## New Pi product links (tap-to-order on the groceries page)
+
+The New Pi tab of `home.kmkdp.com/meal/groceries` can show each line as a link
+straight to the item on New Pi's online market, so ordering is one tap per item.
+A food gets its link from an optional `newpi_url` on its rule in
+`recipes/foods.yaml`:
+
+```yaml
+- {match: spinach, category: "NewPi/weekly: Produce",
+   newpi_url: "https://market.newpi.coop/product/39574", newpi_note: "organic baby spinach, 5 oz"}
+```
+
+- **One source of truth.** The dashboard mealplan sidecar mounts this same
+  `foods.yaml` read-only (`../../stacks/grocery-planner/recipes/foods.yaml` →
+  `/app/foods.yaml`, see `stacks/dashboard/compose.yaml`) and matches each New Pi
+  line to a rule with the **same longest-match** the seed uses to route the food
+  (`grocery.seed.route_food`). So the link always comes from the rule that put
+  the food at New Pi, and there is no second copy to keep in sync. A line whose
+  rule has no `newpi_url` shows a small `+` "no link yet" marker. `newpi_note` is
+  only a human hint for picking the right product; it is not shown on the page.
+- **Deploy.** Links are read at container start, so after editing `foods.yaml`
+  **redeploy the `dashboard` stack** for the New Pi tab to pick them up (the
+  weekly `grocery-*` run does **not** need re-running — links don't touch the
+  Tandoor list, only how it's displayed).
+- **No prices, ever.** Put only the product URL/note in the repo; this repo is
+  public and prices/budget stay in the vault.
+
+### Finding a product id
+
+New Pi runs a Local Food Marketplace (LFM) single-page storefront. Product ids
+are **global and share-safe**: `https://market.newpi.coop/product/<id>` resolves
+to the item after a one-time store pick (New Pioneer Co-op locations are stores
+`5369`, `5370`, `5371`). That `/product/<id>` form is what goes in `newpi_url`.
+
+Names and prices render client-side (there is no documented, cookieless
+name→id search URL), so there are two ways to get an id:
+
+1. **By hand (reliable):** open `https://market.newpi.coop`, pick your co-op,
+   search for the item, open the product, and copy the `/product/<id>` part of
+   the URL. Prefer the staple the household actually buys (plain, sensible size,
+   the local/organic default New Pi stocks).
+2. **Helper (`stacks/grocery-planner/scripts/newpi_lookup.py`):**
+
+   ```sh
+   cd stacks/grocery-planner
+   # Every product id in a store's category, from the public sitemap (always works):
+   python3 scripts/newpi_lookup.py list --category produce --store 5369
+   # Best-effort name search via the storefront API (prints id / name / size):
+   python3 scripts/newpi_lookup.py search spinach "chicken breast"
+   ```
+
+   `list` is sitemap-based and reliable but id-only. `search` tries the LFM
+   product-search endpoint; the exact path is undocumented, so if the site has
+   changed it prints what it got and falls back to the by-hand method above. The
+   tool uses a normal User-Agent, a low request rate, no login, and prints no
+   prices.
+
+Add a link **only when you are sure of the product** — a wrong link is worse
+than none. `tests/test_newpi_links.py` guards the shape: a `newpi_url` must be a
+real `market.newpi.coop/product/<id>` URL on a rule that routes to New Pi.
+
 ## Preview a week before its run
 
 The Tuesday build plans the NEXT Sun–Sat week. To see what it would plan, and the

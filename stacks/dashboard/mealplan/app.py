@@ -33,6 +33,7 @@ urllib3.disable_warnings()
 from flask import Flask, request, Response, redirect
 from markupsafe import escape  # HTML-escape any value rendered into a page (CodeQL py/reflective-xss)
 from waitress import serve
+import newpi  # New Pi product-link lookup (reads the mounted foods.yaml)
 
 TANDOOR_URL = os.environ.get("TANDOOR_URL", "https://recipes.kmkdp.com").rstrip("/")
 USER = os.environ.get("TANDOOR_USER", "")
@@ -772,16 +773,19 @@ def _combine(entries) -> list[dict]:
     return items
 
 
-def _grocery_row(item, title: str, link: str = "") -> str:
+def _grocery_row(item, title: str, link: str = "", name_html: str = "") -> str:
     ids = ",".join(str(i) for i in item["ids"])
     qty = f"<span class='qty'>{escape(item['qty'])}</span>" if item["qty"] else ""
     src = (f"<span class='src'>{escape(', '.join(item['recipes']))}</span>"
            if item["recipes"] else "")
+    # name_html lets a store tab render the food name as a link (New Pi tap-to-order);
+    # default is the plain escaped name.
+    name = name_html or str(escape(item["food"]))
     return ("<div class='gi'>"
             f"<form class='tickform' method='post' action='groceries/tick'>"
             f"<input type='hidden' name='id' value='{ids}'>"
             f"<button class='tick' type='submit' title='{title}'></button></form>"
-            f"<span class='lbl'>{escape(item['food'])}{qty}{src}</span>{link}</div>")
+            f"<span class='lbl'>{name}{qty}{src}</span>{link}</div>")
 
 
 GROCERIES_CSS = PAGE_CSS + """
@@ -798,6 +802,10 @@ padding:7px 14px;cursor:pointer;min-height:36px}
 .js .tab.on{display:block}
 .gi .lbl .qty{color:var(--ember);margin-left:8px;font-family:'JetBrains Mono',monospace;font-size:13px}
 .gi .lbl .src{display:block;color:var(--ash);font-size:11px;margin-top:1px}
+.gi .lbl a.np{color:var(--paper);text-decoration:none;font-weight:600}
+.gi .lbl a.np:hover{color:var(--ember);text-decoration:underline;text-decoration-thickness:2px}
+.gi .lbl a.np .ext{font-size:11px;color:var(--ember);margin-left:3px;vertical-align:super}
+.gi .lbl .nolink{color:var(--ash);font-size:11px;margin-left:4px;opacity:.6;vertical-align:super}
 .meals{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px}
 .mcard{background:var(--ink);border:1px solid var(--ink-hairline);border-radius:9px;overflow:hidden;color:var(--paper);text-decoration:none}
 .mcard img,.mcard .noimg{display:block;width:100%;aspect-ratio:4/3;object-fit:cover;background:var(--ink-hairline)}
@@ -912,14 +920,16 @@ def _render_groceries():
         + (f"<span class='n'>{n}</span>" if n is not None else "") + "</button>"
         for tid, label, n in tabs)
     parts = ["<div class='gwrap'>", f"<nav class='tabs' aria-label='Shopping lists'>{bar}</nav>"]
-    # New Pi -- in-store tap-to-tick checklist
-    parts.append("<section class='tab store' id='newpi'><h2>New Pi — in-store checklist</h2>")
+    # New Pi -- in-store tap-to-tick checklist; each name links to the New Pi
+    # product (opens in a new tab) when foods.yaml carries a newpi_url for it.
+    parts.append("<section class='tab store' id='newpi'><h2>New Pi — tap a name to order</h2>")
     if not np:
         parts.append("<div class='empty2'>Nothing to pick up at New Pi.</div>")
     for aisle, items in np.items():
         parts.append(f"<div class='aisle'>{escape(aisle)}</div>")
         for item in items:
-            parts.append(_grocery_row(item, "got it"))
+            name_html = newpi.name_cell_html(item["food"], newpi.url_for(item["food"]))
+            parts.append(_grocery_row(item, "got it", name_html=name_html))
     parts.append("</section>")
     # Target -- list with per-item target.com search links for the Drive Up cart
     parts.append("<section class='tab store' id='target'><h2>Target — Drive Up cart</h2>")
