@@ -79,7 +79,7 @@ New Pi now **delivers on Saturday** and needs 2–3 days' lead, so:
 |---|---|
 | **Tuesday 18:03** | build pass: plan next week, build the New Pi + Target lists, raise the approval task (due Wed 20:00, reminder Wed noon) |
 | **Wednesday night** | owner approves; the New Pi order must go in by now |
-| **Thursday 07:05** | poll pass records the decision; the page shows the approved lists |
+| **Thursday 07:05** | poll pass applies the decision (single store: the other store's entries for the week are deleted); the page shows the approved lists. Re-polls at 12:05 and 17:05 catch a late decision |
 | **Friday night** | owner places the Target Drive Up order (no lead time) from the same list |
 | **Saturday** | New Pi delivers |
 | **Sunday** | prep day + the fresh-fish dinner (salmon keeps 1–2 days; tuna weeks have no timing constraint) |

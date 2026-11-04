@@ -3,16 +3,17 @@
 Weekly (default): generate next week's meal plan under the owner rules, write the
 entries (idempotent per week key), build the two-store shopping list from the
 plan minus on-hand items, create ONE combined Vikunja approval task, and — in the
-poll pass — mark the approved store's entries. Logs JSON lines to stdout and
+poll pass — drop the non-approved store's entries for that week. Logs JSON lines to stdout and
 pushes them to Loki (job=grocery-planner).
 
   python -m grocery.run --mode weekly            # build pass (Tue 18:03): plan + list + task
-  python -m grocery.run --mode weekly --poll     # poll pass (Thu 07:05): read decision, mark approved
+  python -m grocery.run --mode weekly --poll     # poll pass (Thu 07:05/12:05/17:05): apply decision
   python -m grocery.run --mode bulk              # N-week Costco bulk list + its own task
 
 POLL STRATEGY (justified): the approval is asynchronous and durable (the Vikunja
 task IS the record), so the build pass exits immediately after creating the task
-and a SEPARATE scheduled poll pass reads the outcome. No long-lived container
+and SEPARATE scheduled poll passes (Thu 07:05, 12:05, 17:05) read and apply
+the outcome (idempotent). No long-lived container
 waits. A bounded in-run poll (config approvals.poll_timeout_min) is available for
 manual use but the scheduled two-pass design is the default.
 
@@ -338,6 +339,33 @@ def _require_fixed(cfg, pool):
                           + " -- run `grocery.seed --apply`")
 
 
+def week_mealplan_ids(meal_plan_entries, wk):
+    """Ids of the meal-plan entries this job wrote for week `wk` (note marker)."""
+    marker = f"[gp:{wk}]"
+    return {e.get("id") for e in meal_plan_entries if marker in (e.get("note") or "")}
+
+
+def entries_to_drop(entries, cfg, approved, mp_ids, now=None):
+    """Shopping entries of THIS plan week (linked to one of `mp_ids`) that sit
+    on a weekly store the owner did not approve: [(entry_id, store, food)].
+
+    "New Pi only" means the Target half of this week is not being ordered (the
+    pantry is stocked; design note 6c), so those entries are dropped for good.
+    Older or ad-hoc entries are never touched, and neither is any store when
+    `approved` is empty (skip) or holds both stores (all)."""
+    if not approved:
+        return []
+    week = [e for e in entries if S.entry_mealplan_id(e) in mp_ids]
+    lists, _, _ = S.build_store_lists(week, cfg, "weekly", now=now)
+    out = []
+    for store, sl in lists.items():
+        if store in approved:
+            continue
+        for items in sl.aisles.values():
+            out.extend((it.entry_id, store, it.food) for it in items)
+    return out
+
+
 def _poll_pass(cfg, t, start, end, wk):
     v = _vikunja(cfg)
     task = v.find_by_title(f"({wk})")
@@ -347,26 +375,27 @@ def _poll_pass(cfg, t, start, end, wk):
     done, choice = v.outcome(task)
     jlog(event="poll", week=wk, task_id=task.get("id"), done=done, choice=choice)
     if not done:
+        # Not decided yet: the procedure polls again later on Thursday
+        # (07:05, 12:05, 17:05 CT); a later pass applies the decision.
         return 0
     approved = S.approved_stores(choice)
-    # Act on the choice: for a single-store approval, hide the OTHER weekly
-    # store's entries by pushing delay_until past the plan week, so the grocery
-    # page shows only the approved store. `all` hides nothing; `skipped` (task
-    # closed / deadline passed with no APPROVALS-RESULT) leaves the list intact
-    # and nothing marked bought. Ticks still happen in the store; Tandoor stays
-    # the source of truth.
-    hidden = 0
+    # Act on the choice. A single-store approval DELETES this week's entries for
+    # the other weekly store (they are not being ordered), so they can neither
+    # come back on the page nor be counted in next week's list and task. Until
+    # 2026-11 they were only delayed past the plan week and then resurfaced.
+    # `all` drops nothing; `skipped` (task closed / deadline passed with no
+    # APPROVALS-RESULT) leaves the list intact and nothing marked bought. Safe to
+    # re-run: a later pass finds nothing left to drop. The Loki line lists each
+    # dropped food, so an entry can be re-added by hand.
+    dropped = []
     if choice in ("newpi", "target"):
-        lists, _, _ = S.build_store_lists(t.shopping_list_entries(), cfg, "weekly")
-        hide_until = datetime.datetime.combine(
-            end + datetime.timedelta(days=1), datetime.time(0)).isoformat()
-        for store, sl in lists.items():
-            if store in approved:
-                continue
-            for eid in sl.entry_ids():
-                t.patch(f"/api/shopping-list-entry/{eid}/", {"delay_until": hide_until})
-                hidden += 1
-    jlog(event="poll_applied", week=wk, approved=sorted(approved), hidden=hidden)
+        mp_ids = week_mealplan_ids(t.meal_plan(start.isoformat(), end.isoformat()), wk)
+        for eid, store, food in entries_to_drop(t.shopping_list_entries(), cfg,
+                                                approved, mp_ids):
+            t.delete(f"/api/shopping-list-entry/{eid}/")
+            dropped.append({"id": eid, "store": store, "food": food})
+    jlog(event="poll_applied", week=wk, approved=sorted(approved),
+         dropped=len(dropped), dropped_items=dropped)
     return 0
 
 

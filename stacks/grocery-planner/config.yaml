@@ -366,6 +366,7 @@ approvals:
     reminder_hour: 12          # Wednesday noon reminder (same day)
     # Target Drive Up has no lead time; it is still ordered Friday night for the
     # Saturday delivery, from the same approved list.
-  # Poll in a SECOND scheduled pass (Thursday 07:05), not a long blocking wait:
-  # the build pass runs Tuesday 18:03 and exits; the poll pass reads the decision.
+  # Poll in SEPARATE scheduled passes (Thursday 07:05, 12:05, 17:05), not a long
+  # blocking wait: the build pass runs Tuesday 18:03 and exits; each poll pass
+  # reads the decision and applies it (idempotent).
   poll_timeout_min: 10         # bounded in-run poll before handing off to the next pass

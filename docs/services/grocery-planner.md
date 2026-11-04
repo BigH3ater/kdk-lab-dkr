@@ -27,7 +27,7 @@ plan page lives in the dashboard mealplan sidecar at `home.kmkdp.com/meal/grocer
 
 | Field | Value |
 |---|---|
-| Runs | `grocery-weekly` Tue 18:03 (plan + list + task); `grocery-weekly-poll` Thu 07:05 (read the decision); `grocery-bulk` Tue 18:09 but the job acts only the first Tuesday of an odd month (every 2 months, N=8). All: procedure → stack (deploy=false, destroy_before_deploy) on [[kdk-dkr-01]] |
+| Runs | `grocery-weekly` Tue 18:03 (plan + list + task); `grocery-weekly-poll` Thu 07:05, 12:05, 17:05 (apply the decision; later passes catch a late decision, repeats are no-ops); `grocery-bulk` Tue 18:09 but the job acts only the first Tuesday of an odd month (every 2 months, N=8). All: procedure → stack (deploy=false, destroy_before_deploy) on [[kdk-dkr-01]] |
 | Image | `kdk/grocery-planner` built locally (`auto_pull=false`, `run_build=true`); python 3.12-slim + requests + pyyaml, uid 1000, read-only rootfs, no caps, 256 MB, one-shot |
 | Output | stdout JSON lines, also pushed straight to Loki by the job (`{job="grocery-planner", container="grocery-planner"|"grocery-planner-poll"|"grocery-planner-bulk"}`; a one-shot exits before Alloy can scrape it); the page `home.kmkdp.com/meal/groceries`; a Vikunja approval task |
 | Secrets | `dashboard-tandoor-rw` (the sidecar's Tandoor account), `vikunja-api-rw` (approval task) — op-injected into `.env.op` and **appended** to the `.env` Komodo writes from the stack `environment` (`GROCERY_MODE`/`GROCERY_POLL`/`GROCERY_SUFFIX`); overwriting `.env` drops those |
@@ -56,8 +56,12 @@ plan page lives in the dashboard mealplan sidecar at `home.kmkdp.com/meal/grocer
 2. **Wednesday** — HA pages the phone; the owner approves both, one store, or lets
    it lapse (nothing is marked bought). Target Drive Up has no lead time and is
    still ordered Friday night for the Saturday delivery, from the same list.
-3. **Thursday 07:05** — `grocery-weekly-poll` reads the decision into the Loki
-   audit trail and hides the non-approved store. The owner opens
+3. **Thursday 07:05** (again 12:05 and 17:05 if still undecided) —
+   `grocery-weekly-poll` reads the decision into the Loki audit trail. On a
+   single-store approval it **deletes this week's entries for the other store**
+   (they are not being ordered, so they must not come back or be counted next
+   week); each dropped food is listed in the `poll_applied` line. Approve both
+   drops nothing; a skip leaves the list as it is. The owner opens
    `home.kmkdp.com/meal/groceries`: New Pi as a tap-to-tick checklist, Target with
    per-item `target.com` search links for the Drive Up cart, and a manual list
    with an add box. Ticks write `checked` back to Tandoor.
@@ -71,7 +75,7 @@ plan page lives in the dashboard mealplan sidecar at `home.kmkdp.com/meal/grocer
   The sidecar already has the Tandoor allauth login, the CSRF/session handling,
   the Kodiak styling, and the Authelia ForwardAuth route; a separate `/groceries`
   router would duplicate all of it for no gain.
-- **Poll strategy:** a **second scheduled pass** (`grocery-weekly-poll`), not a
+- **Poll strategy:** **scheduled passes** (`grocery-weekly-poll`, Thu 07:05 / 12:05 / 17:05), not a
   blocking wait. The approval is asynchronous and durable (the Vikunja task is
   the record), so the build pass exits immediately and the poll pass reads the
   outcome later. No long-lived container.

@@ -12,7 +12,7 @@
 #
 # Three Komodo stacks share this compose, distinguished by `environment`:
 #   grocery-weekly       Tue 18:03  GROCERY_MODE=weekly             (plan + list + task)
-#   grocery-weekly-poll  Thu 07:05  GROCERY_POLL=1 GROCERY_SUFFIX=-poll (read decision)
+#   grocery-weekly-poll  Thu 07:05/12:05/17:05  GROCERY_POLL=1 GROCERY_SUFFIX=-poll (read decision)
 #   grocery-bulk         Tue 18:09  GROCERY_MODE=bulk GROCERY_SUFFIX=-bulk (Costco list;
 #                                   the job acts only the 1st Tuesday of an odd month)
 # Two one-shots can't share a container name on one host, so GROCERY_SUFFIX keeps

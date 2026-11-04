@@ -2058,7 +2058,7 @@ executions = [
 # (job="grocery-planner", container="grocery-planner[-poll|-bulk]"): a one-shot
 # exits before Alloy's discovery.docker can scrape it.
 #   grocery-weekly       Tue 18:03  plan + two-store list + one combined Vikunja task
-#   grocery-weekly-poll  Thu 07:05  read the approval decision (audit log)
+#   grocery-weekly-poll  Thu 07:05/12:05/17:05  apply the approval decision
 #   grocery-bulk         Tue 18:09  Costco bulk list; the JOB gates to the first
 #                                   Tuesday of an odd month (every 2 months, N=8)
 [[stack]]
@@ -2081,7 +2081,7 @@ pre_deploy.command = "sh -c '. /etc/komodo/op.env && op inject -f -i .env.tpl -o
 [[stack]]
 tags = ["kdk-lab"]
 name = "grocery-weekly-poll"
-deploy = false   # run Thu 07:05 by the grocery-weekly-poll procedure
+deploy = false   # run Thu 07:05/12:05/17:05 by the grocery-weekly-poll procedure
 [stack.config]
 compose_cmd_wrapper = "/usr/local/sbin/kdk-compose-config-redact [[COMPOSE_COMMAND]]"   # redact env values from the stored Compose Config log (komodo#1636)
 compose_cmd_wrapper_include = ["config"]
@@ -2135,9 +2135,11 @@ tags = ["kdk-lab"]
 name = "grocery-weekly-poll"
 [procedure.config]
 schedule_format = "Cron"
-# THURSDAY 07:05 CT -- after the Wed 20:00 approval deadline; the page shows the
-# approved lists Thursday morning (New Pi delivery is Saturday).
-schedule = "0 5 7 * * Thu"
+# THURSDAY 07:05, 12:05 and 17:05 CT -- after the Wed 20:00 approval deadline;
+# the page shows the approved lists Thursday morning (New Pi delivery is
+# Saturday). The later passes pick up a decision made after 07:05; a pass after
+# the decision is applied is a no-op (nothing left to drop).
+schedule = "0 5 7,12,17 * * Thu"
 schedule_enabled = true
 schedule_timezone = "America/Chicago"
 [[procedure.config.stage]]
