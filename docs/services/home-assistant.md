@@ -136,6 +136,11 @@ the `xiaomi-vacuum-map-card` on top, a markdown **Key** below.
   matches each number to the app's name (the app still uses the old labels,
   see *Room names* above). Renaming a **helper** (tile, `input_button`,
   Node-RED stamp) is a separate, bigger change: package + Rooms tiles + flows.
+- **Renames and fixes.** 2026-11-04: segment 3 "Bedroom 1" → **West
+  Bedroom** (display names only: Key, Rooms tile, Home tile, `input_button` /
+  `input_datetime` friendly names; entity ids and the `bedroom_1` keys stay).
+  Segment 11 (Front Door Entry) marker moved from Rachel's Office onto the
+  dark-blue L-shaped room by the front door/stairs (x 18125, y 25300).
 - **Calibration** (3 points, mm → px on the 1728 × 1568 image) is unchanged;
   do not re-derive.
 - **Path colour.** The image is drawn by HA's Roborock integration
