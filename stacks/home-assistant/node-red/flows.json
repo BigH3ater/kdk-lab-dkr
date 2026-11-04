@@ -1183,7 +1183,7 @@
         "type": "function",
         "z": "rr_tab_1",
         "name": "start daily run",
-        "func": "flow.set('rr_cancel', false);\nflow.set('rr_pending', '');\nconst _ha = global.get('homeassistant') || {};\nconst _st = (Object.values(_ha).find(v => v && v.states) || {}).states || {};\n// Mop day = Wednesday (owner 2026-11-02; was Monday) OR a catch-up when the\n// last mop run predates this week's Wednesday 00:00. One clean tank = one pass.\nconst n = new Date();\nconst back = (n.getDay() - 3 + 7) % 7;\nconst wedMid = new Date(n.getFullYear(), n.getMonth(), n.getDate() - back).getTime();\nconst lmr = _st['input_datetime.rr_last_mop_run'] || {};\nconst lastTs = (lmr.attributes && lmr.attributes.timestamp ? lmr.attributes.timestamp * 1000\n    : (lmr.state ? Date.parse(String(lmr.state).replace(' ', 'T')) : 0)) || 0;\nmsg.mopDay = (n.getDay() === 3) || (lastTs < wedMid);\nreturn msg;",
+        "func": "flow.set('rr_cancel', false);\nflow.set('rr_pending', '');\nflow.set('rr_mop_inpass', 0);    // mop-pass water watch (f_mopwater) idle until the pass starts\nflow.set('rr_mop_water', false);\nconst _ha = global.get('homeassistant') || {};\nconst _st = (Object.values(_ha).find(v => v && v.states) || {}).states || {};\n// --- rrMopDue: shared mop-day rule (2026-11-04). Keep this block byte-identical\n// in f_35, f_pre, f_58 and f_nx; flow-logic.test.js fails if the copies drift.\n//   Wed     -> due, unless a mop ran in the last 48 h\n//   Thu/Fri -> catch-up, only if no mop since this week's Monday 00:00 (so the\n//              Wednesday mop was missed) and none in the last 48 h\n//   Sat-Tue -> never (2026-11-03: a Tuesday catch-up emptied the tank the day\n//              before the Wednesday mop). One clean tank = one pass = one a week.\nfunction rrMopDue(states, when) {\n    const lmr = states['input_datetime.rr_last_mop_run'] || {};\n    const lastTs = (lmr.attributes && lmr.attributes.timestamp ? lmr.attributes.timestamp * 1000\n        : (lmr.state ? Date.parse(String(lmr.state).replace(' ', 'T')) : 0)) || 0;\n    const dow = when.getDay();\n    const recent = (when.getTime() - lastTs) < 48 * 3600 * 1000;\n    const back = (dow - 3 + 7) % 7;  // days since the most recent Wednesday\n    const weekStart = new Date(when.getFullYear(), when.getMonth(), when.getDate() - back - 2).getTime();\n    const catchDay = (dow === 4 || dow === 5);\n    if (recent) return {due: false, why: 'a mop ran in the last 48 h', lastTs: lastTs};\n    if (dow === 3) return {due: true, why: 'Wednesday mop day', lastTs: lastTs};\n    if (catchDay && lastTs < weekStart) return {due: true, why: 'catch-up for a missed Wednesday', lastTs: lastTs};\n    return {due: false, why: catchDay ? 'already mopped this week' : 'not a mop day', lastTs: lastTs};\n}\n// --- end rrMopDue ---\nmsg.mopDay = rrMopDue(_st, new Date()).due;\nreturn msg;",
         "outputs": 1,
         "timeout": 0,
         "noerr": 0,
@@ -1819,7 +1819,7 @@
         "type": "function",
         "z": "rr_tab_1",
         "name": "mop day?",
-        "func": "const _ha = global.get('homeassistant') || {};\nconst _st = (Object.values(_ha).find(v => v && v.states) || {}).states || {};\n// Mop day = Wednesday (owner 2026-11-02; was Monday) OR a catch-up: last mop\n// run predates this week's Wednesday 00:00, so a failed Wednesday mops on the\n// next successful run this week. One clean tank lasts one pass.\nconst n = new Date();\nconst back = (n.getDay() - 3 + 7) % 7;\nconst wedMid = new Date(n.getFullYear(), n.getMonth(), n.getDate() - back).getTime();\nconst lmr = _st['input_datetime.rr_last_mop_run'] || {};\nconst lastTs = (lmr.attributes && lmr.attributes.timestamp ? lmr.attributes.timestamp * 1000\n    : (lmr.state ? Date.parse(String(lmr.state).replace(' ', 'T')) : 0)) || 0;\nconst today = n.getDay() === 3;\nconst mopDue = today || (lastTs < wedMid);\nflow.set('rr_mop_pending', mopDue);\nif (!mopDue) return [null, msg, null];        // not a mop day, already mopped this week -> vacuum only\nif (flow.get('rr_mop_skip')) {                 // preflight found a dock/water problem at start\n    msg.rr_mop_reason = 'the dock had a problem at start (see the earlier alert), so the mop pass was skipped';\n    return [null, null, msg];\n}\nreturn [msg, null, null];",
+        "func": "const _ha = global.get('homeassistant') || {};\nconst _st = (Object.values(_ha).find(v => v && v.states) || {}).states || {};\n// --- rrMopDue: shared mop-day rule (2026-11-04). Keep this block byte-identical\n// in f_35, f_pre, f_58 and f_nx; flow-logic.test.js fails if the copies drift.\n//   Wed     -> due, unless a mop ran in the last 48 h\n//   Thu/Fri -> catch-up, only if no mop since this week's Monday 00:00 (so the\n//              Wednesday mop was missed) and none in the last 48 h\n//   Sat-Tue -> never (2026-11-03: a Tuesday catch-up emptied the tank the day\n//              before the Wednesday mop). One clean tank = one pass = one a week.\nfunction rrMopDue(states, when) {\n    const lmr = states['input_datetime.rr_last_mop_run'] || {};\n    const lastTs = (lmr.attributes && lmr.attributes.timestamp ? lmr.attributes.timestamp * 1000\n        : (lmr.state ? Date.parse(String(lmr.state).replace(' ', 'T')) : 0)) || 0;\n    const dow = when.getDay();\n    const recent = (when.getTime() - lastTs) < 48 * 3600 * 1000;\n    const back = (dow - 3 + 7) % 7;  // days since the most recent Wednesday\n    const weekStart = new Date(when.getFullYear(), when.getMonth(), when.getDate() - back - 2).getTime();\n    const catchDay = (dow === 4 || dow === 5);\n    if (recent) return {due: false, why: 'a mop ran in the last 48 h', lastTs: lastTs};\n    if (dow === 3) return {due: true, why: 'Wednesday mop day', lastTs: lastTs};\n    if (catchDay && lastTs < weekStart) return {due: true, why: 'catch-up for a missed Wednesday', lastTs: lastTs};\n    return {due: false, why: catchDay ? 'already mopped this week' : 'not a mop day', lastTs: lastTs};\n}\n// --- end rrMopDue ---\nconst md = rrMopDue(_st, new Date());\nconst mopDue = md.due;\nflow.set('rr_mop_pending', mopDue);\nnode.status({fill: mopDue ? 'blue' : 'grey', text: (mopDue ? 'mop: ' : 'no mop: ') + md.why});\nif (!mopDue) return [null, msg, null];        // not due (see rrMopDue) -> vacuum only\nif (flow.get('rr_mop_skip')) {                 // preflight found a dock/water problem at start\n    msg.rr_mop_reason = 'the dock had a problem at start (see the earlier alert), so the mop pass was skipped';\n    return [null, null, msg];\n}\nreturn [msg, null, null];",
         "outputs": 3,
         "timeout": 0,
         "noerr": 0,
@@ -1990,7 +1990,7 @@
         "type": "function",
         "z": "rr_tab_1",
         "name": "mop routine finished?",
-        "func": "if (flow.get('rr_cancel')) { node.status({fill:'red',text:'cancelled'}); return [null, null, null]; }\nconst _ha = global.get('homeassistant') || {};\nconst _st = (Object.values(_ha).find(v => v && v.states) || {}).states || {};\n// The \"Mopping\" routine is several jobs (one per room/area). The robot docks\n// and washes between them, and recharges mid-routine with the job still open\n// (binary_sensor cleaning stays on). Only call the pass done once cleaning has\n// been off for a few minutes; otherwise wait for the current job to end (2026-10-19:\n// the first 15-min step was logged as the whole pass, the rest ran ~3 h).\nconst c = _st['binary_sensor.mr_slave_cleaning_2'] || {};\nconst offFor = c.state === 'off' ? (Date.now() - Date.parse(c.last_changed)) / 1000 : 0;\nconst n = (msg.rr_mop_docks || 0) + 1;\nmsg.rr_mop_docks = n;\nif (c.state === 'off' && offFor >= 150) {\n    node.status({fill:'green', text:`mop pass done after ${n} dock(s)`});\n    return [msg, null, null];\n}\nif (n >= 40) {\n    node.status({fill:'red', text:`gave up after ${n} docks`});\n    msg.rr_mop_reason = 'the mop routine never reported finished after ' + n + ' dock cycles';\n    return [null, null, msg];\n}\nnode.status({fill:'blue', text:`routine still running (dock ${n}, cleaning ${c.state || '?'})`});\nreturn [null, msg, null];",
+        "func": "if (flow.get('rr_cancel')) { node.status({fill:'red',text:'cancelled'}); return [null, null, null]; }\n// f_mopwater already sent the mop-failed alert for this pass (tank ran dry): stop the loop.\nif (flow.get('rr_mop_water')) { node.status({fill:'red',text:'stopped: clean water ran out'}); return [null, null, null]; }\nconst _ha = global.get('homeassistant') || {};\nconst _st = (Object.values(_ha).find(v => v && v.states) || {}).states || {};\nconst st = id => (_st[id] && _st[id].state);\n// The \"Mopping\" routine is 7 jobs (one per room/area). The robot docks and\n// washes between them, and recharges mid-routine with the job still open.\n// 2026-11-03: an 8-min gap between steps 2 and 3 passed the old 150 s\n// \"cleaning off\" test, so the pass was stamped done and steps 3-7 (where the\n// tank ran dry) ran unwatched. HA exposes no routine-step entity, so the pass\n// is done only when ALL hold:\n//   - cleaning has been off for >= 20 min (quiet window after the last job)\n//   - the robot is home: vacuum docked, or status charging / charged\n//   - the dock is not washing the mop (status *wash*)\n// The clean tank running dry (water_shortage_2 on) ends the pass as FAILED,\n// never as done, so rr_last_mop_run stays put and the next eligible day re-runs it.\nconst QUIET_S = 20 * 60;\nconst c = _st['binary_sensor.mr_slave_cleaning_2'] || {};\nconst offFor = c.state === 'off' ? (Date.now() - Date.parse(c.last_changed)) / 1000 : 0;\nconst status = String(st('sensor.mr_slave_status_2') || '');\nconst home = st('vacuum.mr_slave_2') === 'docked' || ['charging', 'charged', 'charging_complete'].includes(status);\nconst washing = /wash/.test(status);\n// Count dock cycles only on a new cleaning transition, so polling through the\n// quiet window doesn't use up the give-up budget; cap the total polls (~3 min\n// each via d_mopchk) so a robot stuck off the dock can't loop forever.\nconst n = (msg.rr_mop_docks || 0) + (msg.rr_mop_lastchg !== c.last_changed ? 1 : 0);\nmsg.rr_mop_docks = n;\nmsg.rr_mop_lastchg = c.last_changed;\nconst polls = (msg.rr_mop_polls || 0) + 1;\nmsg.rr_mop_polls = polls;\nif (st('binary_sensor.mr_slave_water_shortage_2') === 'on') {\n    node.status({fill:'red', text:'clean water ran out during the mop pass'});\n    flow.set('rr_mop_water', true);\n    flow.set('rr_mop_inpass', 0);\n    msg.rr_mop_water = true;\n    msg.rr_mop_reason = 'the clean-water tank ran out during the mop pass';\n    return [null, null, msg];\n}\nif (c.state === 'off' && offFor >= QUIET_S && home && !washing) {\n    node.status({fill:'green', text:`mop pass done after ${n} dock(s)`});\n    flow.set('rr_mop_inpass', 0);\n    return [msg, null, null];\n}\nif (n >= 40 || polls >= 120) {\n    node.status({fill:'red', text:`gave up after ${n} docks / ${polls} checks`});\n    msg.rr_mop_reason = n >= 40\n        ? 'the mop routine never reported finished after ' + n + ' dock cycles'\n        : 'the robot did not settle back on the dock within ~6 h of checks';\n    return [null, null, msg];\n}\nnode.status({fill:'blue', text:`routine still running (dock ${n}, cleaning ${c.state || '?'}, off ${Math.round(offFor / 60)} min, ${status || '?'})`});\nreturn [null, msg, null];",
         "outputs": 3,
         "timeout": 0,
         "noerr": 0,
@@ -2810,7 +2810,7 @@
         "type": "function",
         "z": "rr_tab_1",
         "name": "compute next run (wk 8:30 / wkend 12:00)",
-        "func": "const now = new Date();\nfunction nextSlot(dayFilter) {\n    for (let d = 0; d < 9; d++) {\n        const c = new Date(now.getFullYear(), now.getMonth(), now.getDate() + d);\n        const dow = c.getDay();\n        if (!dayFilter(dow)) continue;\n        const wkend = (dow === 0 || dow === 6);\n        c.setHours(wkend ? 12 : 8, wkend ? 0 : 30, 0, 0);\n        if (c > now) return Math.floor(c.getTime()/1000);\n    }\n    return null;\n}\nconst run = nextSlot(() => true);\nconst mop = nextSlot(d => d === 3);  // Wednesday mop day\nconst out = [];\nif (run) out.push({payload:{ent:'input_datetime.rr_next_run', ts:run}});\nif (mop) out.push({payload:{ent:'input_datetime.rr_next_mop', ts:mop}});\nreturn [out];\n",
+        "func": "const now = new Date();\nconst _ha = global.get('homeassistant') || {};\nconst _st = (Object.values(_ha).find(v => v && v.states) || {}).states || {};\n// --- rrMopDue: shared mop-day rule (2026-11-04). Keep this block byte-identical\n// in f_35, f_pre, f_58 and f_nx; flow-logic.test.js fails if the copies drift.\n//   Wed     -> due, unless a mop ran in the last 48 h\n//   Thu/Fri -> catch-up, only if no mop since this week's Monday 00:00 (so the\n//              Wednesday mop was missed) and none in the last 48 h\n//   Sat-Tue -> never (2026-11-03: a Tuesday catch-up emptied the tank the day\n//              before the Wednesday mop). One clean tank = one pass = one a week.\nfunction rrMopDue(states, when) {\n    const lmr = states['input_datetime.rr_last_mop_run'] || {};\n    const lastTs = (lmr.attributes && lmr.attributes.timestamp ? lmr.attributes.timestamp * 1000\n        : (lmr.state ? Date.parse(String(lmr.state).replace(' ', 'T')) : 0)) || 0;\n    const dow = when.getDay();\n    const recent = (when.getTime() - lastTs) < 48 * 3600 * 1000;\n    const back = (dow - 3 + 7) % 7;  // days since the most recent Wednesday\n    const weekStart = new Date(when.getFullYear(), when.getMonth(), when.getDate() - back - 2).getTime();\n    const catchDay = (dow === 4 || dow === 5);\n    if (recent) return {due: false, why: 'a mop ran in the last 48 h', lastTs: lastTs};\n    if (dow === 3) return {due: true, why: 'Wednesday mop day', lastTs: lastTs};\n    if (catchDay && lastTs < weekStart) return {due: true, why: 'catch-up for a missed Wednesday', lastTs: lastTs};\n    return {due: false, why: catchDay ? 'already mopped this week' : 'not a mop day', lastTs: lastTs};\n}\n// --- end rrMopDue ---\nfunction nextSlot(dayFilter, slotCheck) {\n    for (let d = 0; d < 9; d++) {\n        const c = new Date(now.getFullYear(), now.getMonth(), now.getDate() + d);\n        const dow = c.getDay();\n        if (!dayFilter(dow, c)) continue;\n        const wkend = (dow === 0 || dow === 6);\n        c.setHours(wkend ? 12 : 8, wkend ? 0 : 30, 0, 0);\n        if (c > now && (!slotCheck || slotCheck(c))) return Math.floor(c.getTime()/1000);\n    }\n    return null;\n}\nconst run = nextSlot(() => true);\n// Next slot rrMopDue would mop on, assuming no mop runs before then. States not\n// loaded yet (startup) -> plain next Wednesday.\nconst haveStates = Object.keys(_st).length > 0;\nconst mop = haveStates ? nextSlot(() => true, c => rrMopDue(_st, c).due) : nextSlot(d => d === 3);\nconst out = [];\nif (run) out.push({payload:{ent:'input_datetime.rr_next_run', ts:run}});\nif (mop) out.push({payload:{ent:'input_datetime.rr_next_mop', ts:mop}});\nreturn [out];\n",
         "outputs": 1,
         "timeout": 0,
         "noerr": 0,
@@ -2923,7 +2923,7 @@
         "type": "function",
         "z": "rr_tab_1",
         "name": "evt: mop",
-        "func": "msg.rr_evt = 'mop';\nreturn msg;",
+        "func": "msg.rr_evt = 'mop';\n// Mop pass started: arm the mid-pass water watch (t_mopwater -> f_mopwater) and\n// give f_mopchk its start time.\nflow.set('rr_mop_inpass', Date.now());\nflow.set('rr_mop_water', false);\nreturn msg;",
         "outputs": 1,
         "timeout": 0,
         "noerr": 0,
@@ -3219,7 +3219,7 @@
         "id": "f_pre",
         "type": "function",
         "name": "preflight (dock / water)",
-        "func": "const _ha = global.get('homeassistant') || {};\nconst _st = (Object.values(_ha).find(v => v && v.states) || {}).states || {};\nconst st = id => (_st[id] && _st[id].state);\n\nconst probs = [];\nif (st('binary_sensor.mr_slave_water_shortage_2') === 'on') probs.push('clean-water tank is empty');\nconst dock = st('sensor.mr_slave_dock_dock_error');\nif (dock && !['ok','unknown','unavailable'].includes(dock)) probs.push('dock reports ' + dock.replace(/_/g,' '));\nconst verr = st('vacuum.mr_slave_2') === 'error' ? st('sensor.mr_slave_vacuum_error_2') : null;\nif (verr && verr !== 'none') probs.push('robot error ' + verr.replace(/_/g,' '));\nflow.set('rr_mop_skip', probs.length > 0);\nflow.set('rr_mbr_short', false);\nflow.set('rr_zone_t', Date.now());\nif (!Object.keys(_st).length) node.warn('preflight: HA state store empty, skipping checks');\n// Mop due = Wednesday (owner 2026-11-02) OR a missed Wednesday not yet caught\n// up. rr_mop_pending lets the stall/stop alerts mention the mop won't run.\nconst n = new Date();\nconst back = (n.getDay() - 3 + 7) % 7;\nconst wedMid = new Date(n.getFullYear(), n.getMonth(), n.getDate() - back).getTime();\nconst lmr = _st['input_datetime.rr_last_mop_run'] || {};\nconst lastTs = (lmr.attributes && lmr.attributes.timestamp ? lmr.attributes.timestamp * 1000\n    : (lmr.state ? Date.parse(String(lmr.state).replace(' ', 'T')) : 0)) || 0;\nconst mopDay = (n.getDay() === 3) || (lastTs < wedMid);\nflow.set('rr_mop_pending', mopDay);\nlet note = null;\nif (probs.length) {\n    note = {notify: {title: 'Vacuum: check the dock',\n        message: 'Starting the daily clean, but the ' + probs.join(' and ') + '. ' +\n                 (mopDay ? 'Vacuum pass only \u2014 today\\'s mop pass will be skipped.' : 'Vacuum pass only.'),\n        tag: 'rr_preflight', urgent: false}};\n}\nnode.status(probs.length ? {fill:'yellow',text:probs.join(', ')} : {fill:'green',text:'ok'});\nreturn [msg, note];",
+        "func": "const _ha = global.get('homeassistant') || {};\nconst _st = (Object.values(_ha).find(v => v && v.states) || {}).states || {};\nconst st = id => (_st[id] && _st[id].state);\n\nconst probs = [];\nif (st('binary_sensor.mr_slave_water_shortage_2') === 'on') probs.push('clean-water tank is empty');\nconst dock = st('sensor.mr_slave_dock_dock_error');\nif (dock && !['ok','unknown','unavailable'].includes(dock)) probs.push('dock reports ' + dock.replace(/_/g,' '));\nconst verr = st('vacuum.mr_slave_2') === 'error' ? st('sensor.mr_slave_vacuum_error_2') : null;\nif (verr && verr !== 'none') probs.push('robot error ' + verr.replace(/_/g,' '));\nflow.set('rr_mop_skip', probs.length > 0);\nflow.set('rr_mbr_short', false);\nflow.set('rr_zone_t', Date.now());\nif (!Object.keys(_st).length) node.warn('preflight: HA state store empty, skipping checks');\n// rr_mop_pending lets the stall/stop alerts mention the mop won't run.\n// --- rrMopDue: shared mop-day rule (2026-11-04). Keep this block byte-identical\n// in f_35, f_pre, f_58 and f_nx; flow-logic.test.js fails if the copies drift.\n//   Wed     -> due, unless a mop ran in the last 48 h\n//   Thu/Fri -> catch-up, only if no mop since this week's Monday 00:00 (so the\n//              Wednesday mop was missed) and none in the last 48 h\n//   Sat-Tue -> never (2026-11-03: a Tuesday catch-up emptied the tank the day\n//              before the Wednesday mop). One clean tank = one pass = one a week.\nfunction rrMopDue(states, when) {\n    const lmr = states['input_datetime.rr_last_mop_run'] || {};\n    const lastTs = (lmr.attributes && lmr.attributes.timestamp ? lmr.attributes.timestamp * 1000\n        : (lmr.state ? Date.parse(String(lmr.state).replace(' ', 'T')) : 0)) || 0;\n    const dow = when.getDay();\n    const recent = (when.getTime() - lastTs) < 48 * 3600 * 1000;\n    const back = (dow - 3 + 7) % 7;  // days since the most recent Wednesday\n    const weekStart = new Date(when.getFullYear(), when.getMonth(), when.getDate() - back - 2).getTime();\n    const catchDay = (dow === 4 || dow === 5);\n    if (recent) return {due: false, why: 'a mop ran in the last 48 h', lastTs: lastTs};\n    if (dow === 3) return {due: true, why: 'Wednesday mop day', lastTs: lastTs};\n    if (catchDay && lastTs < weekStart) return {due: true, why: 'catch-up for a missed Wednesday', lastTs: lastTs};\n    return {due: false, why: catchDay ? 'already mopped this week' : 'not a mop day', lastTs: lastTs};\n}\n// --- end rrMopDue ---\nconst mopDay = rrMopDue(_st, new Date()).due;\nflow.set('rr_mop_pending', mopDay);\nlet note = null;\nif (probs.length) {\n    note = {notify: {title: 'Vacuum: check the dock',\n        message: 'Starting the daily clean, but the ' + probs.join(' and ') + '. ' +\n                 (mopDay ? 'Vacuum pass only \u2014 today\\'s mop pass will be skipped.' : 'Vacuum pass only.'),\n        tag: 'rr_preflight', urgent: false}};\n}\nnode.status(probs.length ? {fill:'yellow',text:probs.join(', ')} : {fill:'green',text:'ok'});\nreturn [msg, note];",
         "outputs": 2,
         "timeout": 0,
         "noerr": 0,
@@ -4006,7 +4006,8 @@
             "lo_n_dock",
             "lo_n_boot",
             "lo_n_rc",
-            "lo_n_mopfail"
+            "lo_n_mopfail",
+            "lo_n_short"
         ],
         "x": 1780,
         "y": 75,
@@ -4448,7 +4449,7 @@
         "id": "g_sweep",
         "type": "group",
         "z": "rr_tab_1",
-        "name": "3 \u00b7 Main sweep (12 rooms) \u2192 mop pass on Mon \u2192 restore vac+mop",
+        "name": "3 \u00b7 Main sweep (12 rooms) \u2192 mop pass Wed (catch-up Thu/Fri) \u2192 restore vac+mop",
         "style": {
             "label": true,
             "fill": "#dbebff",
@@ -4498,12 +4499,15 @@
             "f_mopoff_to",
             "arm_54",
             "arm_62",
-            "g_w62"
+            "g_w62",
+            "t_mopwater",
+            "f_mopwater",
+            "lo_n_short"
         ],
         "x": 20,
         "y": 830,
         "w": 2894,
-        "h": 320
+        "h": 420
     },
     {
         "id": "g_stop",
@@ -4676,7 +4680,7 @@
         "id": "f_rc",
         "type": "function",
         "name": "sweep done or recharging?",
-        "outputs": 2,
+        "outputs": 4,
         "timeout": 0,
         "noerr": 0,
         "initialize": "",
@@ -4684,7 +4688,7 @@
         "libs": [],
         "x": 1700,
         "y": 860,
-        "func": "if (msg.rr_wgen !== flow.get('rr_waitgen')) { node.status({fill:'grey',shape:'ring',text:'stale wait ignored'}); return [null, null]; }\nif (flow.get('rr_cancel')) { node.status({fill:'red',text:'cancelled'}); return [null, null]; }\nflow.set('rr_pending', '');\nconst _ha = global.get('homeassistant') || {};\nconst _st = (Object.values(_ha).find(v => v && v.states) || {}).states || {};\nconst st = id => (_st[id] && _st[id].state);\n// Docked after the 12-room sweep. A finished job comes home with charge to\n// spare and progress reset to 0. Docking at ~14% with progress still >0 means\n// the battery ran out mid-sweep: the robot recharges and RESUMES on its own at\n// 80% (Roborock recharge & resume). Treating that as done restored vac_and_mop\n// before the resume, so the rest of the sweep mopped every day (2026-10-15..18).\nconst batt = Number(st('sensor.mr_slave_battery_2'));\nconst prog = Number(st('sensor.mr_slave_cleaning_progress_2'));\nconst n = msg.rr_recharges || 0;\nif (batt <= 20 && prog > 0 && prog < 95 && n < 2) {\n    msg.rr_recharges = n + 1; msg.rr_evt = 'recharge';\n    node.status({fill:'yellow', text:`recharging: ${batt}% batt, ${prog}% done (#${n + 1})`});\n    return [null, msg];\n}\nnode.status({fill:'green', text:`sweep done: ${batt}% batt, ${prog}%`});\nreturn [msg, null];",
+        "func": "if (msg.rr_wgen !== flow.get('rr_waitgen')) { node.status({fill:'grey',shape:'ring',text:'stale wait ignored'}); return [null, null, null, null]; }\nif (flow.get('rr_cancel')) { node.status({fill:'red',text:'cancelled'}); return [null, null, null, null]; }\nflow.set('rr_pending', '');\nconst _ha = global.get('homeassistant') || {};\nconst _st = (Object.values(_ha).find(v => v && v.states) || {}).states || {};\nconst st = id => (_st[id] && _st[id].state);\n// Docked after the 12-room sweep. A finished job comes home with charge to\n// spare and progress reset to 0. Docking at ~14% with progress still >0 means\n// the battery ran out mid-sweep: the robot recharges and RESUMES on its own at\n// 80% (Roborock recharge & resume). Treating that as done restored vac_and_mop\n// before the resume, so the rest of the sweep mopped every day (2026-10-15..18).\nconst batt = Number(st('sensor.mr_slave_battery_2'));\nconst prog = Number(st('sensor.mr_slave_cleaning_progress_2'));\nconst n = msg.rr_recharges || 0;\nif (batt <= 20 && prog > 0 && prog < 95 && n < 2) {\n    msg.rr_recharges = n + 1; msg.rr_evt = 'recharge';\n    node.status({fill:'yellow', text:`recharging: ${batt}% batt, ${prog}% done (#${n + 1})`});\n    return [null, msg, null, null];\n}\n// 2026-11-03: the robot came home 1.7 min into the 12-room sweep (no error,\n// progress 0) and every room was stamped clean. A real sweep takes far longer,\n// so under 10 min with no progress = ended early: move on to the mop gate\n// WITHOUT f_ev_restdone (rooms stay unmarked) and tell the owner.\nconst MIN_S = 10 * 60;\nconst t0 = msg.rr_sweep_t0;\nconst secs = t0 ? (Date.now() - t0) / 1000 : Number(st('sensor.mr_slave_cleaning_time_2'));\nif (!isNaN(secs) && secs > 0 && secs < MIN_S && !(prog > 0)) {\n    const mins = Math.round(secs / 60 * 10) / 10;\n    node.status({fill:'yellow', text:`sweep ended early: ${mins} min, ${prog}%`});\n    const notify = {notify: {title: 'Vacuum: main sweep ended early',\n        message: 'The 12-room sweep ended after ' + mins + ' min with no error. The rooms are left unmarked; the run moves on.',\n        tag: 'rr_sweep_short', urgent: false}};\n    return [null, null, msg, notify];\n}\nnode.status({fill:'green', text:`sweep done: ${batt}% batt, ${prog}%`});\nreturn [msg, null, null, null];",
         "wires": [
             [
                 "d_55",
@@ -4693,6 +4697,12 @@
             [
                 "d_rcpoll",
                 "lo_tr_rch"
+            ],
+            [
+                "d_55"
+            ],
+            [
+                "lo_n_short"
             ]
         ],
         "z": "rr_tab_1",
@@ -5212,7 +5222,7 @@
         "type": "function",
         "z": "rr_tab_1",
         "name": "mop failed -> alert (rr_mop_failed)",
-        "func": "// Central mop-failure notice: one alert (tag rr_mop_failed, urgent) whenever the\n// weekly mop pass does not complete. Deliberately does NOT stamp\n// input_datetime.rr_last_mop_run, so f_58's catch-up re-runs the mop on the next\n// successful daily clean this week. Clears rr_mop_pending so the stall/stop\n// alerts don't also mention the mop. out0 -> notify, out1 -> restore vacuum + done.\nflow.set('rr_mop_pending', false);\nconst reason = msg.rr_mop_reason || 'it did not finish';\nconst notify = {notify: {title: 'Vacuum: weekly mop did not finish',\n    message: 'The weekly mop pass did not complete: ' + reason + '. A catch-up mop will run on the next successful daily clean before next Wednesday.',\n    tag: 'rr_mop_failed', urgent: true}};\nnode.status({fill:'red', text:'mop failed'});\nreturn [notify, msg];",
+        "func": "// Central mop-failure notice: one alert (tag rr_mop_failed, urgent) whenever the\n// weekly mop pass does not complete. Deliberately does NOT stamp\n// input_datetime.rr_last_mop_run, so rrMopDue's Thursday/Friday catch-up re-runs\n// the mop (never Mon/Tue, never within 48 h of a mop). Clears rr_mop_pending so the stall/stop\n// alerts don't also mention the mop. out0 -> notify, out1 -> restore vacuum + done.\n// Once the water watch has failed this pass, later timeouts of the same pass are dropped.\nif (flow.get('rr_mop_water') && !msg.rr_mop_water) { node.status({fill:'grey',shape:'ring',text:'duplicate mop failure dropped'}); return [null, null]; }\nflow.set('rr_mop_pending', false);\nflow.set('rr_mop_inpass', 0);\nconst reason = msg.rr_mop_reason || 'it did not finish';\nconst notify = {notify: {title: 'Vacuum: weekly mop did not finish',\n    message: 'The weekly mop pass did not complete: ' + reason + '. A catch-up mop runs at the next Thursday or Friday clean this week (otherwise next Wednesday).',\n    tag: 'rr_mop_failed', urgent: true}};\nnode.status({fill:'red', text:'mop failed'});\nreturn [notify, msg];",
         "outputs": 2,
         "timeout": 0,
         "noerr": 0,
@@ -5229,6 +5239,82 @@
                 "s_66"
             ]
         ],
+        "g": "g_sweep"
+    },
+    {
+        "id": "t_mopwater",
+        "type": "server-state-changed",
+        "z": "rr_tab_1",
+        "name": "water shortage on -> mop pass check",
+        "server": "38978576.ca0eea",
+        "version": 6,
+        "outputs": 2,
+        "exposeAsEntityConfig": "",
+        "entities": {
+            "entity": [
+                "binary_sensor.mr_slave_water_shortage_2"
+            ],
+            "substring": [],
+            "regex": []
+        },
+        "outputInitially": false,
+        "stateType": "str",
+        "ifState": "on",
+        "ifStateType": "str",
+        "ifStateOperator": "is",
+        "outputOnlyOnStateChange": true,
+        "for": "0",
+        "forType": "num",
+        "forUnits": "minutes",
+        "ignorePrevStateNull": true,
+        "ignorePrevStateUnknown": true,
+        "ignorePrevStateUnavailable": true,
+        "ignoreCurrentStateUnknown": true,
+        "ignoreCurrentStateUnavailable": true,
+        "outputProperties": [],
+        "x": 1160,
+        "y": 1215,
+        "wires": [
+            [
+                "f_mopwater"
+            ],
+            []
+        ],
+        "g": "g_sweep"
+    },
+    {
+        "id": "f_mopwater",
+        "type": "function",
+        "z": "rr_tab_1",
+        "name": "water ran out mid-mop?",
+        "func": "// binary_sensor.mr_slave_water_shortage_2 turned on. Only matters while a mop\n// pass is in progress (rr_mop_inpass = pass start ms, set by f_ev_mop). Sends\n// the one urgent rr_mop_failed via f_mopfail and marks the pass incomplete\n// (rr_last_mop_run is not stamped), so the next eligible day re-runs it.\n// rr_mop_water makes f_mopchk / f_mopfail drop the rest of this pass's loop.\nconst t0 = flow.get('rr_mop_inpass') || 0;\nconst run = flow.get('rr_run', 'file') || {};\nif (!t0 || !run.active || flow.get('rr_cancel') || flow.get('rr_mop_water')) {\n    node.status({fill:'grey', shape:'ring', text:'water shortage outside a mop pass'});\n    return null;\n}\nflow.set('rr_mop_water', true);\nflow.set('rr_mop_inpass', 0);\nconst mins = Math.max(0, Math.round((Date.now() - t0) / 60000));\nmsg.rr_mop_water = true;\nmsg.rr_mop_reason = 'the clean-water tank ran out ' + mins + ' min into the mop pass, so it is marked incomplete. Refill the tank';\nnode.status({fill:'red', text:'water ran out ' + mins + ' min into the mop'});\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1400,
+        "y": 1215,
+        "wires": [
+            [
+                "f_mopfail"
+            ]
+        ],
+        "g": "g_sweep"
+    },
+    {
+        "id": "lo_n_short",
+        "type": "link out",
+        "z": "rr_tab_1",
+        "name": "\u2192 notify",
+        "mode": "link",
+        "links": [
+            "li_notify"
+        ],
+        "x": 1880,
+        "y": 815,
+        "wires": [],
         "g": "g_sweep"
     },
     {
@@ -5334,7 +5420,7 @@
         "type": "function",
         "z": "rr_tab_1",
         "name": "arm wait (rest)",
-        "func": "// Arm 'w_54': bump the wait generation + mark it pending, and stamp the\n// msg so this wait's own success/timeout can be told apart from a stale firing\n// left armed after an HA-reconnect recovery (f_hareconn).\nconst g = (flow.get('rr_waitgen') || 0) + 1;\nflow.set('rr_waitgen', g);\nflow.set('rr_pending', 'w_54');\nmsg.rr_wgen = g;\nreturn msg;",
+        "func": "// Arm 'w_54': bump the wait generation + mark it pending, and stamp the\n// msg so this wait's own success/timeout can be told apart from a stale firing\n// left armed after an HA-reconnect recovery (f_hareconn).\nconst g = (flow.get('rr_waitgen') || 0) + 1;\nflow.set('rr_waitgen', g);\nflow.set('rr_pending', 'w_54');\nmsg.rr_wgen = g;\nif (!msg.rr_sweep_t0) msg.rr_sweep_t0 = Date.now();   // f_rc minimum-sweep check\nreturn msg;",
         "outputs": 1,
         "timeout": 0,
         "noerr": 0,
