@@ -4,13 +4,21 @@
 #   1. The functional board (This Week / Tasks / Household Calendar) -- iframes and
 #      the calendar widget, the day-to-day surface.
 #   2. A full service directory (Media ... Docs & notes) -- one tile per lab service
-#      with a siteMonitor up/down dot. Every *.kmkdp.com Traefik router host and the
-#      management appliances live here so nothing is "hidden" behind the sidebar.
+#      with a siteMonitor up/down dot (8 exceptions, see below). Every *.kmkdp.com
+#      Traefik router host and the management appliances live here so nothing is
+#      "hidden" behind the sidebar.
 #
 # All hosts resolve on lab DNS and answer from kdk-dkr-01 (LAN/Tailscale only; a 302
 # to sso.kmkdp.com is Authelia doing its job). Tiles open in a new tab (settings
 # target: _blank); siteMonitor pings the LAN-reachable URL. Icons are dashboard-icons
 # slugs (homarr-labs/dashboard-icons) with mdi- fallbacks where no brand icon exists.
+#
+# No siteMonitor (no dot) on 8 tiles: Home Assistant, Scrypted, Zigbee2MQTT,
+# Node-RED (all 10.1.30.21:443), Proxmox (10.1.1.100:8006), Proxmox Backup
+# (10.1.1.102:8007), TrueNAS (10.1.3.5:443) and Prometheus (10.1.20.30:9090).
+# The DOCKER-USER policy on kdk-dkr-01 blocks the homepage container from reaching
+# them, so their dots were always red. The owner chose on 2026-11-04 to drop these
+# monitors rather than open firewall rules. The tiles and links still work.
 
 - This Week:
   - Meal Plan:
@@ -185,22 +193,18 @@
   - Home Assistant:
       icon: home-assistant
       href: https://homeassistant.kmkdp.com/
-      siteMonitor: https://homeassistant.kmkdp.com/
       description: Home automation & controls (OIDC)
   - Scrypted:
       icon: mdi-cctv
       href: https://scrypted.kmkdp.com/
-      siteMonitor: https://scrypted.kmkdp.com/
       description: Cameras & HomeKit bridge (own login)
   - Zigbee2MQTT:
       icon: zigbee2mqtt
       href: https://zigbee.kmkdp.com/
-      siteMonitor: https://zigbee.kmkdp.com/
       description: Zigbee device management (own login)
   - Node-RED:
       icon: node-red
       href: https://nodered.kmkdp.com/
-      siteMonitor: https://nodered.kmkdp.com/
       description: Automation flows (own login)
   - Budget:
       icon: actual-budget
@@ -234,17 +238,14 @@
   - Proxmox:
       icon: proxmox
       href: https://10.1.1.100:8006/
-      siteMonitor: https://10.1.1.100:8006/
       description: kdk-hyp-01 virtualization (own login)
   - Proxmox Backup:
       icon: proxmox-backup-server
       href: https://10.1.1.102:8007/
-      siteMonitor: https://10.1.1.102:8007/
       description: kdk-pbs-01 backup server (own login)
   - TrueNAS:
       icon: truenas
       href: https://10.1.3.5/
-      siteMonitor: https://10.1.3.5/
       description: kdk-nas-01 storage (own login)
   - UniFi:
       icon: unifi
@@ -266,7 +267,6 @@
   - Prometheus:
       icon: prometheus
       href: http://10.1.20.30:9090/
-      siteMonitor: http://10.1.20.30:9090/
       description: Metrics store on kdk-mon-01 (no auth, VLAN 20 only)
   - Alertmanager:
       icon: alertmanager
