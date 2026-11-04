@@ -16,6 +16,18 @@ services:
     image: nandyalu/trailarr:0.14.1@sha256:066eee5cce7358359d3ad5655dc61963b00a5d34a5bf9e9c2904c2acf987eb66
     container_name: trailarr
     restart: unless-stopped
+    # The image entrypoint (root) runs `chmod -R 755 /config` and replaces
+    # /config/.env (API_KEY, WEBUI_PASSWORD, TMDB_API_KEY) on EVERY container
+    # start, so the host copy /opt/kdk-lab/trailarr/.env came back 0644 after each
+    # restart. A Komodo pre/post_deploy chmod cannot hold: it runs before or races
+    # that write, and restarts/reboots never run it. This loop re-asserts .env 0600
+    # and /config 0700 (also hides trailarr.db) every 15 s for the life of the
+    # container, then hands over to the stock entrypoint. The app runs as PUID
+    # 1000 = the owner, so its own reads/writes are unaffected.
+    entrypoint:
+      - /bin/sh
+      - -c
+      - "while :; do chmod 700 /config; chmod 600 /config/.env; sleep 15; done 2>/dev/null & exec /app/scripts/entrypoint.sh"
     environment:
       TZ: America/Chicago
       PUID: "1000"
