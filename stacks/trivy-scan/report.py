@@ -98,14 +98,19 @@ def loki_push(url: str, host: str, lines: list[str]) -> None:
                          "values": [[str(base + i), ln] for i, ln in enumerate(lines)]}]}
     req = urllib.request.Request(url.rstrip("/") + "/loki/api/v1/push", data=json.dumps(body).encode(),
                                  headers={"Content-Type": "application/json"})
-    for attempt in range(3):
+    # Retry for LOKI_RETRY_SECONDS (default 6 min). On dmz-01 the DOCKER-USER
+    # allow_ctr rule for this container is only added by the next 5-minute
+    # kdk-docker-user.timer run after the container starts, so a short retry
+    # window loses the race (2026-11-02: "loki push failed ... timed out").
+    deadline = time.time() + int(os.environ.get("LOKI_RETRY_SECONDS", "360"))
+    while True:
         try:
-            urllib.request.urlopen(req, timeout=30).read()
+            urllib.request.urlopen(req, timeout=20).read()
             return
         except Exception:
-            if attempt == 2:
+            if time.time() + 30 > deadline:
                 raise
-            time.sleep(10)
+            time.sleep(30)
 
 
 def pushover(title: str, msg: str) -> None:

@@ -106,7 +106,9 @@ services:
     volumes:
       - ./report.py:/report.py:ro
       - trivy-out:/out:ro
-      - /etc/kdk/pushover.env:/pushover.env:ro
+      # 0400 1000:1000 copy made by the Komodo pre_deploy: /etc/kdk/pushover.env
+      # is root:root 0600 on most hosts, unreadable for this uid (Errno 13).
+      - ./pushover.env:/pushover.env:ro
     networks: [docker-api, egress]
     depends_on:
       socket-proxy:

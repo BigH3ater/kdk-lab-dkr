@@ -1871,6 +1871,7 @@ server = "kdk-dkr-01"
 repo = "BigH3ater/kdk-lab-dkr"
 run_directory = "stacks/trivy-scan"
 destroy_before_deploy = true   # one locked down+up so the one-shot re-runs
+pre_deploy.command = "sh -c 'if [ -d pushover.env ]; then rmdir pushover.env; fi; install -m 0400 -o 1000 -g 1000 /etc/kdk/pushover.env pushover.env'"   # report.py runs as 1000:1000; the host file is root 0600
 environment = "NODE_NAME=kdk-dkr-01\nLOKI_URL=http://10.1.20.21:3100"
 
 [[stack]]
@@ -1884,6 +1885,7 @@ server = "kdk-dkr-dmz-01"
 repo = "BigH3ater/kdk-lab-dkr"
 run_directory = "stacks/trivy-scan"
 destroy_before_deploy = true   # one locked down+up so the one-shot re-runs
+pre_deploy.command = "sh -c 'if [ -d pushover.env ]; then rmdir pushover.env; fi; install -m 0400 -o 1000 -g 1000 /etc/kdk/pushover.env pushover.env'"   # report.py runs as 1000:1000; the host file is root 0600
 environment = "NODE_NAME=kdk-dkr-dmz-01\nLOKI_URL=http://10.1.20.21:3100"
 
 [[stack]]
@@ -1897,6 +1899,7 @@ server = "kdk-mon-01"
 repo = "BigH3ater/kdk-lab-dkr"
 run_directory = "stacks/trivy-scan"
 destroy_before_deploy = true   # one locked down+up so the one-shot re-runs
+pre_deploy.command = "sh -c 'if [ -d pushover.env ]; then rmdir pushover.env; fi; install -m 0400 -o 1000 -g 1000 /etc/kdk/pushover.env pushover.env'"   # report.py runs as 1000:1000; the host file is root 0600
 environment = "NODE_NAME=kdk-mon-01\nLOKI_URL=http://10.1.20.21:3100"
 
 [[stack]]
@@ -1910,6 +1913,7 @@ server = "kdk-dkr-02"
 repo = "BigH3ater/kdk-lab-dkr"
 run_directory = "stacks/trivy-scan"
 destroy_before_deploy = true   # one locked down+up so the one-shot re-runs
+pre_deploy.command = "sh -c 'if [ -d pushover.env ]; then rmdir pushover.env; fi; install -m 0400 -o 1000 -g 1000 /etc/kdk/pushover.env pushover.env'"   # report.py runs as 1000:1000; the host file is root 0600
 environment = "NODE_NAME=kdk-dkr-02\nLOKI_URL=http://10.1.20.21:3100"
 
 [[stack]]
@@ -1923,6 +1927,7 @@ server = "kdk-dkr-03"
 repo = "BigH3ater/kdk-lab-dkr"
 run_directory = "stacks/trivy-scan"
 destroy_before_deploy = true   # one locked down+up so the one-shot re-runs
+pre_deploy.command = "sh -c 'if [ -d pushover.env ]; then rmdir pushover.env; fi; install -m 0400 -o 1000 -g 1000 /etc/kdk/pushover.env pushover.env'"   # report.py runs as 1000:1000; the host file is root 0600
 environment = "NODE_NAME=kdk-dkr-03\nLOKI_URL=http://10.1.20.21:3100"
 
 [[stack]]
@@ -1936,6 +1941,7 @@ server = "kdk-log-01"
 repo = "BigH3ater/kdk-lab-dkr"
 run_directory = "stacks/trivy-scan"
 destroy_before_deploy = true   # one locked down+up so the one-shot re-runs
+pre_deploy.command = "sh -c 'if [ -d pushover.env ]; then rmdir pushover.env; fi; install -m 0400 -o 1000 -g 1000 /etc/kdk/pushover.env pushover.env'"   # report.py runs as 1000:1000; the host file is root 0600
 environment = "NODE_NAME=kdk-log-01\nLOKI_URL=http://10.1.20.21:3100"
 
 [[procedure]]

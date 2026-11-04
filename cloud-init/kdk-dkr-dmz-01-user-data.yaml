@@ -192,6 +192,11 @@ write_files:
       # rule 192.168.191.20 -> 10.1.20.21:3100). Only the alloy container.
       allow_ctr alloy 10.1.20.21 tcp 3100
 
+      # The weekly trivy-scan report container pushes its job="trivy" lines to the same
+      # Loki (stacks/trivy-scan, Monday 06:03; same UniFi rule). It lives ~4 min, so
+      # report.py keeps retrying the push past one 5-min kdk-docker-user.timer tick.
+      allow_ctr trivy-scan-report 10.1.20.21 tcp 3100
+
       # Authelia's notifier relays through the Proton Mail Bridge on kdk-dkr-01
       # (stacks/apps; UniFi rule 192.168.191.20 -> 10.1.20.20:25). Only authelia.
       allow_ctr authelia 10.1.20.20 tcp 25
