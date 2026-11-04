@@ -280,21 +280,24 @@ services:
     # happened AT the 24 GiB cap, so the remux's true working set is UNOBSERVED
     # (it was never allowed to finish) -- 24.8 GB is only the floor.
     #
-    # 36g is therefore a MITIGATION sized to the observed ~24.8 GB peak plus
-    # headroom, not a proven ceiling: a single remux now has room to complete and
-    # the drain unsticks, but a very sparse-subtitle title could still exceed it.
-    # Host is ~47 GiB with 0 swap and ~6 GB used by everything else, so 36g keeps
-    # ~5 GB headroom; a runaway is still bounded by the cgroup (host safe), though
-    # the pre-#192 43 GB figure was a host-level event, not a cgroup-capped one,
-    # and did not recur in the 7-day kernel log. The real fix is structural and
-    # deferred (vault follow-up): split the remux (mux v+a with
-    # -max_interleave_delta 0 first, add subs in a second pass) or wrap the remux
-    # in `ulimit -v` so a runaway fails as a catchable malloc error into the
-    # flow's existing nativeFallback instead of relying on the cgroup cap.
-    # If two heavy remuxes ever coincide the cgroup kills one (host safe); drop
-    # the node to 1 transcode worker for the drain (Tdarr UI) if that recurs.
-    mem_limit: 36g
-    memswap_limit: 36g
+    # 36g (PR #268) did NOT hold: 6 more OOM kills on 11-02 (02:30Z-18:00Z),
+    # every one CONSTRAINT_MEMCG on tdarr-ffmpeg at anon-rss ~36.9-37.5 GB, i.e.
+    # AT the 36 GiB cap. The buffering was unbounded, so no cap would have held.
+    # The structural fix is PR #324 (merged 11-02 18:57Z): the DEE remux runs in
+    # two passes (0:V + new audio with -max_interleave_delta 0, then subs and
+    # chapters with the default interleave), so sparse streams can no longer
+    # force ffmpeg to buffer video. Since #324: 0 OOM kills; peak RSS 2.36 GiB
+    # and peak working set 3.45 GiB over ~35 h of the backlog drain (cAdvisor,
+    # read 2026-11-04). The last big RSS (23.4 GiB, 11-02 18:54-18:58Z) was the
+    # old one-pass remux, minutes before the merge.
+    #
+    # 2026-11-04: cap 36g -> 16g. Host kdk-dkr-01 has 47 GiB and 0 swap, so 36g
+    # left the rest of the host ~5 GB; 16g is ~4.5x the observed post-#324 peak
+    # and still bounds a future runaway well below host OOM. ContainerOOMKilled
+    # stays the backstop: a kill at 16g means a new unbounded-buffer bug, not a
+    # cap to raise. memswap_limit == mem_limit keeps swap off for the cgroup.
+    mem_limit: 16g
+    memswap_limit: 16g
     pids_limit: 4096
     environment:
       <<: *env
