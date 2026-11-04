@@ -86,13 +86,6 @@ def test_due_is_wednesday_before_the_plan_week(cfg):
     assert rem.startswith("2026-03-04T12:00")      # Wednesday noon
 
 
-def test_bulk_due_first_thursday_of_odd_month(cfg):
-    assert R.bulk_due(datetime.date(2026, 1, 1), cfg) is True    # Jan (odd), day 1
-    assert R.bulk_due(datetime.date(2026, 1, 15), cfg) is False  # odd month but 2nd+ week
-    assert R.bulk_due(datetime.date(2026, 2, 5), cfg) is False   # even month
-    assert R.bulk_due(datetime.date(2026, 3, 5), cfg) is True    # Mar (odd), first week
-
-
 def test_aggregate_ingredients_scales_and_sums():
     class E:
         def __init__(self, rid, servings):

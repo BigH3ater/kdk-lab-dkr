@@ -131,17 +131,18 @@ All in `config.yaml`:
   the Target list.
 - **Breakfast protein:** ready-to-drink shakes in "Weekly staples" — Chobani
   (7/wk, Target, weekly) + Jocko (7/wk) + Nurri (7/wk). Nurri routes to Costco
-  (bulk run, rounded to whole 12-packs). **Jocko's store is unconfirmed**; it
+  and is bought by hand (the Costco bulk run was dropped 2026-11-04; no list
+  carries it). **Jocko's store is unconfirmed**; it
   defaults to Target/weekly — *owner TODO: say where Jocko is bought* (set its
-  rule in `recipes/foods.yaml`; move to `Costco/bulk` if Costco carries it).
+  rule in `recipes/foods.yaml`; a `Costco/bulk` category keeps it off every list).
 - **Pets:** dog/pet food is a JustFoodForDogs subscription, budgeted in Actual
   and **not ordered here** — the config `exclude` list keeps any such item off
   every store list.
 - **Store routing:** `stores` and `recipes/foods.yaml` (per-food category; a
-  `pack_size` on a bulk rule drives ceil-rounding to whole packs). Move a food's
+  `pack_size` is kept on pack items but no run rounds with it since the bulk
+  run was dropped). Move a food's
   category once in Tandoor to override permanently.
-- **Cadence:** `cadence.bulk_weeks` (N), `bulk_first_week_only`,
-  `bulk_month_parity`; weekly times in `schedule` + `approvals.weekly`.
+- **Cadence:** weekly times in `schedule` + `approvals.weekly`.
 - **Owner review gate:** `require_owner_approval` (default on). The seed imports,
   and the generator uses, ONLY candidates with `approved: true` (or
   `owner_pick: true`). A candidate's owner state lives in the candidate YAML:
@@ -386,7 +387,7 @@ public rating, and demote dishes the household rates low (Phase 2).
   re-login loop.
 
 - **A scheduled run left no trace.** Query Loki
-  `{job="grocery-planner"}` (container `grocery-planner`, `-poll`, `-bulk`);
+  `{job="grocery-planner"}` (container `grocery-planner`, `-poll`);
   every run pushes its JSON lines there itself, plus a `run_error` line if it
   crashed. No lines at all means the container never started: check the
   Komodo update for the stack (pre_deploy / Compose Up). On kdk-dkr-01 the
@@ -394,8 +395,7 @@ public rating, and demote dishes the household rates low (Phase 2).
   **and** the four op keys (key names only:
   `sudo cut -d= -f1 /opt/kdk-lab/stacks/<stack>/stacks/grocery-planner/.env`).
   A `.env` with only the op keys means pre_deploy overwrote it again
-  (poll runs as a plain weekly pass; bulk collides with the weekly container
-  name). `loki push failed` on stderr means Loki was down; the stdout copy is
+  (poll runs as a plain weekly pass). `loki push failed` on stderr means Loki was down; the stdout copy is
   still in `docker logs grocery-planner<suffix>`.
 
 ## Rollback

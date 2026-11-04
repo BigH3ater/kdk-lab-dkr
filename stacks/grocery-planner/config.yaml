@@ -38,13 +38,6 @@ tandoor:
 cadence:
   timezone: "America/Chicago"
   plan_start_weekday: 6        # 6 = Sunday (Python weekday(): Mon=0..Sun=6)
-  bulk_weeks: 8                # N weeks of protein/pantry per bulk run
-  # The bulk procedure fires every Tuesday (unambiguous cron), but the job acts
-  # only on the FIRST Tuesday of an odd month = every two months (N=8). This
-  # gate lives in code so the schedule avoids cron's day-of-month/day-of-week OR
-  # ambiguity; off-weeks exit immediately.
-  bulk_first_week_only: true
-  bulk_month_parity: odd       # odd | even | any
 
 # Simplicity caps (owner defaults; all configurable). Applied as hard filters to
 # recipe candidates and respected by the generator when it builds the pool.
@@ -302,7 +295,9 @@ stores:
   order: [NewPi, Target, Costco, Amana, OConnell, Penzeys]
   # Which stores each run touches.
   weekly_stores: [NewPi, Target]
-  bulk_stores: [Costco]        # Amana beef is a separate reorder task (Phase 2 stub)
+  # Costco-routed foods (Nurri shakes, frozen-salmon fallback) are on no run's
+  # list since the Costco bulk run was dropped (owner 2026-11-04): bought by hand.
+  bulk_stores: [Costco]        # kept for the shoplist "bulk" cadence; no scheduled run
   # Freezer stock: bought in bulk ahead of time and kept frozen, so it is marked
   # on hand and never appears on a weekly list. Amana = the eighth beef share;
   # OConnell = O'Connell Organic Acres chicken breast + boneless pork chops
@@ -354,7 +349,6 @@ exclude:
 schedule:
   build: { weekday: tuesday,  time: "18:03" }   # plan + two-store list + approval task
   poll:  { weekday: thursday, time: "07:05" }   # read the decision; page shows approved lists
-  bulk:  { weekday: tuesday,  time: "18:09" }   # Costco bulk run (every 2 months)
 
 approvals:
   vikunja_url: "https://tasks.kmkdp.com"

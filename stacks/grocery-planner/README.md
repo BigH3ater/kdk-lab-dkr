@@ -43,7 +43,7 @@ python3 -m grocery.seed
 # owner seed (writes to Tandoor) -- after reviewing the candidates
 docker compose -f stacks/grocery-planner/compose.yaml run --rm grocery grocery.seed --apply
 
-# weekly build / poll / bulk are driven by the Komodo procedures (GROCERY_MODE/GROCERY_POLL)
+# weekly build / poll are driven by the Komodo procedures (GROCERY_MODE/GROCERY_POLL)
 ```
 
 Image built locally (`kdk/grocery-planner`); `komodo/resources.toml` sets

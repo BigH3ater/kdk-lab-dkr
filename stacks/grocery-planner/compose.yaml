@@ -1,7 +1,7 @@
 # grocery-planner: weekly meal-plan + shopping-list builder on kdk-dkr-01.
 #
-# One-shot job (deploy=false; run by the grocery-weekly / grocery-weekly-poll /
-# grocery-bulk procedures via destroy_before_deploy, like cloudflare-watch). It
+# One-shot job (deploy=false; run by the grocery-weekly / grocery-weekly-poll
+# procedures via destroy_before_deploy, like cloudflare-watch). It
 # logs into Tandoor (recipes.kmkdp.com, session auth -- the dashboard mealplan
 # sidecar's django-allauth pattern), generates next week's plan under the owner
 # rules, builds the New Pi + Target shopping list from the plan minus on-hand
@@ -10,11 +10,9 @@
 # approves per store. The grocery page (home.kmkdp.com/meal/groceries, served by
 # the dashboard sidecar) renders the lists and writes ticks back to Tandoor.
 #
-# Three Komodo stacks share this compose, distinguished by `environment`:
+# Two Komodo stacks share this compose, distinguished by `environment`:
 #   grocery-weekly       Tue 18:03  GROCERY_MODE=weekly             (plan + list + task)
 #   grocery-weekly-poll  Thu 07:05/12:05/17:05  GROCERY_POLL=1 GROCERY_SUFFIX=-poll (read decision)
-#   grocery-bulk         Tue 18:09  GROCERY_MODE=bulk GROCERY_SUFFIX=-bulk (Costco list;
-#                                   the job acts only the 1st Tuesday of an odd month)
 # Two one-shots can't share a container name on one host, so GROCERY_SUFFIX keeps
 # them distinct. Komodo writes `environment` to .env and pre_deploy APPENDS the
 # op-rendered secrets (.env.op), so .env carries both (never overwrite it).
