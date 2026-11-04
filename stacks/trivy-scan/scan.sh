@@ -36,7 +36,16 @@ for id in $ids; do
       --output "$OUT/$n.json" "$name" 2> "$OUT/$n.log"; then
     echo "level=error msg=\"scan failed\" image=$name"
     tail -n 3 "$OUT/$n.log"
-    : > "$OUT/$n.err"
+    # Diagnostic retry by local image ID (dkr-02 2026-11-02: 5 name@digest refs
+    # failed with "blobs/sha256/... not found in tar"). msg=retry_ok tells next
+    # week whether the reference form is the trigger.
+    if [ "$name" != "$id" ] && trivy image --image-src docker --scanners vuln --severity HIGH,CRITICAL \
+        --format json --quiet --timeout 20m --skip-version-check --disable-telemetry \
+        --output "$OUT/$n.json" "$id" 2>> "$OUT/$n.log"; then
+      echo "level=info msg=retry_ok by=image_id image=$name"
+    else
+      : > "$OUT/$n.err"
+    fi
   fi
 done
 echo "$n" > "$OUT/done"

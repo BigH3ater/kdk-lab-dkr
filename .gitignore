@@ -15,3 +15,5 @@ docs/security/
 workout-guide-dist/
 stacks/dashboard/guides/workout.html
 stacks/dashboard/guides/exercise/
+# trivy-scan: 1000:1000 copy of /etc/kdk/pushover.env (pre_deploy; host clone only)
+stacks/trivy-scan/pushover.env

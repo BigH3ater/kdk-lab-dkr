@@ -6,7 +6,7 @@ tier: infra
 status: live
 storage: yes
 secrets: []
-updated: 2026-10-30
+updated: 2026-11-04
 tags: [homelab/stack, tier/infra, status/live, security]
 ---
 
@@ -44,6 +44,9 @@ sudo docker ps -a --filter name=trivy-scan --format '{{.Names}} {{.Status}}'   #
 | `scan_exit` non-zero / report exit 1 | the scan container failed (DB download, proxy unreachable) | `docker logs trivy-scan` |
 | Pull denied on kdk-mon-01 | Docker Hub rate limit on the Pi | `docker pull aquasec/trivy:0.76.1` by hand once |
 | Disk fills during the run | trivy exports each image under `/cache/tmp` (volume) | `docker system df -v \| grep trivy` |
+| dmz-01 `loki push failed ... timed out` | DOCKER-USER drops `trivy-scan-report` → `10.1.20.21:3100` (`kdk-du-drop` in `journalctl -k`); needs the `allow_ctr trivy-scan-report` line installed on dmz-01 | `sudo iptables-nft -S DOCKER-USER \| grep 3100` while the report runs |
+| `pushover failed [Errno 13] ... /pushover.env` | the mount is not the pre_deploy copy (`./pushover.env`, 0400 1000:1000) | `stat -c '%a %u' <run dir>/pushover.env` |
+| `scan failed ... blobs/sha256/... not found in tar` (dkr-02) | the daemon's image export lacked a blob that is in the containerd store; root cause open | look for `msg=retry_ok by=image_id` in `docker logs trivy-scan` |
 | Proxy still running | `report` never started; proxy stops itself after 3 h | `docker logs trivy-scan-proxy` |
 
 ## Dependencies
@@ -58,13 +61,14 @@ sudo docker ps -a --filter name=trivy-scan --format '{{.Names}} {{.Status}}'   #
 | Path / setting | What it is |
 |---|---|
 | `stacks/trivy-scan/scan.sh` | lists running images via the proxy, `trivy image --image-src docker --scanners vuln --severity HIGH,CRITICAL` (no `--ignore-unfixed`: totals and fixable counts both reported) |
-| `stacks/trivy-scan/report.py` | summariser, Loki push, Pushover only if the push fails (`PUSHOVER_MODE=always` to always send) |
+| `stacks/trivy-scan/report.py` | summariser, Loki push (retried for `LOKI_RETRY_SECONDS`, default 360, so dmz-01's 5-min DOCKER-USER timer can add the rule), Pushover only if the push fails (`PUSHOVER_MODE=always` to always send) |
+| Komodo `pre_deploy` | `install -m 0400 -o 1000 -g 1000 /etc/kdk/pushover.env pushover.env` (report runs as 1000:1000) |
 | `stacks/trivy-scan/proxy.sh` | runs haproxy, exits after `trivy-scan-report` exits |
 | Komodo `environment` | `NODE_NAME`, `LOKI_URL` per host |
 
 ## Secret Rotation
 
-None. Pushover creds come from `/etc/kdk/pushover.env` (lab-wide, see [[observability]]).
+None. Pushover creds come from `/etc/kdk/pushover.env` (lab-wide, see [[observability]]), copied per run into the stack dir as `pushover.env` (0400, uid 1000, gitignored).
 
 ## User Guide
 
