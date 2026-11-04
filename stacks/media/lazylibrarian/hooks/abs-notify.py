@@ -67,17 +67,22 @@ def argv_to_dict(argv: list) -> dict:
     return out
 
 
-def parse_series(series_display: str):
+def parse_series(series_display: str, title: str = ""):
     """
     Parse LazyLibrarian's SeriesDisplay (built from the configured Series
     Pattern) into (name, index). SeriesDisplay holds the formatted series, may
-    list several series separated by '<br>' -- take the first -- and typically
-    looks like 'Expeditionary Force #6'. Degrade gracefully: if no number is
-    found, return (name, "") so ABS still gets the series name.
+    list several series separated by '<br>' -- take the first one in the
+    title's script (skip a CJK/Cyrillic foreign-edition series on an English
+    title) -- and typically looks like 'Expeditionary Force #6'. Degrade
+    gracefully: if no number is found, return (name, "") so ABS still gets the
+    series name.
     """
     if not series_display:
         return ("", "")
-    first = series_display.split("<br>")[0].strip()
+    parts = [p.strip() for p in series_display.split("<br>") if p.strip()]
+    if not is_foreign_script(title):
+        parts = [p for p in parts if not is_foreign_script(p)]
+    first = parts[0] if parts else ""
     # LazyLibrarian passes a missing value as the literal string "None"
     # (str(None)); seen on A Game of Thrones, 2026-11-02.
     if not first or first.lower() in ("none", "null"):
@@ -92,13 +97,82 @@ def parse_series(series_display: str):
     return (first, "")
 
 
-def series_from_db(book_id: str):
+_DISC_DIR_RE = re.compile(r"^(?:cd|disc|disk|part|pt)[\s._-]*\d+$", re.I)
+
+
+def is_foreign_script(text: str) -> bool:
+    """True if `text` has letters outside the Latin script (CJK, Cyrillic,
+    Greek, Arabic, ...). Latin with accents (Brené, Führung) is not foreign."""
+    for ch in text or "":
+        if ch.isalpha():
+            cp = ord(ch)
+            if cp > 0x024F and not (0x1E00 <= cp <= 0x1EFF):
+                return True
+    return False
+
+
+def _num_ok(num) -> bool:
+    try:
+        float(str(num).strip())
+        return True
+    except (TypeError, ValueError):
+        return False
+
+
+def pick_series(rows: list, title: str = ""):
+    """
+    Choose the series to write for a book from its LazyLibrarian `member` rows.
+
+    `rows` items: (SeriesName, SeriesNum, SeriesStatus, Total, own, rowid),
+    where `own` is 1 when the series is linked to the book's own author
+    (seriesauthors). The first row by rowid is NOT good enough: Hardcover
+    attaches foreign-edition and split-volume series too (A Feast for Crows,
+    2026-11-03: only member row = "冰與火之歌 Split-Volume edition" #4.2), so
+    the OPF could carry the wrong series and number. Ranking, strongest first:
+      1. the series is not Ignored in LazyLibrarian;
+      2. its name is in the same script as the title (a CJK/Cyrillic series on
+         an English title is a foreign edition) -- rows that fail this are
+         dropped entirely, so a book whose only series is foreign gets no OPF
+         and Audiobookshelf falls back to the folder layout;
+      3. the series belongs to the book's own author;
+      4. it has a numeric position;
+      5. the bigger series (Total) -- the main series, not a 1-book offshoot;
+      6. then the earliest row.
+    Returns (name, index) or ("", "").
+    """
+    title_foreign = is_foreign_script(title)
+    best = None
+    best_key = None
+    for name, num, status, total, own, rowid in rows:
+        name = str(name or "").strip()
+        if not name or name.lower() in ("none", "null"):
+            continue
+        if not title_foreign and is_foreign_script(name):
+            continue
+        try:
+            total_n = int(total or 0)
+        except (TypeError, ValueError):
+            total_n = 0
+        key = (
+            str(status or "").lower() != "ignored",
+            bool(own),
+            _num_ok(num),
+            total_n,
+            -(rowid or 0),
+        )
+        if best_key is None or key > best_key:
+            best_key = key
+            best = (name, "" if num in (None, "", "None") else str(num).strip())
+    return best or ("", "")
+
+
+def series_from_db(book_id: str, title: str = ""):
     """
     SeriesDisplay is often still empty at import time even when LazyLibrarian
     knows the series: Hardcover-sourced books get member/series rows straight
     away (seen 2026-11-02: Columbus Day = member HC1086 #1, SeriesDisplay NULL).
-    Read the first series for this BookID from LazyLibrarian's own database,
-    read-only. LL_DB overrides the path.
+    Read every series row for this BookID from LazyLibrarian's own database,
+    read-only, and let pick_series() choose. LL_DB overrides the path.
     """
     if not book_id:
         return ("", "")
@@ -106,22 +180,39 @@ def series_from_db(book_id: str):
     try:
         con = sqlite3.connect(f"file:{db}?mode=ro", uri=True, timeout=5)
         try:
-            row = con.execute(
-                "SELECT s.SeriesName, m.SeriesNum FROM member m "
-                "JOIN series s ON s.SeriesID = m.SeriesID "
-                "WHERE m.BookID = ? ORDER BY m.rowid LIMIT 1",
+            rows = con.execute(
+                "SELECT s.SeriesName, m.SeriesNum, s.Status, s.Total, "
+                "EXISTS (SELECT 1 FROM seriesauthors sa JOIN books b "
+                "        ON b.AuthorID = sa.AuthorID "
+                "        WHERE sa.SeriesID = s.SeriesID AND b.BookID = m.BookID), "
+                "m.rowid "
+                "FROM member m JOIN series s ON s.SeriesID = m.SeriesID "
+                "WHERE m.BookID = ?",
                 (book_id,),
-            ).fetchone()
+            ).fetchall()
         finally:
             con.close()
     except Exception as e:  # noqa: BLE001
         log(f"series lookup in {db} failed: {type(e).__name__}: {e}")
         return ("", "")
-    if not row or not row[0]:
-        return ("", "")
-    name = str(row[0]).strip()
-    num = "" if row[1] in (None, "", "None") else str(row[1]).strip()
-    return ("", "") if name.lower() in ("none", "null") else (name, num)
+    return pick_series(rows, title)
+
+
+def book_folder(audio_file: str) -> str:
+    """
+    The audiobook's top-level folder (Author/[Series/]Title). LazyLibrarian's
+    AudioFile is the first audio file, which for a multi-disc release sits in
+    Title/CD1/ -- an OPF there is invisible to Audiobookshelf, which reads
+    metadata.opf beside the book folder's audio. Step up past CD1 / Disc 2 /
+    Part 03 style folders.
+    """
+    folder = os.path.dirname(audio_file) if audio_file else ""
+    while folder and _DISC_DIR_RE.match(os.path.basename(folder)):
+        parent = os.path.dirname(folder)
+        if not parent or parent == folder:
+            break
+        folder = parent
+    return folder
 
 
 def build_opf(title: str, author: str, series: str, index: str) -> str:
@@ -199,7 +290,7 @@ def main() -> int:
         return 0
 
     audio_file = data.get("AudioFile") or ""
-    folder = os.path.dirname(audio_file) if audio_file else ""
+    folder = book_folder(audio_file)
     title = data.get("BookName") or ""
     # The books row has no AuthorName (AuthorID only); fall back to the
     # library layout Author/[Series/]Title -> first path segment.
@@ -208,9 +299,9 @@ def main() -> int:
         rel = os.path.relpath(folder, os.environ.get("ABS_AUDIO_ROOT", "/data/media/books/audiobook"))
         if not rel.startswith(".."):
             author = rel.split(os.sep)[0]
-    series, index = parse_series(data.get("SeriesDisplay") or "")
+    series, index = parse_series(data.get("SeriesDisplay") or "", title)
     if not series:
-        series, index = series_from_db(data.get("BookID") or "")
+        series, index = series_from_db(data.get("BookID") or "", title)
 
     try:
         write_opf(folder, title, author, series, index)

@@ -16,8 +16,12 @@ logger = logging.getLogger(__name__)
 #   2. search_books()/lookup_by_isbn() rank results best-first so create_request
 #      and the add_book fallback (both take results[0]) stop grabbing the box
 #      set / bundle that LazyLibrarian+Hardcover tends to return first.
+#   3. add_book checks the addBook/queueBook replies (HTTP 200 carries errors
+#      too), skips queueBook for a book already owned in that format (queueBook
+#      would flip Open -> Wanted and re-download it), and calls searchBook
+#      after queueBook so a request searches now, not at the next 6-hourly run.
 # Everything else is byte-identical to upstream. Drop this patch once upstream
-# fixes both issues.
+# fixes these issues.
 
 # Titles that are collections/box sets rather than the single requested book.
 _BUNDLE_PATTERNS = [
@@ -107,6 +111,24 @@ def rank_books(records: list, query: str) -> list:
         return records
     query_norm = _normalize_title(query)
     return sorted(records, key=lambda r: _score_record(r, query_norm), reverse=True)
+
+
+def _reply_ok(result) -> bool:
+    """True when a LazyLibrarian addBook/queueBook reply means success.
+
+    The API returns HTTP 200 either way: addBook answers JSON true/false,
+    queueBook the text "OK" or "Invalid id: <id>", and API errors a dict with
+    "Success": false."""
+    if result is True:
+        return True
+    if result is False or result is None:
+        return False
+    if isinstance(result, dict):
+        return result.get("Success") is not False and not result.get("Error")
+    if isinstance(result, str):
+        t = result.strip().lower()
+        return t in ("ok", "true") or t.startswith("ok")
+    return bool(result)
 # ─── end LOCAL PATCH ──────────────────────────────────────────────────────────
 
 
@@ -241,17 +263,61 @@ class LazyLibrarianClient:
         # books). wait=1 makes LazyLibrarian finish the add first.
         add_result = self._get("addBook", id=book_id, wait=1)
         logger.info("addBook result: %s", add_result)
+        # LOCAL PATCH: LazyLibrarian answers HTTP 200 for failures too (addBook
+        # -> false, queueBook -> "Invalid id: <id>"), so check the replies
+        # instead of reporting every request as queued.
+        if not _reply_ok(add_result):
+            raise ValueError(f"LazyLibrarian addBook failed for '{title}' (id={book_id}): {add_result}")
+
+        # LOCAL PATCH: never set Wanted on a book LazyLibrarian already has in
+        # this format -- queueBook flips an Open (owned) book to Wanted and the
+        # next search downloads it again.
+        if self._already_have(book_id):
+            logger.info("'%s' (id=%s) is already in the %s library; not queueing",
+                        title, book_id, self.queue_type)
+            return {"id": book_id, "title": title, "foreignBookId": book_id,
+                    "already_available": True}
 
         # Mark the book as wanted to trigger a search
         # LOCAL PATCH: honour self.queue_type (AudioBook vs eBook); see module header.
         queue_result = self._get("queueBook", id=book_id, type=self.queue_type)
         logger.info("queueBook result: %s", queue_result)
+        if not _reply_ok(queue_result):
+            raise ValueError(f"LazyLibrarian queueBook failed for '{title}' (id={book_id}): {queue_result}")
+
+        # LOCAL PATCH: queueBook only sets the status; nothing searches until the
+        # 6-hourly scheduled Book search. searchBook (no wait: it runs in the
+        # background and answers OK at once) makes the request search now. A
+        # failure here is logged, not raised: the book is Wanted either way.
+        try:
+            search_result = self._get("searchBook", id=book_id, type=self.queue_type)
+            logger.info("searchBook result: %s", search_result)
+        except Exception as e:  # noqa: BLE001
+            logger.warning("searchBook for '%s' (id=%s) failed: %s", title, book_id, e)
 
         return {
             "id": book_id,
             "title": title,
             "foreignBookId": book_id,
         }
+
+    def _already_have(self, book_id: str) -> bool:
+        """LOCAL PATCH: True if LazyLibrarian already owns this book in
+        self.queue_type's format (status Open or Have). Any lookup error counts
+        as 'not owned' so a request is never silently dropped."""
+        field = "audiostatus" if self.queue_type == "AudioBook" else "status"
+        for status in ("Open", "Have"):
+            try:
+                rows = self._get("getAllBooks", **{field: status})
+            except Exception as e:  # noqa: BLE001
+                logger.warning("getAllBooks %s=%s failed: %s", field, status, e)
+                return False
+            if isinstance(rows, list) and any(
+                str(r.get("BookID", r.get("bookid", ""))) == str(book_id)
+                for r in rows if isinstance(r, dict)
+            ):
+                return True
+        return False
 
     def get_queue(self) -> list:
         """Get wanted books (equivalent to a download queue)."""

@@ -10,7 +10,10 @@ stubbed so retries do not wait. Run from anywhere:
 
 Covers:
   * success (status 0)      -> exactly one forceProcess call, with the right URL;
-  * failure status (3)      -> no call at all;
+  * failure status (3)      -> no immediate call; a detached follow-up is
+                               scheduled (fork mocked) so LazyLibrarian marks
+                               the snatch Failed and the book Wanted again;
+  * {"Success": false} reply -> failure, not retried, no "requested" line;
   * HTTP error              -> retried RETRIES times, then main() exits cleanly
                                (the module always exits 0 for SABnzbd);
   * 401 (bad key)           -> one call, not retried.
@@ -32,10 +35,11 @@ llp = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(llp)
 
 
-def _ok_response(status=200):
+def _ok_response(status=200, body=b"OK"):
     """A context-manager stand-in for urlopen()'s return value."""
     resp = mock.MagicMock()
     resp.status = status
+    resp.read.return_value = body
     resp.__enter__.return_value = resp
     resp.__exit__.return_value = False
     return resp
@@ -86,19 +90,86 @@ class SuccessCallsForceProcess(unittest.TestCase):
         self.assertNotIn("secret-key", last_line)  # key never printed
 
 
-class FailureStatusSkips(unittest.TestCase):
-    def test_no_call_when_status_nonzero(self):
-        with mock.patch.object(llp.urllib.request, "urlopen") as uo:
+class FailureStatusSchedulesFollowup(unittest.TestCase):
+    def test_no_immediate_call_but_followup_scheduled(self):
+        with mock.patch.object(llp.urllib.request, "urlopen") as uo, \
+             mock.patch.object(llp, "schedule_failed_followup",
+                               return_value=True) as sched:
             with redirect_stdout(io.StringIO()) as out:
-                llp.main(_argv(3), ENV_OK)
-        uo.assert_not_called()
-        self.assertIn("skipping forceProcess", out.getvalue())
+                llp.main(_argv(1), {**ENV_OK, "LL_FAIL_DELAY": "5"})
+        uo.assert_not_called()  # SABnzbd history isn't written yet
+        sched.assert_called_once_with("http://lazylibrarian:5299", "secret-key", 5)
+        last_line = out.getvalue().strip().splitlines()[-1]
+        self.assertIn("returns to Wanted", last_line)
+        self.assertNotIn("secret-key", last_line)
+
+    def test_fork_parent_returns_immediately(self):
+        with mock.patch.object(llp.os, "fork", return_value=4242) as fk, \
+             mock.patch.object(llp, "force_process") as fp:
+            self.assertTrue(llp.schedule_failed_followup("http://x", "k", 90))
+        fk.assert_called_once()
+        fp.assert_not_called()  # only the child calls LazyLibrarian
+
+    def test_fork_child_waits_then_calls(self):
+        with mock.patch.object(llp.os, "fork", return_value=0), \
+             mock.patch.object(llp.os, "setsid"), \
+             mock.patch.object(llp.os, "open", return_value=99), \
+             mock.patch.object(llp.os, "dup2"), \
+             mock.patch.object(llp.time, "sleep") as slept, \
+             mock.patch.object(llp, "force_process") as fp, \
+             mock.patch.object(llp.os, "_exit", side_effect=SystemExit) as ex:
+            with self.assertRaises(SystemExit):
+                llp.schedule_failed_followup("http://x", "k", 90)
+        slept.assert_called_once_with(90)
+        fp.assert_called_once_with("http://x", "k")
+        ex.assert_called_once_with(0)
+
+    def test_fork_error_is_reported_not_raised(self):
+        with mock.patch.object(llp.os, "fork", side_effect=OSError), \
+             redirect_stdout(io.StringIO()) as out:
+            llp.main(_argv(2), ENV_OK)
+        self.assertIn("PostProcessor will catch it", out.getvalue())
+
+    def test_bad_delay_falls_back(self):
+        self.assertEqual(llp.fail_delay({"LL_FAIL_DELAY": "x"}), llp.FAIL_DELAY)
+        self.assertEqual(llp.fail_delay({}), llp.FAIL_DELAY)
 
     def test_no_call_when_creds_missing(self):
-        with mock.patch.object(llp.urllib.request, "urlopen") as uo:
+        with mock.patch.object(llp.urllib.request, "urlopen") as uo, \
+             mock.patch.object(llp, "schedule_failed_followup") as sched:
             with redirect_stdout(io.StringIO()):
                 llp.main(_argv(0), {"LL_URL": "http://lazylibrarian:5299"})  # no key
+                llp.main(_argv(1), {"LL_URL": "http://lazylibrarian:5299"})
         uo.assert_not_called()
+        sched.assert_not_called()
+
+
+class ErrorReplyIsFailure(unittest.TestCase):
+    BODY = b'{"Success": false, "Data": "", "Error": {"Code": 405, "Message": "Method not allowed"}}'
+
+    def test_success_false_is_failure_not_retried(self):
+        with mock.patch.object(llp.urllib.request, "urlopen",
+                               return_value=_ok_response(200, self.BODY)) as uo, \
+             mock.patch.object(llp.time, "sleep"):
+            ok, detail = llp.force_process("http://lazylibrarian:5299", "k")
+        self.assertFalse(ok)
+        self.assertEqual(uo.call_count, 1)
+        self.assertIn("405", detail)
+
+    def test_main_reports_failed(self):
+        with mock.patch.object(llp.urllib.request, "urlopen",
+                               return_value=_ok_response(200, self.BODY)):
+            with redirect_stdout(io.StringIO()) as out:
+                llp.main(_argv(0), ENV_OK)
+        last_line = out.getvalue().strip().splitlines()[-1]
+        self.assertIn("FAILED", last_line)
+        self.assertNotIn("requested", last_line)
+
+    def test_reply_error_variants(self):
+        self.assertIsNone(llp.reply_error("OK"))
+        self.assertIsNone(llp.reply_error('{"Success": true}'))
+        self.assertIsNone(llp.reply_error("[1, 2]"))
+        self.assertIn("405", llp.reply_error(self.BODY.decode()))
 
 
 class HttpErrorRetries(unittest.TestCase):
