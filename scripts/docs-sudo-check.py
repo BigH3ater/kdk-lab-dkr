@@ -15,7 +15,7 @@ import re
 import sys
 from pathlib import Path
 
-CMD = re.compile(r"(?<![\w./-])docker (exec|logs|inspect|ps|run|compose|network|images|info|stop|start|restart|rm)\b")
+CMD = re.compile(r"(?<![\w./-])docker (exec|logs|inspect|ps|run|compose|network|images|info|top|stats|events|cp|volume|stop|start|restart|rm)\b")
 SUDO = re.compile(r"sudo (-n )?docker \w+$")
 SSH = re.compile(r"ssh [^`]*?['\"][^`]*?docker ")
 

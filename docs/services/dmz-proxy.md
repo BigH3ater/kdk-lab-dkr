@@ -6,7 +6,7 @@ tier: dmz
 status: live
 storage: yes
 secrets: [cloudflare-dns-acme-hosts, cloudflare-tunnel-credentials]
-updated: 2026-11-04
+updated: 2026-10-28
 tags: [homelab/stack, tier/dmz, status/live]
 ---
 

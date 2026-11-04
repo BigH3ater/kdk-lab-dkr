@@ -6,7 +6,7 @@ tier: internal
 status: live
 storage: yes
 secrets: [readwise-token-ro, remarkable-device]
-updated: 2026-11-04
+updated: 2026-10-30
 tags: [homelab/service, tier/internal, status/live, books, remarkable]
 ---
 
@@ -64,7 +64,6 @@ ssh kdkadmin@10.1.20.30 "curl -sG http://10.1.20.21:3100/loki/api/v1/query_range
   --data-urlencode 'query=sum by (status) (count_over_time({container=\"readwise-koreader\"} |= \"status\" | json [7d]))' \
   --data-urlencode \"start=\$(date -d '-1 hour' +%s)000000000\" --data-urlencode 'step=3600'" | head -c 300
 #   one series per status: {"status":"ok"} and {"status":"skip"} with their 7-day counts
-# from a laptop with op, dry list against the live API (counts + titles only):
 # from a laptop with op, dry list against the live API (counts + titles only):
 READWISE_TOKEN="$(op read op://kdk-cluster/readwise-token-ro/credential)" \
   python3 - <<'PY'

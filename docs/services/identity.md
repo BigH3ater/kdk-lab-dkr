@@ -35,7 +35,7 @@ Single sign-on for every `*.kmkdp.com` service; lives on the DMZ node so authent
 curl -s -o /dev/null -w '%{http_code}\n' https://sso.kmkdp.com/     # 200
 curl -s https://sso.kmkdp.com/api/health                           # {"status":"OK"}
 sudo docker exec authelia-postgres pg_isready -U authelia               # accepting connections
-docker top authelia -eo uid,comm                                   # 8091 authelia (never 0)
+sudo docker top authelia -o pid,uid,comm                           # UID 8091 authelia (never 0)
 curl -s -o /dev/null -w '%{http_code}\n' https://users.kmkdp.com/   # 302 -> sso.kmkdp.com
 curl -s https://radarr.kmkdp.com/ping                              # {"status":"OK"} without a session
 sudo docker exec jellyfin nc -zvw2 lldap.kmkdp.com 6360                 # open (identity_ldap)

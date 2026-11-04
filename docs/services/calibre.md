@@ -38,8 +38,10 @@ exposure as the legacy raw `:8081`).
 ```bash
 ssh kdkadmin@10.1.20.20 'sudo docker ps --filter name=calibre --format "{{.Names}} {{.Status}}"'   # both Up (healthy)
 curl -s -o /dev/null -w '%{http_code}\n' https://calibre.kmkdp.com/opds                        # 200 (no SSO redirect)
-# served catalog size (through the server) == books on disk; they must match:
-ssh kdkadmin@10.1.20.20 'sudo docker exec calibre-server calibredb --with-library http://localhost:8081/ list | tail -n +2 | wc -l'
+# books served (through the server) == books in the library database; they must match:
+ssh kdkadmin@10.1.20.20 'sudo docker exec calibre-server calibredb --with-library http://localhost:8081/ list -f id | tail -n +2 | grep -c "[0-9]"'
+ssh kdkadmin@10.1.20.20 'sudo python3 -c "import sqlite3;print(sqlite3.connect(\"file:/opt/kdk-lab/calibre/library/metadata.db?mode=ro\",uri=True).execute(\"select count(*) from books\").fetchone()[0])"'
+#   both 34 on 2026-11-04 (plain `list | wc -l` over-counts: long titles wrap onto extra lines)
 ```
 
 ## Troubleshooting

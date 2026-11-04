@@ -6,7 +6,7 @@ tier: internal
 status: live
 storage: yes
 secrets: [lazylibrarian-api, audiobookshelf-api-root]
-updated: 2026-11-04
+updated: 2026-11-03
 tags: [homelab/stack, tier/internal, status/live]
 ---
 
