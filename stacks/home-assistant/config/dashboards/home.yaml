@@ -214,7 +214,7 @@ views:
       - type: cover-open-close
       - type: cover-position
     - type: button
-      name: Vacuum Bedroom 1
+      name: Vacuum West Bedroom
       icon: mdi:robot-vacuum
       show_state: false
       tap_action:

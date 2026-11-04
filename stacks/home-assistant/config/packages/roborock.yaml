@@ -11,7 +11,7 @@ input_button:
   # --- per-room clean (segment ids in comments) ---
   rr_clean_master_bedroom_closet: { name: "Clean Master Bedroom Closet", icon: mdi:robot-vacuum }   # seg 1
   rr_clean_master_bedroom:        { name: "Clean Master Bedroom", icon: mdi:robot-vacuum }           # seg 2
-  rr_clean_bedroom_1:             { name: "Clean Bedroom 1", icon: mdi:robot-vacuum }                 # seg 3
+  rr_clean_bedroom_1:             { name: "Clean West Bedroom", icon: mdi:robot-vacuum }                 # seg 3
   rr_clean_master_bathroom:       { name: "Clean Master Bathroom", icon: mdi:robot-vacuum }           # seg 4
   rr_clean_bathroom_1:            { name: "Clean Bathroom 1", icon: mdi:robot-vacuum }                # seg 5
   rr_clean_garage_entrance:       { name: "Clean Garage Entrance", icon: mdi:robot-vacuum }           # seg 6
@@ -41,7 +41,7 @@ input_datetime:
   # stale internal room names and is not trustworthy)
   rr_last_clean_master_bedroom_closet: { name: "Last Clean Master Bedroom Closet", has_date: true, has_time: true }
   rr_last_clean_master_bedroom:        { name: "Last Clean Master Bedroom", has_date: true, has_time: true }
-  rr_last_clean_bedroom_1:             { name: "Last Clean Bedroom 1", has_date: true, has_time: true }
+  rr_last_clean_bedroom_1:             { name: "Last Clean West Bedroom", has_date: true, has_time: true }
   rr_last_clean_master_bathroom:       { name: "Last Clean Master Bathroom", has_date: true, has_time: true }
   rr_last_clean_bathroom_1:            { name: "Last Clean Bathroom 1", has_date: true, has_time: true }
   rr_last_clean_garage_entrance:       { name: "Last Clean Garage Entrance", has_date: true, has_time: true }
