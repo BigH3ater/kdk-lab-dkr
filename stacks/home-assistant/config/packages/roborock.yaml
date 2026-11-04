@@ -118,8 +118,13 @@ command_line:
         - open
       scan_interval: 900
 
-# Days since the last weekly water-tank swap (dashboard). Unavailable until the
-# first swap is recorded.
+# Dashboard / alert helpers (template sensors):
+# - rr_tank_swap_age: days since the last weekly water-tank swap; unavailable
+#   until the first swap is recorded.
+# - rr_room_<room>_cleaned: the Node-RED last-clean stamp as a timestamp sensor
+#   (the tile then shows "2 days ago"), attribute `at` = the exact time. Not
+#   last_changed: every HA restart resets that.
+# - rr_vacuum_error: the robot error in words + advice {kind, title, fix}.
 template:
   - sensor:
       - name: rr_tank_swap_age
@@ -128,6 +133,211 @@ template:
         icon: mdi:cup-water
         availability: "{{ state_attr('input_datetime.rr_last_tank_swap', 'timestamp') | float(0) > 946684800 }}"
         state: "{{ ((now().timestamp() - state_attr('input_datetime.rr_last_tank_swap', 'timestamp') | float(0)) / 86400) | round(1) }}"
+      - name: rr_room_master_bedroom_cleaned
+        unique_id: rr_room_master_bedroom_cleaned
+        device_class: timestamp
+        icon: mdi:bed-king
+        availability: "{{ state_attr('input_datetime.rr_last_clean_master_bedroom', 'timestamp') | float(0) > 946684800 }}"
+        state: "{{ (state_attr('input_datetime.rr_last_clean_master_bedroom', 'timestamp') | float(0) | as_datetime | as_local).isoformat() }}"
+        attributes:
+          at: "{{ state_attr('input_datetime.rr_last_clean_master_bedroom', 'timestamp') | float(0) | timestamp_custom('%a %b %-d %H:%M') }}"
+      - name: rr_room_master_bedroom_closet_cleaned
+        unique_id: rr_room_master_bedroom_closet_cleaned
+        device_class: timestamp
+        icon: mdi:hanger
+        availability: "{{ state_attr('input_datetime.rr_last_clean_master_bedroom_closet', 'timestamp') | float(0) > 946684800 }}"
+        state: "{{ (state_attr('input_datetime.rr_last_clean_master_bedroom_closet', 'timestamp') | float(0) | as_datetime | as_local).isoformat() }}"
+        attributes:
+          at: "{{ state_attr('input_datetime.rr_last_clean_master_bedroom_closet', 'timestamp') | float(0) | timestamp_custom('%a %b %-d %H:%M') }}"
+      - name: rr_room_master_bathroom_cleaned
+        unique_id: rr_room_master_bathroom_cleaned
+        device_class: timestamp
+        icon: mdi:bathtub
+        availability: "{{ state_attr('input_datetime.rr_last_clean_master_bathroom', 'timestamp') | float(0) > 946684800 }}"
+        state: "{{ (state_attr('input_datetime.rr_last_clean_master_bathroom', 'timestamp') | float(0) | as_datetime | as_local).isoformat() }}"
+        attributes:
+          at: "{{ state_attr('input_datetime.rr_last_clean_master_bathroom', 'timestamp') | float(0) | timestamp_custom('%a %b %-d %H:%M') }}"
+      - name: rr_room_bedroom_1_cleaned
+        unique_id: rr_room_bedroom_1_cleaned
+        device_class: timestamp
+        icon: mdi:bed
+        availability: "{{ state_attr('input_datetime.rr_last_clean_bedroom_1', 'timestamp') | float(0) > 946684800 }}"
+        state: "{{ (state_attr('input_datetime.rr_last_clean_bedroom_1', 'timestamp') | float(0) | as_datetime | as_local).isoformat() }}"
+        attributes:
+          at: "{{ state_attr('input_datetime.rr_last_clean_bedroom_1', 'timestamp') | float(0) | timestamp_custom('%a %b %-d %H:%M') }}"
+      - name: rr_room_bathroom_1_cleaned
+        unique_id: rr_room_bathroom_1_cleaned
+        device_class: timestamp
+        icon: mdi:shower
+        availability: "{{ state_attr('input_datetime.rr_last_clean_bathroom_1', 'timestamp') | float(0) > 946684800 }}"
+        state: "{{ (state_attr('input_datetime.rr_last_clean_bathroom_1', 'timestamp') | float(0) | as_datetime | as_local).isoformat() }}"
+        attributes:
+          at: "{{ state_attr('input_datetime.rr_last_clean_bathroom_1', 'timestamp') | float(0) | timestamp_custom('%a %b %-d %H:%M') }}"
+      - name: rr_room_rachels_office_cleaned
+        unique_id: rr_room_rachels_office_cleaned
+        device_class: timestamp
+        icon: mdi:desk
+        availability: "{{ state_attr('input_datetime.rr_last_clean_rachels_office', 'timestamp') | float(0) > 946684800 }}"
+        state: "{{ (state_attr('input_datetime.rr_last_clean_rachels_office', 'timestamp') | float(0) | as_datetime | as_local).isoformat() }}"
+        attributes:
+          at: "{{ state_attr('input_datetime.rr_last_clean_rachels_office', 'timestamp') | float(0) | timestamp_custom('%a %b %-d %H:%M') }}"
+      - name: rr_room_hallway_cleaned
+        unique_id: rr_room_hallway_cleaned
+        device_class: timestamp
+        icon: mdi:door-open
+        availability: "{{ state_attr('input_datetime.rr_last_clean_hallway', 'timestamp') | float(0) > 946684800 }}"
+        state: "{{ (state_attr('input_datetime.rr_last_clean_hallway', 'timestamp') | float(0) | as_datetime | as_local).isoformat() }}"
+        attributes:
+          at: "{{ state_attr('input_datetime.rr_last_clean_hallway', 'timestamp') | float(0) | timestamp_custom('%a %b %-d %H:%M') }}"
+      - name: rr_room_living_room_cleaned
+        unique_id: rr_room_living_room_cleaned
+        device_class: timestamp
+        icon: mdi:sofa
+        availability: "{{ state_attr('input_datetime.rr_last_clean_living_room', 'timestamp') | float(0) > 946684800 }}"
+        state: "{{ (state_attr('input_datetime.rr_last_clean_living_room', 'timestamp') | float(0) | as_datetime | as_local).isoformat() }}"
+        attributes:
+          at: "{{ state_attr('input_datetime.rr_last_clean_living_room', 'timestamp') | float(0) | timestamp_custom('%a %b %-d %H:%M') }}"
+      - name: rr_room_kitchen_cleaned
+        unique_id: rr_room_kitchen_cleaned
+        device_class: timestamp
+        icon: mdi:silverware-fork-knife
+        availability: "{{ state_attr('input_datetime.rr_last_clean_kitchen', 'timestamp') | float(0) > 946684800 }}"
+        state: "{{ (state_attr('input_datetime.rr_last_clean_kitchen', 'timestamp') | float(0) | as_datetime | as_local).isoformat() }}"
+        attributes:
+          at: "{{ state_attr('input_datetime.rr_last_clean_kitchen', 'timestamp') | float(0) | timestamp_custom('%a %b %-d %H:%M') }}"
+      - name: rr_room_front_door_entry_cleaned
+        unique_id: rr_room_front_door_entry_cleaned
+        device_class: timestamp
+        icon: mdi:door
+        availability: "{{ state_attr('input_datetime.rr_last_clean_front_door_entry', 'timestamp') | float(0) > 946684800 }}"
+        state: "{{ (state_attr('input_datetime.rr_last_clean_front_door_entry', 'timestamp') | float(0) | as_datetime | as_local).isoformat() }}"
+        attributes:
+          at: "{{ state_attr('input_datetime.rr_last_clean_front_door_entry', 'timestamp') | float(0) | timestamp_custom('%a %b %-d %H:%M') }}"
+      - name: rr_room_half_bath_cleaned
+        unique_id: rr_room_half_bath_cleaned
+        device_class: timestamp
+        icon: mdi:toilet
+        availability: "{{ state_attr('input_datetime.rr_last_clean_half_bath', 'timestamp') | float(0) > 946684800 }}"
+        state: "{{ (state_attr('input_datetime.rr_last_clean_half_bath', 'timestamp') | float(0) | as_datetime | as_local).isoformat() }}"
+        attributes:
+          at: "{{ state_attr('input_datetime.rr_last_clean_half_bath', 'timestamp') | float(0) | timestamp_custom('%a %b %-d %H:%M') }}"
+      - name: rr_room_laundry_room_cleaned
+        unique_id: rr_room_laundry_room_cleaned
+        device_class: timestamp
+        icon: mdi:washing-machine
+        availability: "{{ state_attr('input_datetime.rr_last_clean_laundry_room', 'timestamp') | float(0) > 946684800 }}"
+        state: "{{ (state_attr('input_datetime.rr_last_clean_laundry_room', 'timestamp') | float(0) | as_datetime | as_local).isoformat() }}"
+        attributes:
+          at: "{{ state_attr('input_datetime.rr_last_clean_laundry_room', 'timestamp') | float(0) | timestamp_custom('%a %b %-d %H:%M') }}"
+      - name: rr_room_garage_entrance_cleaned
+        unique_id: rr_room_garage_entrance_cleaned
+        device_class: timestamp
+        icon: mdi:garage-variant
+        availability: "{{ state_attr('input_datetime.rr_last_clean_garage_entrance', 'timestamp') | float(0) > 946684800 }}"
+        state: "{{ (state_attr('input_datetime.rr_last_clean_garage_entrance', 'timestamp') | float(0) | as_datetime | as_local).isoformat() }}"
+        attributes:
+          at: "{{ state_attr('input_datetime.rr_last_clean_garage_entrance', 'timestamp') | float(0) | timestamp_custom('%a %b %-d %H:%M') }}"
+      # Robot error in words for the dashboard and rr_stuck_alert. State = the
+      # error in plain words ("no error" when clear); attribute advice =
+      # {kind, title, fix} with kind none | stuck | jam | charging | dock | water |
+      # sensor | other; attribute code = the raw vacuum_error_2 enum value.
+      # One template per value: attributes must not read this.state (it lags).
+      - name: rr_vacuum_error
+        unique_id: rr_vacuum_error
+        icon: mdi:robot-vacuum-alert
+        availability: "{{ states('sensor.mr_slave_vacuum_error_2') not in ['unknown', 'unavailable'] }}"
+        state: >-
+          {% set e = states('sensor.mr_slave_vacuum_error_2') %}
+          {{ {'none': 'no error',
+              'lidar_blocked': 'the laser (LiDAR) turret is blocked',
+              'bumper_stuck': 'the front bumper is stuck',
+              'wheels_suspended': 'a wheel is hanging off an edge',
+              'cliff_sensor_error': 'a cliff sensor is dirty or over an edge',
+              'robot_trapped': 'it is trapped and cannot find a way out',
+              'robot_tilted': 'it is tilted',
+              'vertical_bumper_pressed': 'the LiDAR top bumper is pressed',
+              'nogo_zone_detected': 'it ended up inside a no-go zone',
+              'invisible_wall_detected': 'it ended up inside an invisible wall',
+              'cannot_cross_carpet': 'it cannot cross a carpet',
+              'robot_on_carpet': 'it is on carpet with the mop attached',
+              'light_touch': 'an obstacle sensor is pressed',
+              'main_brush_jammed': 'the main brush is jammed',
+              'side_brush_jammed': 'the side brush is jammed',
+              'wheels_jammed': 'a wheel is jammed',
+              'side_brush_error': 'the side brush has a fault',
+              'vibrarise_jammed': 'the mop lift (VibraRise) is jammed',
+              'mopping_roller_1': 'the mop roller has a fault',
+              'mopping_roller_error_2': 'the mop roller has a fault',
+              'filter_blocked': 'the filter is blocked',
+              'fan_error': 'the suction fan has a fault',
+              'no_dustbin': 'the dustbin is missing',
+              'strainer_error': 'the filter is missing, wet or blocked',
+              'low_battery': 'the battery is too low to carry on',
+              'charging_error': 'it is not charging on the dock',
+              'battery_error': 'the battery has a fault',
+              'dock': 'the dock has no power',
+              'dock_locator_error': 'it cannot find the dock',
+              'return_to_dock_fail': 'it could not get back to the dock',
+              'temperature_protection': 'it is too hot or too cold to run or charge',
+              'clean_carousel_exception': 'the dock wash tray is blocked (error 52)',
+              'clean_carousel_water_full': 'the dock wash tray is full of water',
+              'check_clean_carouse': 'the dock wash tray needs checking',
+              'clear_brush_exception': 'the dock wash-tray brush is stuck',
+              'clear_brush_exception_2': 'the dock wash-tray brush is stuck',
+              'sink_strainer_hoare': 'the dock wash-tray strainer is clogged',
+              'filter_screen_exception': 'the dock filter screen is blocked',
+              'collect_dust_error_3': 'the dock could not empty the dustbin',
+              'collect_dust_error_4': 'the dock could not empty the dustbin',
+              'water_carriage_drop': 'the mop mount came off',
+              'clear_water_box_hoare': 'the clean-water tank is out or empty',
+              'dirty_water_box_hoare': 'the dirty-water tank is out or full',
+              'clear_water_box_exception': 'the clean-water tank is not seated or empty',
+              'up_water_exception': 'the dock cannot pump clean water',
+              'drain_water_exception': 'the dock cannot drain dirty water',
+              'compass_error': 'a strong magnetic field confuses it',
+              'wall_sensor_dirty': 'the wall sensor is dirty',
+              'optical_flow_sensor_dirt': 'the floor (optical flow) sensor is dirty',
+              'visual_sensor': 'the obstacle camera is dirty or blocked',
+              'internal_error': 'it reported an internal error (power it off and on)',
+              'audio_error': 'the speaker has a fault'}.get(e, e | replace('_', ' ')) }}
+        attributes:
+          code: "{{ states('sensor.mr_slave_vacuum_error_2') }}"
+          advice: >-
+            {% set e = states('sensor.mr_slave_vacuum_error_2') %}
+            {% set kinds = {
+              'stuck': ['lidar_blocked', 'bumper_stuck', 'wheels_suspended', 'cliff_sensor_error',
+                        'robot_trapped', 'robot_tilted', 'vertical_bumper_pressed', 'nogo_zone_detected',
+                        'invisible_wall_detected', 'cannot_cross_carpet', 'robot_on_carpet', 'light_touch'],
+              'jam': ['main_brush_jammed', 'side_brush_jammed', 'wheels_jammed', 'side_brush_error',
+                      'vibrarise_jammed', 'mopping_roller_1', 'mopping_roller_error_2', 'filter_blocked',
+                      'fan_error', 'no_dustbin', 'strainer_error'],
+              'charging': ['low_battery', 'charging_error', 'battery_error', 'dock', 'dock_locator_error',
+                           'return_to_dock_fail', 'temperature_protection'],
+              'dock': ['clean_carousel_exception', 'clean_carousel_water_full', 'check_clean_carouse',
+                       'clear_brush_exception', 'clear_brush_exception_2', 'sink_strainer_hoare',
+                       'filter_screen_exception', 'collect_dust_error_3', 'collect_dust_error_4',
+                       'water_carriage_drop'],
+              'water': ['clear_water_box_hoare', 'dirty_water_box_hoare', 'clear_water_box_exception',
+                        'up_water_exception', 'drain_water_exception'],
+              'sensor': ['compass_error', 'wall_sensor_dirty', 'optical_flow_sensor_dirt', 'visual_sensor'],
+            } %}
+            {% set ns = namespace(k='other') %}
+            {% for k, codes in kinds.items() if e in codes %}{% set ns.k = k %}{% endfor %}
+            {% set k = 'none' if e == 'none' else ns.k %}
+            {% set titles = {'none': 'Mr. Slave is OK', 'stuck': 'Mr. Slave is stuck',
+              'jam': 'Mr. Slave has a jam', 'charging': "Mr. Slave can't charge",
+              'dock': "Mr. Slave's dock wash tray needs a clean",
+              'water': "Mr. Slave's dock has a water problem",
+              'sensor': 'Mr. Slave needs a sensor wiped'} %}
+            {% set fixes = {'none': '',
+              'stuck': 'Move it to open, flat floor, then press the power button (or put it on the dock) to carry on.',
+              'jam': 'Lift it, clear the brush, wheel or filter, then press the power button to carry on.',
+              'charging': 'Wipe the charging contacts on the robot and the dock, check the dock is plugged in, and seat it on the dock.',
+              'dock': 'Pull the wash tray out of the dock, clear and rinse it and its strainer, check the dirty tank is seated and not full, then reseat the tray.',
+              'water': 'Check both dock tanks: clean one full and seated, dirty one empty and seated.',
+              'sensor': 'Wipe the sensors with a dry cloth.'} %}
+            {{ {'kind': k, 'title': titles.get(k, 'Mr. Slave has an error'),
+                'fix': fixes.get(k, 'Check the Roborock app for details.')} }}
 
 # Off-charger alert. 2026-10-12: the vacuum went charger_disconnected on the
 # dock, idled on battery, and powered itself off exactly 12 h later; two daily
@@ -141,9 +351,13 @@ automation:
     triggers:
       - trigger: template
         id: off_charger
+        # Not while the robot reports an error: rr_stuck_alert already paged
+        # with the cause (2026-11-04: robot_trapped at 09:33 would also have
+        # paged "off the charger" at 10:03, and charging_error at 12:36 again).
         value_template: >-
           {{ states('sensor.mr_slave_status_2') in
-             ['charger_disconnected', 'idle', 'paused', 'error', 'charging_problem'] }}
+             ['charger_disconnected', 'idle', 'paused', 'error', 'charging_problem']
+             and states('sensor.mr_slave_vacuum_error_2') in ['none', 'unknown', 'unavailable'] }}
         for: "00:30:00"
       - trigger: state
         id: offline
@@ -153,7 +367,7 @@ automation:
       - trigger: state
         id: charging
         entity_id: sensor.mr_slave_status_2
-        to: charging
+        to: [charging, charging_complete]
     actions:
       - choose:
           - conditions: "{{ trigger.id == 'off_charger' }}"
@@ -287,14 +501,20 @@ automation:
             - action: RR_TANKS_SWAPPED
               title: "Swapped ✓"
 
-  # Clean-water tank empty. The dock reports it as dock_error water_empty (seen
-  # 2026-10-09 and 10-18); the robot's own water_shortage flag is a second
-  # source. 10 min debounce so pulling the tank for a swap doesn't page. A
-  # time-sensitive repeat at 07:45 on a mop day (input_datetime.rr_next_mop is today:
-  # Wednesday, or a Thursday/Friday catch-up; Node-RED f_nx computes it with the same
-  # rule as the mop gate; one tank lasts one mop pass) if it's still empty before 08:30.
-  # Vacuum-only days don't need water, so no morning nag on those. Clears from
-  # both phones once the dock is happy again.
+  # Clean-water tank empty. Sources, in order of trust:
+  #   - dock_dock_error = water_empty (seen 2026-10-09 and 10-18);
+  #   - binary_sensor.mr_slave_dock_clean_water_box (problem class: ON = tank
+  #     out or empty), live;
+  #   - binary_sensor.mr_slave_water_shortage_2, the robot's own flag. It only
+  #     re-evaluates when the dock pumps water, so after a refill it stays on
+  #     until the next mop wash (on since 2026-11-03 12:06 although the tank was
+  #     refilled 2026-11-04 08:16). It counts only while the clean tank has not
+  #     been reseated since the flag rose.
+  # 10 min debounce so a quick tank swap doesn't page. A time-sensitive repeat
+  # at 07:45 on a mop day (input_datetime.rr_next_mop is today: Wednesday, or a
+  # Thursday/Friday catch-up; Node-RED f_nx uses the rrMopDue rule) if it's
+  # still empty before 08:30. Vacuum-only days don't need water, so no morning
+  # nag on those. Clears from both phones once the tank is back.
   - id: rr_water_empty_alert
     alias: "Roborock: clean water tank empty"
     mode: queued
@@ -306,7 +526,10 @@ automation:
         for: "00:10:00"
       - trigger: state
         id: empty
-        entity_id: binary_sensor.mr_slave_water_shortage_2
+        entity_id:
+          - binary_sensor.mr_slave_dock_clean_water_box
+          - binary_sensor.mr_slave_water_shortage_2
+        from: "off"
         to: "on"
         for: "00:10:00"
       - trigger: time
@@ -327,21 +550,24 @@ automation:
         for: "00:01:00"
       - trigger: state
         id: refilled
-        entity_id: binary_sensor.mr_slave_water_shortage_2
+        entity_id:
+          - binary_sensor.mr_slave_dock_clean_water_box
+          - binary_sensor.mr_slave_water_shortage_2
         from: "on"
+        to: "off"
         for: "00:01:00"
-    variables:
-      empty: >-
-        {{ is_state('sensor.mr_slave_dock_dock_error', 'water_empty')
-           or is_state('binary_sensor.mr_slave_water_shortage_2', 'on') }}
     actions:
       - if: "{{ trigger.id == 'recheck' }}"
         then:
           - delay: "00:10:00"
       - variables:
           empty: >-
+            {% set box = states.binary_sensor.mr_slave_dock_clean_water_box %}
+            {% set flag = states.binary_sensor.mr_slave_water_shortage_2 %}
             {{ is_state('sensor.mr_slave_dock_dock_error', 'water_empty')
-               or is_state('binary_sensor.mr_slave_water_shortage_2', 'on') }}
+               or is_state('binary_sensor.mr_slave_dock_clean_water_box', 'on')
+               or (flag is not none and flag.state == 'on'
+                   and (box is none or box.last_changed < flag.last_changed)) }}
           mop_today: "{{ states('input_datetime.rr_next_mop')[:10] == now().strftime('%Y-%m-%d') }}"
       - choose:
           - conditions: >-
@@ -352,7 +578,7 @@ automation:
                 data:
                   title: "Mr. Slave needs clean water"
                   message: >-
-                    The clean-water tank is empty. Fill it (or drop in the spare)
+                    The clean-water tank is out or empty. Fill it (or drop in the spare)
                     before the next mop pass{{ ' this morning — it is skipped without water' if mop_today else '' }}.
                   tag: rr_water_empty
                   urgent: "{{ trigger.id == 'morning' }}"
@@ -394,10 +620,16 @@ automation:
             starts at 22:00, so it won't resume after a recharge until the next run.
           tag: rr_dnd_unfinished
 
-  # Robot error (stuck, trapped, brush jammed, ...). 2026-10-25 12:52 it was
-  # robot_trapped for 14 min mid-sweep with no phone alert. 1 min debounce so a
-  # self-clearing blip doesn't page. Time-sensitive: it can't free itself.
-  # Clears from both phones when the error goes back to none.
+  # Robot error, titled by kind (sensor.rr_vacuum_error advice): stuck/trapped,
+  # jam, charging, dock wash tray, dock water, dirty sensor. Every error used to
+  # be "Mr. Slave is stuck" (2026-11-04 charging_error paged as stuck).
+  # 2026-10-25 12:52 it was robot_trapped for 14 min mid-sweep with no phone
+  # alert. 1 min debounce so a self-clearing blip doesn't page (the 1-3 s
+  # clean_carousel_exception blips of 2026-11-03 never page; see the follow-up
+  # in docs/services/home-assistant.md). Not from unavailable: a reconnect with
+  # the same error still set would page again. Time-sensitive unless it is only
+  # a dirty sensor. One tag, so a new error replaces the old alert; clears from
+  # both phones when the error goes back to none.
   - id: rr_stuck_alert
     alias: "Roborock: stuck or error alert"
     mode: queued
@@ -405,6 +637,7 @@ automation:
       - trigger: state
         id: error
         entity_id: sensor.mr_slave_vacuum_error_2
+        not_from: [unknown, unavailable]
         not_to: [none, unknown, unavailable]
         for: "00:01:00"
       - trigger: state
@@ -416,23 +649,77 @@ automation:
       - choose:
           - conditions: "{{ trigger.id == 'error' }}"
             sequence:
+              - variables:
+                  advice: "{{ state_attr('sensor.rr_vacuum_error', 'advice') or {} }}"
+                  words: >-
+                    {% set w = states('sensor.rr_vacuum_error') %}
+                    {{ w if w not in ['unknown', 'unavailable'] else
+                       states('sensor.mr_slave_vacuum_error_2') | replace('_', ' ') }}
               - action: script.rr_notify
                 data:
-                  title: "Mr. Slave is stuck"
+                  title: "{{ advice.title | default('Mr. Slave has an error') }}"
                   message: >-
-                    {% set err = states('sensor.mr_slave_vacuum_error_2') | replace('_', ' ') %}
                     {% set near = states('input_text.rr_run_near') %}
-                    Error: {{ err }}{{ (' near ' ~ near) if near not in ['', 'unknown', 'unavailable'] else '' }},
-                    battery {{ states('sensor.mr_slave_battery_2') }}%. Free it and press
-                    the power button (or put it back on the dock) to carry on.
+                    {{ words[:1] | upper }}{{ words[1:] }}{{ (' (near ' ~ near ~ ')') if near not in ['', 'unknown', 'unavailable']
+                    and is_state('binary_sensor.mr_slave_cleaning_2', 'on') else '' }},
+                    battery {{ states('sensor.mr_slave_battery_2') }}%.
+                    {{ advice.fix | default('Check the Roborock app for details.') }}
                   tag: rr_stuck
-                  urgent: true
+                  urgent: "{{ advice.kind | default('other') != 'sensor' }}"
           - conditions: "{{ trigger.id == 'cleared' }}"
             sequence:
               - action: script.rr_notify
                 data:
                   message: clear_notification
                   tag: rr_stuck
+
+  # Dock problem other than an empty clean tank (that one is rr_water_empty_alert):
+  # dirty tank full, wash tray full or blocked, dust bag/duct, latch. 2026-11-03
+  # cleaning_tank_full_or_blocked sat for 38 min mid-mop with no phone alert.
+  # 10 min debounce; clears when the dock is back to ok.
+  - id: rr_dock_error_alert
+    alias: "Roborock: dock error alert"
+    mode: queued
+    triggers:
+      - trigger: state
+        id: error
+        entity_id: sensor.mr_slave_dock_dock_error
+        not_from: [unknown, unavailable]
+        not_to: [ok, water_empty, unknown, unavailable]
+        for: "00:10:00"
+      - trigger: state
+        id: cleared
+        entity_id: sensor.mr_slave_dock_dock_error
+        to: ok
+        not_from: [unknown, unavailable, water_empty]
+    actions:
+      - choose:
+          - conditions: "{{ trigger.id == 'error' }}"
+            sequence:
+              - action: script.rr_notify
+                data:
+                  title: "Mr. Slave's dock needs attention"
+                  message: >-
+                    {% set e = trigger.to_state.state %}
+                    {{ {'no_dustbin_or_filter': 'The dustbin or its filter is missing.',
+                        'auto_empty_dock_fan_error': 'The auto-empty fan has a fault.',
+                        'duct_blockage': 'The auto-empty duct is blocked. Clear the duct and the robot dustbin port.',
+                        'auto_empty_dock_voltage_error': 'The auto-empty unit has a power fault.',
+                        'waste_water_tank_full': 'The dirty-water tank is full. Empty and reseat it.',
+                        'maintenance_brush_jammed': 'The wash-tray brush is jammed. Pull the tray and clear it.',
+                        'dirty_tank_latch_open': 'The dirty-water tank latch is open. Reseat the tank.',
+                        'no_dustbin': 'The dust bag is missing or full. Replace the bag.',
+                        'cleaning_tank_full_or_blocked': 'The wash tray is full or its drain is blocked. Pull the tray, rinse it and its strainer, check the dirty tank.'
+                       }.get(e, 'Dock error: ' ~ e | replace('_', ' ') ~ '.') }}
+                    The run can't carry on until it is cleared.
+                  tag: rr_dock_error
+                  urgent: true
+          - conditions: "{{ trigger.id == 'cleared' }}"
+            sequence:
+              - action: script.rr_notify
+                data:
+                  message: clear_notification
+                  tag: rr_dock_error
 
 # HomeKit bridge exposes the vacuum, per-room clean buttons, and routines to
 # Apple Home (include list lives in .storage/core.config_entries on the host).

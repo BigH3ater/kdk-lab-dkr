@@ -1,9 +1,22 @@
-# Roborock (Mr. Slave) dashboard — sections layout. YAML-mode, shipped from git.
-# Map card calibration is hand-derived (python-roborock mm→px) — do not re-derive.
-# Layout: 3 columns; the map takes a full-width row (span 3) so it renders large
-# and the room labels stop overlapping; progress tiles are visibility-gated to
-# active runs so the idle page isn't noise. Per-room clean buttons live on the
-# HOME dashboard inside each room's section.
+# Roborock (Mr. Slave) dashboard: sections layout, YAML-mode, shipped from git
+# (url_path roborock-vac, registered in the host-managed configuration.yaml).
+# Rebuilt 2026-11-04. Main view sections, in order: Current status, Rooms,
+# Mop run, Alerts, Maintenance. The live map lives on the Map tab (panel view)
+# only; its calibration is hand-derived (python-roborock mm->px), do not re-derive.
+#
+# Sources (see packages/roborock.yaml and node-red/flows.json):
+# - rr_run_phase / rr_run_near / rr_last_clean_<room> / rr_last_mop_run /
+#   rr_next_run / rr_next_mop are written by Node-RED. Room stamps land when a
+#   stage FINISHES; a cancelled or short sweep leaves them unchanged.
+# - sensor.rr_room_<room>_cleaned = those stamps as timestamp sensors (tile
+#   shows "2 days ago", attribute `at` the exact time). Never use last_changed
+#   of a helper for "when": every HA restart resets it.
+# - Dock tank binary sensors are problem class: ON = out / empty / full.
+#   binary_sensor.mr_slave_water_shortage_2 only re-evaluates when the dock
+#   pumps water, so it is shown as stale once the clean tank was reseated.
+# - The robot's own room names (current_room_2, rr_run_near) are the app's old
+#   labels (Bathroom2 = the dock spot), not the 13 helper names.
+# Grid: every tile is 6 of 12 columns (two per row on a phone), buttons 4.
 title: Roborock
 views:
 - title: Mr. Slave
@@ -13,231 +26,25 @@ views:
   max_columns: 3
   badges:
   - type: entity
-    entity: sensor.mr_slave_status_2
-    name: Status
-  - type: entity
-    entity: sensor.mr_slave_battery_2
-    name: Battery
-  - type: entity
     entity: input_datetime.rr_next_run
-    name: Next run
+    name: Next clean
+    icon: mdi:calendar-arrow-right
   - type: entity
     entity: input_datetime.rr_next_mop
     name: Next mop
+    icon: mdi:bucket-outline
   sections:
 
-  - type: grid
-    column_span: 3
-    cards:
-    - type: heading
-      heading: Live Map — tap a room to clean it
-      icon: mdi:map
-    - type: custom:xiaomi-vacuum-map-card
-      grid_options:
-        columns: full
-      entity: vacuum.mr_slave_2
-      vacuum_platform: Roborock
-      title: ''
-      map_source:
-        camera: image.mr_slave_main_floor_2
-      calibration_source:
-        calibration_points:
-        - vacuum:
-            x: 12225
-            y: 17250
-          map:
-            x: 350
-            y: 1224
-        - vacuum:
-            x: 22675
-            y: 20450
-          map:
-            x: 1186
-            y: 968
-        - vacuum:
-            x: 16425
-            y: 27950
-          map:
-            x: 686
-            y: 368
-      map_modes:
-      - template: vacuum_clean_segment
-        predefined_selections:
-        - id: 1
-          label:
-            text: Master Bedroom Closet
-            x: 12225
-            y: 17250
-            offset_y: 32
-          icon:
-            name: mdi:robot-vacuum
-            x: 12225
-            y: 17250
-        - id: 2
-          label:
-            text: Master Bedroom
-            x: 13350
-            y: 20950
-            offset_y: 32
-          icon:
-            name: mdi:robot-vacuum
-            x: 13350
-            y: 20950
-        - id: 3
-          label:
-            text: Bedroom 1
-            x: 13025
-            y: 27350
-            offset_y: 32
-          icon:
-            name: mdi:robot-vacuum
-            x: 13025
-            y: 27350
-        - id: 4
-          label:
-            text: Master Bathroom
-            x: 14650
-            y: 17200
-            offset_y: 32
-          icon:
-            name: mdi:robot-vacuum
-            x: 14650
-            y: 17200
-        - id: 5
-          label:
-            text: Bathroom 1
-            x: 13100
-            y: 24300
-            offset_y: 32
-          icon:
-            name: mdi:robot-vacuum
-            x: 13100
-            y: 24300
-        - id: 6
-          label:
-            text: Garage Entrance
-            x: 22650
-            y: 25250
-            offset_y: 32
-          icon:
-            name: mdi:robot-vacuum
-            x: 22650
-            y: 25250
-        - id: 7
-          label:
-            text: Half Bath
-            x: 20525
-            y: 25300
-            offset_y: 32
-          icon:
-            name: mdi:robot-vacuum
-            x: 20525
-            y: 25300
-        - id: 8
-          label:
-            text: Laundry Room
-            x: 25125
-            y: 25775
-            offset_y: 32
-          icon:
-            name: mdi:robot-vacuum
-            x: 25125
-            y: 25775
-        - id: 9
-          label:
-            text: Rachel's Office
-            x: 16425
-            y: 27950
-            offset_y: 32
-          icon:
-            name: mdi:robot-vacuum
-            x: 16425
-            y: 27950
-        - id: 10
-          label:
-            text: Hallway
-            x: 14775
-            y: 24825
-            offset_y: 32
-          icon:
-            name: mdi:robot-vacuum
-            x: 14775
-            y: 24825
-        - id: 11
-          label:
-            text: Front Door Entry
-            x: 17775
-            y: 26275
-            offset_y: 32
-          icon:
-            name: mdi:robot-vacuum
-            x: 17775
-            y: 26275
-        - id: 12
-          label:
-            text: Living Room
-            x: 17650
-            y: 21725
-            offset_y: 32
-          icon:
-            name: mdi:robot-vacuum
-            x: 17650
-            y: 21725
-        - id: 13
-          label:
-            text: Kitchen
-            x: 22675
-            y: 20450
-            offset_y: 32
-          icon:
-            name: mdi:robot-vacuum
-            x: 22675
-            y: 20450
-      - template: vacuum_clean_zone
-      - template: vacuum_goto
-    - type: button
-      name: Full-Screen Map
-      icon: mdi:fullscreen
-      show_state: false
-      tap_action:
-        action: navigate
-        navigation_path: /roborock-vac/map
-
+  # 1. Current status
   - type: grid
     cards:
     - type: heading
-      heading: Run Progress
-      icon: mdi:progress-check
-    - type: markdown
-      content: >-
-        {% set s = states('input_text.rr_run_phase') %}
-        {% if s in ['unknown','unavailable',''] -%}
-        *No run tracked yet.*
-        {% else -%}
-        **{{ s }}**
-        {% set near = states('input_text.rr_run_near') %}
-        {% if near not in ['unknown','unavailable',''] -%}
-
-        Vacuum near: {{ near }} *(vacuum's own room label)*
-        {% endif -%}
-        {% endif %}
-    - type: tile
-      entity: sensor.mr_slave_cleaning_progress_2
-      name: Cleaning Progress
-      visibility:
-      - condition: state
-        entity: vacuum.mr_slave_2
-        state_not: docked
-    - type: tile
-      entity: sensor.mr_slave_cleaning_time_2
-      name: Run Time
-      visibility:
-      - condition: state
-        entity: vacuum.mr_slave_2
-        state_not: docked
+      heading: Current status
+      icon: mdi:robot-vacuum
     - type: tile
       entity: vacuum.mr_slave_2
       name: Mr. Slave
+      grid_options: {columns: 12}
       features:
       - type: vacuum-commands
         commands:
@@ -245,173 +52,522 @@ views:
         - stop
         - return_home
         - locate
-
-  - type: grid
-    cards:
-    - type: heading
-      heading: Schedule
-      icon: mdi:calendar-clock
     - type: tile
-      entity: input_datetime.rr_next_run
-      name: Next Clean
-      icon: mdi:calendar-arrow-right
+      entity: sensor.mr_slave_battery_2
+      name: Battery
+      grid_options: {columns: 6}
     - type: tile
-      entity: input_datetime.rr_next_mop
-      name: Next Mop
-      icon: mdi:bucket-outline
+      entity: sensor.mr_slave_cleaning_progress_2
+      name: Progress
+      grid_options: {columns: 6}
+      visibility:
+      - condition: state
+        entity: binary_sensor.mr_slave_cleaning_2
+        state: 'on'
     - type: tile
-      entity: sensor.mr_slave_last_clean_end_2
-      name: Last Clean Finished
-    - type: tile
-      entity: input_datetime.rr_last_mop_run
-      name: Last Mop Run
+      entity: sensor.mr_slave_dock_dock_error
+      name: Dock
+      icon: mdi:home-import-outline
+      grid_options: {columns: 6}
+      visibility:
+      - condition: state
+        entity: binary_sensor.mr_slave_cleaning_2
+        state_not: 'on'
     - type: markdown
-      content: >-
-        Daily clean: **weekdays 8:30**, **weekends 12:00**. Mop follows the
-        vacuum pass on **Monday** (one clean tank lasts one mop pass). Stopping the vacuum by hand (app
-        or its buttons) cancels the rest of the run.
-
-  - type: grid
-    cards:
-    - type: heading
-      heading: Modes & Routines
-      icon: mdi:tune
-    - type: tile
-      entity: select.mr_slave_cleaning_mode
-      name: Cleaning Mode
-      features:
-      - type: select-options
-    - type: tile
-      entity: select.mr_slave_mop_intensity_2
-      name: Mop Intensity
-    - type: tile
-      entity: select.mr_slave_dock_empty_mode_2
-      name: Auto-Empty
+      grid_options: {columns: 12}
+      content: |-
+        {%- macro hm(t) -%}{{ as_timestamp(t, 0) | timestamp_custom('%a %H:%M') }}{%- endmacro -%}
+        {%- set v = states('vacuum.mr_slave_2') -%}
+        {%- set st = states('sensor.mr_slave_status_2') -%}
+        {%- set code = states('sensor.mr_slave_vacuum_error_2') -%}
+        {%- set cleaning = is_state('binary_sensor.mr_slave_cleaning_2', 'on') -%}
+        {%- set vo = states.vacuum.mr_slave_2 -%}
+        {%- if v in ['unavailable', 'unknown'] -%}
+        <ha-alert alert-type="error">Mr. Slave is offline. Scheduled cleans fail until it reconnects: seat it on the dock and press power.</ha-alert>
+        {%- else -%}
+        {%- set adv = state_attr('sensor.rr_vacuum_error', 'advice') or {} -%}
+        {%- if code not in ['none', 'unknown', 'unavailable'] %}
+        {%- set words = states('sensor.rr_vacuum_error') %}
+        {%- if words in ['unknown', 'unavailable'] %}{% set words = code | replace('_', ' ') %}{% endif %}
+        <ha-alert alert-type="error" title="{{ adv.title | default('Mr. Slave has an error') }}">{{ words[:1] | upper }}{{ words[1:] }}. {{ adv.fix | default('') }}</ha-alert>
+        {% endif %}
+        - **State:** {{ st | replace('_', ' ') | capitalize }}{{ (' · since ' ~ hm(vo.last_changed)) if vo else '' }}
+        - **Battery:** {{ states('sensor.mr_slave_battery_2') }} %{{ ' · charging' if is_state('binary_sensor.mr_slave_charging_2', 'on') else '' }}
+        {%- set near = states('input_text.rr_run_near') %}
+        {%- set room = near if near not in ['', 'unknown', 'unavailable'] else states('sensor.mr_slave_current_room_2') %}
+        - **Room:** {% if cleaning and room not in ['unknown', 'unavailable'] %}near {{ room }} *(robot's own room name)*{% elif v == 'docked' %}on the dock{% else %}not cleaning{% endif %}
+        {%- set phase = states('input_text.rr_run_phase') %}
+        {%- set po = states.input_text.rr_run_phase %}
+        - **Run:** {% if phase in ['', 'unknown', 'unavailable'] %}none tracked yet{% else %}{{ phase }}{{ (' · ' ~ hm(po.last_changed)) if po else '' }}{% endif %}
+        {%- set mode = states('select.mr_slave_cleaning_mode') %}
+        - **Mode:** {{ {'vacuum': 'Vacuum only', 'vac_and_mop': 'Vacuum + mop', 'mop': 'Mop only'}.get(mode, mode | replace('_', ' ')) }}
+        {%- set de = states('sensor.mr_slave_dock_dock_error') %}
+        {%- set act = [] %}
+        {%- if is_state('switch.mr_slave_dock_dust_emptying', 'on') or st == 'emptying_the_bin' %}{% set act = act + ['emptying the bin'] %}{% endif %}
+        {%- if is_state('switch.mr_slave_dock_mop_washing', 'on') or 'wash' in st %}{% set act = act + ['washing the mop'] %}{% endif %}
+        {%- if is_state('binary_sensor.mr_slave_dock_mop_drying', 'on') %}{% set act = act + ['drying the mop, ' ~ ((states('sensor.mr_slave_dock_mop_drying_remaining_time') | float(0)) / 60) | round(0) | int ~ ' min left'] %}{% endif %}
+        - **Dock:** {% if de == 'ok' %}OK{% elif de in ['unknown', 'unavailable'] %}unknown{% else %}⚠️ {{ de | replace('_', ' ') }}{% endif %}{{ (' · ' ~ act | join(', ')) if act else '' }}
+        {%- set cb = states.binary_sensor.mr_slave_dock_clean_water_box %}
+        {%- set wf = states.binary_sensor.mr_slave_water_shortage_2 %}
+        - **Tanks:** clean {{ '⚠️ out or empty' if is_state('binary_sensor.mr_slave_dock_clean_water_box', 'on') else '✅ in' }} · dirty {{ '⚠️ out or full' if is_state('binary_sensor.mr_slave_dock_dirty_water_box', 'on') else '✅ in' }}
+        {%- if wf and wf.state == 'on' %}
+        - **Robot water flag:** {% if cb and cb.last_changed > wf.last_changed %}on but stale: the clean tank was reseated after it rose; it clears at the next mop wash{% else %}⚠️ ran out of clean water ({{ hm(wf.last_changed) }}){% endif %}
+        {%- endif %}
+        {%- set b = states('sensor.mr_slave_last_clean_begin_2') %}
+        {%- set e = states('sensor.mr_slave_last_clean_end_2') %}
+        {%- if as_timestamp(b, 0) > 0 %}
+        - **Last job:** {{ hm(b) }} → {{ hm(e) if as_timestamp(e, 0) >= as_timestamp(b, 0) else 'running' }}{% if as_timestamp(e, 0) >= as_timestamp(b, 0) %}{% set m = ((as_timestamp(e) - as_timestamp(b)) / 60) | round(0) | int %} ({{ m // 60 }} h {{ m % 60 }} min){% endif %}
+        {%- endif %}
+        {%- endif %}
     - type: button
-      name: Daily Clean
+      name: Daily clean
       icon: mdi:broom
       show_state: false
+      grid_options: {columns: 4, rows: 2}
       tap_action:
-        action: call-service
-        service: input_button.press
+        action: perform-action
+        perform_action: input_button.press
         target:
           entity_id: input_button.rr_daily_clean
+        confirmation:
+          text: "Start the daily clean now (master bedroom, then the 12-room sweep)?"
     - type: button
-      name: Mop All Floors
-      icon: mdi:bucket
+      name: Return to dock
+      icon: mdi:home-import-outline
       show_state: false
+      grid_options: {columns: 4, rows: 2}
       tap_action:
-        action: call-service
-        service: input_button.press
-        target:
-          entity_id: input_button.rr_mop_all_floors
-    - type: button
-      name: Return to Dock / Cancel
-      icon: mdi:stop-circle-outline
-      show_state: false
-      tap_action:
-        action: call-service
-        service: input_button.press
+        action: perform-action
+        perform_action: input_button.press
         target:
           entity_id: input_button.rr_return_dock
+        confirmation:
+          text: "Send Mr. Slave home and cancel the rest of the run?"
+    - type: button
+      name: Live map
+      icon: mdi:map
+      show_state: false
+      grid_options: {columns: 4, rows: 2}
+      tap_action:
+        action: navigate
+        navigation_path: /roborock-vac/map
 
-  - type: grid
-    cards:
-    - type: heading
-      heading: Rooms Cleaned
-      icon: mdi:check-decagram
-    - type: markdown
-      content: >-
-        {% set rooms = [
-          ('Master Bedroom Closet','rr_last_clean_master_bedroom_closet'),
-          ('Master Bedroom','rr_last_clean_master_bedroom'),
-          ('Bedroom 1','rr_last_clean_bedroom_1'),
-          ('Master Bathroom','rr_last_clean_master_bathroom'),
-          ('Bathroom 1','rr_last_clean_bathroom_1'),
-          ('Garage Entrance','rr_last_clean_garage_entrance'),
-          ('Half Bath','rr_last_clean_half_bath'),
-          ('Laundry Room','rr_last_clean_laundry_room'),
-          ("Rachel's Office",'rr_last_clean_rachels_office'),
-          ('Hallway','rr_last_clean_hallway'),
-          ('Front Door Entry','rr_last_clean_front_door_entry'),
-          ('Living Room','rr_last_clean_living_room'),
-          ('Kitchen','rr_last_clean_kitchen'),
-        ] %}
-        {% for name, ent in rooms -%}
-        {% set dt = as_datetime(states('input_datetime.' ~ ent), default=none) -%}
-        {% if dt is none or dt.year < 2020 -%}
-        - {{ name }} — *no completed clean tracked yet*
-        {% else -%}
-        - {{ name }} — **{{ relative_time(dt.replace(tzinfo=now().tzinfo)) }} ago**{{ ' ✓' if (now() - dt.replace(tzinfo=now().tzinfo)).days < 1 else '' }}
-        {% endif -%}
-        {% endfor %}
-
-        Stamps land only when a stage **completes** — a cancelled run leaves
-        its rooms unstamped.
-
+  # 2. Rooms: tap = clean that room now; state = last finished clean.
   - type: grid
     column_span: 2
     cards:
     - type: heading
-      heading: Maintenance — managed in Tasks
+      heading: Rooms
+      icon: mdi:floor-plan
+    - type: markdown
+      grid_options: {columns: 12}
+      content: |-
+        {%- set rooms = [
+          ('Master Bedroom', 'master_bedroom'), ('Master Bedroom Closet', 'master_bedroom_closet'),
+          ('Master Bathroom', 'master_bathroom'), ('Bedroom 1', 'bedroom_1'), ('Bathroom 1', 'bathroom_1'),
+          ("Rachel's Office", 'rachels_office'), ('Hallway', 'hallway'), ('Living Room', 'living_room'),
+          ('Kitchen', 'kitchen'), ('Front Door Entry', 'front_door_entry'), ('Half Bath', 'half_bath'),
+          ('Laundry Room', 'laundry_room'), ('Garage Entrance', 'garage_entrance')] -%}
+        {%- set ns = namespace(old=[], never=[]) -%}
+        {%- for name, key in rooms -%}
+        {%- set ts = state_attr('input_datetime.rr_last_clean_' ~ key, 'timestamp') | float(0) -%}
+        {%- if ts < 946684800 -%}{% set ns.never = ns.never + [name] %}
+        {%- elif now().timestamp() - ts > 2 * 86400 -%}{% set ns.old = ns.old + [name ~ ' (' ~ ((now().timestamp() - ts) / 86400) | round(0) | int ~ ' d)'] %}
+        {%- endif -%}
+        {%- endfor -%}
+        {%- if ns.old or ns.never -%}
+        <ha-alert alert-type="warning">{% if ns.old %}Not cleaned for 2+ days: {{ ns.old | join(', ') }}.{% endif %}{% if ns.never %} No clean recorded yet: {{ ns.never | join(', ') }}.{% endif %}</ha-alert>
+        {%- else -%}
+        <ha-alert alert-type="success">Every room cleaned in the last 2 days.</ha-alert>
+        {%- endif %}
+
+        Tap a room to send Mr. Slave there now (it asks first). The time is when that room's stage of the daily run **finished**; a cancelled or cut-short run leaves it unchanged.
+    - type: tile
+      entity: sensor.rr_room_master_bedroom_cleaned
+      name: Master Bedroom
+      icon: mdi:bed-king
+      state_content: [state, at]
+      grid_options: {columns: 6}
+      tap_action:
+        action: perform-action
+        perform_action: input_button.press
+        target:
+          entity_id: input_button.rr_clean_master_bedroom
+        confirmation:
+          text: "Send Mr. Slave to clean Master Bedroom now?"
+      hold_action:
+        action: more-info
+    - type: tile
+      entity: sensor.rr_room_master_bedroom_closet_cleaned
+      name: Master Bedroom Closet
+      icon: mdi:hanger
+      state_content: [state, at]
+      grid_options: {columns: 6}
+      tap_action:
+        action: perform-action
+        perform_action: input_button.press
+        target:
+          entity_id: input_button.rr_clean_master_bedroom_closet
+        confirmation:
+          text: "Send Mr. Slave to clean Master Bedroom Closet now?"
+      hold_action:
+        action: more-info
+    - type: tile
+      entity: sensor.rr_room_master_bathroom_cleaned
+      name: Master Bathroom
+      icon: mdi:bathtub
+      state_content: [state, at]
+      grid_options: {columns: 6}
+      tap_action:
+        action: perform-action
+        perform_action: input_button.press
+        target:
+          entity_id: input_button.rr_clean_master_bathroom
+        confirmation:
+          text: "Send Mr. Slave to clean Master Bathroom now?"
+      hold_action:
+        action: more-info
+    - type: tile
+      entity: sensor.rr_room_bedroom_1_cleaned
+      name: Bedroom 1
+      icon: mdi:bed
+      state_content: [state, at]
+      grid_options: {columns: 6}
+      tap_action:
+        action: perform-action
+        perform_action: input_button.press
+        target:
+          entity_id: input_button.rr_clean_bedroom_1
+        confirmation:
+          text: "Send Mr. Slave to clean Bedroom 1 now?"
+      hold_action:
+        action: more-info
+    - type: tile
+      entity: sensor.rr_room_bathroom_1_cleaned
+      name: Bathroom 1
+      icon: mdi:shower
+      state_content: [state, at]
+      grid_options: {columns: 6}
+      tap_action:
+        action: perform-action
+        perform_action: input_button.press
+        target:
+          entity_id: input_button.rr_clean_bathroom_1
+        confirmation:
+          text: "Send Mr. Slave to clean Bathroom 1 now?"
+      hold_action:
+        action: more-info
+    - type: tile
+      entity: sensor.rr_room_rachels_office_cleaned
+      name: "Rachel's Office"
+      icon: mdi:desk
+      state_content: [state, at]
+      grid_options: {columns: 6}
+      tap_action:
+        action: perform-action
+        perform_action: input_button.press
+        target:
+          entity_id: input_button.rr_clean_rachels_office
+        confirmation:
+          text: "Send Mr. Slave to clean Rachel's Office now?"
+      hold_action:
+        action: more-info
+    - type: tile
+      entity: sensor.rr_room_hallway_cleaned
+      name: Hallway
+      icon: mdi:door-open
+      state_content: [state, at]
+      grid_options: {columns: 6}
+      tap_action:
+        action: perform-action
+        perform_action: input_button.press
+        target:
+          entity_id: input_button.rr_clean_hallway
+        confirmation:
+          text: "Send Mr. Slave to clean Hallway now?"
+      hold_action:
+        action: more-info
+    - type: tile
+      entity: sensor.rr_room_living_room_cleaned
+      name: Living Room
+      icon: mdi:sofa
+      state_content: [state, at]
+      grid_options: {columns: 6}
+      tap_action:
+        action: perform-action
+        perform_action: input_button.press
+        target:
+          entity_id: input_button.rr_clean_living_room
+        confirmation:
+          text: "Send Mr. Slave to clean Living Room now?"
+      hold_action:
+        action: more-info
+    - type: tile
+      entity: sensor.rr_room_kitchen_cleaned
+      name: Kitchen
+      icon: mdi:silverware-fork-knife
+      state_content: [state, at]
+      grid_options: {columns: 6}
+      tap_action:
+        action: perform-action
+        perform_action: input_button.press
+        target:
+          entity_id: input_button.rr_clean_kitchen
+        confirmation:
+          text: "Send Mr. Slave to clean Kitchen now?"
+      hold_action:
+        action: more-info
+    - type: tile
+      entity: sensor.rr_room_front_door_entry_cleaned
+      name: Front Door Entry
+      icon: mdi:door
+      state_content: [state, at]
+      grid_options: {columns: 6}
+      tap_action:
+        action: perform-action
+        perform_action: input_button.press
+        target:
+          entity_id: input_button.rr_clean_front_door_entry
+        confirmation:
+          text: "Send Mr. Slave to clean Front Door Entry now?"
+      hold_action:
+        action: more-info
+    - type: tile
+      entity: sensor.rr_room_half_bath_cleaned
+      name: Half Bath
+      icon: mdi:toilet
+      state_content: [state, at]
+      grid_options: {columns: 6}
+      tap_action:
+        action: perform-action
+        perform_action: input_button.press
+        target:
+          entity_id: input_button.rr_clean_half_bath
+        confirmation:
+          text: "Send Mr. Slave to clean Half Bath now?"
+      hold_action:
+        action: more-info
+    - type: tile
+      entity: sensor.rr_room_laundry_room_cleaned
+      name: Laundry Room
+      icon: mdi:washing-machine
+      state_content: [state, at]
+      grid_options: {columns: 6}
+      tap_action:
+        action: perform-action
+        perform_action: input_button.press
+        target:
+          entity_id: input_button.rr_clean_laundry_room
+        confirmation:
+          text: "Send Mr. Slave to clean Laundry Room now?"
+      hold_action:
+        action: more-info
+    - type: tile
+      entity: sensor.rr_room_garage_entrance_cleaned
+      name: Garage Entrance
+      icon: mdi:garage-variant
+      state_content: [state, at]
+      grid_options: {columns: 6}
+      tap_action:
+        action: perform-action
+        perform_action: input_button.press
+        target:
+          entity_id: input_button.rr_clean_garage_entrance
+        confirmation:
+          text: "Send Mr. Slave to clean Garage Entrance now?"
+      hold_action:
+        action: more-info
+
+  # 3. Mop run
+  - type: grid
+    cards:
+    - type: heading
+      heading: Mop run
+      icon: mdi:bucket-outline
+    - type: markdown
+      grid_options: {columns: 12}
+      content: |-
+        {%- macro when(ts) -%}{{ ts | timestamp_custom('%a %b %-d %H:%M') }}{%- endmacro -%}
+        {%- macro rel(ts) -%}
+        {%- set d = (ts - now().timestamp()) / 86400 -%}
+        {%- if d | abs < 1 -%}{{ ((d | abs) * 24) | round(0) | int }} h{{ ' ago' if d < 0 else '' }}{%- else -%}{{ (d | abs) | round(0) | int }} d{{ ' ago' if d < 0 else '' }}{%- endif -%}
+        {%- endmacro -%}
+        {%- set phase = states('input_text.rr_run_phase') -%}
+        {%- set st = states('sensor.mr_slave_status_2') -%}
+        {%- set lm = state_attr('input_datetime.rr_last_mop_run', 'timestamp') | float(0) -%}
+        {%- set nm = state_attr('input_datetime.rr_next_mop', 'timestamp') | float(0) -%}
+        {%- if phase.startswith('Mop pass') -%}
+        <ha-alert alert-type="info" title="Mopping now">{{ phase }}. The pass counts as done only after 20 quiet minutes back on the dock.</ha-alert>
+        {%- endif %}
+
+        - **Dock now:** {% if 'wash' in st or is_state('switch.mr_slave_dock_mop_washing', 'on') %}washing the mop{% elif is_state('binary_sensor.mr_slave_dock_mop_drying', 'on') %}drying the mop, {{ ((states('sensor.mr_slave_dock_mop_drying_remaining_time') | float(0)) / 60) | round(0) | int }} min left{% else %}not washing or drying{% endif %}
+        - **Last mop pass:** {% if lm < 946684800 %}none recorded{% else %}{{ when(lm) }} · {{ rel(lm) }}{% endif %}
+        - **Next mop pass:** {% if nm < 946684800 %}not scheduled{% else %}{{ when(nm) }} · in {{ rel(nm) }}{% endif %}
+        - **Clean tank:** {{ '⚠️ out or empty' if is_state('binary_sensor.mr_slave_dock_clean_water_box', 'on') else '✅ in the dock' }}
+
+        Mop day is **Wednesday** (after the vacuum sweep). If Wednesday's pass was missed, it runs on Thursday or Friday; never within 48 h of the last pass. One clean tank lasts one pass. A pass that fails (tank ran dry, never settled) is **not** stamped and sends "weekly mop did not finish".
+    - type: tile
+      entity: select.mr_slave_cleaning_mode
+      name: Cleaning mode
+      grid_options: {columns: 12}
+      features:
+      - type: select-options
+    - type: tile
+      entity: select.mr_slave_mop_intensity_2
+      name: Water flow
+      grid_options: {columns: 6}
+    - type: tile
+      entity: select.mr_slave_mop_mode_2
+      name: Mop route
+      grid_options: {columns: 6}
+    - type: button
+      name: Mop all floors
+      icon: mdi:bucket
+      show_state: false
+      grid_options: {columns: 6, rows: 2}
+      tap_action:
+        action: perform-action
+        perform_action: input_button.press
+        target:
+          entity_id: input_button.rr_mop_all_floors
+        confirmation:
+          text: "Start a full mop pass now? It uses a whole clean tank."
+    - type: tile
+      entity: binary_sensor.mr_slave_dock_mop_drying
+      name: Mop drying
+      icon: mdi:fan
+      grid_options: {columns: 6, rows: 2}
+
+  # 4. Alerts
+  - type: grid
+    cards:
+    - type: heading
+      heading: Alerts
+      icon: mdi:bell-alert-outline
+    - type: markdown
+      grid_options: {columns: 12}
+      content: |-
+        {%- set ns = namespace(n=0) -%}
+        {%- set v = states('vacuum.mr_slave_2') -%}
+        {%- set st = states('sensor.mr_slave_status_2') -%}
+        {%- set code = states('sensor.mr_slave_vacuum_error_2') -%}
+        {%- set adv = state_attr('sensor.rr_vacuum_error', 'advice') or {} -%}
+        {%- if v in ['unavailable', 'unknown'] %}{% set ns.n = ns.n + 1 %}
+        <ha-alert alert-type="error" title="Offline">Mr. Slave is unreachable. Put it on the dock and press power.</ha-alert>
+        {%- endif %}
+        {%- if code not in ['none', 'unknown', 'unavailable'] %}{% set ns.n = ns.n + 1 %}
+        {%- set w = states('sensor.rr_vacuum_error') %}
+        {%- if w in ['unknown', 'unavailable'] %}{% set w = code | replace('_', ' ') %}{% endif %}
+        <ha-alert alert-type="error" title="{{ adv.title | default('Mr. Slave has an error') }}">{{ w[:1] | upper }}{{ w[1:] }}.</ha-alert>
+        {%- elif st in ['charger_disconnected', 'idle', 'paused', 'charging_problem'] and not is_state('binary_sensor.mr_slave_cleaning_2', 'on') %}{% set ns.n = ns.n + 1 %}
+        <ha-alert alert-type="warning" title="Off the charger">Status {{ st | replace('_', ' ') }}. It powers off after ~12 h off the dock.</ha-alert>
+        {%- endif %}
+        {%- set de = states('sensor.mr_slave_dock_dock_error') %}
+        {%- if de not in ['ok', 'unknown', 'unavailable'] %}{% set ns.n = ns.n + 1 %}
+        <ha-alert alert-type="error" title="Dock error">{{ de | replace('_', ' ') | capitalize }}.</ha-alert>
+        {%- endif %}
+        {%- if is_state('binary_sensor.mr_slave_dock_clean_water_box', 'on') %}{% set ns.n = ns.n + 1 %}
+        <ha-alert alert-type="warning" title="Clean-water tank">Out of the dock or empty.</ha-alert>
+        {%- endif %}
+        {%- if is_state('binary_sensor.mr_slave_dock_dirty_water_box', 'on') %}{% set ns.n = ns.n + 1 %}
+        <ha-alert alert-type="warning" title="Dirty-water tank">Out of the dock or full.</ha-alert>
+        {%- endif %}
+        {%- set cb = states.binary_sensor.mr_slave_dock_clean_water_box %}
+        {%- set wf = states.binary_sensor.mr_slave_water_shortage_2 %}
+        {%- if wf and wf.state == 'on' and not (cb and cb.last_changed > wf.last_changed) %}{% set ns.n = ns.n + 1 %}
+        <ha-alert alert-type="warning" title="Ran out of water">The robot reported a water shortage at {{ as_timestamp(wf.last_changed) | timestamp_custom('%a %H:%M') }}. Refill the clean tank.</ha-alert>
+        {%- endif %}
+        {%- set phase = states('input_text.rr_run_phase') %}
+        {%- set po = states.input_text.rr_run_phase %}
+        {%- if po and (phase.startswith('Stopped') or phase.startswith('Failed') or phase.startswith('Stalled') or phase.startswith('Cancelled'))
+              and (now() - po.last_changed).total_seconds() < 86400 %}{% set ns.n = ns.n + 1 %}
+        <ha-alert alert-type="info" title="Last run did not finish">{{ phase }} ({{ as_timestamp(po.last_changed) | timestamp_custom('%a %H:%M') }}).</ha-alert>
+        {%- endif %}
+        {%- set ts = state_attr('input_datetime.rr_last_tank_swap', 'timestamp') | float(0) %}
+        {%- if now().timestamp() - ts > 7 * 86400 %}{% set ns.n = ns.n + 1 %}
+        <ha-alert alert-type="warning" title="Tank swap due">{{ 'No swap recorded yet.' if ts < 946684800 else 'Last swap ' ~ ((now().timestamp() - ts) / 86400) | round(0) | int ~ ' days ago.' }} Swap in the spare pair, then tap Tanks swapped.</ha-alert>
+        {%- endif %}
+        {%- set parts = [('Main brush', 'sensor.mr_slave_main_brush_time_left_2', 3600), ('Side brush', 'sensor.mr_slave_side_brush_time_left_2', 3600),
+                         ('Filter', 'sensor.mr_slave_filter_time_left_2', 3600), ('Sensors', 'sensor.mr_slave_sensor_time_left_2', 3600),
+                         ('Dock strainer', 'sensor.mr_slave_dock_strainer_time_left', 1)] %}
+        {%- for name, ent, div in parts %}
+        {%- set h = states(ent) | float(-1) / div %}
+        {%- if 0 <= h < 10 %}{% set ns.n = ns.n + 1 %}
+        <ha-alert alert-type="warning" title="{{ name }}">{{ h | round(0) | int }} h left. Do the chore in Tasks (it resets the counter).</ha-alert>
+        {%- endif %}
+        {%- endfor %}
+        {%- if ns.n == 0 %}
+        <ha-alert alert-type="success">All clear.</ha-alert>
+        {%- endif %}
+    - type: logbook
+      title: Last 24 h
+      hours_to_show: 24
+      grid_options: {columns: 12}
+      target:
+        entity_id:
+        - sensor.mr_slave_vacuum_error_2
+        - sensor.mr_slave_dock_dock_error
+        - automation.roborock_stuck_or_error_alert
+        - automation.roborock_dock_error_alert
+        - automation.roborock_off_the_charger_alert
+        - automation.roborock_clean_water_tank_empty
+        - automation.roborock_job_unfinished_before_do_not_disturb
+        - automation.roborock_weekly_water_tank_swap_reminder
+        - automation.roborock_tanks_back_in_the_dock_confirm_swap
+        - automation.roborock_record_water_tank_swap
+
+  # 5. Maintenance (chores live in Vikunja project 6; there are no rr_maint_*
+  # helpers since 2026-09-21)
+  - type: grid
+    cards:
+    - type: heading
+      heading: Maintenance
       icon: mdi:wrench-clock
     - type: markdown
-      content: >-
-        {% set items = state_attr('sensor.rr_vikunja_chores','open') or [] %}
-        {% if states('sensor.rr_vikunja_chores') in ['unknown','unavailable'] -%}
-        *Chore list unavailable — check tasks.kmkdp.com*
-        {% elif items | count == 0 -%}
-        **All caught up ✓**
-        {% else -%}
-        {% for t in items -%}
-        - {{ '⚠️ ' if as_datetime(t.due) < now() else '' }}**{{ t.t }}** — due {{ as_timestamp(t.due) | timestamp_custom('%a %b %-d') }}
-        {% endfor -%}
+      grid_options: {columns: 12}
+      content: |-
+        {%- set items = state_attr('sensor.rr_vikunja_chores', 'open') or [] -%}
+        **Chores** (Vikunja, [tasks.kmkdp.com](https://tasks.kmkdp.com/projects/6))
+        {% if states('sensor.rr_vikunja_chores') in ['unknown', 'unavailable'] %}
+        *Chore list unavailable. Check tasks.kmkdp.com.*
+        {% elif items | count == 0 %}
+        ✅ All caught up.
+        {% else %}
+        {%- for t in items %}
+        {%- set due = as_datetime(t.due, none) %}
+        - {% if due is none or due.year < 2000 %}**{{ t.t }}** · no due date{% else %}{{ '⚠️ ' if due < now() else '' }}**{{ t.t }}** · due {{ as_timestamp(due) | timestamp_custom('%a %b %-d') }}{% endif %}
+        {%- endfor %}
         {% endif %}
+        Completing a chore in Tasks resets the matching counter; water refills complete themselves when the dock tank comes back.
 
-        Mark chores done at [tasks.kmkdp.com](https://tasks.kmkdp.com/projects/6) —
-        water refills auto-complete when the dock tank comes back full.
+        **Parts left**
 
+        | Part | Hours left |
+        |:--|--:|
+        {%- for name, ent, div in [('Main brush', 'sensor.mr_slave_main_brush_time_left_2', 3600), ('Side brush', 'sensor.mr_slave_side_brush_time_left_2', 3600), ('Filter', 'sensor.mr_slave_filter_time_left_2', 3600), ('Sensors (wipe)', 'sensor.mr_slave_sensor_time_left_2', 3600), ('Dock strainer', 'sensor.mr_slave_dock_strainer_time_left', 1)] %}
+        {%- set h = states(ent) | float(-1) / div %}
+        | {{ name }} | {% if h < 0 %}unknown{% else %}{{ '⚠️ ' if h < 10 else '' }}{{ h | round(0) | int }} h{% endif %} |
+        {%- endfor %}
 
-        **Water tanks:** swap in the spare pair weekly —
-        {% set ts = state_attr('input_datetime.rr_last_tank_swap','timestamp') | float(0) -%}
-        {% if ts < 946684800 %}no swap recorded yet.{% else %}last swapped {{ ts | timestamp_custom('%a %b %-d') }}{{ ' ⚠️ overdue' if now().timestamp() - ts > 7*86400 else '' }}.{% endif %}
-    - type: tile
-      entity: binary_sensor.mr_slave_water_shortage_2
-      name: Clean Water Empty?
-    - type: tile
-      entity: binary_sensor.mr_slave_dock_clean_water_box
-      name: Clean Water Tank
-    - type: tile
-      entity: binary_sensor.mr_slave_dock_dirty_water_box
-      name: Dirty Water Tank
-    - type: tile
-      entity: sensor.rr_tank_swap_age
-      name: Days Since Tank Swap
-    - type: tile
-      entity: input_button.rr_tanks_swapped
-      name: Tanks Swapped
+        **Water tanks:** swap in the spare pair weekly.
+        {%- set ts = state_attr('input_datetime.rr_last_tank_swap', 'timestamp') | float(0) %}
+        {% if ts < 946684800 %}No swap recorded yet.{% else %}Last swapped {{ ts | timestamp_custom('%a %b %-d') }} ({{ ((now().timestamp() - ts) / 86400) | round(0) | int }} d ago){{ ' · ⚠️ overdue' if now().timestamp() - ts > 7 * 86400 else '' }}.{% endif %}
+    - type: button
+      name: Tanks swapped
+      icon: mdi:cup-water
+      show_state: false
+      grid_options: {columns: 6, rows: 2}
       tap_action:
         action: perform-action
         perform_action: input_button.press
         target:
           entity_id: input_button.rr_tanks_swapped
-      icon_tap_action:
-        action: perform-action
-        perform_action: input_button.press
-        target:
-          entity_id: input_button.rr_tanks_swapped
+        confirmation:
+          text: "Record the weekly water-tank swap now?"
     - type: tile
-      entity: sensor.mr_slave_main_brush_time_left_2
-      name: Main Brush Left
-    - type: tile
-      entity: sensor.mr_slave_side_brush_time_left_2
-      name: Side Brush Left
-    - type: tile
-      entity: sensor.mr_slave_filter_time_left_2
-      name: Filter Left
-    - type: tile
-      entity: sensor.mr_slave_sensor_time_left_2
-      name: Sensor Clean Left
+      entity: sensor.rr_tank_swap_age
+      name: Days since swap
+      grid_options: {columns: 6, rows: 2}
 
 - title: Map
   path: map

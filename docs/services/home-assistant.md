@@ -54,11 +54,43 @@ local-only `node-red` user (admin, required by the websocket nodes) instead of t
   Dishwasher, Master Bedroom, Master Bathroom, Bedrooms, Theater, Basement,
   Garage, Vacuum), tile cards with features, emulating the iOS Home app.
   The family reaches it same-tab from the home.kmkdp.com Kodiak sidebar.
-- **Roborock** (`/roborock-vac`) — live map (HACS `lovelace-xiaomi-vacuum-map-card`,
-  manual calibration — do not re-derive), status/schedule/next-run, rooms-cleaned
-  stamps, routines, per-room clean, Vikunja chore list + dock sensors.
+- **Roborock** (`/roborock-vac`) — sections *Current status*, *Rooms*, *Mop run*,
+  *Alerts*, *Maintenance*, plus the **Map** tab (HACS
+  `lovelace-xiaomi-vacuum-map-card`, manual calibration — do not re-derive). See
+  [Roborock dashboard](#roborock-dashboard-2026-11-04).
 - **Homelab** (`/homelab-hw`) — iDRAC gauges for [[kdk-hyp-01]] and
   [[kdk-nas-01]], the [[nut]] UPS, and CPU/memory/uptime for all monitored hosts.
+
+## Roborock dashboard (2026-11-04)
+
+`config/dashboards/roborock.yaml`, helpers in `config/packages/roborock.yaml`.
+
+| Section | Shows | Source |
+|---|---|---|
+| Current status | state + since, error in words with the fix, battery, room (only while cleaning), run phase + time, mode, dock error/activity, tanks, last job | `sensor.rr_vacuum_error`, `input_text.rr_run_phase/near`, dock sensors |
+| Rooms | 13 tiles: tap = clean that room now (asks first); state = "2 days ago · Tue Nov 3 09:24"; banner for rooms not cleaned in 2+ days | `sensor.rr_room_<room>_cleaned` (timestamp view of the Node-RED stamps) |
+| Mop run | in-progress banner, dock washing/drying, last + next mop pass, clean tank, mode/flow/route, Mop all floors | `rr_last_mop_run`, `rr_next_mop`, dock switches |
+| Alerts | every active condition as a coloured banner (error, off charger, dock error, tanks, real water shortage, unfinished run, swap due, parts under 10 h), then a 24 h logbook of the error sensors and the `rr_*` automations | live states |
+| Maintenance | Vikunja chores, parts left in hours, tank swap age + Tanks swapped | `sensor.rr_vikunja_chores`, consumable sensors |
+
+Rules the page follows:
+
+- **Polarity.** The dock tank binary sensors are problem class: ON = out, empty
+  or full. `binary_sensor.mr_slave_water_shortage_2` only re-evaluates when the
+  dock pumps water, so it is shown (and alerted) only while the clean tank has
+  not been reseated since it rose.
+- **Times** come from the stamps, never from a helper's `last_changed` (every HA
+  restart resets it). A stamp means the room's stage *finished*.
+- **Room names.** `sensor.mr_slave_current_room_2` and `rr_run_near` carry the
+  robot's own room names (Bathroom2 = the dock spot, three rooms are just
+  "Bedroom"), not the 13 segment names. Renaming the rooms in the Roborock app
+  to the segment names fixes the label (hand step, not done).
+- **Alerts** (`rr_stuck_alert`) are titled by error kind: stuck, jam, can't
+  charge, dock wash tray, dock water, dirty sensor. `rr_dock_error_alert` pages
+  dock errors other than an empty clean tank after 10 min. The off-charger
+  alert stays quiet while the robot reports an error (the error alert has
+  already paged). Follow-up, not built: the 1-3 s `clean_carousel_*` blips
+  (six on 11-03) never page; a repeat counter would catch a failing wash tray.
 
 ## Roborock ↔ Vikunja bridge (Node-RED)
 
