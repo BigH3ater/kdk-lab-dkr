@@ -161,17 +161,22 @@ PY
 stat -c '%n %s %a' $K/thud/secrets/glassos_*.pem    # 1265 / 1090 / 1704, all 600
 ```
 
-**4d. `kdk-ha.conf` (secret) and `kdk-launcher.conf` (not secret) — on the LAPTOP, not in
-the dkr-04 session** (`op` lives there; the `ssh ... install` writes land on the share). The
-1Password Document `thud-kdk-ha-conf` (vault `kdk-cluster`) is the source of truth;
-if it is missing, create it first from the recovered kit copy
-(`op document create ~/treadmill-kit/recovered-2026-11-04/kdk-ha.conf --title thud-kdk-ha-conf --vault kdk-cluster`):
+**4d. `kdk-ha.conf` (secret) and `kdk-launcher.conf` (not secret, but it names LAN
+hostnames) — on the LAPTOP, not in the dkr-04 session** (`op` lives there; the
+`ssh ... install` writes land on the share). The 1Password Documents `thud-kdk-ha-conf`
+and `thud-kdk-launcher-conf` (vault `kdk-cluster`) are the source of truth for both
+files; the share copy is a cache. Neither file is in the fork or the lab repo:
 
 ```sh
+# laptop as jmack (op + ssh): seed both confs on the share from 1Password
 op document get thud-kdk-ha-conf --vault kdk-cluster | ssh kdkadmin@10.1.20.22 'install -m 600 /dev/stdin /mnt/linux-tools/thud/secrets/kdk-ha.conf'
-ssh kdkadmin@10.1.20.22 'install -m 644 /dev/stdin /mnt/linux-tools/thud/conf/kdk-launcher.conf' < ~/treadmill-kit/recovered-2026-11-04/kdk-launcher.conf
-ssh kdkadmin@10.1.20.22 'stat -c "%n %s %a" /mnt/linux-tools/thud/secrets/kdk-ha.conf /mnt/linux-tools/thud/conf/kdk-launcher.conf'
+op document get thud-kdk-launcher-conf --vault kdk-cluster | ssh kdkadmin@10.1.20.22 'install -m 644 /dev/stdin /mnt/linux-tools/thud/conf/kdk-launcher.conf'
+ssh kdkadmin@10.1.20.22 'stat -c "%n %s %a" /mnt/linux-tools/thud/secrets/kdk-ha.conf /mnt/linux-tools/thud/conf/kdk-launcher.conf'   # 86 600, 292 644
 ```
+
+To change the Apps-button targets, edit the 1Password document `thud-kdk-launcher-conf`
+and rerun the block; the next `kdk/tm-install.sh` places the new file (it only rewrites
+a conf whose sha256 changed).
 
 **4e. Fork clone (dkr-04 as kdkadmin)** — files on the share are owned by 3010, so git needs
 `safe.directory` for kdkadmin:
