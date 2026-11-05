@@ -1567,7 +1567,7 @@
         "id": "s_49",
         "type": "api-call-service",
         "z": "rr_tab_1",
-        "name": "clean rest (ends Rachel's office)",
+        "name": "clean rest (11 rooms; office runs after)",
         "server": "38978576.ca0eea",
         "version": 5,
         "debugenabled": false,
@@ -1576,7 +1576,7 @@
         "areaId": [],
         "deviceId": [],
         "entityId": [],
-        "data": "{\"entity_id\": \"vacuum.mr_slave_2\", \"command\": \"app_segment_clean\", \"params\": [{\"segments\": [1, 4, 5, 3, 13, 12, 11, 6, 7, 8, 10, 9], \"repeat\": 1}]}",
+        "data": "{\"entity_id\": \"vacuum.mr_slave_2\", \"command\": \"app_segment_clean\", \"params\": [{\"segments\": [1, 4, 5, 3, 13, 12, 11, 6, 7, 8, 10], \"repeat\": 1}]}",
         "dataType": "json",
         "mergeContext": "",
         "mustacheAltTags": false,
@@ -3235,7 +3235,7 @@
         "type": "function",
         "z": "rr_tab_1",
         "name": "run tracker",
-        "func": "\n// Phase-level run tracker. Publishes sensor.rr_run_progress via HA REST (out 0)\n// and emits guarded room stamps (out 1, same shape s_room consumes).\nconst REST_ROOMS = ['master_bedroom_closet','master_bathroom','bathroom_1',\n    'bedroom_1','kitchen','living_room','front_door_entry','garage_entrance',\n    'half_bath','laundry_room','hallway','rachels_office'];\nlet run = flow.get('rr_run', 'file') || {active:false, phase:'', cancelled:false, near:''};\nconst evt = msg.rr_evt;\nlet stamp = null;\nswitch (evt) {\n    case 'start':\n        run = {active:true, phase:'Master bedroom \u2014 zone A', cancelled:false, near:''};\n        break;\n    case 'zoneB':\n        run.phase = 'Master bedroom \u2014 zone B'; break;\n    case 'zbdone':\n        if (run.active && !run.cancelled && !flow.get('rr_cancel') && !flow.get('rr_mbr_short')) {\n            stamp = {stamp:'input_datetime.rr_last_clean_master_bedroom',\n                     ts: Math.floor(Date.now()/1000)};\n            run.phase = 'Dock \u2014 emptying before main sweep';\n        }\n        break;\n    case 'rest':\n        run.phase = 'Main floor sweep (12 rooms)'; break;\n    case 'restdone':\n        if (run.active && !run.cancelled && !flow.get('rr_cancel')) {\n            stamp = {stamp: REST_ROOMS.map(r => 'input_datetime.rr_last_clean_' + r),\n                     ts: Math.floor(Date.now()/1000)};\n            run.phase = 'Main sweep complete';\n        }\n        break;\n    case 'recharge':\n        if (run.active && !run.cancelled) run.phase = 'Main sweep \u2014 recharging, resumes at 80%';\n        break;\n    case 'mop':\n        run.phase = 'Mop pass (all floors)'; break;\n    case 'done':\n        run.phase = run.cancelled ? 'Cancelled' : 'Complete';\n        run.active = false; run.near = '';\n        break;\n    case 'cancel':\n        run.cancelled = true; run.active = false;\n        run.phase = 'Cancelled \u2014 returning to dock';\n        break;\n    case 'failed':\n        run.cancelled = true; run.active = false; run.near = '';\n        run.phase = msg.rr_phase || 'Failed';\n        break;\n    case 'idle':\n        if (run.active && !run.cancelled) {\n            run.cancelled = true; run.active = false;\n            flow.set('rr_cancel', true);\n            run.phase = 'Stopped by hand \u2014 rest of run cancelled';\n        } else { return null; }\n        break;\n    case 'dock':\n        run.phase = msg.rr_phase || run.phase; break;\n    case 'job':\n        // The robot started cleaning (cleaning_2 -> on). Inside a Node-RED run\n        // or mop pass this is just the next stage. Otherwise it is a job from\n        // the Roborock app, HomeKit or a room button: replace the last run's\n        // final phase so the dashboard does not show e.g. \"Stopped by hand\"\n        // from hours ago (2026-11-04 13:15 mop routine). cleaning_2 also flips\n        // off/on at every wash or empty visit; rewriting the same text is a no-op.\n        // (Not sensor.mr_slave_last_clean_begin_2: it updates when a job ENDS.)\n        if (run.active || flow.get('rr_mop_inpass')) return null;\n        run.phase = 'Robot job started outside the daily run (app, HomeKit or a room button)';\n        run.near = '';\n        break;\n    case 'room':\n        if (!run.active) return null;\n        run.near = String(msg.payload || '');\n        break;\n    default:\n        return null;\n}\nflow.set('rr_run', run, 'file');\nconst prog = {payload: {phase: run.phase.substring(0,255), near: (run.near || '').substring(0,100)}};\nreturn [[prog], stamp ? [{payload: stamp}] : []];\n",
+        "func": "\n// Phase-level run tracker. Publishes sensor.rr_run_progress via HA REST (out 0)\n// and emits guarded room stamps (out 1, same shape s_room consumes).\nconst REST_ROOMS = ['master_bedroom_closet','master_bathroom','bathroom_1',\n    'bedroom_1','kitchen','living_room','front_door_entry','garage_entrance',\n    'half_bath','laundry_room','hallway'];\n// Rachel's office (segment 9) is its own last job since 2026-11-05: stamped on 'officedone'.\nlet run = flow.get('rr_run', 'file') || {active:false, phase:'', cancelled:false, near:''};\nconst evt = msg.rr_evt;\nlet stamp = null;\nswitch (evt) {\n    case 'start':\n        run = {active:true, phase:'Master bedroom \u2014 zone A', cancelled:false, near:''};\n        break;\n    case 'zoneB':\n        run.phase = 'Master bedroom \u2014 zone B'; break;\n    case 'zbdone':\n        if (run.active && !run.cancelled && !flow.get('rr_cancel') && !flow.get('rr_mbr_short')) {\n            stamp = {stamp:'input_datetime.rr_last_clean_master_bedroom',\n                     ts: Math.floor(Date.now()/1000)};\n            run.phase = 'Dock \u2014 emptying before main sweep';\n        }\n        break;\n    case 'rest':\n        run.phase = 'Main floor sweep (11 rooms)'; break;\n    case 'restdone':\n        if (run.active && !run.cancelled && !flow.get('rr_cancel')) {\n            stamp = {stamp: REST_ROOMS.map(r => 'input_datetime.rr_last_clean_' + r),\n                     ts: Math.floor(Date.now()/1000)};\n            run.phase = \"Dock \u2014 emptying before Rachel's office\";\n        }\n        break;\n    case 'office':\n        run.phase = \"Rachel's office (last)\"; break;\n    case 'officedone':\n        if (run.active && !run.cancelled && !flow.get('rr_cancel')) {\n            stamp = {stamp:'input_datetime.rr_last_clean_rachels_office',\n                     ts: Math.floor(Date.now()/1000)};\n            run.phase = 'Main sweep complete';\n        }\n        break;\n    case 'recharge':\n        if (run.active && !run.cancelled) run.phase = 'Main sweep \u2014 recharging, resumes at 80%';\n        break;\n    case 'mop':\n        run.phase = 'Mop pass (all floors)'; break;\n    case 'done':\n        run.phase = run.cancelled ? 'Cancelled' : 'Complete';\n        run.active = false; run.near = '';\n        break;\n    case 'cancel':\n        run.cancelled = true; run.active = false;\n        run.phase = 'Cancelled \u2014 returning to dock';\n        break;\n    case 'failed':\n        run.cancelled = true; run.active = false; run.near = '';\n        run.phase = msg.rr_phase || 'Failed';\n        break;\n    case 'idle':\n        if (run.active && !run.cancelled) {\n            run.cancelled = true; run.active = false;\n            flow.set('rr_cancel', true);\n            run.phase = 'Stopped by hand \u2014 rest of run cancelled';\n        } else { return null; }\n        break;\n    case 'dock':\n        run.phase = msg.rr_phase || run.phase; break;\n    case 'job':\n        // The robot started cleaning (cleaning_2 -> on). Inside a Node-RED run\n        // or mop pass this is just the next stage. Otherwise it is a job from\n        // the Roborock app, HomeKit or a room button: replace the last run's\n        // final phase so the dashboard does not show e.g. \"Stopped by hand\"\n        // from hours ago (2026-11-04 13:15 mop routine). cleaning_2 also flips\n        // off/on at every wash or empty visit; rewriting the same text is a no-op.\n        // (Not sensor.mr_slave_last_clean_begin_2: it updates when a job ENDS.)\n        if (run.active || flow.get('rr_mop_inpass')) return null;\n        run.phase = 'Robot job started outside the daily run (app, HomeKit or a room button)';\n        run.near = '';\n        break;\n    case 'room':\n        if (!run.active) return null;\n        run.near = String(msg.payload || '');\n        break;\n    default:\n        return null;\n}\nflow.set('rr_run', run, 'file');\nconst prog = {payload: {phase: run.phase.substring(0,255), near: (run.near || '').substring(0,100)}};\nreturn [[prog], stamp ? [{payload: stamp}] : []];\n",
         "outputs": 2,
         "timeout": 0,
         "noerr": 0,
@@ -3736,6 +3736,7 @@
             "s_mv_R",
             "s_mv2_R",
             "s_49",
+            "81b9a3c1de858b4b",
             "s_60",
             "s_61",
             "s_63"
@@ -4518,7 +4519,7 @@
         "id": "g_sweep",
         "type": "group",
         "z": "rr_tab_1",
-        "name": "3 \u00b7 Main sweep (12 rooms) \u2192 mop pass Wed (catch-up Thu/Fri) \u2192 restore vac+mop",
+        "name": "3 \u00b7 Main sweep (11 rooms) \u2192 dock/empty \u2192 Rachel's office (last) \u2192 mop pass Wed (catch-up Thu/Fri) \u2192 restore vac+mop",
         "style": {
             "label": true,
             "fill": "#dbebff",
@@ -4571,12 +4572,23 @@
             "g_w62",
             "t_mopwater",
             "f_mopwater",
-            "lo_n_short"
+            "lo_n_short",
+            "9622cf35f026db07",
+            "01106f5dbc94d4f5",
+            "94d58a61d89a1ad3",
+            "ca1916c27f53f848",
+            "81b9a3c1de858b4b",
+            "04fdb2cbff7f4717",
+            "207dee7e272ef8ca",
+            "00542ec58ae4b642",
+            "901de950dde3341c",
+            "6c199d35c11dfb67",
+            "91b1b1f09a52fd7f"
         ],
         "x": 20,
         "y": 830,
         "w": 2894,
-        "h": 420
+        "h": 530
     },
     {
         "id": "g_stop",
@@ -4759,10 +4771,10 @@
         "libs": [],
         "x": 1700,
         "y": 860,
-        "func": "if (msg.rr_wgen !== flow.get('rr_waitgen')) { node.status({fill:'grey',shape:'ring',text:'stale wait ignored'}); return [null, null, null, null]; }\nif (flow.get('rr_cancel')) { node.status({fill:'red',text:'cancelled'}); return [null, null, null, null]; }\nflow.set('rr_pending', '');\nconst _ha = global.get('homeassistant') || {};\nconst _st = (Object.values(_ha).find(v => v && v.states) || {}).states || {};\nconst st = id => (_st[id] && _st[id].state);\n// Docked after the 12-room sweep. A finished job comes home with charge to\n// spare and progress reset to 0. Docking at ~14% with progress still >0 means\n// the battery ran out mid-sweep: the robot recharges and RESUMES on its own at\n// 80% (Roborock recharge & resume). Treating that as done restored vac_and_mop\n// before the resume, so the rest of the sweep mopped every day (2026-10-15..18).\nconst batt = Number(st('sensor.mr_slave_battery_2'));\nconst prog = Number(st('sensor.mr_slave_cleaning_progress_2'));\nconst n = msg.rr_recharges || 0;\nif (batt <= 20 && prog > 0 && prog < 95 && n < 2) {\n    msg.rr_recharges = n + 1; msg.rr_evt = 'recharge';\n    node.status({fill:'yellow', text:`recharging: ${batt}% batt, ${prog}% done (#${n + 1})`});\n    return [null, msg, null, null];\n}\n// 2026-11-03: the robot came home 1.7 min into the 12-room sweep (no error,\n// progress 0) and every room was stamped clean. A real sweep takes far longer,\n// so under 10 min with no progress = ended early: move on to the mop gate\n// WITHOUT f_ev_restdone (rooms stay unmarked) and tell the owner.\nconst MIN_S = 10 * 60;\nconst t0 = msg.rr_sweep_t0;\nconst secs = t0 ? (Date.now() - t0) / 1000 : Number(st('sensor.mr_slave_cleaning_time_2'));\nif (!isNaN(secs) && secs > 0 && secs < MIN_S && !(prog > 0)) {\n    const mins = Math.round(secs / 60 * 10) / 10;\n    node.status({fill:'yellow', text:`sweep ended early: ${mins} min, ${prog}%`});\n    const notify = {notify: {title: 'Vacuum: main sweep ended early',\n        message: 'The 12-room sweep ended after ' + mins + ' min with no error. The rooms are left unmarked; the run moves on.',\n        tag: 'rr_sweep_short', urgent: false}};\n    return [null, null, msg, notify];\n}\nnode.status({fill:'green', text:`sweep done: ${batt}% batt, ${prog}%`});\nreturn [msg, null, null, null];",
+        "func": "if (msg.rr_wgen !== flow.get('rr_waitgen')) { node.status({fill:'grey',shape:'ring',text:'stale wait ignored'}); return [null, null, null, null]; }\nif (flow.get('rr_cancel')) { node.status({fill:'red',text:'cancelled'}); return [null, null, null, null]; }\nflow.set('rr_pending', '');\nconst _ha = global.get('homeassistant') || {};\nconst _st = (Object.values(_ha).find(v => v && v.states) || {}).states || {};\nconst st = id => (_st[id] && _st[id].state);\n// Docked after the 11-room sweep (Rachel's office runs next as its own job).\n// A finished job comes home with charge to spare and progress reset to 0. Docking at ~14% with progress still >0 means\n// the battery ran out mid-sweep: the robot recharges and RESUMES on its own at\n// 80% (Roborock recharge & resume). Treating that as done restored vac_and_mop\n// before the resume, so the rest of the sweep mopped every day (2026-10-15..18).\nconst batt = Number(st('sensor.mr_slave_battery_2'));\nconst prog = Number(st('sensor.mr_slave_cleaning_progress_2'));\nconst n = msg.rr_recharges || 0;\nif (batt <= 20 && prog > 0 && prog < 95 && n < 2) {\n    msg.rr_recharges = n + 1; msg.rr_evt = 'recharge';\n    node.status({fill:'yellow', text:`recharging: ${batt}% batt, ${prog}% done (#${n + 1})`});\n    return [null, msg, null, null];\n}\n// 2026-11-03: the robot came home 1.7 min into the 12-room sweep (no error,\n// progress 0) and every room was stamped clean. A real sweep takes far longer,\n// so under 10 min with no progress = ended early: move on to the mop gate\n// WITHOUT f_ev_restdone (rooms stay unmarked) and tell the owner.\nconst MIN_S = 10 * 60;\nconst t0 = msg.rr_sweep_t0;\nconst secs = t0 ? (Date.now() - t0) / 1000 : Number(st('sensor.mr_slave_cleaning_time_2'));\nif (!isNaN(secs) && secs > 0 && secs < MIN_S && !(prog > 0)) {\n    const mins = Math.round(secs / 60 * 10) / 10;\n    node.status({fill:'yellow', text:`sweep ended early: ${mins} min, ${prog}%`});\n    const notify = {notify: {title: 'Vacuum: main sweep ended early',\n        message: 'The 11-room sweep ended after ' + mins + ' min with no error. The rooms are left unmarked; the run moves on.',\n        tag: 'rr_sweep_short', urgent: false}};\n    return [null, null, msg, notify];\n}\nnode.status({fill:'green', text:`sweep done: ${batt}% batt, ${prog}%`});\nreturn [msg, null, null, null];",
         "wires": [
             [
-                "d_55",
+                "9622cf35f026db07",
                 "f_ev_restdone"
             ],
             [
@@ -5128,8 +5140,8 @@
         "type": "function",
         "z": "rr_tab_1",
         "name": "reconnect: advance pending dock-wait",
-        "func": "// HA reconnect recovery. The dock-waits (w_42/48/54/62, checkCurrentState:false)\n// only react to a state CHANGE. If the robot docks while HA is restarting or the\n// websocket is reconnecting, the dock arrives in the replayed states_loaded as an\n// unchanged value, the wait never fires and it hangs to its (long) timeout. On the\n// client 'states_loaded'/'running' event, if a run is active and the robot is\n// already docked/charging, push the run forward the same way the pending wait's\n// success output would -- and bump rr_waitgen so the abandoned wait's own later\n// success/timeout is dropped by its guard. One recovery per phase per run.\n// out0 -> f_short_A (w_42), out1 -> f_short_B (w_48), out2 -> d_rc (w_54), out3 -> g_w62 (w_62)\nconst NONE = [null, null, null, null];\nconst ev = String((msg.payload && msg.payload.event) || msg.payload || msg.topic || '');\n// states_loaded/running are the client events that mean HA states are live again;\n// match loosely so a version that prefixes or wraps the name still triggers.\nif (!/states_loaded|running/.test(ev)) return NONE;\n\nconst run = flow.get('rr_run', 'file');\nif (!run || !run.active || run.cancelled || flow.get('rr_cancel')) return NONE;\n\nconst nowMs = Date.now();\nif (nowMs - (run.reconnAt || 0) < 60000) return NONE;   // throttle the states_loaded+running burst\n\nconst _ha = global.get('homeassistant') || {};\nconst _st = (Object.values(_ha).find(v => v && v.states) || {}).states || {};\nconst st = id => (_st[id] && _st[id].state);\nconst docked = st('sensor.mr_slave_status_2') === 'charging' || st('vacuum.mr_slave_2') === 'docked';\nif (!docked) return NONE;   // nothing stuck; the wait is still valid\n\nconst phase = run.phase || '';\nif (run.recoveredPhase === phase) return NONE;   // already recovered this phase\n\n// phase -> [output index, the dock-wait that should currently be armed]\nlet i = -1, wid = '';\nif (phase.indexOf('zone A') >= 0)                { i = 0; wid = 'w_42'; }\nelse if (phase.indexOf('zone B') >= 0)           { i = 1; wid = 'w_48'; }\nelse if (phase.indexOf('Main floor sweep') >= 0) { i = 2; wid = 'w_54'; }\nelse if (phase.indexOf('Mop pass') >= 0)         { i = 3; wid = 'w_62'; }\nelse return NONE;   // this phase has no dock-wait pending (delays survive a reconnect)\n\n// only recover if that wait is actually the armed/pending one (not already fired,\n// not mid mop-routine loop) -- otherwise we'd inject a duplicate into a live stage.\nif (flow.get('rr_pending') !== wid) return NONE;\n\nconst g = (flow.get('rr_waitgen') || 0) + 1;\nflow.set('rr_waitgen', g);   // invalidate the abandoned wait\nflow.set('rr_pending', '');\nmsg.rr_wgen = g;             // this msg is now the current generation -> passes the guard\nrun.reconnAt = nowMs; run.recoveredPhase = phase;\nflow.set('rr_run', run, 'file');\n\nconst out = NONE.slice();\nout[i] = msg;\nconst names = ['wait dock (A)/w_42', 'wait dock (B)/w_48', 'wait dock (rest)/w_54', 'wait dock (mop)/w_62'];\nnode.warn('HA reconnect: robot docked while \"' + phase + '\" pending; advancing ' + names[i]);\nnode.status({fill:'blue', text:'reconnect: ' + names[i]});\nreturn out;",
-        "outputs": 4,
+        "func": "// HA reconnect recovery. The dock-waits (w_42/48/54/62 + the office wait, checkCurrentState:false)\n// only react to a state CHANGE. If the robot docks while HA is restarting or the\n// websocket is reconnecting, the dock arrives in the replayed states_loaded as an\n// unchanged value, the wait never fires and it hangs to its (long) timeout. On the\n// client 'states_loaded'/'running' event, if a run is active and the robot is\n// already docked/charging, push the run forward the same way the pending wait's\n// success output would -- and bump rr_waitgen so the abandoned wait's own later\n// success/timeout is dropped by its guard. One recovery per phase per run.\n// out0 -> f_short_A (w_42), out1 -> f_short_B (w_48), out2 -> d_rc (w_54), out3 -> g_w62 (w_62),\n// out4 -> office done? (wait dock (office) 207dee7e272ef8ca)\nconst NONE = [null, null, null, null, null];\nconst ev = String((msg.payload && msg.payload.event) || msg.payload || msg.topic || '');\n// states_loaded/running are the client events that mean HA states are live again;\n// match loosely so a version that prefixes or wraps the name still triggers.\nif (!/states_loaded|running/.test(ev)) return NONE;\n\nconst run = flow.get('rr_run', 'file');\nif (!run || !run.active || run.cancelled || flow.get('rr_cancel')) return NONE;\n\nconst nowMs = Date.now();\nif (nowMs - (run.reconnAt || 0) < 60000) return NONE;   // throttle the states_loaded+running burst\n\nconst _ha = global.get('homeassistant') || {};\nconst _st = (Object.values(_ha).find(v => v && v.states) || {}).states || {};\nconst st = id => (_st[id] && _st[id].state);\nconst docked = st('sensor.mr_slave_status_2') === 'charging' || st('vacuum.mr_slave_2') === 'docked';\nif (!docked) return NONE;   // nothing stuck; the wait is still valid\n\nconst phase = run.phase || '';\nif (run.recoveredPhase === phase) return NONE;   // already recovered this phase\n\n// phase -> [output index, the dock-wait that should currently be armed]\nlet i = -1, wid = '';\nif (phase.indexOf('zone A') >= 0)                { i = 0; wid = 'w_42'; }\nelse if (phase.indexOf('zone B') >= 0)           { i = 1; wid = 'w_48'; }\nelse if (phase.indexOf('Main floor sweep') >= 0) { i = 2; wid = 'w_54'; }\nelse if (phase.indexOf('Mop pass') >= 0)         { i = 3; wid = 'w_62'; }\nelse if (phase.indexOf(\"Rachel's office (last)\") >= 0) { i = 4; wid = '207dee7e272ef8ca'; }\nelse return NONE;   // this phase has no dock-wait pending (delays survive a reconnect)\n\n// only recover if that wait is actually the armed/pending one (not already fired,\n// not mid mop-routine loop) -- otherwise we'd inject a duplicate into a live stage.\nif (flow.get('rr_pending') !== wid) return NONE;\n\nconst g = (flow.get('rr_waitgen') || 0) + 1;\nflow.set('rr_waitgen', g);   // invalidate the abandoned wait\nflow.set('rr_pending', '');\nmsg.rr_wgen = g;             // this msg is now the current generation -> passes the guard\nrun.reconnAt = nowMs; run.recoveredPhase = phase;\nflow.set('rr_run', run, 'file');\n\nconst out = NONE.slice();\nout[i] = msg;\nconst names = ['wait dock (A)/w_42', 'wait dock (B)/w_48', 'wait dock (rest)/w_54', 'wait dock (mop)/w_62', 'wait dock (office)'];\nnode.warn('HA reconnect: robot docked while \"' + phase + '\" pending; advancing ' + names[i]);\nnode.status({fill:'blue', text:'reconnect: ' + names[i]});\nreturn out;",
+        "outputs": 5,
         "timeout": 0,
         "noerr": 0,
         "initialize": "",
@@ -5149,6 +5161,9 @@
             ],
             [
                 "g_w62"
+            ],
+            [
+                "00542ec58ae4b642"
             ]
         ],
         "g": "g_start"
@@ -5545,6 +5560,287 @@
         "wires": [
             [
                 "d_mopchk"
+            ]
+        ],
+        "g": "g_sweep"
+    },
+    {
+        "id": "9622cf35f026db07",
+        "type": "delay",
+        "z": "rr_tab_1",
+        "name": "settle (rest \u2192 office)",
+        "pauseType": "delay",
+        "timeout": "8",
+        "timeoutUnits": "seconds",
+        "rate": "1",
+        "nbRateUnits": "1",
+        "rateUnits": "second",
+        "randomFirst": "1",
+        "randomLast": "5",
+        "randomUnits": "seconds",
+        "drop": false,
+        "allowrate": false,
+        "outputs": 1,
+        "x": 150,
+        "y": 1290,
+        "wires": [
+            [
+                "01106f5dbc94d4f5",
+                "94d58a61d89a1ad3"
+            ]
+        ],
+        "g": "g_sweep"
+    },
+    {
+        "id": "01106f5dbc94d4f5",
+        "type": "api-call-service",
+        "z": "rr_tab_1",
+        "name": "empty (rest) [best-effort]",
+        "server": "38978576.ca0eea",
+        "version": 5,
+        "debugenabled": false,
+        "action": "vacuum.send_command",
+        "floorId": [],
+        "areaId": [],
+        "deviceId": [],
+        "entityId": [],
+        "data": "{\"entity_id\": \"vacuum.mr_slave_2\", \"command\": \"app_start_collect_dust\", \"params\": [1]}",
+        "dataType": "json",
+        "mergeContext": "",
+        "mustacheAltTags": false,
+        "outputProperties": [],
+        "queue": "none",
+        "blockInputOverrides": true,
+        "domain": "",
+        "service": "",
+        "x": 380,
+        "y": 1340,
+        "wires": [
+            []
+        ],
+        "g": "g_sweep"
+    },
+    {
+        "id": "94d58a61d89a1ad3",
+        "type": "delay",
+        "z": "rr_tab_1",
+        "name": "collect (rest)",
+        "pauseType": "delay",
+        "timeout": "50",
+        "timeoutUnits": "seconds",
+        "rate": "1",
+        "nbRateUnits": "1",
+        "rateUnits": "second",
+        "randomFirst": "1",
+        "randomLast": "5",
+        "randomUnits": "seconds",
+        "drop": false,
+        "allowrate": false,
+        "outputs": 1,
+        "x": 380,
+        "y": 1290,
+        "wires": [
+            [
+                "ca1916c27f53f848"
+            ]
+        ],
+        "g": "g_sweep"
+    },
+    {
+        "id": "ca1916c27f53f848",
+        "type": "function",
+        "z": "rr_tab_1",
+        "name": "cancel? (office)",
+        "func": "if (flow.get('rr_cancel')) { node.status({fill:'red',text:'cancelled'}); return null; } return msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 590,
+        "y": 1290,
+        "wires": [
+            [
+                "81b9a3c1de858b4b"
+            ]
+        ],
+        "g": "g_sweep"
+    },
+    {
+        "id": "81b9a3c1de858b4b",
+        "type": "api-call-service",
+        "z": "rr_tab_1",
+        "name": "clean Rachel's office (last)",
+        "server": "38978576.ca0eea",
+        "version": 5,
+        "debugenabled": false,
+        "action": "vacuum.send_command",
+        "floorId": [],
+        "areaId": [],
+        "deviceId": [],
+        "entityId": [],
+        "data": "{\"entity_id\": \"vacuum.mr_slave_2\", \"command\": \"app_segment_clean\", \"params\": [{\"segments\": [9], \"repeat\": 1}]}",
+        "dataType": "json",
+        "mergeContext": "",
+        "mustacheAltTags": false,
+        "outputProperties": [],
+        "queue": "none",
+        "blockInputOverrides": true,
+        "domain": "",
+        "service": "",
+        "x": 820,
+        "y": 1290,
+        "wires": [
+            [
+                "04fdb2cbff7f4717",
+                "6c199d35c11dfb67"
+            ]
+        ],
+        "g": "g_sweep"
+    },
+    {
+        "id": "04fdb2cbff7f4717",
+        "type": "function",
+        "z": "rr_tab_1",
+        "name": "arm wait (office)",
+        "func": "// Arm 'wait dock (office)': bump the wait generation + mark it pending, and\n// stamp the msg so this wait's own success/timeout can be told apart from a\n// stale firing left armed after an HA-reconnect recovery (f_hareconn out4).\nconst g = (flow.get('rr_waitgen') || 0) + 1;\nflow.set('rr_waitgen', g);\nflow.set('rr_pending', '207dee7e272ef8ca');\nmsg.rr_wgen = g;\nmsg.rr_office_t0 = Date.now();   // office done? short-job check\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1040,
+        "y": 1290,
+        "wires": [
+            [
+                "207dee7e272ef8ca"
+            ]
+        ],
+        "g": "g_sweep"
+    },
+    {
+        "id": "207dee7e272ef8ca",
+        "type": "ha-wait-until",
+        "z": "rr_tab_1",
+        "name": "wait dock (office)",
+        "server": "38978576.ca0eea",
+        "outputs": 2,
+        "outputProperties": [],
+        "entityId": "sensor.mr_slave_status_2",
+        "entityIdType": "exact",
+        "property": "state",
+        "comparator": "is",
+        "value": "charging",
+        "valueType": "str",
+        "timeout": "40",
+        "timeoutType": "num",
+        "timeoutUnits": "minutes",
+        "entityLocation": "",
+        "entityLocationType": "none",
+        "checkCurrentState": false,
+        "blockInputOverrides": true,
+        "outputThenReasons": false,
+        "x": 1260,
+        "y": 1290,
+        "wires": [
+            [
+                "00542ec58ae4b642"
+            ],
+            [
+                "901de950dde3341c"
+            ]
+        ],
+        "g": "g_sweep"
+    },
+    {
+        "id": "00542ec58ae4b642",
+        "type": "function",
+        "z": "rr_tab_1",
+        "name": "office done?",
+        "func": "if (msg.rr_wgen !== flow.get('rr_waitgen')) { node.status({fill:'grey',shape:'ring',text:'stale wait ignored'}); return null; }\nif (flow.get('rr_cancel')) { node.status({fill:'red',text:'cancelled'}); return null; }\nflow.set('rr_pending', '');\n// Rachel's office (segment 9) runs as its own job after the 11-room sweep\n// (2026-11-05: in one 12-segment call the robot started there, hit\n// nogo_zone_detected and the whole sweep died). Back at the dock = done:\n// stamp the office (out0 -> settle final + evt officedone). Home in under\n// 2 min = it never really cleaned: no stamp, tell the owner, run moves on.\n// No t0 (HA-reconnect recovery msg) = treated as done.\n// out0 -> [d_55, evt: officedone], out1 -> [d_55], out2 -> notify\nconst t0 = msg.rr_office_t0;\nconst mins = t0 ? (Date.now() - t0) / 60000 : NaN;\nif (!isNaN(mins) && mins < 2) {\n    node.status({fill:'yellow', text:'office ended early: ' + mins.toFixed(1) + ' min'});\n    return [null, msg, {notify: {title: \"Vacuum: Rachel's office ended early\",\n        message: \"Rachel's office was back at the dock after \" + mins.toFixed(1) +\n                 ' min. The run continues; the office is not marked cleaned.',\n        tag: 'rr_short_zone', urgent: false}}];\n}\nnode.status({fill:'green', text: isNaN(mins) ? 'office done (recovered)' : 'office done: ' + mins.toFixed(1) + ' min'});\nreturn [msg, null, null];",
+        "outputs": 3,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1480,
+        "y": 1290,
+        "wires": [
+            [
+                "d_55",
+                "91b1b1f09a52fd7f"
+            ],
+            [
+                "d_55"
+            ],
+            [
+                "lo_n_short"
+            ]
+        ],
+        "g": "g_sweep"
+    },
+    {
+        "id": "901de950dde3341c",
+        "type": "function",
+        "z": "rr_tab_1",
+        "name": "timeout: Rachel's office",
+        "func": "if (msg.rr_wgen !== flow.get('rr_waitgen')) { node.status({fill:'grey',shape:'ring',text:'stale wait ignored'}); return null; }\nif (flow.get('rr_cancel')) { node.status({fill:'red',text:'cancelled'}); return null; }\nflow.set('rr_pending', '');\nmsg.rr_stage = \"Rachel's office (last)\"; msg.rr_mins = 40; return msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1260,
+        "y": 1340,
+        "wires": [
+            [
+                "lo_stop_54"
+            ]
+        ],
+        "g": "g_sweep"
+    },
+    {
+        "id": "6c199d35c11dfb67",
+        "type": "function",
+        "z": "rr_tab_1",
+        "name": "evt: office",
+        "func": "msg.rr_evt = 'office';\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1040,
+        "y": 1340,
+        "wires": [
+            [
+                "lo_tr_rest"
+            ]
+        ],
+        "g": "g_sweep"
+    },
+    {
+        "id": "91b1b1f09a52fd7f",
+        "type": "function",
+        "z": "rr_tab_1",
+        "name": "evt: officedone",
+        "func": "msg.rr_evt = 'officedone';\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1700,
+        "y": 1340,
+        "wires": [
+            [
+                "lo_tr_restd"
             ]
         ],
         "g": "g_sweep"

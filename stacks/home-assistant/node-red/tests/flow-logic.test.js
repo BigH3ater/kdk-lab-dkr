@@ -31,6 +31,13 @@ const FLOWS = path.join(__dirname, "..", "flows.json");
 const SETTINGS = path.join(__dirname, "..", "settings.js");
 const flows = JSON.parse(fs.readFileSync(FLOWS, "utf8"));
 const byId = Object.fromEntries(flows.map((n) => [n.id, n]));
+// Rachel's office as its own last job (2026-11-05)
+const OFFICE = {
+  settle: "9622cf35f026db07", empty: "01106f5dbc94d4f5", collect: "94d58a61d89a1ad3",
+  cancel: "ca1916c27f53f848", clean: "81b9a3c1de858b4b", arm: "04fdb2cbff7f4717",
+  wait: "207dee7e272ef8ca", done: "00542ec58ae4b642", timeout: "901de950dde3341c",
+  evt: "6c199d35c11dfb67", evtDone: "91b1b1f09a52fd7f",
+};
 
 // ---- tiny assert harness --------------------------------------------------
 let passed = 0, failed = 0;
@@ -110,24 +117,24 @@ console.log("Item 2 -- HA reconnect recovery routing");
   ok(f.get("rr_waitgen") === 2 && f.get("rr_pending") === "" && r[0].rr_wgen === 2, "recovery bumps gen + clears pending + stamps msg");
   // second burst event is throttled (reconnAt set) -> no output
   let r2 = run("f_hareconn", { payload: { event: "running" } }, f, g);
-  eq(r2, [null, null, null, null], "reconnect burst throttled");
+  eq(r2, [null, null, null, null, null], "reconnect burst throttled");
   // mop phase (w_62 armed) -> out3 (g_w62 path)
   f = mkFlow({ rr_run: { active: true, phase: "Mop pass (all floors)" }, rr_pending: "w_62", rr_waitgen: 7 });
   r = run("f_hareconn", { payload: { event: "running" } }, f, g);
   ok(!r[0] && !r[1] && !r[2] && r[3], "reconnect mop -> out3 only");
   // mop phase but w_62 already fired (mid w_mopoff loop, pending cleared) -> no inject
   f = mkFlow({ rr_run: { active: true, phase: "Mop pass (all floors)" }, rr_pending: "", rr_waitgen: 7 });
-  eq(run("f_hareconn", { payload: { event: "running" } }, f, g), [null, null, null, null], "reconnect mop, wait not pending -> nothing");
+  eq(run("f_hareconn", { payload: { event: "running" } }, f, g), [null, null, null, null, null], "reconnect mop, wait not pending -> nothing");
   // robot NOT docked -> no recovery (wait still valid)
   const g2 = mkGlobal(state({ "sensor.mr_slave_status_2": "segment_cleaning" }));
   f = mkFlow({ rr_run: { active: true, phase: "Master bedroom — zone A" }, rr_pending: "w_42" });
-  eq(run("f_hareconn", { payload: { event: "running" } }, f, g2), [null, null, null, null], "reconnect not-docked -> nothing");
+  eq(run("f_hareconn", { payload: { event: "running" } }, f, g2), [null, null, null, null, null], "reconnect not-docked -> nothing");
   // no active run -> nothing
   f = mkFlow({ rr_run: { active: false }, rr_pending: "w_42" });
-  eq(run("f_hareconn", { payload: { event: "running" } }, f, g), [null, null, null, null], "reconnect inactive -> nothing");
+  eq(run("f_hareconn", { payload: { event: "running" } }, f, g), [null, null, null, null, null], "reconnect inactive -> nothing");
   // non-ready client event -> nothing
   f = mkFlow({ rr_run: { active: true, phase: "Master bedroom — zone A" }, rr_pending: "w_42" });
-  eq(run("f_hareconn", { payload: { event: "disconnected" } }, f, g), [null, null, null, null], "reconnect disconnected -> nothing");
+  eq(run("f_hareconn", { payload: { event: "disconnected" } }, f, g), [null, null, null, null, null], "reconnect disconnected -> nothing");
 }
 
 console.log("Item 2 -- stale-wait guard (generation token) after a reconnect recovery");
@@ -171,7 +178,7 @@ console.log("Item 3 -- startup check (f_boot) + f_track interrupted (no stamps)"
   eq(run("f_boot", {}, mkFlow({ rr_run: { active: false } }), mkGlobal(state({ "sensor.mr_slave_status_2": "charging" }))),
      [null, null], "f_boot no active run -> nothing");
   // active + not cleaning -> interrupted evt (out0) + rr_restart notify (out1)
-  let r = run("f_boot", {}, mkFlow({ rr_run: { active: true, phase: "Main floor sweep (12 rooms)" } }),
+  let r = run("f_boot", {}, mkFlow({ rr_run: { active: true, phase: "Main floor sweep (11 rooms)" } }),
               mkGlobal(state({ "sensor.mr_slave_status_2": "charging", "binary_sensor.mr_slave_cleaning_2": "off" })));
   ok(r[0] && r[0].rr_evt === "failed" && r[0].rr_phase === "Interrupted by a restart", "f_boot interrupted -> failed evt");
   ok(r[1] && r[1].notify.tag === "rr_restart" && r[1].notify.urgent === false, "f_boot interrupted -> rr_restart notify");
@@ -187,10 +194,10 @@ console.log("Item 3 -- startup check (f_boot) + f_track interrupted (no stamps)"
   const tr = run("f_track", { rr_evt: "failed", rr_phase: "Interrupted by a restart" }, f);
   ok(Array.isArray(tr[1]) && tr[1].length === 0, "f_track failed -> no stamp output");
   ok(f.get("rr_run").active === false && f.get("rr_run").cancelled === true, "f_track failed -> run inactive+cancelled");
-  // sanity: 'restdone' DOES stamp every room (so we know the no-stamp result is meaningful)
+  // sanity: 'restdone' DOES stamp the 11 sweep rooms (so we know the no-stamp result is meaningful)
   const f2 = mkFlow({ rr_run: { active: true, phase: "x", cancelled: false, near: "" } });
   const tr2 = run("f_track", { rr_evt: "restdone" }, f2);
-  ok(tr2[1].length === 1 && Array.isArray(tr2[1][0].payload.stamp) && tr2[1][0].payload.stamp.length === 12, "f_track restdone -> 12 room stamps");
+  ok(tr2[1].length === 1 && Array.isArray(tr2[1][0].payload.stamp) && tr2[1][0].payload.stamp.length === 11 && !tr2[1][0].payload.stamp.some((s) => /rachels_office/.test(s)), "f_track restdone -> 11 room stamps, office not among them");
 }
 
 console.log("Item 4a -- f_58 mop due / catch-up / no double mop");
@@ -275,8 +282,8 @@ console.log("Wiring -- structural rewires and deletions");
 {
   ok(!byId["w_rc"], "w_rc deleted (replaced by d_rcpoll/f_rcpoll)");
   ok(!byId["lo_stop_62"] && !byId["lo_n_mop"], "orphaned link-outs removed");
-  eq(byId["f_rc"].wires, [["d_55", "f_ev_restdone"], ["d_rcpoll", "lo_tr_rch"], ["d_55"], ["lo_n_short"]],
-     "f_rc recharge -> d_rcpoll, short sweep -> d_55 (no restdone) + notify");
+  eq(byId["f_rc"].wires, [[OFFICE.settle, "f_ev_restdone"], ["d_rcpoll", "lo_tr_rch"], ["d_55"], ["lo_n_short"]],
+     "f_rc done -> office stage (+restdone), recharge -> d_rcpoll, short sweep -> d_55 (no restdone, no office) + notify");
   eq(byId["f_58"].wires, [["w_mopbat"], ["s_67"], ["f_mopfail"]], "f_58 out2 -> f_mopfail");
   eq(byId["f_mopchk"].wires, [["s_63"], ["w_mopoff"], ["f_mopfail"]], "f_mopchk out2 -> f_mopfail");
   eq(byId["w_mopbat"].wires, [["lo_mop"], ["f_mopbat_to"]], "w_mopbat timeout -> f_mopbat_to");
@@ -294,7 +301,7 @@ console.log("Wiring -- structural rewires and deletions");
   eq(byId["w_62"].wires, [["g_w62"], ["f_to_w_62"]], "w_62 success -> g_w62");
   eq(byId["g_w62"].wires, [["d_mopchk"]], "g_w62 -> d_mopchk");
   eq(byId["f_rcpoll"].wires, [["arm_54", "f_ev_rest"], ["d_55"], ["lo_n_rc"], ["d_rcpoll"]], "f_rcpoll resume re-arms via arm_54");
-  eq(byId["f_hareconn"].wires, [["f_short_A"], ["f_short_B"], ["d_rc"], ["g_w62"]], "f_hareconn out3 -> g_w62");
+  eq(byId["f_hareconn"].wires, [["f_short_A"], ["f_short_B"], ["d_rc"], ["g_w62"], [OFFICE.done]], "f_hareconn out3 -> g_w62, out4 -> office done?");
 }
 
 
@@ -437,7 +444,7 @@ console.log("B -- mid-pass water watch: t_mopwater -> f_mopwater -> f_mopfail");
   eq(byId["f_mopfail"].wires, [["lo_n_mopfail"], ["s_66"]], "f_mopfail wiring unchanged (never s_65)");
 }
 
-console.log("C -- f_rc: a short sweep does not stamp the 12 rooms");
+console.log("C -- f_rc: a short sweep does not stamp the 11 rooms");
 {
   const T = at(3, 9, 25);
   const g = (extra) => mkGlobal(Object.assign(state({ "sensor.mr_slave_battery_2": "66", "sensor.mr_slave_cleaning_progress_2": "0" }), extra || {}));
@@ -486,11 +493,85 @@ console.log("D -- error -> idle is not a manual stop; robot-started jobs replace
   const r1b = run("f_track", { rr_evt: "job" }, f1);
   eq(r1b[0][0].payload.phase, r1[0][0].payload.phase, "repeat job flip -> same phase");
   // inside a Node-RED run or mop pass: untouched
-  const f2 = mkFlow({ rr_run: { active: true, phase: "Main floor sweep (12 rooms)", cancelled: false, near: "" } });
+  const f2 = mkFlow({ rr_run: { active: true, phase: "Main floor sweep (11 rooms)", cancelled: false, near: "" } });
   eq(run("f_track", { rr_evt: "job" }, f2), null, "job during an active run -> ignored");
-  eq(f2.get("rr_run").phase, "Main floor sweep (12 rooms)", "active run phase kept");
+  eq(f2.get("rr_run").phase, "Main floor sweep (11 rooms)", "active run phase kept");
   const f3 = mkFlow({ rr_run: { active: false, phase: "Mop pass (all floors)", cancelled: false, near: "" }, rr_mop_inpass: 1 });
   eq(run("f_track", { rr_evt: "job" }, f3), null, "job during a mop pass -> ignored");
+}
+
+// ===========================================================================
+console.log("E -- Rachel's office runs as its own last job (2026-11-05)");
+{
+  const segs = (id) => JSON.parse(byId[id].data).params[0].segments;
+  eq(segs("s_49"), [1, 4, 5, 3, 13, 12, 11, 6, 7, 8, 10], "main sweep: 11 segments, no office");
+  eq(segs(OFFICE.clean), [9], "office job: segment 9 only");
+  ok(JSON.parse(byId[OFFICE.clean].data).command === "app_segment_clean", "office job is app_segment_clean");
+  ok(byId["cat_mid"].scope.includes(OFFICE.clean), "office job failure -> catch mid-run (alert + cancel)");
+  ok(!byId["cat_mid"].scope.includes(OFFICE.empty), "office empty stays best-effort (not caught)");
+  // chain: f_rc done -> settle -> empty + collect -> cancel? -> clean -> arm -> wait -> done? -> d_55
+  eq(byId[OFFICE.settle].wires, [[OFFICE.empty, OFFICE.collect]], "settle -> empty + collect");
+  ok(JSON.parse(byId[OFFICE.empty].data).command === "app_start_collect_dust", "office empty = collect dust");
+  eq(byId[OFFICE.collect].wires, [[OFFICE.cancel]], "collect -> cancel?");
+  eq(byId[OFFICE.cancel].wires, [[OFFICE.clean]], "cancel? -> clean office");
+  eq(byId[OFFICE.clean].wires, [[OFFICE.arm, OFFICE.evt]], "clean office -> arm + evt office");
+  eq(byId[OFFICE.arm].wires, [[OFFICE.wait]], "arm -> wait dock (office)");
+  const w = byId[OFFICE.wait];
+  ok(w.type === "ha-wait-until" && w.entityId === "sensor.mr_slave_status_2" && w.value === "charging"
+     && w.timeout === "40" && w.checkCurrentState === false, "wait dock (office): charging, 40 min, change-only");
+  eq(w.wires, [[OFFICE.done], [OFFICE.timeout]], "wait success -> done?, timeout -> timeout fn");
+  eq(byId[OFFICE.done].wires, [["d_55", OFFICE.evtDone], ["d_55"], ["lo_n_short"]], "done? -> d_55 (+officedone) / d_55 / notify");
+  eq(byId[OFFICE.timeout].wires, [["lo_stop_54"]], "office timeout -> stop");
+  eq(byId[OFFICE.evt].wires, [["lo_tr_rest"]], "evt office -> tracker");
+  eq(byId[OFFICE.evtDone].wires, [["lo_tr_restd"]], "evt officedone -> tracker");
+  const sweep = byId["g_sweep"].nodes;
+  ok(Object.values(OFFICE).every((id) => sweep.includes(id)), "office nodes are in group 3");
+  // per-room button for the office is untouched
+  eq(segs("s_18"), [9], "room button: Rachel's office still segment 9");
+
+  // cancel between stages
+  eq(run(OFFICE.cancel, {}, mkFlow({ rr_cancel: true })), null, "cancel? drops when the run is cancelled");
+  ok(run(OFFICE.cancel, { a: 1 }, mkFlow({})).a === 1, "cancel? passes otherwise");
+
+  // arm + done guard
+  const T = new Date(2026, 10, 5, 10, 0, 0).getTime();
+  const f = mkFlow({ rr_waitgen: 4 });
+  const m = {};
+  withDate(T, () => run(OFFICE.arm, m, f));
+  ok(f.get("rr_waitgen") === 5 && f.get("rr_pending") === OFFICE.wait && m.rr_wgen === 5 && m.rr_office_t0 === T,
+     "arm: gen bump, pending = office wait, start time on msg");
+  let r = withDate(T + 9 * 60e3, () => run(OFFICE.done, Object.assign({}, m), f));
+  ok(r[0] && !r[1] && !r[2] && f.get("rr_pending") === "", "9-min office -> done (out0, stamps)");
+  r = withDate(T + 60e3, () => run(OFFICE.done, Object.assign({}, m), mkFlow({ rr_waitgen: 5 })));
+  ok(!r[0] && r[1] && r[2] && r[2].notify.tag === "rr_short_zone", "1-min office -> no stamp, run moves on, notice");
+  eq(run(OFFICE.done, { rr_wgen: 3 }, mkFlow({ rr_waitgen: 5 })), null, "stale office wait success dropped");
+  eq(run(OFFICE.done, { rr_wgen: 5 }, mkFlow({ rr_waitgen: 5, rr_cancel: true })), null, "office done dropped when cancelled");
+  ok(run(OFFICE.done, { rr_wgen: 5 }, mkFlow({ rr_waitgen: 5 }))[0], "no start time (reconnect recovery) -> done");
+  const to = run(OFFICE.timeout, { rr_wgen: 5 }, mkFlow({ rr_waitgen: 5 }));
+  ok(to && to.rr_stage === "Rachel's office (last)" && to.rr_mins === 40, "office timeout -> stall msg");
+  eq(run(OFFICE.timeout, { rr_wgen: 4 }, mkFlow({ rr_waitgen: 5 })), null, "stale office timeout dropped");
+
+  // tracker: phases + the office stamp
+  const ft = mkFlow({ rr_run: { active: true, phase: "Main floor sweep (11 rooms)", cancelled: false, near: "" } });
+  let tr = run("f_track", { rr_evt: "restdone" }, ft);
+  eq(tr[0][0].payload.phase, "Dock — emptying before Rachel's office", "restdone phase");
+  tr = run("f_track", { rr_evt: "office" }, ft);
+  eq(tr[0][0].payload.phase, "Rachel's office (last)", "office phase");
+  ok(tr[1].length === 0, "office start stamps nothing");
+  tr = run("f_track", { rr_evt: "officedone" }, ft);
+  ok(tr[1].length === 1 && tr[1][0].payload.stamp === "input_datetime.rr_last_clean_rachels_office", "officedone stamps the office");
+  eq(tr[0][0].payload.phase, "Main sweep complete", "officedone phase");
+  const fc = mkFlow({ rr_run: { active: true, phase: "Rachel's office (last)", cancelled: false, near: "" }, rr_cancel: true });
+  ok(run("f_track", { rr_evt: "officedone" }, fc)[1].length === 0, "officedone on a cancelled run stamps nothing");
+
+  // HA reconnect while the office wait is pending -> out4
+  const g = mkGlobal(state({ "sensor.mr_slave_status_2": "charging", "vacuum.mr_slave_2": "docked" }));
+  const fr = mkFlow({ rr_run: { active: true, phase: "Rachel's office (last)" }, rr_pending: OFFICE.wait, rr_waitgen: 5 });
+  r = run("f_hareconn", { payload: { event: "states_loaded" } }, fr, g);
+  ok(!r[0] && !r[1] && !r[2] && !r[3] && r[4] && r[4].rr_wgen === 6, "reconnect office -> out4 with bumped gen");
+  ok(Array.isArray(run(OFFICE.done, r[4], fr)), "recovery msg passes office done?");
+  const fr2 = mkFlow({ rr_run: { active: true, phase: "Dock — emptying before Rachel's office" }, rr_pending: "", rr_waitgen: 5 });
+  eq(run("f_hareconn", { payload: { event: "states_loaded" } }, fr2, g), [null, null, null, null, null], "reconnect during the empty -> nothing");
 }
 
 // ===========================================================================

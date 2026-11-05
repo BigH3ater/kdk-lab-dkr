@@ -6,7 +6,7 @@ tier: apps
 status: live
 storage: yes
 secrets: [home-assistant-nodered-token, home-assistant-roborock-map-token, node-red-admin, node-red-credential-secret, zigbee2mqtt-frontend-token, kdk-ups-01-nut-upsd, scrypted-admin, homeassistant-oidc-client, vikunja-api-ro, vikunja-api-approvals]
-updated: 2026-11-04
+updated: 2026-11-05
 tags: [homelab/stack, tier/apps, status/live]
 ---
 
@@ -287,7 +287,28 @@ reports a failed mop:
   does not complete (water ran out, dock/battery/routine timeout, give-up, or a
   start-time skip) sends **one** urgent `rr_mop_failed` alert (`f_mopfail`) and
   does **not** stamp `rr_last_mop_run`, so the next eligible day re-runs it.
-- **Main sweep sanity.** `f_rc` does not stamp the 12 rooms if the sweep came
+- **Daily run stages** (since 2026-11-05). Each stage is its own robot job; the
+  flow waits for the dock (`sensor.mr_slave_status_2` = `charging`) before the
+  next, and a wait that runs out is a stall (alert, rest of run cancelled).
+
+  | # | Stage (`input_text.rr_run_phase`) | Robot job | Dock wait | Stamps |
+  |---|---|---|---|---|
+  | 1 | Master bedroom — zone A | `app_zoned_clean` | 40 min | — |
+  | 2 | Master bedroom — zone B | `app_zoned_clean` | 40 min | master bedroom |
+  | 3 | Main floor sweep (11 rooms) | `app_segment_clean` [1,4,5,3,13,12,11,6,7,8,10] | 150 min (+ recharge watcher) | the 11 rooms |
+  | 4 | Rachel's office (last) | `app_segment_clean` [9] | 40 min | Rachel's office |
+  | 5 | Mop pass (all floors), mop days only | `button.mr_slave_mopping` routine | 120 min | `rr_last_mop_run` |
+
+  Between stages the dock empties the bin (8 s settle, best-effort
+  `app_start_collect_dust`, 50 s) and the run checks `rr_cancel`. The robot
+  ignores the order of a segment list: on 11-05 it was handed all 12 segments
+  in one call, started in Rachel's office, hit `nogo_zone_detected` after
+  25 min and the whole sweep died. The office now goes only after the 11-room
+  job docked normally. An office job back in under 2 min is not stamped
+  (`rr_short_zone` notice, the run moves on). A short sweep or a failed
+  recharge-resume skips the office too (straight to the mop gate). The office
+  dock wait has its own HA-reconnect recovery (`f_hareconn` out 4).
+- **Main sweep sanity.** `f_rc` does not stamp the 11 rooms if the sweep came
   home in under 10 min with progress 0 (11-03: 1.7 min); the run moves on and an
   `rr_sweep_short` notice goes out. A mid-sweep recharge that fails to
   resume (progress reset to 0, or charged & full for ~10 min, or 150 min cap) is
@@ -296,6 +317,25 @@ reports a failed mop:
   alert (it no longer waits out a 240-min timeout and then stamps everything).
 
 Function-node logic has unit tests: `node stacks/home-assistant/node-red/tests/flow-logic.test.js`.
+
+After a flow change is merged, push it to the live board and check it took
+(`import` backs up the live flow and restarts node-red):
+
+**On the laptop as jmack, in the kdk-lab-dkr checkout on `main`** (the script
+SSHes to kdk-dkr-02 as kdkadmin, `ssh kdkadmin@10.1.30.21`)
+
+```sh
+git pull --ff-only
+node stacks/home-assistant/node-red/tests/flow-logic.test.js
+scripts/nodered-flow-sync.sh import
+scripts/nodered-flow-sync.sh diff      # "repo matches live"
+```
+
+Then watch the next scheduled run's `input_text.rr_run_phase` (dashboard
+Current status, or the HA logbook for that entity): zone A, zone B, emptying
+before main sweep, main floor sweep (11 rooms), emptying before Rachel's
+office, Rachel's office (last), then main sweep complete and mop pass or
+complete.
 
 ## Verify
 
