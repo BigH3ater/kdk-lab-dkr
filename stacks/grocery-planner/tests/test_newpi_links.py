@@ -39,3 +39,20 @@ def test_newpi_note_is_short_string():
         note = rule.get("newpi_note")
         if note is not None:
             assert isinstance(note, str) and len(note) <= 80, rule["match"]
+
+
+def test_buy_map_shape():
+    """`buy:` (buy-unit conversion on the groceries page) needs a store `unit`
+    and positive numbers for every recipe unit it converts."""
+    for rule in _foods()["rules"]:
+        buy = rule.get("buy")
+        if buy is None:
+            continue
+        match = rule["match"]
+        assert isinstance(buy, dict), f"{match!r}: buy must be a map"
+        assert isinstance(buy.get("unit"), str) and buy["unit"], f"{match!r}: buy needs a unit"
+        for key, val in buy.items():
+            if key == "unit":
+                continue
+            assert isinstance(val, (int, float)) and not isinstance(val, bool), (match, key)
+            assert val > 0, (match, key)

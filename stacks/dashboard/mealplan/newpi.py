@@ -49,13 +49,13 @@ def foods(path: str = FOODS_FILE) -> dict:
     return _cache
 
 
-def url_for(name: str, foods_cfg: Optional[dict] = None) -> Optional[str]:
-    """The New Pi product URL for a food name, or None.
+def rule_for(name: str, foods_cfg: Optional[dict] = None) -> Optional[dict]:
+    """The foods.yaml rule that routes a food name, or None.
 
     Mirrors grocery.seed.route_food: the food is matched to the LONGEST rule whose
-    `match` is a substring of the (lower-cased) name, so the link comes from the
-    very rule that routed the food to New Pi. The frozen-veg special case (which
-    route_food sends to Target) carries no New Pi link.
+    `match` is a substring of the (lower-cased) name. Frozen veg (which route_food
+    sends to Target before the rule table) gets no rule here, so it carries no
+    New Pi link and no buy-unit conversion.
     """
     if foods_cfg is None:
         foods_cfg = foods()
@@ -68,11 +68,47 @@ def url_for(name: str, foods_cfg: Optional[dict] = None) -> Optional[str]:
         m = str(rule.get("match", "")).lower()
         if m and m in low and (best is None or len(m) > len(str(best.get("match", "")))):
             best = rule
-    if best:
-        url = best.get("newpi_url")
-        if url:
-            return str(url)
-    return None
+    return best
+
+
+def url_for(name: str, foods_cfg: Optional[dict] = None) -> Optional[str]:
+    """The New Pi product URL for a food name (from its routing rule), or None."""
+    rule = rule_for(name, foods_cfg)
+    url = rule.get("newpi_url") if rule else None
+    return str(url) if url else None
+
+
+# Buy-unit conversion. A rule's optional `buy:` map names the unit the store sells
+# (`unit`) and how much of each recipe unit makes ONE of it, e.g.
+#   buy: {unit: head, clove: 10, tsp: 30}     # 1 head = 10 cloves = 30 tsp minced
+# buy_for() normalises that map to the families the groceries page sums in:
+# volume per tsp, weight per oz, `each`, plus any free unit name (clove, bag ...).
+_VOL = {"tsp": 1, "tbsp": 3, "cup": 48}               # in tsp
+_WT = {"oz": 1, "lb": 16, "g": 0.035274, "kg": 35.274}  # in oz
+
+
+def buy_for(name: str, foods_cfg: Optional[dict] = None) -> Optional[dict]:
+    """{"unit": str, "vol": per-tsp, "wt": per-oz, "each": n, "<free unit>": n}
+    for a food whose rule has a `buy:` map, else None. A value is "how many of
+    that (base) unit make one buy unit"; families with no key are left out."""
+    rule = rule_for(name, foods_cfg)
+    buy = rule.get("buy") if rule else None
+    if not isinstance(buy, dict) or not buy.get("unit"):
+        return None
+    unit = str(buy["unit"])
+    out: dict = {"unit": unit}
+    # The buy unit itself always converts 1:1 (lb -> 16 oz, head -> 1 head).
+    implied = {unit.lower(): 1}
+    for key, val in list(implied.items()) + [(str(k).lower(), v) for k, v in buy.items()
+                                             if k != "unit"]:
+        n = float(val)
+        if key in _VOL:
+            out.setdefault("vol", n * _VOL[key])
+        elif key in _WT:
+            out.setdefault("wt", n * _WT[key])
+        else:                                   # "each" and free unit names
+            out.setdefault(key, n)
+    return out
 
 
 def name_cell_html(food: str, url: Optional[str]) -> str:

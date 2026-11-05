@@ -29,6 +29,14 @@
 # pick). Find an id with scripts/newpi_lookup.py or by opening the product in the
 # app and copying its URL. Add links only when you are sure of the product --
 # a wrong link is worse than none, and this repo is public (no prices here).
+#
+# Buy units (optional): `buy:` turns the summed recipe amounts into ONE store
+# amount on the groceries page. `unit` is what the store sells; every other key
+# is how much of that recipe unit makes ONE of it, e.g.
+#   buy: {unit: head, clove: 10, tsp: 30}   # 1 head = 10 cloves = 30 tsp minced
+# Keys: tsp/tbsp/cup, oz/lb/g/kg, each, or a free unit name (clove, bag, block).
+# Weight units round up to the next 1/4, everything else to the next whole; a
+# recipe unit with no key stays listed as-is. See docs/runbooks/grocery-planner.md.
 rules:
   # ---- New Pi: weekly perishables ----
   # Chicken breast and pork chops: O'Connell Organic Acres freezer stock (owner
@@ -70,7 +78,7 @@ rules:
   - {match: arm roast,          category: "Amana/bulk: Freezer Beef"}
   # produce
   - {match: asparagus,  category: "NewPi/weekly: Produce"}
-  - {match: spinach,    category: "NewPi/weekly: Produce"}
+  - {match: spinach,    category: "NewPi/weekly: Produce", buy: {unit: bag, cup: 5, oz: 5}}
   - {match: radish,     category: "NewPi/weekly: Produce"}
   - {match: arugula,    category: "NewPi/weekly: Produce"}
   - {match: lettuce,    category: "NewPi/weekly: Produce"}
@@ -83,23 +91,24 @@ rules:
   - {match: cauliflower,category: "NewPi/weekly: Produce"}
   - {match: brussels,   category: "NewPi/weekly: Produce"}
   - {match: zucchini,   category: "NewPi/weekly: Produce"}
-  - {match: squash,     category: "NewPi/weekly: Produce"}
+  - {match: squash,     category: "NewPi/weekly: Produce", buy: {unit: each, cup: 4}}   # butternut
   - {match: eggplant,   category: "NewPi/weekly: Produce"}
   - {match: cucumber,   category: "NewPi/weekly: Produce"}
-  - {match: tomato,     category: "NewPi/weekly: Produce"}
+  - {match: tomato,     category: "NewPi/weekly: Produce", buy: {unit: each}}
+  - {match: cherry tomato, category: "NewPi/weekly: Produce", buy: {unit: pint, cup: 2}}
   - {match: pepper,     category: "NewPi/weekly: Produce"}   # bell/sweet pepper (spices matched earlier by pantry rules)
-  - {match: onion,      category: "NewPi/weekly: Produce"}
+  - {match: onion,      category: "NewPi/weekly: Produce", buy: {unit: each, cup: 1}}
   - {match: scallion,   category: "NewPi/weekly: Produce"}
   - {match: green onion,category: "NewPi/weekly: Produce"}
   - {match: shallot,    category: "NewPi/weekly: Produce"}
-  - {match: garlic,     category: "NewPi/weekly: Produce"}
+  - {match: garlic,     category: "NewPi/weekly: Produce", buy: {unit: head, clove: 10, tsp: 30}}
   - {match: ginger,     category: "NewPi/weekly: Produce"}
-  - {match: carrot,     category: "NewPi/weekly: Produce"}
+  - {match: carrot,     category: "NewPi/weekly: Produce", buy: {unit: lb, cup: 3.5, each: 8, oz: 16}}
   - {match: beet,       category: "NewPi/weekly: Produce"}
   - {match: potato,     category: "NewPi/weekly: Produce"}
   - {match: parsnip,    category: "NewPi/weekly: Produce"}
   - {match: turnip,     category: "NewPi/weekly: Produce"}
-  - {match: mushroom,   category: "NewPi/weekly: Produce"}
+  - {match: mushroom,   category: "NewPi/weekly: Produce", buy: {unit: lb, oz: 16, cup: 4}}
   - {match: green bean, category: "NewPi/weekly: Produce"}
   - {match: snap pea,   category: "NewPi/weekly: Produce"}
   - {match: snow pea,   category: "NewPi/weekly: Produce"}
@@ -121,7 +130,7 @@ rules:
   - {match: thyme,      category: "NewPi/weekly: Produce"}
   # fresh dairy & eggs (ambiguous fresh -> New Pi)
   - {match: egg,        category: "NewPi/weekly: Dairy & Eggs"}
-  - {match: feta,       category: "NewPi/weekly: Dairy & Eggs"}
+  - {match: feta,       category: "NewPi/weekly: Dairy & Eggs", buy: {unit: block, oz: 8, cup: 1.5, block: 1}}
   - {match: greek yogurt,category: "NewPi/weekly: Dairy & Eggs"}
   - {match: mozzarella, category: "NewPi/weekly: Dairy & Eggs"}
   - {match: parmesan,   category: "NewPi/weekly: Dairy & Eggs"}

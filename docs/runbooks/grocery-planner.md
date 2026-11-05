@@ -224,6 +224,63 @@ Add a link **only when you are sure of the product** — a wrong link is worse
 than none. `tests/test_newpi_links.py` guards the shape: a `newpi_url` must be a
 real `market.newpi.coop/product/<id>` URL on a rule that routes to New Pi.
 
+## Buy-unit conversion (one buyable amount per food)
+
+The groceries page adds up every recipe line for a food. Recipes use cups,
+tablespoons, cloves and counts, but the store sells heads, pounds and bags, so a
+food's rule in `recipes/foods.yaml` can carry an optional `buy:` map that turns
+the sum into ONE store amount:
+
+```yaml
+- {match: garlic, category: "NewPi/weekly: Produce", buy: {unit: head, clove: 10, tsp: 30}}
+- {match: carrot, category: "NewPi/weekly: Produce", buy: {unit: lb, cup: 3.5, each: 8, oz: 16}}
+```
+
+- **`unit`** (required) is what the store sells. Every other key is **how much
+  of that recipe unit makes ONE `unit`**: `clove: 10` = 10 cloves a head,
+  `cup: 3.5` = 3.5 cups chopped a pound. Keys: `tsp`/`tbsp`/`cup`, `oz`/`lb`/`g`/`kg`,
+  `each` (bare counts like "2 carrots"), or any other unit name the recipes use
+  (`clove`, `bag`, `block`, `slice`). Give one key per family; tsp, Tbsp and cup
+  convert into each other, and so do oz, lb and g. The buy unit itself always
+  counts 1:1.
+- **What the page shows.** The buy amount first, then the raw recipe sum muted in
+  brackets: `garlic  1 head (1 Tbsp + 8¾ clove)`, `carrots  1¾ lb (1¾ cup + 1 lb + ¼)`.
+  Weight units (lb, oz, kg, g) round **up** to the next ¼; everything else rounds
+  up to the next whole (`2 heads`, `2 bags`); `unit: each` shows a bare number.
+  A recipe unit with no key in `buy` is not guessed: it stays listed after the
+  buy amount (`1 head + 2 slice`). A food with no `buy:` shows exactly as before.
+- **Same rule lookup as the links.** The sidecar picks the rule with the same
+  longest match as `newpi_url` (`stacks/dashboard/mealplan/newpi.py`), so
+  `garlic powder` (its own rule, no `buy`) is never converted to heads.
+- **Deploy.** Like links, `buy:` is read at container start: redeploy the
+  `dashboard` stack after editing `foods.yaml`. The weekly run does not need
+  re-running.
+- **No prices.** `buy:` holds amounts only.
+
+Check a change before merging (the tests cover the owner's garlic and carrot
+lines and guard the `buy:` shape):
+
+**Laptop, repo root**
+
+```sh
+REPO=$(git rev-parse --show-toplevel)
+python3 -m pip install pytest==8.4.2 flask==3.0.3 requests==2.32.3 waitress==3.0.1 pyyaml==6.0.3
+cd "$REPO/stacks/dashboard/mealplan" && python3 -I -m pytest -q tests
+cd "$REPO/stacks/grocery-planner" && python3 -m pytest -q tests/test_newpi_links.py
+```
+
+After the `dashboard` redeploy, confirm the sidecar sees the new rules (read-only):
+
+**kdk-dkr-01 as kdkadmin, from the laptop**
+
+```sh
+HOST=10.1.20.20
+FOOD=garlic
+ssh kdkadmin@$HOST "sudo -n docker exec dashboard-mealplan python -c 'import newpi; print(newpi.buy_for(\"$FOOD\"))'"
+# expect a dict such as {'unit': 'head', 'head': 1, 'clove': 10, 'vol': 30}; None means
+# the container still has the old foods.yaml (redeploy) or the rule has no buy map
+```
+
 ## Preview a week before its run
 
 The Tuesday build plans the NEXT Sun–Sat week. To see what it would plan, and the
