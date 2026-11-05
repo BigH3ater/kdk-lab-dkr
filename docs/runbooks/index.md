@@ -19,6 +19,7 @@ illustrative.
 - [Add a Loki alert rule](add-loki-alert-rule.md) — rule file shape, label conventions, test in Explore, verify the ruler load, fire, route, silence.
 - [Add a hardened stack](add-hardened-stack.md) — from `stacks/_template` to a merged PR: baseline check, catalog entry, DNS/Authelia, PR checklist.
 - [Rotate a secret](rotate-a-secret.md) — 1Password on the laptop, values over ssh stdin, hashes inside the container, verify without printing.
+- [Komodo leak scan (count-only)](komodo-leak-scan.md) — repeat the 2026-10-31 Compose Config leak check against the Komodo DB; counts per collection, never values.
 - [Handle Renovate PRs](handle-renovate-prs.md) — dashboard, merge order, what recreates, NUT and Pi pull rules, known-gaps refresh.
 - [PostgreSQL major upgrade (16 → 18)](postgres-major-upgrade.md) — per-stack logical dump/restore for identity, jellystat and tandoor; the PG18 PGDATA gotcha; order, rollback, re-enabling the Renovate rule.
 - [Post-merge validation](post-merge-validation.md) — the reviewer's read-only checks and the table posted on every PR.

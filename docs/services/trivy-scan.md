@@ -46,7 +46,7 @@ sudo docker ps -a --filter name=trivy-scan --format '{{.Names}} {{.Status}}'   #
 | Disk fills during the run | trivy exports each image under `/cache/tmp` (volume) | `docker system df -v \| grep trivy` |
 | dmz-01 `loki push failed ... timed out` | DOCKER-USER drops `trivy-scan-report` → `10.1.20.21:3100` (`kdk-du-drop` in `journalctl -k`); needs the `allow_ctr trivy-scan-report` line installed on dmz-01 | `sudo iptables-nft -S DOCKER-USER \| grep 3100` while the report runs |
 | `pushover failed [Errno 13] ... /pushover.env` | the mount is not the pre_deploy copy (`./pushover.env`, 0400 1000:1000) | `stat -c '%a %u' <run dir>/pushover.env` |
-| `scan failed ... blobs/sha256/... not found in tar` (dkr-02) | the daemon's image export lacked a blob that is in the containerd store; root cause open | look for `msg=retry_ok by=image_id` in `docker logs trivy-scan` |
+| `scan failed ... blobs/sha256/... not found in tar` (dkr-02) | a layer blob is missing from the containerd content store (the snapshot is kept, so containers run), and `docker save` silently leaves the whole platform image out of the tar. On 2026-11-04 one shared Alpine base layer (`d3531b7a4f21`) was missing, hitting every image built on it | scan.sh retries an exact `name@sha256` ref from the registry (`msg=retry_ok by=remote_digest`); check with `sudo -n docker save <ref> \| tar -t` (no config/layer blobs listed = this case) |
 | Proxy still running | `report` never started; proxy stops itself after 3 h | `docker logs trivy-scan-proxy` |
 
 ## Dependencies
