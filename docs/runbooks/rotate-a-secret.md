@@ -110,7 +110,9 @@ check the old one fails (401).
 ## 5. Things that leak
 
 - Komodo's "Compose Config" stage writes interpolated env values into the
-  stack's update log. Treat Komodo update logs as secret-bearing.
+  stack's update log. Treat Komodo update logs as secret-bearing. The
+  redaction wrapper blanks them; check it still holds with the count-only
+  [Komodo leak scan](komodo-leak-scan.md).
 - A token in a git clone URL (`https://<token>@github.com/...`) sits in
   `.git/config` on the host. Prefer Komodo's git-provider account; give the token
   **read-only** Contents on the named repos only, with an expiry.

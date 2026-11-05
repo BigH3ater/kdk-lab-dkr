@@ -1,0 +1,27 @@
+{
+  "_comment": "Synthetic fixture for scripts/komodo-leak-scan-counts.py. Every value is fake.",
+  "Update": [
+    {"start_ts": 1761868800000, "logs": [
+      {"stage": "Compose Config", "command": "docker compose config",
+       "stdout": "services:\n  app:\n    environment:\n      DB_PASSWORD: fixture-hunter2-value\n      API_KEY: fixtureabcdefgh1234\n      TZ: America/Chicago\n", "stderr": ""}
+    ]},
+    {"start_ts": 1761955200000, "logs": [
+      {"stage": "Compose Config", "command": "kdk-compose-config-redact docker compose config",
+       "stdout": "services:\n  app:\n    environment:\n      DB_PASSWORD: <redacted>\n      API_KEY: <redacted>\n", "stderr": ""}
+    ]},
+    {"start_ts": 1761955300000, "logs": [
+      {"stage": "Pre Deploy", "command": "op inject -i .env.tpl -o .env",
+       "stdout": "KOMODO_DB_PASSWORD=${KOMODO_DB_PASSWORD}\nurl postgres://user:${PW}@db:5432/x\nPASSWORD_FILE=/run/secrets/db\n", "stderr": ""}
+    ]},
+    {"start_ts": 1761955400000, "logs": [
+      {"stage": "Compose Up", "command": "docker compose up -d",
+       "stdout": "", "stderr": "dial mongodb://komodo:fixture-not-real-pw@ferretdb:27017 refused"}
+    ]}
+  ],
+  "Stack": [
+    {"name": "fixture-a", "config": {"environment": "TZ=America/Chicago\nPASSWORD_FILE=/run/secrets/x"},
+     "info": {"deployed_config": "services:\n  a:\n    environment:\n      SECRET_KEY: <redacted>\n"}},
+    {"name": "fixture-b", "config": {"environment": ""},
+     "info": {"deployed_config": "services:\n  b:\n    environment:\n      - WEBUI_PASSWORD=fixturevalue123\n"}}
+  ]
+}
