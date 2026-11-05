@@ -1,0 +1,45 @@
+# Workout tracking generators (docs/runbooks/workout-tracking-update.md):
+#   - the HA workout packages + dashboards must match tools/workout_catalog.json
+#     (stacks/home-assistant/tools/gen_workout.py --check), and every dashboard
+#     row must point at a helper the package defines;
+#   - gen-workout-guide.py still prefers the range-of-motion PNG and writes the
+#     workout.json the /workout/ log page reads (fake vault; the real one is private).
+name: workout-generated
+
+on:
+  pull_request:
+    paths:
+      - "stacks/home-assistant/tools/**"
+      - "stacks/home-assistant/config/packages/workout_*.yaml"
+      - "stacks/home-assistant/config/dashboards/workout*.yaml"
+      - "stacks/dashboard/guides/gen-workout-guide.py"
+      - "stacks/dashboard/tests/**"
+      - ".github/workflows/workout-generated.yml"
+  push:
+    branches: [main]
+    paths:
+      - "stacks/home-assistant/tools/**"
+      - "stacks/home-assistant/config/packages/workout_*.yaml"
+      - "stacks/home-assistant/config/dashboards/workout*.yaml"
+      - "stacks/dashboard/guides/gen-workout-guide.py"
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.13"
+      - name: Install pytest
+        run: python -m pip install pytest==8.4.2
+      - name: Generated files are current
+        run: python stacks/home-assistant/tools/gen_workout.py --check
+      - name: Tests
+        run: python -m pytest -q stacks/home-assistant/tools/tests stacks/dashboard/tests

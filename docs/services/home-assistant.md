@@ -288,6 +288,11 @@ curl -s --http1.1 -m 3 -N -H 'Connection: Upgrade' -H 'Upgrade: websocket' \
   **registering a new dashboard or the themes dir needs an HA restart**;
   package edits reload with Developer Tools → "Reload all YAML" (a *new*
   package that adds integrations needs a one-time restart).
+- **Workout pages** — `config/packages/workout_strength*.yaml` and
+  `config/dashboards/workout*.yaml` are **generated** by
+  `tools/gen_workout.py` from `tools/workout_catalog.json` (one list, both
+  people; CI checks they are current). Add/rename/remove an exercise with the
+  [workout-tracking-update runbook](../runbooks/workout-tracking-update.md).
 - **Approval tasks** — `config/packages/approval_tasks.yaml` is a generic
   decision loop: a Vikunja task in the Approvals project raises an actionable
   notification (polled, no inbound path, no container), and Approve/Skip (or
