@@ -296,7 +296,7 @@ reports a failed mop:
   | 1 | Master bedroom — zone A | `app_zoned_clean` | 40 min | — |
   | 2 | Master bedroom — zone B | `app_zoned_clean` | 40 min | master bedroom |
   | 3 | Main floor sweep (11 rooms) | `app_segment_clean` [1,4,5,3,13,12,11,6,7,8,10] | 150 min (+ recharge watcher) | the 11 rooms |
-  | 4 | Rachel's office (last) | `app_segment_clean` [9] | 40 min | Rachel's office |
+  | 4 | Rachel's office (last) | battery gate (≥30 %, 90 min), mode re-set to vacuum (set, 5 s settle, check, one retry), then `app_segment_clean` [9] | 40 min | Rachel's office |
   | 5 | Mop pass (all floors), mop days only | `button.mr_slave_mopping` routine | 120 min | `rr_last_mop_run` |
 
   Between stages the dock empties the bin (8 s settle, best-effort
@@ -305,8 +305,13 @@ reports a failed mop:
   in one call, started in Rachel's office, hit `nogo_zone_detected` after
   25 min and the whole sweep died. The office now goes only after the 11-room
   job docked normally. An office job back in under 2 min is not stamped
-  (`rr_short_zone` notice, the run moves on). A short sweep or a failed
-  recharge-resume skips the office too (straight to the mop gate). The office
+  (`rr_short_zone` notice, the run moves on). The robot reverts the mode to
+  vac_and_mop after every job, so the office stage sets vacuum again like the
+  sweep does. If the battery does not reach 30 % within 90 min, the office is
+  skipped, not stalled: phase "Rachel's office skipped (battery)", an
+  `rr_office_skipped` notice, no stamp, and the run goes on to the mop gate.
+  A short sweep or a failed recharge-resume skips the office too (straight to
+  the mop gate). The office
   dock wait has its own HA-reconnect recovery (`f_hareconn` out 4).
 - **Main sweep sanity.** `f_rc` does not stamp the 11 rooms if the sweep came
   home in under 10 min with progress 0 (11-03: 1.7 min); the run moves on and an

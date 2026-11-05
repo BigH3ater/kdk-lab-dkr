@@ -37,6 +37,9 @@ const OFFICE = {
   cancel: "ca1916c27f53f848", clean: "81b9a3c1de858b4b", arm: "04fdb2cbff7f4717",
   wait: "207dee7e272ef8ca", done: "00542ec58ae4b642", timeout: "901de950dde3341c",
   evt: "6c199d35c11dfb67", evtDone: "91b1b1f09a52fd7f",
+  armBat: "0a16ecfa0db17379", waitBat: "48ec4456670321ea", guardBat: "e51e862e40c73c54",
+  batTimeout: "9029a00410cdd730", modeSet: "2ee2d6a013693735", modeSettle: "48ad94fcac20fbaa",
+  modeCheck: "767583b46867c07c", modeRetry: "0b65a9ea45b037e3",
 };
 
 // ---- tiny assert harness --------------------------------------------------
@@ -513,7 +516,30 @@ console.log("E -- Rachel's office runs as its own last job (2026-11-05)");
   eq(byId[OFFICE.settle].wires, [[OFFICE.empty, OFFICE.collect]], "settle -> empty + collect");
   ok(JSON.parse(byId[OFFICE.empty].data).command === "app_start_collect_dust", "office empty = collect dust");
   eq(byId[OFFICE.collect].wires, [[OFFICE.cancel]], "collect -> cancel?");
-  eq(byId[OFFICE.cancel].wires, [[OFFICE.clean]], "cancel? -> clean office");
+  eq(byId[OFFICE.cancel].wires, [[OFFICE.armBat]], "cancel? -> arm battery wait");
+  eq(byId[OFFICE.armBat].wires, [[OFFICE.waitBat]], "arm -> wait battery");
+  const wb = byId[OFFICE.waitBat];
+  ok(wb.type === "ha-wait-until" && wb.entityId === "sensor.mr_slave_battery_2" && wb.property === "state"
+     && wb.comparator === "gte" && wb.value === "30" && wb.valueType === "num" && wb.timeout === "90"
+     && wb.timeoutUnits === "minutes" && wb.checkCurrentState === true, "wait battery >=30%, 90 min, checks current state");
+  eq(wb.wires, [[OFFICE.guardBat], [OFFICE.batTimeout]], "battery ok -> guard, timeout -> skip");
+  eq(byId[OFFICE.guardBat].wires, [[OFFICE.modeSet]], "guard -> mode: vacuum (O)");
+  eq(byId[OFFICE.batTimeout].wires, [["d_55"], ["lo_tr_restd"], ["lo_n_short"]], "battery timeout -> d_55 + tracker + notify (no stall)");
+  // mode chain mirrors (R): set vacuum -> settle -> check -> one retry -> clean
+  for (const [o, r] of [["modeSet", "s_mv_R"], ["modeRetry", "s_mv2_R"]]) {
+    eq(byId[OFFICE[o]].data, byId[r].data, `${o} same call as ${r}`);
+  }
+  eq(byId[OFFICE.modeSettle].timeout, byId["d_mv_R"].timeout, "mode settle same timing as (R)");
+  eq(byId[OFFICE.modeSet].wires, [[OFFICE.modeSettle]], "mode set -> settle");
+  eq(byId[OFFICE.modeSettle].wires, [[OFFICE.modeCheck]], "settle -> check");
+  eq(byId[OFFICE.modeCheck].wires, [[OFFICE.clean], [OFFICE.modeRetry]], "check -> clean / retry");
+  eq(byId[OFFICE.modeRetry].wires, [[OFFICE.clean]], "retry -> clean");
+  ok(byId[OFFICE.modeCheck].func === byId["f_mv_R"].func.replace("(R)", "(O)"), "mode check body = f_mv_R");
+  let mc = run(OFFICE.modeCheck, {}, mkFlow({}), mkGlobal(state({ "select.mr_slave_cleaning_mode": "vac_and_mop" })));
+  ok(!mc[0] && mc[1], "mode still vac_and_mop -> retry");
+  mc = run(OFFICE.modeCheck, {}, mkFlow({}), mkGlobal(state({ "select.mr_slave_cleaning_mode": "vacuum" })));
+  ok(mc[0] && !mc[1], "mode vacuum -> clean");
+  ok(byId["cat_mid"].scope.includes(OFFICE.modeSet) && byId["cat_mid"].scope.includes(OFFICE.modeRetry), "office mode calls caught like (R)");
   eq(byId[OFFICE.clean].wires, [[OFFICE.arm, OFFICE.evt]], "clean office -> arm + evt office");
   eq(byId[OFFICE.arm].wires, [[OFFICE.wait]], "arm -> wait dock (office)");
   const w = byId[OFFICE.wait];
@@ -550,6 +576,27 @@ console.log("E -- Rachel's office runs as its own last job (2026-11-05)");
   const to = run(OFFICE.timeout, { rr_wgen: 5 }, mkFlow({ rr_waitgen: 5 }));
   ok(to && to.rr_stage === "Rachel's office (last)" && to.rr_mins === 40, "office timeout -> stall msg");
   eq(run(OFFICE.timeout, { rr_wgen: 4 }, mkFlow({ rr_waitgen: 5 })), null, "stale office timeout dropped");
+
+  // battery gate: generation guard + skip path
+  const fb = mkFlow({ rr_waitgen: 7 });
+  const bm = {};
+  run(OFFICE.armBat, bm, fb);
+  ok(fb.get("rr_waitgen") === 8 && fb.get("rr_pending") === OFFICE.waitBat && bm.rr_wgen === 8, "battery arm: gen bump + pending");
+  ok(run(OFFICE.guardBat, Object.assign({}, bm), fb).rr_wgen === 8 && fb.get("rr_pending") === "", "battery ok passes guard, clears pending");
+  eq(run(OFFICE.guardBat, { rr_wgen: 7 }, mkFlow({ rr_waitgen: 8 })), null, "stale battery success dropped");
+  eq(run(OFFICE.guardBat, { rr_wgen: 8 }, mkFlow({ rr_waitgen: 8, rr_cancel: true })), null, "battery ok dropped when cancelled");
+  const sk = run(OFFICE.batTimeout, { rr_wgen: 8 }, mkFlow({ rr_waitgen: 8 }));
+  ok(sk[0] && sk[1].rr_evt === "officeskip" && sk[2].notify.tag === "rr_office_skipped" && sk[2].notify.urgent === false,
+     "battery timeout -> continue + officeskip + notice");
+  ok(!("rr_stage" in sk[0]), "battery timeout is not a stall");
+  eq(run(OFFICE.batTimeout, { rr_wgen: 7 }, mkFlow({ rr_waitgen: 8 })), null, "stale battery timeout dropped");
+  const fs1 = mkFlow({ rr_run: { active: true, phase: "Dock — emptying before Rachel's office", cancelled: false, near: "" } });
+  const ts = run("f_track", { rr_evt: "officeskip" }, fs1);
+  ok(ts[0][0].payload.phase === "Rachel's office skipped (battery)" && ts[1].length === 0, "officeskip phase, no stamp");
+  const gh = mkGlobal(state({ "sensor.mr_slave_status_2": "charging", "vacuum.mr_slave_2": "docked" }));
+  eq(run("f_hareconn", { payload: { event: "states_loaded" } },
+     mkFlow({ rr_run: { active: true, phase: "Dock — emptying before Rachel's office" }, rr_pending: OFFICE.waitBat, rr_waitgen: 8 }), gh),
+     [null, null, null, null, null], "reconnect during the battery wait -> nothing (wait re-checks on change)");
 
   // tracker: phases + the office stamp
   const ft = mkFlow({ rr_run: { active: true, phase: "Main floor sweep (11 rooms)", cancelled: false, near: "" } });
