@@ -1,0 +1,10 @@
+[Unit]
+Description=vmpool/linux-tools over storage net
+After=network-online.target
+[Mount]
+What=172.16.30.2:/mnt/vmpool/linux-tools
+Where=/mnt/linux-tools
+Type=nfs
+Options=nfsvers=4.1,noatime,_netdev
+[Install]
+WantedBy=multi-user.target

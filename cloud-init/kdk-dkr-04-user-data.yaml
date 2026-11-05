@@ -197,6 +197,18 @@ write_files:
       Options=nfsvers=4.1,noatime,_netdev
       [Install]
       WantedBy=multi-user.target
+  - path: /etc/systemd/system/mnt-linux\x2dtools.mount
+    content: |
+      [Unit]
+      Description=vmpool/linux-tools over storage net
+      After=network-online.target
+      [Mount]
+      What=172.16.30.2:/mnt/vmpool/linux-tools
+      Where=/mnt/linux-tools
+      Type=nfs
+      Options=nfsvers=4.1,noatime,_netdev
+      [Install]
+      WantedBy=multi-user.target
   - path: /etc/ssh/sshd_config.d/98-kdk-admin.conf
     content: |
       # kdk-lab SSH baseline, every host. Install: /etc/ssh/sshd_config.d/98-kdk-admin.conf
@@ -632,6 +644,9 @@ runcmd:
   # NAS). Same units + options as kdk-dkr-01; single /mnt/media mount so the
   # media hardlink rule holds. Written above in the host-baseline block.
   - systemctl enable --now mnt-media.mount mnt-backup.mount
+  # linux-tools share (docs/runbooks/linux-tools-share.md): its own line so a
+  # missing vmpool/linux-tools export cannot fail the media/backup step above.
+  - systemctl enable --now 'mnt-linux\x2dtools.mount' || true
   # rpcbind not needed (NFS is v4.1 only); mask it (hosts report M-07).
   - systemctl mask --now rpcbind.socket rpcbind.service || true
   # Periphery pinned to Core's release line (docs/services/komodo.md: 2.3.4).
