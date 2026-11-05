@@ -27,7 +27,7 @@ the Remote-User header drives rating/task attribution.
 | Purpose | One home screen for watch/listen/read/request/cook/tasks/calendar |
 | Status | 🟢 Live (P1); meal-plan sidecar = P2, calendar = P3 |
 | Host | [[kdk-dkr-01]] |
-| Endpoints | `home.kmkdp.com` (+ `/guides`, `/meal`), `tasks.kmkdp.com` |
+| Endpoints | `home.kmkdp.com` (+ `/guides`, `/meal`, `/workout`), `tasks.kmkdp.com` |
 | Images | `ghcr.io/gethomepage/homepage:v2.7.0`, `nginx:1.31.8-alpine`, `vikunja/vikunja:2.7.1`, `kdk/dashboard-mealplan` (built) |
 | Deploy | Komodo stack `dashboard` (git-linked, `op inject` pre_deploy) |
 | Storage | `/opt/kdk-lab/dashboard/vikunja` (SQLite + files) |
@@ -36,11 +36,12 @@ the Remote-User header drives rating/task attribution.
 ## Verify
 
 ```bash
-sudo docker ps --filter name=homepage --filter name=vikunja --filter name=dashboard-guides --filter name=dashboard-mealplan --format '{{.Names}} {{.Status}}'
+sudo docker ps --filter name=homepage --filter name=vikunja --filter name=dashboard-guides --filter name=dashboard-mealplan --filter name=dashboard-workout --format '{{.Names}} {{.Status}}'
 curl -s -o /dev/null -w '%{http_code}\n' https://home.kmkdp.com/            # 200
 curl -s -o /dev/null -w '%{http_code}\n' https://home.kmkdp.com/guides/     # 200
 curl -s -o /dev/null -w '%{http_code}\n' https://tasks.kmkdp.com/           # 200
 curl -s https://home.kmkdp.com/meal/mealplan.json | head -c 200            # JSON (P2)
+sudo docker exec dashboard-workout python -c "import urllib.request;print(urllib.request.urlopen('http://127.0.0.1:8080/healthz').read())"  # b'ok'
 ```
 
 ## Architecture
@@ -70,6 +71,7 @@ truth. See the [approval-tasks runbook](../runbooks/approval-tasks.md).
 | `stacks/dashboard/guides/*.html` | Family how-to pages (served under `/guides`; each sets `<base href="/guides/">` so relative links survive the StripPrefix) |
 | `stacks/dashboard/guides/shared-nav.{css,js}` | The one Kodiak sidebar shared by Homepage, guides and `/meal` (same links/order/labels, active-link state, mobile top-bar overlay); `shared-nav.js` hides it inside an iframe so the embedded `/meal` panels stay bare |
 | `stacks/dashboard/mealplan/app.py` | Tandoor session read + rating write-back |
+| `stacks/dashboard/workout/app.py` | `/workout/` log page: the day's steps from the host-managed `workout.json` with a form per exercise; writes the person's HA helpers (`Remote-User` jmack → Jacob, rach → Rachel, anyone else read-only) with the `home-assistant-workout-token` and appends `/opt/kdk-lab/dashboard/workout-log/workout-log.csv` (`timestamp,person,item,slug,weight,reps,seconds,minutes,score,done`). Reads the catalog from the repo clone (`stacks/home-assistant/tools`). See the [workout-tracking-update runbook](../runbooks/workout-tracking-update.md) |
 | `stacks/dashboard/guides/gen-workout-guide.py` | Builds the host-managed Workout guide (`/guides/workout/`) + `workout.json` from the private vault on the laptop; prefers `ex-<slug>-rom.png` pictures. Exercise changes: [workout-tracking-update runbook](../runbooks/workout-tracking-update.md) |
 | `stacks/dashboard/.env.tpl` | op refs (Vikunja JWT, widget API keys, Tandoor creds, ICS URL) |
 
