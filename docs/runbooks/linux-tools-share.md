@@ -97,7 +97,12 @@ After merge and ResourceSync: Komodo UI, Stacks, `storage-health-dkr04`, Deploy 
 wait for the hourly `storage-health` procedure). Log line:
 `storage-health OK (172.16.30.2, mounts: media backup linux-tools)`.
 
-## 4. Seed (owner, on dkr-04 as kdkadmin)
+## 4. Seed (owner)
+
+Each block names where it runs. The dkr-04 blocks are separate SSH sessions, so each
+sets `K` again; the laptop blocks use full paths and need `op` signed in.
+
+**4a. Layout (dkr-04 as kdkadmin)**
 
 ```sh
 K=/mnt/linux-tools
@@ -106,10 +111,11 @@ install -d -m 750 $K/thud/vendor
 install -d -m 700 $K/thud/secrets $K/thud/backup $K/thud/state
 ```
 
-platform-tools (dkr-04 has no `unzip`; python keeps the exec bits and strips the
-top-level `platform-tools/` folder):
+**4b. platform-tools (dkr-04 as kdkadmin)** — dkr-04 has no `unzip`; python keeps the exec
+bits and strips the top-level `platform-tools/` folder:
 
 ```sh
+K=/mnt/linux-tools
 cd /tmp && curl -fLO https://dl.google.com/android/repository/platform-tools_r37.0.1-linux.zip
 echo 'd230f13842f60f782a8645f9c813f8f845bf36089ea7289f28c48f17979313f1  platform-tools_r37.0.1-linux.zip' | sha256sum -c
 python3 -I - platform-tools_r37.0.1-linux.zip $K/platform-tools/37.0.1 <<'PY'
@@ -134,10 +140,10 @@ rm platform-tools_r37.0.1-linux.zip
 $K/platform-tools/37.0.1/adb version     # Version 37.0.1-...
 ```
 
-NordicFTMS APK and the GlassOS certs it carries (`unzip -j <apk> 'assets/certs/glassos_*.pem'`
-on a host that has unzip):
+**4c. NordicFTMS APK + the GlassOS certs it carries (dkr-04 as kdkadmin)**
 
 ```sh
+K=/mnt/linux-tools
 cd $K/thud/vendor
 curl -fL -o NordicFTMS-1.1.3.apk https://github.com/mikepugh/NordicFTMS/releases/download/v1.1.3/NordicFTMS.apk
 echo 'e83853c45b19b2c87dd384dafd6cde251586e2bee79dbfc9f7a28eb55abd9a39  NordicFTMS-1.1.3.apk' | tee NordicFTMS-1.1.3.apk.sha256 | sha256sum -c
@@ -155,7 +161,8 @@ PY
 stat -c '%n %s %a' $K/thud/secrets/glassos_*.pem    # 1265 / 1090 / 1704, all 600
 ```
 
-`kdk-ha.conf` (secret) and `kdk-launcher.conf` (not secret), from the laptop. The
+**4d. `kdk-ha.conf` (secret) and `kdk-launcher.conf` (not secret) — on the LAPTOP, not in
+the dkr-04 session** (`op` lives there; the `ssh ... install` writes land on the share). The
 1Password Document `thud-kdk-ha-conf` (vault `kdk-cluster`) is the source of truth;
 if it is missing, create it first from the recovered kit copy
 (`op document create ~/treadmill-kit/recovered-2026-11-04/kdk-ha.conf --title thud-kdk-ha-conf --vault kdk-cluster`):
@@ -166,9 +173,11 @@ ssh kdkadmin@10.1.20.22 'install -m 644 /dev/stdin /mnt/linux-tools/thud/conf/kd
 ssh kdkadmin@10.1.20.22 'stat -c "%n %s %a" /mnt/linux-tools/thud/secrets/kdk-ha.conf /mnt/linux-tools/thud/conf/kdk-launcher.conf'
 ```
 
-Fork clone (files are owned by 3010, so git needs `safe.directory` for kdkadmin):
+**4e. Fork clone (dkr-04 as kdkadmin)** — files on the share are owned by 3010, so git needs
+`safe.directory` for kdkadmin:
 
 ```sh
+K=/mnt/linux-tools
 git clone -b feat/kdk-integration https://github.com/BigH3ater/thud $K/thud/src
 git config --global --add safe.directory $K/thud/src
 git -C $K/thud/src log -1 --oneline
