@@ -5,114 +5,169 @@
 # colours use the *-ink variants. Never #000/#fff. Colors + shape only: HA cannot
 # load web fonts from a theme, so typography stays stock (no card-mod).
 # Applied as backend default by the kodiak_default_theme automation (packages/home.yaml).
+# Dark-only MODES theme: a theme with modes.dark and no modes.light is always
+# applied in dark mode, so HA lays its own DARK defaults under every token we
+# do not set (a flat theme is laid over the LIGHT defaults -> white dialogs).
 Kodiak:
-  # ground
-  primary-background-color: "#1b1a18"          # --ink
-  secondary-background-color: "#1b1a18"
-  markdown-code-background-color: "#161311"    # --terminal-bg
-  # text
-  primary-text-color: "#ece2d0"                # --paper
-  secondary-text-color: "#8d8377"              # --ash
-  text-primary-color: "#ece2d0"
-  disabled-text-color: "#6b6358"               # --bark (disabled only)
-  divider-color: "#423d38"                     # --ink-hairline
-  # accent
-  primary-color: "#c9743f"                     # --ember
-  accent-color: "#c9743f"
-  light-primary-color: "#d98a58"
-  dark-primary-color: "#9d4a25"                # --rust (large fills only)
-  state-icon-color: "#8d8377"
-  # cards — surface + hairline, radius 12, no shadow (Kodiak card rules)
-  card-background-color: "#2b2825"             # --ink-surface
-  ha-card-background: "#2b2825"
-  ha-card-border-radius: "12px"
-  ha-card-border-color: "#423d38"
-  ha-card-border-width: "1px"
-  ha-card-box-shadow: "none"
-  ha-dialog-border-radius: "12px"
-  # sidebar / header on the terminal ground
-  sidebar-background-color: "#161311"
-  sidebar-menu-button-background-color: "#161311"
-  sidebar-text-color: "#8d8377"
-  sidebar-icon-color: "#8d8377"
-  sidebar-selected-text-color: "#c9743f"
-  sidebar-selected-icon-color: "#c9743f"
-  app-header-background-color: "#161311"
-  app-header-text-color: "#ece2d0"
-  app-header-edit-background-color: "#2b2825"
-  app-header-selection-bar-color: "#c9743f"
-  # controls
-  switch-checked-color: "#c9743f"
-  switch-checked-button-color: "#c9743f"
-  switch-checked-track-color: "#9d4a25"
-  switch-unchecked-button-color: "#8d8377"
-  switch-unchecked-track-color: "#423d38"
-  slider-color: "#c9743f"
-  slider-secondary-color: "#9d4a25"
-  slider-track-color: "#423d38"
-  slider-bar-color: "#c9743f"
-  paper-slider-knob-color: "#c9743f"
-  paper-slider-active-color: "#c9743f"
-  mdc-theme-primary: "#c9743f"
-  mdc-checkbox-checked-color: "#c9743f"
-  input-fill-color: "#2b2825"
-  input-ink-color: "#ece2d0"
-  input-label-ink-color: "#8d8377"
-  input-idle-line-color: "#423d38"
-  input-hover-line-color: "#c9743f"
-  input-dropdown-icon-color: "#8d8377"
-  # status — *-ink variants
-  success-color: "#6f8f5c"                     # --ok-ink
-  warning-color: "#d9a441"                     # --warn-ink
-  error-color: "#e0705a"                       # --danger-ink
-  info-color: "#8fb6c4"                        # --info-ink
-  state-icon-error-color: "#e0705a"
-  # entity state colors (tiles/icons): warm actives instead of stock yellow/blue
-  state-active-color: "#c9743f"
-  state-binary_sensor-active-color: "#c9743f"
-  state-light-active-color: "#d98a58"
-  state-switch-active-color: "#c9743f"
-  state-fan-active-color: "#c9743f"
-  state-cover-active-color: "#c9743f"
-  state-climate-heat-color: "#c9743f"
-  state-climate-cool-color: "#8fb6c4"
-  state-vacuum-active-color: "#c9743f"
-  state-media_player-active-color: "#c9743f"
-  # tables / misc
-  table-row-background-color: "#1b1a18"
-  table-row-alternative-background-color: "#2b2825"
-  scrollbar-thumb-color: "#423d38"
-  codemirror-property: "#c9743f"
-  # --- inputs / dropdowns / menus: dark fill + light ink. Without these, MDC
-  #     text fields and selects fall back to a WHITE fill while the theme's text
-  #     stays paper -> light-on-white, unreadable (the password field, the
-  #     weight/reps number boxes, the walker dropdown, selected menu items). ---
-  mdc-text-field-fill-color: "#2b2825"            # ink-surface
-  mdc-text-field-ink-color: "#ece2d0"             # paper
-  mdc-text-field-label-ink-color: "#8d8377"       # ash
-  mdc-text-field-disabled-ink-color: "#6b6358"
-  mdc-text-field-idle-line-color: "#423d38"
-  mdc-text-field-hover-line-color: "#8d8377"
-  mdc-select-fill-color: "#2b2825"
-  mdc-select-ink-color: "#ece2d0"
-  mdc-select-label-ink-color: "#8d8377"
-  mdc-select-idle-line-color: "#423d38"
-  mdc-select-dropdown-icon-color: "#8d8377"
-  mdc-menu-surface-fill-color: "#2b2825"
-  paper-input-container-input-color: "#ece2d0"
-  paper-input-container-color: "#8d8377"
-  paper-listbox-background-color: "#2b2825"
-  paper-listbox-color: "#ece2d0"
-  # selected sidebar item: dark highlight so the ember selected-text stays readable
-  sidebar-selected-background-color: "#2b2825"
-  # --- xiaomi-vacuum-map-card (Roborock Map tab, dashboards/roborock.yaml) ---
-  # Each room's label is its segment number, drawn centred on the room's tap
-  # bubble; the robot glyph in the bubble is hidden (size 0) so the number reads.
-  # The bubble stays the tap target (labels ignore pointer events).
-  map-card-room-icon-size: "0px"
-  map-card-room-icon-wrapper-size: "38px"
-  map-card-room-icon-background-color: "#1b1a18"   # ink (readable on every room colour)
-  map-card-room-icon-background-color-selected: "#c9743f"  # ember
-  map-card-room-label-font-size: "20px"
-  map-card-room-label-color: "#ece2d0"             # paper
-  map-card-room-label-color-selected: "#1b1a18"    # ink on ember
+  modes:
+    dark:
+      # ground
+      primary-background-color: "#1b1a18"          # --ink
+      secondary-background-color: "#1b1a18"
+      markdown-code-background-color: "#161311"    # --terminal-bg
+      # text
+      primary-text-color: "#ece2d0"                # --paper
+      secondary-text-color: "#8d8377"              # --ash
+      text-primary-color: "#ece2d0"
+      disabled-text-color: "#6b6358"               # --bark (disabled only)
+      divider-color: "#423d38"                     # --ink-hairline
+      # accent
+      primary-color: "#c9743f"                     # --ember
+      accent-color: "#c9743f"
+      light-primary-color: "#d98a58"
+      dark-primary-color: "#9d4a25"                # --rust (large fills only)
+      state-icon-color: "#8d8377"
+      # cards — surface + hairline, radius 12, no shadow (Kodiak card rules)
+      card-background-color: "#2b2825"             # --ink-surface
+      ha-card-background: "#2b2825"
+      ha-card-border-radius: "12px"
+      ha-card-border-color: "#423d38"
+      ha-card-border-width: "1px"
+      ha-card-box-shadow: "none"
+      ha-dialog-border-radius: "12px"
+      # sidebar / header on the terminal ground
+      sidebar-background-color: "#161311"
+      sidebar-menu-button-background-color: "#161311"
+      sidebar-text-color: "#8d8377"
+      sidebar-icon-color: "#8d8377"
+      sidebar-selected-text-color: "#c9743f"
+      sidebar-selected-icon-color: "#c9743f"
+      app-header-background-color: "#161311"
+      app-header-text-color: "#ece2d0"
+      app-header-edit-background-color: "#2b2825"
+      app-header-selection-bar-color: "#c9743f"
+      # controls
+      switch-checked-color: "#c9743f"
+      switch-checked-button-color: "#c9743f"
+      switch-checked-track-color: "#9d4a25"
+      switch-unchecked-button-color: "#8d8377"
+      switch-unchecked-track-color: "#423d38"
+      slider-color: "#c9743f"
+      slider-secondary-color: "#9d4a25"
+      slider-track-color: "#423d38"
+      slider-bar-color: "#c9743f"
+      paper-slider-knob-color: "#c9743f"
+      paper-slider-active-color: "#c9743f"
+      mdc-theme-primary: "#c9743f"
+      mdc-checkbox-checked-color: "#c9743f"
+      input-fill-color: "#2b2825"
+      input-ink-color: "#ece2d0"
+      input-label-ink-color: "#8d8377"
+      input-idle-line-color: "#423d38"
+      input-hover-line-color: "#c9743f"
+      input-dropdown-icon-color: "#8d8377"
+      # status — *-ink variants
+      success-color: "#6f8f5c"                     # --ok-ink
+      warning-color: "#d9a441"                     # --warn-ink
+      error-color: "#e0705a"                       # --danger-ink
+      info-color: "#8fb6c4"                        # --info-ink
+      state-icon-error-color: "#e0705a"
+      # entity state colors (tiles/icons): warm actives instead of stock yellow/blue
+      state-active-color: "#c9743f"
+      state-binary_sensor-active-color: "#c9743f"
+      state-light-active-color: "#d98a58"
+      state-switch-active-color: "#c9743f"
+      state-fan-active-color: "#c9743f"
+      state-cover-active-color: "#c9743f"
+      state-climate-heat-color: "#c9743f"
+      state-climate-cool-color: "#8fb6c4"
+      state-vacuum-active-color: "#c9743f"
+      state-media_player-active-color: "#c9743f"
+      # tables / misc
+      table-row-background-color: "#1b1a18"
+      table-row-alternative-background-color: "#2b2825"
+      scrollbar-thumb-color: "#423d38"
+      codemirror-property: "#c9743f"
+      # --- inputs / dropdowns / menus: dark fill + light ink. Without these, MDC
+      #     text fields and selects fall back to a WHITE fill while the theme's text
+      #     stays paper -> light-on-white, unreadable (the password field, the
+      #     weight/reps number boxes, the walker dropdown, selected menu items). ---
+      mdc-text-field-fill-color: "#2b2825"            # ink-surface
+      mdc-text-field-ink-color: "#ece2d0"             # paper
+      mdc-text-field-label-ink-color: "#8d8377"       # ash
+      mdc-text-field-disabled-ink-color: "#6b6358"
+      mdc-text-field-idle-line-color: "#423d38"
+      mdc-text-field-hover-line-color: "#8d8377"
+      mdc-select-fill-color: "#2b2825"
+      mdc-select-ink-color: "#ece2d0"
+      mdc-select-label-ink-color: "#8d8377"
+      mdc-select-idle-line-color: "#423d38"
+      mdc-select-dropdown-icon-color: "#8d8377"
+      mdc-menu-surface-fill-color: "#2b2825"
+      paper-input-container-input-color: "#ece2d0"
+      paper-input-container-color: "#8d8377"
+      paper-listbox-background-color: "#2b2825"
+      paper-listbox-color: "#ece2d0"
+      # selected sidebar item: dark highlight so the ember selected-text stays readable
+      sidebar-selected-background-color: "#2b2825"
+      # --- MD3 / 2026.4+ tokens (verified HA 2026.10.4, frontend 20260930.5) ---
+      # Since the 2026.2/2026.4 Material-Design-3 migration, dialogs, ha-input text
+      # fields, selects/menus, list items and the sidebar popups read these tokens,
+      # not the mdc-*/input-* ones above. Every name below is referenced by the
+      # installed frontend bundle. HA does not support theme variables officially and
+      # may rename these again: re-check against the bundle after a frontend upgrade.
+      # Contrast rule holds here too: never paper text on ember; the selected-item
+      # fill is a dark ember tint so paper stays readable on it. Plain ash is 3.94:1
+      # on ink-surface (below AA), so secondary TEXT on MD3 surfaces uses ash-lift
+      # #a2988b (ash 22% toward paper: 5.16:1 on ink-surface, 4.59:1 on the hover
+      # fill); ash stays for icons (3:1 rule) and on the ink/sidebar grounds.
+      # form fields (ha-input / ha-select trigger); frontend default is neutral-95 = light
+      ha-color-form-background: "#2b2825"             # ink-surface
+      ha-color-form-background-hover: "#343030"
+      ha-color-form-background-disabled: "#1b1a18"    # ink
+      # MD3 system colours (md-sys-color-surface already follows card-background-color)
+      md-sys-color-on-surface: "#ece2d0"              # paper
+      md-sys-color-on-surface-variant: "#a2988b"      # ash-lift
+      md-sys-color-outline: "#423d38"                 # ink-hairline
+      md-sys-color-primary: "#c9743f"                 # ember
+      md-sys-color-secondary: "#c9743f"
+      # lists (menus, pickers, sidebar popups)
+      md-list-container-color: "#2b2825"
+      md-list-item-label-text-color: "#ece2d0"
+      md-list-item-supporting-text-color: "#a2988b"           # ash-lift
+      md-list-item-trailing-supporting-text-color: "#a2988b"  # ash-lift
+      md-list-item-leading-icon-color: "#8d8377"
+      md-list-item-trailing-icon-color: "#8d8377"
+      md-list-item-hover-state-layer-color: "#ece2d0"
+      md-list-item-pressed-state-layer-color: "#ece2d0"
+      # ripple: paper; opacities stay at the frontend defaults
+      md-ripple-hover-color: "#ece2d0"
+      md-ripple-pressed-color: "#ece2d0"
+      # menu hover / keyboard focus / selected item
+      wa-color-neutral-fill-normal: "#343030"
+      ha-color-fill-neutral-normal-hover: "#343030"
+      ha-color-fill-primary-quiet-resting: "rgba(201, 116, 63, 0.18)"  # ember tint
+      ha-color-fill-primary-quiet-hover: "rgba(201, 116, 63, 0.26)"
+      ha-color-fill-primary-quiet-active: "rgba(201, 116, 63, 0.18)"
+      ha-color-on-primary-quiet: "#ece2d0"            # paper on the ember tint
+      # the ha-color-primary-* palette stays HA blue for custom themes; pin the
+      # places it shows as text / rings. Links use light-ember (ember is 4.22:1 on
+      # ink-surface; #d98a58 is 5.39:1 on ink-surface, 6.40:1 on ink).
+      ha-color-text-link: "#d98a58"
+      ha-color-focus: "#c9743f"
+      # dialogs + sidebar popups (profile, notifications, search/command palette)
+      ha-dialog-surface-background: "#2b2825"
+      ha-tooltip-background-color: "#2b2825"
+      ha-tooltip-text-color: "#ece2d0"
+      sidebar-menu-button-text-color: "#8d8377"
+      # --- xiaomi-vacuum-map-card (Roborock Map tab, dashboards/roborock.yaml) ---
+      # Each room's label is its segment number, drawn centred on the room's tap
+      # bubble; the robot glyph in the bubble is hidden (size 0) so the number reads.
+      # The bubble stays the tap target (labels ignore pointer events).
+      map-card-room-icon-size: "0px"
+      map-card-room-icon-wrapper-size: "38px"
+      map-card-room-icon-background-color: "#1b1a18"   # ink (readable on every room colour)
+      map-card-room-icon-background-color-selected: "#c9743f"  # ember
+      map-card-room-label-font-size: "20px"
+      map-card-room-label-color: "#ece2d0"             # paper
+      map-card-room-label-color-selected: "#1b1a18"    # ink on ember

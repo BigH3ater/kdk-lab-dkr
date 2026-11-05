@@ -37,7 +37,7 @@ local-only `node-red` user (admin, required by the websocket nodes) instead of t
 |---|---|
 | Host | [[kdk-dkr-02]] (10.1.30.21, VLAN 30), HA + Node-RED, HomeKit bridge |
 | Login | **Authelia OIDC** (`hass-oidc-auth` custom component, client `homeassistant`, Authelia policy `ha_access` = LLDAP group **`ha-users`** with 2FA; `ha-admins` → HA admin role); local login kept as fallback (usernames `jmack`/`rach`) |
-| Theme | **Kodiak** (INK GROUND dark, `config/themes/kodiak.yaml`), set as backend default on start |
+| Theme | **Kodiak** (INK GROUND dark, `config/themes/kodiak.yaml`), a dark-only `modes:` theme set as backend default on start; carries the MD3 / `ha-color-*` tokens the 2026.4+ frontend uses (see [Theme tokens after 2026.4](#theme-tokens-after-20264)) |
 | Dashboards | **Home** (iOS-Home-style rooms, sections+tile), **Roborock**, **Homelab** — YAML-mode, registered in `configuration.yaml` |
 | Home controls | per-room sections: blinds (Zigbee covers), theater lights (+group), T9 thermostat, ceiling fan, outlets, Bosch dishwasher, HomePods/Apple TVs |
 | Homelab telemetry | REST sensors pulling [[observability]] Prometheus (`10.1.20.30:9090`): iDRAC fans/temps/power + per-host CPU/mem/uptime, plus the [[nut]] UPS |
@@ -61,6 +61,31 @@ local-only `node-red` user (admin, required by the websocket nodes) instead of t
   [Roborock dashboard](#roborock-dashboard-2026-11-04).
 - **Homelab** (`/homelab-hw`) — iDRAC gauges for [[kdk-hyp-01]] and
   [[kdk-nas-01]], the [[nut]] UPS, and CPU/memory/uptime for all monitored hosts.
+
+### Theme tokens after 2026.4
+
+Since the 2026.2/2026.4 Material-Design-3 frontend migration, dialogs, text
+fields (`ha-input`), selects/menus, list items and the sidebar popups read
+new tokens (`--ha-color-*`, `--md-sys-color-*`, `--md-list-*`,
+`--md-ripple-*`, `--wa-color-*`), not the old `mdc-text-field-*` / `input-*`
+ones. Two things keep them dark:
+
+- **Dark-only modes.** `kodiak.yaml` is `Kodiak: modes: dark: {...}` with no
+  `light` mode. The frontend forces dark mode for such a theme
+  (`src/state/themes-mixin.ts`) and lays its own dark defaults under every
+  token Kodiak does not set. A flat theme is forced to light mode and lands on
+  the light defaults: white fields, orange accent ink.
+- **MD3 block.** A delimited block in the theme ("MD3 / 2026.4+ tokens")
+  sets form backgrounds, list/menu colours, ripple, selected-item tint and
+  dialog/tooltip surfaces in Kodiak colours. Verified against HA 2026.10.4
+  (frontend 20260930.5). HA does not support theme variables, so after a
+  frontend upgrade grep the bundle (`hass_frontend/frontend_latest/*.js`) for
+  each name and fix any that changed.
+
+Secondary text on MD3 surfaces uses **ash-lift `#a2988b`** (5.16:1 on
+ink-surface). Plain ash only reaches 3.94:1 there. Links use light-ember
+`#d98a58`. After editing the theme, reload it with Developer Tools → YAML →
+*Themes* or `frontend.reload_themes`.
 
 ## Roborock dashboard (2026-11-04)
 

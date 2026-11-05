@@ -67,7 +67,7 @@ One comment, headed with the time in UTC:
 ## 5. Close the loop
 
 - Tick the item in the vault follow-up list
-  (`1. Projects/homelab-followups-2026-10/homelab-followups.README.md`) with the date,
+  (`10.Homelab/Followups/homelab-followups.README.md`) with the date,
   or add a new line for anything left open.
 - A lesson that changes how future PRs are written (a header Authelia rejects, a
   `pre_deploy` that overwrote `.env`) goes into the relevant `docs/` page in the
