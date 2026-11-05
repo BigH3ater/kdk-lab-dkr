@@ -1123,7 +1123,10 @@ compose_cmd_wrapper_include = ["config"]
 server = "kdk-dkr-04"
 repo = "BigH3ater/kdk-lab-dkr"
 run_directory = "stacks/storage-health"
-environment = "NFS_MOUNTS=media backup linux-tools"   # exactly the mounts kdk-dkr-04 has (linux-tools: docs/runbooks/linux-tools-share.md)
+# HOLD 2026-11-04: linux-tools is listed only once the NAS export exists and the unit is
+# mounted on dkr-04 (docs/runbooks/linux-tools-share.md, steps 1-2); until then the hourly
+# check would page MISSING. Restore "media backup linux-tools" with slice 3's validation.
+environment = "NFS_MOUNTS=media backup"   # exactly the mounts kdk-dkr-04 has today
 destroy_before_deploy = true   # one locked down+up so the one-shot re-runs
 
 [[procedure]]
