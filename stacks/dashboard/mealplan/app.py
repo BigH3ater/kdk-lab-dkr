@@ -715,8 +715,8 @@ _UNIT_FAMILY = {
 }
 _UNIT_SINGULAR = {"cloves": "clove", "slices": "slice", "cans": "can", "heads": "head",
                   "bunches": "bunch", "ears": "ear", "sprigs": "sprig", "pints": "pint"}
-# What the store sells, for foods bought in a different unit than recipes use.
-_BUY_AS = {"garlic": ("clove", 10, "head")}       # ~10 cloves a head
+_WEIGHT_UNITS = {"lb", "oz", "kg", "g"}           # rounded up to the next quarter
+_NO_PLURAL = _WEIGHT_UNITS | {"tsp", "tbsp", "cup"}
 
 
 def _fmt_num(x: float) -> str:
@@ -739,8 +739,39 @@ def _fmt_family(fam: str, base: float) -> str:
     return _fmt_num(base)
 
 
-def _combine(entries) -> list[dict]:
-    """[{ids, food, qty, recipes}] -- one per food, in first-seen order."""
+def _fmt_buy(n: float, unit: str) -> str:
+    """'2 heads', '1½ lb', '3' (each renders as a bare number)."""
+    if unit.lower() == "each":
+        return _fmt_num(n)
+    if n > 1 and unit.lower() not in _NO_PLURAL:
+        unit += "es" if unit.endswith(("ch", "sh", "s", "x")) else "s"
+    return f"{_fmt_num(n)} {unit}"
+
+
+def _to_buy(g: dict, buy: dict) -> tuple[str, list[str]]:
+    """(buy amount, unconverted parts) for one summed food line."""
+    total, left = 0.0, []
+    for fam, v in g["fam"].items():
+        if v and buy.get(fam):
+            total += v / buy[fam]
+        elif v:
+            left.append(_fmt_family(fam, v))
+    for u, v in g["other"].items():
+        if v and buy.get(u.lower()):
+            total += v / buy[u.lower()]
+        elif v:
+            left.append(f"{_fmt_num(v)} {u}")
+    if not total:
+        return "", left
+    step = 4 if buy["unit"].lower() in _WEIGHT_UNITS else 1
+    n = -(-round(total * step, 6) // 1) / step        # round UP to the step
+    return _fmt_buy(n, buy["unit"]), left
+
+
+def _combine(entries, foods_cfg=None) -> list[dict]:
+    """[{ids, food, qty, raw, recipes}] -- one per food, in first-seen order.
+    qty is what to buy; raw is the recipe-unit sum it came from ("" when the
+    food has no buy-unit rule, in which case qty IS the recipe-unit sum)."""
     out: dict[str, dict] = {}
     for e in entries:
         food = (e.get("food") or {}).get("name") or "?"
@@ -763,19 +794,21 @@ def _combine(entries) -> list[dict]:
     for key, g in out.items():
         parts = [_fmt_family(f, v) for f, v in g["fam"].items() if v]
         parts += [f"{_fmt_num(v)} {u}" for u, v in g["other"].items() if v]
-        qty = " + ".join(parts)
-        buy = _BUY_AS.get(key)
-        if buy and g["other"].get(buy[0]):
-            n = -(-g["other"][buy[0]] // buy[1])          # round up
-            qty += f" (≈ {_fmt_num(n)} {buy[2]}{'s' if n > 1 else ''})"
-        items.append({"ids": g["ids"], "food": g["food"], "qty": qty,
+        qty, raw = " + ".join(parts), ""
+        buy = newpi.buy_for(g["food"], foods_cfg)
+        if buy:
+            amount, left = _to_buy(g, buy)
+            if amount:
+                qty, raw = " + ".join([amount] + left), qty
+        items.append({"ids": g["ids"], "food": g["food"], "qty": qty, "raw": raw,
                       "recipes": g["recipes"]})
     return items
 
 
 def _grocery_row(item, title: str, link: str = "", name_html: str = "") -> str:
     ids = ",".join(str(i) for i in item["ids"])
-    qty = f"<span class='qty'>{escape(item['qty'])}</span>" if item["qty"] else ""
+    raw = f" <span class='raw'>({escape(item['raw'])})</span>" if item.get("raw") else ""
+    qty = f"<span class='qty'>{escape(item['qty'])}{raw}</span>" if item["qty"] else ""
     src = (f"<span class='src'>{escape(', '.join(item['recipes']))}</span>"
            if item["recipes"] else "")
     # name_html lets a store tab render the food name as a link (New Pi tap-to-order);
@@ -801,6 +834,7 @@ padding:7px 14px;cursor:pointer;min-height:36px}
 .js .tab{display:none}
 .js .tab.on{display:block}
 .gi .lbl .qty{color:var(--ember);margin-left:8px;font-family:'JetBrains Mono',monospace;font-size:13px}
+.gi .lbl .qty .raw{color:var(--ash);opacity:.7;font-size:12px}
 .gi .lbl .src{display:block;color:var(--ash);font-size:11px;margin-top:1px}
 .gi .lbl a.np{color:var(--paper);text-decoration:none;font-weight:600}
 .gi .lbl a.np:hover{color:var(--ember);text-decoration:underline;text-decoration-thickness:2px}
