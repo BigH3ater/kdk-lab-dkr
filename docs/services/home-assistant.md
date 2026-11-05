@@ -5,7 +5,7 @@ stack: home-assistant
 tier: apps
 status: live
 storage: yes
-secrets: [home-assistant-nodered-token, node-red-admin, node-red-credential-secret, zigbee2mqtt-frontend-token, kdk-ups-01-nut-upsd, scrypted-admin, homeassistant-oidc-client, vikunja-api-ro, vikunja-api-approvals]
+secrets: [home-assistant-nodered-token, home-assistant-roborock-map-token, node-red-admin, node-red-credential-secret, zigbee2mqtt-frontend-token, kdk-ups-01-nut-upsd, scrypted-admin, homeassistant-oidc-client, vikunja-api-ro, vikunja-api-approvals]
 updated: 2026-11-04
 tags: [homelab/stack, tier/apps, status/live]
 ---
@@ -156,9 +156,48 @@ the `xiaomi-vacuum-map-card` on top, a markdown **Key** below.
   redraws. Revert = tick it again. Optional in the same form: **Mop path**
   draws a wide translucent white band where it mopped. Status: not applied
   (owner decision). If the rooms must keep their colours *and* the path must
-  show, the only route is a separate renderer (python-roborock +
-  vacuum-map-parser with a custom palette) serving a PNG to a generic camera;
-  not built.
+  show, use the map renderer below (it needs Show rooms back **on**).
+
+### Map renderer (roborock-map sidecar, 2026-11)
+
+`stacks/home-assistant/roborock-map/` — a small Flask service in this stack
+that recolours HA's own map PNG into the Kodiak palette. No robot protocol, no
+python-roborock: it fetches `image.mr_slave_main_floor_2` through
+`/api/image_proxy` and pixel-remaps it (the parser palette is fixed and not
+anti-aliased, so every pixel is an exact palette colour).
+
+- **What it draws.** 13 muted Kodiak room fills (distinct per room), carpet
+  stipple as a lighter tint of its room, walls ash `#8d8377`, path paper
+  `#ece2d0` (ember vanished on the kitchen fill), dock ember, robot paper. Rooms
+  2/12 and 8/13 share a parser colour, so rooms are told apart by a seed point
+  each (the tap-bubble pixel) and a flood fill, not by colour alone.
+- **Glass-door spill.** A polygon in `roborock-map/config.json` (`mask`) is
+  cleared to transparent and a `seal` line in wall colour closes the kitchen
+  outline. Image pixels, measured on the 1728 × 1568 render.
+- **Geometry** is untouched (same size and pixels), so the card's calibration
+  points stay valid. The Map tab now reads `image.mr_slave_map_kodiak`.
+- **Wiring.** Container `roborock-map`, bridge network, published on
+  `127.0.0.1:8125` only; it reaches HA through `host.docker.internal`
+  (host-gateway). HA reads it back through a template image in
+  `config/packages/roborock.yaml` whose URL carries the source entity's state,
+  so it re-fetches exactly when the vacuum's map updates. Not a generic
+  camera: generic has no YAML platform.
+- **Secret.** `HA_TOKEN` in `/opt/kdk-lab/home-assistant/roborock-map.env`
+  (root 600, host-managed; a missing file fails the stack deploy). Source of
+  truth: 1Password `kdk-cluster/home-assistant-roborock-map-token`
+  (field `credential`), a long-lived token of its own (not the Node-RED one).
+- **Needs Show rooms ON** (Settings → Devices & services → Roborock → ⚙
+  Configure → tick **Show rooms**). With it off the sidecar still works but
+  has no room fills to recolour.
+- **Change colours / mask / seeds:** edit `roborock-map/config.json`, PR,
+  deploy (Komodo rebuilds the image: `run_build = true`). Preview locally:
+  `python render.py in.png out.png --bg '#1b1a18'` with a saved HA map. If
+  the robot re-segments the map (new room ids or moved rooms), re-check the
+  seeds against the card's `predefined_selections` pixel positions.
+- **Check:** `ssh kdkadmin@10.1.30.21 'curl -s 127.0.0.1:8125/healthz'`
+  (`last_error` null, `rendered_at` recent once the tab was viewed).
+- **Roll back:** point the Map tab back at `image.mr_slave_main_floor_2`
+  (the original entity is untouched).
 
 ### Mop runs, dock visits and recharge pauses (2026-11-04)
 
@@ -342,3 +381,7 @@ client), `homeassistant-oidc-client` (Authelia client secret; digest in the
 DMZ `/secrets/authelia-app-secrets/homeassistant_client_secret`, plaintext in
 HA `secrets.yaml`), `vikunja-api-ro` (chore sensor + Node-RED bridge),
 `scrypted-admin` (once the Scrypted integration is completed).
+`home-assistant-roborock-map-token` (roborock-map → HA, read-only use: the
+image proxy): create a new long-lived token on the HA profile page, `op item
+edit`, write `HA_TOKEN=` into `roborock-map.env`, recreate `roborock-map`,
+then delete the old token in HA.

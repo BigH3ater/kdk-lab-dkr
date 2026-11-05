@@ -1,0 +1,37 @@
+{
+  "_comment": "Roborock map sidecar config. Seeds are image pixels (1728x1568 at map_scale 4) = the card's predefined_selections label points. Mask polygons/seal are image pixels too. See README.md.",
+  "map_scale": 4,
+  "colors": {
+    "path": "#ece2d0",
+    "wall": "#8d8377",
+    "robot": "#ece2d0",
+    "robot_outline": "#1b1a18",
+    "charger": "#c9743f",
+    "obstacle": "#6b6358",
+    "room_fallback": "#4d4842",
+    "carpet_tint": "#ece2d0",
+    "carpet_mix": 0.3
+  },
+  "rooms": {
+    "1":  {"name": "Master Bedroom Closet", "seed": [350, 1224],  "fill": "#6b5446"},
+    "2":  {"name": "Master Bedroom",        "seed": [440, 928],   "fill": "#43566a"},
+    "3":  {"name": "West Bedroom",          "seed": [414, 416],   "fill": "#5e4a5f"},
+    "4":  {"name": "Master Bathroom",       "seed": [544, 1228],  "fill": "#3f5f5a"},
+    "5":  {"name": "Bathroom 1",            "seed": [420, 660],   "fill": "#74483c"},
+    "6":  {"name": "Garage Entrance",       "seed": [1184, 584],  "fill": "#5d5a3c"},
+    "7":  {"name": "Half Bath",             "seed": [1014, 580],  "fill": "#4b6247"},
+    "8":  {"name": "Laundry Room",          "seed": [1382, 542],  "fill": "#534d6e"},
+    "9":  {"name": "Rachel's Office",       "seed": [686, 368],   "fill": "#6e5c38"},
+    "10": {"name": "Hallway",               "seed": [554, 618],   "fill": "#3e4d4b"},
+    "11": {"name": "Front Door Entry",      "seed": [794, 502],   "fill": "#3e5260"},
+    "12": {"name": "Living Room",           "seed": [784, 866],   "fill": "#625746"},
+    "13": {"name": "Kitchen",               "seed": [1186, 968],  "fill": "#7a5038"}
+  },
+  "mask": {
+    "_comment": "Glass-door spill below the kitchen (LiDAR through the patio door). polygons = cleared to transparent; seal = [x1,y1,x2,y2,width] lines drawn in wall colour to close the outline.",
+    "polygons": [
+      [[1040, 1150], [1222, 1150], [1222, 1200], [1300, 1255], [1300, 1350], [930, 1350], [930, 1250], [1004, 1200], [1004, 1150]]
+    ],
+    "seal": [[1040, 1147, 1222, 1147, 4]]
+  }
+}
