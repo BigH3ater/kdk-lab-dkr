@@ -317,6 +317,21 @@ stores:
     OConnell: ["Freezer", Other]
     Penzeys: [Spices, Other]
 
+# Thaw lead times (groceries page, Thaw tab): how long before a meal a
+# freezer-stock food (Amana beef, O'Connell chicken/pork, Costco frozen salmon)
+# must move from the freezer to the fridge. Key = a food-name substring (the
+# LONGEST match wins, like foods.yaml), value = hours ("24h") or days ("2d");
+# `default` covers every other freezer food. Counted back from the meal time
+# (breakfast 08:00, lunch 12:00, dinner 18:00). Read by the dashboard mealplan
+# sidecar (mounted read-only): redeploy the dashboard stack after an edit.
+thaw:
+  default: 24h
+  ground beef: 24h
+  chops: 24h
+  chicken breast: 24h
+  roast: 48h
+  salmon: 12h
+
 # Owner review gate. When on, the seed imports ONLY recipes the owner approved
 # (approved: true on a candidate, or owner_pick: true), and the generator draws
 # only from them. rejected_by_owner candidates are never chosen;

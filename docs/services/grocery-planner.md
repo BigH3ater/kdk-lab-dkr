@@ -6,7 +6,7 @@ tier: apps
 status: new
 storage: no
 secrets: [dashboard-tandoor-rw, vikunja-api-rw]
-updated: 2026-11-04
+updated: 2026-11-05
 tags: [homelab/stack, tier/apps, status/new, tandoor, grocery]
 ---
 
@@ -65,6 +65,9 @@ plan page lives in the dashboard mealplan sidecar at `home.kmkdp.com/meal/grocer
    `home.kmkdp.com/meal/groceries`: New Pi as a tap-to-tick checklist, Target with
    per-item `target.com` search links for the Drive Up cart, and a manual list
    with an add box. Ticks write `checked` back to Tandoor.
+   The **Pantry** tab lists the on-hand pantry and stock-store foods ("used this
+   week" first) with a "reorder" button that adds one recipe-less entry; the
+   **Thaw** tab lists the week's freezer-stock meats with a move-to-the-fridge time.
 4. **Saturday** — New Pi delivers; Sunday is prep + the fresh-fish dinner (salmon
    keeps 1–2 days; tuna weeks have no timing constraint).
 

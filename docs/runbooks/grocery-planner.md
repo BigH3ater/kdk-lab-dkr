@@ -281,6 +281,101 @@ ssh kdkadmin@$HOST "sudo -n docker exec dashboard-mealplan python -c 'import new
 # the container still has the old foods.yaml (redeploy) or the rule has no buy map
 ```
 
+## Pantry tab (reorder an on-hand food)
+
+The planner keeps the `pantry:` foods in `recipes/cleanup.yaml` and every
+stock-store food (Amana beef, O'Connell chicken + pork, Penzeys spices) on hand,
+so they never reach a weekly list. The **Pantry** tab on
+`home.kmkdp.com/meal/groceries` is where a running-low jar goes back on the list.
+
+- **What it lists.** First **Used this week**: the pantry/stock foods this plan
+  week's (Sun–Sat) recipes call for, each with the recipe names muted under it.
+  Then the whole catalog, grouped by store and aisle exactly as the weekly run
+  routes the food (`foods.yaml` longest match). No second list: edit
+  `cleanup.yaml` / `foods.yaml` and redeploy the `dashboard` stack.
+- **reorder** adds ONE Tandoor shopping entry for the food: amount 1, unit = the
+  rule's `buy:` unit if it has one (else none), no recipe link. The food's on-hand
+  flag is **not** changed, so the next weekly build is unaffected. Target foods
+  then show on the Target tab and in the Wednesday approval; stock-store foods
+  (Penzeys, Amana, O'Connell) show on the Manual tab. Tick it off like any line.
+- **on the list** replaces the button while an open (unchecked) recipe-less entry
+  for the food exists, so it cannot be added twice; ticking that entry brings the
+  button back.
+- **The poll keeps it.** A single-store approval only deletes entries linked to
+  this week's meal plan; a reorder has no recipe link, so it survives
+  (`tests/test_poll_pass.py::test_recipe_less_reorder_survives_a_single_store_approval`).
+
+Check the sidecar sees the pantry list after a `dashboard` redeploy (read-only):
+
+**kdk-dkr-01 as kdkadmin, from the laptop**
+
+```sh
+HOST=10.1.20.20
+FOOD=cumin
+ssh kdkadmin@$HOST "sudo -n docker exec dashboard-mealplan python -c 'import stock; print(len(stock.pantry_names()), stock.route_for(\"$FOOD\"))'"
+# expect: 52 Penzeys/restock: Spices  (0 = cleanup.yaml not mounted: check the compose volumes)
+```
+
+See the reorder entries that are open now (read-only, logs only show names):
+
+**kdk-dkr-01 as kdkadmin, from the laptop**
+
+```sh
+HOST=10.1.20.20
+SINCE=24h
+ssh kdkadmin@$HOST "sudo -n docker logs --since $SINCE dashboard-mealplan 2>&1 | grep 'grocery reorder'"
+```
+
+## Thaw tab (freezer to fridge)
+
+Beef (Amana), chicken breast and pork chops (O'Connell) and the Costco frozen
+salmon are freezer stock: on hand, never on a list. The **Thaw** tab lists them
+from the meal plan so they come out of the freezer in time.
+
+- **Rows.** For each planned meal from today through a week out, every ingredient
+  that routes to a freezer aisle of a stock or bulk store (Amana "Freezer Beef",
+  O'Connell "Freezer", Costco "Freezer"; Penzeys is stock but not frozen) gives
+  one row: meal date · recipe · food · amount (buy unit, else the recipe amount
+  scaled to the plan's servings) and **move to the fridge by** a day and time.
+  Rows are sorted by that time; a late one shows red.
+- **Lead times** live in `config.yaml` → `thaw:` (`default: 24h`,
+  `ground beef: 24h`, `chops: 24h`, `chicken breast: 24h`, `roast: 48h`,
+  `salmon: 12h`). The longest key that is part of the food name wins; values are
+  hours (`24h`) or days (`2d`). The time counts back from the meal (breakfast
+  08:00, lunch 12:00, dinner 18:00): chili on Wednesday → ground beef by Tue 6 PM.
+- **Tick** a row when it is in the fridge (tap again to undo). Ticks are local to
+  the sidecar (`/data/thaw.json` on the `dashboard_mealplan-data` volume), not
+  Tandoor; ticks for meals before the current plan week are dropped, so the tab
+  starts clean each Sunday.
+- **Meals tab** opens with one line, "Thaw today: 1 lb ground beef (Wed Beef
+  Chili)", for open rows due today or overdue.
+- **Change a lead time**: edit `thaw:` in `stacks/grocery-planner/config.yaml`,
+  merge, redeploy the `dashboard` stack (the file is read at container start).
+
+Check the lead table and the tick file (read-only):
+
+**kdk-dkr-01 as kdkadmin, from the laptop**
+
+```sh
+HOST=10.1.20.20
+FOOD="chuck roast"
+ssh kdkadmin@$HOST "sudo -n docker exec dashboard-mealplan python -c 'import stock; print(stock.thaw_hours(\"$FOOD\"))'"
+# expect 48.0 for a roast; 24.0 everywhere = the planner config is not mounted
+ssh kdkadmin@$HOST "sudo -n docker exec dashboard-mealplan cat /data/thaw.json"
+# {"done": {...}} once something is ticked; "No such file" before the first tick
+```
+
+Run the page tests before merging:
+
+**Laptop, repo root**
+
+```sh
+REPO=$(git rev-parse --show-toplevel)
+python3 -m pip install pytest==8.4.2 flask==3.0.3 requests==2.32.3 waitress==3.0.1 pyyaml==6.0.3
+cd "$REPO/stacks/dashboard/mealplan" && python3 -I -m pytest -q tests/test_pantry_tab.py tests/test_thaw_tab.py
+cd "$REPO/stacks/grocery-planner" && python3 -m pytest -q tests/test_poll_pass.py tests/test_shoplist.py
+```
+
 ## Preview a week before its run
 
 The Tuesday build plans the NEXT Sun–Sat week. To see what it would plan, and the

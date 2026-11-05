@@ -34,6 +34,7 @@ from flask import Flask, request, Response, redirect
 from markupsafe import escape  # HTML-escape any value rendered into a page (CodeQL py/reflective-xss)
 from waitress import serve
 import newpi  # New Pi product-link lookup (reads the mounted foods.yaml)
+import stock  # pantry list + freezer/thaw rules (mounted cleanup.yaml + planner config)
 
 TANDOOR_URL = os.environ.get("TANDOOR_URL", "https://recipes.kmkdp.com").rstrip("/")
 USER = os.environ.get("TANDOOR_USER", "")
@@ -165,6 +166,7 @@ def fetch_plan(mon: datetime.date, sun: datetime.date) -> list[dict]:
             "recipe_id": rid,
             "url": f"{TANDOOR_URL}/view/recipe/{rid}" if rid else None,
             "image": _recipe_image(rid, rec) if rid else None,
+            "servings": e.get("servings"),
         })
     return out
 
@@ -658,18 +660,26 @@ def _delayed(e) -> bool:
     return bool(d and d > datetime.datetime.now(TZ).date())
 
 
+def _from_recipe(e) -> bool:
+    """True if a recipe/meal plan added the entry. A recipe-less entry (the add
+    box, a Pantry-tab reorder) is deliberate, so it shows even when the food is
+    a pantry/stock food kept on hand."""
+    return bool(e.get("list_recipe") or e.get("list_recipe_data"))
+
+
 def _split_groceries(entries):
     """(stores, manual): stores = {store: {aisle: [entry]}} bucketed by the
     supermarket-category store prefix (regardless of whether the entry is tied to
     a recipe); manual = entries with no routable store — i.e. the add-box's
-    ad-hoc items. Skips checked, on-hand, and poll-delayed entries."""
+    ad-hoc items. Skips checked and poll-delayed entries, and
+    on-hand foods a recipe pulled in (a recipe-less reorder of one still shows)."""
     stores, manual = {}, []
     for e in entries:
         if e.get("checked") or _delayed(e):
             continue
         food = e.get("food") or {}
-        if food.get("food_onhand"):
-            continue
+        if food.get("food_onhand") and _from_recipe(e):
+            continue              # pantry/stock line a recipe pulled in: on hand
         fname = (food.get("name") or "").lower()
         if any(x in fname for x in _GROCERY_EXCLUDE):
             continue              # pets are budgeted in Actual, never ordered here
@@ -864,6 +874,15 @@ text-transform:uppercase;color:var(--ash);margin:10px 0 3px}
 border-radius:7px;color:var(--paper);padding:9px;font:15px 'Space Grotesk',sans-serif}
 .addbox button{background:var(--ember);border:none;color:var(--ink);border-radius:7px;padding:0 14px;font-weight:600;cursor:pointer}
 .empty2{color:var(--ash);font-size:13px;padding:14px 6px}
+.gi form.reorderform button.reorder{background:none;border:1px solid var(--ember);color:var(--ember);
+border-radius:7px;padding:5px 10px;font:500 12px 'JetBrains Mono',monospace;cursor:pointer;min-height:32px}
+.gi form.reorderform button.reorder:hover{background:var(--ember);color:var(--ink)}
+.gi .onlist{color:var(--ok);font:500 12px 'JetBrains Mono',monospace;white-space:nowrap}
+.gi .by{color:var(--ember);font:500 12px 'JetBrains Mono',monospace;text-align:right}
+.gi.thaw.late .by{color:var(--danger)}
+.gi.thaw.done{opacity:.45}
+.gi.thaw.done button.tick{border-color:var(--ok);color:var(--ok);font-size:14px}
+.thawtoday{color:var(--ember);font-weight:600;padding:2px 0 10px}
 """
 
 GROCERIES_JS = """
@@ -907,19 +926,18 @@ document.addEventListener('DOMContentLoaded', function () {
 """
 
 
-def _render_meal_cards() -> str:
+def _render_meal_cards(plan: list[dict] | None, today: datetime.date, thaw_line: str = "") -> str:
     """The planned meals the list was built from, with photos, so the weekly
     approval can be reviewed by eye. The planner fills next Sun-Sat on Tuesday,
-    so look two weeks ahead."""
-    today = datetime.datetime.now(TZ).date()
-    try:
-        plan = fetch_plan(today, today + datetime.timedelta(days=13))
-    except Exception:
-        log.exception("meal cards: plan fetch failed")
+    so the caller fetches two weeks ahead. `thaw_line` ("Thaw today: ...") sits
+    on top. plan None = the fetch failed."""
+    if plan is None:
         return ""
-    plan = sorted((e for e in plan if e["date"]), key=lambda e: (e["date"], e["meal_type"]))
+    head = f"<div class='thawtoday'>{escape(thaw_line)}</div>" if thaw_line else ""
+    plan = sorted((e for e in plan if e["date"] and e["date"] >= today.isoformat()),
+                  key=lambda e: (e["date"], e["meal_type"]))
     if not plan:
-        return ("<div class='store'><h2>Planned meals</h2>"
+        return (f"{head}<div class='store'><h2>Planned meals</h2>"
                 "<div class='empty2'>No meals planned in the next two weeks.</div></div>")
     cards = []
     for e in plan:
@@ -932,12 +950,232 @@ def _render_meal_cards() -> str:
             cards.append(f"<a class='mcard' href='{escape(e['url'])}' target='_blank' rel='noopener'>{img}{label}</a>")
         else:
             cards.append(f"<div class='mcard'>{img}{label}</div>")
-    return f"<div class='store'><h2>Planned meals</h2><div class='meals'>{''.join(cards)}</div></div>"
+    return f"{head}<div class='store'><h2>Planned meals</h2><div class='meals'>{''.join(cards)}</div></div>"
+
+
+# ---- Pantry + Thaw tabs ------------------------------------------------------
+# Pantry: the foods the planner keeps permanently on hand (cleanup.yaml `pantry:`
+# + the stock-store foods) so they never reach a weekly list. "reorder" adds ONE
+# recipe-less Tandoor entry for the food; its on-hand flag is not touched, so the
+# next weekly build is unaffected. Thaw: the week's freezer-stock ingredients
+# (Amana beef, O'Connell chicken/pork, Costco frozen salmon) with the time to
+# move each to the fridge, from the `thaw:` lead table in the planner config.
+_RECIPE_CACHE: dict[int, tuple[float, dict]] = {}
+_RECIPE_TTL = 600            # s; recipes change rarely, the page reloads often
+DATA_DIR = os.environ.get("MEALPLAN_DATA", "/data")
+THAW_FILE = os.path.join(DATA_DIR, "thaw.json")
+
+
+def _recipe_detail(rid: int) -> dict:
+    """{servings, ingredients: [{food, amount, unit}]} for a recipe (cached).
+    Tandoor 2.x recipe JSON: steps[].ingredients[] with food{name}, unit{name}|null,
+    amount, is_header, no_amount."""
+    import time as _t
+    hit = _RECIPE_CACHE.get(rid)
+    if hit and _t.time() - hit[0] < _RECIPE_TTL:
+        return hit[1]
+    r = _api_get(f"/api/recipe/{rid}/")
+    r.raise_for_status()
+    d = r.json()
+    ings = []
+    for step in d.get("steps") or []:
+        for ing in step.get("ingredients") or []:
+            food = (ing.get("food") or {}).get("name")
+            if not food or ing.get("is_header"):
+                continue
+            unit = ing.get("unit")
+            unit = unit.get("name") if isinstance(unit, dict) else (unit or "")
+            ings.append({"food": food,
+                         "amount": 0 if ing.get("no_amount") else float(ing.get("amount") or 0),
+                         "unit": unit or ""})
+    out = {"servings": d.get("servings"), "ingredients": ings}
+    _RECIPE_CACHE[rid] = (_t.time(), out)
+    return out
+
+
+def _plan_lines(plan: list[dict], detail=None) -> list[dict]:
+    """One row per ingredient of each planned meal: {date, meal_type, recipe,
+    recipe_id, food, amount, unit}. Amounts are scaled to the meal plan's
+    servings like Tandoor's own add-to-shopping. A recipe that fails to load is
+    skipped (logged), not fatal."""
+    detail = detail or _recipe_detail
+    out = []
+    for e in plan:
+        rid = e.get("recipe_id")
+        if not rid or not e.get("date"):
+            continue
+        try:
+            rec = detail(rid)
+        except Exception:
+            log.exception("recipe %s ingredients fetch failed", rid)
+            continue
+        try:
+            scale = float(e.get("servings") or 0) / float(rec.get("servings") or 0)
+        except (TypeError, ValueError, ZeroDivisionError):
+            scale = 1.0
+        scale = scale or 1.0
+        for ing in rec.get("ingredients") or []:
+            out.append({"date": e["date"], "meal_type": e.get("meal_type") or "",
+                        "recipe": e.get("title") or "", "recipe_id": rid,
+                        "food": ing["food"], "amount": (ing.get("amount") or 0) * scale,
+                        "unit": ing.get("unit") or ""})
+    return out
+
+
+def _open_reorders(entries) -> set[str]:
+    """Lower-cased foods with an open (unchecked) recipe-less entry."""
+    return {((e.get("food") or {}).get("name") or "").lower()
+            for e in entries if not e.get("checked") and not _from_recipe(e)}
+
+
+def _used_this_week(lines: list[dict], week_start: datetime.date, foods_cfg=None,
+                    config=None, cleanup=None) -> list[dict]:
+    """[{food, recipes}] for the pantry/stock foods this plan week's recipes call
+    for, in first-seen order (by meal date)."""
+    end = (week_start + datetime.timedelta(days=6)).isoformat()
+    out: dict[str, dict] = {}
+    for ln in sorted(lines, key=lambda x: x["date"]):
+        if not (week_start.isoformat() <= ln["date"] <= end):
+            continue
+        if not stock.is_pantry_or_stock(ln["food"], foods_cfg, config, cleanup):
+            continue
+        g = out.setdefault(ln["food"].lower(), {"food": ln["food"], "recipes": []})
+        if ln["recipe"] and ln["recipe"] not in g["recipes"]:
+            g["recipes"].append(ln["recipe"])
+    return list(out.values())
+
+
+def _pantry_row(food: str, recipes: list[str], on_list: bool) -> str:
+    src = (f"<span class='src'>{escape(', '.join(recipes))}</span>" if recipes else "")
+    if on_list:
+        act = "<span class='onlist'>on the list</span>"
+    else:
+        act = ("<form class='reorderform' method='post' action='groceries/reorder'>"
+               f"<input type='hidden' name='food' value='{escape(food)}'>"
+               "<button class='reorder' type='submit'>reorder</button></form>")
+    return f"<div class='gi pantry'><span class='lbl'>{escape(food)}{src}</span>{act}</div>"
+
+
+_STORE_LABEL = {"NewPi": "New Pi", "OConnell": "O'Connell"}
+
+
+def _render_pantry(entries, lines, today, foods_cfg=None, config=None, cleanup=None) -> str:
+    on = _open_reorders(entries)
+    used = _used_this_week(lines, stock.plan_week_start(today, config), foods_cfg, config, cleanup)
+    parts = ["<h2>Pantry — reorder what is running low</h2>",
+             "<div class='aisle'>Used this week</div>"]
+    if not used:
+        parts.append("<div class='empty2'>No pantry or stock foods in this week's recipes.</div>")
+    for u in used:
+        parts.append(_pantry_row(u["food"], u["recipes"], u["food"].lower() in on))
+    for store, aisles in stock.catalog(foods_cfg, config, cleanup).items():
+        for aisle, foods in aisles.items():
+            parts.append(f"<div class='aisle'>{escape(_STORE_LABEL.get(store, store))} · "
+                         f"{escape(aisle)}</div>")
+            parts.extend(_pantry_row(f, [], f in on) for f in foods)
+    return "".join(parts)
+
+
+# Thaw ticks live in a small JSON file on the sidecar's data volume:
+# {"done": {"<meal date>|<recipe id>|<food>": "<meal date>"}}. A tick for a meal
+# before the current plan week is dropped on load, so the tab starts clean each
+# week (a Saturday tick for Sunday's dinner survives into that Sunday).
+def _thaw_key(date: str, rid, food: str) -> str:
+    return f"{date}|{rid}|{food.lower()}"
+
+
+def _load_thaw(today: datetime.date, config=None, path: str | None = None) -> dict[str, str]:
+    path = path or THAW_FILE
+    try:
+        with open(path) as fh:
+            done = (json.load(fh) or {}).get("done") or {}
+    except (OSError, ValueError, AttributeError):
+        return {}
+    start = stock.plan_week_start(today, config).isoformat()
+    return {k: v for k, v in done.items() if isinstance(v, str) and v >= start}
+
+
+def _save_thaw(done: dict[str, str], path: str | None = None) -> None:
+    path = path or THAW_FILE
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    tmp = path + ".tmp"
+    with open(tmp, "w") as fh:
+        json.dump({"done": done}, fh)
+    os.replace(tmp, path)
+
+
+def _thaw_rows(lines: list[dict], today: datetime.date, done: dict[str, str] | None = None,
+               foods_cfg=None, config=None) -> list[dict]:
+    """Freezer-stock ingredients of meals from today through a week out, one row
+    per (meal, food): {key, date, meal_type, recipe, food, qty, move_by, done},
+    sorted by move_by."""
+    done = done or {}
+    last = (today + datetime.timedelta(days=7)).isoformat()
+    groups: dict[str, dict] = {}
+    for ln in lines:
+        if not (today.isoformat() <= ln["date"] <= last):
+            continue
+        if not stock.is_freezer(stock.route_for(ln["food"], foods_cfg, config), config):
+            continue
+        key = _thaw_key(ln["date"], ln["recipe_id"], ln["food"])
+        g = groups.setdefault(key, {"ln": ln, "entries": []})
+        g["entries"].append({"id": len(g["entries"]), "food": {"name": ln["food"]},
+                             "amount": ln["amount"], "unit": {"name": ln["unit"]}})
+    rows = []
+    for key, g in groups.items():
+        ln = g["ln"]
+        d = datetime.date.fromisoformat(ln["date"])
+        qty = _combine(g["entries"], foods_cfg)[0]["qty"]
+        rows.append({"key": key, "date": d, "meal_type": ln["meal_type"],
+                     "recipe": ln["recipe"], "food": ln["food"], "qty": qty,
+                     "move_by": stock.move_by(d, ln["meal_type"], ln["food"], config),
+                     "done": key in done})
+    return sorted(rows, key=lambda r: (r["move_by"], r["date"], r["food"]))
+
+
+def _fmt_when(dt: datetime.datetime) -> str:
+    return dt.strftime("%a %-I %p").replace(" 12 PM", " noon")
+
+
+def _thaw_today_line(rows: list[dict], today: datetime.date) -> str:
+    """"Thaw today: 1 lb ground beef (Wed chili), …" -- open rows due by today."""
+    due = [r for r in rows if not r["done"] and r["move_by"].date() <= today]
+    if not due:
+        return ""
+    bits = [f"{(r['qty'] + ' ') if r['qty'] else ''}{r['food']} "
+            f"({r['date']:%a} {r['recipe']})" for r in due]
+    return "Thaw today: " + ", ".join(bits)
+
+
+def _render_thaw(rows: list[dict], today: datetime.date) -> str:
+    parts = ["<h2>Thaw — freezer to fridge</h2>"]
+    if not rows:
+        return "".join(parts) + "<div class='empty2'>No freezer stock in the next week's meals.</div>"
+    for r in rows:
+        late = " late" if not r["done"] and r["move_by"].date() < today else ""
+        cls = " done" if r["done"] else late
+        meta = (f"{r['date']:%a %-d} · {r['meal_type'] + ' · ' if r['meal_type'] else ''}"
+                f"{r['recipe']}")
+        qty = f"<span class='qty'>{escape(r['qty'])}</span>" if r["qty"] else ""
+        parts.append(
+            f"<div class='gi thaw{cls}'>"
+            "<form class='thawform' method='post' action='groceries/thaw-tick'>"
+            f"<input type='hidden' name='key' value='{escape(r['key'])}'>"
+            f"<button class='tick' type='submit' title='{'undo' if r['done'] else 'in the fridge'}'>"
+            f"{'✓' if r['done'] else ''}</button></form>"
+            f"<span class='lbl'>{escape(r['food'])}{qty}"
+            f"<span class='src'>{escape(meta)}</span></span>"
+            f"<span class='by'>move to the fridge by {escape(_fmt_when(r['move_by']))}</span></div>")
+    return "".join(parts)
+
+
 
 
 def _render_groceries():
+    today = datetime.datetime.now(TZ).date()
     try:
-        stores, manual = _split_groceries(_fetch_shopping())
+        entries = _fetch_shopping()
+        stores, manual = _split_groceries(entries)
     except Exception:
         log.exception("groceries fetch failed")
         return ("<!doctype html><body style='background:#2b2825;color:#8d8377;"
@@ -947,8 +1185,20 @@ def _render_groceries():
     tg = {a: _combine(v) for a, v in (stores.get("Target") or {}).items()}
     n_np = sum(len(v) for v in np.values())
     n_tg = sum(len(v) for v in tg.values())
+    # One plan fetch feeds Meals, Pantry ("used this week") and Thaw: from the
+    # start of this plan week (Sun) to two weeks out (the planner fills next
+    # week on Tuesday).
+    try:
+        plan = fetch_plan(stock.plan_week_start(today), today + datetime.timedelta(days=13))
+    except Exception:
+        log.exception("groceries: plan fetch failed")
+        plan = None
+    lines = _plan_lines(plan or [])
+    thaw = _thaw_rows(lines, today, _load_thaw(today))
+    n_thaw = sum(1 for r in thaw if not r["done"])
     tabs = [("newpi", "New Pi", n_np), ("target", "Target", n_tg),
-            ("manual", "Manual", len(manual)), ("meals", "Meals", None)]
+            ("manual", "Manual", len(manual)), ("pantry", "Pantry", None),
+            ("thaw", "Thaw", n_thaw), ("meals", "Meals", None)]
     bar = "".join(
         f"<button type='button' data-tab='{tid}' aria-selected='false'>{label}"
         + (f"<span class='n'>{n}</span>" if n is not None else "") + "</button>"
@@ -992,7 +1242,12 @@ def _render_groceries():
             "<button class='tick' type='submit' title='got it'></button></form>"
             f"<span class='lbl'>{escape(_item_label(e))}</span></div>")
     parts.append("</section>")
-    parts.append(f"<section class='tab' id='meals'>{_render_meal_cards()}</section>")
+    parts.append(f"<section class='tab store' id='pantry'>{_render_pantry(entries, lines, today)}</section>")
+    thaw_html = (_render_thaw(thaw, today) if plan is not None else
+                 "<h2>Thaw — freezer to fridge</h2><div class='empty2'>Couldn't load the meal plan.</div>")
+    parts.append(f"<section class='tab store' id='thaw'>{thaw_html}</section>")
+    parts.append(f"<section class='tab' id='meals'>"
+                 f"{_render_meal_cards(plan, today, _thaw_today_line(thaw, today))}</section>")
     parts.append("</div>")
     body = "".join(parts)
     return (f"<!doctype html><html><head><meta charset='utf-8'>"
@@ -1031,6 +1286,49 @@ def groceries_add():
     except Exception:
         log.exception("grocery add failed")
     return redirect("../groceries#manual", code=303)   # back to the Manual tab
+
+
+@app.post("/groceries/reorder")
+def groceries_reorder():
+    """ONE recipe-less shopping entry for a pantry/stock food: amount 1, unit =
+    the foods.yaml `buy:` unit if any. The food's on-hand flag is not touched.
+    No-op if an open recipe-less entry for the food already exists."""
+    try:
+        food = (request.form.get("food") or "").strip()[:80]
+        if food and stock.is_pantry_or_stock(food):
+            if food.lower() in _open_reorders(_fetch_shopping()):
+                log.info("grocery reorder: %s already on the list", food)
+            else:
+                body = {"food": {"name": food}, "amount": 1, "checked": False}
+                buy = newpi.buy_for(food)
+                if buy:
+                    body["unit"] = {"name": buy["unit"]}
+                _api_write("POST", "/api/shopping-list-entry/", body)
+                log.info("grocery reorder: %s", food)
+        elif food:
+            log.info("grocery reorder refused (not a pantry/stock food): %s", food)
+    except Exception:
+        log.exception("grocery reorder failed")
+    return redirect("../groceries#pantry", code=303)
+
+
+@app.post("/groceries/thaw-tick")
+def groceries_thaw_tick():
+    """Toggle a Thaw row (in the fridge / not yet). Local state only."""
+    try:
+        key = (request.form.get("key") or "").strip()[:200]
+        date = key.split("|", 1)[0]
+        datetime.date.fromisoformat(date)              # reject junk keys
+        today = datetime.datetime.now(TZ).date()
+        done = _load_thaw(today)
+        if key in done:
+            done.pop(key)
+        else:
+            done[key] = date
+        _save_thaw(done)
+    except Exception:
+        log.exception("thaw tick failed")
+    return redirect("../groceries#thaw", code=303)
 
 
 if __name__ == "__main__":

@@ -135,6 +135,11 @@ def is_open(entry, now):
     return not (until and until > now)
 
 
+def _from_recipe(entry):
+    """True if a recipe / meal plan added the entry (ShoppingListRecipe set)."""
+    return bool(entry.get("list_recipe") or entry.get("list_recipe_data"))
+
+
 def entry_mealplan_id(entry):
     """The meal-plan id an entry was added for (via its ShoppingListRecipe), or
     None for an ad-hoc entry (the page's add box, a manual Tandoor add)."""
@@ -167,9 +172,11 @@ def build_store_lists(entries, config, run_mode="weekly", now=None):
         food = _food_of(e)
         if is_excluded(food.get("name", ""), excludes):
             continue                           # dog/pet food etc. -- never ordered here
-        if food.get("food_onhand"):
-            skipped += 1
+        if food.get("food_onhand") and _from_recipe(e):
+            skipped += 1                       # pantry/stock line a recipe pulled in
             continue
+        # A recipe-less entry for an on-hand food is deliberate (the groceries
+        # page's Pantry-tab "reorder", or the add box): list it like any line.
         cat = food.get("supermarket_category")
         cat_name = cat.get("name") if isinstance(cat, dict) else (cat or "")
         store, cadence, aisle = parse_category(cat_name)

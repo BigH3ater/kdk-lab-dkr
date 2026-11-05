@@ -136,7 +136,7 @@ foods:
   corn kernels: [of corn, frozen or fresh corn kernels]
 
 # Pantry staples: marked on hand (food_onhand), so Tandoor leaves them off the
-# shopping list. Restock them from the manual list on the groceries page.
+# shopping list. Restock them from the Pantry tab ("reorder") on the groceries page.
 # Untick "on hand" on a food in Tandoor to put it back on the list.
 pantry:
   [salt, salt and pepper, black pepper, black peppercorns, olive oil, vegetable oil,

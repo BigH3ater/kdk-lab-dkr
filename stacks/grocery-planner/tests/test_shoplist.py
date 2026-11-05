@@ -4,8 +4,8 @@ from grocery import shoplist as S
 from grocery import run as R
 
 
-def _entry(eid, food, cat, onhand=False, amount=1, unit="pcs"):
-    return {"id": eid, "amount": amount,
+def _entry(eid, food, cat, onhand=False, amount=1, unit="pcs", list_recipe=None):
+    return {"id": eid, "amount": amount, "list_recipe": list_recipe,
             "unit": {"name": unit} if unit else None, "checked": False,
             "food": {"name": food, "food_onhand": onhand,
                      "supermarket_category": {"name": cat} if cat else None}}
@@ -24,7 +24,8 @@ def test_split_skips_onhand_and_other_stores(cfg):
         _entry(2, "spinach", "NewPi/weekly: Produce"),
         _entry(3, "orzo", "Target/weekly: Pantry & Grains"),
         _entry(4, "frozen salmon", "Costco/bulk: Freezer"),   # bulk, not on weekly
-        _entry(5, "olive oil", "Target/weekly: Oils & Spices", onhand=True),  # on-hand
+        _entry(5, "olive oil", "Target/weekly: Oils & Spices", onhand=True,
+               list_recipe=36),                         # on-hand, pulled in by a recipe
         _entry(6, "mystery", None),                            # unrouted
     ]
     lists, unrouted, skipped = S.build_store_lists(entries, cfg, "weekly")
@@ -33,6 +34,19 @@ def test_split_skips_onhand_and_other_stores(cfg):
     assert lists["Target"].count() == 1           # orzo only; olive oil on-hand skipped
     assert skipped == 1
     assert len(unrouted) == 1
+
+
+def test_recipe_less_onhand_entry_is_listed(cfg):
+    # A Pantry-tab "reorder" (or an add-box line) for a pantry food: on hand in
+    # Tandoor, but added on purpose with no recipe -> it is on the Target list
+    # (and so in the Wednesday approval) like any line.
+    entries = [
+        _entry(1, "olive oil", "Target/weekly: Oils & Spices", onhand=True, unit="bottle"),
+        _entry(2, "salt", "Target/weekly: Oils & Spices", onhand=True, list_recipe=36),
+    ]
+    lists, _, skipped = S.build_store_lists(entries, cfg, "weekly")
+    assert [i.food for a in lists["Target"].aisles.values() for i in a] == ["olive oil"]
+    assert skipped == 1
 
 
 def test_aisle_ordering(cfg):
