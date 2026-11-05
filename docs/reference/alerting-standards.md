@@ -176,26 +176,28 @@ Validate locally with the pinned engine images (same digests the hosts run) so
 
 **Metric rules — syntax:**
 
+**Laptop, repo root**
+
 ```sh
-docker run --rm -v "$PWD/stacks/monitoring/prometheus/rules:/r:ro" \
-  prom/prometheus:v3.15.1 promtool check rules /r/*.yml
+docker run --rm -v "$PWD/stacks/monitoring/prometheus/rules:/r:ro" prom/prometheus:v3.15.1 promtool check rules /r/*.yml   # no-sudo-ok (laptop)
 ```
 
 **Metric rules — behaviour (unit tests):** test files live in
 `stacks/monitoring/prometheus/tests/` — **not** in `rules/`, which Prometheus
 globs as `rules/*.yml` and would try to load as rules.
 
+**Laptop, repo root**
+
 ```sh
-docker run --rm -v "$PWD/stacks/monitoring/prometheus:/p:ro" \
-  prom/prometheus:v3.15.1 promtool test rules /p/tests/*_test.yml
+docker run --rm -v "$PWD/stacks/monitoring/prometheus:/p:ro" prom/prometheus:v3.15.1 promtool test rules /p/tests/*_test.yml   # no-sudo-ok (laptop)
 ```
 
 **Alertmanager config:**
 
+**Laptop, repo root**
+
 ```sh
-docker run --rm -v "$PWD/stacks/monitoring/alertmanager:/a:ro" \
-  --entrypoint amtool prom/alertmanager:v0.34.2 \
-  check-config /a/alertmanager.yml
+docker run --rm -v "$PWD/stacks/monitoring/alertmanager:/a:ro" --entrypoint amtool prom/alertmanager:v0.34.2 check-config /a/alertmanager.yml   # no-sudo-ok (laptop)
 ```
 
 (The secret files — `pushover-*`, `proton-bridge-smtp-password` — are installed
@@ -209,10 +211,10 @@ files and check the §3/§4 fields; after the deploy, the live ruler on
 kdk-log-01 is the authoritative check, and it exits non-zero on failure:
 
 ```sh
-# before merge: every rule file parses
+# before merge, on the laptop at the repo root: every rule file parses
 for f in stacks/loki/rules/*.yml; do python3 -c 'import sys,yaml; yaml.safe_load(open(sys.argv[1]))' "$f" || echo "BAD $f"; done
 # after deploy (from kdk-mon-01): the ruler loaded every group and no rule is unhealthy
-curl -sf http://10.1.20.21:3100/prometheus/api/v1/rules \
+ssh kdkadmin@10.1.20.30 'curl -sf http://10.1.20.21:3100/prometheus/api/v1/rules' \
   | jq -e '(.data.groups | length) > 0 and ([.data.groups[].rules[] | select(.health != "ok")] | length == 0)'
 ```
 

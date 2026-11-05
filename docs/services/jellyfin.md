@@ -37,7 +37,7 @@ Media server on the DMZ node with Intel Arc A380 QSV transcode; **LAN + Tailscal
 curl -s -o /dev/null -w '%{http_code}\n' https://jellyfin.kmkdp.com/health   # 200 (LAN or tailnet)
 dig +short jellyfin.kmkdp.com @1.1.1.1                                       # empty: not public
 curl -s -o /dev/null -w '%{http_code}\n' --resolve jellyfin.kmkdp.com:443:104.21.93.54 https://jellyfin.kmkdp.com/health   # 530: no tunnel route
-sudo docker exec jellyfin ls /dev/dri                                             # renderD128 present
+ssh kdkadmin@192.168.191.20 'sudo docker exec jellyfin ls /dev/dri'                       # renderD128 present
 ```
 In the dashboard, an active transcode shows `(hw)`, watched state is present, all plugins read Active.
 

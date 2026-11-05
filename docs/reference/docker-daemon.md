@@ -75,6 +75,8 @@ an entry in the compose-baseline exceptions.
 
 Rollout order, least to most critical: **dkr-03 -> dkr-02 -> mon-01 -> dmz-01 -> dkr-01**.
 
+**On `<host>` as kdkadmin (`ssh kdkadmin@<ip>`)**
+
 ```sh
 # 1. Install (keep the old file for rollback)
 sudo cp -a /etc/docker/daemon.json /etc/docker/daemon.json.pre-baseline
@@ -106,6 +108,8 @@ when a Renovate bump recreates the container.
 `live-restore` stays on in every rollback (turning it off with a restart stops every
 container). Remove only the key that caused the problem, or go back to the saved file
 and keep `live-restore`:
+
+**On `<host>` as kdkadmin (`ssh kdkadmin@<ip>`)**
 
 ```sh
 sudo cp /etc/docker/daemon.json.pre-baseline /etc/docker/daemon.json

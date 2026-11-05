@@ -329,8 +329,12 @@ history, and because `is_secret` also hides the value from non-admin API reads.
    Komodo Variable via the API, e.g. a script run from a host with the `op`
    session:
 
+   **Laptop** (`op` signed in)
+
    ```sh
    # pseudo — one line per secret; NEVER echo the value
+   KEY=$(op read 'op://kdk-ops/komodo-api-rw/<key-field>')
+   SECRET=$(op read 'op://kdk-ops/komodo-api-rw/<secret-field>')
    val=$(op read "op://kdk-cluster/<item>/<field>")
    curl -s https://komodo.kmkdp.com/write \
      -H "X-Api-Key: $KEY" -H "X-Api-Secret: $SECRET" \

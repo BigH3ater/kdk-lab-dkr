@@ -129,6 +129,8 @@ Planned exceptions:
 
 ## Running the check
 
+**Laptop, repo root**
+
 ```bash
 python3 scripts/compose-baseline-check.py                    # table of every service with gaps; exit 1 if any
 python3 scripts/compose-baseline-check.py --summary          # + counts per item and the top 10 stacks

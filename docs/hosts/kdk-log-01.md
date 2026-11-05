@@ -52,8 +52,9 @@ ssh kdkadmin@10.1.20.21 'cloud-init status'                         # status: do
 ssh kdkadmin@10.1.20.21 'systemctl is-active periphery nftables rsyslog docker'   # active x4
 ssh kdkadmin@10.1.20.21 'sudo nft list table inet kdk-input | head -5'
 ssh kdkadmin@10.1.20.21 'sudo docker info | grep -A2 "Default Address Pools"'          # 10.213.0.0/16 /24
-curl -s http://10.1.20.21:3100/ready                                 # ready (from an allowed source)
-curl -s http://10.1.20.21:3100/loki/api/v1/rules | grep -c 'alert:'   # 76 (11 groups)
+# From mon-01 (the laptop cannot reach Loki directly):
+ssh kdkadmin@10.1.20.30 'curl -s http://10.1.20.21:3100/ready'                                 # ready (from an allowed source)
+ssh kdkadmin@10.1.20.30 'curl -s http://10.1.20.21:3100/loki/api/v1/rules' | grep -c 'alert:'   # 76 (11 groups)
 ```
 
 ## Troubleshooting

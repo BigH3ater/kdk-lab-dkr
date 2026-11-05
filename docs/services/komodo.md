@@ -31,8 +31,15 @@ Deployment control plane and the lab's single pane of glass; every other stack i
 
 ## Verify
 
+**Laptop**
+
 ```bash
 curl -s -o /dev/null -w '%{http_code} %{redirect_url}\n' https://komodo.kmkdp.com/   # 302 https://sso.kmkdp.com/...
+```
+
+**On kdk-dkr-01 as kdkadmin** (`ssh kdkadmin@10.1.20.20`)
+
+```bash
 # version, from kdk-dkr-01 (bypasses Traefik):
 sudo docker run --rm --network container:komodo-core-1 curlimages/curl:8.10.1 -s http://127.0.0.1:9120/version   # 2.3.4
 sudo docker exec komodo-core-1 env | grep -E '^KOMODO_(DISABLE_USER_REGISTRATION|ENABLE_NEW_USERS)='   # true / false

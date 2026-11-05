@@ -33,7 +33,7 @@ This site: `docs/` in the repo, built with Quartz and served by nginx. A push do
 
 ```bash
 curl -s https://docs.kmkdp.com/healthz            # ok
-sudo docker logs docs-builder-1 2>&1 | grep BUILD-DONE # present after a successful build
+ssh kdkadmin@10.1.20.20 'sudo docker logs docs-builder-1 2>&1 | grep BUILD-DONE'   # present after a successful build
 ```
 
 ## Troubleshooting

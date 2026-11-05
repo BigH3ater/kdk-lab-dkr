@@ -96,12 +96,14 @@ host (removed after cutover; Tailscale rebuilds `ts-input` on restart anyway).
 
 ## Troubleshoot a hung mount
 
+**On the affected client VM as kdkadmin**
+
 ```bash
 # from the VM (or via the Proxmox guest agent if SSH is wedged):
 #   ssh kdkadmin@10.1.1.100 'sudo qm guest exec 300 -- <cmd>'
 findmnt -t nfs4 -o TARGET,SOURCE          # what's mounted from where
 dmesg -T | grep -i 'nfs: server'          # "not responding" = network path down
 ping <nas-storage-ip>                       # L3 to the NAS
-sudo iptables-legacy -L ts-input -nv | grep 100.64   # Tailscale CGNAT drop rising?
+sudo iptables-legacy -L ts-input -nv | grep 100.64   # dkr-01 (Tailscale host) only: Tailscale CGNAT drop rising?
 timeout 8 stat -f /mnt/media || echo HUNG  # bounded hang check
 ```

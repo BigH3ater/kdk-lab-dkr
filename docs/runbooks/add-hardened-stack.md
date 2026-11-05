@@ -12,6 +12,8 @@ PR side.
 
 ## 1. Copy the template
 
+**Laptop, repo root**
+
 ```bash
 cp -r stacks/_template stacks/<name>
 ```
@@ -67,6 +69,8 @@ Pin the image to a full `x.y.z` tag (Renovate adds the digest later).
 
 ## 4. Check locally
 
+**Laptop, repo root**
+
 ```bash
 python3 scripts/compose-baseline-check.py --stack <name>                  # must be clean (or labelled)
 python3 scripts/compose-baseline-check.py --allow-known scripts/compose-baseline-known-gaps.txt   # 0 regressions
@@ -77,6 +81,8 @@ python3 -c 'import tomllib;tomllib.load(open("komodo/resources.toml","rb"))'
 
 A PR that closes gaps in an existing stack regenerates the known-gaps file in
 the same PR:
+
+**Laptop, repo root**
 
 ```bash
 python3 scripts/compose-baseline-check.py --write-known scripts/compose-baseline-known-gaps.txt

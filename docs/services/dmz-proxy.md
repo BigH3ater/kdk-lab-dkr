@@ -33,9 +33,11 @@ DMZ ingress: Traefik terminates TLS and host-routes the public services, and clo
 
 ```bash
 curl -s -o /dev/null -w '%{http_code}\n' https://sso.kmkdp.com/     # 200, valid TLS
-sudo docker logs cloudflared 2>&1 | grep -i "registered tunnel" | tail -2
+ssh kdkadmin@192.168.191.20 'sudo docker logs cloudflared 2>&1 | grep -i "registered tunnel" | tail -2'
 ```
 Off-LAN, only the tunnel hostnames answer, with a `server: cloudflare` header. Today that is `sso` alone: `jellyfin` left the tunnel on 2026-10-31 (no DNS record; see [[jellyfin]]), and the `wizarr` invitee paths are not published.
+
+**On kdk-dkr-dmz-01 as kdkadmin** (`ssh kdkadmin@192.168.191.20`)
 
 ```bash
 sudo docker inspect cloudflared traefik -f '{{.Name}} {{(index .NetworkSettings.Networks "proxy-dmz").IPAddress}}'   # .2 / .3

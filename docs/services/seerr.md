@@ -35,9 +35,9 @@ The same stack (`dmz-apps`) runs **Libreseerr**, the book request page: it hands
 
 ```bash
 curl -s -o /dev/null -w '%{http_code}\n' https://seerr.kmkdp.com/          # 200/307
-sudo docker exec seerr getent hosts sonarr.kmkdp.com                            # 10.1.20.20 (extra_hosts)
-sudo docker exec seerr wget -q -S -O /dev/null https://radarr.kmkdp.com/ping 2>&1 | grep -m1 HTTP   # HTTP/1.1 200 OK
-sudo docker exec libreseerr getent hosts lazylibrarian.kmkdp.com               # 10.1.20.20
+ssh kdkadmin@192.168.191.20 'sudo docker exec seerr getent hosts sonarr.kmkdp.com'      # 10.1.20.20 (extra_hosts)
+ssh kdkadmin@192.168.191.20 'sudo docker exec seerr wget -q -S -O /dev/null https://radarr.kmkdp.com/ping 2>&1 | grep -m1 HTTP'   # HTTP/1.1 200 OK
+ssh kdkadmin@192.168.191.20 'sudo docker exec libreseerr getent hosts lazylibrarian.kmkdp.com'   # 10.1.20.20
 ```
 In Settings, the Jellyfin, Sonarr, and Radarr integrations each test green.
 

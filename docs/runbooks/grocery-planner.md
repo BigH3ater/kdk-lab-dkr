@@ -36,6 +36,8 @@ the build agent; you run it after reviewing the candidates.
 
 4. **Dry-run the seed** to see exactly what it will create (no writes):
 
+   **Laptop, repo root**
+
    ```sh
    cd stacks/grocery-planner && python3 -m grocery.seed
    ```
@@ -202,6 +204,8 @@ name→id search URL), so there are two ways to get an id:
    the local/organic default New Pi stocks).
 2. **Helper (`stacks/grocery-planner/scripts/newpi_lookup.py`):**
 
+   **Laptop, repo root**
+
    ```sh
    cd stacks/grocery-planner
    # Every product id in a store's category, from the public sitemap (always works):
@@ -225,7 +229,10 @@ real `market.newpi.coop/product/<id>` URL on a rule that routes to New Pi.
 The Tuesday build plans the NEXT Sun–Sat week. To see what it would plan, and the
 store lists that would follow, without writing anything:
 
+**On kdk-dkr-01 as kdkadmin**
+
 ```bash
+cd /opt/kdk-lab/stacks/grocery-weekly/stacks/grocery-planner
 sudo docker compose run --rm grocery grocery.run --preview                       # the next run's week
 sudo docker compose run --rm grocery grocery.run --preview --week-of 2026-11-15  # any week (a Sunday)
 ```
@@ -241,7 +248,10 @@ farm van on the Iowa City route, 3rd Monday monthly, or FedEx) and beef from the
 Amana eighth share. Both stores are `stores.freezer_stock_stores`: their foods are
 marked on hand and never appear on a weekly list. Size an order from the menu:
 
+**On kdk-dkr-01 as kdkadmin**
+
 ```bash
+cd /opt/kdk-lab/stacks/grocery-weekly/stacks/grocery-planner
 sudo docker compose run --rm grocery grocery.run --stock                   # next 4 weeks (--freezer works too)
 sudo docker compose run --rm grocery grocery.run --stock --weeks 24        # one beef share
 ```
@@ -257,7 +267,10 @@ unit, marks pantry staples on hand, and adds Tandoor automations so new imports
 arrive clean. Rules live in `recipes/cleanup.yaml`; store routing in `recipes/foods.yaml`.
 Run it from `/opt/kdk-lab/stacks/grocery-weekly/stacks/grocery-planner`:
 
+**On kdk-dkr-01 as kdkadmin**
+
 ```bash
+cd /opt/kdk-lab/stacks/grocery-weekly/stacks/grocery-planner
 sudo docker compose run --rm grocery grocery.cleanup                 # dry run: every change
 sudo docker compose run --rm grocery grocery.cleanup --test          # per-recipe shopping test, read-only
 sudo docker compose run --rm grocery grocery.cleanup --apply --refresh-list
@@ -323,6 +336,8 @@ becomes "ground beef when stock is high, pork or chicken when it's low".
 After a rules change, run the tests: `cd stacks/grocery-planner && uv run pytest` (uv builds the env from `uv.lock`; add a dependency with `uv add <pkg>`, never by hand in the Dockerfile).
 
 ## Refresh ratings later
+
+**Laptop, repo root**
 
 ```sh
 cd stacks/grocery-planner && python3 -m grocery.seed --refresh --report docs/reference/grocery-recipe-candidates.md

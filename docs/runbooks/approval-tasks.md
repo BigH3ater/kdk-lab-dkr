@@ -143,6 +143,8 @@ order. Nothing is pasted into a shell where it would land in history.
 
 2. **Look up the IDs** (read-only):
 
+   **Laptop (`op` signed in)**
+
    ```sh
    TOK="$(op read op://kdk-cluster/vikunja-api-rw/credential)"
    curl -s -H "Authorization: Bearer $TOK" https://tasks.kmkdp.com/api/v1/projects \
@@ -170,6 +172,8 @@ order. Nothing is pasted into a shell where it would land in history.
 
    Confirm the exact group/action names for this version (read-only):
 
+   **Laptop (`op` signed in)**
+
    ```sh
    TOK="$(op read op://kdk-cluster/vikunja-api-rw/credential)"
    curl -s -H "Authorization: Bearer $TOK" https://tasks.kmkdp.com/api/v1/routes \
@@ -180,6 +184,8 @@ order. Nothing is pasted into a shell where it would land in history.
    Copy the token once.
 
 4. **Store the token in 1Password** (hidden entry, no history):
+
+   **Laptop (`op` signed in)**
 
    ```sh
    read -rs VTOK   # paste the token, press enter (input is hidden)

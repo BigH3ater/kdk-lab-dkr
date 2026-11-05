@@ -39,9 +39,10 @@ Chaptarr (a Readarr fork), which this replaced, followed **whole authors**: addi
 # From a LAN/tailnet host:
 curl -s -o /dev/null -w '%{http_code}\n' https://lazylibrarian.kmkdp.com/          # 302 -> SSO
 # API bypass (needs the API key; see Secret Rotation):
+LL_API_KEY=$(op read 'op://kdk-ops/lazylibrarian-api-rw/credential')
 curl -s "https://lazylibrarian.kmkdp.com/api?cmd=getVersion&apikey=$LL_API_KEY"     # version string
-# On the host:
-sudo docker ps --filter name=lazylibrarian --format '{{.Status}}'                        # healthy
+# On kdk-dkr-01:
+ssh kdkadmin@10.1.20.20 "sudo docker ps --filter name=lazylibrarian --format '{{.Status}}'"   # healthy
 ```
 
 ## Post-deploy setup (owner, in the LazyLibrarian web UI)

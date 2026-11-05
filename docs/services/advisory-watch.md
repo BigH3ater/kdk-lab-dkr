@@ -33,8 +33,9 @@ Weekly one-shot that compares every image tag pinned in `stacks/` with what its 
 ```bash
 # Komodo -> Procedures -> advisory-watch -> Run, then:
 ssh kdkadmin@10.1.20.21 'sudo docker logs advisory-watch 2>&1 | tail -3'     # ... summary=1 images_checked=N ... source_errors=0
-curl -sG http://10.1.20.21:3100/loki/api/v1/query_range --data-urlencode 'query={job="advisory-watch"} |= "summary=1"' --data-urlencode 'since=24h' | head -c 400
-# Local dry run (no push, no state):
+# From mon-01 (the laptop cannot reach Loki directly):
+ssh kdkadmin@10.1.20.30 "curl -sG http://10.1.20.21:3100/loki/api/v1/query_range --data-urlencode 'query={job=\"advisory-watch\"} |= \"summary=1\"' --data-urlencode 'since=24h' | head -c 400"
+# Local dry run on the laptop, repo root (no push, no state):
 python3 stacks/advisory-watch/advisory_watch.py --repo . --state /tmp/aw.json --dry-run --limit 3
 ```
 

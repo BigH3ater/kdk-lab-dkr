@@ -46,11 +46,13 @@ item lists the vault picture slugs (`ex-<slug>.svg`) it logs for.
      everything, keyed by `id`). List the old ids in the PR body.
    - remove: delete the entry.
 3. **Regenerate and test:**
+   **Laptop, repo root**
    ```bash
    python3 stacks/home-assistant/tools/gen_workout.py
    python3 -m pytest -q stacks/home-assistant/tools/tests stacks/dashboard/tests
    ```
    Optional full HA schema check (needs Python 3.14; downloads HA once):
+   **Laptop, repo root**
    ```bash
    d=$(mktemp -d); mkdir $d/packages; cp stacks/home-assistant/config/packages/workout_strength*.yaml $d/packages/
    printf 'homeassistant:\n  packages: !include_dir_named packages\n' > $d/configuration.yaml
@@ -61,6 +63,7 @@ item lists the vault picture slugs (`ex-<slug>.svg`) it logs for.
    `/opt/kdk-lab/home-assistant/config/` on kdk-dkr-02. Nothing reloads by
    itself.
 5. **Reload HA:** Developer tools → YAML → **All YAML configuration**, or
+   **Laptop (`op` signed in)**
    ```bash
    curl -s -o /dev/null -w '%{http_code}\n' -X POST \
      -H "Authorization: Bearer $(op read op://kdk-cluster/homepage-ha-token/credential)" \
@@ -81,6 +84,7 @@ item lists the vault picture slugs (`ex-<slug>.svg`) it logs for.
    next request. A catalog change reaches `/workout/` with the dashboard stack
    deploy (it reads the catalog from the repo clone).
 7. **Verify** (both people):
+   **Laptop (`op` signed in)**
    ```bash
    TOKEN=$(op read op://kdk-cluster/homepage-ha-token/credential)
    for e in input_number.ex_<id>_reps input_number.ex_<id>_reps_rachel; do
