@@ -60,7 +60,9 @@ def current_png() -> bytes:
         try:
             src = _fetch_source()
         except Exception as exc:  # serve the last good render while HA is away
-            _state["error"] = f"fetch: {exc}"
+            # Keep the detail in the log only; /healthz and /map.png show a
+            # classification (CodeQL: no exception text to the client).
+            _state["error"] = f"fetch failed ({type(exc).__name__})"
             log.warning("source fetch failed: %s", exc)
             if _state["png"] is not None:
                 return _state["png"]
@@ -84,7 +86,8 @@ def map_png() -> Response:
     try:
         png = current_png()
     except Exception as exc:
-        return Response(f"source unavailable: {exc}\n", status=502, mimetype="text/plain")
+        log.warning("map render unavailable: %s", exc)
+        return Response("source unavailable\n", status=502, mimetype="text/plain")
     return Response(png, mimetype="image/png", headers={"Cache-Control": "no-store"})
 
 
