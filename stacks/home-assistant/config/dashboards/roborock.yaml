@@ -3,6 +3,8 @@
 # Rebuilt 2026-11-04. Main view sections, in order: Current status, Rooms,
 # Mop run, Alerts, Maintenance. The live map lives on the Map tab (panel view)
 # only; its calibration is hand-derived (python-roborock mm->px), do not re-derive.
+# Map labels are the segment ids; the number -> name Key card under the map is
+# the one place room names are listed for it (docs/services/home-assistant.md).
 #
 # Sources (see packages/roborock.yaml and node-red/flows.json):
 # - rr_run_phase / rr_run_near / rr_last_clean_<room> / rr_last_mop_run /
@@ -177,7 +179,7 @@ views:
       content: |-
         {%- set rooms = [
           ('Master Bedroom', 'master_bedroom'), ('Master Bedroom Closet', 'master_bedroom_closet'),
-          ('Master Bathroom', 'master_bathroom'), ('Bedroom 1', 'bedroom_1'), ('Bathroom 1', 'bathroom_1'),
+          ('Master Bathroom', 'master_bathroom'), ('West Bedroom', 'bedroom_1'), ('Bathroom 1', 'bathroom_1'),
           ("Rachel's Office", 'rachels_office'), ('Hallway', 'hallway'), ('Living Room', 'living_room'),
           ('Kitchen', 'kitchen'), ('Front Door Entry', 'front_door_entry'), ('Half Bath', 'half_bath'),
           ('Laundry Room', 'laundry_room'), ('Garage Entrance', 'garage_entrance')] -%}
@@ -242,7 +244,7 @@ views:
         action: more-info
     - type: tile
       entity: sensor.rr_room_bedroom_1_cleaned
-      name: Bedroom 1
+      name: West Bedroom
       icon: mdi:bed
       state_content: [state, at]
       grid_options: {columns: 6}
@@ -252,7 +254,7 @@ views:
         target:
           entity_id: input_button.rr_clean_bedroom_1
         confirmation:
-          text: "Send Mr. Slave to clean Bedroom 1 now?"
+          text: "Send Mr. Slave to clean West Bedroom now?"
       hold_action:
         action: more-info
     - type: tile
@@ -594,165 +596,183 @@ views:
   path: map
   icon: mdi:map
   type: panel
+  # Kodiak carries the map-card-* variables that turn each room icon into a
+  # numbered tap bubble (themes/kodiak.yaml); set here so the tab does not
+  # depend on the browser's theme choice.
+  theme: Kodiak
   cards:
-  - type: custom:xiaomi-vacuum-map-card
-    entity: vacuum.mr_slave_2
-    vacuum_platform: Roborock
-    title: ''
-    map_source:
-      camera: image.mr_slave_main_floor_2
-    calibration_source:
-      calibration_points:
-      - vacuum:
-          x: 12225
-          y: 17250
-        map:
-          x: 350
-          y: 1224
-      - vacuum:
-          x: 22675
-          y: 20450
-        map:
-          x: 1186
-          y: 968
-      - vacuum:
-          x: 16425
-          y: 27950
-        map:
-          x: 686
-          y: 368
-    map_modes:
-    - template: vacuum_clean_segment
-      predefined_selections:
-      - id: 1
-        label:
-          text: Master Bedroom Closet
-          x: 12225
-          y: 17250
-          offset_y: 32
-        icon:
-          name: mdi:robot-vacuum
-          x: 12225
-          y: 17250
-      - id: 2
-        label:
-          text: Master Bedroom
-          x: 13350
-          y: 20950
-          offset_y: 32
-        icon:
-          name: mdi:robot-vacuum
-          x: 13350
-          y: 20950
-      - id: 3
-        label:
-          text: Bedroom 1
-          x: 13025
-          y: 27350
-          offset_y: 32
-        icon:
-          name: mdi:robot-vacuum
-          x: 13025
-          y: 27350
-      - id: 4
-        label:
-          text: Master Bathroom
-          x: 14650
-          y: 17200
-          offset_y: 32
-        icon:
-          name: mdi:robot-vacuum
-          x: 14650
-          y: 17200
-      - id: 5
-        label:
-          text: Bathroom 1
-          x: 13100
-          y: 24300
-          offset_y: 32
-        icon:
-          name: mdi:robot-vacuum
-          x: 13100
-          y: 24300
-      - id: 6
-        label:
-          text: Garage Entrance
-          x: 22650
-          y: 25250
-          offset_y: 32
-        icon:
-          name: mdi:robot-vacuum
-          x: 22650
-          y: 25250
-      - id: 7
-        label:
-          text: Half Bath
-          x: 20525
-          y: 25300
-          offset_y: 32
-        icon:
-          name: mdi:robot-vacuum
-          x: 20525
-          y: 25300
-      - id: 8
-        label:
-          text: Laundry Room
-          x: 25125
-          y: 25775
-          offset_y: 32
-        icon:
-          name: mdi:robot-vacuum
-          x: 25125
-          y: 25775
-      - id: 9
-        label:
-          text: Rachel's Office
-          x: 16425
-          y: 27950
-          offset_y: 32
-        icon:
-          name: mdi:robot-vacuum
-          x: 16425
-          y: 27950
-      - id: 10
-        label:
-          text: Hallway
-          x: 14775
-          y: 24825
-          offset_y: 32
-        icon:
-          name: mdi:robot-vacuum
-          x: 14775
-          y: 24825
-      - id: 11
-        label:
-          text: Front Door Entry
-          x: 17775
-          y: 26275
-          offset_y: 32
-        icon:
-          name: mdi:robot-vacuum
-          x: 17775
-          y: 26275
-      - id: 12
-        label:
-          text: Living Room
-          x: 17650
-          y: 21725
-          offset_y: 32
-        icon:
-          name: mdi:robot-vacuum
-          x: 17650
-          y: 21725
-      - id: 13
-        label:
-          text: Kitchen
-          x: 22675
-          y: 20450
-          offset_y: 32
-        icon:
-          name: mdi:robot-vacuum
-          x: 22675
-          y: 20450
-    - template: vacuum_clean_zone
-    - template: vacuum_goto
+  - type: vertical-stack
+    cards:
+    - type: custom:xiaomi-vacuum-map-card
+      entity: vacuum.mr_slave_2
+      vacuum_platform: Roborock
+      title: ''
+      map_source:
+        camera: image.mr_slave_main_floor_2
+      calibration_source:
+        calibration_points:
+        - vacuum:
+            x: 12225
+            y: 17250
+          map:
+            x: 350
+            y: 1224
+        - vacuum:
+            x: 22675
+            y: 20450
+          map:
+            x: 1186
+            y: 968
+        - vacuum:
+            x: 16425
+            y: 27950
+          map:
+            x: 686
+            y: 368
+      map_modes:
+      - template: vacuum_clean_segment
+        predefined_selections:
+        - id: 1
+          label:
+            text: "1"
+            x: 12225
+            y: 17250
+          icon:
+            name: mdi:robot-vacuum
+            x: 12225
+            y: 17250
+        - id: 2
+          label:
+            text: "2"
+            x: 13350
+            y: 20950
+          icon:
+            name: mdi:robot-vacuum
+            x: 13350
+            y: 20950
+        - id: 3
+          label:
+            text: "3"
+            x: 13025
+            y: 27350
+          icon:
+            name: mdi:robot-vacuum
+            x: 13025
+            y: 27350
+        - id: 4
+          label:
+            text: "4"
+            x: 14650
+            y: 17200
+          icon:
+            name: mdi:robot-vacuum
+            x: 14650
+            y: 17200
+        - id: 5
+          label:
+            text: "5"
+            x: 13100
+            y: 24300
+          icon:
+            name: mdi:robot-vacuum
+            x: 13100
+            y: 24300
+        - id: 6
+          label:
+            text: "6"
+            x: 22650
+            y: 25250
+          icon:
+            name: mdi:robot-vacuum
+            x: 22650
+            y: 25250
+        - id: 7
+          label:
+            text: "7"
+            x: 20525
+            y: 25300
+          icon:
+            name: mdi:robot-vacuum
+            x: 20525
+            y: 25300
+        - id: 8
+          label:
+            text: "8"
+            x: 25125
+            y: 25775
+          icon:
+            name: mdi:robot-vacuum
+            x: 25125
+            y: 25775
+        - id: 9
+          label:
+            text: "9"
+            x: 16425
+            y: 27950
+          icon:
+            name: mdi:robot-vacuum
+            x: 16425
+            y: 27950
+        - id: 10
+          label:
+            text: "10"
+            x: 14775
+            y: 24825
+          icon:
+            name: mdi:robot-vacuum
+            x: 14775
+            y: 24825
+        - id: 11
+          label:
+            text: "11"
+            x: 18125
+            y: 25300
+          icon:
+            name: mdi:robot-vacuum
+            x: 18125
+            y: 25300
+        - id: 12
+          label:
+            text: "12"
+            x: 17650
+            y: 21725
+          icon:
+            name: mdi:robot-vacuum
+            x: 17650
+            y: 21725
+        - id: 13
+          label:
+            text: "13"
+            x: 22675
+            y: 20450
+          icon:
+            name: mdi:robot-vacuum
+            x: 22675
+            y: 20450
+      - template: vacuum_clean_zone
+      - template: vacuum_goto
+    # Room key: the ONE place the number -> name mapping is written down.
+    # A correction from the owner = edit that room's row. The map labels are
+    # just the segment ids (predefined_selections above), so they never change.
+    - type: markdown
+      content: |-
+        ### Key
+        Tap a number to select that room, then start from the card. Robot app names are not confirmed yet (**?**).
+
+        | # | Dashboard name | Robot app name | Notes |
+        |--:|---|---|---|
+        | 1 | Master Bedroom Closet | ? | |
+        | 2 | Master Bedroom | ? | |
+        | 3 | West Bedroom | ? | robot app name still ? |
+        | 4 | Master Bathroom | ? | |
+        | 5 | Bathroom 1 | ? | |
+        | 6 | Garage Entrance | ? | |
+        | 7 | Half Bath | ? | |
+        | 8 | Laundry Room | ? | dock drawn at its right edge |
+        | 9 | Rachel's Office | ? | |
+        | 10 | Hallway | ? | |
+        | 11 | Front Door Entry | ? | |
+        | 12 | Living Room | ? | |
+        | 13 | Kitchen | ? | |
+
+        Robot = white circle, dock = teal half-disc, path = thin light-blue line (see docs: Map tab, path colour).
