@@ -23,7 +23,7 @@
     "8":  {"name": "Laundry Room",          "seed": [1382, 542],  "fill": "#534d6e"},
     "9":  {"name": "Rachel's Office",       "seed": [686, 368],   "fill": "#6e5c38"},
     "10": {"name": "Hallway",               "seed": [554, 618],   "fill": "#3e4d4b"},
-    "11": {"name": "Front Door Entry",      "seed": [794, 502],   "fill": "#3e5260"},
+    "11": {"name": "Front Door Entry",      "seed": [822, 580],   "fill": "#3e5260"},
     "12": {"name": "Living Room",           "seed": [784, 866],   "fill": "#625746"},
     "13": {"name": "Kitchen",               "seed": [1186, 968],  "fill": "#7a5038"}
   },

@@ -128,8 +128,8 @@ def label_rooms(keys: np.ndarray, rooms: dict[int, dict[str, Any]], scale: int) 
     """Return an (H,W) int16 room-id label per pixel (0 = none).
 
     Works on the native grid (every `scale`-th pixel). Phase 1 is a
-    multi-source BFS from each room's seed over its own parser colour and
-    overlay cells (path, robot, charger); two rooms that share a parser colour
+    multi-source BFS from each room's seed over its own parser colour only;
+    two rooms that share a parser colour
     split their area by whichever seed reaches a cell first. Phase 2 hands
     cut-off fragments to the nearest room through the floor plan if that room
     has their colour; phase 3 sends leftovers to the nearest same-colour seed;
@@ -164,10 +164,12 @@ def label_rooms(keys: np.ndarray, rooms: dict[int, dict[str, Any]], scale: int) 
         labels[found] = rid
         q.append((found[0], found[1], rid))
 
-    # Phase 1: 8-connected over the room's own colour and overlays only. Carpet
-    # is NOT walkable here: carpet stipple bridges rooms, and a seed racing
-    # through it would steal a neighbour's rug. Room pixels between carpet
-    # stipple are diagonal neighbours, hence 8-connectivity.
+    # Phase 1: 8-connected over the room's OWN colour only. Neither carpet nor
+    # overlays are walkable here: carpet stipple and the cleaning path both
+    # bridge rooms, and a seed racing along them would claim a same-coloured
+    # neighbour (rooms 2/12, 8/13). Room pixels between carpet stipple are
+    # diagonal neighbours, hence 8-connectivity. Cells cut off by the path are
+    # picked up by phase 2 (nearest through the floor plan, same colour).
     grid_l = grid.tolist()
     overlay_l = np.isin(grid, overlay_keys).tolist()
     lab = labels.tolist()
@@ -178,7 +180,7 @@ def label_rooms(keys: np.ndarray, rooms: dict[int, dict[str, Any]], scale: int) 
         for dy, dx in steps8:
             ny, nx = y + dy, x + dx
             if 0 <= ny < gh and 0 <= nx < gw and lab[ny][nx] == 0:
-                if grid_l[ny][nx] == rk or overlay_l[ny][nx]:
+                if grid_l[ny][nx] == rk:
                     lab[ny][nx] = rid
                     q.append((ny, nx, rid))
     # Phase 2: room-coloured cells cut off from their seed by walls/furniture

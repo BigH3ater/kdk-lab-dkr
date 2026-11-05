@@ -101,3 +101,22 @@ def test_shipped_config_is_valid():
     assert len(set(fills)) == 13
     for poly in cfg["mask"]["polygons"]:
         assert len(poly) >= 3
+
+
+
+def test_path_does_not_bridge_same_colour_rooms():
+    """A path running from room 2 through a doorway into room 12 (same parser
+    colour) must not let room 2's seed race along it and claim room 12."""
+    im = synthetic()
+    px = im.load()
+    for y in range(12, 16):                 # path a full native cell tall, through the 2|12 wall
+        for x in range(4, 60):
+            px[x, y] = PATH
+    cfg = dict(CFG, rooms={"2": {"seed": [4, 8], "fill": "#112233"},
+                            "12": {"seed": [60, 24], "fill": "#778899"}})
+    out = render.render(im, cfg).load()
+    for y in range(0, 28):
+        for x in range(32, 64):
+            if px[x, y] == ROOM2:
+                assert out[x, y] == (0x77, 0x88, 0x99, 255), (x, y)
+    assert out[20, 8] == (0x11, 0x22, 0x33, 255)
