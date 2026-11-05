@@ -608,7 +608,11 @@ views:
       vacuum_platform: Roborock
       title: ''
       map_source:
-        camera: image.mr_slave_main_floor_2
+        # Kodiak render from the roborock-map sidecar (packages/roborock.yaml).
+        # Same 1728x1568 geometry as image.mr_slave_main_floor_2, so the
+        # calibration points below are unchanged. Roll back = point this at
+        # image.mr_slave_main_floor_2 again.
+        camera: image.mr_slave_map_kodiak
       calibration_source:
         calibration_points:
         - vacuum:

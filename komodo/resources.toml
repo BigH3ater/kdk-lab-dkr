@@ -1685,6 +1685,10 @@ webhook_enabled = true
 # zigbee2mqtt.env beside it. pre_deploy publishes the repo's traefik-dynamic/*.yml
 # into the live watched directory and node-red/settings.js into Node-RED's /data
 # (keeping the pre-GitOps host copy once as settings.js.pre-gitops).
+# roborock-map (2026-11) is a locally built sidecar in this stack, so the stack
+# builds (run_build) and skips compose pull (a pull of the local kdk/ tag fails);
+# the pinned upstream images are still pulled by `up` when their digest changes
+# (pull_policy missing). roborock-map.env (HA_TOKEN) is host-managed like the others.
 [[stack]]
 tags = ["kdk-lab"]
 name = "home-assistant"
@@ -1695,6 +1699,8 @@ compose_cmd_wrapper_include = ["config"]
 server = "kdk-dkr-02"
 repo = "BigH3ater/kdk-lab-dkr"
 run_directory = "stacks/home-assistant"
+auto_pull = false   # roborock-map image is built locally (no registry) -> skip compose pull
+run_build = true    # docker compose build (roborock-map) before up
 pre_deploy.command = "sh -c 'cp -f traefik-dynamic/*.yml /opt/kdk-lab/home-assistant/traefik/dynamic/ && mkdir -p /opt/kdk-lab/home-assistant/config/dashboards /opt/kdk-lab/home-assistant/config/themes /opt/kdk-lab/home-assistant/config/packages && cp -f config/dashboards/*.yaml /opt/kdk-lab/home-assistant/config/dashboards/ && cp -f config/themes/*.yaml /opt/kdk-lab/home-assistant/config/themes/ && cp -f config/packages/*.yaml /opt/kdk-lab/home-assistant/config/packages/ && { [ -e /opt/kdk-lab/home-assistant/node-red/settings.js.pre-gitops ] || [ ! -e /opt/kdk-lab/home-assistant/node-red/settings.js ] || cp -p /opt/kdk-lab/home-assistant/node-red/settings.js /opt/kdk-lab/home-assistant/node-red/settings.js.pre-gitops; } && cp -f node-red/settings.js /opt/kdk-lab/home-assistant/node-red/settings.js'"
 webhook_enabled = true
 

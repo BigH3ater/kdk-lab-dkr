@@ -421,6 +421,20 @@ template:
           last_wash: >-
             {{ now().isoformat() if trigger.id == 'wash' else this.attributes.get('last_wash', '') }}
 
+  # Kodiak-coloured map for the Roborock dashboard's Map tab. The roborock-map
+  # sidecar (stacks/home-assistant/roborock-map, 127.0.0.1:8125, same host)
+  # recolours image.mr_slave_main_floor_2, keeps the path visible and masks the
+  # glass-door spill. The ?v= changes whenever the source image updates, and a
+  # template image re-fetches only when its URL changes -- so this follows the
+  # vacuum's map updates without polling. Needs the Roborock integration option
+  # "Show rooms" ON (the sidecar recolours the room fills; off = no rooms).
+  # Not a generic camera: generic has no YAML platform any more (UI-only).
+  - image:
+      - name: "Mr Slave Map Kodiak"
+        unique_id: rr_map_kodiak
+        url: "http://127.0.0.1:8125/map.png?v={{ states('image.mr_slave_main_floor_2') | urlencode }}"
+        verify_ssl: false
+
 # Off-charger alert. 2026-10-12: the vacuum went charger_disconnected on the
 # dock, idled on battery, and powered itself off exactly 12 h later; two daily
 # runs then failed against an unavailable entity with no phone alert. Fire while

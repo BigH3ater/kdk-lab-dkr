@@ -281,6 +281,11 @@
       "local": true,
       "base": "python"
     },
+    "kdk/roborock-map": {
+      "local": true,
+      "base": "python",
+      "note": "built from stacks/home-assistant/roborock-map/Dockerfile; recolours HA's Roborock map PNG (Flask+numpy+Pillow), loopback only"
+    },
     "kdk/treadmill-bridge": {
       "local": true,
       "base": "python",
