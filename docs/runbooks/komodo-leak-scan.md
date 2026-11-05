@@ -66,6 +66,8 @@ what this script avoids.
 
 ## Self-test (no DB, no network)
 
+**Laptop, repo root**
+
 ```sh
 python3 scripts/komodo-leak-scan-counts.py --fixture scripts/tests/fixtures/komodo-leak-scan-fixture.json
 python3 -m unittest discover -s scripts/tests -p 'test_komodo_leak*'

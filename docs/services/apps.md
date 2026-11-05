@@ -30,6 +30,8 @@ Small internal utilities on kdk-dkr-01: time, AdGuard replication, a Proton SMTP
 
 ## Verify
 
+**On kdk-dkr-01 as kdkadmin** (`ssh kdkadmin@10.1.20.20`)
+
 ```bash
 sudo docker ps --filter name=ntp --filter name=adguardhome-sync --format '{{.Names}} {{.Status}}'
 sudo docker logs adguardhome-sync 2>&1 | tail -3          # last sync ok to dns-02/03

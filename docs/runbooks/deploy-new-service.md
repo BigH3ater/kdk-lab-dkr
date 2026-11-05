@@ -91,6 +91,8 @@ a name conflict, and runs "deploy on creation" against the live stack. The
 
 ## 3. Push — the GitOps loop deploys it
 
+**Laptop, repo root**
+
 ```bash
 git add stacks/<name>/ komodo/resources.toml
 git commit -m "feat(<name>): new service"

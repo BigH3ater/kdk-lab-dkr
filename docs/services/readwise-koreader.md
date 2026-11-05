@@ -76,7 +76,7 @@ for loc in ("new","later","shortlist"):
     print(loc,len(d.get("results",[])),[x.get("title") for x in d.get("results",[])])
 PY
 # tablet side (when awake): list delivered EPUBs
-sshpass -p "$(op read op://kdk-cluster/remarkable-device/password)" \
+SSHPASS="$(op read op://kdk-cluster/remarkable-device/password)" sshpass -e \
   ssh -o StrictHostKeyChecking=accept-new root@100.103.233.103 'ls -la /home/root/books/Readwise'
 ```
 

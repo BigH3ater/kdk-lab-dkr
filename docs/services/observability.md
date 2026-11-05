@@ -33,10 +33,11 @@ Metrics + alerting live on the independent monitor [[kdk-mon-01]]; logs live on 
 ## Verify
 
 ```bash
-curl -s http://10.1.20.21:3100/ready                                  # ready (Loki; from an allowlisted source)
+# Loki lines go via mon-01 (the laptop cannot reach Loki directly):
+ssh kdkadmin@10.1.20.30 'curl -s http://10.1.20.21:3100/ready'        # ready (Loki; from an allowlisted source)
 curl -s http://10.1.20.30:9090/api/v1/targets | grep -c '"up"'        # cadvisor/node/blackbox targets up
-curl -sG http://10.1.20.21:3100/loki/api/v1/label/host/values         # every host present (6)
-curl -s http://10.1.20.21:3100/loki/api/v1/rules | grep -c 'alert:'    # 78 (12 groups, see Alert rules)
+ssh kdkadmin@10.1.20.30 'curl -sG http://10.1.20.21:3100/loki/api/v1/label/host/values'   # every host present (6)
+ssh kdkadmin@10.1.20.30 'curl -s http://10.1.20.21:3100/loki/api/v1/rules' | grep -c 'alert:'    # 78 (12 groups, see Alert rules)
 ssh kdkadmin@10.1.20.30 'sudo docker logs --tail 3 fanctl-hyp'        # temps logged, profile applied
 ```
 
@@ -138,7 +139,7 @@ Not in Loki: long-lived HA tokens (`ha_llat_count`, Prometheus on kdk-mon-01). R
 Check after a deploy:
 
 ```bash
-curl -s http://10.1.20.21:3100/loki/api/v1/rules | grep -c 'alert:'          # 77
+ssh kdkadmin@10.1.20.30 'curl -s http://10.1.20.21:3100/loki/api/v1/rules' | grep -c 'alert:'   # 77 (via mon-01)
 ssh kdkadmin@10.1.20.21 'sudo docker logs loki 2>&1 | grep -i -E "rule|ruler" | grep -i -E "err|fail" | tail'   # empty
 ```
 

@@ -98,6 +98,8 @@ ssh kdkadmin@10.1.20.30 "curl -sG http://10.1.20.21:3100/loki/api/v1/query \
 
 ## 4. Lint locally
 
+**Laptop, repo root**
+
 ```bash
 # preferred: lokitool from the Loki 3.7.9 release archive (used for PR #74)
 lokitool rules lint --dry-run stacks/loki/rules/*.yml     # SUCCESS: N rules found

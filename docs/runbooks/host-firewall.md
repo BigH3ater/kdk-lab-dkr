@@ -81,9 +81,13 @@ Do **dmz-01 first**, then dkr-01.
 The fence allows NFS v4 only (2049; 111 is let through but nothing else of the v3 side
 channels): every NFS mount on the host must be v4.x before you load it, or it hangs.
 
+**On the host being changed (kdk-dkr-dmz-01 192.168.191.20 or kdk-dkr-01 10.1.20.20), as kdkadmin**
+
 ```sh
 mount | grep -E ' type nfs4? ' | grep -v 'vers=4' || echo all-v4    # must print all-v4
 ```
+
+**On the host being changed (kdk-dkr-dmz-01 192.168.191.20 or kdk-dkr-01 10.1.20.20), as kdkadmin**
 
 ```sh
 cd /tmp/kdk-host
@@ -118,6 +122,8 @@ the now-orphaned container: `sudo docker rm -f tailscale-docker-forward`.
 
 NFS on both VMs is v4.1 only, which needs no rpcbind. Check before masking:
 
+**On each VM (kdk-dkr-dmz-01 192.168.191.20, kdk-dkr-01 10.1.20.20), as kdkadmin**
+
 ```sh
 mount | grep ' type nfs'            # every line must show vers=4.1 (or vers=4.x); stop if any shows vers=3
 sudo systemctl mask --now rpcbind.socket rpcbind.service
@@ -129,6 +135,8 @@ ls /mnt/media >/dev/null && echo nfs-ok    # mounts unaffected
 ```
 
 ## Verify
+
+**On each host (kdk-dkr-dmz-01 192.168.191.20, kdk-dkr-01 10.1.20.20), as kdkadmin**
 
 ```sh
 sudo nft list table inet kdk-storage                       # counters on the drop rules
@@ -196,12 +204,16 @@ minutes (fail closed) unless you start the service by hand.
 
 Storage fence (instant, no restarts):
 
+**On the host being changed (kdk-dkr-dmz-01 192.168.191.20 or kdk-dkr-01 10.1.20.20), as kdkadmin**
+
 ```sh
 sudo systemctl disable --now kdk-storage-fence.service    # ExecStop = nft delete table inet kdk-storage
 # or, if the unit is not installed: sudo nft delete table inet kdk-storage
 ```
 
 DOCKER-USER policy (dkr-01: put the tailscale rules back first, or remote access dies):
+
+**On the host being changed (kdk-dkr-dmz-01 192.168.191.20 or kdk-dkr-01 10.1.20.20), as kdkadmin**
 
 ```sh
 sudo systemctl disable --now kdk-docker-user.timer kdk-docker-user.service

@@ -36,12 +36,12 @@ the Remote-User header drives rating/task attribution.
 ## Verify
 
 ```bash
-sudo docker ps --filter name=homepage --filter name=vikunja --filter name=dashboard-guides --filter name=dashboard-mealplan --filter name=dashboard-workout --format '{{.Names}} {{.Status}}'
+ssh kdkadmin@10.1.20.20 "sudo docker ps --filter name=homepage --filter name=vikunja --filter name=dashboard-guides --filter name=dashboard-mealplan --filter name=dashboard-workout --format '{{.Names}} {{.Status}}'"
 curl -s -o /dev/null -w '%{http_code}\n' https://home.kmkdp.com/            # 200
 curl -s -o /dev/null -w '%{http_code}\n' https://home.kmkdp.com/guides/     # 200
 curl -s -o /dev/null -w '%{http_code}\n' https://tasks.kmkdp.com/           # 200
 curl -s https://home.kmkdp.com/meal/mealplan.json | head -c 200            # JSON (P2)
-sudo docker exec dashboard-workout python -c "import urllib.request;print(urllib.request.urlopen('http://127.0.0.1:8080/healthz').read())"  # b'ok'
+ssh kdkadmin@10.1.20.20 'sudo docker exec dashboard-workout python -c "import urllib.request;print(urllib.request.urlopen(\"http://127.0.0.1:8080/healthz\").read())"'  # b'ok'
 ```
 
 ## Architecture

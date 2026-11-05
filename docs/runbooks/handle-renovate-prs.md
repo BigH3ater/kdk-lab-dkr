@@ -88,6 +88,8 @@ A Renovate PR that pins an image can close an `image-pin` gap. The
 `compose-baseline` Action then passes with a hint that known-gap lines shrank.
 Regenerate in a follow-up PR (example: PR #76):
 
+**Laptop, repo root**
+
 ```bash
 python3 scripts/compose-baseline-check.py --write-known scripts/compose-baseline-known-gaps.txt
 git diff --stat scripts/compose-baseline-known-gaps.txt     # only removed lines

@@ -185,6 +185,8 @@ git -C $K/thud/src log -1 --oneline
 
 ## Verify
 
+**On kdk-dkr-04 as kdkadmin** (`ssh kdkadmin@10.1.20.22`)
+
 ```sh
 findmnt /mnt/linux-tools                       # nfs4, 172.16.30.2:/mnt/vmpool/linux-tools, vers=4.1
 touch /mnt/linux-tools/.rw && stat -c '%u:%g' /mnt/linux-tools/.rw && rm /mnt/linux-tools/.rw   # 3010:3010

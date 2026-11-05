@@ -158,6 +158,8 @@ and non-empty **before** you take the live DB down. Note the dump filename.
 
 ### 3. Stop the stack and move the 16 data dir aside
 
+**On `<host>` as kdkadmin (`ssh kdkadmin@<host>`)**
+
 ```bash
 cd <clone>
 sudo docker compose stop <appsvc> <dbc-service-or-dbsvc>   # app first, then db; no writers now
@@ -217,6 +219,8 @@ Stop only the app so nothing writes, then drop + recreate the database to clear
 anything the app wrote in the seconds it was up, and restore the pre-18 dump.
 Drop/recreate makes the restore clean regardless of what the app touched.
 
+**On `<host>` as kdkadmin (`ssh kdkadmin@<host>`)**
+
 ```bash
 cd <clone>
 sudo docker compose stop <appsvc>
@@ -236,7 +240,10 @@ sudo docker run --rm --network <net> \
 
 Then bring the app back:
 
+**On `<host>` as kdkadmin (`ssh kdkadmin@<host>`)**
+
 ```bash
+cd <clone>
 sudo docker compose up -d <appsvc>
 ```
 
@@ -285,6 +292,8 @@ ssh kdkadmin@<host> 'sudo rm -r <datadir>.pg16-<date>'
 
 The 16 data dir is untouched at `<datadir>.pg16-<date>`, so rollback is a swap +
 revert:
+
+**On `<host>` as kdkadmin (`ssh kdkadmin@<host>`)**
 
 ```bash
 cd <clone>
