@@ -156,10 +156,12 @@ def parse_line(text, maps):
     m = re.match(r"^(\d[\d./+]*)\s*(.*)$", t)
     if m and _num(m.group(1)) is not None:
         amount, rest = _num(m.group(1)), m.group(2)
+    tail = ""
     if "," in rest:
         rest, tail = rest.split(",", 1)
-        if tail.strip():
-            notes.append(tail.strip())
+        tail = tail.strip()
+        if tail:
+            notes.append(tail)
     words = rest.split()
     unit = None
     if len(words) > 1:
@@ -170,6 +172,12 @@ def parse_line(text, maps):
             words = words[1:]
     food = " ".join(words)
     food = re.sub(r"^of\s+", "", food, flags=re.I)
+    # "1/2 cup diced, pitted kalamata olives": the words before the comma are only
+    # a preparation word, so the food is the part after it (W46: Tandoor stored
+    # the food as "diced" and the olives never reached a list).
+    if tail and not _DESCRIPTORS.sub("", food).strip() and _DESCRIPTORS.sub("", tail).strip():
+        notes = [n for n in notes if n != tail] + ([food] if food else [])
+        food = tail
     # "2 garlic cloves" -> 2 clove garlic
     m = re.match(r"^(garlic\s+cloves?|cloves?\s+garlic|cloves?)$", food, re.I)
     if m:
@@ -190,6 +198,8 @@ def is_broken(ing, maps):
     if not food:
         return False
     if _JUNK_START.search(food) or "(" in food or low in {"cloves", "clove", "breasts", "chops"}:
+        return True
+    if not _DESCRIPTORS.sub("", low).strip():     # "diced", "chopped": a prep word, not a food
         return True
     if unit in maps.never_unit or re.match(r"^\d+-(oz|inch)$", unit) or unit in {"g/", "cup/250ml"}:
         return True
@@ -252,6 +262,20 @@ def plan_ingredient(ing, maps):
     if same_food and same_unit and same_amount and "note" not in body:
         return None
     return body
+
+
+def is_stray_onhand(name, maps, foods_cfg, stores_cfg):
+    """True for a food Tandoor has on hand that no planner rule puts there.
+
+    On hand is meant for the cleanup.yaml pantry list and the stock stores
+    (Amana, O'Connell, Penzeys). Anything else on hand is a silent miss: Tandoor
+    leaves it off every meal-plan list, forever. W46: "kidney beans" and fresh
+    "rosemary" were on hand (set in Tandoor, not by this code), so the chili's
+    beans and the squash's rosemary never reached a list."""
+    low = (name or "").lower()
+    if low in maps.pantry or low in maps.not_food:
+        return False
+    return not S.is_freezer_stock(S.route_food(name, foods_cfg, stores_cfg), stores_cfg)
 
 
 def automations_plan(cc):
@@ -321,6 +345,8 @@ def run(t, cc, cfg, foods_cfg, fixed_cfg, apply=False, refresh_list=False):
         body = {}
         if low in maps.pantry and not f.get("food_onhand"):
             body["food_onhand"] = True
+        elif f.get("food_onhand") and is_stray_onhand(name, maps, foods_cfg, cfg["stores"]):
+            body["food_onhand"] = False              # back on the list (see is_stray_onhand)
         if low in maps.not_food and not f.get("ignore_shopping"):
             body["ignore_shopping"] = True
         cat_name = S.route_food(name, foods_cfg, cfg["stores"])
@@ -430,7 +456,7 @@ def validate_recipes(t, cc, cfg, foods_cfg, fixed_cfg, live=False):
     total_lines = 0
     for rid in planner_recipe_ids(t, fixed_cfg):
         recipe = t.get(f"/api/recipe/{rid}/")
-        lines = []
+        lines, stray = [], []
         if live:
             # Only the list this test creates is read and deleted: the planned
             # week's lists for the same recipe must survive.
@@ -459,11 +485,14 @@ def validate_recipes(t, cc, cfg, foods_cfg, fixed_cfg, live=False):
                     low = food.lower()
                     cur = foods.get(low) or {}
                     cat = S.route_food(food, foods_cfg, cfg["stores"])
+                    if cur.get("food_onhand") and is_stray_onhand(food, maps, foods_cfg, cfg["stores"]):
+                        stray.append(food)
+                        continue
                     if (cur.get("food_onhand") or low in maps.pantry or S.is_freezer_stock(cat, cfg["stores"])
                             or cur.get("ignore_shopping") or low in maps.not_food):
                         continue
                     lines.append((food, unit, body.get("amount", ing.get("amount") or 0)))
-        probs = []
+        probs = [f"{food!r}: on hand in Tandoor but not pantry/stock (never listed)" for food in stray]
         for food, unit, _amt in lines:
             p, _cat = check_line(food, unit, maps, cfg, foods_cfg)
             probs += [f"{food!r}: {x}" for x in p]

@@ -105,3 +105,34 @@ def test_buy_for_normalises_units():
     assert c == {"unit": "lb", "wt": 16, "vol": 3.5 * 48, "each": 8}
     assert newpi.buy_for("kale", FOODS) is None
     assert newpi.buy_for("frozen carrots", FOODS) is None   # frozen veg -> Target
+
+
+# ---- week-46 audit (2026-11-05): the real foods.yaml on the real W46 lines ----
+import os
+
+REAL = newpi.load_foods(os.path.join(os.path.dirname(__file__), "..", "..", "..",
+                                     "grocery-planner", "recipes", "foods.yaml"))
+
+
+def _real(food, *parts):
+    items = app._combine(_entries(food, *parts), REAL)
+    assert len(items) == 1
+    return items[0]["qty"]
+
+
+def test_w46_lines_render_buyable():
+    # amounts exactly as Tandoor scaled them for W46
+    assert _real("can diced tomatoes", (3.625, "oz")) == "1 can"
+    assert _real("kidney beans", (3.875, "oz")) == "1 can"        # the chili's ¼ can
+    assert _real("bell pepper", (0.125, "medium"), (2, "")) == "3"  # was "2.1"
+    assert _real("eggs", (18, ""), (6, "")) == "2 dozen"          # not "2 dozens"
+    assert _real("beef broth", (0.75, "cup"), (0.75, "cup")) == "1 carton"
+    assert _real("marinara sauce", (12, "oz")) == "1 jar"
+    assert _real("fusilli", (4, "oz")) == "1 box"
+    assert _real("whole wheat orzo", (1.5, "cup")) == "1 box"
+    assert _real("parsley", (0, None), (2, "Tbsp"), (0, None)) == "1 bunch"
+    assert _real("thyme", (0.5, "Tbsp")) == "1 bunch"
+    assert _real("broccoli", (0.5, "lb"), (6, "oz")) == "1 lb"
+    assert _real("green beans", (8, "oz"), (250, "g"), (250, "g")) == "1¾ lb"
+    assert _real("whipping cream", (0.25, "cup")) == "1 pint"
+    assert _real("cauliflower florets", (2.5, "cup")) == "1 head"

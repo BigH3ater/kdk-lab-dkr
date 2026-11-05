@@ -341,6 +341,18 @@ clean-up after importing new recipes. Tandoor's food merge is not used (it can't
 be undone); old spellings stay as unused foods. To put a pantry food back on the
 list, untick "on hand" on the food in Tandoor.
 
+**On hand is only for pantry and stock foods.** Tandoor leaves an on-hand food
+off every meal-plan list, and on hand never expires. Only the `pantry` list in
+`cleanup.yaml` and the stock stores (Amana, O'Connell, Penzeys) should be on
+hand. Any other on-hand food is a **stray**: `--test` prints it as a `FIX` line,
+the Tuesday build logs `event=stray_onhand` (with the recipes that use it),
+`--preview` lists it under "NOT LISTED", and `--apply` unticks it so it comes back
+on the list. Week 46 lost the chili's kidney beans and the squash's fresh
+rosemary this way. On hand was set in Tandoor, not by this code: ticking an item
+in Tandoor's own shopping list marks its food on hand when the user's
+**Settings → Shopping → "Add on hand"** (`shopping_add_onhand`) is on, so keep it
+off for jmack and rach (the groceries page tick does not do this).
+
 The groceries page has a tab per list (New Pi, Target, Manual, Meals; the tab
 is in the URL, e.g. `/meal/groceries#target`). It shows one line per food: same-family units are added up
 (tsp/Tbsp/cup, oz/lb/g), with the recipes underneath; ticking the line ticks all
@@ -442,6 +454,10 @@ public rating, and demote dishes the household rates low (Phase 2).
 - **"plan_error" in the log / no task created.** The selected pool could not fill
   a protein slot for that season (e.g. no eligible salmon recipe under the caps).
   Add/select a candidate for the missing slot and re-seed, or raise the cap.
+- **A recipe ingredient never reached the list.** Check the food in Tandoor: on
+  hand (see "On hand is only for pantry and stock foods" above), ignore shopping
+  (a `not_food` name such as "diced" means the line was mis-read: run the clean-up
+  `--apply`, it re-reads it), or a Costco/stock store (not a weekly list).
 - **Week already planned.** A re-run logs `skip: week already planned` — the week
   key marker (`gp:<ISO week>`) is already on the meal-plan entries. Delete those
   entries in Tandoor to force a regenerate.

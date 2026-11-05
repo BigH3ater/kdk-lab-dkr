@@ -716,7 +716,7 @@ _UNIT_FAMILY = {
 _UNIT_SINGULAR = {"cloves": "clove", "slices": "slice", "cans": "can", "heads": "head",
                   "bunches": "bunch", "ears": "ear", "sprigs": "sprig", "pints": "pint"}
 _WEIGHT_UNITS = {"lb", "oz", "kg", "g"}           # rounded up to the next quarter
-_NO_PLURAL = _WEIGHT_UNITS | {"tsp", "tbsp", "cup"}
+_NO_PLURAL = _WEIGHT_UNITS | {"tsp", "tbsp", "cup", "dozen"}   # "2 dozen", not "2 dozens"
 
 
 def _fmt_num(x: float) -> str:
