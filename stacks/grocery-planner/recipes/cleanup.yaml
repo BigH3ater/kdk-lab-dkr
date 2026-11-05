@@ -80,7 +80,7 @@ foods:
                     pint cherry or grape tomatoes, grape tomatoes]
   tomatoes: [tomato, ripe tomatoes]
   roma tomatoes: [roma tomato]
-  tuna: [ahi tuna, tuna steak, tuna steaks]
+  tuna: [ahi tuna, tuna steak, tuna steaks, seared ahi tuna]
   green beans: [cut green beans]
   broccoli: [broccoli florets, large-cut broccoli florets, small diced broccoli florets,
              head broccoli]
@@ -112,6 +112,11 @@ foods:
   tzatziki: [tzatziki sauce]
   sour cream: [2% sour cream or greek yogurt, sour cream or greek yogurt]
   kidney beans: [can kidney beans]
+  # W46: "14.5 oz can diced tomatoes" was stored as the food "can diced tomatoes"
+  # (canned, NOT fresh tomatoes: the canonical name keeps "diced").
+  diced tomatoes: [can diced tomatoes, canned diced tomatoes, can of diced tomatoes]
+  # W46: "Merlot wine" and "red wine" were two Target lines for one bottle.
+  red wine: [merlot wine, merlot, dry red wine]
   spinach: [baby spinach, box baby spinach, chopped fresh spinach]
   ground beef: [lean ground beef, beef mince]
   pork chops: [chops, pork chop, chops / cutlets, pork chops / cutlets, pork cutlets]

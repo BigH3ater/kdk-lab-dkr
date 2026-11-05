@@ -199,6 +199,38 @@ def aggregate_ingredients(plan_entries, recipe_detail_by_id):
     return list(agg.values())
 
 
+def stray_onhand_foods(plan_entries, recipe_detail_by_id, is_stray):
+    """{food name: [recipe names]} for the week's shopping recipes whose food is
+    on hand in Tandoor although no pantry/stock rule puts it there (`is_stray`,
+    see cleanup.is_stray_onhand). Tandoor leaves those foods off the list, so the
+    build logs them (W46: the chili's kidney beans). Leftover meals are skipped,
+    like the shopping add."""
+    out = {}
+    for e in plan_entries:
+        if getattr(e, "role", None) == "leftover":
+            continue
+        r = recipe_detail_by_id.get(e.recipe_id) or {}
+        for step in r.get("steps") or []:
+            for ing in step.get("ingredients") or []:
+                food = ing.get("food") or {}
+                name = food.get("name")
+                if ing.get("is_header") or not name or not food.get("food_onhand"):
+                    continue
+                if is_stray(name):
+                    names = out.setdefault(name, [])
+                    if r.get("name") not in names:
+                        names.append(r.get("name"))
+    return out
+
+
+def _stray_checker(cfg):
+    from . import cleanup as CL
+    from . import seed as SD
+    _, foods_cfg, _, _ = SD.load_configs()
+    maps = CL.Maps(CL.load_cleanup())
+    return lambda name: CL.is_stray_onhand(name, maps, foods_cfg, cfg["stores"])
+
+
 # ---- orchestration --------------------------------------------------------
 def load_cfg():
     return yaml.safe_load(open(os.path.join(STACK, "config.yaml")))
@@ -279,6 +311,18 @@ def run_weekly(cfg, poll=False):
          note="meal-plan 'shared' field absent in Tandoor 2.7 API; owner step")
 
     lists, unrouted, skipped = S.build_store_lists(t.shopping_list_entries(), cfg, "weekly")
+    try:
+        by_id = {r["id"]: r for r in recipes}
+        for e in entries:
+            if e.recipe_id not in by_id:
+                by_id[e.recipe_id] = t.get(f"/api/recipe/{e.recipe_id}/")
+        stray = stray_onhand_foods(entries, by_id, _stray_checker(cfg))
+        if stray:
+            jlog(event="stray_onhand", level="warn", week=wk, foods=stray,
+                 note="on hand in Tandoor but no pantry/stock rule: NOT on the list; "
+                      "untick on hand or run grocery.cleanup --apply")
+    except Exception as ex:  # noqa: BLE001 -- a report, never fails the build
+        log.warning("stray on-hand check failed: %s", ex)
     jlog(event="planned", week=wk, season=season, meal_plan_entries=len(mp_ids),
          stores={k: v.count() for k, v in lists.items()},
          unrouted=len(unrouted), skipped_onhand=skipped,
@@ -462,7 +506,8 @@ def preview(cfg, week_of=None):
         print(f"  {e.date:%a %d}  {e.meal_type:<9} {e.recipe_name[:55]}"
               f"{'  (leftovers, no shopping)' if e.role == 'leftover' else ''}")
     _, foods_cfg, _, _ = SD.load_configs()
-    food_cache, lines = {}, {}
+    is_stray = _stray_checker(cfg)
+    food_cache, lines, stray = {}, {}, {}
     for e in entries:
         if e.role == "leftover":
             continue
@@ -476,6 +521,8 @@ def preview(cfg, week_of=None):
                 if f["id"] not in food_cache:
                     food_cache[f["id"]] = t.get(f"/api/food/{f['id']}/")
                 full = food_cache[f["id"]]
+                if full.get("food_onhand") and is_stray(full["name"]):
+                    stray.setdefault(full["name"], set()).add(r["name"][:30])
                 if full.get("food_onhand") or full.get("ignore_shopping"):
                     continue
                 if S.is_excluded(full["name"], cfg.get("exclude") or []):
@@ -497,6 +544,11 @@ def preview(cfg, week_of=None):
             d = lines[k]
             qty = " + ".join(f"{v:g} {u}".strip() for u, v in d["amt"].items() if v)
             print(f"  [{k[1]}] {d['name']}  {qty}")
+    if stray:
+        print("\n-- NOT LISTED: on hand in Tandoor but no pantry/stock rule "
+              "(untick on hand, or grocery.cleanup --apply)")
+        for name in sorted(stray, key=str.lower):
+            print(f"  {name}  ({', '.join(sorted(stray[name]))})")
     return 0
 
 

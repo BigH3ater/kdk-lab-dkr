@@ -84,11 +84,11 @@ rules:
   - {match: lettuce,    category: "NewPi/weekly: Produce"}
   - {match: romaine,    category: "NewPi/weekly: Produce"}
   - {match: kale,       category: "NewPi/weekly: Produce"}
-  - {match: cabbage,    category: "NewPi/weekly: Produce"}
+  - {match: cabbage,    category: "NewPi/weekly: Produce", buy: {unit: head, cup: 8}}
   - {match: celery,     category: "NewPi/weekly: Produce"}
   - {match: bok choy,   category: "NewPi/weekly: Produce"}
-  - {match: broccoli,   category: "NewPi/weekly: Produce"}
-  - {match: cauliflower,category: "NewPi/weekly: Produce"}
+  - {match: broccoli,   category: "NewPi/weekly: Produce", buy: {unit: lb, oz: 16, cup: 5}}
+  - {match: cauliflower,category: "NewPi/weekly: Produce", buy: {unit: head, cup: 4}}
   - {match: brussels,   category: "NewPi/weekly: Produce"}
   - {match: zucchini,   category: "NewPi/weekly: Produce"}
   - {match: squash,     category: "NewPi/weekly: Produce", buy: {unit: each, cup: 4}}   # butternut
@@ -97,9 +97,10 @@ rules:
   - {match: tomato,     category: "NewPi/weekly: Produce", buy: {unit: each}}
   - {match: cherry tomato, category: "NewPi/weekly: Produce", buy: {unit: pint, cup: 2}}
   - {match: pepper,     category: "NewPi/weekly: Produce"}   # bell/sweet pepper (spices matched earlier by pantry rules)
+  - {match: bell pepper, category: "NewPi/weekly: Produce", buy: {unit: each}}   # W46 "2.1" -> 3
   - {match: onion,      category: "NewPi/weekly: Produce", buy: {unit: each, cup: 1}}
-  - {match: scallion,   category: "NewPi/weekly: Produce"}
-  - {match: green onion,category: "NewPi/weekly: Produce"}
+  - {match: scallion,   category: "NewPi/weekly: Produce", buy: {unit: bunch, cup: 1}}
+  - {match: green onion,category: "NewPi/weekly: Produce", buy: {unit: bunch, cup: 1}}
   - {match: shallot,    category: "NewPi/weekly: Produce"}
   - {match: garlic,     category: "NewPi/weekly: Produce", buy: {unit: head, clove: 10, tsp: 10}}
   - {match: ginger,     category: "NewPi/weekly: Produce"}
@@ -109,7 +110,7 @@ rules:
   - {match: parsnip,    category: "NewPi/weekly: Produce"}
   - {match: turnip,     category: "NewPi/weekly: Produce"}
   - {match: mushroom,   category: "NewPi/weekly: Produce", buy: {unit: lb, oz: 16, cup: 4}}
-  - {match: green bean, category: "NewPi/weekly: Produce"}
+  - {match: green bean, category: "NewPi/weekly: Produce", buy: {unit: lb, oz: 16}}
   - {match: snap pea,   category: "NewPi/weekly: Produce"}
   - {match: snow pea,   category: "NewPi/weekly: Produce"}
   - {match: pea,        category: "NewPi/weekly: Produce"}
@@ -121,21 +122,23 @@ rules:
   - {match: grape,      category: "NewPi/weekly: Produce"}
   - {match: clementine, category: "NewPi/weekly: Produce"}
   - {match: berries,    category: "NewPi/weekly: Produce"}
-  - {match: parsley,    category: "NewPi/weekly: Produce"}
-  - {match: cilantro,   category: "NewPi/weekly: Produce"}
-  - {match: basil,      category: "NewPi/weekly: Produce"}
-  - {match: dill,       category: "NewPi/weekly: Produce"}
-  - {match: mint,       category: "NewPi/weekly: Produce"}
-  - {match: rosemary,   category: "NewPi/weekly: Produce"}
-  - {match: thyme,      category: "NewPi/weekly: Produce"}
+  - {match: parsley,    category: "NewPi/weekly: Produce", buy: {unit: bunch, cup: 1}}
+  - {match: cilantro,   category: "NewPi/weekly: Produce", buy: {unit: bunch, cup: 1}}
+  - {match: basil,      category: "NewPi/weekly: Produce", buy: {unit: bunch, cup: 1}}
+  - {match: dill,       category: "NewPi/weekly: Produce", buy: {unit: bunch, cup: 1}}
+  - {match: mint,       category: "NewPi/weekly: Produce", buy: {unit: bunch, cup: 1}}
+  - {match: rosemary,   category: "NewPi/weekly: Produce", buy: {unit: bunch, tbsp: 3}}
+  - {match: thyme,      category: "NewPi/weekly: Produce", buy: {unit: bunch, tbsp: 3}}
   # fresh dairy & eggs (ambiguous fresh -> New Pi)
-  - {match: egg,        category: "NewPi/weekly: Dairy & Eggs"}
+  - {match: egg,        category: "NewPi/weekly: Dairy & Eggs", buy: {unit: dozen, each: 12}}
   - {match: feta,       category: "NewPi/weekly: Dairy & Eggs", buy: {unit: block, oz: 8, cup: 1.5, block: 1}}
   - {match: greek yogurt,category: "NewPi/weekly: Dairy & Eggs"}
   - {match: mozzarella, category: "NewPi/weekly: Dairy & Eggs"}
   - {match: parmesan,   category: "NewPi/weekly: Dairy & Eggs"}
   - {match: cheese,     category: "NewPi/weekly: Dairy & Eggs"}
   - {match: cream,      category: "NewPi/weekly: Dairy & Eggs"}
+  - {match: whipping cream, category: "NewPi/weekly: Dairy & Eggs", buy: {unit: pint, cup: 2}}
+  - {match: heavy cream, category: "NewPi/weekly: Dairy & Eggs", buy: {unit: pint, cup: 2}}
   - {match: half-and-half, category: "NewPi/weekly: Dairy & Eggs"}
   - {match: tzatziki,   category: "NewPi/weekly: Dairy & Eggs"}
   - {match: pita,       category: "NewPi/weekly: Bakery"}
@@ -165,7 +168,7 @@ rules:
   # ---- Target: weekly shelf-stable + the Chobani override ----
   - {match: chobani,    category: "Target/weekly: Dairy"}        # owner override: Chobani drink -> Target
   - {match: yogurt drink,category: "Target/weekly: Dairy"}
-  - {match: orzo,       category: "Target/weekly: Pantry & Grains"}
+  - {match: orzo,       category: "Target/weekly: Pantry & Grains", buy: {unit: box, cup: 2.5, oz: 16}}
   - {match: farro,      category: "Target/weekly: Pantry & Grains"}
   - {match: rice,       category: "Target/weekly: Pantry & Grains"}
   - {match: pasta,      category: "Target/weekly: Pantry & Grains"}
@@ -178,12 +181,12 @@ rules:
   - {match: flour,      category: "Target/weekly: Pantry & Grains"}
   - {match: cornstarch, category: "Target/weekly: Pantry & Grains"}
   - {match: crushed tomato, category: "Target/weekly: Canned"}
-  - {match: diced tomato,   category: "Target/weekly: Canned"}
+  - {match: diced tomato,   category: "Target/weekly: Canned", buy: {unit: can, oz: 14.5}}
   - {match: tomato sauce,   category: "Target/weekly: Canned"}
-  - {match: marinara,       category: "Target/weekly: Canned"}
+  - {match: marinara,       category: "Target/weekly: Canned", buy: {unit: jar, oz: 24}}
   - {match: pasta sauce,    category: "Target/weekly: Canned"}
   - {match: spaghetti sauce, category: "Target/weekly: Canned"}
-  - {match: broth,          category: "Target/weekly: Canned"}
+  - {match: broth,          category: "Target/weekly: Canned", buy: {unit: carton, cup: 4}}
   - {match: stock,          category: "Target/weekly: Canned"}
   - {match: olive,          category: "Target/weekly: Canned"}
   - {match: olive oil,  category: "Target/weekly: Oils & Spices"}
@@ -276,8 +279,8 @@ rules:
   - {match: short rib,      category: "Amana/bulk: Freezer Beef"}
   - {match: hamburger buns, category: "NewPi/weekly: Bakery"}
   - {match: pickles,        category: "Target/weekly: Condiments"}
-  - {match: chicken broth,  category: "Target/weekly: Canned"}
-  - {match: chicken stock,  category: "Target/weekly: Canned"}
+  - {match: chicken broth,  category: "Target/weekly: Canned", buy: {unit: carton, cup: 4}}
+  - {match: chicken stock,  category: "Target/weekly: Canned", buy: {unit: carton, cup: 4}}
   - {match: butter,         category: "NewPi/weekly: Dairy & Eggs"}
   - {match: milk,           category: "NewPi/weekly: Dairy & Eggs"}
   - {match: ground lamb,    category: "NewPi/weekly: Meat & Seafood"}
@@ -285,16 +288,29 @@ rules:
   - {match: guacamole,      category: "NewPi/weekly: Produce"}
   - {match: herbs,          category: "NewPi/weekly: Produce"}
   - {match: chervil,        category: "NewPi/weekly: Produce"}
-  - {match: wine,           category: "Target/weekly: Pantry & Grains"}
+  - {match: wine,           category: "Target/weekly: Pantry & Grains", buy: {unit: bottle, cup: 3}}
   - {match: pine nuts,      category: "Target/weekly: Pantry & Grains"}
   - {match: breadcrumbs,    category: "Target/weekly: Pantry & Grains"}
   - {match: bread crumbs,   category: "Target/weekly: Pantry & Grains"}
-  - {match: fusilli,        category: "Target/weekly: Pantry & Grains"}
-  - {match: black beans,    category: "Target/weekly: Canned"}
-  - {match: kidney beans,   category: "Target/weekly: Canned"}
+  - {match: fusilli,        category: "Target/weekly: Pantry & Grains", buy: {unit: box, oz: 16}}
+  - {match: black beans,    category: "Target/weekly: Canned", buy: {unit: can, oz: 15.5}}
+  - {match: kidney beans,   category: "Target/weekly: Canned", buy: {unit: can, oz: 15.5}}
   - {match: artichoke,      category: "Target/weekly: Canned"}
   - {match: chili crisp,    category: "Target/weekly: Condiments"}
   - {match: balsamic glaze, category: "Target/weekly: Condiments"}
+
+  # Added 2026-11-05 from the W46 audit: pantry foods that fell to "Other" or to
+  # the wrong store by a shorter rule ("Salt and pepper" hit "pepper" -> New Pi
+  # produce; "minced ginger" (the jar) hit fresh "ginger"). All are on hand, so
+  # this only matters when one is unticked and goes back on a list.
+  - {match: salt,            category: "Target/weekly: Oils & Spices"}
+  - {match: salt and pepper, category: "Target/weekly: Oils & Spices"}
+  - {match: maple syrup,     category: "Target/weekly: Oils & Spices"}
+  - {match: cooking oil,     category: "Target/weekly: Oils & Spices"}
+  - {match: vegetable oil,   category: "Target/weekly: Oils & Spices"}
+  - {match: avocado oil,     category: "Target/weekly: Oils & Spices"}
+  - {match: sesame seeds,    category: "Target/weekly: Oils & Spices"}
+  - {match: minced ginger,   category: "Target/weekly: Condiments"}
 
   # ---- Costco: bought by hand (bulk run dropped 2026-11-04; no list) ----
   - {match: frozen salmon, category: "Costco/bulk: Freezer"}   # salmon fallback only
