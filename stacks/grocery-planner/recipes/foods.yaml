@@ -33,7 +33,7 @@
 # Buy units (optional): `buy:` turns the summed recipe amounts into ONE store
 # amount on the groceries page. `unit` is what the store sells; every other key
 # is how much of that recipe unit makes ONE of it, e.g.
-#   buy: {unit: head, clove: 10, tsp: 30}   # 1 head = 10 cloves = 30 tsp minced
+#   buy: {unit: head, clove: 10, tsp: 10}   # 1 head = 10 cloves; 1 clove = 1 tsp minced (1 Tbsp = 3 cloves)
 # Keys: tsp/tbsp/cup, oz/lb/g/kg, each, or a free unit name (clove, bag, block).
 # Weight units round up to the next 1/4, everything else to the next whole; a
 # recipe unit with no key stays listed as-is. See docs/runbooks/grocery-planner.md.
@@ -101,7 +101,7 @@ rules:
   - {match: scallion,   category: "NewPi/weekly: Produce"}
   - {match: green onion,category: "NewPi/weekly: Produce"}
   - {match: shallot,    category: "NewPi/weekly: Produce"}
-  - {match: garlic,     category: "NewPi/weekly: Produce", buy: {unit: head, clove: 10, tsp: 30}}
+  - {match: garlic,     category: "NewPi/weekly: Produce", buy: {unit: head, clove: 10, tsp: 10}}
   - {match: ginger,     category: "NewPi/weekly: Produce"}
   - {match: carrot,     category: "NewPi/weekly: Produce", buy: {unit: lb, cup: 3.5, each: 8, oz: 16}}
   - {match: beet,       category: "NewPi/weekly: Produce"}

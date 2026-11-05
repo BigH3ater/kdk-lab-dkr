@@ -232,7 +232,7 @@ food's rule in `recipes/foods.yaml` can carry an optional `buy:` map that turns
 the sum into ONE store amount:
 
 ```yaml
-- {match: garlic, category: "NewPi/weekly: Produce", buy: {unit: head, clove: 10, tsp: 30}}
+- {match: garlic, category: "NewPi/weekly: Produce", buy: {unit: head, clove: 10, tsp: 10}}
 - {match: carrot, category: "NewPi/weekly: Produce", buy: {unit: lb, cup: 3.5, each: 8, oz: 16}}
 ```
 
@@ -244,7 +244,7 @@ the sum into ONE store amount:
   convert into each other, and so do oz, lb and g. The buy unit itself always
   counts 1:1.
 - **What the page shows.** The buy amount first, then the raw recipe sum muted in
-  brackets: `garlic  1 head (1 Tbsp + 8¾ clove)`, `carrots  1¾ lb (1¾ cup + 1 lb + ¼)`.
+  brackets: `garlic  2 heads (1 Tbsp + 8¾ clove)`, `carrots  1¾ lb (1¾ cup + 1 lb + ¼)`.
   Weight units (lb, oz, kg, g) round **up** to the next ¼; everything else rounds
   up to the next whole (`2 heads`, `2 bags`); `unit: each` shows a bare number.
   A recipe unit with no key in `buy` is not guessed: it stays listed after the

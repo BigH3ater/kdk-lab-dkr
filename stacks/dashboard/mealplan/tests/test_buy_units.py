@@ -9,7 +9,7 @@ import newpi
 
 FOODS = {"rules": [
     {"match": "garlic", "category": "NewPi/weekly: Produce",
-     "buy": {"unit": "head", "clove": 10, "tsp": 30}},
+     "buy": {"unit": "head", "clove": 10, "tsp": 10}},
     {"match": "garlic powder", "category": "Penzeys/restock: Spices"},
     {"match": "carrot", "category": "NewPi/weekly: Produce",
      "buy": {"unit": "lb", "cup": 3.5, "each": 8, "oz": 16}},
@@ -36,10 +36,10 @@ def _one(food, *parts):
 
 
 def test_garlic_tablespoon_joins_the_clove_total():
-    # Owner: "garlic  1 Tbsp + 8¾ clove (≈ 1 head)". 1 Tbsp = 3 tsp = 1 clove,
-    # so 9¾ cloves -> 1 head (10 cloves a head).
+    # Owner: "garlic  1 Tbsp + 8¾ clove (≈ 1 head)". 1 clove = 1 tsp minced, so
+    # 1 Tbsp = 3 cloves and the total is 11¾ cloves -> 2 heads (10 cloves a head).
     it = _one("garlic", (1, "tbsp"), (8.75, "cloves"))
-    assert it["qty"] == "1 head"
+    assert it["qty"] == "2 heads"
     assert it["raw"] == "1 Tbsp + 8¾ clove"
 
 
@@ -93,14 +93,14 @@ def test_no_buy_rule_renders_exactly_as_before():
 def test_row_shows_raw_muted_and_escaped():
     it = _one("garlic", (1, "tbsp"), (8.75, "clove"))
     html = app._grocery_row(it, "tick")
-    assert "<span class='qty'>1 head <span class='raw'>(1 Tbsp + 8¾ clove)</span></span>" in html
+    assert "<span class='qty'>2 heads <span class='raw'>(1 Tbsp + 8¾ clove)</span></span>" in html
     plain = app._grocery_row(_one("kale", (2, "cup")), "tick")
     assert "class='raw'" not in plain
 
 
 def test_buy_for_normalises_units():
     b = newpi.buy_for("garlic", FOODS)
-    assert b == {"unit": "head", "head": 1, "clove": 10, "vol": 30}
+    assert b == {"unit": "head", "head": 1, "clove": 10, "vol": 10}
     c = newpi.buy_for("carrots", FOODS)
     assert c == {"unit": "lb", "wt": 16, "vol": 3.5 * 48, "each": 8}
     assert newpi.buy_for("kale", FOODS) is None
