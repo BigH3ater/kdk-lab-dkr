@@ -23,6 +23,7 @@ illustrative.
 - [Handle Renovate PRs](handle-renovate-prs.md) — dashboard, merge order, what recreates, NUT and Pi pull rules, known-gaps refresh.
 - [PostgreSQL major upgrade (16 → 18)](postgres-major-upgrade.md) — per-stack logical dump/restore for identity, jellystat and tandoor; the PG18 PGDATA gotcha; order, rollback, re-enabling the Renovate rule.
 - [Post-merge validation](post-merge-validation.md) — the reviewer's read-only checks and the table posted on every PR.
+- [linux-tools share](linux-tools-share.md) — `vmpool/linux-tools` NFS share on kdk-dkr-04 for portable build kits (thud): NAS create steps, mount, seed, verify, rollback.
 - [Storage network & NFS](storage-network.md) — the `172.16.30.0/24` storage plane, the Tailscale-CGNAT collision that broke NFS, renumber + hung-mount procedures.
 - [Host firewall (storage fence + DOCKER-USER)](host-firewall.md) — the nft storage-net fence and the DOCKER-USER egress policy on the two VMs: install, verify, log -> enforce, rollback.
 - [Approval tasks (Vikunja ⇄ Home Assistant)](approval-tasks.md) — actionable phone notifications for Vikunja decisions; the job contract, task-declared choices, reminders, setup, and rollback.

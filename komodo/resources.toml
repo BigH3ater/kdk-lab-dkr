@@ -1112,7 +1112,7 @@ destroy_before_deploy = true   # one locked down+up so the one-shot re-runs
 # No `environment`: the compose default NFS_MOUNTS is dkr-01's set
 # (media backup dee-exchange), so dkr-01's behaviour is unchanged.
 
-# Same compose on kdk-dkr-04, which has only /mnt/media and /mnt/backup.
+# Same compose on kdk-dkr-04, which has /mnt/media, /mnt/backup and /mnt/linux-tools.
 [[stack]]
 tags = ["kdk-lab"]
 name = "storage-health-dkr04"
@@ -1123,7 +1123,7 @@ compose_cmd_wrapper_include = ["config"]
 server = "kdk-dkr-04"
 repo = "BigH3ater/kdk-lab-dkr"
 run_directory = "stacks/storage-health"
-environment = "NFS_MOUNTS=media backup"   # exactly the mounts kdk-dkr-04 has
+environment = "NFS_MOUNTS=media backup linux-tools"   # exactly the mounts kdk-dkr-04 has (linux-tools: docs/runbooks/linux-tools-share.md)
 destroy_before_deploy = true   # one locked down+up so the one-shot re-runs
 
 [[procedure]]

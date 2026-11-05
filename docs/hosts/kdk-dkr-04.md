@@ -12,7 +12,7 @@ vmid: kdkdkr04
 console: TrueNAS UI → Virtualization → kdkdkr04 → Console
 standards: baseline-at-build
 secrets: []
-updated: 2026-10-30
+updated: 2026-11-04
 tags: [homelab/host, role/docker-host, status/building, tier/internal]
 ---
 
@@ -107,6 +107,7 @@ on kdk-dkr-01 connects). No PCI passthrough.
 |---|---|---|---|---|---|
 | `/mnt/media` | `172.16.30.2:/mnt/tankz3/media` | NFSv4.1 | `nfsvers=4.1,noatime,_netdev` | (Phase B workloads) | tankz3 snapshots |
 | `/mnt/backup` | `172.16.30.2:/mnt/tankz3/backup` | NFSv4.1 | `nfsvers=4.1,noatime,_netdev` | `backup-offsite` | tankz3 snapshots |
+| `/mnt/linux-tools` | `172.16.30.2:/mnt/vmpool/linux-tools` | NFSv4.1 | `nfsvers=4.1,noatime,_netdev` | thud build kit ([[linux-tools-share]]) | none (re-seedable; secrets in 1Password) |
 | `/opt/kdk-lab` | root zvol | zfs | — | all stack config | SSH-pulled nightly by `backup-collect` on dkr-01 |
 
 The NAS exports `tankz3/media` and `tankz3/backup` to `172.16.30.52` (RW,
