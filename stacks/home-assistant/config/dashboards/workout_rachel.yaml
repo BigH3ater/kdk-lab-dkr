@@ -163,26 +163,26 @@ views:
     entities:
     - type: section
       label: Box Squat
-    - entity: input_number.ex_box_squat_rachel_weight
+    - entity: input_number.ex_box_squat_weight_rachel
       name: Weight (lb)
       icon: mdi:weight-pound
-    - entity: input_number.ex_box_squat_rachel_reps
+    - entity: input_number.ex_box_squat_reps_rachel
       name: Reps
       icon: mdi:counter
     - type: section
       label: Romanian Deadlift
-    - entity: input_number.ex_rdl_rachel_weight
+    - entity: input_number.ex_rdl_weight_rachel
       name: Weight (lb)
       icon: mdi:weight-pound
-    - entity: input_number.ex_rdl_rachel_reps
+    - entity: input_number.ex_rdl_reps_rachel
       name: Reps
       icon: mdi:counter
     - type: section
       label: Calf Raise
-    - entity: input_number.ex_calf_raise_rachel_weight
+    - entity: input_number.ex_calf_raise_weight_rachel
       name: Weight (lb)
       icon: mdi:weight-pound
-    - entity: input_number.ex_calf_raise_rachel_reps
+    - entity: input_number.ex_calf_raise_reps_rachel
       name: Reps
       icon: mdi:counter
   - type: entities
@@ -192,58 +192,58 @@ views:
     entities:
     - type: section
       label: Incline Press
-    - entity: input_number.ex_incline_press_rachel_weight
+    - entity: input_number.ex_incline_press_weight_rachel
       name: Weight (lb)
       icon: mdi:weight-pound
-    - entity: input_number.ex_incline_press_rachel_reps
+    - entity: input_number.ex_incline_press_reps_rachel
       name: Reps
       icon: mdi:counter
     - type: section
       label: Chest-Supported Row
-    - entity: input_number.ex_cs_row_rachel_weight
+    - entity: input_number.ex_cs_row_weight_rachel
       name: Weight (lb)
       icon: mdi:weight-pound
-    - entity: input_number.ex_cs_row_rachel_reps
+    - entity: input_number.ex_cs_row_reps_rachel
       name: Reps
       icon: mdi:counter
     - type: section
       label: Shoulder Press
-    - entity: input_number.ex_shoulder_press_rachel_weight
+    - entity: input_number.ex_shoulder_press_weight_rachel
       name: Weight (lb)
       icon: mdi:weight-pound
-    - entity: input_number.ex_shoulder_press_rachel_reps
+    - entity: input_number.ex_shoulder_press_reps_rachel
       name: Reps
       icon: mdi:counter
     - type: section
       label: Hammer Curl
-    - entity: input_number.ex_hammer_curl_rachel_weight
+    - entity: input_number.ex_hammer_curl_weight_rachel
       name: Weight (lb)
       icon: mdi:weight-pound
-    - entity: input_number.ex_hammer_curl_rachel_reps
+    - entity: input_number.ex_hammer_curl_reps_rachel
       name: Reps
       icon: mdi:counter
     - type: section
       label: Triceps Extension
-    - entity: input_number.ex_triceps_ext_rachel_weight
+    - entity: input_number.ex_triceps_ext_weight_rachel
       name: Weight (lb)
       icon: mdi:weight-pound
-    - entity: input_number.ex_triceps_ext_rachel_reps
+    - entity: input_number.ex_triceps_ext_reps_rachel
       name: Reps
       icon: mdi:counter
     - type: section
       label: Farmer Carry
-    - entity: input_number.ex_farmer_rachel_weight
+    - entity: input_number.ex_farmer_weight_rachel
       name: Weight (lb)
       icon: mdi:weight-pound
-    - entity: input_number.ex_farmer_rachel_reps
+    - entity: input_number.ex_farmer_reps_rachel
       name: Reps
       icon: mdi:counter
     - type: section
       label: Wrist Curl
-    - entity: input_number.ex_wrist_curl_rachel_weight
+    - entity: input_number.ex_wrist_curl_weight_rachel
       name: Weight (lb)
       icon: mdi:weight-pound
-    - entity: input_number.ex_wrist_curl_rachel_reps
+    - entity: input_number.ex_wrist_curl_reps_rachel
       name: Reps
       icon: mdi:counter
   - type: entities
@@ -253,18 +253,18 @@ views:
     entities:
     - type: section
       label: Hip Thrust
-    - entity: input_number.ex_hip_thrust_rachel_weight
+    - entity: input_number.ex_hip_thrust_weight_rachel
       name: Weight (lb)
       icon: mdi:weight-pound
-    - entity: input_number.ex_hip_thrust_rachel_reps
+    - entity: input_number.ex_hip_thrust_reps_rachel
       name: Reps
       icon: mdi:counter
     - type: section
       label: Single-Leg RDL
-    - entity: input_number.ex_sl_rdl_rachel_weight
+    - entity: input_number.ex_sl_rdl_weight_rachel
       name: Weight (lb)
       icon: mdi:weight-pound
-    - entity: input_number.ex_sl_rdl_rachel_reps
+    - entity: input_number.ex_sl_rdl_reps_rachel
       name: Reps
       icon: mdi:counter
   - type: entities
@@ -274,42 +274,42 @@ views:
     entities:
     - type: section
       label: One-Arm Row
-    - entity: input_number.ex_one_arm_row_rachel_weight
+    - entity: input_number.ex_one_arm_row_weight_rachel
       name: Weight (lb)
       icon: mdi:weight-pound
-    - entity: input_number.ex_one_arm_row_rachel_reps
+    - entity: input_number.ex_one_arm_row_reps_rachel
       name: Reps
       icon: mdi:counter
     - type: section
       label: Flat Press
-    - entity: input_number.ex_flat_press_rachel_weight
+    - entity: input_number.ex_flat_press_weight_rachel
       name: Weight (lb)
       icon: mdi:weight-pound
-    - entity: input_number.ex_flat_press_rachel_reps
+    - entity: input_number.ex_flat_press_reps_rachel
       name: Reps
       icon: mdi:counter
     - type: section
       label: Lateral Raise
-    - entity: input_number.ex_lateral_raise_rachel_weight
+    - entity: input_number.ex_lateral_raise_weight_rachel
       name: Weight (lb)
       icon: mdi:weight-pound
-    - entity: input_number.ex_lateral_raise_rachel_reps
+    - entity: input_number.ex_lateral_raise_reps_rachel
       name: Reps
       icon: mdi:counter
     - type: section
       label: Rear Fly
-    - entity: input_number.ex_rear_fly_rachel_weight
+    - entity: input_number.ex_rear_fly_weight_rachel
       name: Weight (lb)
       icon: mdi:weight-pound
-    - entity: input_number.ex_rear_fly_rachel_reps
+    - entity: input_number.ex_rear_fly_reps_rachel
       name: Reps
       icon: mdi:counter
     - type: section
       label: Suitcase Carry
-    - entity: input_number.ex_suitcase_rachel_weight
+    - entity: input_number.ex_suitcase_weight_rachel
       name: Weight (lb)
       icon: mdi:weight-pound
-    - entity: input_number.ex_suitcase_rachel_reps
+    - entity: input_number.ex_suitcase_reps_rachel
       name: Reps
       icon: mdi:counter
   - type: entities
@@ -319,10 +319,10 @@ views:
     entities:
     - type: section
       label: Finger Extension
-    - entity: input_number.ex_finger_ext_rachel_weight
+    - entity: input_number.ex_finger_ext_weight_rachel
       name: Weight (lb)
       icon: mdi:weight-pound
-    - entity: input_number.ex_finger_ext_rachel_reps
+    - entity: input_number.ex_finger_ext_reps_rachel
       name: Reps
       icon: mdi:counter
 
@@ -335,57 +335,57 @@ views:
     title: Lower A · Mon
     hours_to_show: 2160
     entities:
-    - entity: input_number.ex_box_squat_rachel_weight
+    - entity: input_number.ex_box_squat_weight_rachel
       name: Box Squat
-    - entity: input_number.ex_rdl_rachel_weight
+    - entity: input_number.ex_rdl_weight_rachel
       name: Romanian Deadlift
-    - entity: input_number.ex_calf_raise_rachel_weight
+    - entity: input_number.ex_calf_raise_weight_rachel
       name: Calf Raise
   - type: history-graph
     title: Upper A · Tue
     hours_to_show: 2160
     entities:
-    - entity: input_number.ex_incline_press_rachel_weight
+    - entity: input_number.ex_incline_press_weight_rachel
       name: Incline Press
-    - entity: input_number.ex_cs_row_rachel_weight
+    - entity: input_number.ex_cs_row_weight_rachel
       name: Chest-Supported Row
-    - entity: input_number.ex_shoulder_press_rachel_weight
+    - entity: input_number.ex_shoulder_press_weight_rachel
       name: Shoulder Press
-    - entity: input_number.ex_hammer_curl_rachel_weight
+    - entity: input_number.ex_hammer_curl_weight_rachel
       name: Hammer Curl
-    - entity: input_number.ex_triceps_ext_rachel_weight
+    - entity: input_number.ex_triceps_ext_weight_rachel
       name: Triceps Extension
-    - entity: input_number.ex_farmer_rachel_weight
+    - entity: input_number.ex_farmer_weight_rachel
       name: Farmer Carry
-    - entity: input_number.ex_wrist_curl_rachel_weight
+    - entity: input_number.ex_wrist_curl_weight_rachel
       name: Wrist Curl
   - type: history-graph
     title: Lower B · Thu
     hours_to_show: 2160
     entities:
-    - entity: input_number.ex_hip_thrust_rachel_weight
+    - entity: input_number.ex_hip_thrust_weight_rachel
       name: Hip Thrust
-    - entity: input_number.ex_sl_rdl_rachel_weight
+    - entity: input_number.ex_sl_rdl_weight_rachel
       name: Single-Leg RDL
   - type: history-graph
     title: Upper B · Fri
     hours_to_show: 2160
     entities:
-    - entity: input_number.ex_one_arm_row_rachel_weight
+    - entity: input_number.ex_one_arm_row_weight_rachel
       name: One-Arm Row
-    - entity: input_number.ex_flat_press_rachel_weight
+    - entity: input_number.ex_flat_press_weight_rachel
       name: Flat Press
-    - entity: input_number.ex_lateral_raise_rachel_weight
+    - entity: input_number.ex_lateral_raise_weight_rachel
       name: Lateral Raise
-    - entity: input_number.ex_rear_fly_rachel_weight
+    - entity: input_number.ex_rear_fly_weight_rachel
       name: Rear Fly
-    - entity: input_number.ex_suitcase_rachel_weight
+    - entity: input_number.ex_suitcase_weight_rachel
       name: Suitcase Carry
   - type: history-graph
     title: Hands · daily
     hours_to_show: 2160
     entities:
-    - entity: input_number.ex_finger_ext_rachel_weight
+    - entity: input_number.ex_finger_ext_weight_rachel
       name: Finger Extension
 
 - title: Plan

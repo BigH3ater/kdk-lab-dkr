@@ -1,0 +1,217 @@
+{
+ "people": [
+  {
+   "key": "jacob",
+   "name": "Jacob",
+   "login": "jmack",
+   "suffix": "",
+   "title": "Workout"
+  },
+  {
+   "key": "rachel",
+   "name": "Rachel",
+   "login": "rach",
+   "suffix": "_rachel",
+   "title": "Workout · Rachel",
+   "package_intro": [
+    "# Strength log for RACHEL — per-exercise weight (lb) + reps (her own helpers,",
+    "# same lift set as Jacob's). Entity ids: input_number.ex_<name>_weight_rachel / _reps_rachel."
+   ]
+  }
+ ],
+ "strength_intro": [
+  "Log the **weight (lb)** and **reps** you did each session — tap a number to edit.",
+  "Progression graphs are on the **Progress** tab; targets + form cues on **Plan**."
+ ],
+ "groups": [
+  {
+   "key": "lower_a",
+   "comment": "Lower A",
+   "title": "Lower A · Mon"
+  },
+  {
+   "key": "upper_a",
+   "comment": "Upper A",
+   "title": "Upper A · Tue"
+  },
+  {
+   "key": "lower_b",
+   "comment": "Lower B",
+   "title": "Lower B · Thu"
+  },
+  {
+   "key": "upper_b",
+   "comment": "Upper B",
+   "title": "Upper B · Fri"
+  },
+  {
+   "key": "hands",
+   "comment": "Hands",
+   "title": "Hands · daily"
+  }
+ ],
+ "items": [
+  {
+   "id": "box_squat",
+   "slugs": [
+    "box-squat"
+   ],
+   "name": "Box Squat",
+   "group": "lower_a",
+   "kind": "w"
+  },
+  {
+   "id": "rdl",
+   "slugs": [
+    "rdl"
+   ],
+   "name": "Romanian Deadlift",
+   "group": "lower_a",
+   "kind": "w"
+  },
+  {
+   "id": "calf_raise",
+   "slugs": [
+    "calf-raise"
+   ],
+   "name": "Calf Raise",
+   "group": "lower_a",
+   "kind": "w"
+  },
+  {
+   "id": "incline_press",
+   "slugs": [
+    "incline-press"
+   ],
+   "name": "Incline Press",
+   "group": "upper_a",
+   "kind": "w"
+  },
+  {
+   "id": "cs_row",
+   "slugs": [
+    "cs-row"
+   ],
+   "name": "Chest-Supported Row",
+   "group": "upper_a",
+   "kind": "w"
+  },
+  {
+   "id": "shoulder_press",
+   "slugs": [
+    "shoulder-press"
+   ],
+   "name": "Shoulder Press",
+   "group": "upper_a",
+   "kind": "w"
+  },
+  {
+   "id": "hammer_curl",
+   "slugs": [
+    "hammer-curl"
+   ],
+   "name": "Hammer Curl",
+   "group": "upper_a",
+   "kind": "w"
+  },
+  {
+   "id": "triceps_ext",
+   "slugs": [
+    "triceps-ext"
+   ],
+   "name": "Triceps Extension",
+   "group": "upper_a",
+   "kind": "w"
+  },
+  {
+   "id": "farmer",
+   "slugs": [
+    "farmer"
+   ],
+   "name": "Farmer Carry",
+   "group": "upper_a",
+   "kind": "w"
+  },
+  {
+   "id": "wrist_curl",
+   "slugs": [
+    "wrist-curl"
+   ],
+   "name": "Wrist Curl",
+   "group": "upper_a",
+   "kind": "w"
+  },
+  {
+   "id": "hip_thrust",
+   "slugs": [
+    "hip-thrust"
+   ],
+   "name": "Hip Thrust",
+   "group": "lower_b",
+   "kind": "w"
+  },
+  {
+   "id": "sl_rdl",
+   "slugs": [
+    "sl-rdl"
+   ],
+   "name": "Single-Leg RDL",
+   "group": "lower_b",
+   "kind": "w"
+  },
+  {
+   "id": "one_arm_row",
+   "slugs": [
+    "one-arm-row"
+   ],
+   "name": "One-Arm Row",
+   "group": "upper_b",
+   "kind": "w"
+  },
+  {
+   "id": "flat_press",
+   "slugs": [
+    "flat-press"
+   ],
+   "name": "Flat Press",
+   "group": "upper_b",
+   "kind": "w"
+  },
+  {
+   "id": "lateral_raise",
+   "slugs": [
+    "lateral-raise"
+   ],
+   "name": "Lateral Raise",
+   "group": "upper_b",
+   "kind": "w"
+  },
+  {
+   "id": "rear_fly",
+   "slugs": [
+    "rear-fly"
+   ],
+   "name": "Rear Fly",
+   "group": "upper_b",
+   "kind": "w"
+  },
+  {
+   "id": "suitcase",
+   "slugs": [
+    "suitcase"
+   ],
+   "name": "Suitcase Carry",
+   "group": "upper_b",
+   "kind": "w"
+  },
+  {
+   "id": "finger_ext",
+   "slugs": [
+    "finger-ext"
+   ],
+   "name": "Finger Extension",
+   "group": "hands",
+   "kind": "w"
+  }
+ ]
+}

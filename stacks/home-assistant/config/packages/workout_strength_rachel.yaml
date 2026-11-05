@@ -1,5 +1,6 @@
 # Strength log for RACHEL — per-exercise weight (lb) + reps (her own helpers,
 # same lift set as Jacob's). Entity ids: input_number.ex_<name>_weight_rachel / _reps_rachel.
+# Strength log — per-exercise weight (lb) + reps for the dumbbell/bench program.
 # Generic exercise names + Lower/Upper day grouping only; no health details or
 # prescribed loads (those live in the host-managed guide). You update these each
 # session; HA's recorder keeps the history, so the Strength dashboard's graphs show
