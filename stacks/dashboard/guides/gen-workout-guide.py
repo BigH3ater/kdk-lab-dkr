@@ -30,7 +30,14 @@ USAGE
 Reads:
     <vault>/3. Resources/Exercise/Exercise.README.md   (the week table)
     <vault>/3. Resources/Exercise/Days/{Mon..Sun}.README.md + Every Day.README.md
-    <vault>/3. Resources/Exercise/diagrams/ex-*.svg
+    <vault>/3. Resources/Exercise/diagrams/ex-*.svg   (and ex-<slug>-rom.png: the
+          ChatGPT range-of-motion picture, preferred over the SVG when it exists)
+
+Writes (all into --out):
+    workout.html               the page
+    exercise/<image>           the pictures it uses
+    workout.json               the same day/step content as data, read by the
+                               /workout/ log sidecar (stacks/dashboard/workout)
 
 Stdlib only (argparse, pathlib, re, shutil, html) -- nothing to install.
 """
@@ -39,6 +46,7 @@ from __future__ import annotations
 
 import argparse
 import html
+import json
 import re
 import shutil
 import sys
@@ -63,6 +71,21 @@ STEP_RE = re.compile(r"^#{2,3}\s+(\d+)\s*·\s*(.+?)\s*$")
 EMBED_RE = re.compile(r"!\[\[([^\]]+?)\]\]")
 BOLD_LINE_RE = re.compile(r"^\*\*(.+)\*\*$")
 WIKILINK_RE = re.compile(r"\[\[([^\]|]+?)(?:\|([^\]]+?))?\]\]")
+IMG_RE = re.compile(r"^ex-(.+?)(?:-rom)?\.(?:svg|png)$")
+
+
+def slug_of(embed: str) -> str:
+    """'ex-box-squat.svg' / 'ex-box-squat-rom.png' -> 'box-squat' ('' for other embeds)."""
+    m = IMG_RE.match(embed or "")
+    return m.group(1) if m else ""
+
+
+def pick_image(embed: str, diagrams: Path) -> str:
+    """Prefer the range-of-motion PNG (ex-<slug>-rom.png) when the vault has one."""
+    sl = slug_of(embed)
+    if sl and (diagrams / f"ex-{sl}-rom.png").is_file():
+        return f"ex-{sl}-rom.png"
+    return embed
 
 
 def read(path: Path) -> str:
@@ -204,7 +227,7 @@ def day_anchor_for_cell(day_cell_html: str):
 
 
 def copy_svg(name: str, diagrams: Path, out_dir: Path, copied: set) -> str:
-    """Copy diagrams/<name> into guides/exercise/ and return the relative href."""
+    """Copy diagrams/<name> (SVG or ROM PNG) into guides/exercise/ and return the relative href."""
     src = diagrams / name
     if not src.is_file():
         sys.exit(f"ERROR: diagram referenced but missing in vault: {src}")
@@ -238,8 +261,8 @@ def render_steps(steps, diagrams, out_dir, copied, everyday_steps, level="h3"):
                      f'{inline_md(st["title"])}</{level}>')
         if st["dose"]:
             parts.append(f'      <p class="dose">{inline_md(st["dose"])}</p>')
-        if embed and embed.lower().endswith(".svg"):
-            href = copy_svg(embed, diagrams, out_dir, copied)
+        if embed and embed.lower().endswith((".svg", ".png")):
+            href = copy_svg(pick_image(embed, diagrams), diagrams, out_dir, copied)
             parts.append(f'      <img class="ex" src="{esc(href)}" alt="How to do: '
                          f'{esc(st["title"])}" loading="lazy">')
         parts.append('    </div>')
@@ -333,6 +356,20 @@ def main():
                                          everyday_steps, level="h3"))
     everyday_section.append('  </section>')
 
+    # --- data for the /workout/ log sidecar (same parse, no HTML) ---
+    def step_data(st):
+        embed = st["embed"] or ""
+        img = pick_image(embed, diagrams) if embed.lower().endswith((".svg", ".png")) else ""
+        return {"num": st["num"], "title": st["title"], "dose": st["dose"].strip("*").replace("**", ""),
+                "slug": slug_of(embed), "image": f"exercise/{img}" if img else "",
+                "everyday": embed.startswith("Every Day.README")}
+    data = {"version": 1, "days": [], "everyday": [step_data(st) for st in everyday_steps]}
+    for aid, name in DAYS:
+        day = parse_day(read(days_dir / f"{name}.README.md"))
+        data["days"].append({"id": aid, "name": name, "title": day["title"], "summary": day["summary"],
+                             "youneed": day["youneed"], "steps": [step_data(st) for st in day["steps"]]})
+    (OUT / "workout.json").write_text(json.dumps(data, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
+
     page = PAGE_TEMPLATE.format(
         v=VERSION,
         week="\n".join(week_html),
@@ -345,6 +382,7 @@ def main():
     out_file.write_text(page, encoding="utf-8")
     print(f"Wrote {out_file}")
     print(f"Copied {len(copied)} diagram(s) into {out_dir}")
+    print(f"Wrote {OUT / 'workout.json'} (read by the /workout/ log page)")
 
 
 PAGE_TEMPLATE = """<!DOCTYPE html>
@@ -412,7 +450,8 @@ PAGE_TEMPLATE = """<!DOCTYPE html>
 <div class="wrap">
   <header class="site"><span class="bear"><svg viewBox="19 31 82 64" width="34" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M60 40 C53 33 45 31 38 32 C28 33 19 43 19 56 C19 71 28 85 42 91 C50 95 56 93 60 90 C64 93 70 95 78 91 C92 85 101 71 101 56 C101 43 92 33 82 32 C75 31 67 33 60 40 Z M47 56 C40 54 33 58 32 66 C31 73 36 77 42 75 C38 72 39 65 46 62 C50 60 50 57 47 56 Z M73 56 C80 54 87 58 88 66 C89 73 84 77 78 75 C82 72 81 65 74 62 C70 60 70 57 73 56 Z M58.5 90 C58.5 82 58.5 70 58.5 60 C58.5 57 61.5 57 61.5 60 C61.5 70 61.5 82 61.5 90 C61.5 92 58.5 92 58.5 90 Z"/></svg></span><a href="/">The Mack House</a> &nbsp;&middot;&nbsp; <a href="../index.html">Guides</a></header>
   <h1>&#128170; Workout</h1>
-  <p class="lead">Your plan for the week, step by step with a picture for every move. Today's day opens first.</p>
+  <p class="lead">Your plan for the week, step by step with a picture for every move. Today's day opens first.
+    <a href="/workout/">Log your sets next to the instructions &rarr;</a></p>
 
   <div class="tip">
     <b>Knee pain rule:</b> keep pain &le; 3/10 during a move and no worse the next

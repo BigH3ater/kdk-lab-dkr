@@ -1,0 +1,114 @@
+---
+title: Workout tracking — add, rename or remove an exercise
+---
+
+# Workout tracking update
+
+The workout log lives in three places that must agree:
+
+| Where | What | Made by |
+|---|---|---|
+| Home Assistant | one helper per logged value, per person (`input_number.ex_<id>_weight`, `…_reps`, `…_seconds`, `…_minutes`, `…_score`, `input_datetime.ex_<id>_done`; Rachel's end in `_rachel`) + the Strength / Progress views of `workout.yaml` and `workout_rachel.yaml` | `stacks/home-assistant/tools/gen_workout.py` from **`tools/workout_catalog.json`** |
+| home.kmkdp.com | the Workout guide (`/guides/workout/workout.html`) and the `/workout/` log page (instructions + a form per exercise, writes the HA helpers and a CSV) | `stacks/dashboard/guides/gen-workout-guide.py` on the laptop, from the private vault; output is host-managed in `/opt/kdk-lab/dashboard/workout` |
+| The private vault | the week's order, doses, pictures, the Daily-note log fields | the vault's own generator (`ex_days.py`) — not in this repo |
+
+**One list per side.** The repo side is the catalog; never hand-edit
+`config/packages/workout_strength*.yaml` or `config/dashboards/workout*.yaml`
+(CI fails if they differ from the generator output). The vault side is the
+vault generator. The link between the two is the **slug**: every catalog
+item lists the vault picture slugs (`ex-<slug>.svg`) it logs for.
+
+## Kinds
+
+| `kind` | Logs | Helpers |
+|---|---|---|
+| `w` | weight + reps | `_weight` (lb, step 0.5), `_reps` |
+| `r` | reps only (body weight) | `_reps` |
+| `t` | seconds only (holds) | `_seconds` |
+| `wt` | weight + seconds (carries) | `_weight`, `_seconds` |
+| `min` | minutes | `_minutes` |
+| `score` | a 0–10 rating | `_score` |
+| `done` | "done at" time for a routine | `input_datetime.ex_<id>_done` + the shared `script.workout_mark_done` |
+
+## Procedure
+
+1. **Vault first (laptop).** Change the exercise in the vault generator,
+   regenerate, and look at the new pictures. If the item is logged, add or
+   rename its Daily-note log key in the vault's Exercise Log catalog and the
+   Daily template, and run the template render test with node. Write the
+   matching range-of-motion image prompt if the item is new.
+2. **Edit the catalog** `stacks/home-assistant/tools/workout_catalog.json`:
+   - add: `{"id": "goblet_squat", "slugs": ["goblet-squat"], "name": "Goblet Squat", "group": "lower_a", "kind": "w"}`.
+     `id` is lowercase `[a-z0-9_]`, unique; `group` must exist in `groups`.
+   - rename the **display name**: change `name` only — entity ids stay, history stays.
+   - rename the **id** or change the **kind**: this creates new helpers and the
+     old ones disappear (the recorder keeps only 10 days anyway; the CSV keeps
+     everything, keyed by `id`). List the old ids in the PR body.
+   - remove: delete the entry.
+3. **Regenerate and test:**
+   ```bash
+   python3 stacks/home-assistant/tools/gen_workout.py
+   python3 -m pytest -q stacks/home-assistant/tools/tests stacks/dashboard/tests
+   ```
+   Optional full HA schema check (needs Python 3.14; downloads HA once):
+   ```bash
+   d=$(mktemp -d); mkdir $d/packages; cp stacks/home-assistant/config/packages/workout_strength*.yaml $d/packages/
+   printf 'homeassistant:\n  packages: !include_dir_named packages\n' > $d/configuration.yaml
+   uvx --python 3.14 --from homeassistant==<HA version from compose.yaml> hass --script check_config -c $d
+   ```
+4. **PR → review → merge.** The Komodo `home-assistant` deploy's `pre_deploy`
+   copies `config/packages/*.yaml` and `config/dashboards/*.yaml` to
+   `/opt/kdk-lab/home-assistant/config/` on kdk-dkr-02. Nothing reloads by
+   itself.
+5. **Reload HA:** Developer tools → YAML → **All YAML configuration**, or
+   ```bash
+   curl -s -o /dev/null -w '%{http_code}\n' -X POST \
+     -H "Authorization: Bearer $(op read op://kdk-cluster/homepage-ha-token/credential)" \
+     https://homeassistant.kmkdp.com/api/services/homeassistant/reload_all
+   ```
+   (any admin token works; never echo it). `input_number`, `input_datetime`
+   and `script` all reload in place — no restart. Dashboard YAML is picked up on
+   a browser refresh.
+6. **Regenerate the guide on the laptop** and copy it to kdk-dkr-01 (the
+   commands are in the `gen-workout-guide.py` docstring):
+   ```bash
+   python3 stacks/dashboard/guides/gen-workout-guide.py --out /tmp/workout-guide
+   scp -r /tmp/workout-guide/. kdkadmin@10.1.20.20:/tmp/workout
+   ssh kdkadmin@10.1.20.20 'sudo install -d -m 755 /opt/kdk-lab/dashboard/workout \
+     && sudo cp -rT /tmp/workout /opt/kdk-lab/dashboard/workout && rm -rf /tmp/workout'
+   ```
+   This also refreshes `workout.json`, which the `/workout/` page reads on the
+   next request. A catalog change reaches `/workout/` with the dashboard stack
+   deploy (it reads the catalog from the repo clone).
+7. **Verify** (both people):
+   ```bash
+   TOKEN=$(op read op://kdk-cluster/homepage-ha-token/credential)
+   for e in input_number.ex_<id>_reps input_number.ex_<id>_reps_rachel; do
+     curl -s -o /dev/null -w "$e %{http_code}\n" -H "Authorization: Bearer $TOKEN" \
+       https://homeassistant.kmkdp.com/api/states/$e; done     # 200 each, 404 = not loaded
+   ```
+   - both Workout pages: no "Entity not available" rows on Strength;
+   - `https://home.kmkdp.com/workout/` (once the log sidecar is deployed) shows the item on its day with a form;
+   - `sudo docker logs homeassistant 2>&1 | grep -i 'invalid config' | tail` on kdk-dkr-02 is quiet.
+
+## Rollback
+
+Revert the PR and let Komodo redeploy `home-assistant`, then reload all YAML
+(step 5). Removed helpers come back with their last restored value. Re-run the
+guide generator from the reverted vault state if the guide changed too.
+
+## Gotchas
+
+- Package filenames must be slugs (`workout_strength_rachel.yaml`, never a
+  hyphen) — HA silently skips an invalid package name.
+- HA YAML dashboard `url_path`s need a hyphen, so the pages are
+  `/treadmill-workouts` (Jacob) and `/workout-rachel`; registering a **new**
+  dashboard file is a host `configuration.yaml` edit + restart.
+- The weight step is 0.5 lb; the finger-stretcher levels (6.6 / 8.8 / 11) are
+  logged as typed — HA only checks min/max on `set_value`.
+- The recorder keeps 10 days. Long-term history is the `/workout/` CSV
+  (`/opt/kdk-lab/dashboard/workout-log/workout-log.csv` on kdk-dkr-01).
+
+Related: [Home Assistant](../services/home-assistant.md) ·
+[Dashboard](../services/dashboard.md) ·
+[Treadmill bridge](treadmill-glassos-bridge.md)

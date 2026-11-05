@@ -154,8 +154,29 @@ views:
   cards:
   - type: markdown
     content: >-
-      Log the **weight (lb)** and **reps** you did each session — tap a number to edit.
+      Log the **weight (lb)**, **reps** or **seconds** you did each session — tap a number to edit,
+      or log next to the instructions on **home.kmkdp.com/workout/**.
       Progression graphs are on the **Progress** tab; targets + form cues on **Plan**.
+  - type: entities
+    title: Activation · Mon/Thu/Sat
+    show_header_toggle: false
+    state_color: false
+    entities:
+    - type: section
+      label: Straight Leg Raise
+    - entity: input_number.ex_slr_reps
+      name: Reps
+      icon: mdi:counter
+    - type: section
+      label: Bridge + Leg Extension
+    - entity: input_number.ex_bridge_ext_reps
+      name: Reps
+      icon: mdi:counter
+    - type: section
+      label: Side-Lying Hip Abduction
+    - entity: input_number.ex_hip_abduction_reps
+      name: Reps
+      icon: mdi:counter
   - type: entities
     title: Lower A · Mon
     show_header_toggle: false
@@ -177,6 +198,11 @@ views:
     - entity: input_number.ex_rdl_reps
       name: Reps
       icon: mdi:counter
+    - type: section
+      label: Wall Sit
+    - entity: input_number.ex_wall_sit_seconds
+      name: Seconds
+      icon: mdi:timer-outline
     - type: section
       label: Calf Raise
     - entity: input_number.ex_calf_raise_weight
@@ -231,13 +257,18 @@ views:
       name: Reps
       icon: mdi:counter
     - type: section
+      label: Forearm Plank
+    - entity: input_number.ex_plank_seconds
+      name: Seconds
+      icon: mdi:timer-outline
+    - type: section
       label: Farmer Carry
     - entity: input_number.ex_farmer_weight
       name: Weight (lb)
       icon: mdi:weight-pound
-    - entity: input_number.ex_farmer_reps
-      name: Reps
-      icon: mdi:counter
+    - entity: input_number.ex_farmer_seconds
+      name: Seconds
+      icon: mdi:timer-outline
     - type: section
       label: Wrist Curl
     - entity: input_number.ex_wrist_curl_weight
@@ -246,11 +277,24 @@ views:
     - entity: input_number.ex_wrist_curl_reps
       name: Reps
       icon: mdi:counter
+    - type: section
+      label: Reverse Wrist Curl
+    - entity: input_number.ex_reverse_wrist_curl_weight
+      name: Weight (lb)
+      icon: mdi:weight-pound
+    - entity: input_number.ex_reverse_wrist_curl_reps
+      name: Reps
+      icon: mdi:counter
   - type: entities
     title: Lower B · Thu
     show_header_toggle: false
     state_color: false
     entities:
+    - type: section
+      label: Step-Up
+    - entity: input_number.ex_step_up_reps
+      name: Reps
+      icon: mdi:counter
     - type: section
       label: Hip Thrust
     - entity: input_number.ex_hip_thrust_weight
@@ -267,11 +311,31 @@ views:
     - entity: input_number.ex_sl_rdl_reps
       name: Reps
       icon: mdi:counter
+    - type: section
+      label: Adductor Squeeze
+    - entity: input_number.ex_adductor_seconds
+      name: Seconds
+      icon: mdi:timer-outline
+    - type: section
+      label: Tibialis Raise
+    - entity: input_number.ex_tib_raise_reps
+      name: Reps
+      icon: mdi:counter
+    - type: section
+      label: Single-Leg Calf Raise
+    - entity: input_number.ex_sl_calf_reps
+      name: Reps
+      icon: mdi:counter
   - type: entities
     title: Upper B · Fri
     show_header_toggle: false
     state_color: false
     entities:
+    - type: section
+      label: Incline Push-Up
+    - entity: input_number.ex_pushup_reps
+      name: Reps
+      icon: mdi:counter
     - type: section
       label: One-Arm Row
     - entity: input_number.ex_one_arm_row_weight
@@ -305,11 +369,26 @@ views:
       name: Reps
       icon: mdi:counter
     - type: section
+      label: Dead Bug
+    - entity: input_number.ex_dead_bug_reps
+      name: Reps
+      icon: mdi:counter
+    - type: section
+      label: Side Plank
+    - entity: input_number.ex_side_plank_seconds
+      name: Seconds
+      icon: mdi:timer-outline
+    - type: section
       label: Suitcase Carry
     - entity: input_number.ex_suitcase_weight
       name: Weight (lb)
       icon: mdi:weight-pound
-    - entity: input_number.ex_suitcase_reps
+    - entity: input_number.ex_suitcase_seconds
+      name: Seconds
+      icon: mdi:timer-outline
+    - type: section
+      label: Towel Wring
+    - entity: input_number.ex_towel_wring_reps
       name: Reps
       icon: mdi:counter
   - type: entities
@@ -325,12 +404,103 @@ views:
     - entity: input_number.ex_finger_ext_reps
       name: Reps
       icon: mdi:counter
+    - type: section
+      label: Hand Routine
+    - entity: input_datetime.ex_hand_routine_done
+      name: Last done
+      icon: mdi:check-circle-outline
+    - type: button
+      name: Mark done now
+      icon: mdi:check-bold
+      action_name: Done
+      tap_action:
+        action: perform-action
+        perform_action: script.workout_mark_done
+        data:
+          target_entity: input_datetime.ex_hand_routine_done
+  - type: entities
+    title: Treadmill + flexibility · Wed/Sat/Sun
+    show_header_toggle: false
+    state_color: false
+    entities:
+    - type: section
+      label: Treadmill Walk
+    - entity: input_number.ex_treadmill_walk_minutes
+      name: Minutes
+      icon: mdi:timer
+    - type: section
+      label: Flexibility Flow
+    - entity: input_datetime.ex_flex_flow_done
+      name: Last done
+      icon: mdi:check-circle-outline
+    - type: button
+      name: Mark done now
+      icon: mdi:check-bold
+      action_name: Done
+      tap_action:
+        action: perform-action
+        perform_action: script.workout_mark_done
+        data:
+          target_entity: input_datetime.ex_flex_flow_done
+    - type: section
+      label: Yoga Session
+    - entity: input_datetime.ex_yoga_done
+      name: Last done
+      icon: mdi:check-circle-outline
+    - type: button
+      name: Mark done now
+      icon: mdi:check-bold
+      action_name: Done
+      tap_action:
+        action: perform-action
+        perform_action: script.workout_mark_done
+        data:
+          target_entity: input_datetime.ex_yoga_done
+  - type: entities
+    title: Daily check-in
+    show_header_toggle: false
+    state_color: false
+    entities:
+    - type: section
+      label: Daily Stretches
+    - entity: input_datetime.ex_stretches_done
+      name: Last done
+      icon: mdi:check-circle-outline
+    - type: button
+      name: Mark done now
+      icon: mdi:check-bold
+      action_name: Done
+      tap_action:
+        action: perform-action
+        perform_action: script.workout_mark_done
+        data:
+          target_entity: input_datetime.ex_stretches_done
+    - type: section
+      label: Knee Pain
+    - entity: input_number.ex_knee_pain_score
+      name: Score (0-10)
+      icon: mdi:numeric
+    - type: section
+      label: Hand Pain
+    - entity: input_number.ex_hand_pain_score
+      name: Score (0-10)
+      icon: mdi:numeric
 
 - title: Progress
   path: progress
   icon: mdi:chart-line
   type: masonry
   cards:
+  - type: history-graph
+    title: Activation · Mon/Thu/Sat
+    hours_to_show: 2160
+    entities:
+    - entity: input_number.ex_slr_reps
+      name: Straight Leg Raise
+    - entity: input_number.ex_bridge_ext_reps
+      name: Bridge + Leg Extension
+    - entity: input_number.ex_hip_abduction_reps
+      name: Side-Lying Hip Abduction
   - type: history-graph
     title: Lower A · Mon
     hours_to_show: 2160
@@ -339,6 +509,8 @@ views:
       name: Box Squat
     - entity: input_number.ex_rdl_weight
       name: Romanian Deadlift
+    - entity: input_number.ex_wall_sit_seconds
+      name: Wall Sit
     - entity: input_number.ex_calf_raise_weight
       name: Calf Raise
   - type: history-graph
@@ -355,22 +527,36 @@ views:
       name: Hammer Curl
     - entity: input_number.ex_triceps_ext_weight
       name: Triceps Extension
+    - entity: input_number.ex_plank_seconds
+      name: Forearm Plank
     - entity: input_number.ex_farmer_weight
       name: Farmer Carry
     - entity: input_number.ex_wrist_curl_weight
       name: Wrist Curl
+    - entity: input_number.ex_reverse_wrist_curl_weight
+      name: Reverse Wrist Curl
   - type: history-graph
     title: Lower B · Thu
     hours_to_show: 2160
     entities:
+    - entity: input_number.ex_step_up_reps
+      name: Step-Up
     - entity: input_number.ex_hip_thrust_weight
       name: Hip Thrust
     - entity: input_number.ex_sl_rdl_weight
       name: Single-Leg RDL
+    - entity: input_number.ex_adductor_seconds
+      name: Adductor Squeeze
+    - entity: input_number.ex_tib_raise_reps
+      name: Tibialis Raise
+    - entity: input_number.ex_sl_calf_reps
+      name: Single-Leg Calf Raise
   - type: history-graph
     title: Upper B · Fri
     hours_to_show: 2160
     entities:
+    - entity: input_number.ex_pushup_reps
+      name: Incline Push-Up
     - entity: input_number.ex_one_arm_row_weight
       name: One-Arm Row
     - entity: input_number.ex_flat_press_weight
@@ -379,14 +565,34 @@ views:
       name: Lateral Raise
     - entity: input_number.ex_rear_fly_weight
       name: Rear Fly
+    - entity: input_number.ex_dead_bug_reps
+      name: Dead Bug
+    - entity: input_number.ex_side_plank_seconds
+      name: Side Plank
     - entity: input_number.ex_suitcase_weight
       name: Suitcase Carry
+    - entity: input_number.ex_towel_wring_reps
+      name: Towel Wring
   - type: history-graph
     title: Hands · daily
     hours_to_show: 2160
     entities:
     - entity: input_number.ex_finger_ext_weight
       name: Finger Extension
+  - type: history-graph
+    title: Treadmill + flexibility · Wed/Sat/Sun
+    hours_to_show: 2160
+    entities:
+    - entity: input_number.ex_treadmill_walk_minutes
+      name: Treadmill Walk
+  - type: history-graph
+    title: Daily check-in
+    hours_to_show: 2160
+    entities:
+    - entity: input_number.ex_knee_pain_score
+      name: Knee Pain
+    - entity: input_number.ex_hand_pain_score
+      name: Hand Pain
 
 - title: Plan
   path: plan
