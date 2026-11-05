@@ -333,8 +333,8 @@ history, and because `is_secret` also hides the value from non-admin API reads.
 
    ```sh
    # pseudo — one line per secret; NEVER echo the value
-   KEY=$(op read 'op://kdk-ops/komodo-api-rw/<key-field>')
-   SECRET=$(op read 'op://kdk-ops/komodo-api-rw/<secret-field>')
+   KEY=$(op read 'op://kdk-ops/komodo-api-rw/key')
+   SECRET=$(op read 'op://kdk-ops/komodo-api-rw/secret')
    val=$(op read "op://kdk-cluster/<item>/<field>")
    curl -s https://komodo.kmkdp.com/write \
      -H "X-Api-Key: $KEY" -H "X-Api-Secret: $SECRET" \
