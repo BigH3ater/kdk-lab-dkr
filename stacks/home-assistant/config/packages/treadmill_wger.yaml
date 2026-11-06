@@ -1,0 +1,373 @@
+# Treadmill -> wger auto-log (Track A3 of the exercise-tracking pilot).
+# Shipped from git like treadmill.yaml; runbook: docs/runbooks/wger.md, step 14.
+#
+# WHEN: treadmill.yaml's END automation drops input_boolean.tm_session_active
+# (belt at 0 for 2 min). This package only READS treadmill.yaml's helpers
+# (walker, session start, distance snapshot); it never writes them, so the
+# per-person totals that Track B and the dashboards use stay exactly as they are.
+#
+# WHAT: as the walker's own wger user (their API key), one workout session per
+# person per day plus one log on the walk slot of that weekday:
+#   GET  routine/?name=Week (kdk)                 -> routine id (none: log without routine)
+#   GET  day/?routine=<id>&order=<ISO weekday>    -> day id (gen_wger.py: order 1..7 = Mon..Sun)
+#   GET  slot/?day=<day>  +  slot-entry/?exercise=<treadmill-walk>  -> the walk's slot entry
+#   GET  workoutsession/?datetime_start__gte=<local midnight>&__lt=<next midnight>
+#   POST workoutsession/   {routine, day, notes, impression "2" (Neutral), datetime_start, datetime_end}
+#        or PATCH workoutsession/<id>/ {notes += line[, datetime_end]} when today already has one
+#   POST workoutlog/       {exercise, session, routine, slot_entry, date, repetitions = minutes,
+#                           repetitions_unit = 4 (Minutes)}; no weight (wger needs reps OR weight)
+# Field names are wger 2.7's (datetime_start/datetime_end; the old date/time_start/
+# time_end are write-only compat until 2.8). Checked against the live API's OPTIONS
+# and source on 2026-11-06; tests: tools/tests/test_treadmill_wger.py.
+#
+# IDEMPOTENT: the note line "treadmill auto-log: <km>, <km/h> avg, <min> min (HH:MM–HH:MM)"
+# is the key. A session that already holds the line is left alone (a re-run of the
+# script for the same walk writes nothing). A second walk the same day appends its
+# line to that session's notes and adds a second log. A session the app created
+# that day is reused the same way (notes appended, its times untouched).
+#
+# SKIPS: walker Guest (or anything without a wger login) -> persistent
+# notification; a person whose key is the placeholder or revoked (wger answers
+# 401/403) -> a warning in the HA log only, so rach is wired but inactive until
+# her key exists; walks under 1 minute; a latch with no start time. Any other
+# failure -> persistent notification with the walk's line so it can be entered
+# by hand.
+#
+# SECRETS (host-managed /config/secrets.yaml, from 1Password; runbook step 14):
+#   wger_api_key_jmack   "Token <40-hex key>"  from op://kdk-cluster/wger-api-jmack/credential
+#   wger_api_key_rach    "Token <40-hex key>"  from op://kdk-cluster/wger-api-rach/credential,
+#                        or the placeholder "Token none" until that item exists
+# Both lines must exist BEFORE this file deploys: a missing !secret fails the
+# config load. One rest_command per person and method keeps each key a !secret
+# header, out of script variables and traces.
+#
+# DEPLOY: pre_deploy copies this file; rest_command, script and automation are
+# already loaded integrations, so Developer Tools -> YAML -> Reload all is
+# enough (no restart).
+
+rest_command:
+  wger_get_jmack:
+    url: "https://wger.kmkdp.com/api/v2/{{ path }}"
+    method: GET
+    headers:
+      authorization: !secret wger_api_key_jmack
+      accept: "application/json"
+    timeout: 20
+  wger_post_jmack:
+    url: "https://wger.kmkdp.com/api/v2/{{ path }}"
+    method: POST
+    headers:
+      authorization: !secret wger_api_key_jmack
+      accept: "application/json"
+    content_type: "application/json"
+    payload: "{{ body | to_json }}"
+    timeout: 20
+  wger_patch_jmack:
+    url: "https://wger.kmkdp.com/api/v2/{{ path }}"
+    method: PATCH
+    headers:
+      authorization: !secret wger_api_key_jmack
+      accept: "application/json"
+    content_type: "application/json"
+    payload: "{{ body | to_json }}"
+    timeout: 20
+  wger_get_rach:
+    url: "https://wger.kmkdp.com/api/v2/{{ path }}"
+    method: GET
+    headers:
+      authorization: !secret wger_api_key_rach
+      accept: "application/json"
+    timeout: 20
+  wger_post_rach:
+    url: "https://wger.kmkdp.com/api/v2/{{ path }}"
+    method: POST
+    headers:
+      authorization: !secret wger_api_key_rach
+      accept: "application/json"
+    content_type: "application/json"
+    payload: "{{ body | to_json }}"
+    timeout: 20
+  wger_patch_rach:
+    url: "https://wger.kmkdp.com/api/v2/{{ path }}"
+    method: PATCH
+    headers:
+      authorization: !secret wger_api_key_rach
+      accept: "application/json"
+    content_type: "application/json"
+    payload: "{{ body | to_json }}"
+    timeout: 20
+
+script:
+  # Callable by hand too (Developer Tools -> Actions) to re-log a walk: same
+  # fields, same idempotency.
+  tm_wger_log_walk:
+    alias: Treadmill log walk to wger
+    icon: mdi:walk
+    mode: queued
+    max: 5
+    fields:
+      walker:
+        description: input_select.tm_current_walker option (Jacob, Rachel, Guest)
+        example: Jacob
+      start_ts:
+        description: walk start, unix seconds
+      end_ts:
+        description: walk end (belt stopped), unix seconds
+      dist_m:
+        description: metres walked; 0 = the console did not report distance
+    sequence:
+      - variables:
+          # walker option -> wger login (= the secrets.yaml / rest_command suffix)
+          login: "{{ {'Jacob': 'jmack', 'Rachel': 'rach'}.get(walker | default(''), '') }}"
+          # wger ids, checked 2026-11-06: exercise treadmill-walk (gen_wger.py,
+          # kdk:treadmill-walk marker) and the built-in Minutes repetition unit.
+          ex_id: 1937
+          minutes_unit: 4
+          s_ts: "{{ start_ts | float(0) }}"
+          e_ts: "{{ end_ts | float(0) }}"
+          minutes: "{{ ((e_ts - s_ts) / 60) | round(1) }}"
+          km: "{{ ((dist_m | float(0)) / 1000) | round(2) }}"
+          speed: "{{ (km / (minutes / 60)) | round(1) if km > 0 and minutes > 0 else 0 }}"
+          weekday: "{{ s_ts | timestamp_custom('%u') | int }}"
+          note_line: >-
+            treadmill auto-log: {{ ('%.2f km, %.1f km/h avg' | format(km, speed)) if km > 0
+            else 'distance not reported' }}, {{ minutes }} min
+            ({{ s_ts | timestamp_custom('%H:%M') }}–{{ e_ts | timestamp_custom('%H:%M') }})
+          start_utc: "{{ s_ts | timestamp_custom('%Y-%m-%dT%H:%M:%SZ', false) }}"
+          end_utc: "{{ e_ts | timestamp_custom('%Y-%m-%dT%H:%M:%SZ', false) }}"
+          # the walk's local calendar day, as a UTC window for the session lookup
+          day0: "{{ as_timestamp(s_ts | timestamp_custom('%Y-%m-%dT00:00:00%z')) }}"
+          day_from: "{{ day0 | timestamp_custom('%Y-%m-%dT%H:%M:%SZ', false) }}"
+          day_to: "{{ (day0 + 86400) | timestamp_custom('%Y-%m-%dT%H:%M:%SZ', false) }}"
+          rid: null
+          day_id: null
+          entry_id: null
+          sid: null
+      - if: "{{ login == '' }}"
+        then:
+          - action: persistent_notification.create
+            data:
+              notification_id: tm_wger_autolog
+              title: Treadmill walk not logged to wger
+              message: >-
+                The walk ({{ note_line }}) ended with walker "{{ walker }}", who has no
+                wger account. Select Jacob or Rachel on the console or the dashboard
+                before walking; add this one in the wger app if it was yours.
+          - stop: walker has no wger login
+      - if: "{{ s_ts <= 0 or minutes < 1 }}"
+        then:
+          - stop: no start time, or shorter than a minute
+      - if: "{{ minutes > 300 }}"
+        then:
+          - action: persistent_notification.create
+            data:
+              notification_id: tm_wger_autolog
+              title: Treadmill walk not logged to wger
+              message: >-
+                {{ walker }}'s walk ({{ note_line }}) is longer than wger's 5-hour session
+                limit; the session latch probably stuck. Add the real walk in the wger app.
+          - stop: longer than a wger session may last
+
+      - action: "rest_command.wger_get_{{ login }}"
+        continue_on_error: true
+        response_variable: r_routine
+        data:
+          path: "routine/?name=Week%20(kdk)"
+      - if: "{{ r_routine is defined and r_routine.status in [401, 403] }}"
+        then:
+          - action: system_log.write
+            data:
+              level: warning
+              logger: kdk.treadmill_wger
+              message: >-
+                wger refused {{ login }}'s API key (HTTP {{ r_routine.status }}); walk not
+                logged: {{ note_line }}. Placeholder key, or the key needs rotating (runbook wger step 14).
+          - stop: no usable wger key for this person
+      - if: "{{ r_routine is not defined or r_routine.status != 200 }}"
+        then:
+          - action: persistent_notification.create
+            data:
+              notification_id: tm_wger_autolog
+              title: Treadmill walk not logged to wger
+              message: >-
+                wger did not answer for {{ walker }} (routine lookup:
+                {{ r_routine.status if r_routine is defined else 'no response' }}). Walk:
+                {{ note_line }}. Add it in the wger app.
+          - stop: wger unreachable
+      - variables:
+          rid: >-
+            {{ r_routine.content.results[0].id
+               if (r_routine.content.results | default([])) | count > 0 else none }}
+
+      # The walk slot of this weekday (only when the person has the routine).
+      - if: "{{ rid is not none }}"
+        then:
+          - action: "rest_command.wger_get_{{ login }}"
+            continue_on_error: true
+            response_variable: r_day
+            data:
+              path: "day/?routine={{ rid }}&order={{ weekday }}"
+          - variables:
+              day_id: >-
+                {{ r_day.content.results[0].id
+                   if r_day is defined and r_day.status == 200
+                      and (r_day.content.results | default([])) | count > 0 else none }}
+          - if: "{{ day_id is not none }}"
+            then:
+              - action: "rest_command.wger_get_{{ login }}"
+                continue_on_error: true
+                response_variable: r_slots
+                data:
+                  path: "slot/?day={{ day_id }}&limit=200"
+              - action: "rest_command.wger_get_{{ login }}"
+                continue_on_error: true
+                response_variable: r_entries
+                data:
+                  path: "slot-entry/?exercise={{ ex_id }}&limit=200"
+              - variables:
+                  entry_id: >-
+                    {% if r_slots is defined and r_slots.status == 200
+                          and r_entries is defined and r_entries.status == 200 %}
+                      {% set slot_ids = r_slots.content.results | map(attribute='id') | list %}
+                      {% set e = r_entries.content.results | selectattr('slot', 'in', slot_ids) | list %}
+                      {{ e[0].id if e | count > 0 else none }}
+                    {% else %}
+                      {{ none }}
+                    {% endif %}
+
+      # Today's sessions: duplicate check, else reuse (ours first), else create.
+      - action: "rest_command.wger_get_{{ login }}"
+        continue_on_error: true
+        response_variable: r_sess
+        data:
+          path: "workoutsession/?datetime_start__gte={{ day_from }}&datetime_start__lt={{ day_to }}&ordering=datetime_start&limit=50"
+      - if: "{{ r_sess is not defined or r_sess.status != 200 }}"
+        then:
+          - action: persistent_notification.create
+            data:
+              notification_id: tm_wger_autolog
+              title: Treadmill walk not logged to wger
+              message: >-
+                wger session lookup failed for {{ walker }}
+                ({{ r_sess.status if r_sess is defined else 'no response' }}). Walk:
+                {{ note_line }}. Add it in the wger app.
+          - stop: session lookup failed
+      - variables:
+          pick: >-
+            {% set ns = namespace(ours=none, first=none, dup=false) %}
+            {% for s in r_sess.content.results | default([]) %}
+              {% set n = s.notes or '' %}
+              {% if note_line in n %}{% set ns.dup = true %}{% endif %}
+              {% if ns.ours is none and n.startswith('treadmill auto-log') %}{% set ns.ours = s %}{% endif %}
+              {% if ns.first is none %}{% set ns.first = s %}{% endif %}
+            {% endfor %}
+            {{ {'dup': ns.dup, 'ours': ns.ours is not none,
+                'session': ns.ours if ns.ours is not none else ns.first} }}
+          session_body: >-
+            {{ {'routine': rid, 'day': day_id, 'notes': note_line, 'impression': '2',
+                'datetime_start': start_utc, 'datetime_end': end_utc} }}
+          patch_body: >-
+            {% set s = pick.session %}
+            {% if s is none %}
+              {{ {} }}
+            {% else %}
+              {% set n = s.notes or '' %}
+              {% set body = {'notes': (n ~ '\n' if n else '') ~ note_line} %}
+              {% if pick.ours and s.datetime_start
+                    and as_timestamp(s.datetime_start, 0) + 5 * 3600 >= e_ts
+                    and (s.datetime_end is none or as_timestamp(s.datetime_end, 0) < e_ts) %}
+                {% set body = dict(body, datetime_end=end_utc) %}
+              {% endif %}
+              {{ body }}
+            {% endif %}
+      - if: "{{ pick.dup }}"
+        then:
+          - stop: this walk is already in wger
+
+      - if: "{{ pick.session is none }}"
+        then:
+          - action: "rest_command.wger_post_{{ login }}"
+            continue_on_error: true
+            response_variable: r_new
+            data:
+              path: "workoutsession/"
+              body: "{{ session_body }}"
+          - variables:
+              sid: "{{ r_new.content.id if r_new is defined and r_new.status == 201 else none }}"
+        else:
+          - action: "rest_command.wger_patch_{{ login }}"
+            continue_on_error: true
+            response_variable: r_new
+            data:
+              path: "workoutsession/{{ pick.session.id }}/"
+              body: "{{ patch_body }}"
+          - variables:
+              sid: "{{ pick.session.id if r_new is defined and r_new.status == 200 else none }}"
+      - if: "{{ sid is none }}"
+        then:
+          - action: persistent_notification.create
+            data:
+              notification_id: tm_wger_autolog
+              title: Treadmill walk not logged to wger
+              message: >-
+                wger refused the session for {{ walker }}
+                (HTTP {{ r_new.status if r_new is defined else 'no response' }}:
+                {{ (r_new.content | string)[:200] if r_new is defined else '' }}). Walk:
+                {{ note_line }}. Add it in the wger app.
+          - stop: session write failed
+
+      - variables:
+          log_body: >-
+            {{ {'exercise': ex_id, 'session': sid, 'routine': rid, 'slot_entry': entry_id,
+                'date': end_utc, 'repetitions': minutes, 'repetitions_unit': minutes_unit} }}
+      - action: "rest_command.wger_post_{{ login }}"
+        continue_on_error: true
+        response_variable: r_log
+        data:
+          path: "workoutlog/"
+          body: "{{ log_body }}"
+      - if: "{{ r_log is not defined or r_log.status != 201 }}"
+        then:
+          - action: persistent_notification.create
+            data:
+              notification_id: tm_wger_autolog
+              title: Treadmill walk only half logged to wger
+              message: >-
+                {{ walker }}'s session note is in wger but the walk log was refused
+                (HTTP {{ r_log.status if r_log is defined else 'no response' }}:
+                {{ (r_log.content | string)[:200] if r_log is defined else '' }}).
+                Add {{ minutes }} min of the treadmill walk in the wger app.
+
+automation:
+  # Fires when treadmill.yaml's END automation drops the latch (its last action),
+  # so the helpers it reads still hold this session: the start time and the
+  # distance snapshot are only overwritten by the next START. The walk ended
+  # when the belt reached 0 (the speed sensor's last change), 2 min before the
+  # latch dropped; a latch turned off by hand falls back to now.
+  - id: tm_wger_autolog
+    alias: "Treadmill: log walk to wger"
+    mode: queued
+    max: 5
+    triggers:
+      - trigger: state
+        entity_id: input_boolean.tm_session_active
+        from: "on"
+        to: "off"
+    actions:
+      - variables:
+          start_ts: "{{ state_attr('input_datetime.tm_session_start', 'timestamp') | float(0) }}"
+          now_ts: "{{ now().timestamp() }}"
+          stop_ts: >-
+            {{ as_timestamp(states.sensor.treadmill_speed.last_changed, 0)
+               if states.sensor.treadmill_speed is not none else 0 }}
+          end_ts: "{{ stop_ts if start_ts < stop_ts <= now_ts else now_ts }}"
+          cur: "{{ states('sensor.treadmill_distance') | float(0) }}"
+          start_dist: "{{ states('input_number.tm_session_start_distance') | float(0) }}"
+          dist_m: "{{ [ (cur - start_dist) if cur >= start_dist else cur, 0 ] | max }}"
+      - action: script.tm_wger_log_walk
+        continue_on_error: true
+        data:
+          walker: "{{ states('input_select.tm_current_walker') }}"
+          start_ts: "{{ start_ts }}"
+          end_ts: "{{ end_ts }}"
+          dist_m: "{{ dist_m }}"

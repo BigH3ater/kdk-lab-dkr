@@ -509,6 +509,102 @@ ssh $H 'sudo docker exec wger-web python3 manage.py warmup-exercise-api-cache --
 Then run step 9 in full (`--apply`, `--apply` again to see 0 writes, then `--check`). The
 `wger has no muscle` warnings should be gone.
 
+## 14. Treadmill auto-log
+
+Home Assistant posts each finished treadmill walk to wger as the person who walked
+(`stacks/home-assistant/config/packages/treadmill_wger.yaml`; what it writes is on the
+[service page](../services/wger.md#treadmill-auto-log-track-a3)). It needs one line per
+person in HA's host-managed `secrets.yaml` on kdk-dkr-02, **before** the package
+deploys (a missing `!secret` fails HA's config load). Each line is the whole header
+value, `"Token <40-hex key>"`. Until rach has a key, her line holds the placeholder
+`"Token none"`: wger answers 403, HA logs a warning and skips her walks.
+
+Hosts: kdk-dkr-02 = `10.1.30.21` (user `kdkadmin`), HA container `homeassistant`,
+config `/opt/kdk-lab/home-assistant/config/`. The live `secrets.yaml` is `1001:1001 600`;
+`tee -a` keeps the owner.
+
+**14a. Before merge: add both lines (main session, laptop → kdk-dkr-02)**
+
+```bash
+H=kdkadmin@10.1.30.21
+F=/opt/kdk-lab/home-assistant/config/secrets.yaml
+ssh $H "sudo grep -c '^wger_api_key_' $F"          # 0 the first time; if 2, skip this block
+{ printf '\n'
+  printf 'wger_api_key_jmack: "Token %s"\n' "$(op read op://kdk-cluster/wger-api-jmack/credential | tr -d '[:space:]')"
+  printf 'wger_api_key_rach: "Token none"\n'      # placeholder until op://kdk-cluster/wger-api-rach exists
+} | ssh $H "sudo tee -a $F >/dev/null && sudo chmod 600 $F"
+# verify by length only: 46 = "Token " + 40, and 10 for the placeholder
+ssh $H "sudo awk -F'\"' '/^wger_api_key_/{print \$1, length(\$2)}' $F"
+```
+
+The `tr` matters: the jmack item's stored value carries one trailing whitespace
+character (41 bytes, checked 2026-11-06), and wger refuses a key with it.
+
+**14b. Merge, then check the config and reload (main session, laptop → kdk-dkr-02)**
+
+The Komodo deploy copies the package. `rest_command`, `script` and `automation` are
+already loaded, so a reload is enough (no restart).
+
+```bash
+H=kdkadmin@10.1.30.21
+ssh $H 'ls -l /opt/kdk-lab/home-assistant/config/packages/treadmill_wger.yaml'
+ssh $H 'sudo docker exec homeassistant python -m homeassistant --script check_config -c /config 2>&1 | tail -5'
+# expect no "Failed config" block; a "Secret wger_api_key_… not defined" means 14a is missing
+```
+
+Then in HA: **Developer Tools → YAML → Reload all YAML configuration** (or
+`rest_command.reload`, `script.reload`, `automation.reload` from Developer Tools →
+Actions). Check that `script.tm_wger_log_walk` and `automation.treadmill_log_walk_to_wger`
+exist (Settings → Automations & scenes).
+
+**14c. Verify with a real walk (owner)**
+
+1. Select **Jacob** on the console (or the dashboard), walk at least 2 minutes, stop
+   the belt, and wait 2 more minutes.
+2. In the wger app (or `https://wger.kmkdp.com` → Workout log): today shows a session
+   with the notes `treadmill auto-log: … km, … km/h avg, … min (HH:MM–HH:MM)` and a
+   treadmill-walk set with that many minutes.
+3. Nothing in wger? HA → Settings → Automations → **Treadmill: log walk to wger** →
+   Traces, then the script's trace; a persistent notification names the failure.
+
+The main session can confirm on kdk-dkr-01 without a key:
+
+```bash
+H=kdkadmin@10.1.20.20
+printf '%s\n' \
+  "from wger.manager.models import WorkoutSession, WorkoutLog" \
+  "for s in WorkoutSession.objects.filter(notes__contains='treadmill auto-log').order_by('-datetime_start')[:3]:" \
+  "    print(s.user.username, s.datetime_start, s.datetime_end, repr(s.notes), WorkoutLog.objects.filter(session=s).count())" \
+  | ssh $H 'sudo docker exec -i wger-web python3 manage.py shell'
+```
+
+To re-log a walk the automation missed (wger was down), run `script.tm_wger_log_walk`
+from Developer Tools → Actions with `walker`, `start_ts`, `end_ts` (unix seconds) and
+`dist_m`; it writes nothing for a walk that is already there.
+
+**14d. When rach has a key (owner, then main session)**
+
+Owner: step 8 with `WHO=rach` (creates `op://kdk-cluster/wger-api-rach/credential`).
+Optionally step 9 with `--person rach` so her walks land on her routine's walk slot;
+without a routine they are still logged, just not on a slot.
+
+Main session, replacing the placeholder line (the key goes over stdin only):
+
+**Laptop → kdk-dkr-02**
+
+```bash
+H=kdkadmin@10.1.30.21
+F=/opt/kdk-lab/home-assistant/config/secrets.yaml
+ssh $H "sudo sed -i '/^wger_api_key_rach:/d' $F"
+printf 'wger_api_key_rach: "Token %s"\n' "$(op read op://kdk-cluster/wger-api-rach/credential | tr -d '[:space:]')" \
+  | ssh $H "sudo tee -a $F >/dev/null && sudo chmod 600 $F"
+ssh $H "sudo awk -F'\"' '/^wger_api_key_rach:/{print \$1, length(\$2)}' $F"   # 46
+```
+
+Then reload `rest_command` (Developer Tools → Actions → `rest_command.reload`) and let
+Rachel do the 14c walk. The same block with `jmack` rotates jmack's key.
+
+
 ## Rollback
 
 The catalog load (step 9) is data, not config: to undo it, delete the **Week (kdk)**

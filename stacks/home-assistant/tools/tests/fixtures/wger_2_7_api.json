@@ -1,0 +1,174 @@
+{
+ "_source": "OPTIONS /api/v2/<endpoint>/ on wger 2.7.0 (wger.kmkdp.com), 2026-11-06; POST actions only",
+ "endpoints": {
+  "workoutsession": {
+   "id": {
+    "type": "string",
+    "required": false,
+    "read_only": false
+   },
+   "routine": {
+    "type": "field",
+    "required": false,
+    "read_only": false
+   },
+   "day": {
+    "type": "field",
+    "required": false,
+    "read_only": false
+   },
+   "notes": {
+    "type": "string",
+    "required": false,
+    "read_only": false
+   },
+   "impression": {
+    "type": "choice",
+    "required": false,
+    "read_only": false,
+    "choices": [
+     "1",
+     "2",
+     "3"
+    ]
+   },
+   "datetime_start": {
+    "type": "datetime",
+    "required": false,
+    "read_only": false
+   },
+   "datetime_end": {
+    "type": "datetime",
+    "required": false,
+    "read_only": false
+   }
+  },
+  "workoutlog": {
+   "id": {
+    "type": "string",
+    "required": false,
+    "read_only": false
+   },
+   "date": {
+    "type": "datetime",
+    "required": false,
+    "read_only": false
+   },
+   "session": {
+    "type": "field",
+    "required": false,
+    "read_only": false
+   },
+   "routine": {
+    "type": "field",
+    "required": false,
+    "read_only": false
+   },
+   "iteration": {
+    "type": "integer",
+    "required": false,
+    "read_only": false
+   },
+   "slot_entry": {
+    "type": "field",
+    "required": false,
+    "read_only": false
+   },
+   "next_log": {
+    "type": "field",
+    "required": false,
+    "read_only": false
+   },
+   "exercise": {
+    "type": "field",
+    "required": true,
+    "read_only": false
+   },
+   "repetitions_unit": {
+    "type": "field",
+    "required": false,
+    "read_only": false
+   },
+   "repetitions": {
+    "type": "decimal",
+    "required": false,
+    "read_only": false,
+    "max_digits": 6,
+    "decimal_places": 2
+   },
+   "repetitions_target": {
+    "type": "decimal",
+    "required": false,
+    "read_only": false,
+    "max_digits": 6,
+    "decimal_places": 2
+   },
+   "weight_unit": {
+    "type": "field",
+    "required": false,
+    "read_only": false
+   },
+   "weight": {
+    "type": "decimal",
+    "required": false,
+    "read_only": false,
+    "max_digits": 6,
+    "decimal_places": 2
+   },
+   "weight_target": {
+    "type": "decimal",
+    "required": false,
+    "read_only": false,
+    "max_digits": 6,
+    "decimal_places": 2
+   },
+   "rir": {
+    "type": "decimal",
+    "required": false,
+    "read_only": false,
+    "max_digits": 2,
+    "decimal_places": 1
+   },
+   "rir_target": {
+    "type": "decimal",
+    "required": false,
+    "read_only": false,
+    "max_digits": 2,
+    "decimal_places": 1
+   },
+   "rest": {
+    "type": "integer",
+    "required": false,
+    "read_only": false
+   },
+   "rest_target": {
+    "type": "integer",
+    "required": false,
+    "read_only": false
+   }
+  }
+ },
+ "repetition_units": {
+  "10-ft lengths": 9,
+  "Kilometers": 6,
+  "Meters": 8,
+  "Miles": 5,
+  "Max Reps": 7,
+  "Repetitions": 1,
+  "Until Failure": 2,
+  "Minutes": 4,
+  "Seconds": 3
+ },
+ "weight_units": {
+  "Body Weight": 3,
+  "Kilometers Per Hour": 5,
+  "Miles Per Hour": 6,
+  "Plates": 4,
+  "kg": 1,
+  "lb": 2
+ },
+ "exercise_treadmill_walk": {
+  "id": 1937,
+  "uuid": "f2cace08-e8e0-488a-9f9c-cd788a955dcf"
+ }
+}
