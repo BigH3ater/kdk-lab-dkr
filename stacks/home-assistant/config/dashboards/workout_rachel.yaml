@@ -262,7 +262,7 @@ views:
       name: Seconds
       icon: mdi:timer-outline
     - type: section
-      label: Farmer Carry
+      label: Farmer's Hold
     - entity: input_number.ex_farmer_weight_rachel
       name: Weight (lb)
       icon: mdi:weight-pound
@@ -312,10 +312,10 @@ views:
       name: Reps
       icon: mdi:counter
     - type: section
-      label: Adductor Squeeze
-    - entity: input_number.ex_adductor_seconds_rachel
-      name: Seconds
-      icon: mdi:timer-outline
+      label: Copenhagen Adductor Squeeze (Bench)
+    - entity: input_number.ex_adductor_reps_rachel
+      name: Reps
+      icon: mdi:counter
     - type: section
       label: Tibialis Raise
     - entity: input_number.ex_tib_raise_reps_rachel
@@ -530,7 +530,7 @@ views:
     - entity: input_number.ex_plank_seconds_rachel
       name: Forearm Plank
     - entity: input_number.ex_farmer_weight_rachel
-      name: Farmer Carry
+      name: Farmer's Hold
     - entity: input_number.ex_wrist_curl_weight_rachel
       name: Wrist Curl
     - entity: input_number.ex_reverse_wrist_curl_weight_rachel
@@ -545,8 +545,8 @@ views:
       name: Hip Thrust
     - entity: input_number.ex_sl_rdl_weight_rachel
       name: Single-Leg RDL
-    - entity: input_number.ex_adductor_seconds_rachel
-      name: Adductor Squeeze
+    - entity: input_number.ex_adductor_reps_rachel
+      name: Copenhagen Adductor Squeeze (Bench)
     - entity: input_number.ex_tib_raise_reps_rachel
       name: Tibialis Raise
     - entity: input_number.ex_sl_calf_reps_rachel

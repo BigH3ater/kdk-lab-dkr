@@ -167,7 +167,7 @@ input_number:
     mode: box
     icon: mdi:timer-outline
   ex_farmer_weight:
-    name: Farmer Carry weight
+    name: Farmer's Hold weight
     min: 0
     max: 200
     step: 0.5
@@ -175,7 +175,7 @@ input_number:
     mode: box
     icon: mdi:weight-pound
   ex_farmer_seconds:
-    name: Farmer Carry seconds
+    name: Farmer's Hold seconds
     min: 0
     max: 600
     step: 1
@@ -250,14 +250,13 @@ input_number:
     step: 1
     mode: box
     icon: mdi:counter
-  ex_adductor_seconds:
-    name: Adductor Squeeze seconds
+  ex_adductor_reps:
+    name: Copenhagen Adductor Squeeze (Bench) reps
     min: 0
-    max: 600
+    max: 50
     step: 1
-    unit_of_measurement: s
     mode: box
-    icon: mdi:timer-outline
+    icon: mdi:counter
   ex_tib_raise_reps:
     name: Tibialis Raise reps
     min: 0
