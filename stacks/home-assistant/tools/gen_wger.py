@@ -104,13 +104,19 @@ SLUG_CATEGORY = {
     "treadmill-walk": "Cardio",
 }
 BODYWEIGHT = "none (bodyweight exercise)"
-# wger's muscle names as the sidecar spells them (name_en, else the Latin name). Checked
-# offline here and against the server's muscle/ list at run time.
+# wger's 16 built-in muscles as the sidecar spells them (name_en, else the Latin name): the
+# only ones the app's body map can colour (it draws bundled SVGs per muscle id).
 MUSCLES = ("Shoulders", "Biceps", "Hamstrings", "Brachialis", "Lower back", "Calves", "Glutes", "Lats",
            "Obliquus externus abdominis", "Chest", "Quads", "Abs", "Serratus anterior", "Soleus",
            "Trapezius", "Triceps")
+# Local muscle rows (runbook step 13) for areas the built-ins miss: name -> is_front. The app lists
+# them by name under the map and never colours them. A sidecar name the server lacks is left out
+# with a warning when it is one of these, and is an error (a typo) otherwise.
+CUSTOM_MUSCLES = {"Forearm flexors": True, "Forearm extensors": False, "Hand intrinsics": True,
+                  "Adductors": True, "Tibialis anterior": True}
 PROSE = {"Obliquus externus abdominis": "obliques", "Serratus anterior": "serratus",
-         "Trapezius": "upper back (trapezius)"}
+         "Trapezius": "upper back (trapezius)", "Hand intrinsics": "small hand muscles",
+         "Adductors": "inner thighs (adductors)", "Tibialis anterior": "shins (tibialis anterior)"}
 SIDECAR_KEYS = {"muscles", "secondary", "equipment", "what", "safety", "stretch"}
 SAFETY_WEIGHTED = "Start light; stop two reps before your form slips."
 SAFETY_STRETCH = "Ease into a mild stretch; never bounce, keep breathing."
@@ -196,17 +202,21 @@ def strip_prefix(title: str) -> str:
     return re.sub(r"^(PT|Grip|Every day)\s+—\s+", "", title).strip()
 
 
-def load_sidecar(path: Path = SIDECAR) -> dict[str, dict]:
-    """slug -> {muscles, secondary, equipment, what?, safety?, stretch?}; raises on a typo."""
+def load_sidecar(path: Path = SIDECAR, known: set[str] | None = None) -> dict[str, dict]:
+    """slug -> {muscles, secondary, equipment, what?, safety?, stretch?}. With `known` (the server's
+    muscle names), a name that is neither there nor in CUSTOM_MUSCLES is a typo and raises; without
+    it (offline) only the structure is checked, since the server may have local muscles."""
     data = json.loads(path.read_text(encoding="utf-8"))["exercises"]
     for slug, e in data.items():
         bad = set(e) - SIDECAR_KEYS
         if bad:
             raise WgerError(f"{path.name} {slug}: unknown key(s) {sorted(bad)}")
         for k in ("muscles", "secondary"):
-            unknown = [m for m in e.get(k, []) if m not in MUSCLES]
+            if known is None:
+                continue
+            unknown = [m for m in e.get(k, []) if m not in known and m not in CUSTOM_MUSCLES]
             if unknown:
-                raise WgerError(f"{path.name} {slug}: unknown muscle(s) {unknown}; wger has {list(MUSCLES)}")
+                raise WgerError(f"{path.name} {slug}: unknown muscle(s) {unknown}; wger has {sorted(known)}")
         both = set(e.get("muscles", [])) & set(e.get("secondary", []))
         if both:
             raise WgerError(f"{path.name} {slug}: {sorted(both)} both primary and secondary")
@@ -524,6 +534,7 @@ def sync_exercises(api: Api, specs: dict, ref: dict, can_write: bool, warn) -> d
     ids: dict[str, object] = {}
     exercises = {e["id"]: e for e in api.list("exercise/")} if have else {}
     missing_equipment: dict[str, list[str]] = {}
+    missing_muscles: dict[str, list[str]] = {}
 
     def need_write(what):
         if not can_write and api.apply:
@@ -544,9 +555,12 @@ def sync_exercises(api: Api, specs: dict, ref: dict, can_write: bool, warn) -> d
         muscles, secondary = [], []
         for names, out in ((sp["muscles"], muscles), (sp["secondary"], secondary)):
             for n in names:
-                if n not in ref["muscle"]:
+                if n in ref["muscle"]:
+                    out.append(ref["muscle"][n])
+                elif n in CUSTOM_MUSCLES:
+                    missing_muscles.setdefault(n, []).append(slug)
+                else:
                     raise WgerError(f"wger has no muscle {n!r} (for {slug}); fix {SIDECAR.name}")
-                out.append(ref["muscle"][n])
         muscles.sort()
         secondary.sort()
         img_hash = images_hash(sp["images"])
@@ -612,7 +626,10 @@ def sync_exercises(api: Api, specs: dict, ref: dict, can_write: bool, warn) -> d
                       {"description_source": want_src})
     for e, slugs in sorted(missing_equipment.items()):
         warn(f"wger has no equipment {e!r} (wanted by {', '.join(slugs)}); left out until the runbook's "
-             "equipment admin step adds it")
+             "equipment admin step (12) adds it")
+    for n, slugs in sorted(missing_muscles.items()):
+        warn(f"wger has no muscle {n!r} (wanted by {', '.join(slugs)}); left out until the runbook's "
+             "custom-muscle admin step (13) adds it")
     return ids
 
 

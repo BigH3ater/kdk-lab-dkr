@@ -489,7 +489,7 @@ def test_sidecar_covers_every_slug_with_known_names(guide):
     side = gw.load_sidecar()
     catalog = {s for it in gen_workout.load()["items"] for s in it["slugs"]}
     assert catalog | {"arm-circles"} == set(side)
-    fake_names = {k for n, en in MUSCLES for k in (n, en) if k}
+    fake_names = {k for n, en in MUSCLES for k in (n, en) if k} | set(gw.CUSTOM_MUSCLES)
     for slug, e in side.items():
         assert set(e["muscles"] + e["secondary"]) <= fake_names, slug
         assert e["equipment"], slug
@@ -500,8 +500,9 @@ def test_sidecar_typo_is_an_error(tmp_path):
     bad = tmp_path / "side.json"
     bad.write_text(json.dumps({"exercises": {"rdl": {"muscles": ["Hamstring"], "secondary": [],
                                                       "equipment": ["Dumbbell"]}}}))
+    gw.load_sidecar(bad)                                   # offline: the server may have it
     with pytest.raises(gw.WgerError, match="unknown muscle"):
-        gw.load_sidecar(bad)
+        gw.load_sidecar(bad, known={"Hamstrings"})
 
 
 def test_muscles_written_and_drift_patched(guide, fake, capsys):
@@ -627,3 +628,64 @@ def test_check_counts_a_slug_missing_from_the_sidecar(guide, fake, monkeypatch, 
     capsys.readouterr()
     assert run(guide, "--check") == 1
     assert "no entry for arm-circles" in capsys.readouterr().out
+
+
+# the household list after runbook step 12 (owner answers 2026-11-07)
+KEEP_EQUIPMENT = {"Dumbbell", "Gym mat", "none (bodyweight exercise)", "Bench", "Incline bench"}
+LOCAL_EQUIPMENT = ["Treadmill", "Finger stretcher", "Strap", "Towel", "Pillow", "Door frame", "Wall"]
+
+
+def add_rows(fake, table, names, **extra):
+    for i, n in enumerate(names, 200 + len(fake.t[table])):
+        fake.t[table][i] = {"id": i, "name": n, **extra}
+
+
+def test_sidecar_uses_only_the_household_equipment():
+    used = {e for v in gw.load_sidecar().values() for e in v["equipment"]}
+    assert used <= KEEP_EQUIPMENT | set(LOCAL_EQUIPMENT), used - KEEP_EQUIPMENT - set(LOCAL_EQUIPMENT)
+    assert set(LOCAL_EQUIPMENT) <= used                               # every local row is used by a slug
+
+
+def test_local_equipment_rows_link_per_slug(guide, fake):
+    add_rows(fake, "equipment", LOCAL_EQUIPMENT)
+    assert run(guide, "--apply") == 0
+    eq = {e["name"]: e["id"] for e in fake.t["equipment"].values()}
+    by = by_slug(fake)
+
+    def names(slug):
+        return sorted(n for n, i in eq.items() if i in fake.t["exercise"][by[slug]["exercise"]]["equipment"])
+    assert names("finger-ext") == ["Finger stretcher"]
+    assert names("pt-hamstring") == ["Gym mat", "Strap"]
+    assert names("towel-wring") == ["Towel"]
+    assert names("adductor") == ["Gym mat", "Pillow"]
+    assert names("flex-doorway-chest") == ["Door frame"]
+    assert names("wall-sit") == ["Wall"]
+    assert names("treadmill-walk") == ["Treadmill"]
+
+
+def test_custom_muscles_left_out_until_created_then_linked(guide, fake, capsys):
+    assert run(guide, "--apply") == 0
+    err = capsys.readouterr().err
+    for n in gw.CUSTOM_MUSCLES:
+        assert err.count(f"wger has no muscle {n!r}") == 1, n
+    by = by_slug(fake)
+    glides = fake.t["exercise"][by["hand-glides"]["exercise"]]
+    assert glides["muscles"] == [] and glides["muscles_secondary"] == []
+    assert by["hand-glides"]["description_source"].startswith("Moves the finger tendons")
+    assert by["wrist-curl"]["description_source"].startswith("Works the forearm flexors; also the brachialis.")
+    fake.t["muscle"][90] = {"id": 90, "name": "Forearm flexors", "name_en": "Forearm flexors"}   # step 13a
+    assert run(guide, "--check") == 1
+    assert run(guide, "--apply", "--person", "jmack") == 0
+    assert glides["muscles"] == [90] and glides["muscles_secondary"] == []      # Hand intrinsics still missing
+    wc = fake.t["exercise"][by["wrist-curl"]["exercise"]]
+    assert wc["muscles"] == [90] and wc["muscles_secondary"] == muscle_ids(fake, ["Brachialis"])
+    fake.writes.clear()
+    assert run(guide, "--apply") == 0 and fake.writes == []
+
+
+def test_muscle_typo_is_an_error_at_run_time(guide, fake, monkeypatch, capsys):
+    side = gw.load_sidecar()
+    side["rdl"] = {**side["rdl"], "muscles": ["Hamstring"]}
+    monkeypatch.setattr(gw, "load_sidecar", lambda path=gw.SIDECAR, known=None: side)
+    assert run(guide, "--apply") == 2
+    assert "wger has no muscle 'Hamstring' (for rdl)" in capsys.readouterr().err

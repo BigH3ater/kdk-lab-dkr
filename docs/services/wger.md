@@ -27,7 +27,9 @@ from the workout catalog + the guide output (runbook step 9). Muscles and equipm
 exercise come from `tools/wger_exercises.json`; the description follows one template
 (what it works, dose per weekday, how, safety) with the generator's marker hidden in an
 HTML comment; images are the per-step photos (`ex-<slug>-step<N>.png`, step 1 main) or
-the poster. The equipment list is trimmed to what the house owns (runbook step 12).
+the poster. The equipment list is trimmed to what the house owns plus local prop rows (runbook
+step 12); five local muscles cover hands, forearms, adductors and shins (step 13; the app
+lists them by name and never colours them on the map).
 
 **Related:** [[dashboard]] · [[identity]] · [[traefik]] · [[backups]] · runbook [wger](../runbooks/wger.md)
 
@@ -112,7 +114,9 @@ ls -t /mnt/backup/dkr/kdk-dkr-01/pgdump/wger-*.sql.gz | head -3                 
 | Barbell, Kettlebell etc. back in the equipment filter | someone ran `sync-exercises` (or turned `SYNC_EXERCISES_CELERY` back on); its equipment step re-creates every wger.de row | runbook step 12 again (idempotent) |
 | A `kdk:…` line shows under an exercise's description in the app | the exercise still has the pre-2026-11-07 plain-text marker | runbook step 9 `--apply` (rewrites every description with the marker in an HTML comment) |
 | An exercise's body map is empty | its slug has no muscles in `tools/wger_exercises.json` (hands, forearms, adductors, shins, hip flexors have no wger muscle; by design) or the exercise was not re-applied | check the slug's line; runbook step 9 `--apply` |
-| `gen_wger.py` warns `wger has no equipment 'Treadmill'` | step 12 not run yet | runbook step 12, then step 9 `--apply` |
+| `gen_wger.py` warns `wger has no equipment '…'` | step 12 (local rows Treadmill, Finger stretcher, Strap, Towel, Pillow, Door frame, Wall) not run yet | runbook step 12, then step 9 `--apply` |
+| `gen_wger.py` warns `wger has no muscle '…'` | the custom muscles (Forearm flexors/extensors, Hand intrinsics, Adductors, Tibialis anterior) are not created yet | runbook step 13 (staged: one muscle, phone check, then the rest) |
+| A custom muscle is listed under the map but not coloured | by design: the app colours only the 16 built-in muscle ids (bundled SVGs) | none |
 | `gen_wger.py --check` exits 1 | the catalog/guide changed since the last load, someone edited the routine in the app, or the 17-week window ends within 28 days | run it without `--check` to read the differences, then `--apply` (runbook step 9) |
 | `gen_wger.py` prints an ADMIN STEP | a repetition unit it needs (`10-ft lengths`) does not exist; REST cannot create units | run the printed `manage.py shell` one-liner on kdk-dkr-01, then re-run |
 | `gen_wger.py`: HTTP 403 on `exercise/` | jmack is not a wger superuser (exercise writes need a trusted account) | runbook step 7 |

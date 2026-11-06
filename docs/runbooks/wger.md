@@ -240,9 +240,10 @@ same catalog as the HA helpers (`tools/workout_catalog.json`) and the guide outp
   global, so they are written once, with **jmack's** key (superuser from step 7:
   trusted, and exempt from the 20-per-hour exercise-create limit);
 - muscles (primary = red, secondary = orange on the app's body map) and equipment come
-  from `tools/wger_exercises.json`, one line per slug. Hands, forearms, adductors, shins
-  and hip flexors have no wger muscle: those keep an empty map (loaded forearm work
-  lights Brachialis as secondary) and the description names the area instead;
+  from `tools/wger_exercises.json`, one line per slug. Hands, forearms, adductors and shins
+  have no built-in wger muscle: the sidecar names five local muscles for them (step 13).
+  The app lists those by name and never colours them; loaded forearm work also lights
+  Brachialis as secondary;
 - the description follows one template: what it works (or stretches), **Dose** as one
   bullet per weekday group (`Mon, Thu, Sat: 2 × 15–30 / leg`, `Every day: …`), **How**
   (the guide's cues), **Safety** (one line). The idempotency marker
@@ -285,11 +286,11 @@ The keys travel in the environment only; the script reads `WGER_API_KEY_<LOGIN>`
 takes no key on the command line (the curl below reads its header from stdin for the
 same reason). The first dry run lists about 1,200 writes (57
 exercises + images, two routines of ~100 slots each). On the install loaded before the
-template change (2026-11-06) the dry run lists about 104 writes for jmack: 57
-description PATCHes (new template, marker moved into the comment) and ~47 exercise
-PATCHes (muscles; treadmill equipment), no image uploads until step photos exist.
-Run step 12 first, or `treadmill-walk` warns that wger has no `Treadmill` and goes
-without an equipment chip until it exists.
+template change (2026-11-06) the dry run listed 106 writes for jmack (2026-11-07,
+before steps 12 and 13): 57 description PATCHes (new template, marker moved into the
+comment) and 49 exercise PATCHes (muscles, equipment). There are no image uploads until
+step photos exist. Run step 12 (and step 13) first: until then the dry run warns
+`wger has no equipment …` / `wger has no muscle …` and leaves those out.
 
 If the dry run printed an **ADMIN STEP** for the `10-ft lengths` unit (the REST API
 cannot create units; a fresh wger has Repetitions, Seconds, Minutes, Miles, Kilometers,
@@ -391,14 +392,15 @@ No Pushover from `backup-verify` that morning means the wger dump passed its che
 ## 12. Household equipment list (admin, once; after the merge that turned the sync off)
 
 wger's equipment rows are global and admin-only (the REST API cannot add or delete
-them). This trims the list to what the house owns, adds `Treadmill`, and rebuilds the
-exercise API cache. Deleting a row only removes it from the upstream exercises that
+them). This trims the list to what the house owns, adds local rows for the props the
+plan uses (`Treadmill`, `Finger stretcher`, `Strap`, `Towel`, `Pillow`, `Door frame`,
+`Wall`; they show as chips), and rebuilds the exercise API cache. Deleting a row only removes it from the upstream exercises that
 listed it (about 160 links for the set below, counted 2026-11-06); no exercise is deleted. It is idempotent.
 
-The `DROP` and `ADD` lists below are the proposal; confirm them with the owner first
-(open questions on the vault note `1. Projects/exercise/wger-exercise-template-2026-11-06`):
-keep `Bench` and `Incline bench` only if the adjustable weight bench drawn in ten
-posters is real, keep `Resistance band` only if one is owned.
+The lists are the owner's (2026-11-07): keep Dumbbell, Gym mat, none (bodyweight),
+Bench and Incline bench (the Bowflex adjustable bench; upstream exercises link to them
+too), add the local rows, delete the seven rows nothing here uses. `Wall` is for the
+three slugs that cannot be done without one (wall sit, tibialis raise, legs up the wall).
 
 Check first that the sync is off (it would bring the rows back within a week):
 
@@ -418,25 +420,94 @@ H=kdkadmin@10.1.20.20
 printf '%s\n' \
   "from wger.exercises.models import Equipment, Exercise" \
   "DROP = ['Barbell', 'Cable machine', 'Kettlebell', 'Pull-up bar', 'SZ-Bar', 'Swiss Ball', 'Resistance band']" \
-  "ADD = ['Treadmill']" \
+  "ADD = ['Treadmill', 'Finger stretcher', 'Strap', 'Towel', 'Pillow', 'Door frame', 'Wall']" \
   "for n in ADD: print('add', n, Equipment.objects.get_or_create(name=n)[1])" \
   "for e in Equipment.objects.filter(name__in=DROP): print('delete', e.id, e.name, Exercise.objects.filter(equipment=e).count(), 'links', e.delete()[0])" \
   "print(sorted(Equipment.objects.values_list('name', flat=True)))" \
   | ssh $H 'sudo docker exec -i wger-web python3 manage.py shell'
-# first run: "add Treadmill True", one "delete ..." line per dropped row, then the list:
-# ['Bench', 'Dumbbell', 'Gym mat', 'Incline bench', 'Treadmill', 'none (bodyweight exercise)']
-# second run: "add Treadmill False", no delete lines, same list
+# first run: "add <name> True" x7, one "delete ..." line per dropped row (7), then the list:
+# ['Bench', 'Door frame', 'Dumbbell', 'Finger stretcher', 'Gym mat', 'Incline bench', 'Pillow',
+#  'Strap', 'Towel', 'Treadmill', 'Wall', 'none (bodyweight exercise)']
+# second run: "add <name> False" x7, no delete lines, same list
 ssh $H 'sudo docker exec wger-web python3 manage.py warmup-exercise-api-cache --force'
 curl -s 'https://wger.kmkdp.com/api/v2/equipment/?limit=50' | python3 -c 'import json,sys; print(sorted(e["name"] for e in json.load(sys.stdin)["results"]))'
 ```
 
-Then re-run step 9's `--apply` so `treadmill-walk` picks up the new row, and pull to
-refresh the exercise list in the app (Exercises → filter: only the kept equipment).
+Then re-run step 9's `--apply` so the slugs pick up the new rows (the dry run's
+`wger has no equipment …` warnings are gone), and pull to refresh the exercise list in
+the app (Exercises → filter: only the kept equipment).
 
 To undo: `sudo docker exec wger-celery-worker python3 manage.py sync-exercises` on
 kdk-dkr-01 re-creates the wger.de rows with their original ids and re-links the
-upstream exercises; delete `Treadmill` in the Django admin
-(`/admin/exercises/equipment/`) if it should go too.
+upstream exercises; delete the local rows in the Django admin
+(`/admin/exercises/equipment/`) if they should go too.
+
+## 13. Custom muscles (admin, staged; after step 12)
+
+wger's 16 built-in muscles have no hands, forearms, adductors or shins.
+`tools/wger_exercises.json` already names five local muscles for those slugs:
+
+| Muscle | `is_front` | Used by |
+|---|---|---|
+| Forearm flexors | True | wrist curl, towel wring, farmer (secondary), tendon glides, wrist flexor + prayer stretches |
+| Forearm extensors | False | reverse wrist curl, towel wring, finger extension, wrist extensor + reverse prayer stretches |
+| Hand intrinsics | True | warm-up, tendon glides, finger extension (secondary), thumb opposition |
+| Adductors | True | adductor squeeze |
+| Tibialis anterior | True | tibialis raise |
+
+Until a row exists, `gen_wger.py` warns `wger has no muscle …` and leaves it out. A
+name that is neither on the server nor in that list is a typo and stops the run.
+
+**Limit: a custom muscle is listed by name under the app's body map and never
+coloured.** The app draws the map from SVGs bundled per built-in muscle id, so a new id
+has no drawing. A missing drawing could also break the map on that exercise. So create
+**one** muscle first and check it on a phone before adding the rest.
+
+**13a. One muscle. Laptop → kdk-dkr-01**
+
+```bash
+H=kdkadmin@10.1.20.20
+printf '%s\n' \
+  "from wger.exercises.models import Muscle" \
+  "print(Muscle.objects.get_or_create(name='Forearm flexors', defaults={'name_en': 'Forearm flexors', 'is_front': True}))" \
+  | ssh $H 'sudo docker exec -i wger-web python3 manage.py shell'
+# (<Muscle: Forearm flexors>, True) the first time, False after
+ssh $H 'sudo docker exec wger-web python3 manage.py warmup-exercise-api-cache --force'
+```
+
+Then step 9 with `--person jmack` (dry run, then `--apply`): it links Forearm flexors
+to its slugs. On jmack's phone, pull to refresh, then open two exercises:
+
+- **Tendon glides**: the body map still draws (an empty figure), and "Forearm flexors" is listed under the red key.
+- **Wrist Curl**: brachialis is still orange on the map, and "Forearm flexors" is listed.
+
+If both are fine, go to 13b. If the map is blank, the page errors, or the app crashes:
+delete the row, re-apply, and drop the custom names from the sidecar in a follow-up PR.
+
+**Laptop → kdk-dkr-01 (only if 13a failed)**
+
+```bash
+H=kdkadmin@10.1.20.20
+printf '%s\n' \
+  "from wger.exercises.models import Muscle" \
+  "print(Muscle.objects.filter(name='Forearm flexors').delete())" \
+  | ssh $H 'sudo docker exec -i wger-web python3 manage.py shell'
+ssh $H 'sudo docker exec wger-web python3 manage.py warmup-exercise-api-cache --force'
+```
+
+**13b. The other four (only after 13a passed). Laptop → kdk-dkr-01**
+
+```bash
+H=kdkadmin@10.1.20.20
+printf '%s\n' \
+  "from wger.exercises.models import Muscle" \
+  "for n, f in [('Forearm extensors', False), ('Hand intrinsics', True), ('Adductors', True), ('Tibialis anterior', True)]: print(Muscle.objects.get_or_create(name=n, defaults={'name_en': n, 'is_front': f}))" \
+  | ssh $H 'sudo docker exec -i wger-web python3 manage.py shell'
+ssh $H 'sudo docker exec wger-web python3 manage.py warmup-exercise-api-cache --force'
+```
+
+Then run step 9 in full (`--apply`, `--apply` again to see 0 writes, then `--check`). The
+`wger has no muscle` warnings should be gone.
 
 ## Rollback
 
