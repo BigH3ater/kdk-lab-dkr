@@ -24,7 +24,8 @@
 #
 # Header-auth trust chain: Traefik -> nginx -> gunicorn. gunicorn's REMOTE_ADDR is
 # nginx, so AUTH_PROXY_TRUSTED_IPS is nginx's pinned backend address (10.208.200.10),
-# and nginx forwards Remote-* only for requests from the Traefik side (nginx.conf geo).
+# and nginx forwards Remote-* only for requests from the Traefik `proxy` network
+# (10.208.15.0/24, nginx.conf geo): the trust boundary is the proxy network.
 #
 # Secrets: .env rendered from .env.tpl by the Komodo pre_deploy (op inject, kdk-cluster
 # vault). Values reach each service by ${VAR} interpolation below, never env_file, so

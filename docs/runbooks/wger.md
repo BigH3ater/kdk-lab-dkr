@@ -13,18 +13,31 @@ Hosts: kdk-dkr-01 = `10.1.20.20` (user `kdkadmin`). 1Password vault `kdk-cluster
 
 ## 0. Before merge: probes (read-only)
 
+**Checked 2026-11-06 09:50 on kdk-dkr-01; skip this step unless the lab changed since:**
+
+| Probe | Result |
+|---|---|
+| Memory | 48 GB RAM, 39 GB available (the stack's limits add up to about 3.9 GiB) |
+| Disk | 432 GB free under `/opt/kdk-lab` |
+| `proxy` network | `10.208.15.0/24` (= the `geo` line in `stacks/wger/nginx.conf`) |
+| Other kdk-dkr-01 networks noted | `proxy_sockproxy` 10.208.32.0/24, `bridge` 10.208.0.0/24 |
+| `10.208.200.0/24` | not used by any docker network (free for `wger_backend`) |
+
+To re-check:
+
 **Laptop → kdk-dkr-01**
 
 ```bash
 H=kdkadmin@10.1.20.20
 # 10.208.200.0/24 must be free (the stack pins it); prints nothing when free
 ssh $H 'for n in $(sudo docker network ls -q); do sudo docker network inspect $n --format "{{.Name}} {{range .IPAM.Config}}{{.Subnet}}{{end}}"; done' | grep '10\.208\.200\.'
-# Traefik's proxy network must sit inside 10.208.0.0/16 (nginx.conf geo block)
+# Traefik's proxy network must equal the geo line in nginx.conf (10.208.15.0/24)
 ssh $H 'sudo docker network inspect proxy --format "{{range .IPAM.Config}}{{.Subnet}}{{end}}"'
 # memory headroom: the stack's limits add up to about 3.9 GiB (typical use is far lower)
-ssh $H 'free -h | head -2'
+ssh $H 'free -h | head -2; df -h /opt/kdk-lab | tail -1'
 ```
 
+If the `proxy` subnet differs, change the `geo` line in `stacks/wger/nginx.conf`.
 If 10.208.200.0/24 is taken, change it in `stacks/wger/compose.yaml` (network subnet,
 nginx `ipv4_address`, `AUTH_PROXY_TRUSTED_IPS`) and `stacks/wger/nginx.conf` (`geo`)
 before merging.

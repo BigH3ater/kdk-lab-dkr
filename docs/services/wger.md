@@ -61,10 +61,13 @@ wger: AUTH_PROXY_HEADER=HTTP_REMOTE_USER, trusted IP = nginx; acts ONLY on /user
 - **Header spoofing**: Traefik deletes client-sent `Remote-User`, `Remote-Email`,
   `Remote-Name`, `Remote-Groups` on both routers (`wger-strip-remote`) before
   forward-auth sets them from Authelia. nginx forwards them only for requests from the
-  Traefik side (`geo` on 10.208.0.0/16 minus the stack's own 10.208.200.0/24), and wger
-  only trusts them from nginx's fixed address. A container on the shared `proxy`
-  network could still talk to nginx directly; that is the same trust every
-  forward-auth app on this host has.
+  Traefik `proxy` network (`geo` 10.208.15.0/24, checked 2026-11-06; never the rest of
+  the host's 10.208.0.0/16 pool or the stack's own 10.208.200.0/24), and wger only
+  trusts them from nginx's fixed address. **The trust boundary is the `proxy`
+  network**: a container attached to it could talk to nginx directly and set
+  `Remote-User`. That is the same exposure class as the other header-auth apps behind
+  this Traefik, and no wider: containers of other stacks that are not on `proxy`
+  cannot forge it.
 
 ## Verify
 
@@ -90,7 +93,7 @@ ls -t /mnt/backup/dkr/kdk-dkr-01/pgdump/wger-*.sql.gz | head -3                 
 | Symptom | Cause | Fix |
 |---|---|---|
 | A wger container restart-loops with `Read-only file system` | the image writes a path the compose file does not mount as tmpfs (read_only was not runtime-tested before the first deploy) | add the path to that service's `tmpfs:`; if it is the app tree itself, `kdk.baseline.skip: "read_only"` with the error in a comment. Same PR, regenerate nothing else |
-| Web login loops back to the wger login form | wger did not accept the header: `AUTH_PROXY_TRUSTED_IPS` ≠ nginx's address, or nginx did not forward `Remote-User` | `sudo docker logs wger-web 2>&1 \| grep -i AuthProxy` (warns on an untrusted IP); `sudo docker inspect wger-nginx --format '{{(index .NetworkSettings.Networks "wger_backend").IPAddress}}'` must be `10.208.200.10`; check Traefik's `proxy` subnet is inside 10.208.0.0/16 |
+| Web login loops back to the wger login form | wger did not accept the header: `AUTH_PROXY_TRUSTED_IPS` ≠ nginx's address, or nginx did not forward `Remote-User` | `sudo docker logs wger-web 2>&1 \| grep -i AuthProxy` (warns on an untrusted IP); `sudo docker inspect wger-nginx --format '{{(index .NetworkSettings.Networks "wger_backend").IPAddress}}'` must be `10.208.200.10`; Traefik's `proxy` subnet must equal the `geo` line in `nginx.conf` (10.208.15.0/24): `sudo docker network inspect proxy --format '{{range .IPAM.Config}}{{.Subnet}}{{end}}'`. If the proxy network was recreated on another /24, update `nginx.conf` (fails closed until then) |
 | 403 from Authelia after login | the person is not in `dashboard-users`, or Authelia has not reloaded the new rule | LLDAP group; `docker inspect authelia --format '{{index .Config.Labels "kdk.config-sha"}}'` on the DMZ, else `RestartStack identity services=[authelia]` |
 | CSRF failure on a form | origin not trusted | `CSRF_TRUSTED_ORIGINS=https://wger.kmkdp.com` and `X_FORWARDED_PROTO_HEADER_SET=True` (compose) |
 | App: offline mode / sync never finishes | PowerSync storage not bootstrapped, or `/ps/` not reachable | runbook step 5 (`setup-powersync-storage`); `sudo docker logs wger-powersync --since 10m`; `curl -s -o /dev/null -w '%{http_code}\n' https://wger.kmkdp.com/ps/probes/liveness` (PowerSync's probe path; expect 200) |
