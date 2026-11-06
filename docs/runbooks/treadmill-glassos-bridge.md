@@ -1,6 +1,6 @@
 ---
 title: Treadmill → Home Assistant (GlassOS/DIRCON bridge)
-updated: 2026-11-05
+updated: 2026-11-06
 ---
 
 # Treadmill → Home Assistant (GlassOS/DIRCON bridge)
@@ -294,7 +294,19 @@ It needs one host secret and two console profiles.
    automation trace). The speed-based session automations then attribute the
    walk's distance/time/calories to that walker.
 
+   Distance credited is the session's tracked distance
+   (`input_number.tm_session_peak_distance`, metres), not the raw counter at the
+   end: the console zeroes `sensor.treadmill_distance` about 4 s after the belt
+   stops, 2 minutes before the END automation runs.
+
 ## Troubleshooting
+
+- **A walk was credited 0 m (or wger says "distance not reported")** — the
+  tracker did not see the counter rise during the session. Check the trace of
+  `Treadmill: track session distance` (it must run while
+  `input_boolean.tm_session_active` is on) and the history of
+  `sensor.treadmill_distance` for that walk; a session opened before the
+  tracker deployed falls back to the raw delta, which the reset makes 0.
 
 - **Device shows unavailable in HA** — the bridge publishes
   `kdk/treadmill/status = offline` when the DIRCON socket drops (console reboot,
