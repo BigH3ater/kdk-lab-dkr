@@ -1,0 +1,176 @@
+---
+title: wger
+host: kdk-dkr-01
+stack: wger
+tier: internal
+status: pilot
+storage: yes
+secrets: [wger-secret-key, wger-postgres, wger-powersync-storage, wger-jwt-keys, wger-admin, wger-api-jmack, wger-api-rach]
+updated: 2026-11-06
+tags: [homelab/stack, tier/internal, status/pilot]
+---
+
+# wger (wger.kmkdp.com)
+
+Self-hosted [wger](https://wger.de) workout manager: routines pinned to weekdays,
+per-set logs (weight, reps, seconds, minutes, lengths), history and stats, for both
+people. Used from the **wger iOS app** (App Store, "Self-hosted" server) with offline
+logging through **PowerSync**, and from the web UI. It is **Track A** of the
+exercise-tracking pilot; the in-house `/workout/` page on home.kmkdp.com is Track B and
+stays as it is until the owner's decision after two weeks of parallel use.
+
+LAN + Tailscale only on **kdk-dkr-01**: no DMZ, no Cloudflare tunnel. Health content
+(doses, pain notes) stays in the vault; wger holds the routine and the logs.
+
+**Related:** [[dashboard]] · [[identity]] · [[traefik]] · [[backups]] · runbook [wger](../runbooks/wger.md)
+
+## At a glance
+
+| Field | Value |
+|---|---|
+| Purpose | Workout routines + per-set logs + history for jmack and rach, iOS app with offline sync |
+| Host | [[kdk-dkr-01]] |
+| Endpoint | `https://wger.kmkdp.com` (internal Traefik). Off the LAN: Tailscale (subnet router advertises 10.1.20.0/24; tailnet DNS resolves `*.kmkdp.com` split-horizon) |
+| Images | `wger/server:2.7.0` (web, celery_worker, celery_beat), `nginx:1.31.8-alpine`, `postgres:18.6-alpine`, `redis:8.10.3-alpine`, `journeyapps/powersync-service:1.28.1`; all digest-pinned, Renovate-tracked |
+| Upstream | `wger-project/docker` production compose at commit `bd7851e2` (2026-10-24), adapted to the [compose baseline](../reference/compose-baseline.md) |
+| Deploy | Komodo stack `wger` (`deploy = true`, webhook; `pre_deploy` creates the bind dirs, `op inject`s `.env`, appends the nginx/PowerSync config SHAs) |
+| Storage | `/opt/kdk-lab/wger/postgres` (Postgres 18), `/opt/kdk-lab/wger/media` (exercise images, uploads), `/opt/kdk-lab/wger/static` (collectstatic output, regenerable), `/opt/kdk-lab/wger/beat` (Celery beat schedule) |
+| Backup | `pgdump-wger` in `backup-dkr-01`: nightly `wger-YYYY-MM-DD.sql.gz` (keeps 15) in `/mnt/backup/dkr/kdk-dkr-01/pgdump/`, PowerSync's `powersync` schema excluded (derived). `wger/postgres` and `wger/static` are excluded from the rsync; `media` and `beat` ride it. `backup-verify` pages if today's dump is missing or corrupt |
+| Blast radius | No workout logging in the app or web (the `/workout/` page is independent) |
+
+## Auth model
+
+```
+phone / browser ──https──▶ Traefik (10.1.20.20:443)
+   router wger       Host(wger.kmkdp.com)                → wger-strip-remote → forwardauth@file (Authelia two_factor, group dashboard-users) → nginx
+   router wger-open  … && PathPrefix /api/ /static/ /media/ /ps/ → wger-strip-remote (no forward-auth)               → nginx
+nginx (10.208.200.10) ── Remote-User/-Email/-Name only if the request came from the proxy network ──▶ gunicorn (web:8000)
+wger: AUTH_PROXY_HEADER=HTTP_REMOTE_USER, trusted IP = nginx; acts ONLY on /user/login → logs in (creates) the Authelia user
+```
+
+- **Web**: open `https://wger.kmkdp.com` → Authelia (password + 2FA) → wger logs you in
+  as your Authelia username (`jmack`, `rach`); the account is created on first visit.
+  Registration and guest users are off, mail is off.
+- **iOS app**: the login opens the system browser on `/user/app-auth/`, which is behind
+  Authelia, so 2FA applies; wger then hands the app a token (`wger://app-auth#token=…`).
+  After that the app uses `/api/` with its token and `/ps/` (PowerSync) with a
+  short-lived JWT, both outside forward-auth.
+- **`/api/` is not behind Authelia.** It needs a wger token, a JWT or a wger password.
+  Header-created users have no usable wger password; the only password account is the
+  break-glass `admin` (1Password `wger-admin`, set in runbook step 4).
+- **Header spoofing**: Traefik deletes client-sent `Remote-User`, `Remote-Email`,
+  `Remote-Name`, `Remote-Groups` on both routers (`wger-strip-remote`) before
+  forward-auth sets them from Authelia. nginx forwards them only for requests from the
+  Traefik side (`geo` on 10.208.0.0/16 minus the stack's own 10.208.200.0/24), and wger
+  only trusts them from nginx's fixed address. A container on the shared `proxy`
+  network could still talk to nginx directly; that is the same trust every
+  forward-auth app on this host has.
+
+## Verify
+
+**Laptop (LAN or tailnet)**
+
+```bash
+curl -s -o /dev/null -w '%{http_code}\n' https://wger.kmkdp.com/                       # 302 (to sso.kmkdp.com)
+curl -s https://wger.kmkdp.com/api/v2/version/                                          # "2.7.0" (no Authelia on /api/)
+curl -s -o /dev/null -w '%{http_code}\n' https://wger.kmkdp.com/static/                  # 403/404 from nginx (no index), not a 302 to sso
+curl -s -o /dev/null -w '%{http_code}\n' -H 'Remote-User: jmack' https://wger.kmkdp.com/en/user/login   # 302 to sso (header stripped, not a login)
+```
+
+**kdk-dkr-01 (`ssh kdkadmin@10.1.20.20`)**
+
+```bash
+sudo docker ps --filter label=com.docker.compose.project=wger --format '{{.Names}}\t{{.Status}}'   # 7 x "Up ... (healthy)"
+sudo docker network inspect wger_backend --format '{{range .IPAM.Config}}{{.Subnet}}{{end}}'       # 10.208.200.0/24
+ls -t /mnt/backup/dkr/kdk-dkr-01/pgdump/wger-*.sql.gz | head -3                                    # dated dumps after the first night
+```
+
+## Troubleshooting
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| A wger container restart-loops with `Read-only file system` | the image writes a path the compose file does not mount as tmpfs (read_only was not runtime-tested before the first deploy) | add the path to that service's `tmpfs:`; if it is the app tree itself, `kdk.baseline.skip: "read_only"` with the error in a comment. Same PR, regenerate nothing else |
+| Web login loops back to the wger login form | wger did not accept the header: `AUTH_PROXY_TRUSTED_IPS` ≠ nginx's address, or nginx did not forward `Remote-User` | `sudo docker logs wger-web 2>&1 \| grep -i AuthProxy` (warns on an untrusted IP); `sudo docker inspect wger-nginx --format '{{(index .NetworkSettings.Networks "wger_backend").IPAddress}}'` must be `10.208.200.10`; check Traefik's `proxy` subnet is inside 10.208.0.0/16 |
+| 403 from Authelia after login | the person is not in `dashboard-users`, or Authelia has not reloaded the new rule | LLDAP group; `docker inspect authelia --format '{{index .Config.Labels "kdk.config-sha"}}'` on the DMZ, else `RestartStack identity services=[authelia]` |
+| CSRF failure on a form | origin not trusted | `CSRF_TRUSTED_ORIGINS=https://wger.kmkdp.com` and `X_FORWARDED_PROTO_HEADER_SET=True` (compose) |
+| App: offline mode / sync never finishes | PowerSync storage not bootstrapped, or `/ps/` not reachable | runbook step 5 (`setup-powersync-storage`); `sudo docker logs wger-powersync --since 10m`; `curl -s -o /dev/null -w '%{http_code}\n' https://wger.kmkdp.com/ps/probes/liveness` (PowerSync's probe path; expect 200) |
+| Exercise list empty | the weekly Celery sync has not run yet | runbook step 6 (one manual `sync-exercises`) |
+| Deploy fails `Pool overlaps with other one on this address space` | another network already took 10.208.200.0/24 | pick a free /24 in 10.208.0.0/16, change it in `compose.yaml` (network + nginx `ipv4_address` + `AUTH_PROXY_TRUSTED_IPS`) and `nginx.conf` (`geo`), one PR |
+| Nightly `backup-dkr-01` fails with `network wger_backend not found` | the wger stack is down or was destroyed | deploy `wger` again; until then the whole dkr-01 stage is blocked (the pgdump job joins the network) |
+| Lockout after failed logins (django-axes) | 10 failures from one client IP | wait 30 min, or `sudo docker exec wger-web python3 manage.py axes_reset` |
+
+## Dependencies
+
+| Needs | Why |
+|---|---|
+| [[traefik]] (`proxy` stack, `forwardauth@file`) | ingress + Authelia hand-off |
+| [[identity]] (Authelia rule `wger.kmkdp.com`, group `dashboard-users`) | web + app login |
+| [[op-connect]] | `op inject` in the pre_deploy |
+| `wger.de` (internet egress from web + celery_worker) | weekly exercise/image sync (optional; the app works without it) |
+| [[backups]] (`backup-dkr-01` joins `wger_backend`) | nightly dump |
+
+## Observability
+
+Container logs go to Loki through Alloy (`{container="wger-web"}`, `wger-nginx`,
+`wger-powersync`, `wger-celery-worker`). Traefik's access log covers the requests.
+No Prometheus scrape (wger metrics and PowerSync's `:9090` are not exposed).
+
+## Architecture
+
+Seven containers on two stack networks plus `proxy`:
+
+| Service | Image | Networks | Writes | read_only |
+|---|---|---|---|---|
+| `web` (gunicorn) | wger/server | backend, egress | `/home/wger/static`, `/home/wger/media` (binds), `/tmp` | yes + tmpfs `/tmp`, `/home/wger/.cache` (not runtime-tested) |
+| `nginx` | nginx alpine | backend (10.208.200.10), proxy | `/var/cache/nginx`, `/run`, `/tmp` | yes + tmpfs (not runtime-tested) |
+| `db` | postgres 18 alpine | backend | PGDATA bind | yes + tmpfs `/tmp`, `/var/run/postgresql` (baseline recipe) |
+| `cache` | redis 8 alpine | backend | nothing (no persistence) | yes |
+| `celery_worker` | wger/server | backend, egress | `/home/wger/media` | yes (not runtime-tested) |
+| `celery_beat` | wger/server | backend | `/home/wger/beat` | yes (not runtime-tested) |
+| `powersync` | journeyapps/powersync-service | backend | its storage lives in Postgres | yes (not runtime-tested) |
+
+`wger_backend` is `internal: true` (no route out) and pinned to 10.208.200.0/24 so
+nginx has a fixed address for the header trust. `egress` is pool-assigned and only web
++ celery_worker join it. PowerSync replicates from Postgres (`wal_level=logical`,
+publication `powersync` from the wger migrations) into the `powersync` schema owned by
+the `powersync_storage` role, and checks the app's JWT against wger's JWKS on the
+backend network.
+
+Not taken from upstream: the published port 80 (Traefik reaches nginx on `proxy`),
+the redis.conf file (command-line flags instead, no persistence), the JSON nginx access
+log, video sync/upload and the ingredient dump (nutrition is a later phase).
+
+## Configuration
+
+| Path / setting | What it is |
+|---|---|
+| `stacks/wger/compose.yaml` | services, env (non-secret settings in the `x-wger-env` anchor), Traefik labels |
+| `stacks/wger/nginx.conf` | upstream nginx config + the Remote-* gate + `/nginx-health`; recreated on change via `kdk.config-sha` |
+| `stacks/wger/powersync/` | `powersync.yaml` (adapted) + `sync_rules.yaml` (vendored verbatim, re-copy on a wger minor bump) |
+| `stacks/wger/.env.tpl` | op refs for the six secrets below |
+| `AUTH_PROXY_TRUSTED_IPS=10.208.200.10` | nginx's pinned address; keep in sync with `ipv4_address` and the `geo` block |
+| `MIN_ACCOUNT_AGE_TO_TRUST=0` | lets new accounts add custom exercises at once (upstream 21 days) |
+| `SYNC_INGREDIENTS_CELERY=False`, `DOWNLOAD_INGREDIENTS_FROM=None` | no ingredient dump until the nutrition phase |
+
+## Secret Rotation
+
+All items in `kdk-cluster`, field `password` unless named.
+
+| Secret (1P item) | Used for | Class | Rotate live? |
+|---|---|---|---|
+| `wger-secret-key` | Django `SECRET_KEY` (sessions) | 🟢 self-service | new value, Deploy `wger`; everyone logs in again |
+| `wger-postgres` | DB owner `wger`, Django + PowerSync source URI, `pg_dump` | 🟡 attended | `ALTER USER wger PASSWORD` from stdin inside `wger-db`, then Deploy `wger` and `backup-dkr-01`. Letters+digits only (URI) |
+| `wger-powersync-storage` | PowerSync bucket-storage role | 🟢 self-service | new value, Deploy `wger`, re-run `setup-powersync-storage` (it updates the role password) |
+| `wger-jwt-keys` (`public_key`, `private_key`) | signs API JWTs + PowerSync tokens | 🟡 attended | regenerate (runbook step 1), Deploy `wger`; both apps must log in again |
+| `wger-admin` | break-glass Django `admin` | 🟢 self-service | new value, Deploy `wger`, re-run runbook step 4 |
+| `wger-api-jmack`, `wger-api-rach` | per-person REST API keys (A3 treadmill auto-log, A4 cards) | 🟢 self-service | regenerate on the person's API-key page, `op item edit` from stdin, redeploy the consumer |
+
+## User Guide
+
+- **Web**: `https://wger.kmkdp.com` on the LAN or with Tailscale on. Log in with your
+  usual Authelia account; there is no separate wger password.
+- **iPhone (wger app)**: on the login screen choose the self-hosted server option, enter
+  `https://wger.kmkdp.com`, tap the browser login, sign in through Authelia (password +
+  second factor), and the app opens logged in. Away from home turn Tailscale on first.
+- **Offline**: logging works without a connection; the app syncs through PowerSync when
+  it is back on the LAN or the tailnet.

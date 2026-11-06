@@ -1,0 +1,395 @@
+# wger (workout manager) on kdk-dkr-01 (LAN + Tailscale only, never the tunnel):
+# routines, per-set workout logs and history for both people, used from the wger iOS
+# app ("Self-hosted" server) and the web UI. Pilot Track A of the exercise-tracking plan;
+# /workout/ on home.kmkdp.com stays as it is until the decision gate.
+#
+# Upstream: wger-project/docker docker-compose.yml + services/*.yaml + config/prod.env
+# at commit bd7851e2 (master, 2026-10-24), images pinned to the current releases
+# (server 2.7.0, PowerSync 1.28.1). Same six services as upstream: web (gunicorn),
+# nginx (static/media + /ps/ proxy), db (postgres, wal_level=logical for PowerSync),
+# cache (redis: Django cache + Celery broker), celery_worker, celery_beat, plus powersync
+# (the app's offline sync; upstream ships it in the default compose, not as an option).
+#
+# Reached at https://wger.kmkdp.com through the internal Traefik (stacks/proxy):
+#   * router `wger`       everything else: strip client Remote-* headers -> Authelia
+#                         forward-auth (two_factor, group dashboard-users) -> wger header
+#                         auth at /user/login (AUTH_PROXY_HEADER), user auto-created.
+#   * router `wger-open`  /api/, /static/, /media/, /ps/: strip client Remote-* headers,
+#                         NO forward-auth. The app talks to the REST API with its own
+#                         token/JWT and to PowerSync with a JWT; wger's header auth only
+#                         ever acts on the login page, so these paths cannot log anyone in
+#                         by header.
+# The app's login opens the system browser on /user/app-auth/ (behind Authelia), so
+# Authelia 2FA applies to the phone too. docs/services/wger.md, docs/runbooks/wger.md.
+#
+# Header-auth trust chain: Traefik -> nginx -> gunicorn. gunicorn's REMOTE_ADDR is
+# nginx, so AUTH_PROXY_TRUSTED_IPS is nginx's pinned backend address (10.208.200.10),
+# and nginx forwards Remote-* only for requests from the Traefik side (nginx.conf geo).
+#
+# Secrets: .env rendered from .env.tpl by the Komodo pre_deploy (op inject, kdk-cluster
+# vault). Values reach each service by ${VAR} interpolation below, never env_file, so
+# each container gets only the secrets it uses. Never commit .env.
+#
+# read_only: every service sets it. NOT verified on a running container when this file
+# was written (the builder had no docker daemon); the runbook's first-deploy step checks
+# each service and names the fallback (add the failing path as tmpfs, or a
+# kdk.baseline.skip with the error) per service.
+name: wger
+
+x-hardened: &hardened
+  security_opt: ["no-new-privileges:true"]
+  cap_drop: [ALL]
+  read_only: true
+  tmpfs: [/tmp]
+  restart: unless-stopped
+  pids_limit: 256
+  mem_limit: 512m
+  logging:
+    driver: json-file
+    options: { max-size: "10m", max-file: "3" }
+
+# Non-secret wger settings shared by web + both celery services (same image, same
+# Django settings). Secrets are added per service below.
+x-wger-env: &wger-env
+  TZ: America/Chicago
+  TIME_ZONE: America/Chicago
+  DJANGO_DEBUG: "False"
+  SITE_URL: https://wger.kmkdp.com
+  CSRF_TRUSTED_ORIGINS: https://wger.kmkdp.com
+  X_FORWARDED_PROTO_HEADER_SET: "True"      # trust X-Forwarded-Proto=https from Traefik/nginx
+  MEDIA_URL: https://wger.kmkdp.com/media/  # absolute, so app image links survive the proxies
+  STATIC_URL: https://wger.kmkdp.com/static/
+  # --- accounts: header auth only, no self sign-up, no guests, no mail ---
+  AUTH_PROXY_HEADER: HTTP_REMOTE_USER
+  AUTH_PROXY_USER_EMAIL_HEADER: HTTP_REMOTE_EMAIL
+  AUTH_PROXY_USER_NAME_HEADER: HTTP_REMOTE_NAME
+  AUTH_PROXY_TRUSTED_IPS: 10.208.200.10     # nginx on wger_backend (see networks)
+  AUTH_PROXY_CREATE_UNKNOWN_USER: "True"
+  ALLOW_REGISTRATION: "False"
+  ALLOW_GUEST_USERS: "False"
+  ALLOW_UPLOAD_VIDEOS: "False"
+  # Public-instance spam guard (account age before a user may add/edit exercises).
+  # Two known people here, and A2's generator adds custom exercises from day one.
+  MIN_ACCOUNT_AGE_TO_TRUST: "0"
+  ENABLE_EMAIL: "False"
+  FROM_EMAIL: "wger <wger@kmkdp.com>"
+  WGER_SHOW_APP_STORE_LINKS: "True"
+  # --- exercise catalog from wger.de (weekly celery jobs); videos and the large
+  # ingredient dump off until the nutrition phase ---
+  WGER_INSTANCE: https://wger.de
+  SYNC_EXERCISES_CELERY: "True"
+  SYNC_EXERCISE_IMAGES_CELERY: "True"
+  SYNC_EXERCISE_VIDEOS_CELERY: "False"
+  SYNC_INGREDIENTS_CELERY: "False"
+  DOWNLOAD_INGREDIENTS_FROM: "None"
+  CACHE_API_EXERCISES_CELERY: "True"
+  CACHE_API_EXERCISES_CELERY_FORCE_UPDATE: "True"
+  EXERCISE_CACHE_TTL: "2419200"             # 28 days, upstream default (invalidated on write)
+  USE_CELERY: "True"
+  CELERY_BROKER: redis://cache:6379/2
+  CELERY_BACKEND: redis://cache:6379/2
+  CELERY_WORKER_CONCURRENCY: "2"
+  # --- cache ---
+  DJANGO_CACHE_BACKEND: django_redis.cache.RedisCache
+  DJANGO_CACHE_LOCATION: redis://cache:6379/1
+  DJANGO_CACHE_TIMEOUT: "1296000"
+  DJANGO_CACHE_CLIENT_CLASS: django_redis.client.DefaultClient
+  # --- brute force (django-axes): two proxies (Traefik, nginx) in front of gunicorn.
+  # Upstream: "own reverse proxy in front of the bundled nginx -> X-Forwarded-For with
+  # a count of 1". Traefik overwrites X-Forwarded-For with the client address. ---
+  AXES_ENABLED: "True"
+  AXES_FAILURE_LIMIT: "10"
+  AXES_COOLOFF_TIME: "30"
+  AXES_HANDLER: axes.handlers.cache.AxesCacheHandler
+  AXES_LOCKOUT_PARAMETERS: ip_address
+  AXES_IPWARE_PROXY_COUNT: "1"
+  AXES_IPWARE_META_PRECEDENCE_ORDER: HTTP_X_FORWARDED_FOR,REMOTE_ADDR
+  NUMBER_OF_PROXIES: "2"
+  # --- app server ---
+  DJANGO_PERFORM_MIGRATIONS: "True"
+  DJANGO_COLLECTSTATIC_ON_STARTUP: "True"
+  DJANGO_CLEAR_STATIC_FIRST: "False"
+  WGER_USE_GUNICORN: "True"
+  WGER_PORT: "8000"
+  GUNICORN_CMD_ARGS: "--workers 3 --threads 2 --worker-class gthread --timeout 240"
+  ACCESS_TOKEN_LIFETIME: "10"
+  REFRESH_TOKEN_LIFETIME: "2880"
+  POWERSYNC_URL_PATH: ps                    # app reaches PowerSync at SITE_URL/ps/
+  USE_RECAPTCHA: "False"
+  EXPOSE_PROMETHEUS_METRICS: "False"
+  LOG_LEVEL_PYTHON: INFO
+  # Django DB = the wger database (PowerSync's source URI doubles as Django's DB URL)
+  PS_STORAGE_PG_URI: postgres://powersync_storage:${WGER_POWERSYNC_STORAGE_PASSWORD}@db:5432/wger
+  PS_DATABASE_URI: postgres://wger:${WGER_POSTGRES_PASSWORD}@db:5432/wger
+  SECRET_KEY: ${WGER_SECRET_KEY}
+  JWT_PUBLIC_KEY: ${WGER_JWT_PUBLIC_KEY}
+  JWT_PRIVATE_KEY: ${WGER_JWT_PRIVATE_KEY}
+
+services:
+  web:
+    <<: *hardened
+    image: docker.io/wger/server:2.7.0@sha256:1c5789b93bfe5eed0b7287255782d9177027b255de2b22b59f511a693a48db04
+    container_name: wger-web
+    init: true                 # gunicorn under the entrypoint shell: reap + forward SIGTERM
+    # runs as the image's non-root USER wger (uid 1000 per upstream's volume note);
+    # the pre_deploy creates the bind dirs 1000-owned.
+    tmpfs: [/tmp, /home/wger/.cache]
+    mem_limit: 1g
+    stop_grace_period: 60s     # upstream: let gunicorn finish in-flight requests
+    environment:
+      <<: *wger-env
+      # Break-glass Django admin. bootstrap creates `admin` / `adminadmin` on an empty DB;
+      # the runbook's first step sets this password from 1Password (read from the env
+      # inside the container, never argv).
+      DJANGO_SUPERUSER_USERNAME: admin
+      DJANGO_SUPERUSER_PASSWORD: ${WGER_ADMIN_PASSWORD}
+    volumes:
+      - /opt/kdk-lab/wger/static:/home/wger/static
+      - /opt/kdk-lab/wger/media:/home/wger/media
+    healthcheck:
+      # GET (not --spider/HEAD) on the light version endpoint, as upstream
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "-O", "/dev/null", "http://localhost:8000/api/v2/version/"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 300s       # migrations + collectstatic on first start
+    depends_on:
+      db: { condition: service_healthy }
+      cache: { condition: service_healthy }
+    networks: [backend, egress]
+
+  nginx:
+    <<: *hardened
+    image: nginx:1.31.8-alpine@sha256:785835ea65db4bba6f021acc0f3be91b0fef76a53fe41f8588c6698d2aed0606
+    container_name: wger-nginx
+    # master runs as root and drops workers to `nginx`; creates its temp dirs under
+    # /var/cache/nginx owned by the worker user.
+    cap_add:
+      - CHOWN     # chown of the proxy/client temp dirs at start
+      - SETUID    # drop worker processes to the nginx user
+      - SETGID    # same, group
+    tmpfs: [/tmp, /var/cache/nginx, /run]
+    mem_limit: 128m
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - /opt/kdk-lab/wger/static:/wger/static:ro
+      - /opt/kdk-lab/wger/media:/wger/media:ro
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/nginx-health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    depends_on:
+      web: { condition: service_healthy }
+      powersync: { condition: service_started }
+    networks:
+      backend:
+        ipv4_address: 10.208.200.10   # = AUTH_PROXY_TRUSTED_IPS; keep in sync
+      proxy: {}
+    labels:
+      traefik.enable: "true"
+      traefik.docker.network: "proxy"
+      # Drop any client-sent identity headers on every wger router. Empty value = delete.
+      traefik.http.middlewares.wger-strip-remote.headers.customrequestheaders.Remote-User: ""
+      traefik.http.middlewares.wger-strip-remote.headers.customrequestheaders.Remote-Email: ""
+      traefik.http.middlewares.wger-strip-remote.headers.customrequestheaders.Remote-Name: ""
+      traefik.http.middlewares.wger-strip-remote.headers.customrequestheaders.Remote-Groups: ""
+      # Main router: web UI behind Authelia (same forwardauth@file as home.kmkdp.com).
+      # Order matters: strip first, then forward-auth sets Remote-* from Authelia.
+      traefik.http.routers.wger.rule: "Host(`wger.kmkdp.com`)"
+      traefik.http.routers.wger.priority: "1"
+      traefik.http.routers.wger.middlewares: "wger-strip-remote,forwardauth@file"
+      traefik.http.routers.wger.service: "wger"
+      # App/API paths without forward-auth (token / JWT auth in wger and PowerSync).
+      traefik.http.routers.wger-open.rule: "Host(`wger.kmkdp.com`) && (PathPrefix(`/api/`) || PathPrefix(`/static/`) || PathPrefix(`/media/`) || PathPrefix(`/ps/`))"
+      traefik.http.routers.wger-open.priority: "100"
+      traefik.http.routers.wger-open.middlewares: "wger-strip-remote"
+      traefik.http.routers.wger-open.service: "wger"
+      traefik.http.services.wger.loadbalancer.server.port: "80"
+      # Recreate nginx on an nginx.conf change (single-file bind mount, read at start).
+      # WGER_NGINX_SHA = sha256(nginx.conf) from the Komodo pre_deploy.
+      kdk.config-sha: "${WGER_NGINX_SHA:-unset}"
+
+  db:
+    <<: *hardened
+    image: postgres:18.6-alpine@sha256:10a5c69a83035ab5239f5620d708520e8b28f5aa1f2b20143e6024532edadfb5
+    container_name: wger-db
+    # The entrypoint chowns the data dir and drops to the postgres user.
+    cap_add:
+      - CHOWN         # chown PGDATA / the socket dir to postgres
+      - SETUID        # drop to postgres
+      - SETGID        # same, group
+      - DAC_OVERRIDE  # entrypoint touches PGDATA before the chown
+      - FOWNER        # chmod 700 on PGDATA it does not own yet
+    tmpfs: [/tmp, /var/run/postgresql]
+    mem_limit: 1g
+    shm_size: 256m
+    environment:
+      TZ: America/Chicago
+      POSTGRES_DB: wger
+      POSTGRES_USER: wger
+      POSTGRES_PASSWORD: ${WGER_POSTGRES_PASSWORD}
+      # PG18 moved the image default PGDATA; pin the classic path so the host bind
+      # mount stays authoritative (same as tandoor/jellystat).
+      PGDATA: /var/lib/postgresql/data
+    # Upstream services/postgres.yaml: wal_level=logical is required by PowerSync.
+    command:
+      - postgres
+      - -c
+      - wal_level=logical
+      - -c
+      - shared_buffers=256MB
+      - -c
+      - effective_cache_size=768MB
+      - -c
+      - work_mem=8MB
+      - -c
+      - random_page_cost=1.1
+      - -c
+      - max_connections=30
+    volumes:
+      - /opt/kdk-lab/wger/postgres:/var/lib/postgresql/data
+    healthcheck:
+      # TCP (-h localhost) as upstream: initdb's first server listens on the socket only
+      test: ["CMD-SHELL", "pg_isready -h localhost -U wger -d wger"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks: [backend]
+
+  cache:
+    <<: *hardened
+    image: redis:8.10.3-alpine@sha256:21090af93f8324db2f0f0f4f38a7c60369d47d917e000c3423d89d2ae2883537
+    container_name: wger-cache
+    # image's redis user: the entrypoint skips its chown/su-exec step when not root
+    user: "999:1000"
+    mem_limit: 256m
+    # Cache + Celery broker only; nothing here needs to survive a restart (upstream
+    # leaves the redis-data volume commented out), so no persistence and no volume.
+    command:
+      - redis-server
+      - --save
+      - ""
+      - --appendonly
+      - "no"
+      - --maxmemory
+      - 192mb
+      - --maxmemory-policy
+      - volatile-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks: [backend]
+
+  celery_worker:
+    <<: *hardened
+    image: docker.io/wger/server:2.7.0@sha256:1c5789b93bfe5eed0b7287255782d9177027b255de2b22b59f511a693a48db04
+    container_name: wger-celery-worker
+    init: true                 # image USER wger (non-root)
+    tmpfs: [/tmp, /home/wger/.cache]
+    mem_limit: 768m
+    command: /start-worker
+    environment:
+      <<: *wger-env
+    volumes:
+      - /opt/kdk-lab/wger/media:/home/wger/media   # downloads exercise images from wger.de
+    healthcheck:
+      test: ["CMD", "celery", "-A", "wger", "inspect", "ping"]
+      interval: 60s
+      timeout: 20s
+      retries: 5
+      start_period: 60s
+    depends_on:
+      web: { condition: service_healthy }
+    networks: [backend, egress]
+
+  celery_beat:
+    <<: *hardened
+    image: docker.io/wger/server:2.7.0@sha256:1c5789b93bfe5eed0b7287255782d9177027b255de2b22b59f511a693a48db04
+    container_name: wger-celery-beat
+    init: true                 # image USER wger (non-root)
+    tmpfs: [/tmp, /home/wger/.cache]
+    mem_limit: 256m
+    command: /start-beat
+    environment:
+      <<: *wger-env
+    volumes:
+      - /opt/kdk-lab/wger/beat:/home/wger/beat   # celerybeat-schedule (random weekly slots)
+    healthcheck:
+      # No upstream check and no endpoint: healthy = another process whose cmdline
+      # holds both "celery" and "beat" (argv or a setproctitle title) is running.
+      test:
+        - CMD
+        - python3
+        - -c
+        - |
+          import os, sys
+          def cmd(p):
+              try:
+                  return open('/proc/%s/cmdline' % p, 'rb').read()
+              except OSError:
+                  return b''
+          me = str(os.getpid())
+          found = any(b'celery' in c and b'beat' in c
+                      for c in (cmd(p) for p in os.listdir('/proc') if p.isdigit() and p != me))
+          sys.exit(0 if found else 1)
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    depends_on:
+      celery_worker: { condition: service_healthy }
+    networks: [backend]
+
+  powersync:
+    <<: *hardened
+    image: docker.io/journeyapps/powersync-service:1.28.1@sha256:4955ebd8218d076f23296750f658c2973ce1dcd2ba49a6c7a7c3320acf97325c
+    container_name: wger-powersync
+    init: true                 # node service
+    mem_limit: 512m
+    # API server + replication worker in one container (upstream default).
+    command: ["start", "-r", "unified"]
+    environment:
+      POWERSYNC_CONFIG_PATH: /config/powersync.yaml
+      PS_PORT: "8080"
+      PS_JWKS_URL: http://web:8000/api/v2/powersync-keys
+      PS_DATABASE_URI: postgres://wger:${WGER_POSTGRES_PASSWORD}@db:5432/wger
+      PS_STORAGE_PG_URI: postgres://powersync_storage:${WGER_POWERSYNC_STORAGE_PASSWORD}@db:5432/wger
+    volumes:
+      - ./powersync:/config:ro
+    healthcheck:
+      # PowerSync's liveness probe on the API port; node's fetch, no wget/curl assumed.
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8080/probes/liveness').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+    depends_on:
+      db: { condition: service_healthy }
+      web: { condition: service_healthy }
+    networks: [backend]
+    labels:
+      # Recreate on a powersync.yaml / sync_rules.yaml change (read once at start).
+      # WGER_POWERSYNC_SHA from the Komodo pre_deploy.
+      kdk.config-sha: "${WGER_POWERSYNC_SHA:-unset}"
+
+networks:
+  # DB / cache / app tier: no route out. Pinned (not pool-auto) because nginx needs a
+  # fixed address for AUTH_PROXY_TRUSTED_IPS and nginx.conf's geo block. kdk-dkr-01
+  # owns 10.208.0.0/16 (docs/reference/docker-ipam.md); .200 is far above the pool's
+  # sequential auto-allocations (calibre pins .22). The nightly backup-dkr-01
+  # pgdump-wger job joins this network as `wger_backend`.
+  backend:
+    internal: true
+    ipam:
+      config:
+        - subnet: 10.208.200.0/24
+  # Internet egress for web + celery_worker (exercise sync from wger.de). Pool-assigned.
+  egress: {}
+  proxy:
+    external: true

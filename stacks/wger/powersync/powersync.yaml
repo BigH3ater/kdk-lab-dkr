@@ -1,0 +1,43 @@
+# PowerSync service config for wger (offline sync for the iOS/Android app).
+# Adapted from wger-project/docker services/config-powersync/powersync.yaml at commit
+# bd7851e2 (2026-10-24): same settings, upstream comments trimmed. Only PS_* env vars can
+# be substituted with !env; they come from compose.yaml (secrets from .env).
+# Read once at start: the kdk.config-sha label on the powersync service (WGER_POWERSYNC_SHA
+# from the Komodo pre_deploy) recreates the container when this file or sync_rules.yaml
+# changes.
+
+telemetry:
+  disable_telemetry_sharing: true
+  prometheus_port: 9090   # not published; container-local only
+
+# Source database: the wger Postgres (wal_level=logical, publication "powersync" is
+# created by the wger server migrations).
+replication:
+  connections:
+    - type: postgresql
+      uri: !env PS_DATABASE_URI
+      sslmode: disable   # internal-only docker network (wger_backend), no route out
+
+# Bucket storage: schema "powersync" inside the wger database, owned by the
+# powersync_storage role (created once by `manage.py setup-powersync-storage`).
+storage:
+  type: postgresql
+  uri: !env PS_STORAGE_PG_URI
+  sslmode: disable
+
+port: !env PS_PORT
+
+# Upstream workaround for PSYNC_S2305 (powersync-service#682, wger flutter#1237).
+api:
+  parameters:
+    max_parameter_query_results: 10000
+
+sync_rules:
+  path: sync_rules.yaml
+
+# The app gets a short-lived JWT from wger (aud=powersync, POWERSYNC_TOKEN_LIFETIME);
+# PowerSync checks it against wger's JWKS (/api/v2/powersync-keys) on the internal network.
+client_auth:
+  allow_local_jwks: true
+  jwks_uri: !env PS_JWKS_URL
+  audience: ["powersync"]

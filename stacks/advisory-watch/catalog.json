@@ -250,6 +250,10 @@
       "tag_is_version": false,
       "github": "instrumentisto/rsync-ssh-docker-image"
     },
+    "journeyapps/powersync-service": {
+      "github": "powersync-ja/powersync-service",
+      "note": "wger's offline-sync service (Node); image tag = service release"
+    },
     "kdk/calibre": {
       "local": true,
       "base": "python",
@@ -417,6 +421,10 @@
       },
       "confirm": true,
       "note": "GitHub is a mirror (main forge is kolaente.dev); confirm the OSV module path. The OSV Go entries for code.vikunja.io/api mostly carry only an introduced event (no fixed), so the GHSA alias from go-vikunja/vikunja is authoritative for the verdict (source=osv+ghsa)"
+    },
+    "wger/server": {
+      "github": "wger-project/wger",
+      "note": "Django app; image tag = server release (2.7.0). Sidecar images in stacks/wger: nginx, postgres, redis (own entries), journeyapps/powersync-service"
     },
     "yuzutech/kroki": {
       "github": "yuzutech/kroki",

@@ -198,7 +198,24 @@
       "dependencyDashboardApproval": false
     },
     {
-      "description": "postgres DB servers (identity, jellystat, tandoor): all three run 18 since 2026-10-30. A major is still a dump/restore done by hand in an attended window (docs/runbooks/postgres-major-upgrade.md); Renovate may open the PR, which stays behind Dependency Dashboard approval and is merged only mid-window after the 16-style park step.",
+      "description": "wger server + PowerSync (stacks/wger): a wger minor has carried breaking API changes twice in 2026 and can need a new vendored powersync/sync_rules.yaml, so minors and majors wait for a Dependency Dashboard tick; patches and digests stay in the internal group.",
+      "matchDatasources": [
+        "docker"
+      ],
+      "matchPackageNames": [
+        "docker.io/wger/server",
+        "wger/server",
+        "docker.io/journeyapps/powersync-service",
+        "journeyapps/powersync-service"
+      ],
+      "matchUpdateTypes": [
+        "minor",
+        "major"
+      ],
+      "dependencyDashboardApproval": true
+    },
+    {
+      "description": "postgres DB servers (identity, jellystat, tandoor, wger): all run 18 (wger from its first deploy, 2026-11). A major is still a dump/restore done by hand in an attended window (docs/runbooks/postgres-major-upgrade.md); Renovate may open the PR, which stays behind Dependency Dashboard approval and is merged only mid-window after the 16-style park step.",
       "matchDatasources": [
         "docker"
       ],
@@ -209,7 +226,8 @@
       "matchFileNames": [
         "stacks/identity/**",
         "stacks/jellystat/**",
-        "stacks/tandoor/**"
+        "stacks/tandoor/**",
+        "stacks/wger/**"
       ],
       "matchUpdateTypes": [
         "major"
