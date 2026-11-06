@@ -4,12 +4,13 @@ title: Workout tracking — add, rename or remove an exercise
 
 # Workout tracking update
 
-The workout log lives in three places that must agree:
+The workout log lives in four places that must agree:
 
 | Where | What | Made by |
 |---|---|---|
 | Home Assistant | one helper per logged value, per person (`input_number.ex_<id>_weight`, `…_reps`, `…_seconds`, `…_minutes`, `…_score`, `input_datetime.ex_<id>_done`; Rachel's end in `_rachel`) + the Strength / Progress views of `workout.yaml` and `workout_rachel.yaml` | `stacks/home-assistant/tools/gen_workout.py` from **`tools/workout_catalog.json`** |
 | home.kmkdp.com | the Workout guide (`/guides/workout/workout.html`) and the `/workout/` Today page (poster, dose, cues and a per-set form per exercise; writes a CSV and the HA helpers) | `stacks/dashboard/guides/gen-workout-guide.py` on the laptop, from the private vault; output is host-managed in `/opt/kdk-lab/dashboard/workout` |
+| wger (pilot Track A) | one custom exercise per slug (poster as image) + each person's **Week (kdk)** routine, weekday-pinned, with the guide's doses | `stacks/home-assistant/tools/gen_wger.py` from the catalog **and** the guide output (`workout.json` + posters) |
 | The private vault | the week's order, doses, pictures, the Daily-note log fields | the vault's own generator (`ex_days.py`) — not in this repo |
 
 **One list per side.** The repo side is the catalog; never hand-edit
@@ -95,6 +96,24 @@ item lists the vault picture slugs (`ex-<slug>.svg`) it logs for.
    line means it could not import `ex_days.py` (the guide is still written, the
    cards just have no cue list). The page accepts version 1 files too (no cues,
    set count from the dose).
+
+   **Then load the change into wger** (both routines + the exercises, from the same
+   `/tmp/workout-guide`; full notes in [wger runbook step 9](wger.md#9-load-the-catalog-our-exercises--weekly-routines)):
+   **Laptop, repo root, as jmack (`op` signed in), after the PR is merged**
+   ```bash
+   G=/tmp/workout-guide
+   export WGER_URL=https://wger.kmkdp.com
+   export WGER_API_KEY_JMACK="$(op read op://kdk-cluster/wger-api-jmack/password)"
+   export WGER_API_KEY_RACH="$(op read op://kdk-cluster/wger-api-rach/password)"
+   python3 stacks/home-assistant/tools/gen_wger.py --posters "$G"            # dry run: read the planned writes
+   python3 stacks/home-assistant/tools/gen_wger.py --posters "$G" --apply
+   python3 stacks/home-assistant/tools/gen_wger.py --posters "$G" --check    # "wger matches the catalog"
+   unset WGER_API_KEY_JMACK WGER_API_KEY_RACH
+   ```
+   A removed exercise's slot is deleted from the routine unless someone logged it;
+   then it moves to the end of the day as `[retired]` (deleting it would delete the
+   logs). Delete it in the app once the history no longer matters. A new kind that
+   needs a new unit prints an ADMIN STEP and stops before the routines.
 7. **Verify** (both people):
    **Laptop (`op` signed in)**
    ```bash
@@ -105,7 +124,8 @@ item lists the vault picture slugs (`ex-<slug>.svg`) it logs for.
    ```
    - both Workout pages: no "Entity not available" rows on Strength;
    - `https://home.kmkdp.com/workout/?date=<a day it is planned>` shows the item with a form sized to its kind;
-   - `sudo docker logs homeassistant 2>&1 | grep -i 'invalid config' | tail` on kdk-dkr-02 is quiet.
+   - `sudo docker logs homeassistant 2>&1 | grep -i 'invalid config' | tail` on kdk-dkr-02 is quiet;
+   - wger app, both phones: the routine's day shows the change.
 
 ## CSV schema check (after a dashboard deploy that changes the log format)
 
@@ -170,7 +190,7 @@ switcher and reopen it (the new service worker takes over on the next load).
 ## Rollback
 
 Revert the PR and let Komodo redeploy `home-assistant`, then reload all YAML
-(step 5). Removed helpers come back with their last restored value. Re-run the
+(step 5), and re-run `gen_wger.py --apply` (step 6) so wger follows. Removed helpers come back with their last restored value. Re-run the
 guide generator from the reverted vault state if the guide changed too.
 
 ## Gotchas

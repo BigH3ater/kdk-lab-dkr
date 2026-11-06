@@ -166,7 +166,7 @@ ssh $H 'sudo docker restart wger-powersync && sleep 30 && sudo docker inspect wg
 ssh $H 'sudo docker logs wger-powersync --since 2m 2>&1 | grep -iE "error|replicat" | tail -5'
 ```
 
-## 6. Load the exercise catalog (optional, once)
+## 6. Load the wger.de exercise database (optional, once)
 
 The Celery jobs sync exercises and images from wger.de weekly at a random time. To have
 them now:
@@ -187,7 +187,7 @@ ssh $H 'sudo docker exec wger-web python3 manage.py warmup-exercise-api-cache --
 3. wger opens logged in as your Authelia username. The account is created on this first
    visit (`AUTH_PROXY_CREATE_UNKNOWN_USER`).
 
-Then give jmack admin rights (for the A2 exercise generator and the Django admin):
+Then give jmack admin rights (for the catalog generator in step 9 and the Django admin):
 
 **Laptop → kdk-dkr-01**
 
@@ -224,7 +224,98 @@ curl -s -o /dev/null -w '%{http_code}\n' https://wger.kmkdp.com/api/v2/userprofi
 
 `printf` is a shell builtin, so the key is not in any process's argument list.
 
-## 9. iOS app login (both phones)
+## 9. Load the catalog (our exercises + weekly routines)
+
+`stacks/home-assistant/tools/gen_wger.py` writes the household plan into wger from the
+same catalog as the HA helpers (`tools/workout_catalog.json`) and the guide output
+(`workout.json` + the posters):
+
+- one custom exercise per slug (57 today: the catalog's 56 + `arm-circles`, which only
+  the guide uses), English name, description = title + doses per day + cues + a
+  `kdk:<slug>` marker line, the `ex-<slug>-rom.png` poster as the main image. wger
+  exercises are global, so they are written once, with **jmack's** key (superuser from
+  step 7: trusted, and exempt from the 20-per-hour exercise-create limit);
+- per person, the routine **Week (kdk)**: 7 days Monday..Sunday from this week's
+  Monday for 17 weeks (wger allows at most 120 days), one slot per guide step in the
+  guide's order, supersets as one slot with two exercises, sets × reps / seconds /
+  minutes / 10-ft lengths from the dose text, weights blank (you fill them in).
+
+It is idempotent: a second run with nothing changed makes no writes. It never deletes
+a routine, a day, or a slot that has logs (a wger log is deleted with its slot), so it
+is safe to re-run after people have logged.
+
+Needs steps 7 and 8 done, Python 3 with `requests` on the laptop, and the guide output.
+
+**Laptop, repo root, as jmack (`op` signed in)**
+
+```bash
+G=/tmp/workout-guide
+python3 stacks/dashboard/guides/gen-workout-guide.py --out "$G"    # skip if $G is fresh
+ls "$G/workout.json" && ls "$G/exercise" | grep -c -- '-rom\.png$'  # 56 posters
+python3 -c 'import requests' || python3 -m pip install --user requests
+export WGER_URL=https://wger.kmkdp.com
+export WGER_API_KEY_JMACK="$(op read op://kdk-cluster/wger-api-jmack/password)"
+export WGER_API_KEY_RACH="$(op read op://kdk-cluster/wger-api-rach/password)"
+printf '%s %s bytes\n' JMACK ${#WGER_API_KEY_JMACK} RACH ${#WGER_API_KEY_RACH}   # 40 each; never echo the value
+python3 stacks/home-assistant/tools/gen_wger.py --posters "$G"     # dry run: prints every write it would make
+unset WGER_API_KEY_JMACK WGER_API_KEY_RACH
+```
+
+The keys travel in the environment only; the script reads `WGER_API_KEY_<LOGIN>` and
+takes no key on the command line (the curl below reads its header from stdin for the
+same reason). The first dry run lists about 1,200 writes (57
+exercises + images, two routines of ~100 slots each).
+
+If the dry run printed an **ADMIN STEP** for the `10-ft lengths` unit (the REST API
+cannot create units; a fresh wger has Repetitions, Seconds, Minutes, Miles, Kilometers,
+Meters, but no lengths), create it once:
+
+**Laptop → kdk-dkr-01**
+
+```bash
+H=kdkadmin@10.1.20.20
+printf '%s\n' \
+  "from wger.core.models import RepetitionUnit" \
+  "print(RepetitionUnit.objects.get_or_create(name='10-ft lengths', defaults={'unit_type': 'DISTANCE', 'multiplier': 3}))" \
+  | ssh $H 'sudo docker exec -i wger-web python3 manage.py shell'
+# (<RepetitionUnit: 10-ft lengths>, True) the first time, False after
+```
+
+Then write it, and check it:
+
+**Laptop, repo root, as jmack (`op` signed in)**
+
+```bash
+G=/tmp/workout-guide
+export WGER_URL=https://wger.kmkdp.com
+export WGER_API_KEY_JMACK="$(op read op://kdk-cluster/wger-api-jmack/password)"
+export WGER_API_KEY_RACH="$(op read op://kdk-cluster/wger-api-rach/password)"
+python3 stacks/home-assistant/tools/gen_wger.py --posters "$G" --apply    # "... write(s) made"; a few minutes
+python3 stacks/home-assistant/tools/gen_wger.py --posters "$G" --apply    # "0 write(s) made"
+python3 stacks/home-assistant/tools/gen_wger.py --posters "$G" --check    # "wger matches the catalog", exit 0
+for who in JMACK RACH; do
+  k=WGER_API_KEY_$who
+  printf 'Authorization: Token %s\n' "${!k}" | curl -s -H @- "$WGER_URL/api/v2/routine/?name=Week%20(kdk)" \
+    | python3 -c 'import json,sys; [print(r["id"], r["start"], r["end"], r["fit_in_week"]) for r in json.load(sys.stdin)["results"]]'
+done                                                                       # one row each: a Monday, 118 days later, True
+unset WGER_API_KEY_JMACK WGER_API_KEY_RACH
+```
+
+`--person rach` limits the run to one person's routine (exercises are only written
+when jmack is selected). Warnings go to stderr: a name too close to a wger.de exercise
+gets a ` (kdk)` suffix (Hammer Curl today), a slug without a PNG poster gets no image
+(`shoulder-press` has only an SVG, `flat-press` none).
+
+Verify in the app, both phones: Routines → **Week (kdk)** → today's day shows the
+same list as the guide for today; swipe through the week once (Wednesday and Saturday
+start with the 25–30 min walk, Sunday ends with yoga + the stretches).
+
+**Renewal.** The routine window is 17 weeks. `--check` fails (exit 1) once the end is
+less than 28 days away; `--apply` then moves the start to that week's Monday (logs
+stay). Re-run whenever the catalog or the guide changes
+([workout tracking update](workout-tracking-update.md), step 6).
+
+## 10. iOS app login (both phones)
 
 On each phone (Tailscale on if not at home):
 
@@ -250,7 +341,7 @@ printf '%s\n' \
   | ssh $H 'sudo docker exec -i wger-web python3 manage.py shell'
 ```
 
-## 10. Backup check (the morning after)
+## 11. Backup check (the morning after)
 
 **Laptop → kdk-dkr-01**
 
@@ -264,7 +355,11 @@ No Pushover from `backup-verify` that morning means the wger dump passed its che
 
 ## Rollback
 
-`git revert` the merge commit. Komodo then removes nothing on its own: destroy the
+The catalog load (step 9) is data, not config: to undo it, delete the **Week (kdk)**
+routine in each person's app (this deletes that person's logs for it, too) and the
+`kdk:` exercises in the Django admin (`/admin/exercises/exercise/`, superuser).
+
+For the stack itself: `git revert` the merge commit. Komodo then removes nothing on its own: destroy the
 `wger` stack in Komodo (DestroyStack) **after** the revert has reached `backup-dkr-01`
 (otherwise the nightly job looks for `wger_backend`). Left behind on kdk-dkr-01:
 `/opt/kdk-lab/wger/` (database, media) and the dumps in `pgdump/` (keep them if the
