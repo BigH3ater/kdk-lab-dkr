@@ -8,19 +8,26 @@
     ... --person rach                                                        # one person only
 
 Reads  tools/workout_catalog.json (people + the slugs; same loader as gen_workout.py)
+       tools/wger_exercises.json  (per slug: wger muscles, secondary muscles, equipment,
+                                   optional what/safety lines; gen_workout.py ignores it)
        DIR/workout.json           (the guide output: days, steps, doses, titles, cues)
-       DIR/exercise/ex-<slug>-rom.png (the posters)
+       DIR/exercise/ex-<slug>-step<N>.png (per-step photos, N from 1; step 1 = start position)
+       DIR/exercise/ex-<slug>-rom.png     (the poster; used only when a slug has no step photos)
 Config from the environment only: WGER_URL, and one API key per person in
 WGER_API_KEY_<LOGIN> (login upper-cased, e.g. WGER_API_KEY_JMACK). Keys never go in argv.
 
 What it writes (runbook: docs/runbooks/wger.md, "Load the catalog"):
-  1. One custom exercise per slug (catalog slugs + any slug the guide uses), English
+  1. One custom exercise per slug (catalog slugs + any slug the guide uses): category,
+     equipment and muscles (primary + secondary, from wger_exercises.json), English
      translation: name = catalog name (or the guide title for multi-slug items),
-     description = title, doses per day, cues, and a marker line
-     "kdk:<slug> v:<text hash> img:<poster hash>#<image id>". The marker is the
-     idempotency key: exercises are found by it, the text is patched only when its
-     hash changes, the poster is uploaded only when its hash changes (the old image
-     is deleted). Exercises are global in wger, so they are written with the FIRST
+     description from the template in describe() (what it trains, dose per weekday,
+     cues, safety line) and a marker "<!-- kdk:<slug> v:<text hash> img:<image-set
+     hash>#<image ids> -->". wger renders description_source to the HTML description
+     and strips comments, so the marker is invisible in the app and the web UI but stays
+     in description_source, where it is found. The marker is the idempotency key:
+     exercises are found by it, the text is patched only when its hash changes, the
+     images are uploaded only when the hash over all of the slug's image files changes
+     (then every other image of the exercise is deleted). Exercises are global in wger, so they are written with the FIRST
      person's key (jmack, a wger superuser: trusted + exempt from the 20/hour
      exercise-create throttle) and only when that person is selected.
   2. Units: looked up by name (Repetitions, Seconds, Minutes, "10-ft lengths"; lb).
@@ -82,6 +89,7 @@ WEIGHTED = {"w", "wt", "wl"}
 ADMIN_UNIT = {"10-ft lengths": ("DISTANCE", 3)}   # unit_type, multiplier (to metres; 10 ft = 3.05 m)
 
 # Category (wger's 8 built-in ones): group default, then per-slug overrides.
+SIDECAR = TOOLS / "wger_exercises.json"
 GROUP_CATEGORY = {"activation": "Legs", "lower_a": "Legs", "lower_b": "Legs", "upper_a": "Arms",
                   "upper_b": "Arms", "hands": "Arms", "cardio": "Legs", "daily": "Legs",
                   "swaps": "Chest"}
@@ -96,18 +104,31 @@ SLUG_CATEGORY = {
     "treadmill-walk": "Cardio",
 }
 BODYWEIGHT = "none (bodyweight exercise)"
-SLUG_EQUIPMENT = {
-    "box-squat": ["Dumbbell", "Bench"], "incline-press": ["Dumbbell", "Incline bench"],
-    "cs-row": ["Dumbbell", "Incline bench"], "one-arm-row": ["Dumbbell", "Bench"],
-    "hip-thrust": ["Dumbbell", "Bench"], "flat-press": ["Dumbbell", "Bench"], "pushup": ["Bench"],
-    "finger-ext": [BODYWEIGHT], "treadmill-walk": [BODYWEIGHT],
-}
-MAT_PREFIXES = ("pt-", "flex-", "plank", "side-plank", "dead-bug")
+# wger's 16 built-in muscles as the sidecar spells them (name_en, else the Latin name): the
+# only ones the app's body map can colour (it draws bundled SVGs per muscle id).
+MUSCLES = ("Shoulders", "Biceps", "Hamstrings", "Brachialis", "Lower back", "Calves", "Glutes", "Lats",
+           "Obliquus externus abdominis", "Chest", "Quads", "Abs", "Serratus anterior", "Soleus",
+           "Trapezius", "Triceps")
+# Local muscle rows (runbook step 13) for areas the built-ins miss: name -> is_front. The app lists
+# them by name under the map and never colours them. A sidecar name the server lacks is left out
+# with a warning when it is one of these, and is an error (a typo) otherwise.
+CUSTOM_MUSCLES = {"Forearm flexors": True, "Forearm extensors": False, "Hand intrinsics": True,
+                  "Adductors": True, "Tibialis anterior": True}
+PROSE = {"Obliquus externus abdominis": "obliques", "Serratus anterior": "serratus",
+         "Trapezius": "upper back (trapezius)", "Hand intrinsics": "small hand muscles",
+         "Adductors": "inner thighs (adductors)", "Tibialis anterior": "shins (tibialis anterior)"}
+SIDECAR_KEYS = {"muscles", "secondary", "equipment", "what", "safety", "stretch"}
+SAFETY_WEIGHTED = "Start light; stop two reps before your form slips."
+SAFETY_STRETCH = "Ease into a mild stretch; never bounce, keep breathing."
+SAFETY_DEFAULT = "Move slowly in a pain-free range; stop if anything hurts sharply."
+STEP_RE = re.compile(r"^ex-(?P<slug>[a-z0-9-]+)-step(?P<n>\d+)\.png$")
+STYLE_PHOTO = "4"          # wger 2.7 ExerciseImage.STYLE: 1 line, 2 3D, 3 low-poly, 4 photo, 5 other
+WEEKDAY_ABBR = [w[:3] for w in ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]]
 
 CONFIGS = {"sets": "sets-config", "reps": "repetitions-config", "max_reps": "max-repetitions-config"}
 
 MARKER_RE = re.compile(r"kdk:(?P<slug>[a-z0-9-]+) v:(?P<v>[0-9a-f]{12}) img:(?P<img>[0-9a-f]{12}|none)"
-                       r"(?:#(?P<imgid>\d+))?")
+                       r"(?:#(?P<imgid>\d+(?:,\d+)*))?")
 
 
 class WgerError(RuntimeError):
@@ -181,8 +202,108 @@ def strip_prefix(title: str) -> str:
     return re.sub(r"^(PT|Grip|Every day)\s+—\s+", "", title).strip()
 
 
-def exercise_specs(cat: dict, guide: dict, posters: Path) -> dict[str, dict]:
-    """slug -> {name, text, category, equipment, poster, kind}"""
+def load_sidecar(path: Path = SIDECAR, known: set[str] | None = None) -> dict[str, dict]:
+    """slug -> {muscles, secondary, equipment, what?, safety?, stretch?}. With `known` (the server's
+    muscle names), a name that is neither there nor in CUSTOM_MUSCLES is a typo and raises; without
+    it (offline) only the structure is checked, since the server may have local muscles."""
+    data = json.loads(path.read_text(encoding="utf-8"))["exercises"]
+    for slug, e in data.items():
+        bad = set(e) - SIDECAR_KEYS
+        if bad:
+            raise WgerError(f"{path.name} {slug}: unknown key(s) {sorted(bad)}")
+        for k in ("muscles", "secondary"):
+            if known is None:
+                continue
+            unknown = [m for m in e.get(k, []) if m not in known and m not in CUSTOM_MUSCLES]
+            if unknown:
+                raise WgerError(f"{path.name} {slug}: unknown muscle(s) {unknown}; wger has {sorted(known)}")
+        both = set(e.get("muscles", [])) & set(e.get("secondary", []))
+        if both:
+            raise WgerError(f"{path.name} {slug}: {sorted(both)} both primary and secondary")
+        if not e.get("equipment"):
+            raise WgerError(f"{path.name} {slug}: equipment is empty (use [\"{BODYWEIGHT}\"])")
+    return data
+
+
+def image_files(posters: Path, slug: str) -> list[Path]:
+    """ex-<slug>-step<N>.png in N order; else the -rom poster; else []."""
+    d = posters / "exercise"
+    steps = sorted(((int(m.group("n")), f) for f in d.glob(f"ex-{slug}-step*.png")
+                    if (m := STEP_RE.match(f.name)) and m.group("slug") == slug), key=lambda x: x[0])
+    if steps:
+        return [f for _, f in steps]
+    rom = d / f"ex-{slug}-rom.png"
+    return [rom] if rom.is_file() else []
+
+
+def images_hash(files: list[Path]) -> str:
+    """The marker's img hash. A lone poster keeps the old per-file hash (no re-upload on upgrade)."""
+    if not files:
+        return "none"
+    if len(files) == 1 and files[0].name.endswith("-rom.png"):
+        return h12(files[0].read_bytes())
+    return h12("\n".join(f"{f.name}:{hashlib.sha256(f.read_bytes()).hexdigest()}" for f in files))
+
+
+def prose_list(names: list[str]) -> str:
+    words = [PROSE.get(n, n.lower()) for n in names]
+    return "the " + (words[0] if len(words) == 1 else ", ".join(words[:-1]) + " and " + words[-1])
+
+
+def what_line(side: dict) -> str:
+    if side.get("what"):
+        return side["what"]
+    if not side.get("muscles"):
+        return ""
+    verb = "Stretches" if side.get("stretch") else "Works"
+    line = f"{verb} {prose_list(side['muscles'])}"
+    if side.get("secondary"):
+        line += f"; also {prose_list(side['secondary'])}"
+    return line + "."
+
+
+def safety_line(slug: str, kind: str | None, side: dict) -> str:
+    if side.get("safety"):
+        return side["safety"]
+    if side.get("stretch"):
+        return SAFETY_STRETCH
+    if kind in WEIGHTED:
+        return SAFETY_WEIGHTED
+    return SAFETY_DEFAULT
+
+
+def describe(name: str, title: str, doses: dict[str, list[str]], cues: list[str], safety: str,
+             what: str) -> str:
+    """The description template (markdown; wger keeps only p/strong/em/ul/ol/li, so every block
+    is its own paragraph or list, never a bare line break):
+
+        [<guide title>. ]<what it trains>.
+        **Dose**  - <weekdays>: <dose>     (one bullet per distinct dose; "Every day" for all 7)
+        **How**   - <cue>                  (the guide's cues, in order)
+        **Safety:** <one line>
+    """
+    head = strip_prefix(title)
+    first = " ".join(x for x in ((head + ".") if head and head.lower() != name.lower() else "", what) if x)
+    blocks = [first] if first else []
+    if doses:
+        bullets = []
+        for d, wds in doses.items():
+            days = sorted(set(wds), key=WEEKDAY_ABBR.index)
+            label = "Every day" if len(days) == 7 else ", ".join(days)
+            bullets.append(f"- {label}: {d}" if d else f"- {label}")
+        blocks.append("**Dose**\n\n" + "\n".join(bullets))
+    else:
+        blocks.append("**Dose**: not in the weekly plan (a swap or spare exercise).")
+    if cues:
+        blocks.append("**How**\n\n" + "\n".join(f"- {c}" for c in cues))
+    blocks.append(f"**Safety:** {safety}")
+    return "\n\n".join(blocks)
+
+
+def exercise_specs(cat: dict, guide: dict, posters: Path, sidecar: dict | None = None,
+                   warn=lambda m: None) -> dict[str, dict]:
+    """slug -> {slug, name, text, category, equipment, muscles, secondary, images, kind, side}"""
+    sidecar = load_sidecar() if sidecar is None else sidecar
     items = {s: it for it in cat["items"] for s in it["slugs"]}
     uses: dict[str, list] = {}
     order: list[str] = []
@@ -215,26 +336,18 @@ def exercise_specs(cat: dict, guide: dict, posters: Path) -> dict[str, dict]:
             for cue in ([c] if isinstance(c, str) else c):
                 if cue and cue not in cues:
                     cues.append(cue)
-        lines = [f"{title}. This exercise is part of our home workout plan; "
-                 "follow the picture and the dose for the day."]
-        if doses:
-            if len(doses) == 1:
-                lines.append(f"Dose: {next(iter(doses))}.")
-            else:
-                lines.append("Dose: " + "; ".join(f"{d} ({', '.join(w)})" for d, w in doses.items()) + ".")
-        else:
-            lines.append("Not in the weekly plan (a swap or spare exercise).")
-        lines += [f"- {c}" for c in cues]
         kind = it["kind"] if it else None
         group = it["group"] if it else None
+        side = sidecar.get(slug)
+        if side is None:
+            warn(f"exercise {slug}: no entry in {SIDECAR.name}; no muscles, bodyweight")
+            side = {"muscles": [], "secondary": [], "equipment": [BODYWEIGHT], "_missing": True}
         category = SLUG_CATEGORY.get(slug) or GROUP_CATEGORY.get(group or "", "Legs")
-        equipment = SLUG_EQUIPMENT.get(slug) or (
-            (["Dumbbell"] if kind in WEIGHTED else []) + (["Gym mat"] if slug.startswith(MAT_PREFIXES) else [])
-        ) or [BODYWEIGHT]
-        poster = posters / "exercise" / f"ex-{slug}-rom.png"
-        specs[slug] = {"slug": slug, "name": short(name, 190), "text": "\n".join(lines),
-                       "category": category, "equipment": equipment, "kind": kind,
-                       "poster": poster if poster.is_file() else None}
+        text = describe(name, title, doses, cues, safety_line(slug, kind, side), what_line(side))
+        specs[slug] = {"slug": slug, "name": short(name, 190), "text": text,
+                       "category": category, "equipment": list(side["equipment"]),
+                       "muscles": list(side.get("muscles", [])), "secondary": list(side.get("secondary", [])),
+                       "kind": kind, "images": image_files(posters, slug), "side": side}
     return specs
 
 
@@ -337,6 +450,7 @@ def reference(api: Api) -> dict:
         "en": langs["en"],
         "category": {c["name"]: c["id"] for c in api.list("exercisecategory/")},
         "equipment": {e["name"]: e["id"] for e in api.list("equipment/")},
+        "muscle": {k: m["id"] for m in api.list("muscle/") for k in (m.get("name_en"), m["name"]) if k},
         "rep_unit": {u["name"]: u["id"] for u in api.list("setting-repetitionunit/")},
         "weight_unit": {u["name"]: u["id"] for u in api.list("setting-weightunit/")},
     }
@@ -372,29 +486,46 @@ def server_exercises(api: Api, warn) -> dict[str, dict]:
     return found
 
 
-def marker(slug: str, text: str, img: str, imgid) -> str:
-    return f"kdk:{slug} v:{h12(text)} img:{img}" + (f"#{imgid}" if imgid not in (None, "") else "")
+def marker(slug: str, text: str, img: str, imgids) -> str:
+    ids = ",".join(str(i) for i in (imgids or []))
+    return f"kdk:{slug} v:{h12(text)} img:{img}" + (f"#{ids}" if ids else "")
 
 
-def upload_poster(api: Api, sp: dict, poster_hash: str, ex_id, img: str, imgid, need_write, warn):
-    """Upload the poster when its hash differs from the marker's; returns the new (img, imgid)."""
+def with_marker(text: str, slug: str, img: str, imgids) -> str:
+    # its own paragraph after a blank line: a markdown html block, dropped by wger's sanitizer
+    return f"{text}\n\n<!-- {marker(slug, text, img, imgids)} -->"
+
+
+def marker_ids(m: dict) -> list[int]:
+    return [int(x) for x in (m.get("imgid") or "").split(",") if x]
+
+
+def upload_images(api: Api, sp: dict, img_hash: str, ex_id, img: str, imgids: list, need_write, warn):
+    """Upload the slug's images (in order, the first one main) when the set's hash differs from
+    the marker's, then delete every other image of the exercise. Returns the new (img, ids)."""
     slug = sp["slug"]
-    if poster_hash == img:
-        return img, imgid
-    if sp["poster"] is None:
-        warn(f"exercise {slug}: no poster ex-{slug}-rom.png; the old image (if any) stays")
-        return img, imgid
-    need_write(f"upload poster {slug}")
-    up = api.write("POST", "exerciseimage/", f"{slug} {sp['poster'].name} ({poster_hash})",
-                   {"exercise": ex_id, "is_main": "true", "is_ai_generated": "true",
-                    "license_author": LICENSE_AUTHOR},
-                   files={"image": (sp["poster"].name, sp["poster"].read_bytes(), "image/png")})
-    if imgid:
+    if img_hash == img:
+        return img, imgids
+    files = sp["images"]
+    if not files:
+        warn(f"exercise {slug}: no ex-{slug}-step<N>.png or ex-{slug}-rom.png; the old image(s) stay")
+        return img, imgids
+    need_write(f"upload images {slug}")
+    new = []
+    for i, f in enumerate(files):
+        up = api.write("POST", "exerciseimage/", f"{slug} {f.name} ({i + 1}/{len(files)}, {img_hash})",
+                       {"exercise": ex_id, "is_main": "true" if i == 0 else "false", "style": STYLE_PHOTO,
+                        "is_ai_generated": "true", "license_author": LICENSE_AUTHOR},
+                       files={"image": (f.name, f.read_bytes(), "image/png")})
+        new.append(up["id"])
+    stale = [] if is_dry(ex_id) else [x["id"] for x in api.list("exerciseimage/", exercise=ex_id)
+                                      if x["id"] not in new and x.get("exercise") == ex_id]
+    for old in stale:
         try:
-            api.write("DELETE", f"exerciseimage/{imgid}/", f"{slug} old image")
+            api.write("DELETE", f"exerciseimage/{old}/", f"{slug} old image {old}")
         except WgerError as e:
-            warn(f"exercise {slug}: old image {imgid} not deleted ({e})")
-    return poster_hash, (None if is_dry(up["id"]) else up["id"])
+            warn(f"exercise {slug}: old image {old} not deleted ({e})")
+    return img_hash, ([] if any(is_dry(x) for x in new) else new)
 
 
 def sync_exercises(api: Api, specs: dict, ref: dict, can_write: bool, warn) -> dict[str, object]:
@@ -402,6 +533,8 @@ def sync_exercises(api: Api, specs: dict, ref: dict, can_write: bool, warn) -> d
     have = server_exercises(api, warn)
     ids: dict[str, object] = {}
     exercises = {e["id"]: e for e in api.list("exercise/")} if have else {}
+    missing_equipment: dict[str, list[str]] = {}
+    missing_muscles: dict[str, list[str]] = {}
 
     def need_write(what):
         if not can_write and api.apply:
@@ -417,19 +550,30 @@ def sync_exercises(api: Api, specs: dict, ref: dict, can_write: bool, warn) -> d
             if e in ref["equipment"]:
                 equip.append(ref["equipment"][e])
             else:
-                warn(f"exercise {slug}: wger has no equipment {e!r}; left out")
+                missing_equipment.setdefault(e, []).append(slug)
         equip.sort()
-        poster_hash = h12(sp["poster"].read_bytes()) if sp["poster"] else "none"
+        muscles, secondary = [], []
+        for names, out in ((sp["muscles"], muscles), (sp["secondary"], secondary)):
+            for n in names:
+                if n in ref["muscle"]:
+                    out.append(ref["muscle"][n])
+                elif n in CUSTOM_MUSCLES:
+                    missing_muscles.setdefault(n, []).append(slug)
+                else:
+                    raise WgerError(f"wger has no muscle {n!r} (for {slug}); fix {SIDECAR.name}")
+        muscles.sort()
+        secondary.sort()
+        img_hash = images_hash(sp["images"])
 
         cur = have.get(slug)
         if cur is None:
             need_write(f"create exercise {slug}")
             ex = api.write("POST", "exercise/", f"{slug} (category {sp['category']})",
-                           {"category": cat_id, "equipment": equip, "muscles": [], "muscles_secondary": [],
-                            "license_author": LICENSE_AUTHOR})
+                           {"category": cat_id, "equipment": equip, "muscles": muscles,
+                            "muscles_secondary": secondary, "license_author": LICENSE_AUTHOR})
             try:
-                img, imgid = upload_poster(api, sp, poster_hash, ex["id"], "none", None, need_write, warn)
-                text = sp["text"] + "\n" + marker(slug, sp["text"], img, imgid)
+                img, imgids = upload_images(api, sp, img_hash, ex["id"], "none", [], need_write, warn)
+                text = with_marker(sp["text"], slug, img, imgids)
                 for name in (sp["name"], alt_name(sp["name"])):
                     try:
                         api.write("POST", "exercise-translation/", f"{slug} {name!r}",
@@ -461,20 +605,31 @@ def sync_exercises(api: Api, specs: dict, ref: dict, can_write: bool, warn) -> d
         tr = cur["translation"]
         ex_id = ids[slug] = tr["exercise"]
         ex = exercises.get(ex_id)
-        if ex is not None and (ex.get("category") != cat_id or sorted(ex.get("equipment") or []) != equip):
-            need_write(f"patch exercise {slug}")
-            api.write("PATCH", f"exercise/{ex_id}/", f"{slug} category/equipment",
-                      {"category": cat_id, "equipment": equip})
+        want = {"category": cat_id, "equipment": equip, "muscles": muscles, "muscles_secondary": secondary}
+        if ex is not None:
+            patch = {k: v for k, v in want.items()
+                     if (sorted(ex.get(k) or []) if isinstance(v, list) else ex.get(k)) != v}
+            if patch:
+                need_write(f"patch exercise {slug}")
+                api.write("PATCH", f"exercise/{ex_id}/", f"{slug} {'/'.join(sorted(patch))}", patch)
         if tr.get("name") not in (sp["name"], alt_name(sp["name"])):
             need_write(f"rename exercise {slug}")
             api.write("PATCH", f"exercise-translation/{tr['id']}/", f"{slug} name -> {sp['name']!r}",
                       {"name": sp["name"]})
         m = cur["marker"]
-        img, imgid = upload_poster(api, sp, poster_hash, ex_id, m["img"], m.get("imgid"), need_write, warn)
-        if m["v"] != h12(sp["text"]) or m["img"] != img or str(m.get("imgid") or "") != str(imgid or ""):
+        img, imgids = upload_images(api, sp, img_hash, ex_id, m["img"], marker_ids(m), need_write, warn)
+        want_src = with_marker(sp["text"], slug, img, imgids)
+        if (m["v"] != h12(sp["text"]) or m["img"] != img or marker_ids(m) != list(imgids)
+                or (tr.get("description_source") or "") != want_src):
             need_write(f"update exercise text {slug}")
             api.write("PATCH", f"exercise-translation/{tr['id']}/", f"{slug} description",
-                      {"description_source": sp["text"] + "\n" + marker(slug, sp["text"], img, imgid)})
+                      {"description_source": want_src})
+    for e, slugs in sorted(missing_equipment.items()):
+        warn(f"wger has no equipment {e!r} (wanted by {', '.join(slugs)}); left out until the runbook's "
+             "equipment admin step (12) adds it")
+    for n, slugs in sorted(missing_muscles.items()):
+        warn(f"wger has no muscle {n!r} (wanted by {', '.join(slugs)}); left out until the runbook's "
+             "custom-muscle admin step (13) adds it")
     return ids
 
 
@@ -604,7 +759,8 @@ def main(argv: list[str] | None = None, today: dt.date | None = None) -> int:
     mode = ap.add_mutually_exclusive_group()
     mode.add_argument("--apply", action="store_true", help="write to wger (default: dry run)")
     mode.add_argument("--check", action="store_true", help="exit 1 if wger differs from the catalog")
-    ap.add_argument("--posters", type=Path, help="guide output dir (workout.json + exercise/ex-<slug>-rom.png)")
+    ap.add_argument("--posters", type=Path,
+                    help="guide output dir (workout.json + exercise/ex-<slug>-step<N>.png or -rom.png)")
     ap.add_argument("--person", action="append", help="login (or key) to sync; repeatable; default all")
     args = ap.parse_args(argv)
     today = today or dt.date.today()
@@ -633,10 +789,12 @@ def main(argv: list[str] | None = None, today: dt.date | None = None) -> int:
                 raise WgerError(f"{env_key(p['login'])} is not set (op read it into the env; never argv)")
             keys[p["login"]] = k
         guide = load_guide(args.posters)
-        specs = exercise_specs(cat, guide, args.posters)
+        specs = exercise_specs(cat, guide, args.posters, warn=warn)
         days = plan_days(guide, cat, warn)
 
         actions: list[str] = []
+        if args.check:
+            actions += [f"{SIDECAR.name}: no entry for {s}" for s, sp in specs.items() if sp["side"].get("_missing")]
         apply = args.apply
         owner = people[0]
         owner_sel = owner in sel
