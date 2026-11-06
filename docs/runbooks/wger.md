@@ -434,6 +434,7 @@ printf '%s\n' \
 # ['Bench', 'Door frame', 'Dumbbell', 'Finger stretcher', 'Gym mat', 'Incline bench', 'Pillow',
 #  'Strap', 'Towel', 'Treadmill', 'Wall', 'none (bodyweight exercise)']
 # second run: "add <name> False" x7, no delete lines, same list
+printf '%s\n' "from django.core.cache import cache" "cache.clear()" "print('cache cleared')" | ssh $H 'sudo docker exec -i wger-web python3 manage.py shell'   # equipment/ and muscle/ lists are cached 28 days per content type; the warmup only rebuilds exercises
 ssh $H 'sudo docker exec wger-web python3 manage.py warmup-exercise-api-cache --force'
 curl -s 'https://wger.kmkdp.com/api/v2/equipment/?limit=50' | python3 -c 'import json,sys; print(sorted(e["name"] for e in json.load(sys.stdin)["results"]))'
 ```
@@ -464,6 +465,7 @@ printf '%s\n' \
   "ADD = ['Pool', 'Recumbent bike']            # + 'Resistance band' / 'Swiss Ball' if bought" \
   "for n in ADD: print('add', n, Equipment.objects.get_or_create(name=n)[1])" \
   | ssh $H 'sudo docker exec -i wger-web python3 manage.py shell'
+printf '%s\n' "from django.core.cache import cache" "cache.clear()" "print('cache cleared')" | ssh $H 'sudo docker exec -i wger-web python3 manage.py shell'   # equipment/ and muscle/ lists are cached 28 days per content type; the warmup only rebuilds exercises
 ssh $H 'sudo docker exec wger-web python3 manage.py warmup-exercise-api-cache --force'
 ```
 
@@ -499,6 +501,7 @@ printf '%s\n' \
   "print(Muscle.objects.get_or_create(name='Forearm flexors', defaults={'name_en': 'Forearm flexors', 'is_front': True}))" \
   | ssh $H 'sudo docker exec -i wger-web python3 manage.py shell'
 # (<Muscle: Forearm flexors>, True) the first time, False after
+printf '%s\n' "from django.core.cache import cache" "cache.clear()" "print('cache cleared')" | ssh $H 'sudo docker exec -i wger-web python3 manage.py shell'   # equipment/ and muscle/ lists are cached 28 days per content type; the warmup only rebuilds exercises
 ssh $H 'sudo docker exec wger-web python3 manage.py warmup-exercise-api-cache --force'
 ```
 
@@ -519,6 +522,7 @@ printf '%s\n' \
   "from wger.exercises.models import Muscle" \
   "print(Muscle.objects.filter(name='Forearm flexors').delete())" \
   | ssh $H 'sudo docker exec -i wger-web python3 manage.py shell'
+printf '%s\n' "from django.core.cache import cache" "cache.clear()" "print('cache cleared')" | ssh $H 'sudo docker exec -i wger-web python3 manage.py shell'   # equipment/ and muscle/ lists are cached 28 days per content type; the warmup only rebuilds exercises
 ssh $H 'sudo docker exec wger-web python3 manage.py warmup-exercise-api-cache --force'
 ```
 
@@ -530,6 +534,7 @@ printf '%s\n' \
   "from wger.exercises.models import Muscle" \
   "for n, f in [('Forearm extensors', False), ('Hand intrinsics', True), ('Adductors', True), ('Tibialis anterior', True)]: print(Muscle.objects.get_or_create(name=n, defaults={'name_en': n, 'is_front': f}))" \
   | ssh $H 'sudo docker exec -i wger-web python3 manage.py shell'
+printf '%s\n' "from django.core.cache import cache" "cache.clear()" "print('cache cleared')" | ssh $H 'sudo docker exec -i wger-web python3 manage.py shell'   # equipment/ and muscle/ lists are cached 28 days per content type; the warmup only rebuilds exercises
 ssh $H 'sudo docker exec wger-web python3 manage.py warmup-exercise-api-cache --force'
 ```
 
