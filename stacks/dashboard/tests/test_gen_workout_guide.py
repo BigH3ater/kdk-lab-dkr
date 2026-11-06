@@ -63,3 +63,31 @@ def test_everyday_heading_and_minutes_come_from_the_note(tmp_path):
     assert '<h2 class="dayhead">Every day — PT stretches</h2>' in page
     assert "~6 minutes (both legs), every day, any time." in page
     assert "hand routine</h2>" not in page and "~9 minutes" not in page
+
+
+def test_v2_cues_and_sets_from_the_card_generator(tmp_path):
+    vault = fake_vault(tmp_path / "vault")
+    scripts = vault / "3. Resources" / "Exercise" / "scripts"
+    scripts.mkdir()
+    (scripts / "ex_days.py").write_text(
+        'C = {"box-squat": ("Box squat", "3 × 8–12", ["Feet shoulder-width.", "Tap the bench."], None, {})}\n',
+        encoding="utf-8")
+    out = tmp_path / "out"
+    r = subprocess.run([sys.executable, str(GEN), "--vault", str(vault), "--out", str(out)],
+                       capture_output=True, text=True)
+    assert r.returncode == 0, r.stderr
+    data = json.loads((out / "workout.json").read_text(encoding="utf-8"))
+    assert data["version"] == 2
+    sq, calf = data["days"][0]["steps"][:2]
+    assert sq["cues"] == ["Feet shoulder-width.", "Tap the bench."] and sq["sets"] == 3
+    assert calf["cues"] == [] and calf["sets"] == 3
+    assert data["everyday"][0]["sets"] == 5            # "5 ×"
+    assert not list(scripts.glob("__pycache__"))        # the vault is never written to
+
+
+def test_missing_card_generator_still_builds(tmp_path):
+    out = tmp_path / "out"
+    r = subprocess.run([sys.executable, str(GEN), "--vault", str(fake_vault(tmp_path / "vault")), "--out", str(out)],
+                       capture_output=True, text=True)
+    assert r.returncode == 0 and "no cues" in r.stderr
+    assert json.loads((out / "workout.json").read_text(encoding="utf-8"))["days"][0]["steps"][0]["cues"] == []

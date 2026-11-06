@@ -9,7 +9,7 @@ The workout log lives in three places that must agree:
 | Where | What | Made by |
 |---|---|---|
 | Home Assistant | one helper per logged value, per person (`input_number.ex_<id>_weight`, `…_reps`, `…_seconds`, `…_minutes`, `…_score`, `input_datetime.ex_<id>_done`; Rachel's end in `_rachel`) + the Strength / Progress views of `workout.yaml` and `workout_rachel.yaml` | `stacks/home-assistant/tools/gen_workout.py` from **`tools/workout_catalog.json`** |
-| home.kmkdp.com | the Workout guide (`/guides/workout/workout.html`) and the `/workout/` log page (instructions + a form per exercise, writes the HA helpers and a CSV) | `stacks/dashboard/guides/gen-workout-guide.py` on the laptop, from the private vault; output is host-managed in `/opt/kdk-lab/dashboard/workout` |
+| home.kmkdp.com | the Workout guide (`/guides/workout/workout.html`) and the `/workout/` Today page (poster, dose, cues and a per-set form per exercise; writes a CSV and the HA helpers) | `stacks/dashboard/guides/gen-workout-guide.py` on the laptop, from the private vault; output is host-managed in `/opt/kdk-lab/dashboard/workout` |
 | The private vault | the week's order, doses, pictures, the Daily-note log fields | the vault's own generator (`ex_days.py`) — not in this repo |
 
 **One list per side.** The repo side is the catalog; never hand-edit
@@ -87,6 +87,14 @@ item lists the vault picture slugs (`ex-<slug>.svg`) it logs for.
    This also refreshes `workout.json`, which the `/workout/` page reads on the
    next request. A catalog change reaches `/workout/` with the dashboard stack
    deploy (it reads the catalog from the repo clone).
+   **Also re-run this step whenever only the cues or the doses change** in the
+   vault (no catalog edit): `workout.json` (version 2) carries each step's `cues`
+   (read from the vault card generator `scripts/ex_days.py`) and `sets` (the
+   number before "×" in the dose), and the Today page sizes its set rows from
+   it. The generator prints `cues for N day steps`; a `WARNING: ... no cues`
+   line means it could not import `ex_days.py` (the guide is still written, the
+   cards just have no cue list). The page accepts version 1 files too (no cues,
+   set count from the dose).
 7. **Verify** (both people):
    **Laptop (`op` signed in)**
    ```bash
@@ -96,7 +104,7 @@ item lists the vault picture slugs (`ex-<slug>.svg`) it logs for.
        https://homeassistant.kmkdp.com/api/states/$e; done     # 200 each, 404 = not loaded
    ```
    - both Workout pages: no "Entity not available" rows on Strength;
-   - `https://home.kmkdp.com/workout/` (once the log sidecar is deployed) shows the item on its day with a form;
+   - `https://home.kmkdp.com/workout/?date=<a day it is planned>` shows the item with a form sized to its kind;
    - `sudo docker logs homeassistant 2>&1 | grep -i 'invalid config' | tail` on kdk-dkr-02 is quiet.
 
 ## CSV schema check (after a dashboard deploy that changes the log format)
@@ -128,6 +136,36 @@ read -rs -p 'authelia_session cookie: ' COOKIE; echo
 curl -s -b "authelia_session=$COOKIE" "$URL" | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d["week"], len(d["days"]), {k: v["count"] for k, v in d["goals"].items()})'
 unset COOKIE                          # expect: 2026-Wnn 7 {'walks': .., 'pt': .., ...}
 ```
+
+## Today page check on the phone (after a dashboard deploy that touches `/workout/`)
+
+The Today page is also an installable web app with an offline queue
+([Dashboard → Workout Today page](../services/dashboard.md#workout-today-page)).
+Check with each person's phone:
+
+1. Open `https://home.kmkdp.com/workout/` in Safari, sign in. Header shows the
+   date, "Logging as <name>" and `0 / M done` (or the day's count).
+2. Share → **Add to Home Screen** → open **Workout** from the home screen. The
+   app has its own login: sign in once inside it. Open it once more while
+   online so the service worker has the page.
+3. Log one set on any card: the page comes back with a green
+   `logged HH:MM · 1 set` rail.
+4. **Airplane mode on.** Close and reopen the app: the cached page shows. Fill a
+   card and tap **Log sets**: the card shows **queued, will sync** and the
+   banner counts it.
+5. **Airplane mode off**, bring the app to the foreground: the banner says
+   "Synced 1 queued log", the page reloads and the rail is there.
+6. On kdk-dkr-01 the rows are in the CSV:
+   **kdk-dkr-01, as kdkadmin**
+   ```bash
+   sudo tail -n 5 /opt/kdk-lab/dashboard/workout-log/workout-log.csv   # one row per set, set_index 1..n, source web
+   ```
+7. Optional, login expiry: the replay of a queued log after the Authelia
+   session ends shows **Reload to sign in**; after signing in the queue
+   replays (nothing is lost).
+
+If the app keeps showing an old page after a deploy, close it from the app
+switcher and reopen it (the new service worker takes over on the next load).
 
 ## Rollback
 
