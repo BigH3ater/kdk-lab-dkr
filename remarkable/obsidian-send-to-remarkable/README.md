@@ -99,5 +99,5 @@ npm run build   # type-checks (tsc) then bundles main.ts -> main.js with esbuild
 - **Desktop only** (`isDesktopOnly: true`): it writes request files through the vault
   adapter and relies on the lab-side job for delivery.
 - It never stores or transmits credentials and makes no network calls of its own.
-- The return path (handwriting via `remarkable-ocr`, highlights via `koreader-highlights`)
-  is unchanged and documented in `docs/services/obsidian-to-koreader.md`.
+- The return path (highlights via `koreader-highlights`; handwriting OCR was retired
+  2026-11-05) is documented in `docs/services/obsidian-to-koreader.md`.

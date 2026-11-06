@@ -35,7 +35,7 @@ render to SVG at build time via the internal [[kroki]] service.
 
 A `/state` lock keeps the watcher and the one-shot from processing the same request twice.
 
-**Related:** [[kdk-dkr-01]] · [[kroki]] · [[calibre]] · `obsidian-headless` (vault mirror stack, no page) · remarkable-ocr · koreader-highlights
+**Related:** [[kdk-dkr-01]] · [[kroki]] · [[calibre]] · `obsidian-headless` (vault mirror stack, no page) · koreader-highlights
 
 ## At a glance
 
@@ -88,7 +88,7 @@ watcher is ever down, the 6-hourly procedure sweeps the queue; run the Komodo
 | Needs | the tablet reachable over SSH (tailnet/LAN) + `RM_PW` | no delivery (requests stay queued) |
 | Needs | [[kroki]] on the `kroki_default` network | Mermaid diagrams fall back to source text (does not fail the note) |
 | Needed by | the owner reading notes on the tablet in KOReader | — |
-| Pairs with | `remarkable-ocr`, `koreader-highlights` (the return loop) | annotations would not come back |
+| Pairs with | `koreader-highlights` (the return loop) | annotations would not come back |
 
 ## Observability
 
@@ -121,11 +121,8 @@ This stack is the **outbound** leg only — it never writes a vault note and the
 **no second return path**. Edits made on the tablet come back through the existing
 jobs:
 
-- **Handwriting** (pen annotations on these PDFs, or new notebook pages):
-  [`remarkable-ocr`](../../stacks/remarkable-ocr/README.md) pulls changed pages over
-  SSH, OCRs them with `qwen2.5vl`, and writes one note per page into the matching
-  vault section (`10.Homelab`, …). A `@dia` page becomes a topology SVG. Those notes
-  then surface in the daily note by their `[[Source]]`/section links.
+- **Handwriting** is not collected any more: `remarkable-ocr` was retired 2026-11-05
+  (see [[apps]]), so pen notes stay on the tablet.
 - **KOReader highlights** (text highlights on the delivered PDFs):
   [`koreader-highlights`](../../stacks/koreader-highlights/README.md) pulls each
   `.sdr` sidecar under `/home/root/books` and writes one note per book into

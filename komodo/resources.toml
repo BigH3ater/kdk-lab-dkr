@@ -1146,41 +1146,13 @@ executions = [
   { execution.type = "DeployStack", execution.params.stack = "storage-health-dkr04", enabled = true },
 ]
 
-# reMarkable handwriting -> OCR (Ollama qwen2.5vl on the 4090) -> Obsidian vault.
-# One-shot `pipeline.py run`: enqueue changed notebook pages when the tablet is on
-# Wi-Fi, drain the durable queue when the workstation is up. Both halves no-op if
-# their dependency is offline, so nothing is lost (tablet sleeps; 4090 intermittent).
-# pre_deploy op-injects the tablet root password; destroy_before_deploy re-runs it.
-[[stack]]
-tags = ["kdk-lab"]
-name = "remarkable-ocr"
-deploy = false   # run hourly by the remarkable-ocr Procedure
-[stack.config]
-compose_cmd_wrapper = "/usr/local/sbin/kdk-compose-config-redact [[COMPOSE_COMMAND]]"   # redact env values from the stored Compose Config log (komodo#1636)
-compose_cmd_wrapper_include = ["config"]
-server = "kdk-dkr-01"
-repo = "BigH3ater/kdk-lab-dkr"
-run_directory = "stacks/remarkable-ocr"
-auto_pull = false   # image is built locally (no registry) -> skip compose pull
-run_build = true    # run docker compose build before up
-destroy_before_deploy = true   # one locked down+up so the one-shot re-runs
-pre_deploy.command = "sh -c '. /etc/komodo/op.env && op inject -f -i .env.tpl -o .env'"
-
-[[procedure]]
-tags = ["kdk-lab"]
-name = "remarkable-ocr"
-[procedure.config]
-schedule_format = "Cron"
-# :20 every hour -- off the gitops-sync :00/:15/:30/:45 slots and clear of
-# storage-health (:35) / tdarr-verify (:40) / tdarr-remediate (:50).
-schedule = "0 20 * * * *"
-schedule_timezone = "America/Chicago"
-[[procedure.config.stage]]
-name = "run"
-enabled = true
-executions = [
-  { execution.type = "DeployStack", execution.params.stack = "remarkable-ocr", enabled = true },
-]
+# remarkable-ocr REMOVED 2026-11-05 (owner decision): reMarkable handwriting ->
+# OCR (Ollama on the 4090) -> Obsidian vault is retired. Its notebook map created
+# the unwanted top-level vault folders 60.Work and 40.Development (Obsidian Sync
+# pushed them to every device). The stacks/remarkable-ocr/ tree, this Komodo stack
+# + hourly procedure, the kdk/remarkable-ocr advisory-watch entry and the dkr-01
+# DOCKER-USER Ollama exception were deleted; the container, image and
+# /opt/kdk-lab/remarkable-ocr queue on dkr-01 are removed by hand.
 
 # planner-service REMOVED 2026-10-30 (owner decision): the daily Proton-calendar
 # planner PDF + vault agenda (90-Meta/Planners/) is retired. The

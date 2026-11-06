@@ -107,7 +107,13 @@ No dashboard. `ntp` (123/udp) and `proton-bridge` (25) are host-port; alerting â
 AdGuard sync is unattended; the others are headless integrations.
 
 **rmfakecloud retired 2026-10-31.** Tablet content now moves over SSH (`obsidian-to-koreader`,
-`readwise-koreader`, `koreader-highlights`, `remarkable-ocr`), so the self-hosted reMarkable cloud and
+`readwise-koreader`, `koreader-highlights`), so the self-hosted reMarkable cloud and
 the `readwise-to-remarkable` native-reader highlights job were removed. Its data is archived on
 kdk-dkr-01 at `/opt/kdk-lab/apps/rmfakecloud.retired-20261031`, and the reMarkable cloud domains are
 blackholed to `0.0.0.0` by `dns-reconcile`, so the tablet stays cloud-free.
+
+**remarkable-ocr retired 2026-11-05 (owner decision).** Handwriting OCR into the vault is gone:
+notebook pages are no longer pulled off the tablet, OCR'd on the 4090 and written as notes. Its
+notebook map is what created the unwanted `60.Work` and `40.Development` vault folders. The stack,
+hourly Komodo procedure, advisory-watch entry and the dkr-01 DOCKER-USER Ollama (`:11434`)
+exception were removed; `obsidian-headless` and the other vault jobs are unchanged.
