@@ -46,7 +46,7 @@ from the workout catalog + the guide output (runbook step 9).
 ```
 phone / browser ──https──▶ Traefik (10.1.20.20:443)
    router wger       Host(wger.kmkdp.com)                → wger-strip-remote → forwardauth@file (Authelia two_factor, group dashboard-users) → nginx
-   router wger-open  … && PathPrefix /api/ /static/ /media/ /ps/ → wger-strip-remote (no forward-auth)               → nginx
+   router wger-open  … && PathPrefix /api/ /static/ /media/ /ps/ /allauth/app/ → wger-strip-remote (no forward-auth)               → nginx
 nginx (10.208.200.10) ── Remote-User/-Email/-Name only if the request came from the proxy network ──▶ gunicorn (web:8000)
 wger: AUTH_PROXY_HEADER=HTTP_REMOTE_USER, trusted IP = nginx; acts ONLY on /user/login → logs in (creates) the Authelia user
 ```
@@ -55,9 +55,13 @@ wger: AUTH_PROXY_HEADER=HTTP_REMOTE_USER, trusted IP = nginx; acts ONLY on /user
   as your Authelia username (`jmack`, `rach`); the account is created on first visit.
   Registration and guest users are off, mail is off.
 - **iOS app**: the login opens the system browser on `/user/app-auth/`, which is behind
-  Authelia, so 2FA applies; wger then hands the app a token (`wger://app-auth#token=…`).
-  After that the app uses `/api/` with its token and `/ps/` (PowerSync) with a
-  short-lived JWT, both outside forward-auth.
+  Authelia, so 2FA applies; wger then hands the app a long-lived *refresh* token
+  (`wger://app-auth#token=…`). The app exchanges it at
+  `POST /allauth/app/v1/tokens/refresh` (allauth headless, app client) for the access
+  token it then uses on `/api/` and `/ps/` (PowerSync). All three paths are outside
+  forward-auth: with `/allauth/app/` behind Authelia the exchange got Authelia's 401
+  and the app reported a failed login (2026-11-06). Registration is off, so the
+  headless signup/login endpoints there have nothing to offer without a wger password.
 - **`/api/` is not behind Authelia.** It needs a wger token, a JWT or a wger password.
   Header-created users have no usable wger password; the only password account is the
   break-glass `admin` (1Password `wger-admin`, set in runbook step 4).

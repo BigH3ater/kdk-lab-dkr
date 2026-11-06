@@ -203,7 +203,7 @@ services:
       traefik.http.routers.wger.middlewares: "wger-strip-remote,forwardauth@file"
       traefik.http.routers.wger.service: "wger"
       # App/API paths without forward-auth (token / JWT auth in wger and PowerSync).
-      traefik.http.routers.wger-open.rule: "Host(`wger.kmkdp.com`) && (PathPrefix(`/api/`) || PathPrefix(`/static/`) || PathPrefix(`/media/`) || PathPrefix(`/ps/`))"
+      traefik.http.routers.wger-open.rule: "Host(`wger.kmkdp.com`) && (PathPrefix(`/api/`) || PathPrefix(`/static/`) || PathPrefix(`/media/`) || PathPrefix(`/ps/`) || PathPrefix(`/allauth/app/`))"
       traefik.http.routers.wger-open.priority: "100"
       traefik.http.routers.wger-open.middlewares: "wger-strip-remote"
       traefik.http.routers.wger-open.service: "wger"
