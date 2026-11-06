@@ -341,9 +341,9 @@
    "slugs": [
     "suitcase"
    ],
-   "name": "Suitcase Carry",
+   "name": "Suitcase Carry (10-ft lengths)",
    "group": "upper_b",
-   "kind": "wt"
+   "kind": "w"
   },
   {
    "id": "towel_wring",
