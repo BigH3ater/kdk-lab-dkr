@@ -6,7 +6,7 @@ tier: internal
 status: live
 storage: yes
 secrets: [vikunja-app, jellyfin-api-ro, seerr-api-ro, audiobookshelf-api-ro, vikunja-api-ro, dashboard-tandoor-rw]
-updated: 2026-10-30
+updated: 2026-11-06
 tags: [homelab/stack, tier/internal, status/live]
 ---
 
@@ -71,9 +71,54 @@ truth. See the [approval-tasks runbook](../runbooks/approval-tasks.md).
 | `stacks/dashboard/guides/*.html` | Family how-to pages (served under `/guides`; each sets `<base href="/guides/">` so relative links survive the StripPrefix) |
 | `stacks/dashboard/guides/shared-nav.{css,js}` | The one Kodiak sidebar shared by Homepage, guides and `/meal` (same links/order/labels, active-link state, mobile top-bar overlay); `shared-nav.js` hides it inside an iframe so the embedded `/meal` panels stay bare |
 | `stacks/dashboard/mealplan/app.py` | Tandoor session read + rating write-back |
-| `stacks/dashboard/workout/app.py` | `/workout/` log page: the day's steps from the host-managed `workout.json` with a form per exercise; writes the person's HA helpers (`Remote-User` jmack → Jacob, rach → Rachel, anyone else read-only) with the `home-assistant-workout-token` and appends `/opt/kdk-lab/dashboard/workout-log/workout-log.csv` (`timestamp,person,item,slug,weight,reps,seconds,minutes,score,done`). Reads the catalog from the repo clone (`stacks/home-assistant/tools`). See the [workout-tracking-update runbook](../runbooks/workout-tracking-update.md) |
+| `stacks/dashboard/workout/app.py` | `/workout/` log page: the day's steps from the host-managed `workout.json` with a form per exercise; writes the person's HA helpers (`Remote-User` jmack → Jacob, rach → Rachel, anyone else read-only) with the `home-assistant-workout-token` and appends `/opt/kdk-lab/dashboard/workout-log/workout-log.csv` (CSV v2, see [Workout log](#workout-log-csv-v2-and-json)); serves `/api/history.json` + `/api/week.json`. `history.py` = schema, migration and the read side; `migrate_csv.py` = the same migration by hand. Reads the catalog from the repo clone (`stacks/home-assistant/tools`). See the [workout-tracking-update runbook](../runbooks/workout-tracking-update.md) |
 | `stacks/dashboard/guides/gen-workout-guide.py` | Builds the host-managed Workout guide (`/guides/workout/`) + `workout.json` from the private vault on the laptop; prefers `ex-<slug>-rom.png` pictures. Exercise changes: [workout-tracking-update runbook](../runbooks/workout-tracking-update.md) |
 | `stacks/dashboard/.env.tpl` | op refs (Vikunja JWT, widget API keys, Tandoor creds, ICS URL) |
+
+## Workout log (CSV v2 and JSON)
+
+The CSV is the durable record (HA's recorder keeps 10 days). It lives in
+`/opt/kdk-lab/dashboard/workout-log/` on kdk-dkr-01 (the container's only
+writable path, `/log`) and is in the nightly + offsite backup with the rest of
+`/opt/kdk-lab`. One row per logged set or tick:
+
+| Column | Meaning |
+|---|---|
+| `timestamp` | ISO time with offset (America/Chicago) |
+| `date` | the local day the row counts for (`YYYY-MM-DD`) |
+| `person` | catalog person key (`jacob`, `rachel`) |
+| `item` | catalog item id (`box_squat`, `treadmill_walk` …) |
+| `slug` | vault picture slug the form sat next to (blank for check-ins) |
+| `set_index` | `1`, `2` … for a set; blank for a tick, a score or a migrated row |
+| `weight` `reps` `seconds` `lengths` `minutes` `score` | the values; blank when not logged (`lengths` = 10-ft lengths, kind `wl`) |
+| `done` | `1` for a ticked routine |
+| `source` | `web` (the page), `treadmill` (auto-log, later), `migrated` (v1 rows) |
+
+**Migration.** v1 (`timestamp,person,item,slug,weight,reps,seconds,minutes,score,done`)
+is upgraded when the app starts and again before its first write: the old file is
+copied to `workout-log.v1-<YYYYMMDD>.bak` beside it, then rewritten atomically
+(temp file in `/log` + `os.replace`) with `date` from the timestamp,
+`set_index`/`lengths` blank and `source=migrated`. A v2 file is left alone; an
+unknown header is refused (the app will not start; nothing is changed). To
+preview or run it by hand:
+
+**kdk-dkr-01, as kdkadmin**
+```bash
+C=dashboard-workout
+sudo docker exec "$C" python /app/migrate_csv.py --dry-run   # prints the plan, changes nothing
+sudo docker exec "$C" python /app/migrate_csv.py             # migrate (no-op when already v2)
+```
+
+**JSON routes** (behind Authelia like the page; for the catalog people only,
+either person's data, default = the viewer; `person` = login `jmack`/`rach` or
+key `jacob`/`rachel`):
+
+| Route | Returns |
+|---|---|
+| `GET /workout/api/history.json?item=<id>[&person=][&since=YYYY-MM-DD]` | `sessions`: one per day, `sets` (weight/reps/seconds/lengths/minutes, set index, source), `top` set, `done`, `score`; plus `treadmill_minutes` (daily totals by `source`) for `treadmill_walk` |
+| `GET /workout/api/week.json[?person=][&week=2026-W45]` | the ISO week (Mon–Sun, default this week): per day `planned` (from `workout.json` + catalog), `done`, `missing`, `day_complete`, `walk_minutes`, `strength_session`; `goals` with count/target/met for walks (7 days and ≥125 min), PT (3), hands (3), stretches (7), flexibility (3), strength (4: Mon/Tue/Thu/Fri with every lift), pain (7: knee + hand) |
+
+Unknown viewer → 403; bad `item`/`person`/`since`/`week` → 400.
 
 ## Secret Rotation
 
