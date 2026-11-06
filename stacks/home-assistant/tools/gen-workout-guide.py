@@ -1,28 +1,26 @@
 #!/usr/bin/env python3
-"""Generate the "Workout" how-to guide for home.kmkdp.com from the Obsidian vault.
+"""Build the wger load input (workout.json + posters) from the Obsidian vault. Laptop only.
 
 WHO RUNS THIS, AND WHEN
 -----------------------
-The owner runs this ON THE LAPTOP whenever the exercise plan changes, because the
-source of truth lives in the private Obsidian vault (kodiak-codex), which only
-exists on the laptop -- the dashboard host never sees it. The script reads the
-plan, parses the markdown, copies the referenced exercise diagrams, and emits a
-static page into --out.
+The owner runs this ON THE LAPTOP whenever the exercise plan, a dose or a cue changes,
+because the source of truth lives in the private Obsidian vault (kodiak-codex), which
+only exists on the laptop. The output is the --posters input of gen_wger.py (next to
+this file), which loads the first person's week + every exercise poster into wger.
 
-The outputs contain personal/health content, so they are HOST-MANAGED and NEVER
-committed to this PUBLIC repo. After re-running, copy the --out contents to the
-dashboard host (kdk-dkr-01) and redeploy the `dashboard` stack:
+The output contains personal/health content: it goes to a SCRATCH dir on the laptop
+(default /tmp/workout-guide), is NEVER committed to this PUBLIC repo and is NEVER
+published. Until 2026-11-06 it was also served as the home.kmkdp.com "Workout" guide
+and read by the /workout/ Today page; both were retired when wger won the tracking
+pilot (docs/runbooks/workout-tracking-update.md). The workout.html it still writes is
+a local preview only (open it from the scratch dir; the site styles will not load).
 
-    scp -r <out>/. kdkadmin@10.1.20.20:/tmp/workout
-    ssh kdkadmin@10.1.20.20 'sudo install -d -m 755 /opt/kdk-lab/dashboard/workout \
-      && sudo cp -rT /tmp/workout /opt/kdk-lab/dashboard/workout && rm -rf /tmp/workout'
-
-The dashboard compose mounts /opt/kdk-lab/dashboard/workout at /guides/workout
-(read-only), so the page serves at https://home.kmkdp.com/guides/workout/workout.html.
+    python3 stacks/home-assistant/tools/gen-workout-guide.py            # -> /tmp/workout-guide
+    python3 stacks/home-assistant/tools/gen_wger.py --posters /tmp/workout-guide   # dry run
 
 USAGE
 -----
-    python3 gen-workout-guide.py [--vault PATH]
+    python3 gen-workout-guide.py [--vault PATH] [--out DIR] [--cards DIR]
 
   --vault   Path to the kodiak-codex vault root.
             Default: ~/Documents/kodiak-codex
@@ -34,20 +32,22 @@ Reads:
           ChatGPT range-of-motion picture, preferred over the SVG when it exists)
 
 Writes (all into --out):
-    workout.html               the page
-    exercise/<image>           the pictures it uses
-    workout.json               the same day/step content as data, read by the
-                               /workout/ Today page (stacks/dashboard/workout).
-                               Version 2: each step also carries `cues` (the
-                               exercise card's how-to lines) and `sets` (the
-                               number before "×" in the dose, or null).
+    workout.html               a local preview of the week (not published)
+    exercise/<image>           the pictures it uses (gen_wger.py uploads the -rom.png
+                               posters; per-step photos ex-<slug>-step<N>.png are
+                               copied in by hand AFTER each run: a run starts
+                               exercise/ clean)
+    workout.json               the same day/step content as data, read by
+                               gen_wger.py. Version 2: each step also carries
+                               `cues` (the exercise card's how-to lines) and `sets`
+                               (the number before "×" in the dose, or null).
 
 Cues come from the vault's card generator (<vault>/3. Resources/Exercise/scripts/
 ex_days.py, its C table: slug -> (title, dose, cues, figure, opts)), imported
 read-only. If it cannot be imported, the guide is still written with empty cues
 and a warning (--cards '' skips it).
 
-Stdlib only (argparse, pathlib, re, shutil, html, importlib) -- nothing to install.
+Stdlib only (argparse, pathlib, re, shutil, html, importlib, tempfile) -- nothing to install.
 """
 
 from __future__ import annotations
@@ -59,6 +59,7 @@ import json
 import re
 import shutil
 import sys
+import tempfile
 from pathlib import Path
 
 # Cache-buster shared with the other guide pages. Bump together with them.
@@ -74,7 +75,6 @@ DAYS = [
     ("sun", "Sunday"),
 ]
 
-HERE = Path(__file__).resolve().parent  # stacks/dashboard/guides/
 
 STEP_RE = re.compile(r"^#{2,3}\s+(\d+)\s*·\s*(.+?)\s*$")
 EMBED_RE = re.compile(r"!\[\[([^\]]+?)\]\]")
@@ -329,10 +329,10 @@ def main():
     ap = argparse.ArgumentParser(description="Generate the Workout guide page.")
     ap.add_argument("--vault", default=str(Path.home() / "Documents" / "kodiak-codex"),
                     help="Path to the kodiak-codex vault root.")
-    ap.add_argument("--out", default=str(Path.cwd() / "workout-guide-dist"),
-                    help="Output dir for the page + diagrams. HOST-MANAGED: copy its "
-                         "contents to /opt/kdk-lab/dashboard/workout on the dashboard "
-                         "host; never commit them (this repo is public).")
+    ap.add_argument("--out", default=str(Path(tempfile.gettempdir()) / "workout-guide"),
+                    help="Scratch output dir (workout.json + exercise/ + a preview page) "
+                         "for gen_wger.py --posters. Personal content: never commit, "
+                         "never publish (this repo is public).")
     ap.add_argument("--cards", default=None,
                     help="Folder with the vault card generator ex_days.py (cues for "
                          "workout.json). Default: <vault>/3. Resources/Exercise/scripts; "
@@ -418,7 +418,7 @@ def main():
                                          everyday_steps, level="h3"))
     everyday_section.append('  </section>')
 
-    # --- data for the /workout/ Today page (same parse, no HTML) ---
+    # --- data for gen_wger.py (same parse, no HTML) ---
     if args.cards is None:
         cues = load_cues(ex_dir / "scripts")
     else:
@@ -452,7 +452,7 @@ def main():
     out_file.write_text(page, encoding="utf-8")
     print(f"Wrote {out_file}")
     print(f"Copied {len(copied)} diagram(s) into {out_dir}")
-    print(f"Wrote {OUT / 'workout.json'} (read by the /workout/ Today page; "
+    print(f"Wrote {OUT / 'workout.json'} (read by gen_wger.py --posters; "
           f"cues for {sum(1 for d in data['days'] for st in d['steps'] if st['cues'])} day steps)")
 
 
@@ -461,7 +461,6 @@ PAGE_TEMPLATE = """<!DOCTYPE html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<base href="/guides/workout/">
 <title>Workout -- Mack House</title>
 <link rel="stylesheet" href="../style.css?v={v}">
 <link rel="stylesheet" href="../shared-nav.css?v={v}">
@@ -522,7 +521,7 @@ PAGE_TEMPLATE = """<!DOCTYPE html>
   <header class="site"><span class="bear"><svg viewBox="19 31 82 64" width="34" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M60 40 C53 33 45 31 38 32 C28 33 19 43 19 56 C19 71 28 85 42 91 C50 95 56 93 60 90 C64 93 70 95 78 91 C92 85 101 71 101 56 C101 43 92 33 82 32 C75 31 67 33 60 40 Z M47 56 C40 54 33 58 32 66 C31 73 36 77 42 75 C38 72 39 65 46 62 C50 60 50 57 47 56 Z M73 56 C80 54 87 58 88 66 C89 73 84 77 78 75 C82 72 81 65 74 62 C70 60 70 57 73 56 Z M58.5 90 C58.5 82 58.5 70 58.5 60 C58.5 57 61.5 57 61.5 60 C61.5 70 61.5 82 61.5 90 C61.5 92 58.5 92 58.5 90 Z"/></svg></span><a href="/">The Mack House</a> &nbsp;&middot;&nbsp; <a href="../index.html">Guides</a></header>
   <h1>&#128170; Workout</h1>
   <p class="lead">Your plan for the week, step by step with a picture for every move. Today's day opens first.
-    <a href="/workout/">Log your sets next to the instructions &rarr;</a></p>
+    Log your sets in the wger app.</p>
 
   <div class="tip">
     <b>Knee pain rule:</b> keep pain &le; 3/10 during a move and no worse the next
@@ -540,9 +539,8 @@ PAGE_TEMPLATE = """<!DOCTYPE html>
 {everyday}
 
   <footer>
-    Generated from the exercise plan in the vault. When the plan changes, the
-    owner re-runs <code>gen-workout-guide.py</code> on the laptop and redeploys
-    the dashboard stack.
+    Local preview generated from the exercise plan in the vault by
+    <code>gen-workout-guide.py</code> (laptop only, not published).
   </footer>
   </div>
 <script>

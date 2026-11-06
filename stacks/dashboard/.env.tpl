@@ -50,12 +50,3 @@ HOMEPAGE_VAR_ICS_URL={{ op://kdk-cluster/proton-calendar-ics/url }}
 # ratings -- nothing else.
 TANDOOR_USER={{ op://kdk-cluster/dashboard-tandoor-rw/username }}
 TANDOOR_PASS={{ op://kdk-cluster/dashboard-tandoor-rw/password }}
-
-# ---- workout log sidecar (home.kmkdp.com/workout/) ------------------------------
-# Home Assistant long-lived access token used ONLY by the workout sidecar to set the
-# person's workout helpers (input_number.set_value / input_datetime.set_datetime).
-# The owner mints it in HA (Profile -> Security -> Long-lived access tokens, as the
-# owner's admin user) and stores it as the API-Credential item home-assistant-workout-token
-# in the kdk-cluster vault, field credential. The item MUST exist before this merges
-# or the inject step fails and the stack will not deploy.
-WORKOUT_HA_TOKEN={{ op://kdk-cluster/home-assistant-workout-token/credential }}

@@ -14,7 +14,7 @@ import pytest
 TOOLS = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(TOOLS))
 import gen_wger as gw  # noqa: E402
-import gen_workout  # noqa: E402
+import workout_catalog  # noqa: E402
 
 TODAY = dt.date(2026, 11, 6)          # a Friday; the routine must start Monday 2026-11-02
 URL = "https://wger.test"
@@ -227,12 +227,12 @@ NO_POSTER = "wall-sit"
 
 def all_slugs() -> set[str]:
     """Every person's catalog slugs: the top-level list + every "plans" entry."""
-    cat = gen_workout.load()
+    cat = workout_catalog.load()
     return {s for pl in [cat, *cat.get("plans", {}).values()] for it in pl["items"] for s in it["slugs"]}
 
 
 def rach_plan() -> dict:
-    return gen_workout.load()["plans"]["rach"]
+    return workout_catalog.load()["plans"]["rach"]
 
 
 def step(n, s):
@@ -251,7 +251,7 @@ def guide(tmp_path):
                              "youneed": "", "steps": [step(i, s) for i, s in enumerate(steps, 1)]})
     data["days"][0]["steps"][1]["cues"] = ["Lock the knee", "Lift slowly"]
     (d / "workout.json").write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
-    slugs = {s for it in gen_workout.load()["items"] for s in it["slugs"]} | {"arm-circles"}
+    slugs = {s for it in workout_catalog.load()["items"] for s in it["slugs"]} | {"arm-circles"}
     for s in slugs - {NO_POSTER}:
         (d / "exercise" / f"ex-{s}-rom.png").write_bytes(b"\x89PNG fake " + s.encode())
     return d
@@ -290,7 +290,7 @@ KIND_SAMPLES = {
 
 
 def test_dose_samples_cover_every_catalog_kind():
-    kinds = {it["kind"] for it in gen_workout.load()["items"]} - {"score"}
+    kinds = {it["kind"] for it in workout_catalog.load()["items"]} - {"score"}
     assert kinds <= set(KIND_SAMPLES), kinds - set(KIND_SAMPLES)
 
 
@@ -309,7 +309,7 @@ def test_parse_dose_unparsed_falls_back_to_kind_unit():
 
 def test_every_guide_dose_parses(guide):
     warns = []
-    gw.plan_days(json.loads((guide / "workout.json").read_text()), gen_workout.load(), warns.append)
+    gw.plan_days(json.loads((guide / "workout.json").read_text()), workout_catalog.load(), warns.append)
     assert warns == []
 
 
@@ -706,7 +706,7 @@ def test_muscle_typo_is_an_error_at_run_time(guide, fake, monkeypatch, capsys):
 # ---------------------------------------------------------------- per-person plans
 def test_jacob_specs_and_days_ignore_the_other_plans(guide):
     """Jacob's exercise texts + week are what they were before per-person plans existed."""
-    cat = gen_workout.load()
+    cat = workout_catalog.load()
     g = json.loads((guide / "workout.json").read_text())
     sources = gw.plan_sources(cat, lambda: g)
     assert sources["jmack"] == (cat, g)
@@ -753,7 +753,7 @@ def test_rach_exercise_text_lists_her_weekdays(guide, fake):
 
 
 def test_a_slug_in_two_plans_is_an_error(guide):
-    cat = gen_workout.load()
+    cat = workout_catalog.load()
     g = json.loads((guide / "workout.json").read_text())
     pl = json.loads(json.dumps(cat["plans"]["rach"]))
     pl["items"][0]["slugs"] = ["box-squat"]

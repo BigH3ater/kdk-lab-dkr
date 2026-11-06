@@ -372,11 +372,14 @@ curl -s --http1.1 -m 3 -N -H 'Connection: Upgrade' -H 'Upgrade: websocket' \
   **registering a new dashboard or the themes dir needs an HA restart**;
   package edits reload with Developer Tools → "Reload all YAML" (a *new*
   package that adds integrations needs a one-time restart).
-- **Workout pages** — `config/packages/workout_strength*.yaml` and
-  `config/dashboards/workout*.yaml` are **generated** by
-  `tools/gen_workout.py` from `tools/workout_catalog.json` (one list, both
-  people; CI checks they are current). Add/rename/remove an exercise with the
-  [workout-tracking-update runbook](../runbooks/workout-tracking-update.md).
+- **Workout pages** — `config/dashboards/workout.yaml` (Jacob,
+  `/treadmill-workouts`) and `workout_rachel.yaml` (`/workout-rachel`) are the
+  **Treadmill view only**, hand-edited, identical apart from `title:` (CI test
+  `tools/tests/test_treadmill_dashboards.py`). The per-exercise `ex_*` helpers,
+  `script.workout_mark_done` and the Strength / Progress / Plan views were
+  retired 2026-11-06 when [[wger]] won the tracking pilot; exercise logging and
+  history are in wger. `tools/` keeps only the wger side (catalog, `gen_wger.py`,
+  `gen-workout-guide.py`): [workout-tracking-update runbook](../runbooks/workout-tracking-update.md).
 - **Approval tasks** — `config/packages/approval_tasks.yaml` is a generic
   decision loop: a Vikunja task in the Approvals project raises an actionable
   notification (polled, no inbound path, no container), and Approve/Skip (or

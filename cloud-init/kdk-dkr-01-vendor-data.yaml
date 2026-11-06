@@ -216,12 +216,6 @@ write_files:
       # reMarkable tablet over SSH: koreader-highlights, obsidian-to-koreader,
       # readwise-koreader.
       allow_dst 10.1.30.245 tcp 22
-
-      # dashboard-workout (stacks/dashboard, PR #368) writes the workout helpers in Home
-      # Assistant through Traefik on dkr-02 (https://homeassistant.kmkdp.com). Per container,
-      # so nothing else on the dashboard bridges gains a path to VLAN 30. Found 2026-11-04:
-      # the first deploy timed out on every HA call (kdk-du-drop DST=10.1.30.21 DPT=443).
-      allow_ctr dashboard-workout 10.1.30.21 tcp 443
   - path: /etc/ssh/sshd_config.d/98-kdk-admin.conf
     content: |
       # kdk-lab SSH baseline, every host. Install: /etc/ssh/sshd_config.d/98-kdk-admin.conf
