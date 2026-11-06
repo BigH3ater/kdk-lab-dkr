@@ -323,7 +323,7 @@ def test_exercises_markers_images_and_owner(guide, fake):
     by = {gw.MARKER_RE.search(t["description_source"]).group("slug"): t for t in trs}
     assert by["pt-slr"]["name"] == "Straight Leg Raise"
     assert by["hand-glides"]["name"] == "Tendon glides"          # multi-slug item -> guide title
-    assert by["hammer-curl"]["name"] == "Hammer Curl (kdk)"      # collided with upstream "Hammer Curls"
+    assert by["hammer-curl"]["name"] == "Hammer Curl · kdk plan"   # collided with upstream "Hammer Curls"
     assert "- Lock the knee\n- Lift slowly" in by["pt-slr"]["description_source"]
     assert "15 min · easy pace, zone 2 (Mon, Tue, Thu, Fri, Sun)" in by["treadmill-walk"]["description_source"]
     assert "img:none" in by[NO_POSTER]["description_source"]

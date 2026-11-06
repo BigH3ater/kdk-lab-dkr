@@ -306,7 +306,7 @@ unset WGER_API_KEY_JMACK WGER_API_KEY_RACH
 
 `--person rach` limits the run to one person's routine (exercises are only written
 when jmack is selected). Warnings go to stderr: a name too close to a wger.de exercise
-gets a ` (kdk)` suffix (Hammer Curl today), a slug without a PNG poster gets no image
+gets a ` · kdk plan` suffix (11 names today, e.g. Hammer Curl; wger's rule is 0.85 trigram similarity against every English exercise), a slug without a PNG poster gets no image
 (`shoulder-press` has only an SVG, `flat-press` none).
 
 Verify in the app, both phones: Routines → **Week (kdk)** → today's day shows the
