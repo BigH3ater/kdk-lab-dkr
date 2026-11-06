@@ -25,7 +25,8 @@ item lists the vault picture slugs (`ex-<slug>.svg`) it logs for.
 | `w` | weight + reps | `_weight` (lb, step 0.5), `_reps` |
 | `r` | reps only (body weight) | `_reps` |
 | `t` | seconds only (holds) | `_seconds` |
-| `wt` | weight + seconds (carries) | `_weight`, `_seconds` |
+| `wt` | weight + seconds (holds) | `_weight`, `_seconds` |
+| `wl` | weight + 10-ft lengths (carries, e.g. `suitcase`) | `_weight`, `_lengths` (0–20, step 1) |
 | `min` | minutes | `_minutes` |
 | `score` | a 0–10 rating | `_score` |
 | `done` | "done at" time for a routine | `input_datetime.ex_<id>_done` + the shared `script.workout_mark_done` |
@@ -43,7 +44,10 @@ item lists the vault picture slugs (`ex-<slug>.svg`) it logs for.
    - rename the **display name**: change `name` only — entity ids stay, history stays.
    - rename the **id** or change the **kind**: this creates new helpers and the
      old ones disappear (the recorder keeps only 10 days anyway; the CSV keeps
-     everything, keyed by `id`). List the old ids in the PR body.
+     everything, keyed by `id`). List the old and new helper ids in the PR body.
+     The CSV is the durable record: old rows keep their columns (a kind change
+     to `wl` leaves the old `seconds`/`reps` values in place; new rows fill
+     `lengths`). Nothing in HA needs migrating.
    - remove: delete the entry.
 3. **Regenerate and test:**
    **Laptop, repo root**
@@ -94,6 +98,36 @@ item lists the vault picture slugs (`ex-<slug>.svg`) it logs for.
    - both Workout pages: no "Entity not available" rows on Strength;
    - `https://home.kmkdp.com/workout/` (once the log sidecar is deployed) shows the item on its day with a form;
    - `sudo docker logs homeassistant 2>&1 | grep -i 'invalid config' | tail` on kdk-dkr-02 is quiet.
+
+## CSV schema check (after a dashboard deploy that changes the log format)
+
+The `/workout/` CSV is v2 since 2026-11 (columns in
+[Dashboard → Workout log](../services/dashboard.md#workout-log-csv-v2-and-json)).
+The app migrates a v1 file itself at startup and keeps a `.v1-<YYYYMMDD>.bak`
+copy beside it.
+
+**kdk-dkr-01, as kdkadmin**
+```bash
+D=/opt/kdk-lab/dashboard/workout-log
+sudo head -1 "$D/workout-log.csv"     # timestamp,date,person,item,slug,set_index,weight,reps,seconds,lengths,minutes,score,done,source
+sudo ls -l "$D"                       # workout-log.v1-<YYYYMMDD>.bak present after the first v2 start
+sudo docker logs dashboard-workout 2>&1 | grep -i 'migrated' | tail -1
+```
+
+Week JSON through a logged-in browser session (there is no API token; the
+route sits behind Authelia like the page). Easiest: open
+`https://home.kmkdp.com/workout/api/week.json` (and `?person=rach`) in the
+browser you are logged in with. From a shell, reuse that browser's
+`authelia_session` cookie (DevTools → Application → Cookies → home.kmkdp.com);
+it is read without echo and never printed:
+
+**Laptop, any directory**
+```bash
+URL='https://home.kmkdp.com/workout/api/week.json?person=rach'
+read -rs -p 'authelia_session cookie: ' COOKIE; echo
+curl -s -b "authelia_session=$COOKIE" "$URL" | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d["week"], len(d["days"]), {k: v["count"] for k, v in d["goals"].items()})'
+unset COOKIE                          # expect: 2026-Wnn 7 {'walks': .., 'pt': .., ...}
+```
 
 ## Rollback
 

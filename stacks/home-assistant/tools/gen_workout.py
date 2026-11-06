@@ -16,7 +16,8 @@ Kinds (what gets logged for one exercise):
   w      weight (lb) + reps          ex_<id>_weight, ex_<id>_reps
   r      reps only (body weight)     ex_<id>_reps
   t      seconds only (holds)        ex_<id>_seconds
-  wt     weight + seconds (carries)  ex_<id>_weight, ex_<id>_seconds
+  wt     weight + seconds (holds)    ex_<id>_weight, ex_<id>_seconds
+  wl     weight + 10-ft lengths      ex_<id>_weight, ex_<id>_lengths   (carries)
   min    minutes                     ex_<id>_minutes
   score  0-10 rating                 ex_<id>_score
   done   "done at" timestamp         input_datetime.ex_<id>_done
@@ -42,6 +43,7 @@ FIELDS = {
     "r": ["reps"],
     "t": ["seconds"],
     "wt": ["weight", "seconds"],
+    "wl": ["weight", "lengths"],
     "min": ["minutes"],
     "score": ["score"],
     "done": ["done"],
@@ -51,12 +53,13 @@ NUMBER = {
     "weight": ("weight", 0, 200, 0.5, "lb", "mdi:weight-pound"),
     "reps": ("reps", 0, 50, 1, None, "mdi:counter"),
     "seconds": ("seconds", 0, 600, 1, "s", "mdi:timer-outline"),
+    "lengths": ("lengths", 0, 20, 1, None, "mdi:map-marker-distance"),
     "minutes": ("minutes", 0, 240, 1, "min", "mdi:timer"),
     "score": ("score", 0, 10, 1, None, "mdi:numeric"),
 }
-ROW_NAME = {"weight": "Weight (lb)", "reps": "Reps", "seconds": "Seconds",
+ROW_NAME = {"weight": "Weight (lb)", "reps": "Reps", "seconds": "Seconds", "lengths": "Lengths (10 ft)",
             "minutes": "Minutes", "score": "Score (0-10)", "done": "Last done"}
-PROGRESS_FIELD = ["weight", "seconds", "reps", "minutes", "score"]  # first match is graphed
+PROGRESS_FIELD = ["weight", "seconds", "lengths", "reps", "minutes", "score"]  # first match is graphed
 
 PACKAGE_HEAD = """\
 # Strength log — per-exercise weight (lb) + reps for the dumbbell/bench program.

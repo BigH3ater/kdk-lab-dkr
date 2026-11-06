@@ -375,9 +375,9 @@ views:
     - entity: input_number.ex_suitcase_weight_rachel
       name: Weight (lb)
       icon: mdi:weight-pound
-    - entity: input_number.ex_suitcase_reps_rachel
-      name: Reps
-      icon: mdi:counter
+    - entity: input_number.ex_suitcase_lengths_rachel
+      name: Lengths (10 ft)
+      icon: mdi:map-marker-distance
     - type: section
       label: Towel Wring
     - entity: input_number.ex_towel_wring_reps_rachel

@@ -13,8 +13,10 @@ Reads (all read-only mounts):
 Writes:
   Home Assistant             input_number.set_value / input_datetime.set_datetime on the
                              person's own helpers (long-lived token, env HA_TOKEN)
-  /log/workout-log.csv       one line per logged value, so history outlives the
-                             10-day recorder (host /opt/kdk-lab/dashboard/workout-log)
+  /log/workout-log.csv       one line per logged set or tick, so history outlives the
+                             10-day recorder (host /opt/kdk-lab/dashboard/workout-log).
+                             Schema v2 (see history.py); a v1 file is migrated at
+                             startup, with a workout-log.v1-<YYYYMMDD>.bak beside it.
 
 Person = the Authelia Remote-User header mapped through the catalog's people
 (jmack -> Jacob, rach -> Rachel). Anyone else sees the page read-only.
@@ -22,7 +24,10 @@ Person = the Authelia Remote-User header mapped through the catalog's people
 Served:
   GET  /           ?day=mon..sun (default today)   instructions + forms
   POST /log        one exercise's values -> HA + CSV, then 303 back to the day
+  GET  /api/history.json  ?person=&item=&since=   one exercise's sessions (JSON)
+  GET  /api/week.json     ?person=&week=2026-W45  ISO-week goal counters (JSON)
   GET  /healthz    "ok"
+The JSON routes are for the catalog people only (either person's data; default = you).
 """
 from __future__ import annotations
 
@@ -41,6 +46,9 @@ from flask import Flask, Response, redirect, request
 from markupsafe import escape
 from waitress import serve
 
+import history
+from history import CSV_HEAD, DAY_IDS
+
 HA_URL = os.environ.get("HA_URL", "https://homeassistant.kmkdp.com").rstrip("/")
 HA_TOKEN = os.environ.get("WORKOUT_HA_TOKEN") or os.environ.get("HA_TOKEN", "")  # .env key: WORKOUT_HA_TOKEN
 GUIDE = Path(os.environ.get("GUIDE_JSON", "/guide/workout.json"))
@@ -49,20 +57,21 @@ LOG_CSV = Path(os.environ.get("LOG_CSV", "/log/workout-log.csv"))
 IMG_BASE = os.environ.get("IMG_BASE", "/guides/workout/")
 ALLOWED_ORIGINS = {h.strip() for h in os.environ.get("ALLOWED_HOSTS", "home.kmkdp.com").split(",") if h.strip()}
 TZ = ZoneInfo(os.environ.get("TZ", "America/Chicago"))
+history.TZ = TZ
 
 # Same kinds as stacks/home-assistant/tools/gen_workout.py (keep in sync).
 FIELDS = {"w": ["weight", "reps"], "r": ["reps"], "t": ["seconds"], "wt": ["weight", "seconds"],
-          "min": ["minutes"], "score": ["score"], "done": ["done"]}
-LIMITS = {"weight": (0, 200), "reps": (0, 50), "seconds": (0, 600), "minutes": (0, 240), "score": (0, 10)}
-LABEL = {"weight": "lb", "reps": "reps", "seconds": "sec", "minutes": "min", "score": "0–10"}
-STEP = {"weight": "0.1", "reps": "1", "seconds": "1", "minutes": "1", "score": "1"}
-CSV_HEAD = ["timestamp", "person", "item", "slug", "weight", "reps", "seconds", "minutes", "score", "done"]
-DAY_IDS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
+          "wl": ["weight", "lengths"], "min": ["minutes"], "score": ["score"], "done": ["done"]}
+LIMITS = {"weight": (0, 200), "reps": (0, 50), "seconds": (0, 600), "lengths": (0, 20), "minutes": (0, 240),
+          "score": (0, 10)}
+LABEL = {"weight": "lb", "reps": "reps", "seconds": "sec", "lengths": "lengths", "minutes": "min", "score": "0–10"}
+STEP = {"weight": "0.1", "reps": "1", "seconds": "1", "lengths": "1", "minutes": "1", "score": "1"}
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger("workout")
 app = Flask(__name__)
 _csv_lock = threading.Lock()
+_schema_checked = False
 
 
 # ------------------------------------------------------------------ data
@@ -134,13 +143,33 @@ def ha_write(item: dict, values: dict[str, float], done: bool, suffix: str) -> b
     return ok
 
 
-def csv_append(person: dict, item: dict, slug: str, values: dict[str, float], done: bool) -> None:
-    row = {"timestamp": datetime.datetime.now(TZ).isoformat(timespec="seconds"), "person": person["key"],
-           "item": item["id"], "slug": slug, "done": "1" if done else ""}
-    for f in ("weight", "reps", "seconds", "minutes", "score"):
+def ensure_schema() -> None:
+    """Migrate a v1 CSV to v2 once per process (startup, and again before the first
+    write in case the file was swapped). Caller holds _csv_lock or is single-threaded."""
+    global _schema_checked
+    if _schema_checked:
+        return
+    LOG_CSV.parent.mkdir(parents=True, exist_ok=True)
+    if history.ensure_schema(LOG_CSV) == "migrated":
+        log.info("migrated %s to CSV v2 (v1 copy kept beside it)", LOG_CSV)
+    _schema_checked = True
+
+
+def csv_append(person: dict, item: dict, slug: str, values: dict[str, float], done: bool,
+               set_index: int | None = None, source: str = "web") -> None:
+    """One v2 row. `values` may hold weight/reps/seconds/lengths/minutes/score.
+    set_index defaults to 1 when a set (any weight/reps/seconds/lengths/minutes) is
+    logged, blank for a tick or a score."""
+    now = datetime.datetime.now(TZ)
+    if set_index is None and any(f in values for f in history.SET_FIELDS):
+        set_index = 1
+    row = {"timestamp": now.isoformat(timespec="seconds"), "date": now.date().isoformat(), "person": person["key"],
+           "item": item["id"], "slug": slug, "set_index": str(set_index) if set_index else "",
+           "done": "1" if done else "", "source": source}
+    for f in history.SET_FIELDS + ["score"]:
         row[f] = _fmt(values[f]) if f in values else ""
     with _csv_lock:
-        LOG_CSV.parent.mkdir(parents=True, exist_ok=True)
+        ensure_schema()
         new = not LOG_CSV.exists() or LOG_CSV.stat().st_size == 0
         with LOG_CSV.open("a", newline="", encoding="utf-8") as fh:
             w = csv.DictWriter(fh, fieldnames=CSV_HEAD)
@@ -223,6 +252,74 @@ def log_entry():
     flag = "ok" if ok else "err"
     sep = "&" if day else "?"
     return redirect(f"{back}{sep}{flag}={item['id']}#ex-{item['id']}", code=303)
+
+
+# ------------------------------------------------------------------ JSON (history)
+def _api_person(cat: dict):
+    """(viewer ok?, target person or an error Response)."""
+    viewer = person_for(cat, request.headers.get("Remote-User", ""))
+    if viewer is None:
+        return None, Response('{"error": "history is for Jacob and Rachel only"}', status=403,
+                              mimetype="application/json")
+    want = (request.args.get("person") or "").strip()
+    if not want:
+        return viewer, None
+    target = next((p for p in cat["people"] if want in (p.get("login"), p.get("key"))), None)
+    if target is None:
+        return None, Response('{"error": "unknown person"}', status=400, mimetype="application/json")
+    return target, None
+
+
+def _history() -> history.History:
+    with _csv_lock:
+        rows = history.csv_rows(LOG_CSV)
+    return history.load(rows)
+
+
+def _json(data, status=200) -> Response:
+    return Response(json.dumps(data, ensure_ascii=False), status=status, mimetype="application/json",
+                    headers={"Cache-Control": "no-store"})
+
+
+@app.get("/api/history.json")
+def api_history():
+    cat = catalog()
+    person, err = _api_person(cat)
+    if err is not None:
+        return err
+    items = {it["id"]: it for it in cat["items"]}
+    item = items.get(request.args.get("item", ""))
+    if item is None:
+        return _json({"error": "unknown item"}, 400)
+    since = (request.args.get("since") or "").strip()
+    if since:
+        try:
+            since = datetime.date.fromisoformat(since).isoformat()
+        except ValueError:
+            return _json({"error": "since must be YYYY-MM-DD"}, 400)
+    h = _history()
+    out = {"person": person["key"], "item": item["id"], "name": item["name"], "kind": item["kind"],
+           "fields": FIELDS[item["kind"]], "since": since, "sessions": h.history_for(person["key"], item["id"], since)}
+    if item["id"] == history.WALK_ITEM:
+        out["treadmill_minutes"] = h.treadmill_minutes(person["key"], since)
+    return _json(out)
+
+
+@app.get("/api/week.json")
+def api_week():
+    cat = catalog()
+    person, err = _api_person(cat)
+    if err is not None:
+        return err
+    week = (request.args.get("week") or "").strip() or history.iso_week_of(datetime.datetime.now(TZ).date())
+    try:
+        history.week_monday(week)
+    except ValueError:
+        return _json({"error": "week must look like 2026-W45"}, 400)
+    g = guide()
+    out = _history().week_summary(person["key"], week, lambda d: history.planned_items(g, d, cat), cat)
+    out["plan_published"] = g is not None
+    return _json(out)
 
 
 # ------------------------------------------------------------------ render
@@ -364,4 +461,5 @@ def _page(nav: str, who: str, body: str) -> str:
 
 
 if __name__ == "__main__":
+    ensure_schema()            # v1 -> v2 before the first request (raises on an unknown header)
     serve(app, host="0.0.0.0", port=8080, threads=4)

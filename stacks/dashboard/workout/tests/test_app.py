@@ -134,3 +134,87 @@ def test_missing_guide_and_ha_down(appmod, monkeypatch, tmp_path):
     r = c.post("/log", data={"item": "box_squat", "weight": "20", "day": "mon"}, headers={"Remote-User": "jmack"})
     assert r.status_code == 303 and "err=box_squat" in r.headers["Location"]
     assert appmod.LOG_CSV.exists()          # the CSV still has the set even when HA is down
+
+
+# ------------------------------------------------------------------ CSV v2 + JSON routes
+def _rows(path):
+    with open(path, newline="", encoding="utf-8") as fh:
+        return list(csv.DictReader(fh))
+
+
+def test_log_writes_v2_columns(appmod):
+    c = appmod.app.test_client()
+    c.post("/log", data={"item": "box_squat", "slug": "box-squat", "weight": "22.5", "reps": "12", "day": "mon"},
+           headers={"Remote-User": "rach"})
+    c.post("/log", data={"item": "hand_routine", "done": "1", "day": "mon"}, headers={"Remote-User": "rach"})
+    head = appmod.LOG_CSV.read_text(encoding="utf-8").splitlines()[0].split(",")
+    assert head == appmod.CSV_HEAD and "lengths" in head and head[-1] == "source"
+    rows = _rows(appmod.LOG_CSV)
+    assert rows[0]["set_index"] == "1" and rows[0]["source"] == "web" and rows[0]["date"] == rows[0]["timestamp"][:10]
+    assert rows[1]["set_index"] == "" and rows[1]["done"] == "1"
+
+
+def test_suitcase_logs_weight_and_lengths(appmod):
+    c = appmod.app.test_client()
+    r = c.post("/log", data={"item": "suitcase", "slug": "suitcase", "weight": "25", "lengths": "6", "day": "fri"},
+               headers={"Remote-User": "jmack"})
+    assert r.status_code == 303 and "ok=suitcase" in r.headers["Location"]
+    posts = [b for m, u, b in appmod._calls if m == "POST"]
+    assert {"entity_id": "input_number.ex_suitcase_lengths", "value": 6} in posts
+    assert {"entity_id": "input_number.ex_suitcase_weight", "value": 25} in posts
+    row = _rows(appmod.LOG_CSV)[0]
+    assert row["lengths"] == "6" and row["weight"] == "25" and row["seconds"] == ""
+    r = c.post("/log", data={"item": "suitcase", "lengths": "25", "day": "fri"}, headers={"Remote-User": "jmack"})
+    assert "err=suitcase" in r.headers["Location"]           # 0-20 lengths
+
+
+def test_v1_log_is_migrated_before_the_first_write(appmod):
+    appmod.LOG_CSV.parent.mkdir(parents=True)
+    appmod.LOG_CSV.write_text("timestamp,person,item,slug,weight,reps,seconds,minutes,score,done\n"
+                              "2026-11-02T07:10:00-06:00,jacob,box_squat,box-squat,25,10,,,,\n", encoding="utf-8")
+    appmod.app.test_client().post("/log", data={"item": "wall_sit", "seconds": "40", "day": "mon"},
+                                  headers={"Remote-User": "jmack"})
+    rows = _rows(appmod.LOG_CSV)
+    assert [(r["item"], r["source"]) for r in rows] == [("box_squat", "migrated"), ("wall_sit", "web")]
+    assert len(list(appmod.LOG_CSV.parent.glob("workout-log.v1-*.bak"))) == 1
+
+
+def test_history_json(appmod):
+    c = appmod.app.test_client()
+    for w in ("20", "25"):
+        c.post("/log", data={"item": "box_squat", "weight": w, "reps": "10", "day": "mon"}, headers={"Remote-User": "rach"})
+    c.post("/log", data={"item": "treadmill_walk", "minutes": "15", "day": "mon"}, headers={"Remote-User": "rach"})
+    r = c.get("/api/history.json?item=box_squat", headers={"Remote-User": "rach"})
+    d = r.get_json()
+    assert r.status_code == 200 and d["person"] == "rachel" and d["kind"] == "w"
+    assert len(d["sessions"]) == 1 and [s["weight"] for s in d["sessions"][0]["sets"]] == [20, 25]
+    assert d["sessions"][0]["top"]["weight"] == 25
+    # the viewer may read the other person (by login or key); Jacob has nothing yet
+    assert c.get("/api/history.json?item=box_squat&person=jmack", headers={"Remote-User": "rach"}).get_json()["sessions"] == []
+    j = c.get("/api/history.json?item=box_squat&person=rachel", headers={"Remote-User": "jmack"}).get_json()
+    assert len(j["sessions"]) == 1
+    t = c.get("/api/history.json?item=treadmill_walk", headers={"Remote-User": "rach"}).get_json()
+    assert t["treadmill_minutes"][0]["by_source"] == {"web": 15}
+    assert c.get("/api/history.json?item=box_squat&since=2999-01-01", headers={"Remote-User": "rach"}).get_json()["sessions"] == []
+    assert c.get("/api/history.json?item=nope", headers={"Remote-User": "rach"}).status_code == 400
+    assert c.get("/api/history.json?item=box_squat&since=x", headers={"Remote-User": "rach"}).status_code == 400
+    assert c.get("/api/history.json?item=box_squat&person=guest", headers={"Remote-User": "rach"}).status_code == 400
+    assert c.get("/api/history.json?item=box_squat", headers={"Remote-User": "guest"}).status_code == 403
+    assert c.get("/api/history.json?item=box_squat").status_code == 403
+
+
+def test_week_json(appmod):
+    c = appmod.app.test_client()
+    c.post("/log", data={"item": "knee_pain", "score": "2", "day": "mon"}, headers={"Remote-User": "jmack"})
+    c.post("/log", data={"item": "hand_pain", "score": "0", "day": "mon"}, headers={"Remote-User": "jmack"})
+    r = c.get("/api/week.json", headers={"Remote-User": "rach"})
+    d = r.get_json()
+    assert r.status_code == 200 and d["person"] == "rachel" and len(d["days"]) == 7 and d["plan_published"]
+    assert d["goals"]["pain"]["count"] == 0 and d["days"][0]["day"] == "mon"
+    # the test guide plans box squat + wall sit + hand routine + daily check-ins every day
+    assert d["days"][0]["planned"][:2] == ["box_squat", "wall_sit"] and "knee_pain" in d["days"][0]["planned"]
+    j = c.get("/api/week.json?person=jmack", headers={"Remote-User": "rach"}).get_json()
+    assert j["goals"]["pain"]["count"] == 1 and j["goals"]["pain"]["target"] == 7
+    assert c.get("/api/week.json?week=2026-W45", headers={"Remote-User": "jmack"}).get_json()["start"] == "2026-11-02"
+    assert c.get("/api/week.json?week=bad", headers={"Remote-User": "jmack"}).status_code == 400
+    assert c.get("/api/week.json", headers={"Remote-User": "guest"}).status_code == 403

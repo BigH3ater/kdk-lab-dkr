@@ -20,7 +20,7 @@
    ]
   }
  ],
- "package_head": "# Workout log helpers, one set per person, generated from ONE list.\n# Generic exercise names + day grouping only; no health details or prescribed\n# loads (those live in the host-managed guide). The recorder keeps the history\n# (10 days by default); home.kmkdp.com/workout/ also appends every log to a CSV.\n# Entity ids: input_number.ex_<id>_weight / _reps / _seconds / _minutes / _score,\n# input_datetime.ex_<id>_done (see tools/gen_workout.py for the kinds).\n",
+ "package_head": "# Workout log helpers, one set per person, generated from ONE list.\n# Generic exercise names + day grouping only; no health details or prescribed\n# loads (those live in the host-managed guide). The recorder keeps the history\n# (10 days by default); home.kmkdp.com/workout/ also appends every log to a CSV.\n# Entity ids: input_number.ex_<id>_weight / _reps / _seconds / _lengths / _minutes / _score,\n# input_datetime.ex_<id>_done (see tools/gen_workout.py for the kinds).\n",
  "generated_banner": true,
  "strength_intro": [
   "Log the **weight (lb)**, **reps** or **seconds** you did each session — tap a number to edit,",
@@ -343,7 +343,7 @@
    ],
    "name": "Suitcase Carry (10-ft lengths)",
    "group": "upper_b",
-   "kind": "w"
+   "kind": "wl"
   },
   {
    "id": "towel_wring",
