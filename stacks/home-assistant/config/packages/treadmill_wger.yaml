@@ -3,7 +3,7 @@
 #
 # WHEN: treadmill.yaml's END automation drops input_boolean.tm_session_active
 # (belt at 0 for 2 min). This package only READS treadmill.yaml's helpers
-# (walker, session start, distance snapshot); it never writes them, so the
+# (walker, session start, tracked session distance); it never writes them, so the
 # per-person totals that Track B and the dashboards use stay exactly as they are.
 #
 # WHAT: as the walker's own wger user (their API key), one workout session per
@@ -341,7 +341,7 @@ script:
 automation:
   # Fires when treadmill.yaml's END automation drops the latch (its last action),
   # so the helpers it reads still hold this session: the start time and the
-  # distance snapshot are only overwritten by the next START. The walk ended
+  # tracked session distance are only reset by the next START. The walk ended
   # when the belt reached 0 (the speed sensor's last change), 2 min before the
   # latch dropped; a latch turned off by hand falls back to now.
   - id: tm_wger_autolog
@@ -361,9 +361,15 @@ automation:
             {{ as_timestamp(states.sensor.treadmill_speed.last_changed, 0)
                if states.sensor.treadmill_speed is not none else 0 }}
           end_ts: "{{ stop_ts if start_ts < stop_ts <= now_ts else now_ts }}"
+          # same distance END credited: treadmill.yaml's tracked session
+          # distance (metres; START is the only thing that resets it), with
+          # the same raw-delta fallback for a session the tracker missed
+          peak: "{{ states('input_number.tm_session_peak_distance') | float(0) }}"
           cur: "{{ states('sensor.treadmill_distance') | float(0) }}"
           start_dist: "{{ states('input_number.tm_session_start_distance') | float(0) }}"
-          dist_m: "{{ [ (cur - start_dist) if cur >= start_dist else cur, 0 ] | max }}"
+          to_m: "{{ {'m': 1, 'km': 1000, 'cm': 0.01, 'ft': 0.3048, 'yd': 0.9144, 'mi': 1609.344}.get(state_attr('sensor.treadmill_distance', 'unit_of_measurement'), 1) }}"
+          dist_m: >-
+            {{ peak if peak > 0 else ((cur - start_dist) * to_m if cur > start_dist else 0) }}
       - action: script.tm_wger_log_walk
         continue_on_error: true
         data:

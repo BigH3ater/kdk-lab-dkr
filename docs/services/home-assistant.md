@@ -386,6 +386,17 @@ curl -s --http1.1 -m 3 -N -H 'Connection: Upgrade' -H 'Upgrade: websocket' \
   task-declared choices) is recorded back on the task. Token/project/label ids
   live in the host `secrets.yaml` (`vikunja_approvals_*`). See the
   [approval-tasks runbook](../runbooks/approval-tasks.md).
+- **Treadmill sessions** — `config/packages/treadmill.yaml`: speed > 0 opens a
+  session, speed 0 for 2 min closes it and credits the selected walker's
+  distance/time totals. The console **resets its distance counter to 0 about
+  4 s after the belt stops**, so the session distance is accumulated while the
+  session is open (automation `Treadmill: track session distance` →
+  `input_number.tm_session_peak_distance`, metres, never drops; a reset or a
+  console reboot mid-walk only moves the reference) and END credits that. HA's
+  unit system is US customary, so the bridge's m and km/h show as ft and mph;
+  the templates convert by the state's unit, so the helpers are metres and the
+  calorie maths gets km/h. Until this fix (2026-11-06) the totals got 0 m per walk (the
+  reset) and, earlier, raw ft stored as m.
 - **Treadmill → wger auto-log** — `config/packages/treadmill_wger.yaml`: when a
   treadmill session ends (the latch from `treadmill.yaml` drops), the walk is
   posted to [[wger]] as the walker (Jacob → `jmack`, Rachel → `rach`): one

@@ -4,7 +4,9 @@
 #   - gen-workout-guide.py (laptop-only, the --posters input of gen_wger.py) still prefers
 #     the range-of-motion PNG and writes workout.json (fake vault; the real one is private);
 #   - the HA Workout dashboards are the Treadmill view only and point at helpers that exist;
-#   - the treadmill -> wger package builds wger 2.7 payloads (tools/tests/test_treadmill_wger.py).
+#   - the treadmill -> wger package builds wger 2.7 payloads (tools/tests/test_treadmill_wger.py)
+#     and treadmill.yaml credits the session distance across the console reset
+#     (tools/tests/test_treadmill_session_distance.py).
 # The in-house HA helper generator (gen_workout.py) and the /workout/ Today page were
 # retired 2026-11-06 when wger won the tracking pilot.
 name: workout-generated
