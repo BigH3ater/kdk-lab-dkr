@@ -19,6 +19,7 @@ Stack definitions live in `stacks/` in the repo; Komodo deploys them from git. O
 | [Trailarr](trailarr.md) | kdk-dkr-01 | https://trailarr.kmkdp.com | trailarr |
 | [Home dashboard](dashboard.md) | kdk-dkr-01 | https://home.kmkdp.com | dashboard |
 | [Actual Budget](actual.md) | kdk-dkr-01 | https://budget.kmkdp.com (LAN + tailnet) | actual |
+| [wger](wger.md) | kdk-dkr-01 | https://wger.kmkdp.com (LAN + tailnet; pilot) | wger |
 | [Jellystat](jellystat.md) | kdk-dkr-01 | https://jellystat.kmkdp.com | jellystat |
 | [Kroki](kroki.md) | kdk-dkr-01 | — (internal `kroki_default` network) | kroki |
 | [readwise-koreader](readwise-koreader.md) | kdk-dkr-01 | — (one-shot every 3 h, SSH to tablet) | readwise-koreader |

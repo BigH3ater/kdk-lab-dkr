@@ -53,7 +53,7 @@ The `pack` archives drop (one exclude list, applied to every host):
 | `*/logs`, `*.log`, `*/Tdarr/DB2/JobReports`, `*/node_modules`, `*/lost+found` | logs / scratch / regenerable |
 | `*/tandoor/staticfiles`, `*/audiobookshelf/podcasts`, `*/proton-bridge/*/updates` | regenerable |
 
-Immich, Authelia, Tandoor and Jellystat Postgres are **not** in the archives;
+Immich, Authelia, Tandoor, Jellystat and wger Postgres are **not** in the archives;
 they are dumped with `pg_dump` (`stacks/backup-dmz`, `stacks/backup-dkr-01`) and
 the dated `.sql.gz` dumps go offsite as-is (few, single files).
 

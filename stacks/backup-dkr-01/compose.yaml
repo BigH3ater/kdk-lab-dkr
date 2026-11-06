@@ -13,7 +13,7 @@
 #    the single source of truth and pages Pushover if the marker is stale.
 name: backup-dkr-01
 services:
-  # Jellystat's PostgreSQL is the one app DB on this host, so it is pg_dumped here
+  # Jellystat's PostgreSQL (and wger's, below) are the app DBs on this host, so they are pg_dumped here
   # (house convention, mirrors backup-dmz) rather than rsynced raw -- a live cluster
   # dir is torn/unsafe to restore, so jellystat/postgres is excluded from the rsync
   # below. Reaches the DB over the external jellystat_default network. Best-effort
@@ -32,6 +32,39 @@ services:
       - /mnt/backup/dkr/kdk-dkr-01/pgdump:/dest
     networks: [jellystat_default]
 
+  # wger's PostgreSQL (stacks/wger): same pattern as jellystat. The live
+  # /opt/kdk-lab/wger/postgres cluster dir is excluded from the rsync below; the dump
+  # carries the workout logs, routines and users. Reaches `wger-db` over the stack's
+  # internal backend network. Password = the wger stack's item (kdk-cluster/wger-postgres).
+  # Baseline-clean from the start (the jellystat job above predates the baseline):
+  # pg_dump only writes stdout, gzip writes the root-owned /dest it created.
+  pgdump-wger:
+    image: postgres:18.6-alpine@sha256:10a5c69a83035ab5239f5620d708520e8b28f5aa1f2b20143e6024532edadfb5
+    restart: "no"
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: [ALL]
+    read_only: true
+    tmpfs: [/tmp]
+    pids_limit: 64
+    mem_limit: 256m
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+    labels:
+      kdk.baseline.skip: "healthcheck"   # one-shot
+    env_file: [.env]
+    environment:
+      PGPASSWORD: "${WGER_POSTGRES_PASSWORD}"
+    # --exclude-schema: PowerSync's bucket storage (schema `powersync`) is derived
+    # state rebuilt from the wger tables; upstream's restore drops it anyway.
+    command: >
+      sh -c 'pg_dump -h wger-db -U wger --exclude-schema=powersync wger
+      | gzip > /dest/wger-$$(date +%F).sql.gz
+      && ls -t /dest/wger-*.sql.gz | tail -n +16 | xargs -r rm; exit 0'
+    volumes:
+      - /mnt/backup/dkr/kdk-dkr-01/pgdump:/dest
+    networks: [wger_backend]
+
   # NOTE: rsync's destination is /dest/kdk-dkr-01/ itself (the DMZ stage syncs into a
   # state/ subdir), so the delete pass used to remove the pgdump/ directory the
   # jellystat dump had just written: every scheduled run ended with 'pgdump jellystat
@@ -42,6 +75,7 @@ services:
     restart: "no"
     depends_on:
       pgdump-jellystat: { condition: service_completed_successfully }
+      pgdump-wger: { condition: service_completed_successfully }
     entrypoint: /bin/sh
     command:
       - -c
@@ -49,6 +83,7 @@ services:
         rsync -a --delete \
           --exclude 'tdarr-temp' --exclude 'sabnzbd-incomplete' \
           --exclude 'komodo/postgres' --exclude 'jellystat/postgres' \
+          --exclude 'wger/postgres' --exclude 'wger/static' \
           --exclude 'proxy/letsencrypt' \
           --exclude 'stacks/' --exclude 'backup/' \
           --exclude 'pgdump/' \
@@ -71,4 +106,9 @@ networks:
   # The jellystat stack's default network, joined so pgdump-jellystat can reach the
   # `jellystat-db` container by name (same approach as backup-dmz -> identity/immich).
   jellystat_default:
+    external: true
+  # The wger stack's internal DB network (pinned 10.208.200.0/24), for pgdump-wger.
+  # External: the wger stack must be deployed before this one-shot runs, or `up`
+  # fails with "network wger_backend not found" and the whole night's stage with it.
+  wger_backend:
     external: true

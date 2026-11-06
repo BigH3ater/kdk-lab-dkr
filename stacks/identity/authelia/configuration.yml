@@ -810,6 +810,14 @@ access_control:
         - 'home.kmkdp.com'
       subject:
         - ['group:dashboard-users']
+    # wger workout tracker (stacks/wger): the web UI and the app's browser login.
+    # /api/, /static/, /media/, /ps/ never reach Authelia (separate Traefik router
+    # without forward-auth), so no bypass rule is needed here.
+    - policy: two_factor
+      domain:
+        - 'wger.kmkdp.com'
+      subject:
+        - ['group:dashboard-users']
     # LLDAP admin UI (H1, ForwardAuth label on the lldap router). Directory
     # admins only; LLDAP's own login is the second gate.
     - policy: two_factor
