@@ -5,8 +5,8 @@ stack: home-assistant
 tier: apps
 status: live
 storage: yes
-secrets: [home-assistant-nodered-token, home-assistant-roborock-map-token, node-red-admin, node-red-credential-secret, zigbee2mqtt-frontend-token, kdk-ups-01-nut-upsd, scrypted-admin, homeassistant-oidc-client, vikunja-api-ro, vikunja-api-approvals]
-updated: 2026-11-05
+secrets: [home-assistant-nodered-token, home-assistant-roborock-map-token, node-red-admin, node-red-credential-secret, zigbee2mqtt-frontend-token, kdk-ups-01-nut-upsd, scrypted-admin, homeassistant-oidc-client, vikunja-api-ro, vikunja-api-approvals, wger-api-jmack, wger-api-rach]
+updated: 2026-11-06
 tags: [homelab/stack, tier/apps, status/live]
 ---
 
@@ -383,6 +383,16 @@ curl -s --http1.1 -m 3 -N -H 'Connection: Upgrade' -H 'Upgrade: websocket' \
   task-declared choices) is recorded back on the task. Token/project/label ids
   live in the host `secrets.yaml` (`vikunja_approvals_*`). See the
   [approval-tasks runbook](../runbooks/approval-tasks.md).
+- **Treadmill → wger auto-log** — `config/packages/treadmill_wger.yaml`: when a
+  treadmill session ends (the latch from `treadmill.yaml` drops), the walk is
+  posted to [[wger]] as the walker (Jacob → `jmack`, Rachel → `rach`): one
+  workout session per person per day and a Minutes log on that weekday's
+  treadmill-walk slot; distance and average speed go in the session notes. It
+  only reads the treadmill helpers. Keys are `wger_api_key_<login>` in the host
+  `secrets.yaml` (`"Token <key>"`; rach holds the placeholder `"Token none"`
+  until she has a key, so her walks are skipped with a log warning). Guest walks
+  and wger errors raise a persistent notification (id `tm_wger_autolog`).
+  [wger runbook step 14](../runbooks/wger.md#14-treadmill-auto-log).
 - **OIDC login loop / missing button** — check `auth_oidc:` in
   `configuration.yaml`, the Authelia client `homeassistant`
   (PKCE S256 + `client_secret_post`, policy `ha_access`), and that the user is
@@ -430,6 +440,8 @@ then recreate zigbee2mqtt), `kdk-ups-01-nut-upsd` (NUT
 client), `homeassistant-oidc-client` (Authelia client secret; digest in the
 DMZ `/secrets/authelia-app-secrets/homeassistant_client_secret`, plaintext in
 HA `secrets.yaml`), `vikunja-api-ro` (chore sensor + Node-RED bridge),
+`wger-api-jmack` / `wger-api-rach` (treadmill auto-log; `wger_api_key_<login>`
+in HA `secrets.yaml`, rotation in [wger runbook step 14](../runbooks/wger.md#14-treadmill-auto-log)),
 `scrypted-admin` (once the Scrypted integration is completed).
 `home-assistant-roborock-map-token` (roborock-map → HA, read-only use: the
 image proxy): create a new long-lived token on the HA profile page, `op item

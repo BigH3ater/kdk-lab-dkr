@@ -3,7 +3,8 @@
 #     (stacks/home-assistant/tools/gen_workout.py --check), and every dashboard
 #     row must point at a helper the package defines;
 #   - gen-workout-guide.py still prefers the range-of-motion PNG and writes the
-#     workout.json the /workout/ log page reads (fake vault; the real one is private).
+#     workout.json the /workout/ log page reads (fake vault; the real one is private);
+#   - the treadmill -> wger package builds wger 2.7 payloads (tools/tests/test_treadmill_wger.py).
 name: workout-generated
 
 on:
@@ -11,6 +12,7 @@ on:
     paths:
       - "stacks/home-assistant/tools/**"
       - "stacks/home-assistant/config/packages/workout_*.yaml"
+      - "stacks/home-assistant/config/packages/treadmill_wger.yaml"
       - "stacks/home-assistant/config/dashboards/workout*.yaml"
       - "stacks/dashboard/guides/gen-workout-guide.py"
       - "stacks/dashboard/tests/**"
@@ -21,6 +23,7 @@ on:
     paths:
       - "stacks/home-assistant/tools/**"
       - "stacks/home-assistant/config/packages/workout_*.yaml"
+      - "stacks/home-assistant/config/packages/treadmill_wger.yaml"
       - "stacks/home-assistant/config/dashboards/workout*.yaml"
       - "stacks/dashboard/guides/gen-workout-guide.py"
 
@@ -38,8 +41,8 @@ jobs:
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.13"
-      - name: Install pytest (+ the workout sidecar's pins)
-        run: python -m pip install pytest==8.4.2 flask==3.0.3 requests==2.32.3 waitress==3.0.1
+      - name: Install pytest (+ the workout sidecar's pins, PyYAML for the HA package tests)
+        run: python -m pip install pytest==8.4.2 flask==3.0.3 requests==2.32.3 waitress==3.0.1 pyyaml==6.0.2
       - name: Generated files are current
         run: python stacks/home-assistant/tools/gen_workout.py --check
       - name: Tests
