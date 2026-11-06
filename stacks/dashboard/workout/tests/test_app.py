@@ -1,12 +1,13 @@
 """dashboard-workout sidecar: person mapping, rendering, validation, HA calls and CSV."""
 import csv
-import re
 
 import pytest
 
 
 def _noscript(html):
-    return re.sub(r"<script>.*?</script>", "", html, flags=re.S)
+    """The page without its inline script (the JS-free view)."""
+    import app
+    return html.replace(app.PAGE_JS, "")
 
 
 def test_page_prefills_the_right_person(appmod):

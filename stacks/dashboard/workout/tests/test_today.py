@@ -15,7 +15,9 @@ R = {"Remote-User": "rach"}
 
 
 def noscript(html):
-    return re.sub(r"<script>.*?</script>", "", html, flags=re.S)
+    """The page without its inline script (the JS-free view)."""
+    import app
+    return html.replace(app.PAGE_JS, "")
 
 
 def page(c, q="", who=J):
