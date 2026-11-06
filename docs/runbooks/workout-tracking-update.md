@@ -103,8 +103,8 @@ item lists the vault picture slugs (`ex-<slug>.svg`) it logs for.
    ```bash
    G=/tmp/workout-guide
    export WGER_URL=https://wger.kmkdp.com
-   export WGER_API_KEY_JMACK="$(op read op://kdk-cluster/wger-api-jmack/password)"
-   export WGER_API_KEY_RACH="$(op read op://kdk-cluster/wger-api-rach/password)"
+   export WGER_API_KEY_JMACK="$(op read op://kdk-cluster/wger-api-jmack/credential)"
+   export WGER_API_KEY_RACH="$(op read op://kdk-cluster/wger-api-rach/credential)"
    python3 stacks/home-assistant/tools/gen_wger.py --posters "$G"            # dry run: read the planned writes
    python3 stacks/home-assistant/tools/gen_wger.py --posters "$G" --apply
    python3 stacks/home-assistant/tools/gen_wger.py --posters "$G" --check    # "wger matches the catalog"

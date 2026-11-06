@@ -207,7 +207,10 @@ printf '%s\n' \
 ## 8. API key per person → 1Password
 
 Each person, logged in on the web: user menu → **API key** (`/en/user/api-key`) →
-generate. Store it without it touching argv or the screen history:
+generate. It is a 40-character hex token (`Authorization: Token …`). A long
+`eyJ…` value with two dots is the PowerSync/app-auth JWT, not the key: the API
+answers `Invalid token` to it. Store the key in the item's `credential` field
+without it touching argv or the screen history:
 
 **Laptop (the person's key, pasted at the hidden prompt)**
 
@@ -218,7 +221,7 @@ printf '{"title":"wger-api-%s","category":"PASSWORD","fields":[{"id":"password",
   | op item create --vault kdk-cluster -
 unset TOKEN
 # verify: the key works against the API (200), and nothing works without it (401/403)
-curl -s -o /dev/null -w '%{http_code}\n' -H "Authorization: Token $(op read op://kdk-cluster/wger-api-$WHO/password)" https://wger.kmkdp.com/api/v2/userprofile/
+curl -s -o /dev/null -w '%{http_code}\n' -H "Authorization: Token $(op read op://kdk-cluster/wger-api-$WHO/credential)" https://wger.kmkdp.com/api/v2/userprofile/
 curl -s -o /dev/null -w '%{http_code}\n' https://wger.kmkdp.com/api/v2/userprofile/
 ```
 
@@ -254,8 +257,8 @@ python3 stacks/dashboard/guides/gen-workout-guide.py --out "$G"    # skip if $G 
 ls "$G/workout.json" && ls "$G/exercise" | grep -c -- '-rom\.png$'  # 56 posters
 python3 -c 'import requests' || python3 -m pip install --user requests
 export WGER_URL=https://wger.kmkdp.com
-export WGER_API_KEY_JMACK="$(op read op://kdk-cluster/wger-api-jmack/password)"
-export WGER_API_KEY_RACH="$(op read op://kdk-cluster/wger-api-rach/password)"
+export WGER_API_KEY_JMACK="$(op read op://kdk-cluster/wger-api-jmack/credential)"
+export WGER_API_KEY_RACH="$(op read op://kdk-cluster/wger-api-rach/credential)"
 printf '%s %s bytes\n' JMACK ${#WGER_API_KEY_JMACK} RACH ${#WGER_API_KEY_RACH}   # 40 each; never echo the value
 python3 stacks/home-assistant/tools/gen_wger.py --posters "$G"     # dry run: prints every write it would make
 unset WGER_API_KEY_JMACK WGER_API_KEY_RACH
@@ -288,8 +291,8 @@ Then write it, and check it:
 ```bash
 G=/tmp/workout-guide
 export WGER_URL=https://wger.kmkdp.com
-export WGER_API_KEY_JMACK="$(op read op://kdk-cluster/wger-api-jmack/password)"
-export WGER_API_KEY_RACH="$(op read op://kdk-cluster/wger-api-rach/password)"
+export WGER_API_KEY_JMACK="$(op read op://kdk-cluster/wger-api-jmack/credential)"
+export WGER_API_KEY_RACH="$(op read op://kdk-cluster/wger-api-rach/credential)"
 python3 stacks/home-assistant/tools/gen_wger.py --posters "$G" --apply    # "... write(s) made"; a few minutes
 python3 stacks/home-assistant/tools/gen_wger.py --posters "$G" --apply    # "0 write(s) made"
 python3 stacks/home-assistant/tools/gen_wger.py --posters "$G" --check    # "wger matches the catalog", exit 0
