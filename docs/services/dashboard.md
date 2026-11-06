@@ -71,9 +71,61 @@ truth. See the [approval-tasks runbook](../runbooks/approval-tasks.md).
 | `stacks/dashboard/guides/*.html` | Family how-to pages (served under `/guides`; each sets `<base href="/guides/">` so relative links survive the StripPrefix) |
 | `stacks/dashboard/guides/shared-nav.{css,js}` | The one Kodiak sidebar shared by Homepage, guides and `/meal` (same links/order/labels, active-link state, mobile top-bar overlay); `shared-nav.js` hides it inside an iframe so the embedded `/meal` panels stay bare |
 | `stacks/dashboard/mealplan/app.py` | Tandoor session read + rating write-back |
-| `stacks/dashboard/workout/app.py` | `/workout/` log page: the day's steps from the host-managed `workout.json` with a form per exercise; writes the person's HA helpers (`Remote-User` jmack → Jacob, rach → Rachel, anyone else read-only) with the `home-assistant-workout-token` and appends `/opt/kdk-lab/dashboard/workout-log/workout-log.csv` (CSV v2, see [Workout log](#workout-log-csv-v2-and-json)); serves `/api/history.json` + `/api/week.json`. `history.py` = schema, migration and the read side; `migrate_csv.py` = the same migration by hand. Reads the catalog from the repo clone (`stacks/home-assistant/tools`). See the [workout-tracking-update runbook](../runbooks/workout-tracking-update.md) |
-| `stacks/dashboard/guides/gen-workout-guide.py` | Builds the host-managed Workout guide (`/guides/workout/`) + `workout.json` from the private vault on the laptop; prefers `ex-<slug>-rom.png` pictures. Exercise changes: [workout-tracking-update runbook](../runbooks/workout-tracking-update.md) |
+| `stacks/dashboard/workout/app.py` | `/workout/` **Today page** (see [Workout Today page](#workout-today-page)): the day's steps from the host-managed `workout.json` with poster, dose, cues and a per-set log form per exercise; writes `/opt/kdk-lab/dashboard/workout-log/workout-log.csv` (CSV v2, see [Workout log](#workout-log-csv-v2-and-json)) and the person's HA helpers (`Remote-User` jmack → Jacob, rach → Rachel, anyone else read-only) with the `home-assistant-workout-token`; serves `/api/history.json` + `/api/week.json` and the installable-app files (manifest, service worker, icons). `history.py` = schema, migration and the read side; `migrate_csv.py` = the same migration by hand. Reads the catalog from the repo clone (`stacks/home-assistant/tools`). See the [workout-tracking-update runbook](../runbooks/workout-tracking-update.md) |
+| `stacks/dashboard/guides/gen-workout-guide.py` | Builds the host-managed Workout guide (`/guides/workout/`) + `workout.json` (v2: per-step `cues` from the vault card generator `ex_days.py`, `sets` from the dose) from the private vault on the laptop; prefers `ex-<slug>-rom.png` pictures. Exercise changes: [workout-tracking-update runbook](../runbooks/workout-tracking-update.md) |
 | `stacks/dashboard/.env.tpl` | op refs (Vikunja JWT, widget API keys, Tandoor creds, ICS URL) |
+
+## Workout Today page
+
+`https://home.kmkdp.com/workout/` — one page per day, built for the phone.
+
+- **Which day.** `?date=YYYY-MM-DD` (default today, America/Chicago); the week
+  strip links each day plus the previous/next week. `?day=mon` still works (that
+  weekday of the current week). A past date is **backdating**: rows get that
+  `date`, Home Assistant is left alone (it keeps today's values). A future date
+  shows the plan without buttons; the server refuses a future `date`.
+- **Header:** date, day name, summary, "You need", "Logging as …" and
+  `N / M done` (M = the planned items: the day's steps mapped through the
+  catalog, the Every-day block and the daily check-ins, same list as
+  `api/week.json`).
+- **Cards** in vault order: poster, dose, cues (from `workout.json` v2), and a
+  form sized to the kind: `w`/`wt`/`wl`/`r`/`t` = one row per set (count =
+  `sets` in `workout.json`, else the number before "×" in the dose, else 3),
+  `min` = one minutes box, `done` = one tick (a routine such as the hand
+  routine or the flexibility flow gets its tick on its **first** step only),
+  `score` items sit in the **Daily check-in** card. Steps without a catalog
+  item (warm-ups) show poster, dose and cues only.
+- **Prefill** = the last CSV session before this date (row *n* = set *n*, extra
+  rows repeat the last set); with no CSV history, the person's HA values. Clear
+  a row you did not do: every filled row is logged. "Copy set 1 down" (JS only)
+  copies row 1 into the others.
+- **Logging.** `POST /workout/log` writes one CSV row per filled set
+  (`set_index` continues after sets already logged that day, so "Log more sets"
+  adds 4, 5 …); HA gets the **last** filled set and the done time (today only).
+  A card with rows for that person/date gets a green rail
+  `logged HH:MM · n sets` and its form folds into "Log more sets" (a tick
+  disappears once done). The footer says **Day complete ✓** or lists what is
+  still to do; links to History (placeholder until the history views) and
+  the Guide.
+
+**Installable app + offline queue.** The page links a web manifest (`Workout`,
+standalone, icons drawn by the app itself) and registers a service worker
+(`/workout/sw.js`, scope `/workout/`):
+
+| Piece | Behaviour |
+|---|---|
+| Service worker | Pages: network first, the cached copy when offline (keyed by URL without `ok`/`err`; `/workout/` offline falls back to the cached `?date=<today>` or the last `/workout/`). Shell (manifest, icons, shared nav) and posters: cache first, refreshed in the background. Caches **only** same-origin `200`s that were not redirected, so an Authelia login redirect never lands in the cache. `POST /log` and `api/*` are never touched. Cache name `workout-<SW_VERSION>`; bump `SW_VERSION` in `app.py` when the page shell changes. |
+| Offline queue | With JS the form is sent with `fetch` (header `X-Workout-Queue: 1`, JSON reply). A network failure or 5xx puts the submission in `localStorage` (`workout-queue-v1`) and the card shows **queued, will sync** (amber rail). Replay on page load, on the `online` event, when the app comes back to the foreground, and every 30 s while anything is queued; then the page reloads to show the rails. |
+| Login expired | A replay or submit answered by a redirect (302/303 to Authelia) or a 401 keeps the queue, deletes the `workout-*` caches and shows **Reload to sign in**; after the login the queue replays. A 4xx answer (bad numbers) drops that entry and says so. |
+| Duplicates | Each submission carries a random `qid`; the server remembers the last 500 per process, so a replay of a POST that did land (answer lost) is not written twice. |
+| JS off | Forms post normally and the server answers with a 303 back to the same date. No queue, no service worker. |
+
+Limits: the queue lives on that phone/browser only (Safari and the home-screen
+app on iOS have **separate** storage and logins: sign in inside the app once);
+a queued row's `timestamp` is the replay time (its `date` is the page's date);
+the `qid` memory is lost on a container restart; an offline page is the copy
+from the last time that date was opened online (a banner says so when the
+day has changed since).
 
 ## Workout log (CSV v2 and JSON)
 

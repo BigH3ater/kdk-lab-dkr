@@ -37,15 +37,24 @@ Writes (all into --out):
     workout.html               the page
     exercise/<image>           the pictures it uses
     workout.json               the same day/step content as data, read by the
-                               /workout/ log sidecar (stacks/dashboard/workout)
+                               /workout/ Today page (stacks/dashboard/workout).
+                               Version 2: each step also carries `cues` (the
+                               exercise card's how-to lines) and `sets` (the
+                               number before "×" in the dose, or null).
 
-Stdlib only (argparse, pathlib, re, shutil, html) -- nothing to install.
+Cues come from the vault's card generator (<vault>/3. Resources/Exercise/scripts/
+ex_days.py, its C table: slug -> (title, dose, cues, figure, opts)), imported
+read-only. If it cannot be imported, the guide is still written with empty cues
+and a warning (--cards '' skips it).
+
+Stdlib only (argparse, pathlib, re, shutil, html, importlib) -- nothing to install.
 """
 
 from __future__ import annotations
 
 import argparse
 import html
+import importlib
 import json
 import re
 import shutil
@@ -72,6 +81,37 @@ EMBED_RE = re.compile(r"!\[\[([^\]]+?)\]\]")
 BOLD_LINE_RE = re.compile(r"^\*\*(.+)\*\*$")
 WIKILINK_RE = re.compile(r"\[\[([^\]|]+?)(?:\|([^\]]+?))?\]\]")
 IMG_RE = re.compile(r"^ex-(.+?)(?:-rom)?\.(?:svg|png)$")
+
+
+SETS_RE = re.compile(r"^\s*(\d{1,2})\s*[×x](?:\s|$)")
+
+
+def sets_of(dose: str):
+    """'3 × 8–12 · start 15 lb' -> 3; a dose without 'N ×' -> None."""
+    m = SETS_RE.match(dose or "")
+    return int(m.group(1)) if m else None
+
+
+def load_cues(scripts: Path) -> dict[str, list[str]]:
+    """slug -> cue lines from the vault card generator (ex_days.C), or {} with a
+    warning when it is missing or fails to import. Nothing is written: no .pyc
+    (sys.dont_write_bytecode) and ex_days only writes under __main__."""
+    if not (scripts / "ex_days.py").is_file():
+        print(f"WARNING: no card generator at {scripts}; workout.json gets no cues", file=sys.stderr)
+        return {}
+    old_path, old_bc = list(sys.path), sys.dont_write_bytecode
+    sys.path.insert(0, str(scripts))
+    sys.dont_write_bytecode = True
+    try:
+        mod = importlib.import_module("ex_days")
+        return {slug: [str(c) for c in card[2]] for slug, card in mod.C.items()}
+    except Exception as exc:  # noqa: BLE001 -- the vault script is not ours; the guide still builds
+        print(f"WARNING: could not read cues from {scripts}/ex_days.py ({exc!r}); "
+              "workout.json gets no cues", file=sys.stderr)
+        return {}
+    finally:
+        sys.path[:] = old_path
+        sys.dont_write_bytecode = old_bc
 
 
 def slug_of(embed: str) -> str:
@@ -293,6 +333,10 @@ def main():
                     help="Output dir for the page + diagrams. HOST-MANAGED: copy its "
                          "contents to /opt/kdk-lab/dashboard/workout on the dashboard "
                          "host; never commit them (this repo is public).")
+    ap.add_argument("--cards", default=None,
+                    help="Folder with the vault card generator ex_days.py (cues for "
+                         "workout.json). Default: <vault>/3. Resources/Exercise/scripts; "
+                         "'' = no cues.")
     args = ap.parse_args()
     OUT = Path(args.out).expanduser()
     OUT.mkdir(parents=True, exist_ok=True)
@@ -374,14 +418,22 @@ def main():
                                          everyday_steps, level="h3"))
     everyday_section.append('  </section>')
 
-    # --- data for the /workout/ log sidecar (same parse, no HTML) ---
+    # --- data for the /workout/ Today page (same parse, no HTML) ---
+    if args.cards is None:
+        cues = load_cues(ex_dir / "scripts")
+    else:
+        cues = load_cues(Path(args.cards).expanduser()) if args.cards else {}
+
     def step_data(st):
         embed = st["embed"] or ""
         img = pick_image(embed, diagrams) if embed.lower().endswith((".svg", ".png")) else ""
-        return {"num": st["num"], "title": st["title"], "dose": st["dose"].strip("*").replace("**", ""),
-                "slug": slug_of(embed), "image": f"exercise/{img}" if img else "",
-                "everyday": embed.startswith("Every Day.README")}
-    data = {"version": 1, "days": [], "everyday": [step_data(st) for st in everyday_steps]}
+        dose = st["dose"].strip("*").replace("**", "")
+        slug = slug_of(embed)
+        return {"num": st["num"], "title": st["title"], "dose": dose,
+                "slug": slug, "image": f"exercise/{img}" if img else "",
+                "everyday": embed.startswith("Every Day.README"),
+                "cues": cues.get(slug, []), "sets": sets_of(dose)}
+    data = {"version": 2, "days": [], "everyday": [step_data(st) for st in everyday_steps]}
     for aid, name in DAYS:
         day = parse_day(read(days_dir / f"{name}.README.md"))
         data["days"].append({"id": aid, "name": name, "title": day["title"], "summary": day["summary"],
@@ -400,7 +452,8 @@ def main():
     out_file.write_text(page, encoding="utf-8")
     print(f"Wrote {out_file}")
     print(f"Copied {len(copied)} diagram(s) into {out_dir}")
-    print(f"Wrote {OUT / 'workout.json'} (read by the /workout/ log page)")
+    print(f"Wrote {OUT / 'workout.json'} (read by the /workout/ Today page; "
+          f"cues for {sum(1 for d in data['days'] for st in d['steps'] if st['cues'])} day steps)")
 
 
 PAGE_TEMPLATE = """<!DOCTYPE html>

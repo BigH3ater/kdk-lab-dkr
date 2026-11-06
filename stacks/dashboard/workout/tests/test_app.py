@@ -1,82 +1,36 @@
 """dashboard-workout sidecar: person mapping, rendering, validation, HA calls and CSV."""
 import csv
-import importlib
-import json
-from pathlib import Path
 
 import pytest
 
-REPO = Path(__file__).resolve().parents[4]
-CATALOG = REPO / "stacks" / "home-assistant" / "tools" / "workout_catalog.json"
 
-GUIDE = {"version": 1, "days": [], "everyday": [
-    {"num": "1", "title": "Tendon glides", "dose": "5 ×", "slug": "hand-glides", "image": "exercise/ex-hand-glides.svg", "everyday": False},
-    {"num": "2", "title": "Finger extensions", "dose": "2 × 15", "slug": "finger-ext", "image": "exercise/ex-finger-ext.svg", "everyday": False}]}
-for d in ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]:
-    GUIDE["days"].append({"id": d, "name": d, "title": f"{d} — Test <b>", "summary": "legs", "youneed": "bench", "steps": [
-        {"num": "1", "title": "Box squat", "dose": "3 × 8–12", "slug": "box-squat", "image": "exercise/ex-box-squat-rom.png", "everyday": False},
-        {"num": "2", "title": "Wall sit", "dose": "4 × 30 s", "slug": "wall-sit", "image": "exercise/ex-wall-sit.svg", "everyday": False},
-        {"num": "3", "title": "Arm circles", "dose": "30 s", "slug": "arm-circles", "image": "exercise/ex-arm-circles.svg", "everyday": False},
-        {"num": "4", "title": "Every day", "dose": "~9 min", "slug": "", "image": "", "everyday": True}]})
-
-
-class FakeResp:
-    def __init__(self, ok=True, data=None):
-        self.ok, self.status_code, self._d = ok, 200 if ok else 500, data
-
-    def json(self):
-        return self._d
-
-    def raise_for_status(self):
-        if not self.ok:
-            raise __import__("requests").HTTPError("boom")
-
-
-@pytest.fixture()
-def appmod(tmp_path, monkeypatch):
-    g = tmp_path / "workout.json"
-    g.write_text(json.dumps(GUIDE), encoding="utf-8")
-    monkeypatch.setenv("GUIDE_JSON", str(g))
-    monkeypatch.setenv("CATALOG_JSON", str(CATALOG))
-    monkeypatch.setenv("LOG_CSV", str(tmp_path / "log" / "workout-log.csv"))
-    monkeypatch.setenv("HA_TOKEN", "test-token")
-    import app as m
-    m = importlib.reload(m)
-    calls = []
-
-    def fake_request(method, url, json=None, timeout=None, headers=None):
-        calls.append((method, url, json))
-        if url.endswith("/api/states"):
-            return FakeResp(data=[{"entity_id": "input_number.ex_box_squat_weight_rachel", "state": "17.5"},
-                                  {"entity_id": "input_number.ex_box_squat_weight", "state": "25.0"},
-                                  {"entity_id": "input_datetime.ex_hand_routine_done", "state": "2026-11-04 07:30:00"}])
-        return FakeResp()
-    monkeypatch.setattr(m.requests, "request", fake_request)
-    m._calls = calls
-    return m
+def _noscript(html):
+    """The page without its inline script (the JS-free view)."""
+    import app
+    return html.replace(app.PAGE_JS, "")
 
 
 def test_page_prefills_the_right_person(appmod):
     c = appmod.app.test_client()
     r = c.get("/?day=mon", headers={"Remote-User": "rach"})
-    html = r.get_data(as_text=True)
+    html = _noscript(r.get_data(as_text=True))
     assert r.status_code == 200
     assert "Logging as <b>Rachel</b>" in html
-    assert 'data-e="input_number.ex_box_squat_weight_rachel" value="17.5"' in html
-    assert 'name="seconds"' in html                       # wall sit is timed
+    assert 'name="weight_1" value="17.5"' in html          # HA fallback (no CSV history yet)
+    assert 'name="seconds_1"' in html                     # wall sit is timed
     assert "/guides/workout/exercise/ex-box-squat-rom.png" in html
     assert "Test &lt;b&gt;" in html                       # guide text is escaped
     assert 'id="ex-arm_circles"' not in html               # warm-ups are not logged
     assert 'id="ex-hand_routine"' in html and 'id="ex-finger_ext"' in html
     assert 'id="ex-knee_pain"' in html                     # daily check-in
-    jr = c.get("/?day=mon", headers={"Remote-User": "jmack"}).get_data(as_text=True)
-    assert 'data-e="input_number.ex_box_squat_weight" value="25"' in jr
+    jr = _noscript(c.get("/?day=mon", headers={"Remote-User": "jmack"}).get_data(as_text=True))
+    assert 'name="weight_1" value="25"' in jr
     assert "2026-11-04 07:30" in jr
 
 
 def test_unknown_user_is_read_only(appmod):
     c = appmod.app.test_client()
-    html = c.get("/?day=mon", headers={"Remote-User": "guest"}).get_data(as_text=True)
+    html = _noscript(c.get("/?day=mon", headers={"Remote-User": "guest"}).get_data(as_text=True))
     assert "Read-only" in html and "<button" not in html
     r = c.post("/log", data={"item": "box_squat", "weight": "20", "reps": "10", "day": "mon"},
                headers={"Remote-User": "guest"})
