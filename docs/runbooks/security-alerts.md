@@ -71,7 +71,7 @@ alerts are e-mailed as a digest (the `email-info` receiver), not paged.
 | `JellyfinClientLogUpload`, `JellyfinSubtitleUpload`, `JellyfinLiveTvTunerChange` | These features are disabled for every user, so any write is a probe or a settings drift. Dashboard → Users → that user's permissions; Dashboard → Logs |
 | `JellyfinApiKeyChange` | Dashboard → API Keys: is the key yours? Delete unknown keys |
 | `JellyfinUserPolicyChange` | Dashboard → Activity: who changed which user? Writes from the proxy-dmz network (Wizarr, wizarr-sync) are excluded; anything else should be you |
-| `JellyfinFfmpegSuspiciousArgs` (critical) | The ffmpeg argument-injection pattern. Stop the container, keep `/config/log`, check `/config` for new files (`find /config -newer /config/system.xml -type f`), rotate the admin password and API keys, then upgrade |
+| `JellyfinFfmpegSuspiciousArgs` (critical) | The ffmpeg argument-injection pattern. Stop the container, keep `/config/log`, check `/config` for new files (`find /config -newer /config/system.xml -type f`), rotate the admin password and API keys, then upgrade. Not a hit: Jellyfin's own `SubtitleEncoder` extracting embedded subtitles into `/config/data/data/subtitles/` on playback start; the rule excludes it since 2026-11-05 |
 | `JellyfinFailedLoginBurst` | `docker logs jellyfin \| grep "has been denied"` for the IPs; Jellyfin has no lockout of its own, block at the WAF |
 | `JellyfinLoginFromInternet` (info) | Expected for remote family use; act only if the user or IP is unexpected |
 | `JellyfinPluginInstalled` | Dashboard → Plugins: is the plugin and its repository expected? |

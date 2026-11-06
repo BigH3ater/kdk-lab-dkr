@@ -113,10 +113,16 @@ groups:
       # 6. ffmpeg invoked with drawtext / lavfi / odd paths: the shape of the
       # known Jellyfin ffmpeg argument-injection exploits. RE2 has no lookahead,
       # so the config subdirs ffmpeg must never touch are listed instead.
+      # Benign ffmpeg writes under /config/data are excluded: Jellyfin's SubtitleEncoder
+      # extracts embedded subtitles into /config/data/data/subtitles/ on every playback
+      # start (25 false positives in the week to 2026-11-05), and trickplay/attachments
+      # land under /config/data too. Only the exploit targets stay: jellyfin.db,
+      # library.db, keys, certificate, /config/log/, /config/plugins/.
       - alert: JellyfinFfmpegSuspiciousArgs
         expr: |
           sum(count_over_time({host="kdk-dkr-dmz-01", container="jellyfin"} |~ "ffmpeg"
-            |~ "(?i)drawtext|-f lavfi|concat:|/etc/|/proc/|/root/|/config/(data|log|plugins)" [10m])) > 0
+            != "SubtitleEncoder"
+            |~ "(?i)drawtext|-f lavfi|concat:|/etc/|/proc/|/root/|/config/data/(jellyfin\\.db|library\\.db|keys|certificate)|/config/log/|/config/plugins/" [10m])) > 0
         for: 0m
         labels:
           severity: critical
