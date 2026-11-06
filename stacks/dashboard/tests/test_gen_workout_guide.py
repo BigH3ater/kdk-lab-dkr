@@ -48,3 +48,18 @@ def test_rom_png_preferred_and_json_written(tmp_path):
     assert mon["steps"][0]["dose"] == "3 × 8–12"
     assert mon["steps"][2]["everyday"] is True
     assert data["everyday"][0]["slug"] == "hand-glides"
+
+
+def test_everyday_heading_and_minutes_come_from_the_note(tmp_path):
+    vault = fake_vault(tmp_path / "vault")
+    (vault / "3. Resources" / "Exercise" / "Days" / "Every Day.README.md").write_text(
+        "# Every Day — PT stretches\n\n~6 minutes (both legs), every day, any time. Tick **PT stretches**.\n\n"
+        "## The routine\n\n### 1 · Tendon glides\n**5 ×**\n\n![[ex-hand-glides.svg]]\n", encoding="utf-8")
+    out = tmp_path / "out"
+    r = subprocess.run([sys.executable, str(GEN), "--vault", str(vault), "--out", str(out)],
+                       capture_output=True, text=True)
+    assert r.returncode == 0, r.stderr
+    page = (out / "workout.html").read_text(encoding="utf-8")
+    assert '<h2 class="dayhead">Every day — PT stretches</h2>' in page
+    assert "~6 minutes (both legs), every day, any time." in page
+    assert "hand routine</h2>" not in page and "~9 minutes" not in page

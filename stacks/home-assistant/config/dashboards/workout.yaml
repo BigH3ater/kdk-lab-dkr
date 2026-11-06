@@ -158,7 +158,7 @@ views:
       or log next to the instructions on **home.kmkdp.com/workout/**.
       Progression graphs are on the **Progress** tab; targets + form cues on **Plan**.
   - type: entities
-    title: Activation · Mon/Thu/Sat
+    title: PT block + adductor · Mon/Thu/Sat
     show_header_toggle: false
     state_color: false
     entities:
@@ -177,6 +177,11 @@ views:
     - entity: input_number.ex_hip_abduction_reps
       name: Reps
       icon: mdi:counter
+    - type: section
+      label: Adductor Squeeze
+    - entity: input_number.ex_adductor_seconds
+      name: Seconds
+      icon: mdi:timer-outline
   - type: entities
     title: Lower A · Mon
     show_header_toggle: false
@@ -262,7 +267,7 @@ views:
       name: Seconds
       icon: mdi:timer-outline
     - type: section
-      label: Farmer Carry
+      label: Farmer's Hold
     - entity: input_number.ex_farmer_weight
       name: Weight (lb)
       icon: mdi:weight-pound
@@ -312,11 +317,6 @@ views:
       name: Reps
       icon: mdi:counter
     - type: section
-      label: Adductor Squeeze
-    - entity: input_number.ex_adductor_seconds
-      name: Seconds
-      icon: mdi:timer-outline
-    - type: section
       label: Tibialis Raise
     - entity: input_number.ex_tib_raise_reps
       name: Reps
@@ -342,14 +342,6 @@ views:
       name: Weight (lb)
       icon: mdi:weight-pound
     - entity: input_number.ex_one_arm_row_reps
-      name: Reps
-      icon: mdi:counter
-    - type: section
-      label: Flat Press
-    - entity: input_number.ex_flat_press_weight
-      name: Weight (lb)
-      icon: mdi:weight-pound
-    - entity: input_number.ex_flat_press_reps
       name: Reps
       icon: mdi:counter
     - type: section
@@ -392,7 +384,7 @@ views:
       name: Reps
       icon: mdi:counter
   - type: entities
-    title: Hands · daily
+    title: Hands · Mon/Thu/Sat
     show_header_toggle: false
     state_color: false
     entities:
@@ -419,7 +411,7 @@ views:
         data:
           target_entity: input_datetime.ex_hand_routine_done
   - type: entities
-    title: Treadmill + flexibility · Wed/Sat/Sun
+    title: Treadmill (daily) + flexibility
     show_header_toggle: false
     state_color: false
     entities:
@@ -485,6 +477,19 @@ views:
     - entity: input_number.ex_hand_pain_score
       name: Score (0-10)
       icon: mdi:numeric
+  - type: entities
+    title: Swaps · not in the plan
+    show_header_toggle: false
+    state_color: false
+    entities:
+    - type: section
+      label: Flat Press
+    - entity: input_number.ex_flat_press_weight
+      name: Weight (lb)
+      icon: mdi:weight-pound
+    - entity: input_number.ex_flat_press_reps
+      name: Reps
+      icon: mdi:counter
 
 - title: Progress
   path: progress
@@ -492,7 +497,7 @@ views:
   type: masonry
   cards:
   - type: history-graph
-    title: Activation · Mon/Thu/Sat
+    title: PT block + adductor · Mon/Thu/Sat
     hours_to_show: 2160
     entities:
     - entity: input_number.ex_slr_reps
@@ -501,6 +506,8 @@ views:
       name: Bridge + Leg Extension
     - entity: input_number.ex_hip_abduction_reps
       name: Side-Lying Hip Abduction
+    - entity: input_number.ex_adductor_seconds
+      name: Adductor Squeeze
   - type: history-graph
     title: Lower A · Mon
     hours_to_show: 2160
@@ -530,7 +537,7 @@ views:
     - entity: input_number.ex_plank_seconds
       name: Forearm Plank
     - entity: input_number.ex_farmer_weight
-      name: Farmer Carry
+      name: Farmer's Hold
     - entity: input_number.ex_wrist_curl_weight
       name: Wrist Curl
     - entity: input_number.ex_reverse_wrist_curl_weight
@@ -545,8 +552,6 @@ views:
       name: Hip Thrust
     - entity: input_number.ex_sl_rdl_weight
       name: Single-Leg RDL
-    - entity: input_number.ex_adductor_seconds
-      name: Adductor Squeeze
     - entity: input_number.ex_tib_raise_reps
       name: Tibialis Raise
     - entity: input_number.ex_sl_calf_reps
@@ -559,8 +564,6 @@ views:
       name: Incline Push-Up
     - entity: input_number.ex_one_arm_row_weight
       name: One-Arm Row
-    - entity: input_number.ex_flat_press_weight
-      name: Flat Press
     - entity: input_number.ex_lateral_raise_weight
       name: Lateral Raise
     - entity: input_number.ex_rear_fly_weight
@@ -574,13 +577,13 @@ views:
     - entity: input_number.ex_towel_wring_reps
       name: Towel Wring
   - type: history-graph
-    title: Hands · daily
+    title: Hands · Mon/Thu/Sat
     hours_to_show: 2160
     entities:
     - entity: input_number.ex_finger_ext_weight
       name: Finger Extension
   - type: history-graph
-    title: Treadmill + flexibility · Wed/Sat/Sun
+    title: Treadmill (daily) + flexibility
     hours_to_show: 2160
     entities:
     - entity: input_number.ex_treadmill_walk_minutes
@@ -593,6 +596,12 @@ views:
       name: Knee Pain
     - entity: input_number.ex_hand_pain_score
       name: Hand Pain
+  - type: history-graph
+    title: Swaps · not in the plan
+    hours_to_show: 2160
+    entities:
+    - entity: input_number.ex_flat_press_weight
+      name: Flat Press
 
 - title: Plan
   path: plan
