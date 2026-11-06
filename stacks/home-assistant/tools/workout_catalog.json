@@ -15,8 +15,9 @@
    "suffix": "_rachel",
    "title": "Workout · Rachel",
    "package_intro": [
-    "# RACHEL's helpers: same list as Jacob's, every entity id ends in _rachel",
-    "# (input_number.ex_<id>_weight_rachel, input_datetime.ex_<id>_done_rachel ...)."
+    "# RACHEL's helpers: her own plan (catalog \"plans\".rach), every entity id ends in _rachel",
+    "# (input_number.ex_<id>_reps_rachel, ...), then the earlier copy of the shared list, kept",
+    "# until the Today page reads her plan (docs/runbooks/workout-tracking-update.md)."
    ]
   }
  ],
@@ -441,5 +442,368 @@
    "group": "daily",
    "kind": "score"
   }
- ]
+ ],
+ "plans": {
+  "rach": {
+   "comment": "Rachel's own plan. Names, doses, rest and movement cues only; the reasons live in the vault.",
+   "keep_default_helpers": true,
+   "strength_intro": [
+    "Log the **reps**, **seconds**, **minutes** or **weight (lb)** you did — tap a number to edit.",
+    "Desk breaks: log each break (2–3 a day). Cardio: log the pool **or** the bike, same box.",
+    "Progression graphs are on the **Progress** tab; doses + cues on **Plan**."
+   ],
+   "groups": [
+    {
+     "key": "desk",
+     "comment": "Desk breaks",
+     "title": "Desk breaks · daily"
+    },
+    {
+     "key": "strength_a",
+     "comment": "Strength A",
+     "title": "Strength A · Mon"
+    },
+    {
+     "key": "cardio",
+     "comment": "Cardio",
+     "title": "Cardio · Tue/Fri"
+    },
+    {
+     "key": "strength_b",
+     "comment": "Strength B",
+     "title": "Strength B · Thu"
+    },
+    {
+     "key": "evening",
+     "comment": "Evening mobility",
+     "title": "Evening mobility · daily"
+    }
+   ],
+   "items": [
+    {
+     "id": "glute_calf_raise",
+     "name": "Glute Squeeze + Calf Raise",
+     "group": "desk",
+     "kind": "r",
+     "days": [
+      "daily"
+     ],
+     "slugs": [
+      "glute-calf-raise"
+     ],
+     "steps": [
+      {
+       "slug": "glute-calf-raise",
+       "title": "Glute Squeeze + Calf Raise",
+       "dose": "15 reps · 2–3× a day",
+       "cues": [
+        "Stand tall; squeeze your glutes for 3 seconds.",
+        "Then 15 slow calf raises, pausing 1 second at the top."
+       ]
+      }
+     ]
+    },
+    {
+     "id": "nerve_glide",
+     "name": "Seated Nerve Glide",
+     "group": "desk",
+     "kind": "r",
+     "days": [
+      "daily"
+     ],
+     "slugs": [
+      "seated-nerve-glide"
+     ],
+     "steps": [
+      {
+       "slug": "seated-nerve-glide",
+       "title": "Seated Nerve Glide",
+       "dose": "10–12 reps / leg · 2–3× a day",
+       "cues": [
+        "Sit tall at the edge of a chair with one leg straight out.",
+        "Point the toes away as you look up; pull the toes back as you look down.",
+        "Keep it smooth and slow; never push into pain or tingling."
+       ]
+      }
+     ]
+    },
+    {
+     "id": "kneeling_hip_flexor",
+     "name": "Tall-Kneeling Hip Flexor Stretch",
+     "group": "desk",
+     "kind": "t",
+     "days": [
+      "daily"
+     ],
+     "slugs": [
+      "kneeling-hip-flexor"
+     ],
+     "steps": [
+      {
+       "slug": "kneeling-hip-flexor",
+       "title": "Tall-Kneeling Hip Flexor Stretch",
+       "dose": "30 s / side · 2–3× a day",
+       "cues": [
+        "Kneel on both knees on a cushion.",
+        "Tuck the pelvis under and squeeze the glute on the side you stretch.",
+        "Do not lunge forward; the stretch comes from the tuck alone."
+       ]
+      }
+     ]
+    },
+    {
+     "id": "high_box_squat",
+     "name": "High Box Squat",
+     "group": "strength_a",
+     "kind": "w",
+     "days": [
+      "mon"
+     ],
+     "slugs": [
+      "high-box-squat"
+     ],
+     "steps": [
+      {
+       "slug": "high-box-squat",
+       "title": "High Box Squat",
+       "dose": "3 × 8 · RPE 6–7 · rest 60–90 s",
+       "cues": [
+        "Box, bench or chair high enough that your hips sit slightly above your knees.",
+        "Sit down fully, then drive through the heels to stand."
+       ]
+      }
+     ]
+    },
+    {
+     "id": "pallof_press",
+     "name": "Standing Pallof Press",
+     "group": "strength_a",
+     "kind": "r",
+     "days": [
+      "mon"
+     ],
+     "slugs": [
+      "pallof-press"
+     ],
+     "steps": [
+      {
+       "slug": "pallof-press",
+       "title": "Standing Pallof Press",
+       "dose": "3 × 10 / side · rest 40–60 s",
+       "cues": [
+        "Stand side-on to the band anchor, handle at chest height.",
+        "Press straight out, hold 2 seconds, bring it back to the chest.",
+        "Do not let the torso twist toward the anchor."
+       ]
+      }
+     ]
+    },
+    {
+     "id": "wall_pushup",
+     "name": "Wall or Incline Push-Up",
+     "group": "strength_a",
+     "kind": "r",
+     "days": [
+      "mon"
+     ],
+     "slugs": [
+      "wall-pushup"
+     ],
+     "steps": [
+      {
+       "slug": "wall-pushup",
+       "title": "Wall or Incline Push-Up",
+       "dose": "3 × 10–12 · rest 60 s",
+       "cues": [
+        "Hands on a wall or a high counter.",
+        "Keep the body in one straight line: no sagging hips, no arched lower back.",
+        "Lower the chest toward the surface and push back up."
+       ]
+      }
+     ]
+    },
+    {
+     "id": "elevated_rdl",
+     "name": "Elevated Romanian Deadlift",
+     "group": "strength_b",
+     "kind": "w",
+     "days": [
+      "thu"
+     ],
+     "slugs": [
+      "elevated-rdl"
+     ],
+     "steps": [
+      {
+       "slug": "elevated-rdl",
+       "title": "Elevated Romanian Deadlift",
+       "dose": "3 × 8 · rest 90 s",
+       "cues": [
+        "Stand tall with dumbbells, a soft bend in the knees (never locked).",
+        "Hinge at the hips and lower the weights only to just below the kneecaps.",
+        "Keep the spine neutral; squeeze the glutes to stand back up."
+       ]
+      }
+     ]
+    },
+    {
+     "id": "seated_band_row",
+     "name": "Seated Band Row",
+     "group": "strength_b",
+     "kind": "r",
+     "days": [
+      "thu"
+     ],
+     "slugs": [
+      "seated-band-row"
+     ],
+     "steps": [
+      {
+       "slug": "seated-band-row",
+       "title": "Seated Band Row",
+       "dose": "3 × 12 · rest 60 s",
+       "cues": [
+        "Sit tall on the floor or a stool, legs out, band around the feet.",
+        "Pull the elbows back, squeezing the shoulder blades together.",
+        "Do not let the lower back arch."
+       ]
+      }
+     ]
+    },
+    {
+     "id": "glute_bridge",
+     "name": "Glute Bridge",
+     "group": "strength_b",
+     "kind": "r",
+     "days": [
+      "thu"
+     ],
+     "slugs": [
+      "glute-bridge"
+     ],
+     "steps": [
+      {
+       "slug": "glute-bridge",
+       "title": "Glute Bridge",
+       "dose": "3 × 12 · hold 2 s at the top · rest 60 s",
+       "cues": [
+        "Lie on your back, knees bent, feet flat.",
+        "Squeeze the glutes to lift the hips into a line from shoulders to knees.",
+        "Do not over-arch the lower back at the top."
+       ]
+      }
+     ]
+    },
+    {
+     "id": "pool_or_bike",
+     "name": "Cardio (pool or bike)",
+     "group": "cardio",
+     "kind": "min",
+     "days": [
+      "tue",
+      "fri"
+     ],
+     "either": true,
+     "slugs": [
+      "water-walk",
+      "recumbent-bike"
+     ],
+     "steps": [
+      {
+       "slug": "water-walk",
+       "title": "Water Walking",
+       "dose": "20–30 min · moderate (talk test)",
+       "cues": [
+        "Chest-deep water: walk forward, backward and sideways.",
+        "Long, deliberate strides.",
+        "Moderate pace: you can still hold a conversation."
+       ]
+      },
+      {
+       "slug": "recumbent-bike",
+       "title": "Recumbent Bike",
+       "dose": "20–25 min · moderate (talk test)",
+       "cues": [
+        "Back fully supported against the seat.",
+        "Smooth, continuous pedalling.",
+        "Moderate pace: you can still hold a conversation."
+       ]
+      }
+     ]
+    },
+    {
+     "id": "wall_slide",
+     "name": "Supported Wall Slide",
+     "group": "evening",
+     "kind": "r",
+     "days": [
+      "daily"
+     ],
+     "slugs": [
+      "wall-slide"
+     ],
+     "steps": [
+      {
+       "slug": "wall-slide",
+       "title": "Supported Wall Slide",
+       "dose": "2 × 8 · hold 5 s",
+       "cues": [
+        "Back against a smooth wall (a gym ball behind the lower back is optional).",
+        "Slide down into a partial squat, no lower than 90 degrees.",
+        "Hold 5 seconds while breathing, then slide back up."
+       ]
+      }
+     ]
+    },
+    {
+     "id": "pelvic_tilt",
+     "name": "Hands-and-Knees Pelvic Tilt",
+     "group": "evening",
+     "kind": "r",
+     "days": [
+      "daily"
+     ],
+     "slugs": [
+      "pelvic-tilt"
+     ],
+     "steps": [
+      {
+       "slug": "pelvic-tilt",
+       "title": "Hands-and-Knees Pelvic Tilt",
+       "dose": "15–20 reps",
+       "cues": [
+        "On hands and knees with a neutral spine.",
+        "Gently tuck the tailbone under with the lower abs, then return to a flat back.",
+        "Do not let the lower back sag."
+       ]
+      }
+     ]
+    },
+    {
+     "id": "side_lying_rest",
+     "name": "Supported Side-Lying Rest",
+     "group": "evening",
+     "kind": "min",
+     "days": [
+      "daily"
+     ],
+     "slugs": [
+      "side-lying-rest"
+     ],
+     "steps": [
+      {
+       "slug": "side-lying-rest",
+       "title": "Supported Side-Lying Rest",
+       "dose": "3–5 min",
+       "cues": [
+        "Lie on your side with a thick pillow between the knees and ankles.",
+        "Keep the hips level.",
+        "Breathe slowly and deeply."
+       ]
+      }
+     ]
+    }
+   ]
+  }
+ }
 }

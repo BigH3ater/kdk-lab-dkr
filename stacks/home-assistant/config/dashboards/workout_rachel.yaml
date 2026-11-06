@@ -154,342 +154,105 @@ views:
   cards:
   - type: markdown
     content: >-
-      Log the **weight (lb)**, **reps** or **seconds** you did each session — tap a number to edit,
-      or log next to the instructions on **home.kmkdp.com/workout/**.
-      Progression graphs are on the **Progress** tab; targets + form cues on **Plan**.
+      Log the **reps**, **seconds**, **minutes** or **weight (lb)** you did — tap a number to edit.
+      Desk breaks: log each break (2–3 a day). Cardio: log the pool **or** the bike, same box.
+      Progression graphs are on the **Progress** tab; doses + cues on **Plan**.
   - type: entities
-    title: PT block + adductor · Mon/Thu/Sat
+    title: Desk breaks · daily
     show_header_toggle: false
     state_color: false
     entities:
     - type: section
-      label: Straight Leg Raise
-    - entity: input_number.ex_slr_reps_rachel
+      label: Glute Squeeze + Calf Raise
+    - entity: input_number.ex_glute_calf_raise_reps_rachel
       name: Reps
       icon: mdi:counter
     - type: section
-      label: Bridge + Leg Extension
-    - entity: input_number.ex_bridge_ext_reps_rachel
+      label: Seated Nerve Glide
+    - entity: input_number.ex_nerve_glide_reps_rachel
       name: Reps
       icon: mdi:counter
     - type: section
-      label: Side-Lying Hip Abduction
-    - entity: input_number.ex_hip_abduction_reps_rachel
-      name: Reps
-      icon: mdi:counter
-    - type: section
-      label: Adductor Squeeze
-    - entity: input_number.ex_adductor_seconds_rachel
+      label: Tall-Kneeling Hip Flexor Stretch
+    - entity: input_number.ex_kneeling_hip_flexor_seconds_rachel
       name: Seconds
       icon: mdi:timer-outline
   - type: entities
-    title: Lower A · Mon
+    title: Strength A · Mon
     show_header_toggle: false
     state_color: false
     entities:
     - type: section
-      label: Box Squat
-    - entity: input_number.ex_box_squat_weight_rachel
+      label: High Box Squat
+    - entity: input_number.ex_high_box_squat_weight_rachel
       name: Weight (lb)
       icon: mdi:weight-pound
-    - entity: input_number.ex_box_squat_reps_rachel
+    - entity: input_number.ex_high_box_squat_reps_rachel
       name: Reps
       icon: mdi:counter
     - type: section
-      label: Romanian Deadlift
-    - entity: input_number.ex_rdl_weight_rachel
-      name: Weight (lb)
-      icon: mdi:weight-pound
-    - entity: input_number.ex_rdl_reps_rachel
+      label: Standing Pallof Press
+    - entity: input_number.ex_pallof_press_reps_rachel
       name: Reps
       icon: mdi:counter
     - type: section
-      label: Wall Sit
-    - entity: input_number.ex_wall_sit_seconds_rachel
-      name: Seconds
-      icon: mdi:timer-outline
-    - type: section
-      label: Calf Raise
-    - entity: input_number.ex_calf_raise_weight_rachel
-      name: Weight (lb)
-      icon: mdi:weight-pound
-    - entity: input_number.ex_calf_raise_reps_rachel
+      label: Wall or Incline Push-Up
+    - entity: input_number.ex_wall_pushup_reps_rachel
       name: Reps
       icon: mdi:counter
   - type: entities
-    title: Upper A · Tue
+    title: Cardio · Tue/Fri
     show_header_toggle: false
     state_color: false
     entities:
     - type: section
-      label: Incline Press
-    - entity: input_number.ex_incline_press_weight_rachel
-      name: Weight (lb)
-      icon: mdi:weight-pound
-    - entity: input_number.ex_incline_press_reps_rachel
-      name: Reps
-      icon: mdi:counter
-    - type: section
-      label: Chest-Supported Row
-    - entity: input_number.ex_cs_row_weight_rachel
-      name: Weight (lb)
-      icon: mdi:weight-pound
-    - entity: input_number.ex_cs_row_reps_rachel
-      name: Reps
-      icon: mdi:counter
-    - type: section
-      label: Shoulder Press
-    - entity: input_number.ex_shoulder_press_weight_rachel
-      name: Weight (lb)
-      icon: mdi:weight-pound
-    - entity: input_number.ex_shoulder_press_reps_rachel
-      name: Reps
-      icon: mdi:counter
-    - type: section
-      label: Hammer Curl
-    - entity: input_number.ex_hammer_curl_weight_rachel
-      name: Weight (lb)
-      icon: mdi:weight-pound
-    - entity: input_number.ex_hammer_curl_reps_rachel
-      name: Reps
-      icon: mdi:counter
-    - type: section
-      label: Triceps Extension
-    - entity: input_number.ex_triceps_ext_weight_rachel
-      name: Weight (lb)
-      icon: mdi:weight-pound
-    - entity: input_number.ex_triceps_ext_reps_rachel
-      name: Reps
-      icon: mdi:counter
-    - type: section
-      label: Forearm Plank
-    - entity: input_number.ex_plank_seconds_rachel
-      name: Seconds
-      icon: mdi:timer-outline
-    - type: section
-      label: Farmer's Hold
-    - entity: input_number.ex_farmer_weight_rachel
-      name: Weight (lb)
-      icon: mdi:weight-pound
-    - entity: input_number.ex_farmer_seconds_rachel
-      name: Seconds
-      icon: mdi:timer-outline
-    - type: section
-      label: Wrist Curl
-    - entity: input_number.ex_wrist_curl_weight_rachel
-      name: Weight (lb)
-      icon: mdi:weight-pound
-    - entity: input_number.ex_wrist_curl_reps_rachel
-      name: Reps
-      icon: mdi:counter
-    - type: section
-      label: Reverse Wrist Curl
-    - entity: input_number.ex_reverse_wrist_curl_weight_rachel
-      name: Weight (lb)
-      icon: mdi:weight-pound
-    - entity: input_number.ex_reverse_wrist_curl_reps_rachel
-      name: Reps
-      icon: mdi:counter
-  - type: entities
-    title: Lower B · Thu
-    show_header_toggle: false
-    state_color: false
-    entities:
-    - type: section
-      label: Step-Up
-    - entity: input_number.ex_step_up_reps_rachel
-      name: Reps
-      icon: mdi:counter
-    - type: section
-      label: Hip Thrust
-    - entity: input_number.ex_hip_thrust_weight_rachel
-      name: Weight (lb)
-      icon: mdi:weight-pound
-    - entity: input_number.ex_hip_thrust_reps_rachel
-      name: Reps
-      icon: mdi:counter
-    - type: section
-      label: Single-Leg RDL
-    - entity: input_number.ex_sl_rdl_weight_rachel
-      name: Weight (lb)
-      icon: mdi:weight-pound
-    - entity: input_number.ex_sl_rdl_reps_rachel
-      name: Reps
-      icon: mdi:counter
-    - type: section
-      label: Tibialis Raise
-    - entity: input_number.ex_tib_raise_reps_rachel
-      name: Reps
-      icon: mdi:counter
-    - type: section
-      label: Single-Leg Calf Raise
-    - entity: input_number.ex_sl_calf_reps_rachel
-      name: Reps
-      icon: mdi:counter
-  - type: entities
-    title: Upper B · Fri
-    show_header_toggle: false
-    state_color: false
-    entities:
-    - type: section
-      label: Incline Push-Up
-    - entity: input_number.ex_pushup_reps_rachel
-      name: Reps
-      icon: mdi:counter
-    - type: section
-      label: One-Arm Row
-    - entity: input_number.ex_one_arm_row_weight_rachel
-      name: Weight (lb)
-      icon: mdi:weight-pound
-    - entity: input_number.ex_one_arm_row_reps_rachel
-      name: Reps
-      icon: mdi:counter
-    - type: section
-      label: Lateral Raise
-    - entity: input_number.ex_lateral_raise_weight_rachel
-      name: Weight (lb)
-      icon: mdi:weight-pound
-    - entity: input_number.ex_lateral_raise_reps_rachel
-      name: Reps
-      icon: mdi:counter
-    - type: section
-      label: Rear Fly
-    - entity: input_number.ex_rear_fly_weight_rachel
-      name: Weight (lb)
-      icon: mdi:weight-pound
-    - entity: input_number.ex_rear_fly_reps_rachel
-      name: Reps
-      icon: mdi:counter
-    - type: section
-      label: Dead Bug
-    - entity: input_number.ex_dead_bug_reps_rachel
-      name: Reps
-      icon: mdi:counter
-    - type: section
-      label: Side Plank
-    - entity: input_number.ex_side_plank_seconds_rachel
-      name: Seconds
-      icon: mdi:timer-outline
-    - type: section
-      label: Suitcase Carry (10-ft lengths)
-    - entity: input_number.ex_suitcase_weight_rachel
-      name: Weight (lb)
-      icon: mdi:weight-pound
-    - entity: input_number.ex_suitcase_lengths_rachel
-      name: Lengths (10 ft)
-      icon: mdi:map-marker-distance
-    - type: section
-      label: Towel Wring
-    - entity: input_number.ex_towel_wring_reps_rachel
-      name: Reps
-      icon: mdi:counter
-  - type: entities
-    title: Hands · Mon/Thu/Sat
-    show_header_toggle: false
-    state_color: false
-    entities:
-    - type: section
-      label: Finger Extension
-    - entity: input_number.ex_finger_ext_weight_rachel
-      name: Weight (lb)
-      icon: mdi:weight-pound
-    - entity: input_number.ex_finger_ext_reps_rachel
-      name: Reps
-      icon: mdi:counter
-    - type: section
-      label: Hand Routine
-    - entity: input_datetime.ex_hand_routine_done_rachel
-      name: Last done
-      icon: mdi:check-circle-outline
-    - type: button
-      name: Mark done now
-      icon: mdi:check-bold
-      action_name: Done
-      tap_action:
-        action: perform-action
-        perform_action: script.workout_mark_done
-        data:
-          target_entity: input_datetime.ex_hand_routine_done_rachel
-  - type: entities
-    title: Treadmill (daily) + flexibility
-    show_header_toggle: false
-    state_color: false
-    entities:
-    - type: section
-      label: Treadmill Walk
-    - entity: input_number.ex_treadmill_walk_minutes_rachel
+      label: Cardio (pool or bike)
+    - entity: input_number.ex_pool_or_bike_minutes_rachel
       name: Minutes
       icon: mdi:timer
-    - type: section
-      label: Flexibility Flow
-    - entity: input_datetime.ex_flex_flow_done_rachel
-      name: Last done
-      icon: mdi:check-circle-outline
-    - type: button
-      name: Mark done now
-      icon: mdi:check-bold
-      action_name: Done
-      tap_action:
-        action: perform-action
-        perform_action: script.workout_mark_done
-        data:
-          target_entity: input_datetime.ex_flex_flow_done_rachel
-    - type: section
-      label: Yoga Session
-    - entity: input_datetime.ex_yoga_done_rachel
-      name: Last done
-      icon: mdi:check-circle-outline
-    - type: button
-      name: Mark done now
-      icon: mdi:check-bold
-      action_name: Done
-      tap_action:
-        action: perform-action
-        perform_action: script.workout_mark_done
-        data:
-          target_entity: input_datetime.ex_yoga_done_rachel
   - type: entities
-    title: Daily check-in
+    title: Strength B · Thu
     show_header_toggle: false
     state_color: false
     entities:
     - type: section
-      label: Daily Stretches
-    - entity: input_datetime.ex_stretches_done_rachel
-      name: Last done
-      icon: mdi:check-circle-outline
-    - type: button
-      name: Mark done now
-      icon: mdi:check-bold
-      action_name: Done
-      tap_action:
-        action: perform-action
-        perform_action: script.workout_mark_done
-        data:
-          target_entity: input_datetime.ex_stretches_done_rachel
-    - type: section
-      label: Knee Pain
-    - entity: input_number.ex_knee_pain_score_rachel
-      name: Score (0-10)
-      icon: mdi:numeric
-    - type: section
-      label: Hand Pain
-    - entity: input_number.ex_hand_pain_score_rachel
-      name: Score (0-10)
-      icon: mdi:numeric
-  - type: entities
-    title: Swaps · not in the plan
-    show_header_toggle: false
-    state_color: false
-    entities:
-    - type: section
-      label: Flat Press
-    - entity: input_number.ex_flat_press_weight_rachel
+      label: Elevated Romanian Deadlift
+    - entity: input_number.ex_elevated_rdl_weight_rachel
       name: Weight (lb)
       icon: mdi:weight-pound
-    - entity: input_number.ex_flat_press_reps_rachel
+    - entity: input_number.ex_elevated_rdl_reps_rachel
       name: Reps
       icon: mdi:counter
+    - type: section
+      label: Seated Band Row
+    - entity: input_number.ex_seated_band_row_reps_rachel
+      name: Reps
+      icon: mdi:counter
+    - type: section
+      label: Glute Bridge
+    - entity: input_number.ex_glute_bridge_reps_rachel
+      name: Reps
+      icon: mdi:counter
+  - type: entities
+    title: Evening mobility · daily
+    show_header_toggle: false
+    state_color: false
+    entities:
+    - type: section
+      label: Supported Wall Slide
+    - entity: input_number.ex_wall_slide_reps_rachel
+      name: Reps
+      icon: mdi:counter
+    - type: section
+      label: Hands-and-Knees Pelvic Tilt
+    - entity: input_number.ex_pelvic_tilt_reps_rachel
+      name: Reps
+      icon: mdi:counter
+    - type: section
+      label: Supported Side-Lying Rest
+    - entity: input_number.ex_side_lying_rest_minutes_rachel
+      name: Minutes
+      icon: mdi:timer
 
 - title: Progress
   path: progress
@@ -497,117 +260,150 @@ views:
   type: masonry
   cards:
   - type: history-graph
-    title: PT block + adductor · Mon/Thu/Sat
+    title: Desk breaks · daily
     hours_to_show: 2160
     entities:
-    - entity: input_number.ex_slr_reps_rachel
-      name: Straight Leg Raise
-    - entity: input_number.ex_bridge_ext_reps_rachel
-      name: Bridge + Leg Extension
-    - entity: input_number.ex_hip_abduction_reps_rachel
-      name: Side-Lying Hip Abduction
-    - entity: input_number.ex_adductor_seconds_rachel
-      name: Adductor Squeeze
+    - entity: input_number.ex_glute_calf_raise_reps_rachel
+      name: Glute Squeeze + Calf Raise
+    - entity: input_number.ex_nerve_glide_reps_rachel
+      name: Seated Nerve Glide
+    - entity: input_number.ex_kneeling_hip_flexor_seconds_rachel
+      name: Tall-Kneeling Hip Flexor Stretch
   - type: history-graph
-    title: Lower A · Mon
+    title: Strength A · Mon
     hours_to_show: 2160
     entities:
-    - entity: input_number.ex_box_squat_weight_rachel
-      name: Box Squat
-    - entity: input_number.ex_rdl_weight_rachel
-      name: Romanian Deadlift
-    - entity: input_number.ex_wall_sit_seconds_rachel
-      name: Wall Sit
-    - entity: input_number.ex_calf_raise_weight_rachel
-      name: Calf Raise
+    - entity: input_number.ex_high_box_squat_weight_rachel
+      name: High Box Squat
+    - entity: input_number.ex_pallof_press_reps_rachel
+      name: Standing Pallof Press
+    - entity: input_number.ex_wall_pushup_reps_rachel
+      name: Wall or Incline Push-Up
   - type: history-graph
-    title: Upper A · Tue
+    title: Cardio · Tue/Fri
     hours_to_show: 2160
     entities:
-    - entity: input_number.ex_incline_press_weight_rachel
-      name: Incline Press
-    - entity: input_number.ex_cs_row_weight_rachel
-      name: Chest-Supported Row
-    - entity: input_number.ex_shoulder_press_weight_rachel
-      name: Shoulder Press
-    - entity: input_number.ex_hammer_curl_weight_rachel
-      name: Hammer Curl
-    - entity: input_number.ex_triceps_ext_weight_rachel
-      name: Triceps Extension
-    - entity: input_number.ex_plank_seconds_rachel
-      name: Forearm Plank
-    - entity: input_number.ex_farmer_weight_rachel
-      name: Farmer's Hold
-    - entity: input_number.ex_wrist_curl_weight_rachel
-      name: Wrist Curl
-    - entity: input_number.ex_reverse_wrist_curl_weight_rachel
-      name: Reverse Wrist Curl
+    - entity: input_number.ex_pool_or_bike_minutes_rachel
+      name: Cardio (pool or bike)
   - type: history-graph
-    title: Lower B · Thu
+    title: Strength B · Thu
     hours_to_show: 2160
     entities:
-    - entity: input_number.ex_step_up_reps_rachel
-      name: Step-Up
-    - entity: input_number.ex_hip_thrust_weight_rachel
-      name: Hip Thrust
-    - entity: input_number.ex_sl_rdl_weight_rachel
-      name: Single-Leg RDL
-    - entity: input_number.ex_tib_raise_reps_rachel
-      name: Tibialis Raise
-    - entity: input_number.ex_sl_calf_reps_rachel
-      name: Single-Leg Calf Raise
+    - entity: input_number.ex_elevated_rdl_weight_rachel
+      name: Elevated Romanian Deadlift
+    - entity: input_number.ex_seated_band_row_reps_rachel
+      name: Seated Band Row
+    - entity: input_number.ex_glute_bridge_reps_rachel
+      name: Glute Bridge
   - type: history-graph
-    title: Upper B · Fri
+    title: Evening mobility · daily
     hours_to_show: 2160
     entities:
-    - entity: input_number.ex_pushup_reps_rachel
-      name: Incline Push-Up
-    - entity: input_number.ex_one_arm_row_weight_rachel
-      name: One-Arm Row
-    - entity: input_number.ex_lateral_raise_weight_rachel
-      name: Lateral Raise
-    - entity: input_number.ex_rear_fly_weight_rachel
-      name: Rear Fly
-    - entity: input_number.ex_dead_bug_reps_rachel
-      name: Dead Bug
-    - entity: input_number.ex_side_plank_seconds_rachel
-      name: Side Plank
-    - entity: input_number.ex_suitcase_weight_rachel
-      name: Suitcase Carry (10-ft lengths)
-    - entity: input_number.ex_towel_wring_reps_rachel
-      name: Towel Wring
-  - type: history-graph
-    title: Hands · Mon/Thu/Sat
-    hours_to_show: 2160
-    entities:
-    - entity: input_number.ex_finger_ext_weight_rachel
-      name: Finger Extension
-  - type: history-graph
-    title: Treadmill (daily) + flexibility
-    hours_to_show: 2160
-    entities:
-    - entity: input_number.ex_treadmill_walk_minutes_rachel
-      name: Treadmill Walk
-  - type: history-graph
-    title: Daily check-in
-    hours_to_show: 2160
-    entities:
-    - entity: input_number.ex_knee_pain_score_rachel
-      name: Knee Pain
-    - entity: input_number.ex_hand_pain_score_rachel
-      name: Hand Pain
-  - type: history-graph
-    title: Swaps · not in the plan
-    hours_to_show: 2160
-    entities:
-    - entity: input_number.ex_flat_press_weight_rachel
-      name: Flat Press
+    - entity: input_number.ex_wall_slide_reps_rachel
+      name: Supported Wall Slide
+    - entity: input_number.ex_pelvic_tilt_reps_rachel
+      name: Hands-and-Knees Pelvic Tilt
+    - entity: input_number.ex_side_lying_rest_minutes_rachel
+      name: Supported Side-Lying Rest
 
 - title: Plan
   path: plan
   icon: mdi:clipboard-text
-  type: panel
+  type: masonry
   cards:
-  - type: iframe
-    url: https://home.kmkdp.com/guides/workout/workout.html
-    aspect_ratio: 150%
+  - type: markdown
+    title: Week
+    content: |-
+      **Mon** · Desk breaks + Strength A + Evening mobility
+
+      **Tue** · Desk breaks + Cardio + Evening mobility
+
+      **Wed** · Desk breaks + Evening mobility
+
+      **Thu** · Desk breaks + Strength B + Evening mobility
+
+      **Fri** · Desk breaks + Cardio + Evening mobility
+
+      **Sat** · Desk breaks + Evening mobility
+
+      **Sun** · Desk breaks + Evening mobility
+  - type: markdown
+    title: Desk breaks · daily
+    content: |-
+      **Glute Squeeze + Calf Raise** · 15 reps · 2–3× a day
+      - Stand tall; squeeze your glutes for 3 seconds.
+      - Then 15 slow calf raises, pausing 1 second at the top.
+
+      **Seated Nerve Glide** · 10–12 reps / leg · 2–3× a day
+      - Sit tall at the edge of a chair with one leg straight out.
+      - Point the toes away as you look up; pull the toes back as you look down.
+      - Keep it smooth and slow; never push into pain or tingling.
+
+      **Tall-Kneeling Hip Flexor Stretch** · 30 s / side · 2–3× a day
+      - Kneel on both knees on a cushion.
+      - Tuck the pelvis under and squeeze the glute on the side you stretch.
+      - Do not lunge forward; the stretch comes from the tuck alone.
+  - type: markdown
+    title: Strength A · Mon
+    content: |-
+      **High Box Squat** · 3 × 8 · RPE 6–7 · rest 60–90 s
+      - Box, bench or chair high enough that your hips sit slightly above your knees.
+      - Sit down fully, then drive through the heels to stand.
+
+      **Standing Pallof Press** · 3 × 10 / side · rest 40–60 s
+      - Stand side-on to the band anchor, handle at chest height.
+      - Press straight out, hold 2 seconds, bring it back to the chest.
+      - Do not let the torso twist toward the anchor.
+
+      **Wall or Incline Push-Up** · 3 × 10–12 · rest 60 s
+      - Hands on a wall or a high counter.
+      - Keep the body in one straight line: no sagging hips, no arched lower back.
+      - Lower the chest toward the surface and push back up.
+  - type: markdown
+    title: Cardio · Tue/Fri
+    content: |-
+      **Water Walking** · 20–30 min · moderate (talk test)
+      - Chest-deep water: walk forward, backward and sideways.
+      - Long, deliberate strides.
+      - Moderate pace: you can still hold a conversation.
+
+      **Recumbent Bike** · 20–25 min · moderate (talk test)
+      - Back fully supported against the seat.
+      - Smooth, continuous pedalling.
+      - Moderate pace: you can still hold a conversation.
+
+      _Either one counts: log the one you did._
+  - type: markdown
+    title: Strength B · Thu
+    content: |-
+      **Elevated Romanian Deadlift** · 3 × 8 · rest 90 s
+      - Stand tall with dumbbells, a soft bend in the knees (never locked).
+      - Hinge at the hips and lower the weights only to just below the kneecaps.
+      - Keep the spine neutral; squeeze the glutes to stand back up.
+
+      **Seated Band Row** · 3 × 12 · rest 60 s
+      - Sit tall on the floor or a stool, legs out, band around the feet.
+      - Pull the elbows back, squeezing the shoulder blades together.
+      - Do not let the lower back arch.
+
+      **Glute Bridge** · 3 × 12 · hold 2 s at the top · rest 60 s
+      - Lie on your back, knees bent, feet flat.
+      - Squeeze the glutes to lift the hips into a line from shoulders to knees.
+      - Do not over-arch the lower back at the top.
+  - type: markdown
+    title: Evening mobility · daily
+    content: |-
+      **Supported Wall Slide** · 2 × 8 · hold 5 s
+      - Back against a smooth wall (a gym ball behind the lower back is optional).
+      - Slide down into a partial squat, no lower than 90 degrees.
+      - Hold 5 seconds while breathing, then slide back up.
+
+      **Hands-and-Knees Pelvic Tilt** · 15–20 reps
+      - On hands and knees with a neutral spine.
+      - Gently tuck the tailbone under with the lower abs, then return to a flat back.
+      - Do not let the lower back sag.
+
+      **Supported Side-Lying Rest** · 3–5 min
+      - Lie on your side with a thick pillow between the knees and ankles.
+      - Keep the hips level.
+      - Breathe slowly and deeply.

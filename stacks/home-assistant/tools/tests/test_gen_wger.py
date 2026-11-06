@@ -225,6 +225,16 @@ EVERYDAY = [("pt-hamstring", "PT — Hamstring stretch", "3 × 30 s hold · dail
 NO_POSTER = "wall-sit"
 
 
+def all_slugs() -> set[str]:
+    """Every person's catalog slugs: the top-level list + every "plans" entry."""
+    cat = gen_workout.load()
+    return {s for pl in [cat, *cat.get("plans", {}).values()] for it in pl["items"] for s in it["slugs"]}
+
+
+def rach_plan() -> dict:
+    return gen_workout.load()["plans"]["rach"]
+
+
 def step(n, s):
     slug, title, dose = s
     return {"num": str(n), "title": title, "dose": dose, "slug": slug,
@@ -328,8 +338,7 @@ def test_exercises_markers_images_and_owner(guide, fake):
     assert run(guide, "--apply") == 0
     trs = [t for t in fake.t["exercise-translation"].values() if gw.MARKER_RE.search(t["description_source"])]
     slugs = {gw.MARKER_RE.search(t["description_source"]).group("slug") for t in trs}
-    catalog = {s for it in gen_workout.load()["items"] for s in it["slugs"]}
-    assert slugs == catalog | {"arm-circles"}          # catalog + the guide-only slug
+    assert slugs == all_slugs() | {"arm-circles"}      # both plans + the guide-only slug
     assert all(t["_user"] == "jmack" for t in trs)     # exercises are global: the owner writes them
     by = {gw.MARKER_RE.search(t["description_source"]).group("slug"): t for t in trs}
     assert by["pt-slr"]["name"] == "Straight Leg Raise"
@@ -340,7 +349,8 @@ def test_exercises_markers_images_and_owner(guide, fake):
     assert "img:none" in by[NO_POSTER]["description_source"]
     m = gw.MARKER_RE.search(by["pt-slr"]["description_source"])
     assert m.group("img") != "none" and int(m.group("imgid")) in fake.t["exerciseimage"]
-    assert len(fake.t["exerciseimage"]) == len(slugs) - 1       # every slug but NO_POSTER
+    hers = {s for it in rach_plan()["items"] for s in it["slugs"]}      # no posters yet (fixture as in life)
+    assert len(fake.t["exerciseimage"]) == len(slugs - hers) - 1        # every other slug but NO_POSTER
     assert sum(1 for t in fake.t["exerciseimage"].values()
                if t["exercise"] == by[NO_POSTER]["exercise"]) == 0
 
@@ -363,7 +373,7 @@ def test_image_upload_skipped_when_unchanged_and_replaced_when_changed(guide, fa
 
 def test_weekday_mapping(guide, fake):
     assert run(guide, "--apply") == 0
-    for user in ("jmack", "rach"):
+    for user in ("jmack",):
         r, tree = fake.routine_tree(user)
         start = dt.date.fromisoformat(r["start"])
         assert start == dt.date(2026, 11, 2) and start.weekday() == 0
@@ -422,7 +432,7 @@ def test_person_filter(guide, fake):
     assert run(guide, "--apply", "--person", "rach") == 0
     assert fake.writes and all(t in PRIVATE for _, t in fake.writes)   # rach never writes exercises
     assert set(fake.writers) == {"rach"}
-    assert fake.routine_tree("rach")[1] == fake.routine_tree("jmack")[1]
+    assert fake.routine_tree("rach")[1]["Monday"][0] == [("glute-calf-raise", "Repetitions", 1, 15, None)]
 
 
 def test_person_without_owner_cannot_create_exercises(guide, fake, capsys):
@@ -446,11 +456,11 @@ def test_missing_lengths_unit_prints_admin_step_and_stops(guide, monkeypatch, ca
 
 def test_slot_with_logs_is_retired_not_deleted(guide, fake):
     assert run(guide, "--apply") == 0
-    r, _ = fake.routine_tree("rach")
+    r, _ = fake.routine_tree("jmack")
     farmer_ex = next(t["exercise"] for t in fake.t["exercise-translation"].values()
                      if "kdk:farmer " in t.get("description_source", ""))
-    entry = next(e for e in fake.rows("slot-entry", "rach") if e["exercise"] == farmer_ex)
-    fake.t["workoutlog"][1] = {"id": 1, "routine": r["id"], "slot_entry": entry["id"], "_user": "rach"}
+    entry = next(e for e in fake.rows("slot-entry", "jmack") if e["exercise"] == farmer_ex)
+    fake.t["workoutlog"][1] = {"id": 1, "routine": r["id"], "slot_entry": entry["id"], "_user": "jmack"}
     data = json.loads((guide / "workout.json").read_text())
     tue = next(d for d in data["days"] if d["name"] == "Tuesday")
     tue["steps"] = [s for s in tue["steps"] if s["slug"] != "farmer"]
@@ -461,7 +471,7 @@ def test_slot_with_logs_is_retired_not_deleted(guide, fake):
     assert slot["comment"].startswith(gw.RETIRED) and slot["order"] > gw.RETIRED_ORDER
     fake.writes.clear()
     assert run(guide, "--apply") == 0 and fake.writes == []                    # stays idempotent
-    assert not any(e["exercise"] == farmer_ex for e in fake.rows("slot-entry", "jmack"))
+    assert [e["id"] for e in fake.rows("slot-entry", "jmack") if e["exercise"] == farmer_ex] == [entry["id"]]
 
 
 def test_missing_key_is_an_error_not_a_prompt(guide, fake, monkeypatch, capsys):
@@ -487,8 +497,7 @@ def muscle_ids(fake, names):
 
 def test_sidecar_covers_every_slug_with_known_names(guide):
     side = gw.load_sidecar()
-    catalog = {s for it in gen_workout.load()["items"] for s in it["slugs"]}
-    assert catalog | {"arm-circles"} == set(side)
+    assert all_slugs() | {"arm-circles"} == set(side)
     fake_names = {k for n, en in MUSCLES for k in (n, en) if k} | set(gw.CUSTOM_MUSCLES)
     for slug, e in side.items():
         assert set(e["muscles"] + e["secondary"]) <= fake_names, slug
@@ -633,6 +642,8 @@ def test_check_counts_a_slug_missing_from_the_sidecar(guide, fake, monkeypatch, 
 # the household list after runbook step 12 (owner answers 2026-11-07)
 KEEP_EQUIPMENT = {"Dumbbell", "Gym mat", "none (bodyweight exercise)", "Bench", "Incline bench"}
 LOCAL_EQUIPMENT = ["Treadmill", "Finger stretcher", "Strap", "Towel", "Pillow", "Door frame", "Wall"]
+# Rachel's plan (runbook wger step 12b): local rows to add + built-ins step 12 deleted; owner decides
+PENDING_EQUIPMENT = {"Pool", "Recumbent bike", "Resistance band", "Swiss Ball"}
 
 
 def add_rows(fake, table, names, **extra):
@@ -642,7 +653,8 @@ def add_rows(fake, table, names, **extra):
 
 def test_sidecar_uses_only_the_household_equipment():
     used = {e for v in gw.load_sidecar().values() for e in v["equipment"]}
-    assert used <= KEEP_EQUIPMENT | set(LOCAL_EQUIPMENT), used - KEEP_EQUIPMENT - set(LOCAL_EQUIPMENT)
+    allowed = KEEP_EQUIPMENT | set(LOCAL_EQUIPMENT) | PENDING_EQUIPMENT
+    assert used <= allowed, used - allowed
     assert set(LOCAL_EQUIPMENT) <= used                               # every local row is used by a slug
 
 
@@ -689,3 +701,63 @@ def test_muscle_typo_is_an_error_at_run_time(guide, fake, monkeypatch, capsys):
     monkeypatch.setattr(gw, "load_sidecar", lambda path=gw.SIDECAR, known=None: side)
     assert run(guide, "--apply") == 2
     assert "wger has no muscle 'Hamstring' (for rdl)" in capsys.readouterr().err
+
+
+# ---------------------------------------------------------------- per-person plans
+def test_jacob_specs_and_days_ignore_the_other_plans(guide):
+    """Jacob's exercise texts + week are what they were before per-person plans existed."""
+    cat = gen_workout.load()
+    g = json.loads((guide / "workout.json").read_text())
+    sources = gw.plan_sources(cat, lambda: g)
+    assert sources["jmack"] == (cat, g)
+    alone = gw.exercise_specs(cat, g, guide)
+    merged = gw.all_specs(sources, guide, lambda m: None)
+    assert list(merged)[:len(alone)] == list(alone)
+    assert all(merged[k]["text"] == alone[k]["text"] for k in alone)
+    assert gw.plan_days(*sources["jmack"][::-1], lambda m: None) == gw.plan_days(g, cat, lambda m: None)
+
+
+def test_rach_routine_is_her_plan(guide, fake):
+    assert run(guide, "--apply") == 0
+    _, tree = fake.routine_tree("rach")
+    assert list(tree) == gw.WEEKDAYS
+    desk = ["glute-calf-raise", "seated-nerve-glide", "kneeling-hip-flexor"]
+    evening = ["wall-slide", "pelvic-tilt", "side-lying-rest"]
+    session = {"Monday": ["high-box-squat", "pallof-press", "wall-pushup"],
+               "Tuesday": ["water-walk", "recumbent-bike"], "Thursday": ["elevated-rdl", "seated-band-row", "glute-bridge"],
+               "Friday": ["water-walk", "recumbent-bike"]}
+    for wd, slots in tree.items():
+        assert [e[0] for s in slots for e in s] == desk + session.get(wd, []) + evening, wd
+    assert [("water-walk", "Minutes", 1, 20, 30), ("recumbent-bike", "Minutes", 1, 20, 25)] in tree["Tuesday"]
+    assert [("high-box-squat", "Repetitions", 3, 8, None)] in tree["Monday"]
+    assert [("kneeling-hip-flexor", "Seconds", 1, 30, None)] in tree["Sunday"]
+    assert [("side-lying-rest", "Minutes", 1, 3, 5)] in tree["Wednesday"]
+    either = [s for s in fake.rows("slot", "rach") if s["comment"] == gw.EITHER_COMMENT]
+    assert len(either) == 2                                              # Tue + Fri, one slot each
+    jm = {e[0] for s in fake.routine_tree("jmack")[1]["Monday"] for e in s}
+    assert not jm & set(desk + evening)                                  # Jacob's week has none of hers
+
+
+def test_every_rach_dose_parses():
+    warns = []
+    gw.plan_days(gw.plan_guide(rach_plan()), rach_plan(), warns.append)
+    assert warns == []
+
+
+def test_rach_exercise_text_lists_her_weekdays(guide, fake):
+    assert run(guide, "--apply") == 0
+    by = by_slug(fake)
+    assert "Mon: 3 × 8 · RPE 6–7" in by["high-box-squat"]["description_source"]
+    assert "Every day: 15 reps" in by["glute-calf-raise"]["description_source"]
+    assert "Tue, Fri: 20–30 min" in by["water-walk"]["description_source"]
+
+
+def test_a_slug_in_two_plans_is_an_error(guide):
+    cat = gen_workout.load()
+    g = json.loads((guide / "workout.json").read_text())
+    pl = json.loads(json.dumps(cat["plans"]["rach"]))
+    pl["items"][0]["slugs"] = ["box-squat"]
+    pl["items"][0]["steps"][0]["slug"] = "box-squat"
+    cat["plans"]["rach"] = pl
+    with pytest.raises(gw.WgerError, match="box-squat is in the plans of jmack and rach"):
+        gw.all_specs(gw.plan_sources(cat, lambda: g), guide, lambda m: None)

@@ -4,7 +4,7 @@
     python3 stacks/home-assistant/tools/gen_workout.py           # rewrite the 4 files
     python3 stacks/home-assistant/tools/gen_workout.py --check   # exit 1 if they are stale
 
-Reads  tools/workout_catalog.json        (people, groups, exercises + kind)
+Reads  tools/workout_catalog.json        (people, groups, exercises + kind; per-person plans)
        tools/workout_dashboard_head.yaml (dashboard header + shared Treadmill view)
 Writes config/packages/workout_strength.yaml  + workout_strength_<person>.yaml
        config/dashboards/workout.yaml          + workout_<person>.yaml
@@ -22,6 +22,13 @@ Kinds (what gets logged for one exercise):
   score  0-10 rating                 ex_<id>_score
   done   "done at" timestamp         input_datetime.ex_<id>_done
 Every entity id gets the person's suffix ("" for the first person, "_rachel" ...).
+
+Per-person plans: catalog "plans": {"<login>": {groups, items, ...}}. A person with no
+entry gets the top-level groups/items (the first person's plan). A plan item also has
+"days" (["mon", ...] or ["daily"]) and "steps" (one per slug: slug, title, dose, cues),
+which gen_wger.py turns into that person's week; "either": true = do one of the slugs.
+"keep_default_helpers": true also keeps the person's helpers for the top-level list
+(package only, not on the dashboard), so earlier logs and older consumers still work.
 The same list feeds the home.kmkdp.com /workout/ log page (stacks/dashboard/workout).
 
 Stdlib only.
@@ -81,17 +88,44 @@ def entity(item: dict, field: str, suffix: str) -> str:
     return f"{domain}.ex_{item['id']}_{field}{suffix}"
 
 
-def load() -> dict:
-    cat = json.loads(CATALOG.read_text(encoding="utf-8"))
-    groups = {g["key"] for g in cat["groups"]}
+WEEKDAYS = ("mon", "tue", "wed", "thu", "fri", "sat", "sun")
+
+
+def _check_items(groups_list: list[dict], items: list[dict], where: str) -> set[str]:
+    groups = {g["key"] for g in groups_list}
     ids = set()
-    for it in cat["items"]:
-        assert it["kind"] in FIELDS, f"unknown kind {it['kind']!r} for {it['id']}"
-        assert it["group"] in groups, f"unknown group {it['group']!r} for {it['id']}"
-        assert it["id"] not in ids, f"duplicate id {it['id']}"
-        assert it["id"].replace("_", "").isalnum() and it["id"].islower(), f"bad id {it['id']}"
+    for it in items:
+        assert it["kind"] in FIELDS, f"{where}: unknown kind {it['kind']!r} for {it['id']}"
+        assert it["group"] in groups, f"{where}: unknown group {it['group']!r} for {it['id']}"
+        assert it["id"] not in ids, f"{where}: duplicate id {it['id']}"
+        assert it["id"].replace("_", "").isalnum() and it["id"].islower(), f"{where}: bad id {it['id']}"
         ids.add(it["id"])
+    return ids
+
+
+def load(path: Path = CATALOG) -> dict:
+    cat = json.loads(path.read_text(encoding="utf-8"))
+    default_ids = _check_items(cat["groups"], cat["items"], "items")
+    logins = {p["login"] for p in cat["people"]}
+    for login, pl in cat.get("plans", {}).items():
+        where = f"plans.{login}"
+        assert login in logins, f"{where}: no person with that login"
+        ids = _check_items(pl["groups"], pl["items"], where)
+        if pl.get("keep_default_helpers"):
+            both = ids & default_ids
+            assert not both, f"{where}: ids {sorted(both)} clash with the kept top-level helpers"
+        for it in pl["items"]:
+            days = it.get("days", [])
+            assert days and (days == ["daily"] or set(days) <= set(WEEKDAYS)), f"{where} {it['id']}: bad days {days}"
+            assert [s["slug"] for s in it.get("steps", [])] == it["slugs"], \
+                f"{where} {it['id']}: steps must list the slugs in order"
+            assert not it.get("either") or len(it["slugs"]) == 2, f"{where} {it['id']}: either needs two slugs"
     return cat
+
+
+def plan(cat: dict, person: dict) -> dict:
+    """The person's plan (groups, items, ...): their "plans" entry, else the top-level list."""
+    return cat.get("plans", {}).get(person["login"], cat)
 
 
 def items_by_group(cat: dict):
@@ -99,6 +133,11 @@ def items_by_group(cat: dict):
         its = [it for it in cat["items"] if it["group"] == g["key"]]
         if its:
             yield g, its
+
+
+def item_days(it: dict) -> list[str]:
+    days = it.get("days", [])
+    return list(WEEKDAYS) if days == ["daily"] else [d for d in WEEKDAYS if d in days]
 
 
 # ---------------------------------------------------------------- package
@@ -110,7 +149,15 @@ def package(cat: dict, person: dict) -> str:
         out.append(GENERATED)
     out.append("input_number:\n")
     dt = []
-    for g, its in items_by_group(cat):
+    pl = plan(cat, person)
+    sections = [(g, its, False) for g, its in items_by_group(pl)]
+    if pl is not cat and pl.get("keep_default_helpers"):
+        sections += [(g, its, True) for g, its in items_by_group(cat)]
+    first_kept = True
+    for g, its, kept in sections:
+        if kept and first_kept:
+            first_kept = False
+            out.append("  # === Earlier shared list: kept for history and the Today page; not on the dashboard ===\n")
         out.append(f"  # --- {g['comment']} ---\n")
         for it in its:
             for f in fields(it):
@@ -164,11 +211,12 @@ def dashboard(cat: dict, person: dict) -> str:
     sfx = person["suffix"]
     head = HEAD.read_text(encoding="utf-8").splitlines(keepends=True)[3:]
     out = ["".join(head).replace("__TITLE__", person["title"])]
+    pl = plan(cat, person)
     out.append("- title: Strength\n  path: strength\n  icon: mdi:dumbbell\n  type: masonry\n  cards:\n")
     out.append("  - type: markdown\n    content: >-\n")
-    for line in cat["strength_intro"]:
+    for line in pl.get("strength_intro", cat["strength_intro"]):
         out.append(f"      {line}\n")
-    for g, its in items_by_group(cat):
+    for g, its in items_by_group(pl):
         out.append(f"  - type: entities\n    title: {g['title']}\n"
                    "    show_header_toggle: false\n    state_color: false\n    entities:\n")
         for it in its:
@@ -184,7 +232,7 @@ def dashboard(cat: dict, person: dict) -> str:
                 else:
                     out.append(f"      icon: {NUMBER[f][5]}\n")
     out.append("\n- title: Progress\n  path: progress\n  icon: mdi:chart-line\n  type: masonry\n  cards:\n")
-    for g, its in items_by_group(cat):
+    for g, its in items_by_group(pl):
         rows = []
         for it in its:
             f = next((x for x in PROGRESS_FIELD if x in fields(it)), None)
@@ -193,7 +241,7 @@ def dashboard(cat: dict, person: dict) -> str:
         if rows:
             out.append(f"  - type: history-graph\n    title: {g['title']}\n    hours_to_show: 2160\n    entities:\n")
             out.extend(rows)
-    out.append(PLAN_VIEW)
+    out.append(PLAN_VIEW if pl is cat else plan_view(pl))
     return "".join(out)
 
 
@@ -207,6 +255,32 @@ PLAN_VIEW = """
     url: https://home.kmkdp.com/guides/workout/workout.html
     aspect_ratio: 150%
 """
+
+
+def plan_view(pl: dict) -> str:
+    """Plan tab for a person with their own catalog plan: the week + doses + cues as markdown."""
+    out = ["\n- title: Plan\n  path: plan\n  icon: mdi:clipboard-text\n  type: masonry\n  cards:\n",
+           "  - type: markdown\n    title: Week\n    content: |-\n"]
+    for d in WEEKDAYS:
+        names = [g["title"].split(" · ")[0] for g, its in items_by_group(pl)
+                 if any(d in item_days(it) for it in its)]
+        out.append(f"      **{d.capitalize()}** · {' + '.join(names)}\n\n")
+    out[-1] = out[-1].rstrip("\n") + "\n"
+    for g, its in items_by_group(pl):
+        out.append(f"  - type: markdown\n    title: {g['title']}\n    content: |-\n")
+        lines = []
+        for it in its:
+            for st in it["steps"]:
+                lines.append(f"**{st['title']}** · {st['dose']}")
+                lines.extend(f"- {c}" for c in st.get("cues", []))
+                lines.append("")
+            if it.get("either"):
+                lines.append("_Either one counts: log the one you did._")
+                lines.append("")
+        while lines and not lines[-1]:
+            lines.pop()
+        out.extend(f"      {x}\n" if x else "\n" for x in lines)
+    return "".join(out)
 
 
 def outputs(cat: dict) -> dict[Path, str]:

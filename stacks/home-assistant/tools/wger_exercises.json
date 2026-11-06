@@ -7,6 +7,8 @@
   "them (no bundled SVG). Until a local row exists it is left out with a warning; any other unknown name is an error.",
   "equipment: wger equipment names (local rows Treadmill, Finger stretcher, Strap, Towel, Pillow, Door frame, Wall: step 12);",
   "a name wger does not have yet is left out with a warning. what: replaces the generated 'Works the ...' first line.",
+  "Rachel's plan also names Pool, Recumbent bike (local rows to add) and Resistance band, Swiss Ball (built-ins deleted in",
+  "step 12; re-added by step 12b only if the household gets one). Until then they are left out with a warning.",
   "stretch: true = 'Stretches the ...'. safety: overrides the generated safety line.",
   "Every exercise slug needs an entry; gen_wger.py --check counts a missing one as drift."
  ],
@@ -67,6 +69,20 @@
   "flex-dolphin": {"muscles": ["Shoulders", "Hamstrings"], "secondary": ["Calves", "Lats"], "equipment": ["Gym mat"], "stretch": true},
   "flex-warrior2": {"muscles": ["Quads", "Glutes"], "secondary": ["Shoulders"], "equipment": ["none (bodyweight exercise)"], "stretch": true},
   "flex-neck": {"muscles": ["Trapezius"], "secondary": [], "equipment": ["none (bodyweight exercise)"], "what": "Stretches the side of the neck.", "stretch": true},
-  "flex-legs-up-wall": {"muscles": ["Hamstrings"], "secondary": ["Calves"], "equipment": ["Gym mat", "Wall"], "stretch": true}
+  "flex-legs-up-wall": {"muscles": ["Hamstrings"], "secondary": ["Calves"], "equipment": ["Gym mat", "Wall"], "stretch": true},
+  "glute-calf-raise": {"muscles": ["Glutes", "Calves"], "secondary": ["Soleus"], "equipment": ["none (bodyweight exercise)"]},
+  "seated-nerve-glide": {"muscles": [], "secondary": ["Hamstrings", "Calves"], "equipment": ["Bench"], "what": "A gentle nerve glide for the back of the leg, done seated."},
+  "kneeling-hip-flexor": {"muscles": ["Quads"], "secondary": ["Glutes"], "equipment": ["Gym mat", "Pillow"], "what": "Stretches the front of the hip (hip flexors) while the glute works.", "stretch": true},
+  "high-box-squat": {"muscles": ["Quads", "Glutes"], "secondary": ["Hamstrings", "Abs"], "equipment": ["Bench", "Dumbbell"]},
+  "pallof-press": {"muscles": ["Abs", "Obliquus externus abdominis"], "secondary": ["Shoulders", "Glutes"], "equipment": ["Resistance band"], "what": "Works the deep core against rotation."},
+  "wall-pushup": {"muscles": ["Chest", "Triceps"], "secondary": ["Shoulders", "Abs"], "equipment": ["Wall"]},
+  "elevated-rdl": {"muscles": ["Hamstrings", "Glutes"], "secondary": ["Lower back", "Trapezius"], "equipment": ["Dumbbell"]},
+  "seated-band-row": {"muscles": ["Lats", "Trapezius"], "secondary": ["Biceps", "Shoulders"], "equipment": ["Resistance band", "Gym mat"]},
+  "glute-bridge": {"muscles": ["Glutes"], "secondary": ["Hamstrings", "Abs"], "equipment": ["Gym mat"]},
+  "water-walk": {"muscles": ["Quads", "Calves"], "secondary": ["Glutes", "Hamstrings"], "equipment": ["Pool"], "safety": "Walk at a pace you can talk at; hold the edge when turning or changing direction."},
+  "recumbent-bike": {"muscles": ["Quads"], "secondary": ["Glutes", "Hamstrings", "Calves"], "equipment": ["Recumbent bike"], "safety": "Set the seat so the knee keeps a slight bend at the far pedal; keep a pace you can talk at."},
+  "wall-slide": {"muscles": ["Quads", "Glutes"], "secondary": ["Abs"], "equipment": ["Wall", "Swiss Ball"]},
+  "pelvic-tilt": {"muscles": ["Abs"], "secondary": ["Lower back", "Glutes"], "equipment": ["Gym mat"], "what": "Works the lower abs and gently moves the pelvis."},
+  "side-lying-rest": {"muscles": [], "secondary": [], "equipment": ["Gym mat", "Pillow"], "what": "A supported side-lying rest with slow, deep breathing."}
  }
 }

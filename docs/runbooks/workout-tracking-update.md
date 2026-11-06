@@ -8,9 +8,9 @@ The workout log lives in four places that must agree:
 
 | Where | What | Made by |
 |---|---|---|
-| Home Assistant | one helper per logged value, per person (`input_number.ex_<id>_weight`, `…_reps`, `…_seconds`, `…_minutes`, `…_score`, `input_datetime.ex_<id>_done`; Rachel's end in `_rachel`) + the Strength / Progress views of `workout.yaml` and `workout_rachel.yaml` | `stacks/home-assistant/tools/gen_workout.py` from **`tools/workout_catalog.json`** |
+| Home Assistant | one helper per logged value, per person (`input_number.ex_<id>_weight`, `…_reps`, `…_seconds`, `…_minutes`, `…_score`, `input_datetime.ex_<id>_done`; Rachel's end in `_rachel` and follow her own plan, see [Per-person plans](#per-person-plans)) + the Strength / Progress / Plan views of `workout.yaml` and `workout_rachel.yaml` | `stacks/home-assistant/tools/gen_workout.py` from **`tools/workout_catalog.json`** |
 | home.kmkdp.com | the Workout guide (`/guides/workout/workout.html`) and the `/workout/` Today page (poster, dose, cues and a per-set form per exercise; writes a CSV and the HA helpers) | `stacks/dashboard/guides/gen-workout-guide.py` on the laptop, from the private vault; output is host-managed in `/opt/kdk-lab/dashboard/workout` |
-| wger (pilot Track A) | one custom exercise per slug (poster as image) + each person's **Week (kdk)** routine, weekday-pinned, with the guide's doses | `stacks/home-assistant/tools/gen_wger.py` from the catalog **and** the guide output (`workout.json` + posters) |
+| wger (pilot Track A) | one custom exercise per slug (poster as image) + each person's **Week (kdk)** routine, weekday-pinned, with the guide's doses (or the person's catalog plan) | `stacks/home-assistant/tools/gen_wger.py` from the catalog **and** the guide output (`workout.json` + posters) |
 | The private vault | the week's order, doses, pictures, the Daily-note log fields | the vault's own generator (`ex_days.py`) — not in this repo |
 
 **One list per side.** The repo side is the catalog; never hand-edit
@@ -18,6 +18,39 @@ The workout log lives in four places that must agree:
 (CI fails if they differ from the generator output). The vault side is the
 vault generator. The link between the two is the **slug**: every catalog
 item lists the vault picture slugs (`ex-<slug>.svg`) it logs for.
+
+## Per-person plans
+
+The top-level `groups`/`items` are the first person's plan (Jacob). A person can
+have their **own** plan under `"plans": {"<login>": {...}}` (Rachel: `plans.rach`,
+since 2026-11). Each plan item adds what the guide would otherwise supply:
+
+```json
+{"id": "high_box_squat", "name": "High Box Squat", "group": "strength_a", "kind": "w",
+ "days": ["mon"], "slugs": ["high-box-squat"],
+ "steps": [{"slug": "high-box-squat", "title": "High Box Squat",
+            "dose": "3 × 8 · RPE 6–7 · rest 60–90 s", "cues": ["…", "…"]}]}
+```
+
+- `days`: `["daily"]` or weekday codes (`mon` … `sun`); `steps`: one per slug, in the
+  same order as `slugs`; `"either": true` on a two-slug item = do one of them (one
+  helper, one wger slot holding both with "Either one: log the one you did").
+- **Public repo:** exercise names, doses, rest and movement cues only. Group names stay
+  neutral ("Desk breaks · daily", "Evening mobility · daily"); the reasons for a plan live
+  in the vault (`3. Resources/Exercise/<person>/`).
+- `gen_workout.py`: the person's dashboard shows only their plan, and its **Plan** tab is
+  generated from the doses and cues (no guide iframe). `"keep_default_helpers": true`
+  also keeps their helpers for the top-level list in the package (not on the dashboard):
+  the Today page still shows everyone the guide's week until it reads per-person plans,
+  and a YAML id rename would not move recorder history anyway. Plan item ids must not
+  clash with the top-level ids while that flag is on (the loader checks).
+- `gen_wger.py`: the person's **Week (kdk)** comes from their catalog plan, not from
+  `workout.json`; exercises are global, so a slug may appear in **one** person's plan only
+  (an error otherwise: a wger exercise carries one dose text). Reuse a slug only for the
+  same person's items; give the other person their own slug and sidecar line.
+- The first person's generated files must not change when another person's plan changes:
+  `gen_workout.py --check` plus `git diff --stat` touching only the `_rachel` files is the
+  proof (a test also renders Jacob's files with and without `plans`).
 
 ## Kinds
 

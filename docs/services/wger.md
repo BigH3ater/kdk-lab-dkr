@@ -37,7 +37,7 @@ lists them by name and never colours them on the map).
 
 | Field | Value |
 |---|---|
-| Purpose | Workout routines + per-set logs + history for jmack and rach, iOS app with offline sync |
+| Purpose | Workout routines + per-set logs + history for jmack and rach, iOS app with offline sync. Each person's **Week (kdk)** is their own plan: jmack's from the guide, rach's from the catalog's `plans.rach` |
 | Host | [[kdk-dkr-01]] |
 | Endpoint | `https://wger.kmkdp.com` (internal Traefik). Off the LAN: Tailscale (subnet router advertises 10.1.20.0/24; tailnet DNS resolves `*.kmkdp.com` split-horizon) |
 | Images | `wger/server:2.7.0` (web, celery_worker, celery_beat), `nginx:1.31.8-alpine`, `postgres:18.6-alpine`, `redis:8.10.3-alpine`, `journeyapps/powersync-service:1.28.1`; all digest-pinned, Renovate-tracked |
