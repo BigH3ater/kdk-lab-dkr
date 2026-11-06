@@ -215,8 +215,7 @@ mode *fit page* (tap the top of the screen → zoom) and *set as default*.
 This stack is the *outbound* leg only. Annotations come back through the existing jobs, not a
 second return path:
 
-- **Handwriting** on these PDFs (pen on the Paper Pro): `remarkable-ocr` OCRs new notebook
-  pages (`qwen2.5vl`) and writes one note per page into the matching vault section.
+- **Handwriting** on these PDFs is not collected: `remarkable-ocr` was retired 2026-11-05.
 - **KOReader highlights** on these PDFs: `koreader-highlights` pulls each `.sdr` sidecar and
   writes one note per book into `30.Books/Highlights/`.
 
