@@ -159,6 +159,22 @@ def parse_everyday(text: str):
     return parse_steps(text[idx:])
 
 
+def parse_everyday_meta(text: str):
+    """Heading + summary for the standalone Every Day section, read from the note itself
+    (its H1 after "Every Day", and the first sentence of the "~N min" intro line), so the
+    guide follows the vault when the routine changes. Either may be empty."""
+    head, summary = "", ""
+    for line in text.split("## The routine")[0].splitlines():
+        s = line.strip()
+        if s.startswith("# ") and not head:
+            rest = s[2:].strip()
+            rest = rest[len("Every Day"):] if rest.lower().startswith("every day") else ""
+            head = rest.lstrip(" —-").strip()
+        elif s.startswith("~") and not summary:
+            summary = s.split(". ")[0].rstrip(".") + "."
+    return head, summary
+
+
 def parse_day(text: str):
     """Parse one day page: title, summary line, 'You need' line, steps."""
     title = ""
@@ -297,7 +313,9 @@ def main():
 
     readme = read(ex_dir / "Exercise.README.md")
     week_header, week_rows = parse_week_table(readme)
-    everyday_steps = parse_everyday(read(days_dir / "Every Day.README.md"))
+    everyday_text = read(days_dir / "Every Day.README.md")
+    everyday_steps = parse_everyday(everyday_text)
+    everyday_head, everyday_sum = parse_everyday_meta(everyday_text)
 
     copied: set = set()
 
@@ -348,10 +366,10 @@ def main():
 
     # --- standalone Every Day section ---
     everyday_section = ['  <section class="day" id="everyday" data-day="everyday">']
-    everyday_section.append(f'    <h2 class="dayhead">Every day — PT stretches + '
-                            f'hand routine</h2>')
-    everyday_section.append('    <p class="daymeta"><span class="sum">~9 minutes, '
-                            'any time — a good break from the keyboard.</span></p>')
+    everyday_section.append('    <h2 class="dayhead">Every day'
+                            + (f' — {html.escape(everyday_head)}' if everyday_head else '') + '</h2>')
+    if everyday_sum:
+        everyday_section.append(f'    <p class="daymeta"><span class="sum">{inline_md(everyday_sum)}</span></p>')
     everyday_section.append(render_steps(everyday_steps, diagrams, out_dir, copied,
                                          everyday_steps, level="h3"))
     everyday_section.append('  </section>')

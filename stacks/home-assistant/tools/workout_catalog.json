@@ -30,8 +30,8 @@
  "groups": [
   {
    "key": "activation",
-   "comment": "Activation",
-   "title": "Activation · Mon/Thu/Sat"
+   "comment": "PT block + adductor",
+   "title": "PT block + adductor · Mon/Thu/Sat"
   },
   {
    "key": "lower_a",
@@ -61,12 +61,17 @@
   {
    "key": "cardio",
    "comment": "Treadmill + flexibility",
-   "title": "Treadmill + flexibility · Wed/Sat/Sun"
+   "title": "Treadmill (daily) + flexibility"
   },
   {
    "key": "daily",
    "comment": "Daily",
    "title": "Daily check-in"
+  },
+  {
+   "key": "swaps",
+   "comment": "Swaps",
+   "title": "Swaps · not in the plan"
   }
  ],
  "items": [
@@ -96,6 +101,15 @@
    "name": "Side-Lying Hip Abduction",
    "group": "activation",
    "kind": "r"
+  },
+  {
+   "id": "adductor",
+   "slugs": [
+    "adductor"
+   ],
+   "name": "Adductor Squeeze",
+   "group": "activation",
+   "kind": "t"
   },
   {
    "id": "box_squat",
@@ -242,15 +256,6 @@
    "kind": "w"
   },
   {
-   "id": "adductor",
-   "slugs": [
-    "adductor"
-   ],
-   "name": "Adductor Squeeze",
-   "group": "lower_b",
-   "kind": "t"
-  },
-  {
    "id": "tib_raise",
    "slugs": [
     "tib-raise"
@@ -292,7 +297,7 @@
     "flat-press"
    ],
    "name": "Flat Press",
-   "group": "upper_b",
+   "group": "swaps",
    "kind": "w"
   },
   {
