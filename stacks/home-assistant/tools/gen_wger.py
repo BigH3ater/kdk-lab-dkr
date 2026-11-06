@@ -7,10 +7,12 @@
     python3 stacks/home-assistant/tools/gen_wger.py --posters DIR --check    # exit 1 on drift
     ... --person rach                                                        # one person only
 
-Reads  tools/workout_catalog.json (people + the slugs; same loader as gen_workout.py)
+Reads  tools/workout_catalog.json (people + the slugs; same loader as workout_catalog.py)
        tools/wger_exercises.json  (per slug: wger muscles, secondary muscles, equipment,
-                                   optional what/safety lines; gen_workout.py ignores it)
-       DIR/workout.json           (the guide output: days, steps, doses, titles, cues), for
+                                   optional what/safety lines; workout_catalog.py ignores it)
+       DIR/workout.json           (gen-workout-guide.py output from the private vault, written
+                                  to a laptop scratch dir, never published: days, steps, doses,
+                                  titles, cues), for
                                   every person WITHOUT their own catalog plan ("plans".<login>);
                                   a person with one gets their week from it (plan_guide())
        DIR/exercise/ex-<slug>-step<N>.png (per-step photos, N from 1; step 1 = start position)
@@ -60,7 +62,7 @@ import requests
 
 TOOLS = Path(__file__).resolve().parent
 sys.path.insert(0, str(TOOLS))
-import gen_workout  # noqa: E402  (the catalog loader + validation)
+import workout_catalog  # noqa: E402  (the catalog loader + validation)
 
 ROUTINE_NAME = "Week (kdk)"
 # wger rejects a translation whose name is >= 0.85 trigram-similar to any existing English
@@ -188,7 +190,7 @@ def load_guide(posters: Path | None) -> dict:
         raise WgerError("--posters DIR is required (the guide output dir with workout.json and exercise/)")
     path = posters / "workout.json"
     if not path.is_file():
-        raise WgerError(f"{path} not found (run gen-workout-guide.py first; see the runbook)")
+        raise WgerError(f"{path} not found (run tools/gen-workout-guide.py first; see the runbook)")
     return json.loads(path.read_text(encoding="utf-8"))
 
 
@@ -201,7 +203,7 @@ def plan_guide(pl: dict) -> dict:
     days = []
     for wd in WEEKDAYS:
         abbr = wd[:3].lower()
-        its = [it for it in items if abbr in gen_workout.item_days(it)]
+        its = [it for it in items if abbr in workout_catalog.item_days(it)]
         steps = []
         for it in its:
             for k, st in enumerate(it["steps"]):
@@ -221,7 +223,7 @@ def plan_sources(cat: dict, guide_for) -> dict[str, tuple[dict, dict]]:
     (only called when some person has no catalog plan)."""
     out, shared = {}, None
     for p in cat["people"]:
-        pl = gen_workout.plan(cat, p)
+        pl = workout_catalog.plan(cat, p)
         if pl is cat:
             shared = shared if shared is not None else guide_for()
             out[p["login"]] = (cat, shared)
@@ -838,7 +840,7 @@ def main(argv: list[str] | None = None, today: dt.date | None = None) -> int:
         base = os.environ.get("WGER_URL")
         if not base:
             raise WgerError("WGER_URL is not set (e.g. https://wger.kmkdp.com)")
-        cat = gen_workout.load()
+        cat = workout_catalog.load()
         people = cat["people"]
         sel = people
         if args.person:

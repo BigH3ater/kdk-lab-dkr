@@ -1,7 +1,7 @@
 # wger (workout manager) on kdk-dkr-01 (LAN + Tailscale only, never the tunnel):
 # routines, per-set workout logs and history for both people, used from the wger iOS
-# app ("Self-hosted" server) and the web UI. Pilot Track A of the exercise-tracking plan;
-# /workout/ on home.kmkdp.com stays as it is until the decision gate.
+# app ("Self-hosted" server) and the web UI. Chosen 2026-11-06 as the household's only
+# exercise tracker (the in-house /workout/ page and HA ex_* helpers were retired).
 #
 # Upstream: wger-project/docker docker-compose.yml + services/*.yaml + config/prod.env
 # at commit bd7851e2 (master, 2026-10-24), images pinned to the current releases

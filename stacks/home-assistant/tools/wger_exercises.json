@@ -1,6 +1,6 @@
 {
  "_comment": [
-  "wger presentation data per exercise slug, read only by gen_wger.py (gen_workout.py ignores this file).",
+  "wger presentation data per exercise slug, read only by gen_wger.py.",
   "muscles / secondary: wger muscle names (name_en, or name when it has none); for a stretch: the muscles stretched.",
   "The 16 built-in muscles colour the app's body map. Forearm flexors / Forearm extensors / Hand intrinsics / Adductors /",
   "Tibialis anterior are local rows (runbook wger.md step 13): the app lists them by name under the map but can never colour",

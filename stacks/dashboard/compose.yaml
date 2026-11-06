@@ -45,10 +45,6 @@ services:
     restart: unless-stopped
     volumes:
       - ./guides:/usr/share/nginx/html:ro
-      # Host-managed Workout guide: generated on the laptop from the private
-      # Obsidian vault (guides/gen-workout-guide.py), copied to this host path.
-      # Personal/health content kept OUT of this PUBLIC repo; served at /guides/workout/.
-      - /opt/kdk-lab/dashboard/workout:/usr/share/nginx/html/workout:ro
       # Cache policy so family guide edits show up without a hard refresh
       # (no-cache on HTML, short must-revalidate on css/js). Single-file bind
       # mount: nginx reads this only at start and git swaps the file's inode on
@@ -160,58 +156,6 @@ services:
       traefik.http.routers.mealplan.middlewares: "forwardauth@file,mealplan-strip"
       traefik.http.middlewares.mealplan-strip.stripprefix.prefixes: "/meal"
       traefik.http.services.mealplan.loadbalancer.server.port: "8080"
-    logging:
-      driver: json-file
-      options: { max-size: "10m", max-file: "3" }
-
-  # ---- workout log sidecar: instructions + a log form per exercise ---------
-  # home.kmkdp.com/workout/ (StripPrefix /workout, Authelia ForwardAuth). Reads the
-  # host-managed workout.json (gen-workout-guide.py, laptop) and the ONE exercise
-  # list in the repo clone (stacks/home-assistant/tools/workout_catalog.json);
-  # writes the person's Home Assistant helpers (Remote-User jmack/rach) and appends
-  # every log to a CSV so history outlives HA's 10-day recorder.
-  # Runbook: docs/runbooks/workout-tracking-update.md.
-  workout:
-    build:
-      context: ./workout
-      provenance: false        # stable image ID -> no recreate on every gitops deploy (see mealplan)
-    image: kdk/dashboard-workout:latest
-    init: true                 # python as PID 1 ignores SIGTERM otherwise (see mealplan)
-    container_name: dashboard-workout
-    restart: unless-stopped
-    user: "1000:1000"
-    security_opt: ["no-new-privileges:true"]
-    cap_drop: [ALL]
-    read_only: true
-    tmpfs: [/tmp]
-    pids_limit: 128
-    mem_limit: 256m
-    env_file: [.env]           # WORKOUT_HA_TOKEN (op-injected)
-    environment:
-      HA_URL: "https://homeassistant.kmkdp.com"
-      ALLOWED_HOSTS: home.kmkdp.com
-      TZ: America/Chicago
-    volumes:
-      # Directory mounts (not single files), so a git pull / guide copy shows up
-      # without a recreate. `../../` is the Komodo repo clone root (same as mealplan).
-      - ../../stacks/home-assistant/tools:/catalog:ro
-      - /opt/kdk-lab/dashboard/workout:/guide:ro
-      # The durable log (uid 1000, created by the Komodo pre_deploy).
-      - /opt/kdk-lab/dashboard/workout-log:/log
-    healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8080/healthz', timeout=3).status == 200 else 1)"]
-      interval: 60s
-      timeout: 5s
-      retries: 3
-      start_period: 15s
-    networks: [default, proxy]
-    labels:
-      traefik.enable: "true"
-      traefik.http.routers.workout.rule: "Host(`home.kmkdp.com`) && PathPrefix(`/workout`)"
-      traefik.http.routers.workout.priority: "10"
-      traefik.http.routers.workout.middlewares: "forwardauth@file,workout-strip"
-      traefik.http.middlewares.workout-strip.stripprefix.prefixes: "/workout"
-      traefik.http.services.workout.loadbalancer.server.port: "8080"
     logging:
       driver: json-file
       options: { max-size: "10m", max-file: "3" }

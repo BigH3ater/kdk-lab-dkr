@@ -12,10 +12,13 @@ __pycache__/
 # Security posture reports live in the Obsidian vault (10.Homelab/Security/), never
 # here: this repo is public and the reports map weaknesses to hosts.
 docs/security/
-# Workout guide = personal/health content from the private vault; host-managed,
-# never in this public repo (gen-workout-guide.py emits to --out, copied to host).
+# Workout guide output = personal/health content from the private vault; laptop
+# scratch only (stacks/home-assistant/tools/gen-workout-guide.py, default
+# /tmp/workout-guide), never in this public repo and never published.
 workout-guide-dist/
 stacks/dashboard/guides/workout.html
 stacks/dashboard/guides/exercise/
+stacks/home-assistant/tools/workout.html
+stacks/home-assistant/tools/exercise/
 # trivy-scan: 1000:1000 copy of /etc/kdk/pushover.env (pre_deploy; host clone only)
 stacks/trivy-scan/pushover.env

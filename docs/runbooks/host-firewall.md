@@ -64,7 +64,7 @@ The DOCKER-USER unit replaces the `docker-forward` sidecar that
 | 3 | containers -> own cAdvisor `:9280` (pre-DNAT address) -> LOG + DROP | `10.1.20.20` | `192.168.191.20` |
 | 4 | bridge -> bridge -> RETURN (`br+`/`docker0` pairs) | yes | yes |
 | 5 | DNS (udp+tcp 53) to the host's upstream resolvers -> RETURN | `10.1.1.53/.54` | public, no-op |
-| 6 | exceptions -> RETURN | see the conf: Komodo -> Periphery `:8120` on every host, backup-collect -> `:22` on mon-01/dkr-02/dkr-03, `192.168.191.20:443` (DMZ Traefik: jellystat, forward-auth, OIDC), Grafana `10.1.20.30:3000`, Loki `10.1.20.21:3100`, AdGuard `:80`, UniFi `10.1.3.1` 443/udp 161, DEE `10.1.1.130:8484`, Ollama `10.1.30.218:11434`, reMarkable `10.1.30.245:22` | `seerr`, `libreseerr` -> `10.1.20.20:443`; `alloy` -> `10.1.20.21:3100`, `dashboard-workout` -> `10.1.30.21:443` (HA via dkr-02 Traefik; per container address, refreshed every 5 min) |
+| 6 | exceptions -> RETURN | see the conf: Komodo -> Periphery `:8120` on every host, backup-collect -> `:22` on mon-01/dkr-02/dkr-03, `192.168.191.20:443` (DMZ Traefik: jellystat, forward-auth, OIDC), Grafana `10.1.20.30:3000`, Loki `10.1.20.21:3100`, AdGuard `:80`, UniFi `10.1.3.1` 443/udp 161, DEE `10.1.1.130:8484`, Ollama `10.1.30.218:11434`, reMarkable `10.1.30.245:22` | `seerr`, `libreseerr` -> `10.1.20.20:443`; `alloy` -> `10.1.20.21:3100` (per container address, refreshed every 5 min) |
 | 7 | bridge -> `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16` -> LOG (`kdk-du-drop:` / `kdk-du-would-drop:`, 6/min) + DROP | LOG only (`MODE=log`) | LOG + DROP |
 | 8 | `RETURN` | yes | yes |
 

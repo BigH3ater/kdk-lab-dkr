@@ -252,21 +252,17 @@ lovelace:
 ```
 
 The two `treadmill-workouts` / `workout-rachel` url_paths are what the Kodiak left-sidebar
-**Workout · Jacob** / **Workout · Rachel** links point at. Rachel's dashboard is a
-mirror of Jacob's (shared Treadmill + Plan views) whose Strength view logs her own
-`input_number.ex_*_rachel` helpers (package `workout_strength_rachel.yaml`, same
-lift set). Those new helpers need a one-time HA restart to register, like Jacob's.
-Then restart Home
+**Workout · Jacob** / **Workout · Rachel** links point at. Since 2026-11-06 both files
+carry the same single **Treadmill** view (the Strength / Progress / Plan views and their
+`ex_*` helpers were retired when wger won the tracking pilot; strength logging is in
+[[wger]]). Then restart Home
 Assistant (Developer Tools → YAML → Restart, or `action: homeassistant.restart`).
 Slice 2's `treadmill.yaml` package is a drop-in under `config/packages/`
 (auto-included); its first activation also needs a one-time HA restart because it
 introduces new entities.
 
-The dashboard's **Exercise Plan** card is an iframe of the host-managed guide at
-`https://home.kmkdp.com/guides/workout/workout.html` (the plan + per-move
-diagrams, generated from the vault). It renders only once that guide is deployed
-on the dashboard host and the viewer has an Authelia session (shared across
-`*.kmkdp.com`); until then that card is blank while the tracking cards work.
+(The former **Plan** tab iframe of `home.kmkdp.com/guides/workout/` is gone with the
+guide, 2026-11-06; the plan with pictures is in the wger app.)
 
 ## Slice 2 host-side: thud → HA webhook secret + console profiles
 

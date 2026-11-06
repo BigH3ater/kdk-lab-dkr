@@ -1,11 +1,11 @@
 """gen-workout-guide.py on a tiny fake vault: the range-of-motion PNG wins over the
-SVG, and workout.json carries the steps (with slugs) the /workout/ sidecar reads."""
+SVG, and workout.json carries the steps (with slugs) gen_wger.py --posters reads."""
 import json
 import subprocess
 import sys
 from pathlib import Path
 
-GEN = Path(__file__).resolve().parents[1] / "guides" / "gen-workout-guide.py"
+GEN = Path(__file__).resolve().parents[1] / "gen-workout-guide.py"
 DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
 
 

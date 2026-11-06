@@ -3,30 +3,13 @@
   {
    "key": "jacob",
    "name": "Jacob",
-   "login": "jmack",
-   "suffix": "",
-   "title": "Workout",
-   "owns_scripts": true
+   "login": "jmack"
   },
   {
    "key": "rachel",
    "name": "Rachel",
-   "login": "rach",
-   "suffix": "_rachel",
-   "title": "Workout · Rachel",
-   "package_intro": [
-    "# RACHEL's helpers: her own plan (catalog \"plans\".rach), every entity id ends in _rachel",
-    "# (input_number.ex_<id>_reps_rachel, ...), then the earlier copy of the shared list, kept",
-    "# until the Today page reads her plan (docs/runbooks/workout-tracking-update.md)."
-   ]
+   "login": "rach"
   }
- ],
- "package_head": "# Workout log helpers, one set per person, generated from ONE list.\n# Generic exercise names + day grouping only; no health details or prescribed\n# loads (those live in the host-managed guide). The recorder keeps the history\n# (10 days by default); home.kmkdp.com/workout/ also appends every log to a CSV.\n# Entity ids: input_number.ex_<id>_weight / _reps / _seconds / _lengths / _minutes / _score,\n# input_datetime.ex_<id>_done (see tools/gen_workout.py for the kinds).\n",
- "generated_banner": true,
- "strength_intro": [
-  "Log the **weight (lb)**, **reps** or **seconds** you did each session — tap a number to edit,",
-  "or log next to the instructions on **home.kmkdp.com/workout/**.",
-  "Progression graphs are on the **Progress** tab; targets + form cues on **Plan**."
  ],
  "groups": [
   {
@@ -446,12 +429,6 @@
  "plans": {
   "rach": {
    "comment": "Rachel's own plan. Names, doses, rest and movement cues only; the reasons live in the vault.",
-   "keep_default_helpers": true,
-   "strength_intro": [
-    "Log the **reps**, **seconds**, **minutes** or **weight (lb)** you did — tap a number to edit.",
-    "Desk breaks: log each break (2–3 a day). Cardio: log the pool **or** the bike, same box.",
-    "Progression graphs are on the **Progress** tab; doses + cues on **Plan**."
-   ],
    "groups": [
     {
      "key": "desk",

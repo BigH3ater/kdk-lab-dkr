@@ -263,11 +263,6 @@
       "local": true,
       "base": "python"
     },
-    "kdk/dashboard-workout": {
-      "local": true,
-      "base": "python",
-      "note": "built from stacks/dashboard/workout/Dockerfile (python:3.12-slim + Flask + requests); workout log page at home.kmkdp.com/workout/"
-    },
     "kdk/grocery-planner": {
       "local": true,
       "base": "python",

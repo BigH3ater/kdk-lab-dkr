@@ -270,7 +270,7 @@ Needs steps 7 and 8 done, Python 3 with `requests` on the laptop, and the guide 
 
 ```bash
 G=/tmp/workout-guide
-python3 stacks/dashboard/guides/gen-workout-guide.py --out "$G"    # skip if $G is fresh
+python3 stacks/home-assistant/tools/gen-workout-guide.py --out "$G"   # skip if $G is fresh
 ls "$G/workout.json" && ls "$G/exercise" | grep -c -- '-rom\.png$'  # 56 posters
 ls "$G/exercise" | grep -c -- '-step[0-9]*\.png$'                   # step photos (0 until they are made)
 python3 -c 'import requests' || python3 -m pip install --user requests
@@ -338,7 +338,7 @@ gets a ` · kdk plan` suffix (11 names today, e.g. Hammer Curl; wger's rule is 0
 (`shoulder-press` has only an SVG, `flat-press` none).
 
 Verify in the app, both phones: Routines → **Week (kdk)** → today's day shows the
-same list as the guide for today; swipe through the week once (Wednesday and Saturday
+same list as the vault day note for today; swipe through the week once (Wednesday and Saturday
 start with the 25–30 min walk, Sunday ends with yoga + the stretches). Open one
 exercise (e.g. Romanian Deadlift): equipment chip(s) at the top, the image carousel
 (step 1 first once step photos exist), the description with **Dose / How / Safety**
@@ -354,7 +354,7 @@ missing.
 **Renewal.** The routine window is 17 weeks. `--check` fails (exit 1) once the end is
 less than 28 days away; `--apply` then moves the start to that week's Monday (logs
 stay). Re-run whenever the catalog or the guide changes
-([workout tracking update](workout-tracking-update.md), step 6).
+([exercise plan update](workout-tracking-update.md), steps 4–5).
 
 ## 10. iOS app login (both phones)
 
