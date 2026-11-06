@@ -371,13 +371,13 @@ views:
       name: Seconds
       icon: mdi:timer-outline
     - type: section
-      label: Suitcase Carry
+      label: Suitcase Carry (10-ft lengths)
     - entity: input_number.ex_suitcase_weight
       name: Weight (lb)
       icon: mdi:weight-pound
-    - entity: input_number.ex_suitcase_seconds
-      name: Seconds
-      icon: mdi:timer-outline
+    - entity: input_number.ex_suitcase_reps
+      name: Reps
+      icon: mdi:counter
     - type: section
       label: Towel Wring
     - entity: input_number.ex_towel_wring_reps
@@ -573,7 +573,7 @@ views:
     - entity: input_number.ex_side_plank_seconds
       name: Side Plank
     - entity: input_number.ex_suitcase_weight
-      name: Suitcase Carry
+      name: Suitcase Carry (10-ft lengths)
     - entity: input_number.ex_towel_wring_reps
       name: Towel Wring
   - type: history-graph

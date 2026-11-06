@@ -341,21 +341,20 @@ input_number:
     mode: box
     icon: mdi:timer-outline
   ex_suitcase_weight:
-    name: Suitcase Carry weight
+    name: Suitcase Carry (10-ft lengths) weight
     min: 0
     max: 200
     step: 0.5
     unit_of_measurement: lb
     mode: box
     icon: mdi:weight-pound
-  ex_suitcase_seconds:
-    name: Suitcase Carry seconds
+  ex_suitcase_reps:
+    name: Suitcase Carry (10-ft lengths) reps
     min: 0
-    max: 600
+    max: 50
     step: 1
-    unit_of_measurement: s
     mode: box
-    icon: mdi:timer-outline
+    icon: mdi:counter
   ex_towel_wring_reps:
     name: Towel Wring reps
     min: 0
