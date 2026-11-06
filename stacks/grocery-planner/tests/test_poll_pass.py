@@ -47,6 +47,26 @@ def test_newpi_only_drops_this_weeks_target_entries(cfg):
     assert {store for _, store, _ in drop} == {"Target"}
 
 
+def test_recipe_less_reorder_survives_a_single_store_approval(cfg):
+    # The groceries page's Pantry-tab "reorder" creates ONE recipe-less entry for
+    # an on-hand pantry food (no list_recipe, so no meal-plan id). Neither
+    # single-store approval drops it, whichever store it routes to.
+    entries = [
+        _e(1, "spinach", NP, mp=101),
+        _e(2, "beans", TG, mp=101),
+        _e(7, "olive oil", "Target/weekly: Oils & Spices"),          # reorder (Target)
+        _e(8, "cumin", "Penzeys/restock: Spices"),                   # reorder (stock store)
+    ]
+    entries[2]["food"]["food_onhand"] = True
+    entries[3]["food"]["food_onhand"] = True
+    for choice in ("newpi", "target"):
+        dropped = {eid for eid, _, _ in
+                   R.entries_to_drop(entries, cfg, S.approved_stores(choice), {101}, now=NOW)}
+        assert not dropped & {7, 8}
+    assert {eid for eid, _, _ in R.entries_to_drop(
+        entries, cfg, S.approved_stores("newpi"), {101}, now=NOW)} == {2}
+
+
 def test_target_only_drops_newpi(cfg):
     entries = [_e(1, "spinach", NP, mp=101), _e(2, "beans", TG, mp=101)]
     drop = R.entries_to_drop(entries, cfg, S.approved_stores("target"), {101}, now=NOW)

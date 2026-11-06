@@ -190,6 +190,7 @@ rules:
   - {match: stock,          category: "Target/weekly: Canned"}
   - {match: olive,          category: "Target/weekly: Canned"}
   - {match: olive oil,  category: "Target/weekly: Oils & Spices"}
+  - {match: peanut oil, category: "Target/weekly: Oils & Spices"}   # beats the produce "pea" rule
   - {match: sesame oil, category: "Target/weekly: Oils & Spices"}
   - {match: vinegar,    category: "Target/weekly: Oils & Spices"}
   - {match: soy sauce,  category: "Target/weekly: Oils & Spices"}

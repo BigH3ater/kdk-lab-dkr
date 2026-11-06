@@ -145,6 +145,13 @@ services:
       # Single-file bind mount: read once at startup, so a foods.yaml edit shows
       # up on the next dashboard redeploy (the container is recreated then).
       - ../../stacks/grocery-planner/recipes/foods.yaml:/app/foods.yaml:ro
+      # Pantry + Thaw tabs: the `pantry:` list (cleanup.yaml) and the planner
+      # config (`stores:` stock/bulk stores, `thaw:` lead times). Same read-only,
+      # read-at-start single-file pattern as foods.yaml. No secrets in either.
+      - ../../stacks/grocery-planner/recipes/cleanup.yaml:/app/cleanup.yaml:ro
+      - ../../stacks/grocery-planner/config.yaml:/app/planner-config.yaml:ro
+      # Thaw-tab ticks (thaw.json, a few lines; pruned each plan week).
+      - mealplan-data:/data
     networks: [default, proxy]
     labels:
       traefik.enable: "true"
@@ -208,6 +215,9 @@ services:
     logging:
       driver: json-file
       options: { max-size: "10m", max-file: "3" }
+
+volumes:
+  mealplan-data: {}           # Thaw-tab tick state (dashboard-mealplan /data)
 
 networks:
   default: {}

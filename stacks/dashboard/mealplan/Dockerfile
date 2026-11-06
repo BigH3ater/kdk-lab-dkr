@@ -7,6 +7,8 @@ WORKDIR /app
 COPY app.py /app/app.py
 # New Pi product-link lookup; reads foods.yaml bind-mounted at /app/foods.yaml.
 COPY newpi.py /app/newpi.py
+# Pantry + Thaw tabs; reads cleanup.yaml + the planner config.yaml, both bind-mounted.
+COPY stock.py /app/stock.py
 ENV PYTHONUNBUFFERED=1
 EXPOSE 8080
 CMD ["python", "/app/app.py"]
