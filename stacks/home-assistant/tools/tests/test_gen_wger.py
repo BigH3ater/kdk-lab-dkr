@@ -39,11 +39,19 @@ class Resp:
         return self._body
 
 
+# wger 2.7's muscle rows (id, Latin name, English name) as this instance has them
+MUSCLES = [("Biceps brachii", "Biceps"), ("Anterior deltoid", "Shoulders"), ("Serratus anterior", ""),
+           ("Pectoralis major", "Chest"), ("Triceps brachii", "Triceps"), ("Rectus abdominis", "Abs"),
+           ("Gastrocnemius", "Calves"), ("Gluteus maximus", "Glutes"), ("Trapezius", ""),
+           ("Quadriceps femoris", "Quads"), ("Biceps femoris", "Hamstrings"), ("Latissimus dorsi", "Lats"),
+           ("Brachialis", ""), ("Obliquus externus abdominis", ""), ("Soleus", ""), ("Erector spinae", "Lower back")]
+
+
 class FakeWger:
     def __init__(self, lengths_unit=True):
         self.users = {"tok-jmack": ("jmack", True), "tok-rach": ("rach", False)}
         self.t = {k: {} for k in PRIVATE | EXERCISE_WRITE | {"language", "exercisecategory", "equipment",
-                                                            "setting-repetitionunit", "setting-weightunit"}}
+                                                            "setting-repetitionunit", "setting-weightunit", "muscle"}}
         self.next_id = 1000
         self.writes = []
         self.writers = []
@@ -55,6 +63,8 @@ class FakeWger:
         for i, n in enumerate(["Barbell", "SZ-Bar", "Dumbbell", "Gym mat", "Swiss Ball", "Pull-up bar",
                                "none (bodyweight exercise)", "Bench", "Incline bench"], 1):
             self.t["equipment"][i] = {"id": i, "name": n}
+        for i, (n, en) in enumerate(MUSCLES, 1):
+            self.t["muscle"][i] = {"id": i, "name": n, "name_en": en}
         units = ["Repetitions", "Until Failure", "Seconds", "Minutes", "Miles", "Kilometers", "Max Reps", "Meters"]
         if lengths_unit:
             units.append("10-ft lengths")
@@ -131,7 +141,8 @@ class FakeWger:
         if table == "exerciseimage":
             name, content, _ = files["image"]
             body = {"exercise": int(data["exercise"]), "is_main": data["is_main"] == "true",
-                    "image": f"/media/{name}"}
+                    "image": f"/media/{name}", "style": data.get("style"),
+                    "is_ai_generated": data.get("is_ai_generated") == "true"}
             self.images[self.next_id + 1] = content
         self.next_id += 1
         row = {"id": self.next_id, **self.norm(table, body), "_user": user}
@@ -325,7 +336,7 @@ def test_exercises_markers_images_and_owner(guide, fake):
     assert by["hand-glides"]["name"] == "Tendon glides"          # multi-slug item -> guide title
     assert by["hammer-curl"]["name"] == "Hammer Curl · kdk plan"   # collided with upstream "Hammer Curls"
     assert "- Lock the knee\n- Lift slowly" in by["pt-slr"]["description_source"]
-    assert "15 min · easy pace, zone 2 (Mon, Tue, Thu, Fri, Sun)" in by["treadmill-walk"]["description_source"]
+    assert "- Mon, Tue, Thu, Fri, Sun: 15 min · easy pace, zone 2" in by["treadmill-walk"]["description_source"]
     assert "img:none" in by[NO_POSTER]["description_source"]
     m = gw.MARKER_RE.search(by["pt-slr"]["description_source"])
     assert m.group("img") != "none" and int(m.group("imgid")) in fake.t["exerciseimage"]
@@ -457,3 +468,162 @@ def test_missing_key_is_an_error_not_a_prompt(guide, fake, monkeypatch, capsys):
     monkeypatch.delenv("WGER_API_KEY_RACH")
     assert run(guide) == 2
     assert "WGER_API_KEY_RACH is not set" in capsys.readouterr().err
+
+
+# ---------------------------------------------------------------- presentation (muscles, marker, images, equipment)
+def by_slug(fake):
+    out = {}
+    for t in fake.t["exercise-translation"].values():
+        m = gw.MARKER_RE.search(t.get("description_source", ""))
+        if m:
+            out[m.group("slug")] = t
+    return out
+
+
+def muscle_ids(fake, names):
+    by = {k: m["id"] for m in fake.t["muscle"].values() for k in (m["name_en"], m["name"]) if k}
+    return sorted(by[n] for n in names)
+
+
+def test_sidecar_covers_every_slug_with_known_names(guide):
+    side = gw.load_sidecar()
+    catalog = {s for it in gen_workout.load()["items"] for s in it["slugs"]}
+    assert catalog | {"arm-circles"} == set(side)
+    fake_names = {k for n, en in MUSCLES for k in (n, en) if k}
+    for slug, e in side.items():
+        assert set(e["muscles"] + e["secondary"]) <= fake_names, slug
+        assert e["equipment"], slug
+        assert e["muscles"] or e.get("what"), f"{slug}: no muscle and no 'what' line"
+
+
+def test_sidecar_typo_is_an_error(tmp_path):
+    bad = tmp_path / "side.json"
+    bad.write_text(json.dumps({"exercises": {"rdl": {"muscles": ["Hamstring"], "secondary": [],
+                                                      "equipment": ["Dumbbell"]}}}))
+    with pytest.raises(gw.WgerError, match="unknown muscle"):
+        gw.load_sidecar(bad)
+
+
+def test_muscles_written_and_drift_patched(guide, fake, capsys):
+    assert run(guide, "--apply") == 0
+    by = by_slug(fake)
+    side = gw.load_sidecar()
+    for slug in ("rdl", "pt-slr", "flex-sphinx", "side-plank"):
+        ex = fake.t["exercise"][by[slug]["exercise"]]
+        assert sorted(ex["muscles"]) == muscle_ids(fake, side[slug]["muscles"]), slug
+        assert sorted(ex["muscles_secondary"]) == muscle_ids(fake, side[slug]["secondary"]), slug
+    assert fake.t["exercise"][by["hand-glides"]["exercise"]]["muscles"] == []     # hands: no wger muscle
+    fake.t["exercise"][by["rdl"]["exercise"]]["muscles"] = []
+    fake.writes.clear()
+    capsys.readouterr()
+    assert run(guide, "--check") == 1
+    assert "PATCH exercise/" in capsys.readouterr().out and fake.writes == []
+    assert run(guide, "--apply") == 0
+    assert fake.writes == [("PATCH", "exercise")]
+    assert run(guide, "--check") == 0
+
+
+def test_marker_is_a_trailing_html_comment_and_template_blocks(guide, fake):
+    assert run(guide, "--apply") == 0
+    by = by_slug(fake)
+    src = by["pt-slr"]["description_source"]
+    visible, _, comment = src.rpartition("\n\n<!-- ")
+    assert comment.startswith("kdk:pt-slr v:") and comment.endswith(" -->")
+    assert "kdk:" not in visible and "<!--" not in visible
+    assert "part of our home workout plan" not in visible
+    assert visible.startswith("Works the quads; also the abs.")
+    assert "**Dose**\n\n- Mon, Thu, Sat: 2 × 15–30 / leg" in visible
+    assert "**How**\n\n- Lock the knee\n- Lift slowly" in visible
+    assert visible.endswith("**Safety:** " + gw.SAFETY_DEFAULT)
+    assert "- Every day: 3 × 30 s hold · daily" in by["pt-hamstring"]["description_source"]
+    assert gw.SAFETY_STRETCH in by["pt-hamstring"]["description_source"]
+    assert gw.SAFETY_WEIGHTED in by["rdl"]["description_source"]
+    assert "**Dose**: not in the weekly plan" in by["flat-press"]["description_source"]
+    assert by["box-squat"]["description_source"].startswith("Goblet box squat. Works the quads and glutes")
+
+
+def test_legacy_plain_marker_is_migrated_in_place(guide, fake):
+    assert run(guide, "--apply") == 0
+    tr = by_slug(fake)["rdl"]
+    m = gw.MARKER_RE.search(tr["description_source"])
+    tr["description_source"] = ("Romanian deadlift. This exercise is part of our home workout plan.\n"
+                                + m.group(0).replace(m.group("v"), "0" * 12))       # the pre-2026-11-07 shape
+    n_ex, n_img = len(fake.t["exercise"]), len(fake.t["exerciseimage"])
+    fake.writes.clear()
+    assert run(guide, "--apply") == 0
+    assert fake.writes == [("PATCH", "exercise-translation")]         # text only: same exercise, same image
+    assert (len(fake.t["exercise"]), len(fake.t["exerciseimage"])) == (n_ex, n_img)
+    assert tr["description_source"].endswith(" -->") and "part of our home" not in tr["description_source"]
+
+
+def test_hand_edited_description_is_restored(guide, fake):
+    assert run(guide, "--apply") == 0
+    tr = by_slug(fake)["plank"]
+    tr["description_source"] = tr["description_source"].replace("**Safety:**", "**Careful:**")
+    assert run(guide, "--check") == 1
+    assert run(guide, "--apply") == 0 and "**Safety:**" in tr["description_source"]
+
+
+def test_step_images_upload_in_order_replace_the_poster_and_stay_idempotent(guide, fake):
+    assert run(guide, "--apply") == 0
+    ex_id = by_slug(fake)["rdl"]["exercise"]
+    for n in (2, 1, 3):
+        (guide / "exercise" / f"ex-rdl-step{n}.png").write_bytes(f"\x89PNG step {n}".encode())
+    (guide / "exercise" / "ex-rdl-step10.png").write_bytes(b"\x89PNG step 10")
+    fake.writes.clear()
+    assert run(guide, "--apply") == 0
+    imgs = sorted((i for i in fake.t["exerciseimage"].values() if i["exercise"] == ex_id), key=lambda i: i["id"])
+    assert [i["image"] for i in imgs] == [f"/media/ex-rdl-step{n}.png" for n in (1, 2, 3, 10)]   # numeric order
+    assert [i["is_main"] for i in imgs] == [True, False, False, False]
+    assert all(i["style"] == gw.STYLE_PHOTO and i["is_ai_generated"] for i in imgs)
+    m = gw.MARKER_RE.search(by_slug(fake)["rdl"]["description_source"])
+    assert [int(x) for x in m.group("imgid").split(",")] == [i["id"] for i in imgs]
+    assert sorted(fake.writes) == sorted([("POST", "exerciseimage")] * 4 + [("DELETE", "exerciseimage"),
+                                                                            ("PATCH", "exercise-translation")])
+    fake.writes.clear()
+    assert run(guide, "--apply") == 0 and fake.writes == []
+    (guide / "exercise" / "ex-rdl-step10.png").unlink()
+    (guide / "exercise" / "ex-rdl-step2.png").write_bytes(b"\x89PNG step 2 v2")
+    assert run(guide, "--check") == 1
+    assert run(guide, "--apply") == 0
+    now = sorted((i for i in fake.t["exerciseimage"].values() if i["exercise"] == ex_id), key=lambda i: i["id"])
+    assert [i["image"] for i in now] == [f"/media/ex-rdl-step{n}.png" for n in (1, 2, 3)]
+    assert not {i["id"] for i in now} & {i["id"] for i in imgs}
+    assert fake.images[now[1]["id"]] == b"\x89PNG step 2 v2"
+
+
+def test_lone_poster_keeps_the_legacy_hash(tmp_path):
+    d = tmp_path / "exercise"
+    d.mkdir()
+    (d / "ex-rdl-rom.png").write_bytes(b"poster")
+    (d / "ex-rdl-x-step1.png").write_bytes(b"other slug")          # ex-rdl-x is not rdl
+    files = gw.image_files(tmp_path, "rdl")
+    assert [f.name for f in files] == ["ex-rdl-rom.png"]
+    assert gw.images_hash(files) == gw.h12(b"poster")
+    assert gw.images_hash([]) == "none"
+
+
+def test_missing_equipment_warns_once_then_links_when_added(guide, fake, capsys):
+    assert run(guide, "--apply") == 0
+    err = capsys.readouterr().err
+    assert err.count("wger has no equipment 'Treadmill'") == 1
+    ex = fake.t["exercise"][by_slug(fake)["treadmill-walk"]["exercise"]]
+    assert ex["equipment"] == []
+    fake.t["equipment"][50] = {"id": 50, "name": "Treadmill"}       # the admin step ran
+    assert run(guide, "--check") == 1
+    assert run(guide, "--apply") == 0
+    assert ex["equipment"] == [50]
+    eq = {e["name"]: e["id"] for e in fake.t["equipment"].values()}
+    assert sorted(fake.t["exercise"][by_slug(fake)["incline-press"]["exercise"]]["equipment"]) == \
+        sorted([eq["Dumbbell"], eq["Incline bench"]])
+    assert fake.t["exercise"][by_slug(fake)["plank"]["exercise"]]["equipment"] == [eq["Gym mat"]]
+
+
+def test_check_counts_a_slug_missing_from_the_sidecar(guide, fake, monkeypatch, capsys):
+    assert run(guide, "--apply") == 0
+    side = gw.load_sidecar()
+    side.pop("arm-circles")
+    monkeypatch.setattr(gw, "load_sidecar", lambda path=gw.SIDECAR: side)
+    capsys.readouterr()
+    assert run(guide, "--check") == 1
+    assert "no entry for arm-circles" in capsys.readouterr().out

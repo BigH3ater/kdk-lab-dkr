@@ -75,10 +75,14 @@ x-wger-env: &wger-env
   ENABLE_EMAIL: "False"
   FROM_EMAIL: "wger <wger@kmkdp.com>"
   WGER_SHOW_APP_STORE_LINKS: "True"
-  # --- exercise catalog from wger.de (weekly celery jobs); videos and the large
-  # ingredient dump off until the nutrition phase ---
+  # --- exercise catalog from wger.de; videos and the large ingredient dump off until
+  # the nutrition phase. The weekly exercise sync is OFF: its sync_equipment step
+  # update_or_creates every wger.de equipment row by id, which would undo the household
+  # equipment trim (runbook wger.md step 12) and could rename a local row such as
+  # "Treadmill". The ~930 upstream exercises loaded once (step 6) stay; re-sync by hand
+  # only together with step 12 ---
   WGER_INSTANCE: https://wger.de
-  SYNC_EXERCISES_CELERY: "True"
+  SYNC_EXERCISES_CELERY: "False"
   SYNC_EXERCISE_IMAGES_CELERY: "True"
   SYNC_EXERCISE_VIDEOS_CELERY: "False"
   SYNC_INGREDIENTS_CELERY: "False"
