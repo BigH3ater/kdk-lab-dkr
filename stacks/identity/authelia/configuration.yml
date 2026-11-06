@@ -811,7 +811,7 @@ access_control:
       subject:
         - ['group:dashboard-users']
     # wger workout tracker (stacks/wger): the web UI and the app's browser login.
-    # /api/, /static/, /media/, /ps/ never reach Authelia (separate Traefik router
+    # /api/, /static/, /media/, /ps/, /allauth/app/ never reach Authelia (separate Traefik router
     # without forward-auth), so no bypass rule is needed here.
     - policy: two_factor
       domain:
