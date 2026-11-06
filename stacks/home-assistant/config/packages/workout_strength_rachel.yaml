@@ -252,13 +252,14 @@ input_number:
     step: 1
     mode: box
     icon: mdi:counter
-  ex_adductor_reps_rachel:
-    name: Copenhagen Adductor Squeeze (Bench) reps
+  ex_adductor_seconds_rachel:
+    name: Adductor Squeeze seconds
     min: 0
-    max: 50
+    max: 600
     step: 1
+    unit_of_measurement: s
     mode: box
-    icon: mdi:counter
+    icon: mdi:timer-outline
   ex_tib_raise_reps_rachel:
     name: Tibialis Raise reps
     min: 0

@@ -312,10 +312,10 @@ views:
       name: Reps
       icon: mdi:counter
     - type: section
-      label: Copenhagen Adductor Squeeze (Bench)
-    - entity: input_number.ex_adductor_reps
-      name: Reps
-      icon: mdi:counter
+      label: Adductor Squeeze
+    - entity: input_number.ex_adductor_seconds
+      name: Seconds
+      icon: mdi:timer-outline
     - type: section
       label: Tibialis Raise
     - entity: input_number.ex_tib_raise_reps
@@ -392,7 +392,7 @@ views:
       name: Reps
       icon: mdi:counter
   - type: entities
-    title: Hands · daily
+    title: Hands · Mon/Thu/Sat
     show_header_toggle: false
     state_color: false
     entities:
@@ -545,8 +545,8 @@ views:
       name: Hip Thrust
     - entity: input_number.ex_sl_rdl_weight
       name: Single-Leg RDL
-    - entity: input_number.ex_adductor_reps
-      name: Copenhagen Adductor Squeeze (Bench)
+    - entity: input_number.ex_adductor_seconds
+      name: Adductor Squeeze
     - entity: input_number.ex_tib_raise_reps
       name: Tibialis Raise
     - entity: input_number.ex_sl_calf_reps
@@ -574,7 +574,7 @@ views:
     - entity: input_number.ex_towel_wring_reps
       name: Towel Wring
   - type: history-graph
-    title: Hands · daily
+    title: Hands · Mon/Thu/Sat
     hours_to_show: 2160
     entities:
     - entity: input_number.ex_finger_ext_weight

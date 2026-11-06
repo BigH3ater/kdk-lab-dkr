@@ -56,7 +56,7 @@
   {
    "key": "hands",
    "comment": "Hands",
-   "title": "Hands · daily"
+   "title": "Hands · Mon/Thu/Sat"
   },
   {
    "key": "cardio",
@@ -246,9 +246,9 @@
    "slugs": [
     "adductor"
    ],
-   "name": "Copenhagen Adductor Squeeze (Bench)",
+   "name": "Adductor Squeeze",
    "group": "lower_b",
-   "kind": "r"
+   "kind": "t"
   },
   {
    "id": "tib_raise",
