@@ -10,7 +10,9 @@
 Reads  tools/workout_catalog.json (people + the slugs; same loader as gen_workout.py)
        tools/wger_exercises.json  (per slug: wger muscles, secondary muscles, equipment,
                                    optional what/safety lines; gen_workout.py ignores it)
-       DIR/workout.json           (the guide output: days, steps, doses, titles, cues)
+       DIR/workout.json           (the guide output: days, steps, doses, titles, cues), for
+                                  every person WITHOUT their own catalog plan ("plans".<login>);
+                                  a person with one gets their week from it (plan_guide())
        DIR/exercise/ex-<slug>-step<N>.png (per-step photos, N from 1; step 1 = start position)
        DIR/exercise/ex-<slug>-rom.png     (the poster; used only when a slug has no step photos)
 Config from the environment only: WGER_URL, and one API key per person in
@@ -33,10 +35,10 @@ What it writes (runbook: docs/runbooks/wger.md, "Load the catalog"):
   2. Units: looked up by name (Repetitions, Seconds, Minutes, "10-ft lengths"; lb).
      The REST API cannot create units. A missing one is printed as an admin step and
      --apply then stops before the routines.
-  3. Per person, the routine "Week (kdk)": fit_in_week, starts on a Monday, 7 days
-     (order 1..7 = Monday..Sunday, none needs logs to advance, so day N is always
-     weekday N), one slot per guide step in the guide's order, supersets as one slot
-     with two entries, "Every day" steps expanded, sets/reps/max-reps from the dose
+  3. Per person, the routine "Week (kdk)" from that person's plan: fit_in_week, starts on a
+     Monday, 7 days (order 1..7 = Monday..Sunday, none needs logs to advance, so day N is
+     always weekday N), one slot per guide step in the guide's order, supersets and
+     "either one" pairs as one slot with two entries, "Every day" steps expanded, sets/reps/max-reps from the dose
      text, weights left blank. wger caps a routine at 120 days, so the window is 17
      weeks and an --apply within 28 days of the end rolls it forward to this week.
 Slots are matched by their exercises, never rebuilt: a WorkoutLog cascades away with
@@ -102,7 +104,10 @@ SLUG_CATEGORY = {
     "arm-circles": "Shoulders", "flex-dolphin": "Shoulders", "flex-neck": "Shoulders",
     "plank": "Abs", "side-plank": "Abs", "dead-bug": "Abs", "suitcase": "Abs", "flex-side-bend": "Abs",
     "treadmill-walk": "Cardio",
+    "pallof-press": "Abs", "pelvic-tilt": "Abs", "wall-pushup": "Chest", "seated-band-row": "Back",
+    "glute-calf-raise": "Calves", "water-walk": "Cardio", "recumbent-bike": "Cardio",
 }
+EITHER_COMMENT = "Either one: log the one you did"
 BODYWEIGHT = "none (bodyweight exercise)"
 # wger's 16 built-in muscles as the sidecar spells them (name_en, else the Latin name): the
 # only ones the app's body map can colour (it draws bundled SVGs per muscle id).
@@ -185,6 +190,62 @@ def load_guide(posters: Path | None) -> dict:
     if not path.is_file():
         raise WgerError(f"{path} not found (run gen-workout-guide.py first; see the runbook)")
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+def plan_guide(pl: dict) -> dict:
+    """A catalog plan ("plans".<login>) in workout.json's shape: 7 days, each the plan's items
+    for that weekday in group order (daily groups included), one step per slug."""
+    order = {g["key"]: i for i, g in enumerate(pl["groups"])}
+    items = sorted(pl["items"], key=lambda it: order[it["group"]])     # stable: catalog order in a group
+    titles = {g["key"]: g["title"].split(" · ")[0] for g in pl["groups"]}
+    days = []
+    for wd in WEEKDAYS:
+        abbr = wd[:3].lower()
+        its = [it for it in items if abbr in gen_workout.item_days(it)]
+        steps = []
+        for it in its:
+            for k, st in enumerate(it["steps"]):
+                steps.append({"num": str(len(steps) + 1), "slug": st["slug"], "title": st["title"],
+                              "dose": st["dose"], "cues": list(st.get("cues", [])),
+                              "either": bool(it.get("either")) and k == 0})
+        groups = []
+        for it in its:
+            if titles[it["group"]] not in groups:
+                groups.append(titles[it["group"]])
+        days.append({"id": abbr, "name": wd, "title": " + ".join(groups), "summary": "", "steps": steps})
+    return {"version": 2, "everyday": [], "days": days}
+
+
+def plan_sources(cat: dict, guide_for) -> dict[str, tuple[dict, dict]]:
+    """login -> (plan, guide) for every person, in catalog order. guide_for() loads workout.json
+    (only called when some person has no catalog plan)."""
+    out, shared = {}, None
+    for p in cat["people"]:
+        pl = gen_workout.plan(cat, p)
+        if pl is cat:
+            shared = shared if shared is not None else guide_for()
+            out[p["login"]] = (cat, shared)
+        else:
+            out[p["login"]] = (pl, plan_guide(pl))
+    return out
+
+
+def all_specs(sources: dict, posters: Path, warn, sidecar: dict | None = None) -> dict[str, dict]:
+    """Every person's exercise specs, merged (first person first). Exercises are global in wger,
+    so a slug in two people's plans would need two doses on one exercise: an error."""
+    specs: dict[str, dict] = {}
+    owner: dict[str, str] = {}
+    seen = set()
+    for login, (pl, g) in sources.items():
+        if id(pl) in seen:
+            continue
+        seen.add(id(pl))
+        for slug, sp in exercise_specs(pl, g, posters, sidecar=sidecar, warn=warn).items():
+            if slug in specs:
+                raise WgerError(f"slug {slug} is in the plans of {owner[slug]} and {login}; give one of "
+                                "them its own slug (a wger exercise carries one dose text)")
+            specs[slug], owner[slug] = sp, login
+    return specs
 
 
 def day_steps(guide: dict, day: dict) -> list[dict]:
@@ -364,7 +425,8 @@ def plan_days(guide: dict, cat: dict, warn) -> list[dict]:
         slots, i = [], 0
         while i < len(steps):
             group = [steps[i]]
-            if "superset" in steps[i].get("dose", "").lower() and i + 1 < len(steps):
+            either = bool(steps[i].get("either"))
+            if ("superset" in steps[i].get("dose", "").lower() or either) and i + 1 < len(steps):
                 group.append(steps[i + 1])
             i += len(group)
             entries = []
@@ -379,7 +441,9 @@ def plan_days(guide: dict, cat: dict, warn) -> list[dict]:
                 dose = re.sub(r"\s*·\s*superset:.*$", "", st.get("dose", "")).strip()
                 entries.append({"slug": st["slug"], "unit": d["unit"], "sets": d["sets"],
                                 "reps": d["value"], "max_reps": d["max"], "comment": short(dose, 100)})
-            if len(group) == 2:
+            if len(group) == 2 and either:
+                comment = EITHER_COMMENT
+            elif len(group) == 2:
                 comment = "Superset: alternate the two, rest after each pair"
             else:
                 comment = short(group[0].get("title", ""), 200)
@@ -788,9 +852,11 @@ def main(argv: list[str] | None = None, today: dt.date | None = None) -> int:
             if not k:
                 raise WgerError(f"{env_key(p['login'])} is not set (op read it into the env; never argv)")
             keys[p["login"]] = k
-        guide = load_guide(args.posters)
-        specs = exercise_specs(cat, guide, args.posters, warn=warn)
-        days = plan_days(guide, cat, warn)
+        if args.posters is None:
+            raise WgerError("--posters DIR is required (the guide output dir with workout.json and exercise/)")
+        sources = plan_sources(cat, lambda: load_guide(args.posters))
+        specs = all_specs(sources, args.posters, warn)
+        days = {p["login"]: plan_days(sources[p["login"]][1], sources[p["login"]][0], warn) for p in sel}
 
         actions: list[str] = []
         if args.check:
@@ -808,7 +874,7 @@ def main(argv: list[str] | None = None, today: dt.date | None = None) -> int:
         ref = reference(reader)
         ex_ids = sync_exercises(writer, specs, ref, owner_sel, warn)
 
-        needed = {e["unit"] for d in days for s in d["slots"] for e in s["entries"]}
+        needed = {e["unit"] for pd in days.values() for d in pd for s in d["slots"] for e in s["entries"]}
         units, missing = {}, []
         for u in sorted(needed):
             uid = ref["rep_unit"].get(UNIT_NAMES[u])
@@ -827,7 +893,7 @@ def main(argv: list[str] | None = None, today: dt.date | None = None) -> int:
 
         for p in sel:
             api = writer if p is owner else Api(base, keys[p["login"]], p["login"], apply, actions)
-            sync_routine(api, days, ex_ids, units, today, warn)
+            sync_routine(api, days[p["login"]], ex_ids, units, today, warn)
     except WgerError as e:
         print(f"ERROR {e}", file=sys.stderr)
         return 2

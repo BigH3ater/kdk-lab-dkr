@@ -95,6 +95,11 @@ truth. See the [approval-tasks runbook](../runbooks/approval-tasks.md).
   routine or the flexibility flow gets its tick on its **first** step only),
   `score` items sit in the **Daily check-in** card. Steps without a catalog
   item (warm-ups) show poster, dose and cues only.
+- **One week for both people (for now):** the page shows the guide's week
+  (Jacob's plan) to both logins. Rachel's own plan (catalog `plans.rach`) is in
+  her Home Assistant dashboard and her wger routine; the Today page and the guide
+  move to per-person plans in a follow-up. Her logs here still land on her
+  `_rachel` copies of the shared list, which her HA package keeps for that reason.
 - **Prefill** = the last CSV session before this date (row *n* = set *n*, extra
   rows repeat the last set); with no CSV history, the person's HA values. Clear
   a row you did not do: every filled row is logged. "Copy set 1 down" (JS only)

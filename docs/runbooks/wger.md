@@ -328,7 +328,12 @@ unset WGER_API_KEY_JMACK WGER_API_KEY_RACH
 ```
 
 `--person rach` limits the run to one person's routine (exercises are only written
-when jmack is selected). Warnings go to stderr: a name too close to a wger.de exercise
+when jmack is selected). Rachel's routine comes from her own catalog plan
+(`plans.rach` in `workout_catalog.json`: desk breaks + evening mobility every day,
+Strength A Monday, cardio Tuesday and Friday as one "either one" slot holding the pool
+walk and the recumbent bike, Strength B Thursday), not from `workout.json`; her 14
+exercises have no posters yet. Until her key exists, run `--person jmack` (that also
+writes her exercises, which are global) and leave `WGER_API_KEY_RACH` unset. Warnings go to stderr: a name too close to a wger.de exercise
 gets a ` · kdk plan` suffix (11 names today, e.g. Hammer Curl; wger's rule is 0.85 trigram similarity against every English exercise), a slug without a PNG poster gets no image
 (`shoulder-press` has only an SVG, `flat-press` none).
 
@@ -441,6 +446,28 @@ To undo: `sudo docker exec wger-celery-worker python3 manage.py sync-exercises` 
 kdk-dkr-01 re-creates the wger.de rows with their original ids and re-links the
 upstream exercises; delete the local rows in the Django admin
 (`/admin/exercises/equipment/`) if they should go too.
+
+### 12b. Equipment for Rachel's plan (admin, once the owner has decided)
+
+Her plan names `Pool` and `Recumbent bike` (local rows, add them) and two built-ins that
+step 12 deletes: `Resistance band` (Pallof press, seated band row) and `Swiss Ball`
+(optional for wall slides). Keep or re-add a built-in only if the house has one, and then
+take it out of step 12's `DROP` list first (step 12 is re-runnable and would delete it
+again). Until a row exists, gen_wger warns and leaves it off that exercise.
+
+**Laptop → kdk-dkr-01**
+
+```bash
+H=kdkadmin@10.1.20.20
+printf '%s\n' \
+  "from wger.exercises.models import Equipment" \
+  "ADD = ['Pool', 'Recumbent bike']            # + 'Resistance band' / 'Swiss Ball' if bought" \
+  "for n in ADD: print('add', n, Equipment.objects.get_or_create(name=n)[1])" \
+  | ssh $H 'sudo docker exec -i wger-web python3 manage.py shell'
+ssh $H 'sudo docker exec wger-web python3 manage.py warmup-exercise-api-cache --force'
+```
+
+Then step 9's `--apply` links them (the `wger has no equipment 'Pool'` warnings are gone).
 
 ## 13. Custom muscles (admin, staged; after step 12)
 
