@@ -259,7 +259,7 @@ services:
 
   tdarr-node:
     <<: *common
-    image: ghcr.io/haveagitgat/tdarr_node:3.04.00@sha256:05bbccf0f20c8b79e21424b553149a85f5bac588a9392986feaa440517bf491f
+    image: ghcr.io/haveagitgat/tdarr_node:3.06.00@sha256:37516a2af827cb0b0e39050ee72f474d17645b81228afabd030c02c861dff7ad
     runtime: nvidia
     # Memory ceiling for the transcode node. Before any cap (pre-#192) a runaway
     # DEE/4K remux took the whole node down with a host-level OOM; #192 added a
