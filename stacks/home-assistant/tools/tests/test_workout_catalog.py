@@ -31,7 +31,7 @@ def test_rach_plan_weekdays():
 def test_no_home_assistant_generator_keys_left():
     """The HA helper generator is retired; its catalog keys must not creep back."""
     cat = wc.load()
-    dead = {"package_head", "generated_banner", "strength_intro"}
+    dead = {"package_head", "generated_banner", "strength_intro", "routines"}   # routines: derived since 2026-11-07
     assert not dead & set(cat)
     assert not dead & set(cat["plans"]["rach"]) and "keep_default_helpers" not in cat["plans"]["rach"]
     for p in cat["people"]:
@@ -53,21 +53,7 @@ def _broken(tmp_path, mutate):
     (lambda c: c["plans"]["rach"]["items"][0].update(days=["someday"]), "bad days"),
     (lambda c: c["plans"]["rach"]["items"][0].update(slugs=["x"]), "steps must list"),
     (lambda c: c["plans"].update(nobody=c["plans"]["rach"]), "no person"),
-    (lambda c: c.pop("routines"), "no routines"),
-    (lambda c: c["routines"].reverse(), "first routine must be 'daily'"),
-    (lambda c: c["routines"][1]["groups"].append("nope"), "unknown group 'nope'"),
-    (lambda c: c["plans"]["rach"]["routines"][2].update(items=["nope"]), "unknown item 'nope'"),
-    (lambda c: c["routines"][3]["items"].append("rdl"), "item rdl in routines lifts and flow"),
-    (lambda c: c["routines"][2].update(key="lifts"), "bad routine key 'lifts'"),
 ])
 def test_validation_rejects(tmp_path, mutate, msg):
     with pytest.raises(AssertionError, match=msg):
         wc.load(_broken(tmp_path, mutate))
-
-
-def test_every_plan_is_split_into_routines():
-    cat = wc.load()
-    for pl in [cat, cat["plans"]["rach"]]:
-        assert pl["routines"][0]["key"] == wc.ANCHOR
-    assert [r["key"] for r in cat["routines"]] == ["daily", "lifts", "pt_hands", "flow"]
-    assert [r["key"] for r in cat["plans"]["rach"]["routines"]] == ["daily", "strength", "cardio"]

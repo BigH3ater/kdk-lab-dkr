@@ -15,7 +15,7 @@ was retired.
 | `stacks/home-assistant/tools/workout_catalog.json` | the people, the slugs, each item's kind, and Rachel's own plan (`plans.rach`: days, doses, cues) | hand-edited; loader + checks in `workout_catalog.py` |
 | `stacks/home-assistant/tools/wger_exercises.json` | per slug: wger muscles, equipment, optional what/safety lines | hand-edited |
 | Laptop scratch dir (default `/tmp/workout-guide`) | `workout.json` (Jacob's days, steps, doses, cues) + `exercise/` posters | `tools/gen-workout-guide.py` from the vault; **never committed, never published** |
-| wger | one custom exercise per slug (images, muscles, description) + each person's routines, one per block of the catalog's `routines` | `tools/gen_wger.py` from the catalog, the sidecar and the scratch dir |
+| wger | one custom exercise per slug (images, muscles, description) + each person's seven weekday routines (Mon · … .. Sun · …) | `tools/gen_wger.py` from the catalog, the sidecar and the scratch dir |
 
 Nothing in Home Assistant or on home.kmkdp.com follows the plan any more: the HA
 **Workout** dashboards are the Treadmill view only, and treadmill walks reach wger through
@@ -111,7 +111,7 @@ and stop before the routines (units are admin-only; [wger runbook](wger.md)).
    A removed exercise's slot is deleted from the routine unless someone logged it; then
    it moves to the end of the day as `[retired]` (deleting it would delete the logs).
    Delete it in the app once the history no longer matters.
-6. **Verify** on both phones: wger app → Routines → the block's routine (e.g. **Lifts · Mon/Tue/Thu/Fri**) → the changed day shows
+6. **Verify** on both phones: wger app → Routines → the weekday's routine (e.g. **Mon · Lower A**) → the changed day shows
    the change (pull to refresh; the app syncs through PowerSync).
 
 **Quarterly:** wger caps a routine at 120 days. `gen_wger.py --check` fails (exit 1) once

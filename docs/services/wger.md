@@ -32,24 +32,25 @@ the poster. The equipment list is trimmed to what the house owns plus local prop
 step 12); five local muscles cover hands, forearms, adductors and shins (step 13; the app
 lists them by name and never colours them on the map).
 
-Each person's week is split into one routine per block (catalog `routines`), so the
-app's routine list is the table of contents and a day card holds one block, not the
-whole day:
+Each person's week is one routine per weekday, seven each, each holding that whole day
+in the guide's order (jmack: walk, PT block, hands, lifts or flow/yoga, PT stretches;
+rach: desk breaks, the day's session, evening mobility):
 
-| Person | Routines, as the app lists them (newest first) | Days per card |
-|---|---|---|
-| jmack | Lifts · Mon/Tue/Thu/Fri, PT + hands · Mon/Thu/Sat, Flow + yoga · Wed/Sat/Sun, Daily · walk + stretches | 4–8, 13, 8–13, 3 |
-| rach | Strength · Mon/Thu, Cardio · Tue/Fri, Daily · desk + evening | 3, 1, 6 |
+| Person | Routines, as the app lists them |
+|---|---|
+| jmack | Mon · Lower A, Tue · Upper A, Wed · Treadmill + flow, Thu · Lower B, Fri · Upper B, Sat · Walk + flow + PT, Sun · Yoga |
+| rach | Mon · Strength A, Tue · Cardio, Wed · Daily parts, Thu · Strength B, Fri · Cardio, Sat · Daily parts, Sun · Daily parts |
 
-All are "fixed weekly schedule" routines over one shared 17-week window; day N is
-weekday N, a weekday a block skips is a **Rest day** card, and the days after a block's
-last weekday are empty (wger shows nothing for them). The day card's subtitle names the
-part (Lower A, PT block + adductor + Hands, ...). The app's home-screen card shows the
-first routine of the list (Lifts / Strength); Gym mode runs one block at a time. Each
-routine's description ends with its tag `[kdk:<block>]`: the generator finds its routines
-by it, and the treadmill auto-log finds the walk in `[kdk:daily]`. Until 2026-11-07 each
-person had one routine, **Week (kdk)**; the split renamed it into the Daily block (same
-routine, so its logs stayed).
+Names are derived from the guide's day titles (rach: her non-daily groups), shortened to
+wger's 25 characters. Each routine has one day and the weekly schedule **off**: wger then
+repeats that day on every date, so the app always shows it and its play button opens
+Gym mode on it (a side effect: every routine shows the calendar icon every day). The
+starts are staggered one day apart with one shared end, so the list (newest start first)
+reads Mon..Sun; the home-screen card shows the first, Monday. Each description ends with
+`[kdk:mon]` .. `[kdk:sun]`: the generator finds its routines by it, and the treadmill
+auto-log finds today's routine by it. History: one **Week (kdk)** per person until
+2026-11-07, then block routines (Daily, Lifts, ...) for a day, then this; each change
+reused the routines in place, so jmack's 2026-11-06 walk logs are on **Fri · Upper B**.
 
 **Related:** [[dashboard]] · [[identity]] · [[traefik]] · [[backups]] · runbook [wger](../runbooks/wger.md)
 
@@ -57,7 +58,7 @@ routine, so its logs stayed).
 
 | Field | Value |
 |---|---|
-| Purpose | Workout routines + per-set logs + history for jmack and rach, iOS app with offline sync. Each person's routines (one per block, see above) are their own plan: jmack's from the guide, rach's from the catalog's `plans.rach` |
+| Purpose | Workout routines + per-set logs + history for jmack and rach, iOS app with offline sync. Each person's seven weekday routines (see above) are their own plan: jmack's from the guide, rach's from the catalog's `plans.rach` |
 | Host | [[kdk-dkr-01]] |
 | Endpoint | `https://wger.kmkdp.com` (internal Traefik). Off the LAN: Tailscale (subnet router advertises 10.1.20.0/24; tailnet DNS resolves `*.kmkdp.com` split-horizon) |
 | Images | `wger/server:2.7.0` (web, celery_worker, celery_beat), `nginx:1.31.8-alpine`, `postgres:18.6-alpine`, `redis:8.10.3-alpine`, `journeyapps/powersync-service:1.28.1`; all digest-pinned, Renovate-tracked |
@@ -112,9 +113,9 @@ that person's key:
 
 | What | Value |
 |---|---|
-| Session | one per person per day: `datetime_start`/`datetime_end` of the walk, impression Neutral, the routine tagged `[kdk:daily]` (Daily · walk + stretches) + that weekday's day, notes `treadmill auto-log: 2.41 km, 4.8 km/h avg, 30.0 min (07:12–07:42)` |
+| Session | one per person per day: `datetime_start`/`datetime_end` of the walk, impression Neutral, today's weekday routine (tag `[kdk:fri]` on a Friday, e.g. Fri · Upper B) + its one day, notes `treadmill auto-log: 2.41 km, 4.8 km/h avg, 30.0 min (07:12–07:42)` |
 | Log | exercise treadmill-walk (id 1937), the weekday's walk slot entry, `repetitions` = minutes, unit Minutes (id 4), no weight |
-| Second walk that day | its notes line is appended to the same session (also to a session the app created for the Daily routine; a session of another routine, e.g. Lifts, is left alone and the walk gets its own), plus a second log |
+| Second walk that day | its notes line is appended to the same session (also to a session the app created for today's routine; a session of another routine is left alone and the walk gets its own), plus a second log |
 | Same walk again | nothing (the notes line is the idempotency key) |
 | Guest walk | not logged; HA shows a persistent notification |
 | Person without a key | not logged; a warning in the HA log (rach until her key exists) |

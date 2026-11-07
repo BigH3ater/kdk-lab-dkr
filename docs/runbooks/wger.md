@@ -255,44 +255,51 @@ same catalog as the HA helpers (`tools/workout_catalog.json`) and the guide outp
   when the slug has no step photos. The set is re-uploaded only when a file changes,
   and then every other image on that exercise is deleted (images on `kdk:` exercises
   belong to the generator);
-- per person, one routine per block of the plan (catalog `routines`; the app's routine
-  list is the table of contents, each day card holds one block):
+- per person, one routine per weekday (seven each), each holding that whole day in the
+  guide's order, so the app's routine list reads Mon..Sun:
 
   | jmack | rach |
   |---|---|
-  | Daily · walk + stretches (every day: walk + PT stretches) | Daily · desk + evening |
-  | Lifts · Mon/Tue/Thu/Fri (Lower A, Upper A, rest, Lower B, Upper B) | Strength · Mon/Thu |
-  | PT + hands · Mon/Thu/Sat (PT block + adductor, hands) | Cardio · Tue/Fri |
-  | Flow + yoga · Wed/Sat/Sun (flow; Sunday adds yoga) | |
+  | Mon · Lower A | Mon · Strength A |
+  | Tue · Upper A | Tue · Cardio |
+  | Wed · Treadmill + flow | Wed · Daily parts |
+  | Thu · Lower B | Thu · Strength B |
+  | Fri · Upper B | Fri · Cardio |
+  | Sat · Walk + flow + PT | Sat · Daily parts |
+  | Sun · Yoga | Sun · Daily parts |
 
-  Every routine is a "fixed weekly schedule" from this week's Monday for 17 weeks
-  (wger allows at most 120 days; one window for all of a person's routines), day N =
-  weekday N, a weekday the block skips is a rest day. One slot per guide step in the
-  guide's order, supersets as one slot with two exercises, sets × reps / seconds /
-  minutes / 10-ft lengths from the dose text, weights blank (you fill them in). The
-  description ends with `[kdk:<block>]`: the generator finds its routines by that tag
-  (the HA treadmill auto-log finds `[kdk:daily]`). A block's name carries its weekdays,
-  so a plan change can rename it (wger allows 25 characters; the run stops on a longer one).
+  The name is derived, nothing to keep in the catalog: the weekday + the guide's day
+  title (rach: her non-daily groups, else "Daily parts"), shortened until it fits wger's
+  25 characters ("flexibility flow" → "flow", then "Treadmill" → "Walk"; the run stops
+  when it still does not fit). Each routine has ONE day (name = the weekday, subtitle =
+  the guide's summary) and **fit_in_week off**: a one-day routine repeats its day on
+  every date, so the app always shows it (no rest-day padding; with the weekly schedule
+  on, wger restarts at each Monday and the day would only show on Mondays). One slot per
+  guide step, supersets as one slot with two exercises, sets × reps / seconds / minutes /
+  10-ft lengths from the dose text, weights blank (you fill them in). The description
+  ends with `[kdk:mon]` .. `[kdk:sun]`: the generator finds its routines by that tag and
+  the HA treadmill auto-log finds today's routine by it. wger lists routines by start
+  date (newest first), so the starts are staggered a day apart (Monday's routine starts
+  on this week's Monday, Sunday's six days earlier) with one shared end 16 weeks later:
+  that is what keeps the list in Mon..Sun order.
 
 It is idempotent: a second run with nothing changed makes no writes. It never deletes
-a routine, a slot that has logs (a wger log is deleted with its slot) or a day that has
-logs or sessions (a session is deleted with its day), so it is safe to re-run after
-people have logged.
+a routine, a slot or a day that has logs or sessions (a wger log is deleted with its
+slot, a session with its day or routine), so it is safe to re-run after people have
+logged. A generated routine that is no longer in the plan and has neither is deleted.
 
-**The split (once, 2026-11-07).** Before it each person had one routine, **Week (kdk)**,
-with the whole day in one list. The first run after the merge renames that routine into
-the person's Daily block (same routine id, same 7 days): the walk and PT-stretch slots
-stay where they are, every other slot moves to a new block routine (deleted there,
-created in the new one; none of them had logs), and the three (rach: two) other
-routines are created. jmack's real logs (the 2026-11-06 treadmill walks, on the Friday
-walk slot, and their session) stay on the renamed routine, untouched. A slot that does
-have logs and leaves the Daily block would stay at the end of its day as `[retired]`.
-The dry run shows it: for jmack `PATCH routine/1/ 'Daily · walk + stretches'
-['description', 'name']`, then 3 `POST routine/`; on the live data of 2026-11-07 that
-was 546 routine writes for jmack and 79 for rach (plus any exercise image writes).
-New routines are created Daily first, then the other blocks last-to-first: the app
-lists routines newest first, so the list reads in the order above with Daily at the
-bottom, and the app's home-screen card shows Lifts (rach: Strength).
+**Migration to weekday routines (once, after the block routines of #413).** The block
+routines are reused, not deleted: a routine with logs or sessions becomes the weekday
+those are on, so jmack's routine 1 (Daily · walk + stretches, the two 2026-11-06 walk
+logs on its Friday walk slot 64 and their session) becomes **Fri · Upper B**, keeping its
+Friday day (id 5), that slot and both logs. The other block routines (no logs) take the
+free weekdays whose exercises they already hold most of (jmack: PT + hands → Mon, Lifts
+→ Tue, Flow + yoga → Sun; rach: Daily → Mon, Cardio → Tue, Strength → Thu), their other
+days are deleted (no logs, no sessions), and the missing weekdays are created (jmack
+Wed/Thu/Sat, rach Wed/Fri/Sat/Sun). The older **Week (kdk)** is picked up the same way.
+On the live data of 2026-11-07 the dry run listed 402 routine writes for jmack and 214
+for rach (plus any exercise image writes), starting with `PATCH routine/5/ 'Mon · Lower A'`;
+no `DELETE routine/`.
 
 Needs steps 7 and 8 done, Python 3 with `requests` on the laptop, and the guide output.
 
@@ -353,40 +360,38 @@ for who in JMACK RACH; do
   k=WGER_API_KEY_$who
   printf 'Authorization: Token %s\n' "${!k}" | curl -s -H @- "$WGER_URL/api/v2/routine/" \
     | python3 -c 'import json,sys; [print(r["id"], r["name"], r["start"], r["end"], r["fit_in_week"]) for r in json.load(sys.stdin)["results"]]'
-done        # JMACK 4 rows, RACH 3; the same Monday + 118 days and True on every row; no "Week (kdk)"
+done        # 7 rows each, Mon..Sun; starts a day apart (Mon = this week's Monday), one end, False on every row
 unset WGER_API_KEY_JMACK WGER_API_KEY_RACH
 ```
 
-The treadmill auto-log looks the walk up by the `[kdk:daily]` tag (before the split: by
-the name **Week (kdk)**). Do the `--apply` above in the same sitting as the HA side:
-the merge's Komodo deploy copies `config/packages/treadmill_wger.yaml` to kdk-dkr-02,
-then HA → Developer Tools → YAML → **Reload all YAML configuration** (or
+The treadmill auto-log finds today's routine by its weekday tag (`[kdk:fri]` on a
+Friday; before this, `[kdk:daily]`). Do the `--apply` above in the same sitting as the
+HA side: the merge's Komodo deploy copies `config/packages/treadmill_wger.yaml` to
+kdk-dkr-02, then HA → Developer Tools → YAML → **Reload all YAML configuration** (or
 `script.reload`; no restart). A walk between the deploy and the `--apply` (or between
 the `--apply` and the reload) is still logged, only without its routine/slot (the
 package's no-routine path). Check once:
 
 ```bash
-# Laptop -> kdk-dkr-02: the deployed package looks for the tag, not the old name
-ssh kdkadmin@10.1.30.21 'sudo grep -c "kdk:daily" /opt/kdk-lab/home-assistant/config/packages/treadmill_wger.yaml'   # 1 or more
+# Laptop -> kdk-dkr-02: the deployed package builds the weekday tag; 0 = still the kdk:daily version
+ssh kdkadmin@10.1.30.21 'sudo grep -c "day_tag" /opt/kdk-lab/home-assistant/config/packages/treadmill_wger.yaml'   # 2
 ```
 
-`--person rach` limits the run to one person's routine (exercises are only written
+`--person rach` limits the run to one person's routines (exercises are only written
 when jmack is selected). Rachel's routine comes from her own catalog plan
 (`plans.rach` in `workout_catalog.json`: desk breaks + evening mobility every day,
-Strength A Monday, cardio Tuesday and Friday as one "either one" slot holding the pool
-walk, Strength B Thursday), not from `workout.json`; her 14
+Strength A Monday, the pool walk Tuesday and Friday, Strength B Thursday), not from `workout.json`; her 14
 exercises have no posters yet. Until her key exists, run `--person jmack` (that also
 writes her exercises, which are global) and leave `WGER_API_KEY_RACH` unset. Warnings go to stderr: a name too close to a wger.de exercise
 gets a ` · kdk plan` suffix (11 names today, e.g. Hammer Curl; wger's rule is 0.85 trigram similarity against every English exercise), a slug without a PNG poster gets no image
 (`shoulder-press` has only an SVG, `flat-press` none).
 
-Verify in the app, both phones: Routines lists the blocks (jmack: Lifts · Mon/Tue/Thu/Fri,
-PT + hands · Mon/Thu/Sat, Flow + yoga · Wed/Sat/Sun, Daily · walk + stretches; rach:
-Strength · Mon/Thu, Cardio · Tue/Fri, Daily · desk + evening). Open each: today's card
-has the calendar icon, its steps are that block's part of the vault day note, and a
-skipped weekday is a Rest day card (Daily: Wednesday and Saturday start with the
-25–30 min walk; Flow + yoga: Sunday ends with yoga). Open Daily → Friday: the
-2026-11-06 walks are still under Logs. Open one
+Verify in the app, both phones: Routines lists seven routines, Mon..Sun, named as in
+the table above. Open today's: one day card (the weekday, the guide summary under it,
+the calendar icon), its list is the vault day note for today in order (jmack: walk, PT,
+hands, lifts or flow/yoga, PT stretches); the play button opens Gym mode on that day.
+Every routine shows the calendar icon (its one day repeats daily), so go by the name.
+Open **Fri · Upper B** → Logs: the 2026-11-06 walks are still there. Open one
 exercise (e.g. Romanian Deadlift): equipment chip(s) at the top, the image carousel
 (step 1 first once step photos exist), the description with **Dose / How / Safety**
 and no `kdk:` line, and the body map with the hamstrings + glutes red and the lower

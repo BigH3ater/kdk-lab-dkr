@@ -37,38 +37,42 @@ What it writes (runbook: docs/runbooks/wger.md, "Load the catalog"):
   2. Units: looked up by name (Repetitions, Seconds, Minutes, "10-ft lengths"; lb).
      The REST API cannot create units. A missing one is printed as an admin step and
      --apply then stops before the routines.
-  3. Per person, one routine per block of the plan's "routines" (catalog), so the app's
-     routine list is the table of contents and each day card stays short. Jacob:
-     "Daily · walk + stretches", "Lifts · Mon/Tue/Thu/Fri", "PT + hands · Mon/Thu/Sat",
-     "Flow + yoga · Wed/Sat/Sun"; Rachel: "Daily · desk + evening", "Strength · Mon/Thu",
-     "Cardio · Tue/Fri" (name = label + " · " + the block's weekdays unless it runs every
-     day; wger allows 25 characters). Each guide step goes to the block that holds its
-     catalog item (a guide-only slug such as arm-circles goes with the next step). Every
-     routine: fit_in_week, starts on a Monday, days Monday..the block's last weekday
-     (order 1.. = Monday.., none needs logs to advance, so day N is always weekday N; a
-     weekday the block skips is a rest day; wger leaves the days after the last one
-     empty), one slot per step in the guide's order, supersets and "either one" pairs as
-     one slot with two entries, "Every day" steps expanded, sets/reps/max-reps from the
-     dose text, weights left blank. The description ends with the tag "[kdk:<block key>]":
-     routines are found by it (then by name; the "daily" block also takes over the
-     pre-split "Week (kdk)" routine, keeping its days, slots and logs), and the HA
-     treadmill auto-log finds "[kdk:daily]". wger caps a routine at 120 days, so the
-     window is 17 weeks, shared by all of a person's routines; an --apply within 28 days
-     of the end rolls them all forward to this week. New routines are created "daily"
-     first, then the other blocks last-to-first: the app lists routines newest first
-     (same start), so the list reads in catalog order with "daily" at the bottom, and the
-     dashboard card shows the second block (Lifts / Strength).
+  3. Per person, one routine per weekday, each holding that whole day in the guide's order
+     (Jacob: walk, PT block, hands, lifts or flow/yoga, PT stretches; Rachel: desk breaks,
+     the day's session, evening mobility), so the app's routine list reads Mon..Sun and a
+     routine has nothing but its day. Name "<Mon> · <the day's title>" (Jacob: the guide
+     title after the dash, e.g. "Mon · Lower A"; Rachel: her non-daily groups, else "Daily
+     parts"), shortened by SHORTEN until it fits wger's 25 characters (the run stops when it
+     cannot). Each routine: ONE day (name = the weekday, description = the guide's summary),
+     fit_in_week off: a one-day routine without the weekly schedule repeats that day on
+     every date, so the app always shows it, with no rest-day padding and no weekday
+     mapping (with fit_in_week on, wger restarts the cycle each Monday and the day would
+     only land on Mondays). One slot per step, supersets and "either one" pairs as one slot
+     with two entries, "Every day" steps expanded, sets/reps/max-reps from the dose text,
+     weights left blank. The description ends with the tag "[kdk:<mon..sun>]": routines are
+     found by it, and the HA treadmill auto-log finds today's routine by it.
+     Window: wger caps a routine at 120 days and lists routines by -start, -created, so the
+     starts are staggered one day per weekday (Monday's routine starts on this week's
+     Monday, Sunday's six days earlier) with one shared end 16 weeks after that Monday: the
+     list reads Mon..Sun whatever order the routines were created in. An --apply within 28
+     days of the end rolls all seven forward to this week.
+     Migration (from the block routines of 2026-11-07, or the older "Week (kdk)"): a
+     generated routine without a weekday tag is reused for a weekday: one with logs or
+     sessions for the weekday those are on (jmack's Daily: Friday, its walk slot keeps the
+     logs), the rest for the free weekdays whose exercises they already hold most of.
+     Leftover generated routines are deleted when they have no logs and no sessions.
 Slots are matched by their exercises, never rebuilt: a WorkoutLog cascades away with
 its slot entry, so a slot that has logs is never deleted (it is moved to the end and
-marked "[retired]" instead). A day is deleted only when it is past the block's last
-weekday and has no logs or sessions (a session cascades away with its day); routines are
-never deleted.
+marked "[retired]" instead). A day is matched by its weekday name, and a day the plan does
+not want is deleted only when it has no logs and no sessions (a session cascades away
+with its day). A routine with logs or sessions is never deleted.
 """
 from __future__ import annotations
 
 import argparse
 import datetime as dt
 import hashlib
+import itertools
 import json
 import os
 import re
@@ -81,9 +85,12 @@ TOOLS = Path(__file__).resolve().parent
 sys.path.insert(0, str(TOOLS))
 import workout_catalog  # noqa: E402  (the catalog loader + validation)
 
-LEGACY_NAME = "Week (kdk)"      # the one-routine-per-person layout before the split (2026-11-07)
+LEGACY_NAME = "Week (kdk)"      # the one-routine-per-person layout before 2026-11-07
 ROUTINE_NAME_MAX = 25           # wger Routine.name max_length
 TAG_RE = re.compile(r"\[kdk:([a-z_]+)\]")
+DAY_TAGS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
+SHORTEN = [("flexibility flow", "flow"), ("Treadmill", "Walk")]   # applied in turn until the name fits
+DAILY_PARTS = "Daily parts"     # Rachel's title for a day with only her every-day groups
 # wger rejects a translation whose name is >= 0.85 trigram-similar to any existing English
 # exercise (11 catalog names match upstream ones exactly). "(kdk)" is not distinct enough
 # for long names; this suffix clears the rule for every catalog name (tested 2026-11-06).
@@ -95,7 +102,8 @@ def alt_name(name: str) -> str:
 ROUTINE_DESC = ("Generated by gen_wger.py from the kdk workout plan; edits here are overwritten. "
                 "Weights are yours to fill in.")
 WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
-WINDOW_DAYS = 118          # Monday + 118 = Sunday of week 17 (wger: MAX_DURATION_DAYS = 120)
+WINDOW_DAYS = 118          # longest span (Sunday's routine): wger MAX_DURATION_DAYS = 120
+END_DAYS = WINDOW_DAYS - 6  # the shared end: base Monday + 112 (16 weeks)
 RENEW_DAYS = 28            # --apply rolls the window when it ends sooner than this
 RETIRED = "[retired] "     # slot comment prefix for a removed slot that still has logs
 RETIRED_ORDER = 900
@@ -228,11 +236,14 @@ def plan_guide(pl: dict) -> dict:
                 steps.append({"num": str(len(steps) + 1), "slug": st["slug"], "title": st["title"],
                               "dose": st["dose"], "cues": list(st.get("cues", [])),
                               "either": bool(it.get("either")) and k == 0})
-        groups = []
+        groups, own = [], []
         for it in its:
             if titles[it["group"]] not in groups:
                 groups.append(titles[it["group"]])
-        days.append({"id": abbr, "name": wd, "title": " + ".join(groups), "summary": "", "steps": steps})
+            if it.get("days") != ["daily"] and titles[it["group"]] not in own:
+                own.append(titles[it["group"]])
+        days.append({"id": abbr, "name": wd, "title": " + ".join(own) or DAILY_PARTS,
+                     "summary": " + ".join(groups), "steps": steps})
     return {"version": 2, "everyday": [], "days": days}
 
 
@@ -464,73 +475,34 @@ def make_slots(wd: str, steps: list[dict], kinds: dict, warn) -> list[dict]:
     return slots
 
 
-def block_owner(pl: dict) -> dict[str, tuple[int, str]]:
-    """item id -> (index of its routine block, the label its day description uses: the group's
-    comment when the block takes the whole group, else the item's name)."""
-    comments = {g["key"]: g["comment"] for g in pl["groups"]}
-    out = {}
-    for bi, b in enumerate(pl["routines"]):
-        for it in pl["items"]:
-            if it["group"] in b.get("groups", []):
-                out[it["id"]] = (bi, comments[it["group"]])
-            elif it["id"] in b.get("items", []):
-                out[it["id"]] = (bi, it["name"])
-    return out
+def routine_name(abbr: str, title: str) -> str:
+    """'Mon · Lower A' from the day title (any 'Monday — ' prefix dropped), shortened to fit."""
+    title = re.sub(r"^\w+day\s+[—-]\s+", "", title or "").strip()
+    name = f"{abbr} · {title}" if title else abbr
+    for old, new in SHORTEN:
+        if len(name) <= ROUTINE_NAME_MAX:
+            break
+        name = name.replace(old, new)
+    if len(name) > ROUTINE_NAME_MAX:
+        raise WgerError(f"routine name {name!r} is longer than wger's {ROUTINE_NAME_MAX} characters; "
+                        "shorten the day title or add a SHORTEN rule")
+    return name
 
 
-def plan_routines(guide: dict, pl: dict, warn) -> list[dict]:
-    """The person's routines, one per block of pl["routines"] that has steps this week:
-    [{key, name, description, days: [{name, description, is_rest, slots}]}], days from Monday
-    to the block's last weekday (a skipped weekday is a rest day)."""
-    items = {s: it for it in pl["items"] for s in it["slugs"]}
-    kinds = {s: it["kind"] for s, it in items.items()}
-    owner = block_owner(pl)
-    blocks = pl["routines"]
+def plan_week(guide: dict, pl: dict, warn) -> list[dict]:
+    """Seven routines, Monday..Sunday: [{key, name, description, days: [one day]}]."""
+    kinds = {s: it["kind"] for it in pl["items"] for s in it["slugs"]}
     by_name = {d["name"]: d for d in guide["days"]}
-    per: list[dict[str, list]] = [{wd: [] for wd in WEEKDAYS} for _ in blocks]
-    for wd in WEEKDAYS:
+    out = []
+    for wd, tag in zip(WEEKDAYS, DAY_TAGS):
         day = by_name.get(wd)
         if day is None:
             raise WgerError(f"workout.json has no {wd}")
-        steps = day_steps(guide, day)
-        where: list = []
-        for st in steps:
-            it = items.get(st["slug"])
-            if it is not None and it["id"] not in owner:
-                raise WgerError(f"{wd} {st['slug']}: item {it['id']} (group {it['group']}) is in no routine "
-                                "block; add it (or its group) to \"routines\" in workout_catalog.json")
-            where.append(owner[it["id"]] if it is not None else None)
-        for i, w in enumerate(where):       # a guide-only slug (arm-circles) goes with the next step
-            if w is None:
-                where[i] = next((x for x in where[i + 1:] if x is not None), None) or \
-                    next((x for x in reversed(where[:i]) if x is not None), None)
-                if where[i] is None:
-                    raise WgerError(f"{wd} {steps[i]['slug']}: not in the catalog and no step to go with")
-        for st, (bi, label) in zip(steps, where):
-            per[bi][wd].append((st, label))
-    out = []
-    for bi, b in enumerate(blocks):
-        active = [wd for wd in WEEKDAYS if per[bi][wd]]
-        if bi == 0 and len(active) != 7:
-            raise WgerError(f"routine {b['key']!r} must have steps every day (it holds the walk the HA "
-                            f"auto-log finds); it has {[wd[:3] for wd in active]}")
-        if not active:
-            warn(f"routine {b['key']!r} has no steps this week; not written")
-            continue
-        days = []
-        for wd in WEEKDAYS[:WEEKDAYS.index(active[-1]) + 1]:
-            sts = per[bi][wd]
-            labels = list(dict.fromkeys(label for _, label in sts))
-            days.append({"name": wd, "description": short(" + ".join(labels), 1000), "is_rest": not sts,
-                         "slots": make_slots(wd, [st for st, _ in sts], kinds, warn)})
-        abbr = [wd[:3] for wd in active]
-        name = b["label"] if len(active) == 7 else f"{b['label']} · {'/'.join(abbr)}"
-        if len(name) > ROUTINE_NAME_MAX:
-            raise WgerError(f"routine name {name!r} is longer than wger's {ROUTINE_NAME_MAX} characters; "
-                            f"shorten the label of {b['key']!r}")
-        when = "Every day" if len(active) == 7 else ", ".join(abbr)
-        out.append({"key": b["key"], "name": name, "days": days,
-                    "description": f"{when}. {ROUTINE_DESC} [kdk:{b['key']}]"})
+        slots = make_slots(wd, day_steps(guide, day), kinds, warn)
+        out.append({"key": tag, "name": routine_name(wd[:3], day.get("title", "")),
+                    "description": f"{wd}. {ROUTINE_DESC} [kdk:{tag}]",
+                    "days": [{"name": wd, "description": short(day.get("summary", ""), 1000),
+                              "is_rest": False, "slots": slots}]})
     return out
 
 
@@ -779,14 +751,13 @@ def sync_exercises(api: Api, specs: dict, ref: dict, can_write: bool, warn) -> d
 
 
 # ---------------------------------------------------------------- routines
-def window(today: dt.date) -> tuple[dt.date, dt.date]:
-    start = today - dt.timedelta(days=today.weekday())
-    return start, start + dt.timedelta(days=WINDOW_DAYS)
+def base_monday(today: dt.date) -> dt.date:
+    return today - dt.timedelta(days=today.weekday())
 
 
-def window_ok(r: dict, today: dt.date) -> bool:
-    cs, ce = dt.date.fromisoformat(r["start"]), dt.date.fromisoformat(r["end"])
-    return cs.weekday() == 0 and cs <= today and ce >= today + dt.timedelta(days=RENEW_DAYS)
+def end_ok(end: dt.date, today: dt.date) -> bool:
+    base = end - dt.timedelta(days=END_DAYS)
+    return base.weekday() == 0 and base <= today and end >= today + dt.timedelta(days=RENEW_DAYS)
 
 
 def routine_tag(r: dict) -> str | None:
@@ -794,42 +765,111 @@ def routine_tag(r: dict) -> str | None:
     return m.group(1) if m else None
 
 
-def sync_routines(api: Api, blocks: list[dict], ex_ids: dict, units: dict, today: dt.date, warn):
-    """All of one person's routines. Each block's routine is found by its [kdk:<key>] tag, else by
-    its name, else (the first block only) the pre-split LEGACY_NAME routine, which it renames."""
-    rs = [r for r in api.list("routine/") if not r.get("is_template")]
-    taken: set = set()
+class State:
+    """One person's routine rows, fetched once (the API scopes every list to the key's user)."""
 
-    def find(i: int, b: dict):
-        for pick in (lambda r: routine_tag(r) == b["key"],
-                     lambda r: routine_tag(r) is None and r.get("name") == b["name"],
-                     lambda r: i == 0 and routine_tag(r) is None and r.get("name") == LEGACY_NAME):
-            hits = [r for r in rs if r["id"] not in taken and pick(r)]
-            if hits:
-                if len(hits) > 1:
-                    warn(f"{api.who}: {len(hits)} routines for block {b['key']!r}; using id {hits[0]['id']}")
-                taken.add(hits[0]["id"])
-                return hits[0]
-        return None
+    def __init__(self, api: Api):
+        self.days = api.list("day/")
+        self.slots = api.list("slot/")
+        self.entries = api.list("slot-entry/")
+        self.cfg = {k: api.list(p + "/") for k, p in CONFIGS.items()}
+        self.logs = api.list("workoutlog/")
+        self.sessions = api.list("workoutsession/")
+        day_of_slot = {s["id"]: s["day"] for s in self.slots}
+        self.day_of_entry = {e["id"]: day_of_slot.get(e["slot"]) for e in self.entries}
 
-    found = [find(i, b) for i, b in enumerate(blocks)]
-    start, end = window(today)
-    for r in found:                     # one window for all of them: the first still-valid one
-        if r is not None and window_ok(r, today):
-            start, end = dt.date.fromisoformat(r["start"]), dt.date.fromisoformat(r["end"])
-            break
-    for i in [0, *range(len(blocks) - 1, 0, -1)]:     # creation order: see the module docstring
-        sync_routine(api, blocks[i], found[i], start, end, ex_ids, units, warn)
+    def used_days(self, rid) -> dict:
+        """day id -> number of logs + sessions on it, for one routine's days."""
+        mine = {d["id"] for d in self.days if d["routine"] == rid}
+        n: dict = {}
+        for x in self.sessions:
+            if x.get("day") in mine:
+                n[x["day"]] = n.get(x["day"], 0) + 1
+        for x in self.logs:
+            d = self.day_of_entry.get(x.get("slot_entry"))
+            if d in mine:
+                n[d] = n.get(d, 0) + 1
+        return n
+
+    def has_history(self, rid) -> bool:
+        return any(x.get("routine") == rid for x in self.logs + self.sessions) or bool(self.used_days(rid))
+
+    def exercises_on(self, rid, day_name: str) -> set:
+        days = {d["id"] for d in self.days if d["routine"] == rid and d.get("name") == day_name}
+        slots = {s["id"] for s in self.slots if s["day"] in days}
+        return {e["exercise"] for e in self.entries if e["slot"] in slots}
+
+
+def assign(rs: list[dict], week: list[dict], st: State, ex_ids: dict, warn, who: str) -> dict:
+    """weekday tag -> existing routine: by tag, then generated routines without a weekday tag
+    (block routines, "Week (kdk)"): those with history go to the weekday their logs and sessions
+    are on, the others to the free weekdays whose exercises they already hold most of."""
+    got: dict = {}
     for r in rs:
-        if r["id"] not in taken and (routine_tag(r) or r.get("name") == LEGACY_NAME):
-            warn(f"{api.who}: routine {r.get('name')!r} (id {r['id']}) is not in the plan; left alone "
-                 "(deleting a routine deletes its logs; delete it in the app if it has none you want)")
+        t = routine_tag(r)
+        if t in DAY_TAGS:
+            if t in got:
+                warn(f"{who}: two routines tagged [kdk:{t}]; using id {got[t]['id']}")
+            else:
+                got[t] = r
+    taken = {r["id"] for r in got.values()}
+    spare = [r for r in rs if r["id"] not in taken and (routine_tag(r) or r.get("name") == LEGACY_NAME)]
+    free_pool = []
+    for r in sorted(spare, key=lambda r: str(r["id"])):
+        used = st.used_days(r["id"])
+        wd = None
+        if used:
+            best = max(used, key=lambda d: used[d])
+            name = next((d.get("name") for d in st.days if d["id"] == best), None)
+            wd = DAY_TAGS[WEEKDAYS.index(name)] if name in WEEKDAYS else None
+        if wd is not None and wd not in got:
+            got[wd] = r
+        else:
+            free_pool.append(r)
+    free = [t for t in DAY_TAGS if t not in got]
+    want = {b["key"]: {ex_ids[e["slug"]] for s in b["days"][0]["slots"] for e in s["entries"]} for b in week}
+    overlap = {(r["id"], t): len(want[t] & st.exercises_on(r["id"], WEEKDAYS[DAY_TAGS.index(t)]))
+               for r in free_pool for t in free}
+    pool = free_pool[:len(free)]
+    best, best_score = (), -1
+    for perm in itertools.permutations(free, len(pool)):
+        score = sum(overlap[(r["id"], t)] for r, t in zip(pool, perm))
+        if score > best_score:
+            best, best_score = perm, score
+    for r, t in zip(pool, best):
+        got[t] = r
+    return got
 
 
-def sync_routine(api: Api, block: dict, r: dict | None, start: dt.date, end: dt.date, ex_ids: dict,
-                 units: dict, warn):
+def sync_routines(api: Api, week: list[dict], ex_ids: dict, units: dict, today: dt.date, warn):
+    """All seven of one person's weekday routines (see the module docstring)."""
+    rs = [r for r in api.list("routine/") if not r.get("is_template")]
+    st = State(api)
+    got = assign(rs, week, st, ex_ids, warn, api.who)
+    end = base_monday(today) + dt.timedelta(days=END_DAYS)
+    for t in DAY_TAGS:                  # one window for all: the first still-valid one
+        r = got.get(t)
+        if r is not None and end_ok(dt.date.fromisoformat(r["end"]), today):
+            end = dt.date.fromisoformat(r["end"])
+            break
+    base = end - dt.timedelta(days=END_DAYS)
+    for i, b in enumerate(week):
+        sync_routine(api, b, got.get(b["key"]), base - dt.timedelta(days=i), end, st, ex_ids, units, warn)
+    used = {r["id"] for r in got.values()}
+    for r in rs:
+        if r["id"] in used or not (routine_tag(r) or r.get("name") == LEGACY_NAME):
+            continue
+        if st.has_history(r["id"]):
+            warn(f"{api.who}: routine {r.get('name')!r} (id {r['id']}) is not in the plan but has logs or "
+                 "sessions; left alone (deleting a routine deletes them)")
+        else:
+            api.write("DELETE", f"routine/{r['id']}/", f"{r.get('name')!r} (not in the plan, no logs, no sessions)")
+
+
+def sync_routine(api: Api, block: dict, r: dict | None, start: dt.date, end: dt.date, st: State,
+                 ex_ids: dict, units: dict, warn):
     name = block["name"]
-    want = {"name": name, "description": block["description"], "fit_in_week": True,
+    want = {"name": name, "description": block["description"], "fit_in_week": False,
             "start": start.isoformat(), "end": end.isoformat()}
     if r is None:
         r = api.write("POST", "routine/", f"{name!r} {want['start']}..{want['end']}", want)
@@ -839,42 +879,38 @@ def sync_routine(api: Api, block: dict, r: dict | None, start: dt.date, end: dt.
             api.write("PATCH", f"routine/{r['id']}/", f"{name!r} {sorted(patch)}", patch)
     rid = r["id"]
     fresh = is_dry(rid)
-    sdays = [] if fresh else api.list("day/", routine=rid)
+    sdays = [] if fresh else [d for d in st.days if d["routine"] == rid]
     day_ids = {d["id"] for d in sdays}
-    sslots = [] if fresh else [s for s in api.list("slot/") if s["day"] in day_ids]
+    sslots = [s for s in st.slots if s["day"] in day_ids]
     slot_ids = {s["id"] for s in sslots}
-    sentries = [] if fresh else [e for e in api.list("slot-entry/") if e["slot"] in slot_ids]
+    sentries = [e for e in st.entries if e["slot"] in slot_ids]
     entry_ids = {e["id"] for e in sentries}
-    scfg = {k: ([] if fresh else [c for c in api.list(p + "/") if c["slot_entry"] in entry_ids])
-            for k, p in CONFIGS.items()}
-    logged = set() if fresh else {x.get("slot_entry") for x in api.list("workoutlog/", routine=rid)}
-    session_days = set() if fresh else {x.get("day") for x in api.list("workoutsession/", routine=rid)}
+    scfg = {k: [c for c in st.cfg[k] if c["slot_entry"] in entry_ids] for k in CONFIGS}
+    logged = {x.get("slot_entry") for x in st.logs}
+    used = {} if fresh else st.used_days(rid)
 
     used_days = set()
     for order, pd in enumerate(block["days"], 1):
-        d = next((x for x in sdays if x["id"] not in used_days and x.get("order") == order), None) or \
-            next((x for x in sdays if x["id"] not in used_days and x.get("name") == pd["name"]), None)
+        d = next((x for x in sdays if x["id"] not in used_days and x.get("name") == pd["name"]), None) or \
+            next((x for x in sdays if x["id"] not in used_days and x["id"] not in used
+                  and x.get("order") == order), None)
         dwant = {"name": pd["name"], "description": pd["description"], "order": order,
                  "is_rest": pd["is_rest"], "need_logs_to_advance": False}
-        label = f"{name} {pd['name']}"
         if d is None:
-            d = api.write("POST", "day/", label + (" (rest)" if pd["is_rest"] else ""),
-                          {"routine": rid, "type": "custom", **dwant})
+            d = api.write("POST", "day/", name, {"routine": rid, "type": "custom", **dwant})
         else:
             used_days.add(d["id"])
             patch = {k: v for k, v in dwant.items() if d.get(k) != v}
             if patch:
-                api.write("PATCH", f"day/{d['id']}/", f"{label} {sorted(patch)}", patch)
-        sync_slots(api, {**pd, "name": label}, d["id"], [s for s in sslots if s["day"] == d["id"]],
+                api.write("PATCH", f"day/{d['id']}/", f"{name} {sorted(patch)}", patch)
+        sync_slots(api, {**pd, "name": name}, d["id"], [s for s in sslots if s["day"] == d["id"]],
                    sentries, scfg, logged, ex_ids, units, warn)
     for x in sdays:
         if x["id"] in used_days:
             continue
-        mine = {s["id"] for s in sslots if s["day"] == x["id"]}
-        has_logs = any(e["id"] in logged for e in sentries if e["slot"] in mine)
-        if has_logs or x["id"] in session_days:
+        if x["id"] in used:
             warn(f"{api.who}: {name}: extra day {x.get('name')!r} (id {x['id']}) has logs or sessions; left "
-                 "alone, but it shifts the weekdays after it: delete it in the app once you do not need them")
+                 "alone: delete it in the app once you do not need them")
         else:
             api.write("DELETE", f"day/{x['id']}/", f"{name} extra day {x.get('name')!r} (no logs, no sessions)")
 
@@ -982,7 +1018,7 @@ def main(argv: list[str] | None = None, today: dt.date | None = None) -> int:
             raise WgerError("--posters DIR is required (the guide output dir with workout.json and exercise/)")
         sources = plan_sources(cat, lambda: load_guide(args.posters))
         specs = all_specs(sources, args.posters, warn)
-        blocks = {p["login"]: plan_routines(sources[p["login"]][1], sources[p["login"]][0], warn) for p in sel}
+        blocks = {p["login"]: plan_week(sources[p["login"]][1], sources[p["login"]][0], warn) for p in sel}
 
         actions: list[str] = []
         if args.check:
