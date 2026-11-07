@@ -2,7 +2,7 @@
 name = "grocery-planner"
 version = "0.1.0"
 description = "kdk-lab weekly grocery planner one-shot (Tandoor meal plan + two-store shopping list)"
-requires-python = "==3.12.*"
+requires-python = "==3.13.*"
 dependencies = [
     "requests==2.34.2",
     "pyyaml==6.0.3",
