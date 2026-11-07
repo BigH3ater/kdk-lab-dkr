@@ -1,4 +1,4 @@
-FROM python:3.12.16-slim@sha256:b18b261e1b4974b4f321451ad5251ded85abb22c2b8b262da527dda1d031ab30
+FROM python:3.12.16-slim@sha256:4840d514c583a4d3d8cad3940e68dee6f0f6f3635c12fcd0a3d74c21a5b93a54
 # Same digest-pinned base as the other build-from-source KOReader one-shots
 # (obsidian-to-koreader, koreader-highlights). ebook-convert needs Calibre's Qt
 # runtime, which is a Debian apt package (Trivy covers it via advisory-watch);

@@ -54,7 +54,7 @@ services:
       - mosquitto
 
   mosquitto:
-    image: eclipse-mosquitto:2.0.22@sha256:09b62ff32c2e7b64d4b431b9a89236073289b68db273de2b089edeb9b0d92b5c
+    image: eclipse-mosquitto:2.0.22@sha256:81a6193ae693942a3231cd3ac52875b02b7e3a19da671b2fb4b55cc874c5b279
     container_name: mosquitto
     restart: unless-stopped
     # 127.0.0.1 ONLY, never 0.0.0.0. A host-networked HA reaches it on loopback
@@ -174,7 +174,7 @@ services:
       start_period: 20s
 
   traefik:
-    image: traefik:v3.7.17@sha256:68ae5fe5b64ca166704b746a9e8afcd385e36b3f569a5691401bf652d57b3748
+    image: traefik:v3.7.17@sha256:f4bb143d1135a579b630ed491e17ec50f6f7c9c6a30585ff3d385471d2a86f5a
     container_name: traefik
     restart: unless-stopped
     # Native ACME with a Cloudflare DNS-01 solver, no certbot and no renewal

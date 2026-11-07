@@ -165,7 +165,7 @@ services:
 
   nginx:
     <<: *hardened
-    image: nginx:1.31.8-alpine@sha256:785835ea65db4bba6f021acc0f3be91b0fef76a53fe41f8588c6698d2aed0606
+    image: nginx:1.31.8-alpine@sha256:713fc2ebfd92e8217db451477182ee91944b123d2b1ee9fd5a8c6e91ca6c3a11
     container_name: wger-nginx
     # master runs as root and drops workers to `nginx`; creates its temp dirs under
     # /var/cache/nginx owned by the worker user.
@@ -218,7 +218,7 @@ services:
 
   db:
     <<: *hardened
-    image: postgres:18.6-alpine@sha256:10a5c69a83035ab5239f5620d708520e8b28f5aa1f2b20143e6024532edadfb5
+    image: postgres:18.6-alpine@sha256:123b17998ccaf47e53b502e8c6a1e79afd8f579c6f3eec83c563da026f957395
     container_name: wger-db
     # The entrypoint chowns the data dir and drops to the postgres user.
     cap_add:
@@ -266,7 +266,7 @@ services:
 
   cache:
     <<: *hardened
-    image: redis:8.10.3-alpine@sha256:21090af93f8324db2f0f0f4f38a7c60369d47d917e000c3423d89d2ae2883537
+    image: redis:8.10.3-alpine@sha256:71885d8cc6e42f2bc0aa2eb853bfc4be200b5108a46ac50e117ae1df0531fb80
     container_name: wger-cache
     # image's redis user: the entrypoint skips its chown/su-exec step when not root
     user: "999:1000"
