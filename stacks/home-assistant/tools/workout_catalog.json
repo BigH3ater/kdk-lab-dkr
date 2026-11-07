@@ -734,18 +734,16 @@
     },
     {
      "id": "pool_or_bike",
-     "name": "Cardio (pool or bike)",
+     "name": "Cardio (water walking)",
      "group": "cardio",
      "kind": "min",
      "days": [
       "tue",
       "fri"
      ],
-     "either": true,
      "slugs": [
-      "water-walk",
-      "recumbent-bike"
-     ],
+        "water-walk"
+      ],
      "steps": [
       {
        "slug": "water-walk",
@@ -756,18 +754,8 @@
         "Long, deliberate strides.",
         "Moderate pace: you can still hold a conversation."
        ]
-      },
-      {
-       "slug": "recumbent-bike",
-       "title": "Recumbent Bike",
-       "dose": "20–25 min · moderate (talk test)",
-       "cues": [
-        "Back fully supported against the seat.",
-        "Smooth, continuous pedalling.",
-        "Moderate pace: you can still hold a conversation."
-       ]
       }
-     ]
+      ]
     },
     {
      "id": "wall_slide",
