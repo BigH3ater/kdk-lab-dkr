@@ -255,14 +255,44 @@ same catalog as the HA helpers (`tools/workout_catalog.json`) and the guide outp
   when the slug has no step photos. The set is re-uploaded only when a file changes,
   and then every other image on that exercise is deleted (images on `kdk:` exercises
   belong to the generator);
-- per person, the routine **Week (kdk)**: 7 days Monday..Sunday from this week's
-  Monday for 17 weeks (wger allows at most 120 days), one slot per guide step in the
+- per person, one routine per block of the plan (catalog `routines`; the app's routine
+  list is the table of contents, each day card holds one block):
+
+  | jmack | rach |
+  |---|---|
+  | Daily · walk + stretches (every day: walk + PT stretches) | Daily · desk + evening |
+  | Lifts · Mon/Tue/Thu/Fri (Lower A, Upper A, rest, Lower B, Upper B) | Strength · Mon/Thu |
+  | PT + hands · Mon/Thu/Sat (PT block + adductor, hands) | Cardio · Tue/Fri |
+  | Flow + yoga · Wed/Sat/Sun (flow; Sunday adds yoga) | |
+
+  Every routine is a "fixed weekly schedule" from this week's Monday for 17 weeks
+  (wger allows at most 120 days; one window for all of a person's routines), day N =
+  weekday N, a weekday the block skips is a rest day. One slot per guide step in the
   guide's order, supersets as one slot with two exercises, sets × reps / seconds /
-  minutes / 10-ft lengths from the dose text, weights blank (you fill them in).
+  minutes / 10-ft lengths from the dose text, weights blank (you fill them in). The
+  description ends with `[kdk:<block>]`: the generator finds its routines by that tag
+  (the HA treadmill auto-log finds `[kdk:daily]`). A block's name carries its weekdays,
+  so a plan change can rename it (wger allows 25 characters; the run stops on a longer one).
 
 It is idempotent: a second run with nothing changed makes no writes. It never deletes
-a routine, a day, or a slot that has logs (a wger log is deleted with its slot), so it
-is safe to re-run after people have logged.
+a routine, a slot that has logs (a wger log is deleted with its slot) or a day that has
+logs or sessions (a session is deleted with its day), so it is safe to re-run after
+people have logged.
+
+**The split (once, 2026-11-07).** Before it each person had one routine, **Week (kdk)**,
+with the whole day in one list. The first run after the merge renames that routine into
+the person's Daily block (same routine id, same 7 days): the walk and PT-stretch slots
+stay where they are, every other slot moves to a new block routine (deleted there,
+created in the new one; none of them had logs), and the three (rach: two) other
+routines are created. jmack's real logs (the 2026-11-06 treadmill walks, on the Friday
+walk slot, and their session) stay on the renamed routine, untouched. A slot that does
+have logs and leaves the Daily block would stay at the end of its day as `[retired]`.
+The dry run shows it: for jmack `PATCH routine/1/ 'Daily · walk + stretches'
+['description', 'name']`, then 3 `POST routine/`; on the live data of 2026-11-07 that
+was 546 routine writes for jmack and 79 for rach (plus any exercise image writes).
+New routines are created Daily first, then the other blocks last-to-first: the app
+lists routines newest first, so the list reads in the order above with Daily at the
+bottom, and the app's home-screen card shows Lifts (rach: Strength).
 
 Needs steps 7 and 8 done, Python 3 with `requests` on the laptop, and the guide output.
 
@@ -284,8 +314,8 @@ unset WGER_API_KEY_JMACK WGER_API_KEY_RACH
 
 The keys travel in the environment only; the script reads `WGER_API_KEY_<LOGIN>` and
 takes no key on the command line (the curl below reads its header from stdin for the
-same reason). The first dry run lists about 1,200 writes (57
-exercises + images, two routines of ~100 slots each). On the install loaded before the
+same reason). The first dry run on an empty wger lists about 1,200 writes (57
+exercises + images, seven routines, ~150 slots). On the install loaded before the
 template change (2026-11-06) the dry run listed 106 writes for jmack (2026-11-07,
 before steps 12 and 13): 57 description PATCHes (new template, marker moved into the
 comment) and 49 exercise PATCHes (muscles, equipment). There are no image uploads until
@@ -321,10 +351,23 @@ python3 stacks/home-assistant/tools/gen_wger.py --posters "$G" --apply    # "0 w
 python3 stacks/home-assistant/tools/gen_wger.py --posters "$G" --check    # "wger matches the catalog", exit 0
 for who in JMACK RACH; do
   k=WGER_API_KEY_$who
-  printf 'Authorization: Token %s\n' "${!k}" | curl -s -H @- "$WGER_URL/api/v2/routine/?name=Week%20(kdk)" \
-    | python3 -c 'import json,sys; [print(r["id"], r["start"], r["end"], r["fit_in_week"]) for r in json.load(sys.stdin)["results"]]'
-done                                                                       # one row each: a Monday, 118 days later, True
+  printf 'Authorization: Token %s\n' "${!k}" | curl -s -H @- "$WGER_URL/api/v2/routine/" \
+    | python3 -c 'import json,sys; [print(r["id"], r["name"], r["start"], r["end"], r["fit_in_week"]) for r in json.load(sys.stdin)["results"]]'
+done        # JMACK 4 rows, RACH 3; the same Monday + 118 days and True on every row; no "Week (kdk)"
 unset WGER_API_KEY_JMACK WGER_API_KEY_RACH
+```
+
+The treadmill auto-log looks the walk up by the `[kdk:daily]` tag (before the split: by
+the name **Week (kdk)**). Do the `--apply` above in the same sitting as the HA side:
+the merge's Komodo deploy copies `config/packages/treadmill_wger.yaml` to kdk-dkr-02,
+then HA → Developer Tools → YAML → **Reload all YAML configuration** (or
+`script.reload`; no restart). A walk between the deploy and the `--apply` (or between
+the `--apply` and the reload) is still logged, only without its routine/slot (the
+package's no-routine path). Check once:
+
+```bash
+# Laptop -> kdk-dkr-02: the deployed package looks for the tag, not the old name
+ssh kdkadmin@10.1.30.21 'sudo grep -c "kdk:daily" /opt/kdk-lab/home-assistant/config/packages/treadmill_wger.yaml'   # 1 or more
 ```
 
 `--person rach` limits the run to one person's routine (exercises are only written
@@ -337,9 +380,13 @@ writes her exercises, which are global) and leave `WGER_API_KEY_RACH` unset. War
 gets a ` · kdk plan` suffix (11 names today, e.g. Hammer Curl; wger's rule is 0.85 trigram similarity against every English exercise), a slug without a PNG poster gets no image
 (`shoulder-press` has only an SVG, `flat-press` none).
 
-Verify in the app, both phones: Routines → **Week (kdk)** → today's day shows the
-same list as the vault day note for today; swipe through the week once (Wednesday and Saturday
-start with the 25–30 min walk, Sunday ends with yoga + the stretches). Open one
+Verify in the app, both phones: Routines lists the blocks (jmack: Lifts · Mon/Tue/Thu/Fri,
+PT + hands · Mon/Thu/Sat, Flow + yoga · Wed/Sat/Sun, Daily · walk + stretches; rach:
+Strength · Mon/Thu, Cardio · Tue/Fri, Daily · desk + evening). Open each: today's card
+has the calendar icon, its steps are that block's part of the vault day note, and a
+skipped weekday is a Rest day card (Daily: Wednesday and Saturday start with the
+25–30 min walk; Flow + yoga: Sunday ends with yoga). Open Daily → Friday: the
+2026-11-06 walks are still under Logs. Open one
 exercise (e.g. Romanian Deadlift): equipment chip(s) at the top, the image carousel
 (step 1 first once step photos exist), the description with **Dose / How / Safety**
 and no `kdk:` line, and the body map with the hamstrings + glutes red and the lower
@@ -639,8 +686,9 @@ Rachel do the 14c walk. The same block with `jmack` rotates jmack's key.
 
 ## Rollback
 
-The catalog load (step 9) is data, not config: to undo it, delete the **Week (kdk)**
-routine in each person's app (this deletes that person's logs for it, too) and the
+The catalog load (step 9) is data, not config: to undo it, delete the generated
+routines (description ends `[kdk:…]`) in each person's app (this deletes that person's
+logs for them, too) and the
 `kdk:` exercises in the Django admin (`/admin/exercises/exercise/`, superuser).
 
 For the stack itself: `git revert` the merge commit. Komodo then removes nothing on its own: destroy the

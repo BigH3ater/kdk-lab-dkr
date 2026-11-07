@@ -157,8 +157,15 @@ class FakeWger:
 
     def __init__(self, users):
         self.users = users           # token -> login
-        self.routines = {"jmack": {"id": 1, "name": "Week (kdk)"}}
-        # gen_wger layout: day order 1..7 = Monday..Sunday; walk entry on each day
+        # gen_wger layout: one routine per block, found by its [kdk:<block>] tag (the walk is in
+        # "daily", listed last by wger: newest first); day order 1..7 = Monday..Sunday
+        self.routines = {"jmack": [
+            {"id": 2, "name": "Lifts · Mon/Tue/Thu/Fri", "description": "Mon, Tue, Thu, Fri. [kdk:lifts]",
+             "is_template": False},
+            {"id": 7, "name": "Daily · walk + stretches", "description": "Every day. [kdk:daily]",
+             "is_template": True},
+            {"id": 1, "name": "Daily · walk + stretches", "description": "Every day. [kdk:daily]",
+             "is_template": False}]}
         self.days = [{"id": d, "routine": 1, "order": d} for d in range(1, 8)]
         self.slots = [{"id": 100 + d, "day": d} for d in range(1, 8)] + \
                      [{"id": 200 + d, "day": d} for d in range(1, 8)]
@@ -201,8 +208,7 @@ class FakeWger:
         mine = [s for s in self.sessions if s["_user"] == who]
         if method == "GET":
             if path == "routine/":
-                r = self.routines.get(who)
-                return 200, self.page([r] if r and r["name"] == q.get("name") else [])
+                return 200, self.page(self.routines.get(who, []))
             if path == "day/":
                 return 200, self.page([d for d in self.days if who == "jmack" and str(d["routine"]) == q["routine"]
                                        and str(d["order"]) == q["order"]])
@@ -341,6 +347,30 @@ def test_app_session_today_is_reused_without_touching_its_times(env):
     assert s["notes"] == "treadmill auto-log: 2.41 km, 4.8 km/h avg, 30.0 min (07:12–07:42)"
     assert s["datetime_end"] is None and s["impression"] == "3"
     assert wger.logs[0]["session"] == "app-1"
+
+
+def test_another_routines_session_today_is_left_alone(env):
+    """With one routine per block the app's Lifts session is not the walk's: the walk gets its own."""
+    _, wger, ha = env
+    wger.sessions.append({"id": "app-2", "routine": 2, "day": 25, "notes": None, "impression": "3",
+                          "datetime_start": "2026-11-06T12:00:00Z", "datetime_end": None, "_user": "jmack"})
+    walk(ha)
+    lifts, s = wger.sessions
+    assert lifts["notes"] is None and (s["routine"], s["day"]) == (1, 5)
+    assert wger.logs[0]["session"] == s["id"] and wger.logs[0]["routine"] == 1
+    assert walk(ha)["_stopped"] == "this walk is already in wger"
+
+
+def test_routine_lookup_matches_gen_wger():
+    """The package finds the walk by the tag gen_wger.py gives the first ("daily") block."""
+    import sys
+    sys.path.insert(0, str(HERE.parent))
+    import workout_catalog
+    cat = workout_catalog.load()
+    for pl in [cat, *cat["plans"].values()]:
+        assert pl["routines"][0]["key"] == workout_catalog.ANCHOR
+    assert f"'[kdk:{workout_catalog.ANCHOR}]'" in PKG.read_text()
+    assert "Week" not in PKG.read_text()
 
 
 def test_yesterdays_session_is_not_reused(env):

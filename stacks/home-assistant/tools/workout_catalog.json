@@ -426,9 +426,70 @@
    "kind": "score"
   }
  ],
+ "routines": [
+  {
+   "key": "daily",
+   "label": "Daily · walk + stretches",
+   "items": [
+    "treadmill_walk",
+    "stretches"
+   ]
+  },
+  {
+   "key": "lifts",
+   "label": "Lifts",
+   "groups": [
+    "lower_a",
+    "upper_a",
+    "lower_b",
+    "upper_b"
+   ]
+  },
+  {
+   "key": "pt_hands",
+   "label": "PT + hands",
+   "groups": [
+    "activation",
+    "hands"
+   ]
+  },
+  {
+   "key": "flow",
+   "label": "Flow + yoga",
+   "items": [
+    "flex_flow",
+    "yoga"
+   ]
+  }
+ ],
  "plans": {
   "rach": {
    "comment": "Rachel's own plan. Names, doses, rest and movement cues only; the reasons live in the vault.",
+   "routines": [
+    {
+     "key": "daily",
+     "label": "Daily · desk + evening",
+     "groups": [
+      "desk",
+      "evening"
+     ]
+    },
+    {
+     "key": "strength",
+     "label": "Strength",
+     "groups": [
+      "strength_a",
+      "strength_b"
+     ]
+    },
+    {
+     "key": "cardio",
+     "label": "Cardio",
+     "groups": [
+      "cardio"
+     ]
+    }
+   ],
    "groups": [
     {
      "key": "desk",

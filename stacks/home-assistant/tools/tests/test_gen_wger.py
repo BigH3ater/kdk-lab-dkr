@@ -21,9 +21,11 @@ URL = "https://wger.test"
 KEYS = {"WGER_API_KEY_JMACK": "tok-jmack", "WGER_API_KEY_RACH": "tok-rach"}
 
 PRIVATE = {"routine", "day", "slot", "slot-entry", "sets-config", "repetitions-config",
-           "max-repetitions-config", "workoutlog"}
+           "max-repetitions-config", "workoutlog", "workoutsession"}
 EXERCISE_WRITE = {"exercise", "exercise-translation", "exerciseimage"}
-CHILDREN = {"day": [("slot", "day")], "slot": [("slot-entry", "slot")],
+CHILDREN = {"routine": [("day", "routine"), ("workoutsession", "routine")],
+            "day": [("slot", "day"), ("workoutsession", "day")], "workoutsession": [("workoutlog", "session")],
+            "slot": [("slot-entry", "slot")],
             "slot-entry": [("sets-config", "slot_entry"), ("repetitions-config", "slot_entry"),
                            ("max-repetitions-config", "slot_entry"), ("workoutlog", "slot_entry")]}
 
@@ -155,8 +157,13 @@ class FakeWger:
             body = {**body, "value": f"{float(body['value']):.2f}"}    # wger returns decimals as strings
         return body
 
-    def routine_tree(self, user):
-        """{weekday name: [[(slug, unit name, sets, reps, max), ...] per slot]} for one user's routine."""
+    def routine(self, user, key="daily"):
+        (r,) = [r for r in self.rows("routine", user) if f"[kdk:{key}]" in r.get("description", "")]
+        return r
+
+    def routine_tree(self, user, key="daily"):
+        """{weekday name: [[(slug, unit name, sets, reps, max), ...] per slot]} for one of a user's
+        routines (the block with this key); a rest day maps to []."""
         slug_of = {}
         for tr in self.t["exercise-translation"].values():
             m = gw.MARKER_RE.search(tr.get("description_source", ""))
@@ -168,7 +175,7 @@ class FakeWger:
             v = [c["value"] for c in self.t[table].values() if c["slot_entry"] == eid]
             return int(float(v[0])) if v else None
 
-        (r,) = [r for r in self.rows("routine", user) if r["name"] == gw.ROUTINE_NAME]
+        r = self.routine(user, key)
         out = {}
         for d in sorted((d for d in self.rows("day", user) if d["routine"] == r["id"]), key=lambda d: d["order"]):
             slots = sorted((s for s in self.rows("slot", user) if s["day"] == d["id"]), key=lambda s: s["order"])
@@ -309,7 +316,7 @@ def test_parse_dose_unparsed_falls_back_to_kind_unit():
 
 def test_every_guide_dose_parses(guide):
     warns = []
-    gw.plan_days(json.loads((guide / "workout.json").read_text()), workout_catalog.load(), warns.append)
+    gw.plan_routines(json.loads((guide / "workout.json").read_text()), workout_catalog.load(), warns.append)
     assert warns == []
 
 
@@ -371,35 +378,63 @@ def test_image_upload_skipped_when_unchanged_and_replaced_when_changed(guide, fa
     assert fake.images[now.pop()] == b"\x89PNG new poster"
 
 
+JACOB_BLOCKS = {"daily": ("Daily · walk + stretches", 7, set()),
+                "lifts": ("Lifts · Mon/Tue/Thu/Fri", 5, {"Wednesday"}),
+                "pt_hands": ("PT + hands · Mon/Thu/Sat", 6, {"Tuesday", "Wednesday", "Friday"}),
+                "flow": ("Flow + yoga · Wed/Sat/Sun", 7, {"Monday", "Tuesday", "Thursday", "Friday"})}
+
+
 def test_weekday_mapping(guide, fake):
     assert run(guide, "--apply") == 0
-    for user in ("jmack",):
-        r, tree = fake.routine_tree(user)
-        start = dt.date.fromisoformat(r["start"])
-        assert start == dt.date(2026, 11, 2) and start.weekday() == 0
-        assert (dt.date.fromisoformat(r["end"]) - start).days <= 120
-        assert r["fit_in_week"] is True
-        assert list(tree) == gw.WEEKDAYS
-        days = [d for d in fake.rows("day", user)]
-        assert sorted(d["order"] for d in days) == list(range(1, 8))
-        assert not any(d["need_logs_to_advance"] or d["is_rest"] for d in days)
-        for wd, slots in tree.items():
-            flat = [e[0] for s in slots for e in s]
-            assert flat[0] == "treadmill-walk", wd
-            assert flat[-2:] == ["pt-hamstring", "pt-quad"], wd           # stretches every day
-            assert ("pt-slr" in flat) == (wd in ("Monday", "Thursday", "Saturday")), wd
-            assert ("hand-warm" in flat) == (wd in ("Monday", "Thursday", "Saturday")), wd
-        assert tree["Monday"][0] == [("treadmill-walk", "Minutes", 1, 15, None)]
-        assert tree["Wednesday"][0] == [("treadmill-walk", "Minutes", 1, 25, 30)]
-        assert tree["Saturday"][0] == [("treadmill-walk", "Minutes", 1, 25, 30)]
-        assert ("flex-sphinx", "Seconds", 3, 20, None) in [e for s in tree["Sunday"] for e in s]
-        assert [("hammer-curl", "Repetitions", 2, 10, 12), ("triceps-ext", "Repetitions", 2, 10, 12)] \
-            in tree["Tuesday"]                                            # superset = one slot, two entries
-        assert [("suitcase", "10-ft lengths", 3, 4, None)] in tree["Friday"]
-        assert [("pt-slr", "Repetitions", 2, 15, 30)] in tree["Monday"]
+    start = None
+    for key, (name, ndays, rest) in JACOB_BLOCKS.items():
+        r, tree = fake.routine_tree("jmack", key)
+        assert r["name"] == name and len(r["name"]) <= 25
+        start = start or r["start"]
+        assert (r["start"], r["fit_in_week"]) == (start, True)                 # one window for all
+        assert dt.date.fromisoformat(start) == dt.date(2026, 11, 2)
+        assert (dt.date.fromisoformat(r["end"]) - dt.date.fromisoformat(start)).days <= 120
+        assert list(tree) == gw.WEEKDAYS[:ndays], key                         # Monday.., order = weekday
+        days = sorted((d for d in fake.rows("day", "jmack") if d["routine"] == r["id"]), key=lambda d: d["order"])
+        assert [d["order"] for d in days] == list(range(1, ndays + 1))
+        assert {d["name"] for d in days if d["is_rest"]} == rest, key
+        assert not any(d["need_logs_to_advance"] for d in days)
+        assert all(tree[wd] == [] for wd in rest)
+    _, daily = fake.routine_tree("jmack", "daily")
+    for wd, slots in daily.items():
+        assert [e[0] for s in slots for e in s] == ["treadmill-walk", "pt-hamstring", "pt-quad"], wd
+    assert daily["Monday"][0] == [("treadmill-walk", "Minutes", 1, 15, None)]
+    assert daily["Wednesday"][0] == daily["Saturday"][0] == [("treadmill-walk", "Minutes", 1, 25, 30)]
+    _, pt = fake.routine_tree("jmack", "pt_hands")
+    for wd in ("Monday", "Thursday", "Saturday"):
+        flat = [e[0] for s in pt[wd] for e in s]
+        assert flat[:5] == ["pt-slr", "pt-bridge", "pt-abduction", "adductor", "hand-warm"], wd
+    assert [("pt-slr", "Repetitions", 2, 15, 30)] in pt["Monday"]
+    _, lifts = fake.routine_tree("jmack", "lifts")
+    assert [e[0] for s in lifts["Monday"] for e in s] == ["box-squat", "wall-sit"]
+    assert lifts["Tuesday"][0] == [("arm-circles", "Seconds", 1, 30, None)]   # guide-only slug: with Upper A
+    assert [("hammer-curl", "Repetitions", 2, 10, 12), ("triceps-ext", "Repetitions", 2, 10, 12)] \
+        in lifts["Tuesday"]                                               # superset = one slot, two entries
+    assert [("suitcase", "10-ft lengths", 3, 4, None)] in lifts["Friday"]
+    _, flow = fake.routine_tree("jmack", "flow")
+    assert ("flex-sphinx", "Seconds", 3, 20, None) in [e for s in flow["Sunday"] for e in s]
+    assert [e[0] for s in flow["Wednesday"] for e in s] == ["flex-side-bend", "flex-cat-cow"]
+    descs = {d["name"]: d["description"] for d in fake.rows("day", "jmack")
+             if d["routine"] == fake.routine("jmack", "lifts")["id"]}
+    assert descs["Monday"] == "Lower A" and descs["Tuesday"] == "Upper A" and descs["Wednesday"] == ""
     lb = next(u["id"] for u in fake.t["setting-weightunit"].values() if u["name"] == "lb")
     assert all(e["weight_unit"] == lb for e in fake.t["slot-entry"].values())
     assert not any("weight" in t for _, t in fake.writes)                 # weights left blank
+
+
+def test_app_lists_the_blocks_in_catalog_order(guide, fake):
+    """wger (and the app) list routines by -start, -created: daily is created first, the rest
+    last-to-first, so the list reads Lifts, PT + hands, Flow + yoga, Daily."""
+    assert run(guide, "--apply") == 0
+    for user, want in (("jmack", ["lifts", "pt_hands", "flow", "daily"]),
+                       ("rach", ["strength", "cardio", "daily"])):
+        rows = sorted(fake.rows("routine", user), key=lambda r: (r["start"], r["id"]), reverse=True)
+        assert [gw.routine_tag(r) for r in rows] == want
 
 
 def test_check_detects_drift_without_writing(guide, fake, capsys):
@@ -420,8 +455,9 @@ def test_check_flags_a_routine_about_to_expire(guide, fake):
     later = TODAY + dt.timedelta(days=100)
     assert gw.main(["--posters", str(guide), "--check"], today=later) == 1
     assert gw.main(["--posters", str(guide), "--apply"], today=later) == 0
-    r, _ = fake.routine_tree("jmack")
-    assert dt.date.fromisoformat(r["start"]) == later - dt.timedelta(days=later.weekday())
+    monday = later - dt.timedelta(days=later.weekday())
+    for user in ("jmack", "rach"):
+        assert {r["start"] for r in fake.rows("routine", user)} == {monday.isoformat()}   # all roll together
 
 
 def test_person_filter(guide, fake):
@@ -456,7 +492,7 @@ def test_missing_lengths_unit_prints_admin_step_and_stops(guide, monkeypatch, ca
 
 def test_slot_with_logs_is_retired_not_deleted(guide, fake):
     assert run(guide, "--apply") == 0
-    r, _ = fake.routine_tree("jmack")
+    r = fake.routine("jmack", "lifts")
     farmer_ex = next(t["exercise"] for t in fake.t["exercise-translation"].values()
                      if "kdk:farmer " in t.get("description_source", ""))
     entry = next(e for e in fake.rows("slot-entry", "jmack") if e["exercise"] == farmer_ex)
@@ -714,24 +750,30 @@ def test_jacob_specs_and_days_ignore_the_other_plans(guide):
     merged = gw.all_specs(sources, guide, lambda m: None)
     assert list(merged)[:len(alone)] == list(alone)
     assert all(merged[k]["text"] == alone[k]["text"] for k in alone)
-    assert gw.plan_days(*sources["jmack"][::-1], lambda m: None) == gw.plan_days(g, cat, lambda m: None)
+    assert gw.plan_routines(*sources["jmack"][::-1], lambda m: None) == gw.plan_routines(g, cat, lambda m: None)
 
 
-def test_rach_routine_is_her_plan(guide, fake):
+def test_rach_routines_are_her_plan(guide, fake):
     assert run(guide, "--apply") == 0
-    _, tree = fake.routine_tree("rach")
-    assert list(tree) == gw.WEEKDAYS
+    names = {gw.routine_tag(r): r["name"] for r in fake.rows("routine", "rach")}
+    assert names == {"daily": "Daily · desk + evening", "strength": "Strength · Mon/Thu",
+                     "cardio": "Cardio · Tue/Fri"}
+    _, daily = fake.routine_tree("rach", "daily")
+    assert list(daily) == gw.WEEKDAYS
     desk = ["glute-calf-raise", "seated-nerve-glide", "kneeling-hip-flexor"]
     evening = ["wall-slide", "pelvic-tilt", "side-lying-rest"]
-    session = {"Monday": ["high-box-squat", "pallof-press", "wall-pushup"],
-               "Tuesday": ["water-walk", "recumbent-bike"], "Thursday": ["elevated-rdl", "seated-band-row", "glute-bridge"],
-               "Friday": ["water-walk", "recumbent-bike"]}
-    for wd, slots in tree.items():
-        assert [e[0] for s in slots for e in s] == desk + session.get(wd, []) + evening, wd
-    assert [("water-walk", "Minutes", 1, 20, 30), ("recumbent-bike", "Minutes", 1, 20, 25)] in tree["Tuesday"]
-    assert [("high-box-squat", "Repetitions", 3, 8, None)] in tree["Monday"]
-    assert [("kneeling-hip-flexor", "Seconds", 1, 30, None)] in tree["Sunday"]
-    assert [("side-lying-rest", "Minutes", 1, 2, 3)] in tree["Wednesday"]
+    for wd, slots in daily.items():
+        assert [e[0] for s in slots for e in s] == desk + evening, wd
+    _, strength = fake.routine_tree("rach", "strength")
+    assert [[e[0] for s in strength[wd] for e in s] for wd in strength] == [
+        ["high-box-squat", "pallof-press", "wall-pushup"], [], [], ["elevated-rdl", "seated-band-row", "glute-bridge"]]
+    _, cardio = fake.routine_tree("rach", "cardio")
+    assert list(cardio) == gw.WEEKDAYS[:5] and cardio["Monday"] == cardio["Wednesday"] == []
+    assert cardio["Tuesday"] == cardio["Friday"] == [[("water-walk", "Minutes", 1, 20, 30),
+                                                      ("recumbent-bike", "Minutes", 1, 20, 25)]]
+    assert [("high-box-squat", "Repetitions", 3, 8, None)] in strength["Monday"]
+    assert [("kneeling-hip-flexor", "Seconds", 1, 30, None)] in daily["Sunday"]
+    assert [("side-lying-rest", "Minutes", 1, 2, 3)] in daily["Wednesday"]
     either = [s for s in fake.rows("slot", "rach") if s["comment"] == gw.EITHER_COMMENT]
     assert len(either) == 2                                              # Tue + Fri, one slot each
     jm = {e[0] for s in fake.routine_tree("jmack")[1]["Monday"] for e in s}
@@ -740,7 +782,7 @@ def test_rach_routine_is_her_plan(guide, fake):
 
 def test_every_rach_dose_parses():
     warns = []
-    gw.plan_days(gw.plan_guide(rach_plan()), rach_plan(), warns.append)
+    gw.plan_routines(gw.plan_guide(rach_plan()), rach_plan(), warns.append)
     assert warns == []
 
 
@@ -761,3 +803,127 @@ def test_a_slug_in_two_plans_is_an_error(guide):
     cat["plans"]["rach"] = pl
     with pytest.raises(gw.WgerError, match="box-squat is in the plans of jmack and rach"):
         gw.all_specs(gw.plan_sources(cat, lambda: g), guide, lambda m: None)
+
+
+# ---------------------------------------------------------------- the split into routines (2026-11-07)
+REAL_LOAD = workout_catalog.load
+
+
+def one_routine_catalog():
+    """The catalog as it was before the split: everything in one 7-day routine."""
+    cat = REAL_LOAD()
+    for pl in [cat, *cat["plans"].values()]:
+        pl["routines"] = [{"key": "daily", "label": "Week", "groups": [g["key"] for g in pl["groups"]]}]
+    return cat
+
+
+def make_legacy(guide, fake, monkeypatch):
+    """Load the pre-split layout: one "Week (kdk)" per person, no tag, real logs on Jacob's Friday
+    walk (two logs, one session on that day) and on Tuesday's farmer's hold."""
+    monkeypatch.setattr(gw.workout_catalog, "load", one_routine_catalog)
+    assert run(guide, "--apply") == 0
+    monkeypatch.setattr(gw.workout_catalog, "load", REAL_LOAD)
+    for user in ("jmack", "rach"):
+        r = fake.routine(user, "daily")
+        r.update(name=gw.LEGACY_NAME, description="Generated by gen_wger.py from the kdk workout catalog.")
+    r = fake.t["routine"][min(r["id"] for r in fake.rows("routine", "jmack"))]
+    ex = {gw.MARKER_RE.search(t["description_source"]).group("slug"): t["exercise"]
+          for t in fake.t["exercise-translation"].values() if gw.MARKER_RE.search(t["description_source"])}
+    days = {d["name"]: d["id"] for d in fake.rows("day", "jmack") if d["routine"] == r["id"]}
+
+    def entry(day, slug):
+        slots = {s["id"] for s in fake.rows("slot", "jmack") if s["day"] == days[day]}
+        return next(e for e in fake.rows("slot-entry", "jmack") if e["slot"] in slots and e["exercise"] == ex[slug])
+
+    walk, farmer = entry("Friday", "treadmill-walk"), entry("Tuesday", "farmer")
+    fake.t["workoutsession"][1] = {"id": 1, "routine": r["id"], "day": days["Friday"], "_user": "jmack"}
+    for i, e in ((1, walk), (2, walk), (3, farmer)):
+        fake.t["workoutlog"][i] = {"id": i, "routine": r["id"], "slot_entry": e["id"], "session": 1, "_user": "jmack"}
+    return r, days, walk, farmer
+
+
+def test_migration_reuses_week_kdk_as_daily_and_keeps_its_logs(guide, fake, monkeypatch, capsys):
+    r, days, walk, farmer = make_legacy(guide, fake, monkeypatch)
+    rach_id = next(x["id"] for x in fake.rows("routine", "rach"))
+    capsys.readouterr()
+    assert run(guide) == 0                                                     # dry run plans the rename
+    out = capsys.readouterr().out
+    assert f"would: jmack: PATCH routine/{r['id']}/ 'Daily · walk + stretches' ['description', 'name']" in out
+    assert run(guide, "--check") == 1
+    assert run(guide, "--apply") == 0
+    daily = fake.routine("jmack", "daily")
+    assert daily["id"] == r["id"] and daily["name"] == "Daily · walk + stretches"   # same routine, renamed
+    assert fake.routine("rach", "daily")["id"] == rach_id
+    assert set(fake.t["workoutlog"]) == {1, 2, 3} and 1 in fake.t["workoutsession"]  # no log or session lost
+    assert walk["id"] in fake.t["slot-entry"]                                  # the walk slot is the same row
+    assert {d["name"]: d["id"] for d in fake.rows("day", "jmack") if d["routine"] == r["id"]} == days
+    _, tree = fake.routine_tree("jmack", "daily")
+    assert [e[0] for s in tree["Monday"] for e in s] == ["treadmill-walk", "pt-hamstring", "pt-quad"]
+    tue = [e[0] for s in tree["Tuesday"] for e in s]
+    assert tue == ["treadmill-walk", "pt-hamstring", "pt-quad", "farmer"]      # logged slot: retired, at the end
+    assert fake.t["slot"][farmer["slot"]]["comment"].startswith(gw.RETIRED)
+    assert len(fake.rows("routine", "jmack")) == 4 and len(fake.rows("routine", "rach")) == 3
+    assert [e[0] for s in fake.routine_tree("jmack", "lifts")[1]["Tuesday"] for e in s][-1] == "farmer"
+    fake.writes.clear()
+    assert run(guide, "--apply") == 0 and fake.writes == []
+    assert run(guide, "--check") == 0
+
+
+def test_a_routine_left_over_is_never_deleted(guide, fake, capsys):
+    assert run(guide, "--apply") == 0
+    fake.t["routine"][9999] = {"id": 9999, "name": gw.LEGACY_NAME, "description": "", "start": "2026-11-02",
+                               "end": "2027-02-28", "fit_in_week": True, "is_template": False, "_user": "jmack"}
+    fake.writes.clear()
+    capsys.readouterr()
+    assert run(guide, "--apply") == 0
+    assert 9999 in fake.t["routine"] and fake.writes == []
+    assert "routine 'Week (kdk)' (id 9999) is not in the plan; left alone" in capsys.readouterr().err
+
+
+def drop_sunday_flow(guide):
+    data = json.loads((guide / "workout.json").read_text())
+    sun = next(d for d in data["days"] if d["name"] == "Sunday")
+    sun["steps"] = [s for s in sun["steps"] if not s["slug"].startswith("flex-")]
+    (guide / "workout.json").write_text(json.dumps(data, ensure_ascii=False))
+
+
+def test_a_block_that_loses_its_last_weekday_drops_that_day(guide, fake):
+    assert run(guide, "--apply") == 0
+    flow = fake.routine("jmack", "flow")
+    drop_sunday_flow(guide)
+    assert run(guide, "--apply") == 0
+    assert fake.routine("jmack", "flow")["name"] == "Flow + yoga · Wed/Sat"
+    assert list(fake.routine_tree("jmack", "flow")[1]) == gw.WEEKDAYS[:6]
+    assert ("DELETE", "day") in fake.writes
+    fake.writes.clear()
+    assert run(guide, "--apply") == 0 and fake.writes == []
+    assert flow["id"] in fake.t["routine"]
+
+
+def test_an_extra_day_with_a_session_is_kept(guide, fake, capsys):
+    assert run(guide, "--apply") == 0
+    flow = fake.routine("jmack", "flow")
+    sun = next(d for d in fake.rows("day", "jmack") if d["routine"] == flow["id"] and d["name"] == "Sunday")
+    fake.t["workoutsession"][7] = {"id": 7, "routine": flow["id"], "day": sun["id"], "_user": "jmack"}
+    drop_sunday_flow(guide)
+    capsys.readouterr()
+    assert run(guide, "--apply") == 0
+    assert sun["id"] in fake.t["day"] and 7 in fake.t["workoutsession"]
+    assert "extra day 'Sunday'" in capsys.readouterr().err
+
+
+def test_item_in_no_block_and_long_names_are_errors(guide):
+    g = json.loads((guide / "workout.json").read_text())
+    cat = workout_catalog.load()
+    cat["routines"][1]["groups"].remove("upper_a")
+    with pytest.raises(gw.WgerError, match="is in no routine block"):
+        gw.plan_routines(g, cat, lambda m: None)
+    cat = workout_catalog.load()
+    cat["routines"][1]["label"] = "Lifts for the whole family"
+    with pytest.raises(gw.WgerError, match="longer than wger's 25"):
+        gw.plan_routines(g, cat, lambda m: None)
+    cat = workout_catalog.load()
+    cat["routines"][0]["items"] = ["stretches"]
+    cat["routines"][1]["items"] = ["treadmill_walk"]
+    with pytest.raises(gw.WgerError, match="must have steps every day"):
+        gw.plan_routines(dict(g, everyday=[]), cat, lambda m: None)     # no stretches: daily has no steps
