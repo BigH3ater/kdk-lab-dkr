@@ -8,7 +8,7 @@
 name: backup-dmz
 services:
   pgdump-authelia:
-    image: postgres:18.6-alpine@sha256:10a5c69a83035ab5239f5620d708520e8b28f5aa1f2b20143e6024532edadfb5
+    image: postgres:18.6-alpine@sha256:123b17998ccaf47e53b502e8c6a1e79afd8f579c6f3eec83c563da026f957395
     restart: "no"
     environment:
       PGPASSWORD: "${AUTHELIA_POSTGRES_PASSWORD}"
@@ -21,7 +21,7 @@ services:
     networks: [identity_default]
 
   pgdump-immich:
-    image: postgres:18.6-alpine@sha256:10a5c69a83035ab5239f5620d708520e8b28f5aa1f2b20143e6024532edadfb5
+    image: postgres:18.6-alpine@sha256:123b17998ccaf47e53b502e8c6a1e79afd8f579c6f3eec83c563da026f957395
     restart: "no"
     environment:
       PGPASSWORD: "${IMMICH_DB_PASSWORD}"
@@ -39,7 +39,7 @@ services:
   # tandoor_default network. Password reuses the tandoor stack's 1Password item
   # (no new secret). Best-effort (exit 0); backup-verify checks the dump.
   pgdump-tandoor:
-    image: postgres:18.6-alpine@sha256:10a5c69a83035ab5239f5620d708520e8b28f5aa1f2b20143e6024532edadfb5
+    image: postgres:18.6-alpine@sha256:123b17998ccaf47e53b502e8c6a1e79afd8f579c6f3eec83c563da026f957395
     restart: "no"
     environment:
       PGPASSWORD: "${TANDOOR_POSTGRES_PASSWORD}"

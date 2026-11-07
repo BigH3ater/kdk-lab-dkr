@@ -1,4 +1,4 @@
-FROM python:3.12.16-slim@sha256:b18b261e1b4974b4f321451ad5251ded85abb22c2b8b262da527dda1d031ab30
+FROM python:3.12.16-slim@sha256:4840d514c583a4d3d8cad3940e68dee6f0f6f3635c12fcd0a3d74c21a5b93a54
 # ssh/sshpass pull the KOReader .sdr sidecars from the tablet's dropbear; slpp parses
 # the Lua-serialized annotation tables into Python.
 RUN apt-get update && apt-get install -y --no-install-recommends openssh-client sshpass \
