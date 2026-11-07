@@ -1,786 +1,786 @@
 {
-  "people": [
-    {
-      "key": "jacob",
-      "name": "Jacob",
-      "login": "jmack"
-    },
-    {
-      "key": "rachel",
-      "name": "Rachel",
-      "login": "rach"
-    }
-  ],
-  "groups": [
-    {
-      "key": "activation",
-      "comment": "PT block + adductor",
-      "title": "PT block + adductor · Mon/Thu/Sat"
-    },
-    {
-      "key": "lower_a",
-      "comment": "Lower A",
-      "title": "Lower A · Mon"
-    },
-    {
-      "key": "upper_a",
-      "comment": "Upper A",
-      "title": "Upper A · Tue"
-    },
-    {
-      "key": "lower_b",
-      "comment": "Lower B",
-      "title": "Lower B · Thu"
-    },
-    {
-      "key": "upper_b",
-      "comment": "Upper B",
-      "title": "Upper B · Fri"
-    },
-    {
-      "key": "hands",
-      "comment": "Hands",
-      "title": "Hands · Mon/Thu/Sat"
-    },
-    {
-      "key": "cardio",
-      "comment": "Treadmill + flexibility",
-      "title": "Treadmill (daily) + flexibility"
-    },
-    {
-      "key": "daily",
-      "comment": "Daily",
-      "title": "Daily check-in"
-    },
-    {
-      "key": "swaps",
-      "comment": "Swaps",
-      "title": "Swaps · not in the plan"
-    }
-  ],
-  "items": [
-    {
-      "id": "slr",
-      "slugs": [
-        "pt-slr"
-      ],
-      "name": "Straight Leg Raise",
-      "group": "activation",
-      "kind": "r"
-    },
-    {
-      "id": "bridge_ext",
-      "slugs": [
-        "pt-bridge"
-      ],
-      "name": "Bridge + Leg Extension",
-      "group": "activation",
-      "kind": "r"
-    },
-    {
-      "id": "hip_abduction",
-      "slugs": [
-        "pt-abduction"
-      ],
-      "name": "Side-Lying Hip Abduction",
-      "group": "activation",
-      "kind": "r"
-    },
-    {
-      "id": "adductor",
-      "slugs": [
-        "adductor"
-      ],
-      "name": "Adductor Squeeze",
-      "group": "activation",
-      "kind": "t"
-    },
-    {
-      "id": "box_squat",
-      "slugs": [
-        "box-squat"
-      ],
-      "name": "Box Squat",
-      "group": "lower_a",
-      "kind": "w"
-    },
-    {
-      "id": "rdl",
-      "slugs": [
-        "rdl"
-      ],
-      "name": "Romanian Deadlift",
-      "group": "lower_a",
-      "kind": "w"
-    },
-    {
-      "id": "wall_sit",
-      "slugs": [
-        "wall-sit"
-      ],
-      "name": "Wall Sit",
-      "group": "lower_a",
-      "kind": "t"
-    },
-    {
-      "id": "calf_raise",
-      "slugs": [
-        "calf-raise"
-      ],
-      "name": "Calf Raise",
-      "group": "lower_a",
-      "kind": "w"
-    },
-    {
-      "id": "incline_press",
-      "slugs": [
-        "incline-press"
-      ],
-      "name": "Incline Press",
-      "group": "upper_a",
-      "kind": "w"
-    },
-    {
-      "id": "cs_row",
-      "slugs": [
-        "cs-row"
-      ],
-      "name": "Chest-Supported Row",
-      "group": "upper_a",
-      "kind": "w"
-    },
-    {
-      "id": "shoulder_press",
-      "slugs": [
-        "shoulder-press"
-      ],
-      "name": "Shoulder Press",
-      "group": "upper_a",
-      "kind": "w"
-    },
-    {
-      "id": "hammer_curl",
-      "slugs": [
-        "hammer-curl"
-      ],
-      "name": "Hammer Curl",
-      "group": "upper_a",
-      "kind": "w"
-    },
-    {
-      "id": "triceps_ext",
-      "slugs": [
-        "triceps-ext"
-      ],
-      "name": "Triceps Extension",
-      "group": "upper_a",
-      "kind": "w"
-    },
-    {
-      "id": "plank",
-      "slugs": [
-        "plank"
-      ],
-      "name": "Forearm Plank",
-      "group": "upper_a",
-      "kind": "t"
-    },
-    {
-      "id": "farmer",
-      "slugs": [
-        "farmer"
-      ],
-      "name": "Farmer's Hold",
-      "group": "upper_a",
-      "kind": "wt"
-    },
-    {
-      "id": "wrist_curl",
-      "slugs": [
-        "wrist-curl"
-      ],
-      "name": "Wrist Curl",
-      "group": "upper_a",
-      "kind": "w"
-    },
-    {
-      "id": "reverse_wrist_curl",
-      "slugs": [
-        "reverse-wrist-curl"
-      ],
-      "name": "Reverse Wrist Curl",
-      "group": "upper_a",
-      "kind": "w"
-    },
-    {
-      "id": "step_up",
-      "slugs": [
-        "step-up"
-      ],
-      "name": "Step-Up",
-      "group": "lower_b",
-      "kind": "r"
-    },
-    {
-      "id": "hip_thrust",
-      "slugs": [
-        "hip-thrust"
-      ],
-      "name": "Hip Thrust",
-      "group": "lower_b",
-      "kind": "w"
-    },
-    {
-      "id": "sl_rdl",
-      "slugs": [
-        "sl-rdl"
-      ],
-      "name": "Single-Leg RDL",
-      "group": "lower_b",
-      "kind": "w"
-    },
-    {
-      "id": "tib_raise",
-      "slugs": [
-        "tib-raise"
-      ],
-      "name": "Tibialis Raise",
-      "group": "lower_b",
-      "kind": "r"
-    },
-    {
-      "id": "sl_calf",
-      "slugs": [
-        "sl-calf"
-      ],
-      "name": "Single-Leg Calf Raise",
-      "group": "lower_b",
-      "kind": "r"
-    },
-    {
-      "id": "pushup",
-      "slugs": [
-        "pushup"
-      ],
-      "name": "Incline Push-Up",
-      "group": "upper_b",
-      "kind": "r"
-    },
-    {
-      "id": "one_arm_row",
-      "slugs": [
-        "one-arm-row"
-      ],
-      "name": "One-Arm Row",
-      "group": "upper_b",
-      "kind": "w"
-    },
-    {
-      "id": "flat_press",
-      "slugs": [
-        "flat-press"
-      ],
-      "name": "Flat Press",
-      "group": "swaps",
-      "kind": "w"
-    },
-    {
-      "id": "lateral_raise",
-      "slugs": [
-        "lateral-raise"
-      ],
-      "name": "Lateral Raise",
-      "group": "upper_b",
-      "kind": "w"
-    },
-    {
-      "id": "rear_fly",
-      "slugs": [
-        "rear-fly"
-      ],
-      "name": "Rear Fly",
-      "group": "upper_b",
-      "kind": "w"
-    },
-    {
-      "id": "dead_bug",
-      "slugs": [
-        "dead-bug"
-      ],
-      "name": "Dead Bug",
-      "group": "upper_b",
-      "kind": "r"
-    },
-    {
-      "id": "side_plank",
-      "slugs": [
-        "side-plank"
-      ],
-      "name": "Side Plank",
-      "group": "upper_b",
-      "kind": "t"
-    },
-    {
-      "id": "suitcase",
-      "slugs": [
-        "suitcase"
-      ],
-      "name": "Suitcase Carry (10-ft lengths)",
-      "group": "upper_b",
-      "kind": "wl"
-    },
-    {
-      "id": "towel_wring",
-      "slugs": [
-        "towel-wring"
-      ],
-      "name": "Towel Wring",
-      "group": "upper_b",
-      "kind": "r"
-    },
-    {
-      "id": "finger_ext",
-      "slugs": [
-        "finger-ext"
-      ],
-      "name": "Finger Extension",
-      "group": "hands",
-      "kind": "w"
-    },
-    {
-      "id": "hand_routine",
-      "slugs": [
-        "hand-warm",
-        "hand-glides",
-        "hand-flexor",
-        "hand-extensor",
-        "hand-prayer",
-        "hand-reverse-prayer",
-        "hand-median",
-        "hand-thumb"
-      ],
-      "name": "Hand Routine",
-      "group": "hands",
-      "kind": "done"
-    },
-    {
-      "id": "treadmill_walk",
-      "slugs": [
-        "treadmill-walk"
-      ],
-      "name": "Treadmill Walk",
-      "group": "cardio",
-      "kind": "min"
-    },
-    {
-      "id": "flex_flow",
-      "slugs": [
-        "flex-side-bend",
-        "flex-forward-fold",
-        "flex-hip-flexor",
-        "flex-doorway-chest",
-        "flex-cat-cow",
-        "flex-thread-needle",
-        "flex-figure4",
-        "flex-supine-twist"
-      ],
-      "name": "Flexibility Flow",
-      "group": "cardio",
-      "kind": "done"
-    },
-    {
-      "id": "yoga",
-      "slugs": [
-        "flex-sphinx",
-        "flex-dolphin",
-        "flex-warrior2",
-        "flex-neck",
-        "flex-legs-up-wall"
-      ],
-      "name": "Yoga Session",
-      "group": "cardio",
-      "kind": "done"
-    },
-    {
-      "id": "stretches",
-      "slugs": [
-        "pt-hamstring",
-        "pt-quad"
-      ],
-      "name": "Daily Stretches",
-      "group": "daily",
-      "kind": "done"
-    },
-    {
-      "id": "knee_pain",
-      "slugs": [],
-      "name": "Knee Pain",
-      "group": "daily",
-      "kind": "score"
-    },
-    {
-      "id": "hand_pain",
-      "slugs": [],
-      "name": "Hand Pain",
-      "group": "daily",
-      "kind": "score"
-    }
-  ],
-  "plans": {
-    "rach": {
-      "comment": "Rachel's own plan. Names, doses, rest and movement cues only; the reasons live in the vault.",
-      "groups": [
-        {
-          "key": "desk",
-          "comment": "Desk breaks",
-          "title": "Desk breaks · daily"
-        },
-        {
-          "key": "strength_a",
-          "comment": "Strength A",
-          "title": "Strength A · Mon"
-        },
-        {
-          "key": "cardio",
-          "comment": "Cardio",
-          "title": "Cardio · Tue/Fri"
-        },
-        {
-          "key": "strength_b",
-          "comment": "Strength B",
-          "title": "Strength B · Thu"
-        },
-        {
-          "key": "evening",
-          "comment": "Evening mobility",
-          "title": "Evening mobility · daily"
-        }
-      ],
-      "items": [
-        {
-          "id": "glute_calf_raise",
-          "name": "Glute Squeeze + Calf Raise",
-          "group": "desk",
-          "kind": "r",
-          "days": [
-            "daily"
-          ],
-          "slugs": [
-            "glute-calf-raise"
-          ],
-          "steps": [
-            {
-              "slug": "glute-calf-raise",
-              "title": "Glute Squeeze + Calf Raise",
-              "dose": "15 reps · 2–3× a day",
-              "cues": [
-                "Stand tall; squeeze your glutes for 3 seconds.",
-                "Then 15 slow calf raises, pausing 1 second at the top."
-              ]
-            }
-          ]
-        },
-        {
-          "id": "nerve_glide",
-          "name": "Seated Nerve Glide",
-          "group": "desk",
-          "kind": "r",
-          "days": [
-            "daily"
-          ],
-          "slugs": [
-            "seated-nerve-glide"
-          ],
-          "steps": [
-            {
-              "slug": "seated-nerve-glide",
-              "title": "Seated Nerve Glide",
-              "dose": "10–12 reps / leg · 2–3× a day",
-              "cues": [
-                "Sit tall at the edge of a chair with one leg straight out.",
-                "Point the toes away as you look up; pull the toes back as you look down.",
-                "Keep it smooth and slow; never push into pain or tingling."
-              ]
-            }
-          ]
-        },
-        {
-          "id": "kneeling_hip_flexor",
-          "name": "Tall-Kneeling Hip Flexor Stretch",
-          "group": "desk",
-          "kind": "t",
-          "days": [
-            "daily"
-          ],
-          "slugs": [
-            "kneeling-hip-flexor"
-          ],
-          "steps": [
-            {
-              "slug": "kneeling-hip-flexor",
-              "title": "Tall-Kneeling Hip Flexor Stretch",
-              "dose": "30 s / side · 2–3× a day",
-              "cues": [
-                "Kneel on both knees on a cushion.",
-                "Tuck the pelvis under and squeeze the glute on the side you stretch.",
-                "Do not lunge forward; the stretch comes from the tuck alone."
-              ]
-            }
-          ]
-        },
-        {
-          "id": "high_box_squat",
-          "name": "High Box Squat",
-          "group": "strength_a",
-          "kind": "w",
-          "days": [
-            "mon"
-          ],
-          "slugs": [
-            "high-box-squat"
-          ],
-          "steps": [
-            {
-              "slug": "high-box-squat",
-              "title": "High Box Squat",
-              "dose": "3 × 8 · RPE 6–7 · rest 60–90 s",
-              "cues": [
-                "Box, bench or chair high enough that your hips sit slightly above your knees.",
-                "Sit down fully, then drive through the heels to stand."
-              ]
-            }
-          ]
-        },
-        {
-          "id": "pallof_press",
-          "name": "Standing Pallof Press",
-          "group": "strength_a",
-          "kind": "r",
-          "days": [
-            "mon"
-          ],
-          "slugs": [
-            "pallof-press"
-          ],
-          "steps": [
-            {
-              "slug": "pallof-press",
-              "title": "Standing Pallof Press",
-              "dose": "3 × 10 / side · rest 40–60 s",
-              "cues": [
-                "Stand side-on to the band anchor, handle at chest height.",
-                "Press straight out, hold 2 seconds, bring it back to the chest.",
-                "Do not let the torso twist toward the anchor."
-              ]
-            }
-          ]
-        },
-        {
-          "id": "wall_pushup",
-          "name": "Wall or Incline Push-Up",
-          "group": "strength_a",
-          "kind": "r",
-          "days": [
-            "mon"
-          ],
-          "slugs": [
-            "wall-pushup"
-          ],
-          "steps": [
-            {
-              "slug": "wall-pushup",
-              "title": "Wall or Incline Push-Up",
-              "dose": "3 × 10–12 · rest 60 s",
-              "cues": [
-                "Hands on a wall or a high counter.",
-                "Keep the body in one straight line: no sagging hips, no arched lower back.",
-                "Lower the chest toward the surface and push back up."
-              ]
-            }
-          ]
-        },
-        {
-          "id": "elevated_rdl",
-          "name": "Elevated Romanian Deadlift",
-          "group": "strength_b",
-          "kind": "w",
-          "days": [
-            "thu"
-          ],
-          "slugs": [
-            "elevated-rdl"
-          ],
-          "steps": [
-            {
-              "slug": "elevated-rdl",
-              "title": "Elevated Romanian Deadlift",
-              "dose": "3 × 8 · rest 90 s",
-              "cues": [
-                "Stand tall with dumbbells, a soft bend in the knees (never locked).",
-                "Hinge at the hips and lower the weights only to just below the kneecaps.",
-                "Keep the spine neutral; squeeze the glutes to stand back up."
-              ]
-            }
-          ]
-        },
-        {
-          "id": "seated_band_row",
-          "name": "Seated Band Row",
-          "group": "strength_b",
-          "kind": "r",
-          "days": [
-            "thu"
-          ],
-          "slugs": [
-            "seated-band-row"
-          ],
-          "steps": [
-            {
-              "slug": "seated-band-row",
-              "title": "Seated Band Row",
-              "dose": "3 × 12 · rest 60 s",
-              "cues": [
-                "Sit tall on the floor or a stool, legs out, band around the feet.",
-                "Pull the elbows back, squeezing the shoulder blades together.",
-                "Do not let the lower back arch."
-              ]
-            }
-          ]
-        },
-        {
-          "id": "glute_bridge",
-          "name": "Glute Bridge",
-          "group": "strength_b",
-          "kind": "r",
-          "days": [
-            "thu"
-          ],
-          "slugs": [
-            "glute-bridge"
-          ],
-          "steps": [
-            {
-              "slug": "glute-bridge",
-              "title": "Glute Bridge",
-              "dose": "3 × 12 · hold 2 s at the top · rest 60 s",
-              "cues": [
-                "Lie on your back, knees bent, feet flat.",
-                "Squeeze the glutes to lift the hips into a line from shoulders to knees.",
-                "Do not over-arch the lower back at the top."
-              ]
-            }
-          ]
-        },
-        {
-          "id": "pool_or_bike",
-          "name": "Cardio (pool or bike)",
-          "group": "cardio",
-          "kind": "min",
-          "days": [
-            "tue",
-            "fri"
-          ],
-          "either": true,
-          "slugs": [
-            "water-walk",
-            "recumbent-bike"
-          ],
-          "steps": [
-            {
-              "slug": "water-walk",
-              "title": "Water Walking",
-              "dose": "20–30 min · moderate (talk test)",
-              "cues": [
-                "Chest-deep water: walk forward, backward and sideways.",
-                "Long, deliberate strides.",
-                "Moderate pace: you can still hold a conversation."
-              ]
-            },
-            {
-              "slug": "recumbent-bike",
-              "title": "Recumbent Bike",
-              "dose": "20–25 min · moderate (talk test)",
-              "cues": [
-                "Back fully supported against the seat.",
-                "Smooth, continuous pedalling.",
-                "Moderate pace: you can still hold a conversation."
-              ]
-            }
-          ]
-        },
-        {
-          "id": "wall_slide",
-          "name": "Supported Wall Slide",
-          "group": "evening",
-          "kind": "r",
-          "days": [
-            "daily"
-          ],
-          "slugs": [
-            "wall-slide"
-          ],
-          "steps": [
-            {
-              "slug": "wall-slide",
-              "title": "Supported Wall Slide",
-              "dose": "2 × 8 · hold 5 s",
-              "cues": [
-                "Back against a smooth wall (a gym ball behind the lower back is optional).",
-                "Slide down into a partial squat, no lower than 90 degrees.",
-                "Hold 5 seconds while breathing, then slide back up."
-              ]
-            }
-          ]
-        },
-        {
-          "id": "pelvic_tilt",
-          "name": "Hands-and-Knees Pelvic Tilt",
-          "group": "evening",
-          "kind": "r",
-          "days": [
-            "daily"
-          ],
-          "slugs": [
-            "pelvic-tilt"
-          ],
-          "steps": [
-            {
-              "slug": "pelvic-tilt",
-              "title": "Hands-and-Knees Pelvic Tilt",
-              "dose": "15–20 reps",
-              "cues": [
-                "On hands and knees with a neutral spine.",
-                "Gently tuck the tailbone under with the lower abs, then return to a flat back.",
-                "Do not let the lower back sag."
-              ]
-            }
-          ]
-        },
-        {
-          "id": "side_lying_rest",
-          "name": "Supported Side-Lying Rest",
-          "group": "evening",
-          "kind": "min",
-          "days": [
-            "daily"
-          ],
-          "slugs": [
-            "side-lying-rest"
-          ],
-          "steps": [
-            {
-              "slug": "side-lying-rest",
-              "title": "Supported Side-Lying Rest",
-              "dose": "2–3 min / side",
-              "cues": [
-                "Lie on your side at the edge of a firm bed, head on a pillow, hips stacked, lower leg straight.",
-                "A helper holds the front and top of the hip; let the top leg hang freely off the edge.",
-                "Breathe slowly for 2–3 minutes, then the other side."
-              ]
-            }
-          ]
-        }
-      ]
-    }
+ "people": [
+  {
+   "key": "jacob",
+   "name": "Jacob",
+   "login": "jmack"
+  },
+  {
+   "key": "rachel",
+   "name": "Rachel",
+   "login": "rach"
   }
+ ],
+ "groups": [
+  {
+   "key": "activation",
+   "comment": "PT block + adductor",
+   "title": "PT block + adductor · Mon/Thu/Sat"
+  },
+  {
+   "key": "lower_a",
+   "comment": "Lower A",
+   "title": "Lower A · Mon"
+  },
+  {
+   "key": "upper_a",
+   "comment": "Upper A",
+   "title": "Upper A · Tue"
+  },
+  {
+   "key": "lower_b",
+   "comment": "Lower B",
+   "title": "Lower B · Thu"
+  },
+  {
+   "key": "upper_b",
+   "comment": "Upper B",
+   "title": "Upper B · Fri"
+  },
+  {
+   "key": "hands",
+   "comment": "Hands",
+   "title": "Hands · Mon/Thu/Sat"
+  },
+  {
+   "key": "cardio",
+   "comment": "Treadmill + flexibility",
+   "title": "Treadmill (daily) + flexibility"
+  },
+  {
+   "key": "daily",
+   "comment": "Daily",
+   "title": "Daily check-in"
+  },
+  {
+   "key": "swaps",
+   "comment": "Swaps",
+   "title": "Swaps · not in the plan"
+  }
+ ],
+ "items": [
+  {
+   "id": "slr",
+   "slugs": [
+    "pt-slr"
+   ],
+   "name": "Straight Leg Raise",
+   "group": "activation",
+   "kind": "r"
+  },
+  {
+   "id": "bridge_ext",
+   "slugs": [
+    "pt-bridge"
+   ],
+   "name": "Bridge + Leg Extension",
+   "group": "activation",
+   "kind": "r"
+  },
+  {
+   "id": "hip_abduction",
+   "slugs": [
+    "pt-abduction"
+   ],
+   "name": "Side-Lying Hip Abduction",
+   "group": "activation",
+   "kind": "r"
+  },
+  {
+   "id": "adductor",
+   "slugs": [
+    "adductor"
+   ],
+   "name": "Adductor Squeeze",
+   "group": "activation",
+   "kind": "t"
+  },
+  {
+   "id": "box_squat",
+   "slugs": [
+    "box-squat"
+   ],
+   "name": "Box Squat",
+   "group": "lower_a",
+   "kind": "w"
+  },
+  {
+   "id": "rdl",
+   "slugs": [
+    "rdl"
+   ],
+   "name": "Romanian Deadlift",
+   "group": "lower_a",
+   "kind": "w"
+  },
+  {
+   "id": "wall_sit",
+   "slugs": [
+    "wall-sit"
+   ],
+   "name": "Wall Sit",
+   "group": "lower_a",
+   "kind": "t"
+  },
+  {
+   "id": "calf_raise",
+   "slugs": [
+    "calf-raise"
+   ],
+   "name": "Calf Raise",
+   "group": "lower_a",
+   "kind": "w"
+  },
+  {
+   "id": "incline_press",
+   "slugs": [
+    "incline-press"
+   ],
+   "name": "Incline Press",
+   "group": "upper_a",
+   "kind": "w"
+  },
+  {
+   "id": "cs_row",
+   "slugs": [
+    "cs-row"
+   ],
+   "name": "Chest-Supported Row",
+   "group": "upper_a",
+   "kind": "w"
+  },
+  {
+   "id": "shoulder_press",
+   "slugs": [
+    "shoulder-press"
+   ],
+   "name": "Shoulder Press",
+   "group": "upper_a",
+   "kind": "w"
+  },
+  {
+   "id": "hammer_curl",
+   "slugs": [
+    "hammer-curl"
+   ],
+   "name": "Hammer Curl",
+   "group": "upper_a",
+   "kind": "w"
+  },
+  {
+   "id": "triceps_ext",
+   "slugs": [
+    "triceps-ext"
+   ],
+   "name": "Triceps Extension",
+   "group": "upper_a",
+   "kind": "w"
+  },
+  {
+   "id": "plank",
+   "slugs": [
+    "plank"
+   ],
+   "name": "Forearm Plank",
+   "group": "upper_a",
+   "kind": "t"
+  },
+  {
+   "id": "farmer",
+   "slugs": [
+    "farmer"
+   ],
+   "name": "Farmer's Hold",
+   "group": "upper_a",
+   "kind": "wt"
+  },
+  {
+   "id": "wrist_curl",
+   "slugs": [
+    "wrist-curl"
+   ],
+   "name": "Wrist Curl",
+   "group": "upper_a",
+   "kind": "w"
+  },
+  {
+   "id": "reverse_wrist_curl",
+   "slugs": [
+    "reverse-wrist-curl"
+   ],
+   "name": "Reverse Wrist Curl",
+   "group": "upper_a",
+   "kind": "w"
+  },
+  {
+   "id": "step_up",
+   "slugs": [
+    "step-up"
+   ],
+   "name": "Step-Up",
+   "group": "lower_b",
+   "kind": "r"
+  },
+  {
+   "id": "hip_thrust",
+   "slugs": [
+    "hip-thrust"
+   ],
+   "name": "Hip Thrust",
+   "group": "lower_b",
+   "kind": "w"
+  },
+  {
+   "id": "sl_rdl",
+   "slugs": [
+    "sl-rdl"
+   ],
+   "name": "Single-Leg RDL",
+   "group": "lower_b",
+   "kind": "w"
+  },
+  {
+   "id": "tib_raise",
+   "slugs": [
+    "tib-raise"
+   ],
+   "name": "Tibialis Raise",
+   "group": "lower_b",
+   "kind": "r"
+  },
+  {
+   "id": "sl_calf",
+   "slugs": [
+    "sl-calf"
+   ],
+   "name": "Single-Leg Calf Raise",
+   "group": "lower_b",
+   "kind": "r"
+  },
+  {
+   "id": "pushup",
+   "slugs": [
+    "pushup"
+   ],
+   "name": "Incline Push-Up",
+   "group": "upper_b",
+   "kind": "r"
+  },
+  {
+   "id": "one_arm_row",
+   "slugs": [
+    "one-arm-row"
+   ],
+   "name": "One-Arm Row",
+   "group": "upper_b",
+   "kind": "w"
+  },
+  {
+   "id": "flat_press",
+   "slugs": [
+    "flat-press"
+   ],
+   "name": "Flat Press",
+   "group": "swaps",
+   "kind": "w"
+  },
+  {
+   "id": "lateral_raise",
+   "slugs": [
+    "lateral-raise"
+   ],
+   "name": "Lateral Raise",
+   "group": "upper_b",
+   "kind": "w"
+  },
+  {
+   "id": "rear_fly",
+   "slugs": [
+    "rear-fly"
+   ],
+   "name": "Rear Fly",
+   "group": "upper_b",
+   "kind": "w"
+  },
+  {
+   "id": "dead_bug",
+   "slugs": [
+    "dead-bug"
+   ],
+   "name": "Dead Bug",
+   "group": "upper_b",
+   "kind": "r"
+  },
+  {
+   "id": "side_plank",
+   "slugs": [
+    "side-plank"
+   ],
+   "name": "Side Plank",
+   "group": "upper_b",
+   "kind": "t"
+  },
+  {
+   "id": "suitcase",
+   "slugs": [
+    "suitcase"
+   ],
+   "name": "Suitcase Carry (10-ft lengths)",
+   "group": "upper_b",
+   "kind": "wl"
+  },
+  {
+   "id": "towel_wring",
+   "slugs": [
+    "towel-wring"
+   ],
+   "name": "Towel Wring",
+   "group": "upper_b",
+   "kind": "r"
+  },
+  {
+   "id": "finger_ext",
+   "slugs": [
+    "finger-ext"
+   ],
+   "name": "Finger Extension",
+   "group": "hands",
+   "kind": "w"
+  },
+  {
+   "id": "hand_routine",
+   "slugs": [
+    "hand-warm",
+    "hand-glides",
+    "hand-flexor",
+    "hand-extensor",
+    "hand-prayer",
+    "hand-reverse-prayer",
+    "hand-median",
+    "hand-thumb"
+   ],
+   "name": "Hand Routine",
+   "group": "hands",
+   "kind": "done"
+  },
+  {
+   "id": "treadmill_walk",
+   "slugs": [
+    "treadmill-walk"
+   ],
+   "name": "Treadmill Walk",
+   "group": "cardio",
+   "kind": "min"
+  },
+  {
+   "id": "flex_flow",
+   "slugs": [
+    "flex-side-bend",
+    "flex-forward-fold",
+    "flex-hip-flexor",
+    "flex-doorway-chest",
+    "flex-cat-cow",
+    "flex-thread-needle",
+    "flex-figure4",
+    "flex-supine-twist"
+   ],
+   "name": "Flexibility Flow",
+   "group": "cardio",
+   "kind": "done"
+  },
+  {
+   "id": "yoga",
+   "slugs": [
+    "flex-sphinx",
+    "flex-dolphin",
+    "flex-warrior2",
+    "flex-neck",
+    "flex-legs-up-wall"
+   ],
+   "name": "Yoga Session",
+   "group": "cardio",
+   "kind": "done"
+  },
+  {
+   "id": "stretches",
+   "slugs": [
+    "pt-hamstring",
+    "pt-quad"
+   ],
+   "name": "Daily Stretches",
+   "group": "daily",
+   "kind": "done"
+  },
+  {
+   "id": "knee_pain",
+   "slugs": [],
+   "name": "Knee Pain",
+   "group": "daily",
+   "kind": "score"
+  },
+  {
+   "id": "hand_pain",
+   "slugs": [],
+   "name": "Hand Pain",
+   "group": "daily",
+   "kind": "score"
+  }
+ ],
+ "plans": {
+  "rach": {
+   "comment": "Rachel's own plan. Names, doses, rest and movement cues only; the reasons live in the vault.",
+   "groups": [
+    {
+     "key": "desk",
+     "comment": "Desk breaks",
+     "title": "Desk breaks · daily"
+    },
+    {
+     "key": "strength_a",
+     "comment": "Strength A",
+     "title": "Strength A · Mon"
+    },
+    {
+     "key": "cardio",
+     "comment": "Cardio",
+     "title": "Cardio · Tue/Fri"
+    },
+    {
+     "key": "strength_b",
+     "comment": "Strength B",
+     "title": "Strength B · Thu"
+    },
+    {
+     "key": "evening",
+     "comment": "Evening mobility",
+     "title": "Evening mobility · daily"
+    }
+   ],
+   "items": [
+    {
+     "id": "glute_calf_raise",
+     "name": "Glute Squeeze + Calf Raise",
+     "group": "desk",
+     "kind": "r",
+     "days": [
+      "daily"
+     ],
+     "slugs": [
+      "glute-calf-raise"
+     ],
+     "steps": [
+      {
+       "slug": "glute-calf-raise",
+       "title": "Glute Squeeze + Calf Raise",
+       "dose": "15 reps · 2–3× a day",
+       "cues": [
+        "Stand tall; squeeze your glutes for 3 seconds.",
+        "Then 15 slow calf raises, pausing 1 second at the top."
+       ]
+      }
+     ]
+    },
+    {
+     "id": "nerve_glide",
+     "name": "Seated Nerve Glide",
+     "group": "desk",
+     "kind": "r",
+     "days": [
+      "daily"
+     ],
+     "slugs": [
+      "seated-nerve-glide"
+     ],
+     "steps": [
+      {
+       "slug": "seated-nerve-glide",
+       "title": "Seated Nerve Glide",
+       "dose": "10–12 reps / leg · 2–3× a day",
+       "cues": [
+        "Sit tall at the edge of a chair with one leg straight out.",
+        "Point the toes away as you look up; pull the toes back as you look down.",
+        "Keep it smooth and slow; never push into pain or tingling."
+       ]
+      }
+     ]
+    },
+    {
+     "id": "kneeling_hip_flexor",
+     "name": "Tall-Kneeling Hip Flexor Stretch",
+     "group": "desk",
+     "kind": "t",
+     "days": [
+      "daily"
+     ],
+     "slugs": [
+      "kneeling-hip-flexor"
+     ],
+     "steps": [
+      {
+       "slug": "kneeling-hip-flexor",
+       "title": "Tall-Kneeling Hip Flexor Stretch",
+       "dose": "30 s / side · 2–3× a day",
+       "cues": [
+        "Kneel on both knees on a cushion.",
+        "Tuck the pelvis under and squeeze the glute on the side you stretch.",
+        "Do not lunge forward; the stretch comes from the tuck alone."
+       ]
+      }
+     ]
+    },
+    {
+     "id": "high_box_squat",
+     "name": "High Box Squat",
+     "group": "strength_a",
+     "kind": "w",
+     "days": [
+      "mon"
+     ],
+     "slugs": [
+      "high-box-squat"
+     ],
+     "steps": [
+      {
+       "slug": "high-box-squat",
+       "title": "High Box Squat",
+       "dose": "3 × 8 · RPE 6–7 · rest 60–90 s",
+       "cues": [
+        "Box, bench or chair high enough that your hips sit slightly above your knees.",
+        "Sit down fully, then drive through the heels to stand."
+       ]
+      }
+     ]
+    },
+    {
+     "id": "pallof_press",
+     "name": "Standing Pallof Press",
+     "group": "strength_a",
+     "kind": "r",
+     "days": [
+      "mon"
+     ],
+     "slugs": [
+      "pallof-press"
+     ],
+     "steps": [
+      {
+       "slug": "pallof-press",
+       "title": "Standing Pallof Press",
+       "dose": "3 × 10 / side · rest 40–60 s",
+       "cues": [
+        "Stand side-on to the band anchor, handle at chest height.",
+        "Press straight out, hold 2 seconds, bring it back to the chest.",
+        "Do not let the torso twist toward the anchor."
+       ]
+      }
+     ]
+    },
+    {
+     "id": "wall_pushup",
+     "name": "Wall or Incline Push-Up",
+     "group": "strength_a",
+     "kind": "r",
+     "days": [
+      "mon"
+     ],
+     "slugs": [
+      "wall-pushup"
+     ],
+     "steps": [
+      {
+       "slug": "wall-pushup",
+       "title": "Wall or Incline Push-Up",
+       "dose": "3 × 10–12 · rest 60 s",
+       "cues": [
+        "Hands on a wall or a high counter.",
+        "Keep the body in one straight line: no sagging hips, no arched lower back.",
+        "Lower the chest toward the surface and push back up."
+       ]
+      }
+     ]
+    },
+    {
+     "id": "elevated_rdl",
+     "name": "Elevated Romanian Deadlift",
+     "group": "strength_b",
+     "kind": "w",
+     "days": [
+      "thu"
+     ],
+     "slugs": [
+      "elevated-rdl"
+     ],
+     "steps": [
+      {
+       "slug": "elevated-rdl",
+       "title": "Elevated Romanian Deadlift",
+       "dose": "3 × 8 · rest 90 s",
+       "cues": [
+        "Stand tall with dumbbells, a soft bend in the knees (never locked).",
+        "Hinge at the hips and lower the weights only to just below the kneecaps.",
+        "Keep the spine neutral; squeeze the glutes to stand back up."
+       ]
+      }
+     ]
+    },
+    {
+     "id": "seated_band_row",
+     "name": "Seated Band Row",
+     "group": "strength_b",
+     "kind": "r",
+     "days": [
+      "thu"
+     ],
+     "slugs": [
+      "seated-band-row"
+     ],
+     "steps": [
+      {
+       "slug": "seated-band-row",
+       "title": "Seated Band Row",
+       "dose": "3 × 12 · rest 60 s",
+       "cues": [
+        "Sit tall on the floor or a stool, legs out, band around the feet.",
+        "Pull the elbows back, squeezing the shoulder blades together.",
+        "Do not let the lower back arch."
+       ]
+      }
+     ]
+    },
+    {
+     "id": "glute_bridge",
+     "name": "Glute Bridge",
+     "group": "strength_b",
+     "kind": "r",
+     "days": [
+      "thu"
+     ],
+     "slugs": [
+      "glute-bridge"
+     ],
+     "steps": [
+      {
+       "slug": "glute-bridge",
+       "title": "Glute Bridge",
+       "dose": "3 × 12 · hold 2 s at the top · rest 60 s",
+       "cues": [
+        "Lie on your back, knees bent, feet flat.",
+        "Squeeze the glutes to lift the hips into a line from shoulders to knees.",
+        "Do not over-arch the lower back at the top."
+       ]
+      }
+     ]
+    },
+    {
+     "id": "pool_or_bike",
+     "name": "Cardio (pool or bike)",
+     "group": "cardio",
+     "kind": "min",
+     "days": [
+      "tue",
+      "fri"
+     ],
+     "either": true,
+     "slugs": [
+      "water-walk",
+      "recumbent-bike"
+     ],
+     "steps": [
+      {
+       "slug": "water-walk",
+       "title": "Water Walking",
+       "dose": "20–30 min · moderate (talk test)",
+       "cues": [
+        "Chest-deep water: walk forward, backward and sideways.",
+        "Long, deliberate strides.",
+        "Moderate pace: you can still hold a conversation."
+       ]
+      },
+      {
+       "slug": "recumbent-bike",
+       "title": "Recumbent Bike",
+       "dose": "20–25 min · moderate (talk test)",
+       "cues": [
+        "Back fully supported against the seat.",
+        "Smooth, continuous pedalling.",
+        "Moderate pace: you can still hold a conversation."
+       ]
+      }
+     ]
+    },
+    {
+     "id": "wall_slide",
+     "name": "Supported Wall Slide",
+     "group": "evening",
+     "kind": "r",
+     "days": [
+      "daily"
+     ],
+     "slugs": [
+      "wall-slide"
+     ],
+     "steps": [
+      {
+       "slug": "wall-slide",
+       "title": "Supported Wall Slide",
+       "dose": "2 × 8 · hold 5 s",
+       "cues": [
+        "Back against a smooth wall (a gym ball behind the lower back is optional).",
+        "Slide down into a partial squat, no lower than 90 degrees.",
+        "Hold 5 seconds while breathing, then slide back up."
+       ]
+      }
+     ]
+    },
+    {
+     "id": "pelvic_tilt",
+     "name": "Hands-and-Knees Pelvic Tilt",
+     "group": "evening",
+     "kind": "r",
+     "days": [
+      "daily"
+     ],
+     "slugs": [
+      "pelvic-tilt"
+     ],
+     "steps": [
+      {
+       "slug": "pelvic-tilt",
+       "title": "Hands-and-Knees Pelvic Tilt",
+       "dose": "15–20 reps",
+       "cues": [
+        "On hands and knees with a neutral spine.",
+        "Gently tuck the tailbone under with the lower abs, then return to a flat back.",
+        "Do not let the lower back sag."
+       ]
+      }
+     ]
+    },
+    {
+     "id": "side_lying_rest",
+     "name": "Supported Side-Lying Rest",
+     "group": "evening",
+     "kind": "min",
+     "days": [
+      "daily"
+     ],
+     "slugs": [
+      "side-lying-rest"
+     ],
+     "steps": [
+      {
+       "slug": "side-lying-rest",
+       "title": "Supported Side-Lying Rest",
+       "dose": "2–3 min / side",
+       "cues": [
+            "Lie on your side at the edge of a firm bed, head on a pillow, hips stacked, lower leg straight.",
+            "A helper holds the front and top of the hip; let the top leg hang freely off the edge.",
+            "Breathe slowly for 2–3 minutes, then the other side."
+          ]
+      }
+     ]
+    }
+   ]
+  }
+ }
 }
