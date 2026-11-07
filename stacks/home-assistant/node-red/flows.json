@@ -3618,7 +3618,7 @@
         "id": "f_to_w_42",
         "type": "function",
         "name": "timeout: Master bedroom zone A",
-        "func": "if (msg.rr_wgen !== flow.get('rr_waitgen')) { node.status({fill:'grey',shape:'ring',text:'stale wait ignored'}); return null; }\nif (flow.get('rr_cancel')) { node.status({fill:'red',text:'cancelled'}); return null; }\nflow.set('rr_pending', '');\nmsg.rr_stage = \"Master bedroom zone A\"; msg.rr_mins = 40; return msg;",
+        "func": "if (msg.rr_wgen !== flow.get('rr_waitgen')) { node.status({fill:'grey',shape:'ring',text:'stale wait ignored'}); return null; }\nif (flow.get('rr_cancel')) { node.status({fill:'red',text:'cancelled'}); return null; }\n// Heading home or idle beside the dock after a return: the stage dock watcher\n// (f_dw, group 9) takes the stage over (one re-dock, alert, 30-min hold).\nconst _dw = flow.get('rr_dw');\nif (_dw && _dw.state === 'watch' && _dw.wid === flow.get('rr_pending') && _dw.gen === msg.rr_wgen && _dw.retAt) {\n    _dw.force = true; flow.set('rr_dw', _dw);\n    node.status({fill:'yellow', text:'near the dock: dock watcher takes over'});\n    return null;\n}\nflow.set('rr_pending', '');\nmsg.rr_stage = \"Master bedroom zone A\"; msg.rr_mins = 40; return msg;",
         "outputs": 1,
         "timeout": 0,
         "noerr": 0,
@@ -3639,7 +3639,7 @@
         "id": "f_to_w_48",
         "type": "function",
         "name": "timeout: Master bedroom zone B",
-        "func": "if (msg.rr_wgen !== flow.get('rr_waitgen')) { node.status({fill:'grey',shape:'ring',text:'stale wait ignored'}); return null; }\nif (flow.get('rr_cancel')) { node.status({fill:'red',text:'cancelled'}); return null; }\nflow.set('rr_pending', '');\nmsg.rr_stage = \"Master bedroom zone B\"; msg.rr_mins = 40; return msg;",
+        "func": "if (msg.rr_wgen !== flow.get('rr_waitgen')) { node.status({fill:'grey',shape:'ring',text:'stale wait ignored'}); return null; }\nif (flow.get('rr_cancel')) { node.status({fill:'red',text:'cancelled'}); return null; }\n// Heading home or idle beside the dock after a return: the stage dock watcher\n// (f_dw, group 9) takes the stage over (one re-dock, alert, 30-min hold).\nconst _dw = flow.get('rr_dw');\nif (_dw && _dw.state === 'watch' && _dw.wid === flow.get('rr_pending') && _dw.gen === msg.rr_wgen && _dw.retAt) {\n    _dw.force = true; flow.set('rr_dw', _dw);\n    node.status({fill:'yellow', text:'near the dock: dock watcher takes over'});\n    return null;\n}\nflow.set('rr_pending', '');\nmsg.rr_stage = \"Master bedroom zone B\"; msg.rr_mins = 40; return msg;",
         "outputs": 1,
         "timeout": 0,
         "noerr": 0,
@@ -3660,7 +3660,7 @@
         "id": "f_to_w_54",
         "type": "function",
         "name": "timeout: Main floor sweep",
-        "func": "if (msg.rr_wgen !== flow.get('rr_waitgen')) { node.status({fill:'grey',shape:'ring',text:'stale wait ignored'}); return null; }\nif (flow.get('rr_cancel')) { node.status({fill:'red',text:'cancelled'}); return null; }\nflow.set('rr_pending', '');\nmsg.rr_stage = \"Main floor sweep\"; msg.rr_mins = 150; return msg;",
+        "func": "if (msg.rr_wgen !== flow.get('rr_waitgen')) { node.status({fill:'grey',shape:'ring',text:'stale wait ignored'}); return null; }\nif (flow.get('rr_cancel')) { node.status({fill:'red',text:'cancelled'}); return null; }\n// Heading home or idle beside the dock after a return: the stage dock watcher\n// (f_dw, group 9) takes the stage over (one re-dock, alert, 30-min hold).\nconst _dw = flow.get('rr_dw');\nif (_dw && _dw.state === 'watch' && _dw.wid === flow.get('rr_pending') && _dw.gen === msg.rr_wgen && _dw.retAt) {\n    _dw.force = true; flow.set('rr_dw', _dw);\n    node.status({fill:'yellow', text:'near the dock: dock watcher takes over'});\n    return null;\n}\nflow.set('rr_pending', '');\nmsg.rr_stage = \"Main floor sweep\"; msg.rr_mins = 150; return msg;",
         "outputs": 1,
         "timeout": 0,
         "noerr": 0,
@@ -3702,7 +3702,7 @@
         "id": "f_stall",
         "type": "function",
         "name": "stall -> alert + cancel",
-        "func": "const _ha = global.get('homeassistant') || {};\nconst _st = (Object.values(_ha).find(v => v && v.states) || {}).states || {};\nconst st = id => (_st[id] && _st[id].state);\n\nflow.set('rr_cancel', true);\nconst status = st('sensor.mr_slave_status_2') || 'unknown';\nconst mopNote = flow.get('rr_mop_pending') ? ' Today\\'s mop pass will not run; a catch-up mop runs on the next successful daily clean this week.' : '';\nconst notify = {notify: {title: 'Vacuum: daily clean stopped', message: msg.rr_stage + ' did not finish within ' + msg.rr_mins + ' min.' + ' Vacuum is ' +\n    status.replace(/_/g,' ') + '. The rest of today\\'s run is cancelled.' + mopNote, tag: 'rr_run_failed', urgent: true}};\nconst evt = {rr_evt: 'failed', rr_phase: 'Stalled \u2014 ' + msg.rr_stage};\nnode.status({fill:'red', text: 'Stalled \u2014 ' + msg.rr_stage});\nreturn [notify, evt, {payload: 'restore'}];",
+        "func": "const _ha = global.get('homeassistant') || {};\nconst _st = (Object.values(_ha).find(v => v && v.states) || {}).states || {};\nconst st = id => (_st[id] && _st[id].state);\n\nflow.set('rr_cancel', true);\nconst status = st('sensor.mr_slave_status_2') || 'unknown';\nconst mopNote = flow.get('rr_mop_pending') ? ' Today\\'s mop pass will not run; a catch-up mop runs on the next successful daily clean this week.' : '';\n// rr_nodock: the dock watcher (f_dw) alerted \"could not dock\" and nobody re-docked it within its hold window.\nconst why = msg.rr_nodock ? msg.rr_stage + ': the vacuum could not dock and was not back on the charger ' + msg.rr_mins + ' min after the alert.'\n    : msg.rr_stage + ' did not finish within ' + msg.rr_mins + ' min.';\nconst notify = {notify: {title: 'Vacuum: daily clean stopped', message: why + ' Vacuum is ' +\n    status.replace(/_/g,' ') + '. The rest of today\\'s run is cancelled.' + mopNote, tag: 'rr_run_failed', urgent: true}};\nconst phase = (msg.rr_nodock ? 'Could not dock \u2014 ' : 'Stalled \u2014 ') + msg.rr_stage;\nconst evt = {rr_evt: 'failed', rr_phase: phase};\nnode.status({fill:'red', text: phase});\nreturn [notify, evt, {payload: 'restore'}];",
         "outputs": 3,
         "timeout": 0,
         "noerr": 0,
@@ -4027,7 +4027,8 @@
         "links": [
             "lo_stop_42",
             "lo_stop_48",
-            "lo_stop_54"
+            "lo_stop_54",
+            "lo_stop_dw"
         ],
         "x": 150,
         "y": 1215,
@@ -4054,7 +4055,8 @@
             "lo_tr_cxl",
             "lo_tr_stop",
             "lo_tr_rch",
-            "lo_tr_dock"
+            "lo_tr_dock",
+            "lo_tr_dw"
         ],
         "x": 1740,
         "y": 1325,
@@ -4079,7 +4081,8 @@
             "lo_n_boot",
             "lo_n_rc",
             "lo_n_mopfail",
-            "lo_n_short"
+            "lo_n_short",
+            "lo_n_dw"
         ],
         "x": 1780,
         "y": 75,
@@ -4929,7 +4932,7 @@
         "z": "rr_tab_1",
         "g": "g_dock",
         "name": "did not dock? / docked",
-        "func": "const _ha = global.get('homeassistant') || {};\nconst _st = (Object.values(_ha).find(v => v && v.states) || {}).states || {};\nconst st = id => (_st[id] && _st[id].state);\n\n// Robot gave up on the way home (returning -> idle) -> start the retry loop.\n// Back on the dock -> reset, and clear the alert if one was sent.\nconst nu = msg.payload;\nconst old = msg.data && msg.data.old_state && msg.data.old_state.state;\nconst d = flow.get('rr_dock') || {busy: false, n: 0, alerted: false};\nif (nu === 'docked') {\n    if (!d.busy && !d.alerted) return null;\n    flow.set('rr_dock', {busy: false, n: 0, alerted: false});\n    node.status({fill: 'green', text: 'docked after ' + d.n + ' retr' + (d.n === 1 ? 'y' : 'ies')});\n    const ok = d.alerted ? {notify: {title: 'Vacuum: back on the dock',\n        message: 'The vacuum docked and is charging again.', tag: 'rr_dock_failed', urgent: false}} : null;\n    return [null, ok, {rr_evt: 'dock', rr_phase: 'Docked after retry'}];\n}\nif (old === 'returning' && nu === 'idle' && !d.busy) {\n    flow.set('rr_dock', {busy: true, n: 0, alerted: false});\n    node.status({fill: 'yellow', text: 'did not dock \u2014 retrying'});\n    return [msg, null, null];\n}\nreturn null;\n",
+        "func": "const _ha = global.get('homeassistant') || {};\nconst _st = (Object.values(_ha).find(v => v && v.states) || {}).states || {};\nconst st = id => (_st[id] && _st[id].state);\n\n// Robot gave up on the way home (returning -> idle) -> start the retry loop.\n// Back on the dock -> reset, and clear the alert if one was sent.\nconst nu = msg.payload;\nconst old = msg.data && msg.data.old_state && msg.data.old_state.state;\nconst d = flow.get('rr_dock') || {busy: false, n: 0, alerted: false};\nif (nu === 'docked') {\n    if (!d.busy && !d.alerted) return null;\n    flow.set('rr_dock', {busy: false, n: 0, alerted: false});\n    node.status({fill: 'green', text: 'docked after ' + d.n + ' retr' + (d.n === 1 ? 'y' : 'ies')});\n    const ok = d.alerted ? {notify: {title: 'Vacuum: back on the dock',\n        message: 'The vacuum docked and is charging again.', tag: 'rr_dock_failed', urgent: false}} : null;\n    return [null, ok, {rr_evt: 'dock', rr_phase: 'Docked after retry'}];\n}\n// During a daily-run stage the stage dock watcher (f_dw, group 9) handles it.\nconst _dw = flow.get('rr_dw') || {};\nconst _watched = ['w_42', 'w_48', 'w_54', '207dee7e272ef8ca'].includes(flow.get('rr_pending'));\nif (old === 'returning' && nu === 'idle' && (_watched || _dw.state === 'retry' || _dw.state === 'hold')) {\n    node.status({fill: 'grey', shape: 'ring', text: 'daily run: stage dock watcher handles it'});\n    return null;\n}\nif (old === 'returning' && nu === 'idle' && !d.busy) {\n    flow.set('rr_dock', {busy: true, n: 0, alerted: false});\n    node.status({fill: 'yellow', text: 'did not dock \u2014 retrying'});\n    return [msg, null, null];\n}\nreturn null;\n",
         "outputs": 3,
         "timeout": 0,
         "noerr": 0,
@@ -5110,6 +5113,227 @@
         ],
         "x": 925,
         "y": 2570,
+        "wires": []
+    },
+    {
+        "id": "g_dw",
+        "type": "group",
+        "z": "rr_tab_1",
+        "name": "9 \u00b7 Stage dock watcher: home but not charging (3 min idle / 6 min returning) \u2192 1 return_to_base \u2192 5 min \u2192 alert \u2192 hold 30 min, then continue or cancel",
+        "style": {
+            "label": true,
+            "fill": "#ffe9cc",
+            "fill-opacity": "0.45",
+            "color": "#333"
+        },
+        "nodes": [
+            "t_dw",
+            "i_dw",
+            "f_dw",
+            "s_dw_ret",
+            "lo_n_dw",
+            "lo_tr_dw",
+            "lo_stop_dw"
+        ],
+        "x": 20,
+        "y": 2650,
+        "w": 1360,
+        "h": 180
+    },
+    {
+        "id": "t_dw",
+        "type": "server-state-changed",
+        "z": "rr_tab_1",
+        "name": "status change (stage dock watch)",
+        "server": "38978576.ca0eea",
+        "version": 6,
+        "outputs": 1,
+        "exposeAsEntityConfig": "",
+        "entities": {
+            "entity": [
+                "sensor.mr_slave_status_2"
+            ],
+            "substring": [],
+            "regex": []
+        },
+        "outputInitially": false,
+        "stateType": "str",
+        "ifState": "",
+        "ifStateType": "str",
+        "ifStateOperator": "is",
+        "outputOnlyOnStateChange": true,
+        "for": "0",
+        "forType": "num",
+        "forUnits": "minutes",
+        "ignorePrevStateNull": true,
+        "ignorePrevStateUnknown": true,
+        "ignorePrevStateUnavailable": true,
+        "ignoreCurrentStateUnknown": true,
+        "ignoreCurrentStateUnavailable": true,
+        "outputProperties": [
+            {
+                "property": "payload",
+                "propertyType": "msg",
+                "value": "",
+                "valueType": "entityState"
+            }
+        ],
+        "x": 170,
+        "y": 2690,
+        "wires": [
+            [
+                "f_dw"
+            ]
+        ],
+        "g": "g_dw"
+    },
+    {
+        "id": "i_dw",
+        "type": "inject",
+        "z": "rr_tab_1",
+        "name": "dock watch tick (30 s)",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "30",
+        "crontab": "",
+        "once": true,
+        "onceDelay": "60",
+        "topic": "",
+        "payload": "tick",
+        "payloadType": "str",
+        "x": 170,
+        "y": 2750,
+        "wires": [
+            [
+                "f_dw"
+            ]
+        ],
+        "g": "g_dw"
+    },
+    {
+        "id": "f_dw",
+        "type": "function",
+        "z": "rr_tab_1",
+        "name": "stage dock watcher (3 min / 6 min \u2192 1 retry \u2192 5 min \u2192 alert \u2192 30 min hold)",
+        "func": "// Stage dock watcher (2026-11-07: zone A finished, the robot went home at\n// 18:26, shuffled beside the dock for 20 min and gave up idle off the charger;\n// the 40-min stage wait only alerted at 18:40 and cancelled the run).\n// Runs on every sensor.mr_slave_status_2 change (t_dw) and a 30 s tick (i_dw).\n// While a stage dock-wait is pending (zone A, zone B, main sweep, office) it\n// spots \"came home but is not charging\":\n//   - after returning_home the robot is idle/paused off the dock for 3 min, or\n//   - it has been returning_home for 6 min (a normal return takes ~2 min;\n//     every 571 before 11-07 was charging within 90 s).\n// Then it takes the stage over from its wait (bumps rr_waitgen and clears\n// rr_pending, so the wait's own success/timeout is dropped by its guard and\n// f_hareconn leaves it alone):\n//   1. one vacuum.return_to_base (out4), phase \"Docking retry \u2014 <stage>\";\n//   2. up to 5 min for charging; still not charging -> ONE urgent\n//      rr_dock_failed alert (out5), phase \"Could not dock \u2014 <stage>\";\n//   3. holds the run 30 min: charging -> the run continues to the next stage\n//      (out0-3, the same targets as the HA-reconnect recovery) with a non-urgent\n//      \"back on the dock\" note; past the window -> f_stall (out7) cancels the\n//      rest of the run as a stall does.\n// The recharge pause never trips it: status charging / rr_recharge_pause is\n// home. The mop pass is not watched (wash visits; f_mopfail covers it).\n// out0 -> f_short_A, out1 -> f_short_B, out2 -> d_rc, out3 -> office done?,\n// out4 -> return_to_base, out5 -> notify, out6 -> tracker, out7 -> stall\nconst C = { LEFT_MIN: 3, RETURN_MAX_MIN: 6, RETRY_MIN: 5, HOLD_MIN: 30 };\nconst STAGES = {\n    w_42: [0, 'Master bedroom zone A'],\n    w_48: [1, 'Master bedroom zone B'],\n    w_54: [2, 'Main floor sweep'],\n    '207dee7e272ef8ca': [3, \"Rachel's office (last)\"],\n};\nconst out = () => [null, null, null, null, null, null, null, null];\n\nconst _ha = global.get('homeassistant') || {};\nconst _st = (Object.values(_ha).find(v => v && v.states) || {}).states || {};\nconst st = id => (_st[id] && _st[id].state);\nif (!Object.keys(_st).length) return out();   // HA states not loaded yet\n\nconst now = Date.now();\nconst mins = t => (now - t) / 60000;\nconst status = st('sensor.mr_slave_status_2') || '';\nconst vac = st('vacuum.mr_slave_2') || '';\nconst home = ['charging', 'charging_complete'].includes(status) || vac === 'docked'\n    || st('binary_sensor.rr_recharge_pause') === 'on';\nconst returning = status === 'returning_home' || vac === 'returning';\nconst offDock = ['idle', 'paused', 'charger_disconnected'].includes(status)\n    || ['idle', 'paused'].includes(vac);\nconst run = flow.get('rr_run', 'file') || {};\nconst live = !!run.active && !run.cancelled && !flow.get('rr_cancel');\nconst pend = flow.get('rr_pending') || '';\nconst gen = flow.get('rr_waitgen') || 0;\nlet dw = flow.get('rr_dw') || {state: 'idle'};\nconst save = () => flow.set('rr_dw', dw);\nconst reset = () => { dw = {state: 'idle'}; save(); };\n\n// ---- retry / hold: this watcher owns the stage ----------------------------\nif (dw.state === 'retry' || dw.state === 'hold') {\n    if (!live || !STAGES[dw.wid]) { reset(); node.status({fill: 'grey', shape: 'ring', text: 'run ended'}); return out(); }\n    const [i, stage] = STAGES[dw.wid];\n    if (home) {\n        const g = gen + 1;\n        flow.set('rr_waitgen', g);\n        const o = out();\n        o[i] = {payload: 'docked', rr_wgen: g, rr_dockwatch: true};\n        if (dw.state === 'hold') {\n            o[5] = {notify: {title: 'Vacuum: back on the dock',\n                message: 'Docked after ' + stage + '; the daily run carries on.',\n                tag: 'rr_dock_failed', urgent: false}};\n        }\n        node.status({fill: 'green', text: 'docked after ' + dw.state + ' \u2014 run continues'});\n        reset();\n        return o;\n    }\n    if (dw.state === 'retry' && mins(dw.t) >= C.RETRY_MIN) {\n        const batt = st('sensor.mr_slave_battery_2') || '?';\n        dw.state = 'hold'; dw.t = now; save();\n        node.status({fill: 'red', text: 'could not dock \u2014 holding ' + C.HOLD_MIN + ' min'});\n        const o = out();\n        o[5] = {notify: {title: \"Vacuum: couldn't dock\",\n            message: 'Roborock could not dock after ' + stage + ' \u2014 needs a hand (battery ' + batt + ' %). ' +\n                'One automatic return to the dock did not work. Put it on the dock within ' + C.HOLD_MIN +\n                \" min and the run carries on; after that the rest of today's run is cancelled.\",\n            tag: 'rr_dock_failed', urgent: true}};\n        o[6] = {rr_evt: 'dock', rr_phase: 'Could not dock \u2014 ' + stage};\n        return o;\n    }\n    if (dw.state === 'hold' && mins(dw.t) >= C.HOLD_MIN) {\n        reset();\n        node.status({fill: 'red', text: 'not docked after ' + C.HOLD_MIN + ' min \u2014 run cancelled'});\n        const o = out();\n        o[7] = {rr_stage: stage, rr_mins: C.HOLD_MIN, rr_nodock: true};\n        return o;\n    }\n    return out();\n}\n\n// ---- watch: a stage dock-wait is pending -----------------------------------\nif (!live || !STAGES[pend]) { if (dw.state !== 'idle') reset(); return out(); }\nif (dw.wid !== pend || dw.gen !== gen) dw = {state: 'watch', wid: pend, gen: gen};\nlet why = dw.force ? 'stage wait ran out near the dock' : '';\nif (home) { dw.retAt = 0; dw.leftAt = 0; }\nelse if (returning) {\n    dw.retAt = dw.retAt || now; dw.leftAt = 0;\n    if (!why && mins(dw.retAt) >= C.RETURN_MAX_MIN) why = 'returning for ' + C.RETURN_MAX_MIN + ' min';\n} else if (dw.retAt && offDock) {\n    dw.leftAt = dw.leftAt || now;\n    if (!why && mins(dw.leftAt) >= C.LEFT_MIN) why = (status || vac).replace(/_/g, ' ') + ' off the dock for ' + C.LEFT_MIN + ' min';\n} else if (!why) { dw.retAt = 0; dw.leftAt = 0; }   // cleaning (again): nothing to watch yet\nif (!why) {\n    save();\n    node.status(dw.retAt ? {fill: 'yellow', text: 'heading home: ' + mins(dw.retAt).toFixed(1) + ' min'}\n                         : {fill: 'grey', shape: 'dot', text: 'watching ' + STAGES[pend][1]});\n    return out();\n}\n\n// take the stage over from its wait\nconst stage = STAGES[pend][1];\nflow.set('rr_waitgen', gen + 1);\nflow.set('rr_pending', '');\ndw = {state: 'retry', wid: pend, t: now, why: why}; save();\nnode.warn('dock watcher: ' + stage + ': ' + why + '; sending one return_to_base');\nnode.status({fill: 'yellow', text: 'did not dock (' + why + ') \u2014 one retry'});\nconst o = out();\no[4] = {payload: 'return_to_base'};\no[6] = {rr_evt: 'dock', rr_phase: 'Docking retry \u2014 ' + stage};\nreturn o;\n",
+        "outputs": 8,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "outputLabels": [
+            "continue zone A",
+            "continue zone B",
+            "continue main sweep",
+            "continue office",
+            "return_to_base",
+            "notify",
+            "tracker",
+            "stall (hold ran out)"
+        ],
+        "x": 560,
+        "y": 2720,
+        "wires": [
+            [
+                "f_short_A"
+            ],
+            [
+                "f_short_B"
+            ],
+            [
+                "d_rc"
+            ],
+            [
+                "00542ec58ae4b642"
+            ],
+            [
+                "s_dw_ret"
+            ],
+            [
+                "lo_n_dw"
+            ],
+            [
+                "lo_tr_dw"
+            ],
+            [
+                "lo_stop_dw"
+            ]
+        ],
+        "g": "g_dw"
+    },
+    {
+        "id": "s_dw_ret",
+        "type": "api-call-service",
+        "z": "rr_tab_1",
+        "name": "return to dock (stage retry)",
+        "server": "38978576.ca0eea",
+        "version": 5,
+        "debugenabled": false,
+        "action": "vacuum.return_to_base",
+        "floorId": [],
+        "areaId": [],
+        "deviceId": [],
+        "entityId": [],
+        "data": "{\"entity_id\": \"vacuum.mr_slave_2\"}",
+        "dataType": "json",
+        "mergeContext": "",
+        "mustacheAltTags": false,
+        "outputProperties": [],
+        "queue": "none",
+        "blockInputOverrides": true,
+        "domain": "",
+        "service": "",
+        "x": 990,
+        "y": 2690,
+        "wires": [
+            []
+        ],
+        "g": "g_dw"
+    },
+    {
+        "id": "lo_n_dw",
+        "type": "link out",
+        "z": "rr_tab_1",
+        "g": "g_dw",
+        "name": "\u2192 notify",
+        "mode": "link",
+        "links": [
+            "li_notify"
+        ],
+        "x": 935,
+        "y": 2730,
+        "wires": []
+    },
+    {
+        "id": "lo_tr_dw",
+        "type": "link out",
+        "z": "rr_tab_1",
+        "g": "g_dw",
+        "name": "\u2192 tracker",
+        "mode": "link",
+        "links": [
+            "li_tr"
+        ],
+        "x": 935,
+        "y": 2760,
+        "wires": []
+    },
+    {
+        "id": "lo_stop_dw",
+        "type": "link out",
+        "z": "rr_tab_1",
+        "g": "g_dw",
+        "name": "\u2192 stop",
+        "mode": "link",
+        "links": [
+            "li_stop"
+        ],
+        "x": 935,
+        "y": 2790,
         "wires": []
     },
     {
@@ -5797,7 +6021,7 @@
         "type": "function",
         "z": "rr_tab_1",
         "name": "timeout: Rachel's office",
-        "func": "if (msg.rr_wgen !== flow.get('rr_waitgen')) { node.status({fill:'grey',shape:'ring',text:'stale wait ignored'}); return null; }\nif (flow.get('rr_cancel')) { node.status({fill:'red',text:'cancelled'}); return null; }\nflow.set('rr_pending', '');\nmsg.rr_stage = \"Rachel's office (last)\"; msg.rr_mins = 40; return msg;",
+        "func": "if (msg.rr_wgen !== flow.get('rr_waitgen')) { node.status({fill:'grey',shape:'ring',text:'stale wait ignored'}); return null; }\nif (flow.get('rr_cancel')) { node.status({fill:'red',text:'cancelled'}); return null; }\n// Heading home or idle beside the dock after a return: the stage dock watcher\n// (f_dw, group 9) takes the stage over (one re-dock, alert, 30-min hold).\nconst _dw = flow.get('rr_dw');\nif (_dw && _dw.state === 'watch' && _dw.wid === flow.get('rr_pending') && _dw.gen === msg.rr_wgen && _dw.retAt) {\n    _dw.force = true; flow.set('rr_dw', _dw);\n    node.status({fill:'yellow', text:'near the dock: dock watcher takes over'});\n    return null;\n}\nflow.set('rr_pending', '');\nmsg.rr_stage = \"Rachel's office (last)\"; msg.rr_mins = 40; return msg;",
         "outputs": 1,
         "timeout": 0,
         "noerr": 0,
