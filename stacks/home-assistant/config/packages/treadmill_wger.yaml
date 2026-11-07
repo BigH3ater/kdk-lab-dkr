@@ -8,9 +8,9 @@
 #
 # WHAT: as the walker's own wger user (their API key), one workout session per
 # person per day plus one log on the walk slot of that weekday:
-#   GET  routine/?limit=100 -> the routine whose description holds "[kdk:daily]" (gen_wger.py's
-#        every-day block, e.g. "Daily · walk + stretches"; none: log without routine)
-#   GET  day/?routine=<id>&order=<ISO weekday>    -> day id (gen_wger.py: order 1..7 = Mon..Sun)
+#   GET  routine/?limit=100 -> today's weekday routine: its description holds "[kdk:<mon..sun>]"
+#        (gen_wger.py writes one routine per weekday, e.g. "Fri · Upper B"; none: log without routine)
+#   GET  day/?routine=<id>&order=1                -> day id (each weekday routine has one day)
 #   GET  slot/?day=<day>  +  slot-entry/?exercise=<treadmill-walk>  -> the walk's slot entry
 #   GET  workoutsession/?datetime_start__gte=<local midnight>&__lt=<next midnight>
 #   POST workoutsession/   {routine, day, notes, impression "2" (Neutral), datetime_start, datetime_end}
@@ -197,11 +197,13 @@ script:
                 {{ note_line }}. Add it in the wger app.
           - stop: wger unreachable
       - variables:
-          # gen_wger.py tags each routine "[kdk:<block>]"; the walk is in the "daily" block
+          # gen_wger.py tags each weekday routine "[kdk:mon]" .. "[kdk:sun]"
+          day_tag: "{{ '[kdk:' ~ ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'][weekday - 1] ~ ']' }}"
+      - variables:
           rid: >-
             {% set ns = namespace(id=none) %}
             {% for r in r_routine.content.results | default([]) %}
-              {% if ns.id is none and not r.is_template and '[kdk:daily]' in (r.description or '') %}
+              {% if ns.id is none and not r.is_template and day_tag in (r.description or '') %}
                 {% set ns.id = r.id %}
               {% endif %}
             {% endfor %}
@@ -214,7 +216,7 @@ script:
             continue_on_error: true
             response_variable: r_day
             data:
-              path: "day/?routine={{ rid }}&order={{ weekday }}"
+              path: "day/?routine={{ rid }}&order=1"
           - variables:
               day_id: >-
                 {{ r_day.content.results[0].id

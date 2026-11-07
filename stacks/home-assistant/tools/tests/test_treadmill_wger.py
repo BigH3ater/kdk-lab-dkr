@@ -157,16 +157,15 @@ class FakeWger:
 
     def __init__(self, users):
         self.users = users           # token -> login
-        # gen_wger layout: one routine per block, found by its [kdk:<block>] tag (the walk is in
-        # "daily", listed last by wger: newest first); day order 1..7 = Monday..Sunday
+        # gen_wger layout: one routine per weekday, tagged [kdk:mon..sun], one day each (order 1).
+        # Friday's routine is id 1 (as live: the old routine 1 became Friday); day d = ISO weekday d.
+        tags = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
+        self.rid = {d: 1 if d == 5 else 20 + d for d in range(1, 8)}
         self.routines = {"jmack": [
-            {"id": 2, "name": "Lifts · Mon/Tue/Thu/Fri", "description": "Mon, Tue, Thu, Fri. [kdk:lifts]",
-             "is_template": False},
-            {"id": 7, "name": "Daily · walk + stretches", "description": "Every day. [kdk:daily]",
-             "is_template": True},
-            {"id": 1, "name": "Daily · walk + stretches", "description": "Every day. [kdk:daily]",
-             "is_template": False}]}
-        self.days = [{"id": d, "routine": 1, "order": d} for d in range(1, 8)]
+            {"id": 99, "name": "Fri · Upper B", "description": "Friday. [kdk:fri]", "is_template": True},
+            *[{"id": self.rid[d], "name": f"{tags[d - 1].title()} · x", "is_template": False,
+               "description": f"Weekday. [kdk:{tags[d - 1]}]"} for d in range(1, 8)]]}
+        self.days = [{"id": d, "routine": self.rid[d], "order": 1} for d in range(1, 8)]
         self.slots = [{"id": 100 + d, "day": d} for d in range(1, 8)] + \
                      [{"id": 200 + d, "day": d} for d in range(1, 8)]
         self.entries = [{"id": 1000 + d, "slot": 100 + d, "exercise": EX} for d in range(1, 8)] + \
@@ -350,9 +349,9 @@ def test_app_session_today_is_reused_without_touching_its_times(env):
 
 
 def test_another_routines_session_today_is_left_alone(env):
-    """With one routine per block the app's Lifts session is not the walk's: the walk gets its own."""
+    """A session the app made today for another routine is not the walk's: the walk gets its own."""
     _, wger, ha = env
-    wger.sessions.append({"id": "app-2", "routine": 2, "day": 25, "notes": None, "impression": "3",
+    wger.sessions.append({"id": "app-2", "routine": 24, "day": 4, "notes": None, "impression": "3",
                           "datetime_start": "2026-11-06T12:00:00Z", "datetime_end": None, "_user": "jmack"})
     walk(ha)
     lifts, s = wger.sessions
@@ -362,15 +361,13 @@ def test_another_routines_session_today_is_left_alone(env):
 
 
 def test_routine_lookup_matches_gen_wger():
-    """The package finds the walk by the tag gen_wger.py gives the first ("daily") block."""
+    """The package finds today's routine by the weekday tag gen_wger.py writes."""
     import sys
     sys.path.insert(0, str(HERE.parent))
-    import workout_catalog
-    cat = workout_catalog.load()
-    for pl in [cat, *cat["plans"].values()]:
-        assert pl["routines"][0]["key"] == workout_catalog.ANCHOR
-    assert f"'[kdk:{workout_catalog.ANCHOR}]'" in PKG.read_text()
-    assert "Week" not in PKG.read_text()
+    import gen_wger
+    text = PKG.read_text()
+    assert str(gen_wger.DAY_TAGS) == re.search(r"(\['mon', [^\]]*\])\[weekday - 1\]", text).group(1)
+    assert "'[kdk:' ~" in text and "Week" not in text and "kdk:daily" not in text
 
 
 def test_yesterdays_session_is_not_reused(env):
