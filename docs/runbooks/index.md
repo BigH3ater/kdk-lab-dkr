@@ -30,6 +30,7 @@ illustrative.
 - [Grocery planner — seed, run, and tune](grocery-planner.md) — seed Tandoor from scored real recipes, the weekly meal-plan + two-store list run, adding/swapping a recipe, changing the rules, troubleshooting.
 - [wger — first deploy and onboarding](wger.md) — pilot Track A: 1Password items (incl. the JWT keypair from wger's generator), deploy, bootstrap-admin reset, PowerSync storage, Authelia header login, per-person API keys, iOS app login + offline test, backup check, rollback.
 - [Exercise plan update (wger)](workout-tracking-update.md) — change an exercise, dose or cue and load it into both people's wger routines; also the 2026-11-06 retirement of the in-house tracker (host steps).
+- [Home Assistant housekeeping](home-assistant-housekeeping.md) — standing rules: no `*.bak` in packages/dashboards, unused custom components out, dead Zigbee devices pruned, entity-registry orphan check, the daily-backup check before an upgrade.
 - [Treadmill → Home Assistant (GlassOS/DIRCON bridge)](treadmill-glassos-bridge.md) — the read-only DIRCON→MQTT bridge on kdk-dkr-02: console prerequisites (NordicFTMS, DHCP reservation), the MackTrack console app loop (GitHub Actions build, install/smoke/rollback from kdk-dkr-04), deploy order, optional broker auth, the three-slice rollout.
 
 Conventions used throughout:

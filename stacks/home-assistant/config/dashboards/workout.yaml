@@ -15,14 +15,16 @@
 #
 # Treadmill view ONLY since 2026-11-06: the per-exercise Strength / Progress / Plan views
 # and their ex_* helpers were retired when wger won the tracking pilot (strength logging
-# and history live in wger; docs/runbooks/workout-tracking-update.md). workout.yaml
-# (Jacob) and workout_rachel.yaml carry the same view; keep them identical apart from
-# `title:` (tools/tests/test_treadmill_dashboards.py checks it).
+# and history live in wger; docs/runbooks/workout-tracking-update.md).
+# ONE shared dashboard since 2026-11-07: the walker selector, the live session and the
+# per-person totals cover both people, so the former identical copy for Rachel
+# (workout_rachel.yaml, url_path workout-rachel) was dropped.
 #
 # DEPLOY: pre_deploy copies config/dashboards/*.yaml to the host; an edit here only
-# needs a browser refresh. Both files are registered in the host-managed
-# configuration.yaml `lovelace:` block (url_paths treadmill-workouts / workout-rachel).
-title: Workout
+# needs a browser refresh. Registered in the host-managed configuration.yaml
+# `lovelace:` block as url_path treadmill-workouts, sidebar title "Treadmill"
+# (docs/runbooks/treadmill-glassos-bridge.md, "register the workout dashboard").
+title: Treadmill
 views:
 - title: Treadmill
   path: treadmill-workouts

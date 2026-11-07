@@ -6,7 +6,7 @@ tier: apps
 status: live
 storage: yes
 secrets: [home-assistant-nodered-token, home-assistant-roborock-map-token, node-red-admin, node-red-credential-secret, zigbee2mqtt-frontend-token, kdk-ups-01-nut-upsd, scrypted-admin, homeassistant-oidc-client, vikunja-api-ro, vikunja-api-approvals, wger-api-jmack, wger-api-rach]
-updated: 2026-11-06
+updated: 2026-11-07
 tags: [homelab/stack, tier/apps, status/live]
 ---
 
@@ -38,7 +38,7 @@ local-only `node-red` user (admin, required by the websocket nodes) instead of t
 | Host | [[kdk-dkr-02]] (10.1.30.21, VLAN 30), HA + Node-RED, HomeKit bridge |
 | Login | **Authelia OIDC** (`hass-oidc-auth` custom component, client `homeassistant`, Authelia policy `ha_access` = LLDAP group **`ha-users`** with 2FA; `ha-admins` → HA admin role); local login kept as fallback (usernames `jmack`/`rach`) |
 | Theme | **Kodiak** (INK GROUND dark, `config/themes/kodiak.yaml`), a dark-only `modes:` theme set as backend default on start; carries the MD3 / `ha-color-*` tokens the 2026.4+ frontend uses (see [Theme tokens after 2026.4](#theme-tokens-after-20264)) |
-| Dashboards | **Home** (iOS-Home-style rooms, sections+tile), **Roborock**, **Homelab** — YAML-mode, registered in `configuration.yaml` |
+| Dashboards | **Home** (iOS-Home-style rooms, sections+tile), **Roborock**, **Homelab**, **Treadmill** — YAML-mode, registered in `configuration.yaml` |
 | Home controls | per-room sections: blinds (Zigbee covers), theater lights (+group), T9 thermostat, ceiling fan, outlets, Bosch dishwasher, HomePods/Apple TVs |
 | Homelab telemetry | REST sensors pulling [[observability]] Prometheus (`10.1.20.30:9090`): iDRAC fans/temps/power + per-host CPU/mem/uptime, plus the [[nut]] UPS |
 | Roborock | fully local vacuum — live map (tap-to-clean), per-room buttons, routines, per-room last-cleaned stamps, next-run; automation in Node-RED |
@@ -46,7 +46,7 @@ local-only `node-red` user (admin, required by the websocket nodes) instead of t
 | Other integrations | Apple TV ×several, Lutron Caséta, Zigbee2MQTT (Sonoff dongle), HomeKit bridge/controller, [[nut]] UPS |
 | Node-RED | `nodered.kmkdp.com`; editor + admin API need a login (`adminAuth`, user `jmack`, bcrypt hash in host `node-red.env`); `flows_cred.json` encrypted with `credentialSecret`; admin API audit events in the container log; HA access through the dedicated, local-only HA user `node-red` (Administrator **on**: the websocket nodes refused a non-admin user on 2026-10-28, "User required to have admin privileges") |
 | Zigbee2MQTT | `zigbee.kmkdp.com`; the frontend asks for the auth token once per browser (`ZIGBEE2MQTT_CONFIG_FRONTEND_AUTH_TOKEN` from host `zigbee2mqtt.env`); `advanced.log_level: info` set by env override in compose |
-| Scrypted | on [[kdk-dkr-03]], v0.147.0 (`-noble-full`); UI ports 10443/11080 are reachable from VLAN 30 (the planned UniFi rule was dropped 2026-10-28: dkr-02 and dkr-03 share VLAN 30, so the gateway cannot filter that path; the 0.147 upgrade is the fix). Cameras reach HA only via HomeKit today (no video); the `koush/ha_scrypted` HACS integration is installed, pending the correct Scrypted login |
+| Scrypted | on [[kdk-dkr-03]], v0.147.0 (`-noble-full`); UI ports 10443/11080 are reachable from VLAN 30 (the planned UniFi rule was dropped 2026-10-28: dkr-02 and dkr-03 share VLAN 30, so the gateway cannot filter that path; the 0.147 upgrade is the fix). Cameras reach HA only via HomeKit today (no video); the `koush/ha_scrypted` HACS integration was never configured and was removed 2026-11-07 |
 
 ## Dashboards
 
@@ -61,6 +61,9 @@ local-only `node-red` user (admin, required by the websocket nodes) instead of t
   [Roborock dashboard](#roborock-dashboard-2026-11-04).
 - **Homelab** (`/homelab-hw`) — iDRAC gauges for [[kdk-hyp-01]] and
   [[kdk-nas-01]], the [[nut]] UPS, and CPU/memory/uptime for all monitored hosts.
+- **Treadmill** (`/treadmill-workouts`, `config/dashboards/workout.yaml`) — one
+  dashboard for both people: live session, walker selector / "I'm Walking", this
+  week, per-person totals (Jacob, Rachel, Guest). Strength training is in [[wger]].
 
 ### Theme tokens after 2026.4
 
@@ -372,9 +375,10 @@ curl -s --http1.1 -m 3 -N -H 'Connection: Upgrade' -H 'Upgrade: websocket' \
   **registering a new dashboard or the themes dir needs an HA restart**;
   package edits reload with Developer Tools → "Reload all YAML" (a *new*
   package that adds integrations needs a one-time restart).
-- **Workout pages** — `config/dashboards/workout.yaml` (Jacob,
-  `/treadmill-workouts`) and `workout_rachel.yaml` (`/workout-rachel`) are the
-  **Treadmill view only**, hand-edited, identical apart from `title:` (CI test
+- **Treadmill page** — `config/dashboards/workout.yaml` (`/treadmill-workouts`,
+  sidebar title **Treadmill**) is the **Treadmill view only**, hand-edited, and the one
+  dashboard for both people since 2026-11-07 (Rachel's identical copy
+  `workout_rachel.yaml` / `/workout-rachel` was dropped; CI test
   `tools/tests/test_treadmill_dashboards.py`). The per-exercise `ex_*` helpers,
   `script.workout_mark_done` and the Strength / Progress / Plan views were
   retired 2026-11-06 when [[wger]] won the tracking pilot; exercise logging and
@@ -426,7 +430,15 @@ curl -s --http1.1 -m 3 -N -H 'Connection: Upgrade' -H 'Upgrade: websocket' \
   `!secret oidc_client_secret` in the host `secrets.yaml`.
 - Host-side: `configuration.yaml` (only the includes, `default_config`,
   `lovelace` dashboard registrations and the `packages:` include), `secrets.yaml`,
-  `/config/.vikunja_token`, `custom_components/auth_oidc`, `.storage/`.
+  `/config/.vikunja_token`, `custom_components/`, `.storage/`.
+- Custom components (host-side `custom_components/`, installed through HACS):
+  - `auth_oidc` — Authelia OIDC login (YAML, `config/packages/auth_oidc.yaml`).
+  - `homeconnect_ws` — the Bosch dishwasher, local websocket (UI config entry).
+  - Removed 2026-11-07: `blueair` and `scrypted` (`koush/ha_scrypted`). Neither had a
+    config entry or YAML (unused), and blueair's upstream repo was removed from the
+    HACS marketplace, so it would get no more updates.
+  Standing rules (no `*.bak` in shipped dirs, unused components out, Zigbee and
+  entity-registry pruning, backups): [HA housekeeping runbook](../runbooks/home-assistant-housekeeping.md).
 - Adding an SSO user: create the HA user with the same username as LLDAP, add the
   LLDAP user to `ha-users`, set `automatic_user_linking: true` in the package,
   deploy + restart, have them log in once, set it back to `false`, deploy + restart.
@@ -456,7 +468,7 @@ DMZ `/secrets/authelia-app-secrets/homeassistant_client_secret`, plaintext in
 HA `secrets.yaml`), `vikunja-api-ro` (chore sensor + Node-RED bridge),
 `wger-api-jmack` / `wger-api-rach` (treadmill auto-log; `wger_api_key_<login>`
 in HA `secrets.yaml`, rotation in [wger runbook step 14](../runbooks/wger.md#14-treadmill-auto-log)),
-`scrypted-admin` (once the Scrypted integration is completed).
+`scrypted-admin` (the Scrypted server's own login; HA has no Scrypted integration since 2026-11-07).
 `home-assistant-roborock-map-token` (roborock-map → HA, read-only use: the
 image proxy): create a new long-lived token on the HA profile page, `op item
 edit`, write `HA_TOKEN=` into `roborock-map.env`, recreate `roborock-map`,

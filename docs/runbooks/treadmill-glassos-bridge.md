@@ -237,25 +237,20 @@ be **registered** in the host-managed `configuration.yaml` (not in the repo):
 lovelace:
   mode: storage
   dashboards:
-    treadmill-workouts:            # -> https://homeassistant.kmkdp.com/treadmill-workouts   (Jacob)
+    treadmill-workouts:            # -> https://homeassistant.kmkdp.com/treadmill-workouts
       mode: yaml
-      title: Workout · Jacob
+      title: Treadmill
       icon: mdi:run
       show_in_sidebar: true
       filename: dashboards/workout.yaml
-    workout-rachel:                # -> https://homeassistant.kmkdp.com/workout-rachel
-      mode: yaml
-      title: Workout · Rachel
-      icon: mdi:run
-      show_in_sidebar: true
-      filename: dashboards/workout_rachel.yaml
 ```
 
-The two `treadmill-workouts` / `workout-rachel` url_paths are what the Kodiak left-sidebar
-**Workout · Jacob** / **Workout · Rachel** links point at. Since 2026-11-06 both files
-carry the same single **Treadmill** view (the Strength / Progress / Plan views and their
-`ex_*` helpers were retired when wger won the tracking pilot; strength logging is in
-[[wger]]). Then restart Home
+The `treadmill-workouts` url_path is what the Kodiak left-sidebar **Treadmill** link
+points at. The file carries the single **Treadmill** view (the Strength / Progress / Plan
+views and their `ex_*` helpers were retired 2026-11-06 when wger won the tracking pilot;
+strength logging is in [[wger]]). It is the one dashboard for both people since
+2026-11-07: Rachel's identical copy (`workout-rachel`, `dashboards/workout_rachel.yaml`)
+was dropped. Then restart Home
 Assistant (Developer Tools → YAML → Restart, or `action: homeassistant.restart`).
 Slice 2's `treadmill.yaml` package is a drop-in under `config/packages/`
 (auto-included); its first activation also needs a one-time HA restart because it
