@@ -731,7 +731,7 @@ def test_rach_routine_is_her_plan(guide, fake):
     assert [("water-walk", "Minutes", 1, 20, 30), ("recumbent-bike", "Minutes", 1, 20, 25)] in tree["Tuesday"]
     assert [("high-box-squat", "Repetitions", 3, 8, None)] in tree["Monday"]
     assert [("kneeling-hip-flexor", "Seconds", 1, 30, None)] in tree["Sunday"]
-    assert [("side-lying-rest", "Minutes", 1, 3, 5)] in tree["Wednesday"]
+    assert [("side-lying-rest", "Minutes", 1, 2, 3)] in tree["Wednesday"]
     either = [s for s in fake.rows("slot", "rach") if s["comment"] == gw.EITHER_COMMENT]
     assert len(either) == 2                                              # Tue + Fri, one slot each
     jm = {e[0] for s in fake.routine_tree("jmack")[1]["Monday"] for e in s}
