@@ -80,7 +80,6 @@
   "seated-band-row": {"muscles": ["Lats", "Trapezius"], "secondary": ["Biceps", "Shoulders"], "equipment": ["Resistance band", "Gym mat"]},
   "glute-bridge": {"muscles": ["Glutes"], "secondary": ["Hamstrings", "Abs"], "equipment": ["Gym mat"]},
   "water-walk": {"muscles": ["Quads", "Calves"], "secondary": ["Glutes", "Hamstrings"], "equipment": ["Pool"], "safety": "Walk at a pace you can talk at; hold the edge when turning or changing direction."},
-  "recumbent-bike": {"muscles": ["Quads"], "secondary": ["Glutes", "Hamstrings", "Calves"], "equipment": ["Recumbent bike"], "safety": "Set the seat so the knee keeps a slight bend at the far pedal; keep a pace you can talk at."},
   "wall-slide": {"muscles": ["Quads", "Glutes"], "secondary": ["Abs"], "equipment": ["Wall", "Swiss Ball"]},
   "pelvic-tilt": {"muscles": ["Abs"], "secondary": ["Lower back", "Glutes"], "equipment": ["Gym mat"], "what": "Works the lower abs and gently moves the pelvis."},
   "side-lying-rest": {"muscles": [], "secondary": [], "equipment": ["Gym mat", "Pillow"], "what": "A supported side-lying rest with slow, deep breathing."}

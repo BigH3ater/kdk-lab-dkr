@@ -769,13 +769,12 @@ def test_rach_routines_are_her_plan(guide, fake):
         ["high-box-squat", "pallof-press", "wall-pushup"], [], [], ["elevated-rdl", "seated-band-row", "glute-bridge"]]
     _, cardio = fake.routine_tree("rach", "cardio")
     assert list(cardio) == gw.WEEKDAYS[:5] and cardio["Monday"] == cardio["Wednesday"] == []
-    assert cardio["Tuesday"] == cardio["Friday"] == [[("water-walk", "Minutes", 1, 20, 30),
-                                                      ("recumbent-bike", "Minutes", 1, 20, 25)]]
+    assert cardio["Tuesday"] == cardio["Friday"] == [[("water-walk", "Minutes", 1, 20, 30)]]
     assert [("high-box-squat", "Repetitions", 3, 8, None)] in strength["Monday"]
     assert [("kneeling-hip-flexor", "Seconds", 1, 30, None)] in daily["Sunday"]
     assert [("side-lying-rest", "Minutes", 1, 2, 3)] in daily["Wednesday"]
     either = [s for s in fake.rows("slot", "rach") if s["comment"] == gw.EITHER_COMMENT]
-    assert len(either) == 2                                              # Tue + Fri, one slot each
+    assert len(either) == 0                                              # the bike alternative was dropped 2026-11-07
     jm = {e[0] for s in fake.routine_tree("jmack")[1]["Monday"] for e in s}
     assert not jm & set(desk + evening)                                  # Jacob's week has none of hers
 

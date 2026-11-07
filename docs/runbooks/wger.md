@@ -374,7 +374,7 @@ ssh kdkadmin@10.1.30.21 'sudo grep -c "kdk:daily" /opt/kdk-lab/home-assistant/co
 when jmack is selected). Rachel's routine comes from her own catalog plan
 (`plans.rach` in `workout_catalog.json`: desk breaks + evening mobility every day,
 Strength A Monday, cardio Tuesday and Friday as one "either one" slot holding the pool
-walk and the recumbent bike, Strength B Thursday), not from `workout.json`; her 14
+walk, Strength B Thursday), not from `workout.json`; her 14
 exercises have no posters yet. Until her key exists, run `--person jmack` (that also
 writes her exercises, which are global) and leave `WGER_API_KEY_RACH` unset. Warnings go to stderr: a name too close to a wger.de exercise
 gets a ` · kdk plan` suffix (11 names today, e.g. Hammer Curl; wger's rule is 0.85 trigram similarity against every English exercise), a slug without a PNG poster gets no image
