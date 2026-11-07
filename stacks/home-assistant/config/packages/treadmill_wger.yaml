@@ -8,12 +8,14 @@
 #
 # WHAT: as the walker's own wger user (their API key), one workout session per
 # person per day plus one log on the walk slot of that weekday:
-#   GET  routine/?name=Week (kdk)                 -> routine id (none: log without routine)
+#   GET  routine/?limit=100 -> the routine whose description holds "[kdk:daily]" (gen_wger.py's
+#        every-day block, e.g. "Daily · walk + stretches"; none: log without routine)
 #   GET  day/?routine=<id>&order=<ISO weekday>    -> day id (gen_wger.py: order 1..7 = Mon..Sun)
 #   GET  slot/?day=<day>  +  slot-entry/?exercise=<treadmill-walk>  -> the walk's slot entry
 #   GET  workoutsession/?datetime_start__gte=<local midnight>&__lt=<next midnight>
 #   POST workoutsession/   {routine, day, notes, impression "2" (Neutral), datetime_start, datetime_end}
 #        or PATCH workoutsession/<id>/ {notes += line[, datetime_end]} when today already has one
+#        for the same routine (a session the app made for another routine, e.g. Lifts, is left alone)
 #   POST workoutlog/       {exercise, session, routine, slot_entry, date, repetitions = minutes,
 #                           repetitions_unit = 4 (Minutes)}; no weight (wger needs reps OR weight)
 # Field names are wger 2.7's (datetime_start/datetime_end; the old date/time_start/
@@ -172,7 +174,7 @@ script:
         continue_on_error: true
         response_variable: r_routine
         data:
-          path: "routine/?name=Week%20(kdk)"
+          path: "routine/?limit=100"
       - if: "{{ r_routine is defined and r_routine.status in [401, 403] }}"
         then:
           - action: system_log.write
@@ -195,9 +197,15 @@ script:
                 {{ note_line }}. Add it in the wger app.
           - stop: wger unreachable
       - variables:
+          # gen_wger.py tags each routine "[kdk:<block>]"; the walk is in the "daily" block
           rid: >-
-            {{ r_routine.content.results[0].id
-               if (r_routine.content.results | default([])) | count > 0 else none }}
+            {% set ns = namespace(id=none) %}
+            {% for r in r_routine.content.results | default([]) %}
+              {% if ns.id is none and not r.is_template and '[kdk:daily]' in (r.description or '') %}
+                {% set ns.id = r.id %}
+              {% endif %}
+            {% endfor %}
+            {{ ns.id }}
 
       # The walk slot of this weekday (only when the person has the routine).
       - if: "{{ rid is not none }}"
@@ -258,8 +266,10 @@ script:
             {% for s in r_sess.content.results | default([]) %}
               {% set n = s.notes or '' %}
               {% if note_line in n %}{% set ns.dup = true %}{% endif %}
-              {% if ns.ours is none and n.startswith('treadmill auto-log') %}{% set ns.ours = s %}{% endif %}
-              {% if ns.first is none %}{% set ns.first = s %}{% endif %}
+              {% if rid is none or s.routine == rid %}
+                {% if ns.ours is none and n.startswith('treadmill auto-log') %}{% set ns.ours = s %}{% endif %}
+                {% if ns.first is none %}{% set ns.first = s %}{% endif %}
+              {% endif %}
             {% endfor %}
             {{ {'dup': ns.dup, 'ours': ns.ours is not none,
                 'session': ns.ours if ns.ours is not none else ns.first} }}
