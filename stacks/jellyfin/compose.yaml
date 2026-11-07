@@ -26,7 +26,7 @@ x-hardened: &hardened
 services:
   jellyfin:
     <<: *hardened
-    image: ghcr.io/linuxserver/jellyfin:12.3ubu2604-ls56@sha256:4212ca390fbc6bd5002048d2d2ce2b8a5b1ad278ec4cbabe6519869117404308
+    image: ghcr.io/linuxserver/jellyfin:12.4ubu2604-ls58@sha256:b7eabe1f098f4e850bfd63d6721369117195410a471db1a41748ab768b81a639
     container_name: jellyfin
     # s6-overlay (LinuxServer): the root supervisor chowns /config, adds abc to the
     # /dev/dri render group and drops to abc (uid 1000) for jellyfin/ffmpeg. See the
