@@ -25,7 +25,7 @@ x-hardened: &hardened
 services:
   kroki:
     <<: *hardened
-    image: yuzutech/kroki:0.34.0@sha256:1314e60e6dd813cd00c90cb22007a05fdb92edf43259dfae71abbe89429ea36a
+    image: yuzutech/kroki:0.35.0@sha256:fe8f90cc3d5a7e98814138e89e9d3944fa1bdb854f85e8580f1d653989de8b48
     container_name: kroki
     init: true                 # reap short-lived render children, forward SIGTERM
     read_only: true            # Java fat-jar writes only scratch -> tmpfs /tmp
@@ -55,7 +55,7 @@ services:
 
   mermaid:
     <<: *hardened
-    image: yuzutech/kroki-mermaid:0.34.0@sha256:b12882a8ec4ab91831f795194640f3b61ffd90af523ec221c11a68f8a70ef3a1
+    image: yuzutech/kroki-mermaid:0.35.0@sha256:e4d8270ed28464798143c3c8c88fb02c9df0b794e15ff63159f6d99ebff2a726
     container_name: kroki-mermaid
     init: true                 # headless Chromium spawns children -> tini reaps them
     tmpfs: [/tmp]
