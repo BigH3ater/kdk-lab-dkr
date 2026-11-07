@@ -1,6 +1,7 @@
-"""The two HA Workout dashboards are the Treadmill view only (the per-exercise views were
-retired with the ex_* helpers when wger won the pilot, 2026-11-06): same view for both
-people, and every helper/script they use is defined in packages/treadmill.yaml."""
+"""The HA Treadmill dashboard (workout.yaml) is the Treadmill view only (the per-exercise
+views were retired with the ex_* helpers when wger won the pilot, 2026-11-06), it is the
+ONE dashboard for both people since 2026-11-07 (Rachel's identical copy was dropped), and
+every helper/script it uses is defined in packages/treadmill.yaml."""
 import re
 from pathlib import Path
 
@@ -22,11 +23,26 @@ def _load(name):
     return yaml.safe_load((DASH / name).read_text(encoding="utf-8"))
 
 
-def test_both_dashboards_are_the_same_treadmill_view():
-    jacob, rachel = _load("workout.yaml"), _load("workout_rachel.yaml")
-    assert jacob["title"] == "Workout" and rachel["title"] == "Workout · Rachel"
-    assert [v["path"] for v in jacob["views"]] == ["treadmill-workouts"]
-    assert jacob["views"] == rachel["views"]
+def test_one_shared_treadmill_dashboard():
+    dash = _load("workout.yaml")
+    assert dash["title"] == "Treadmill"
+    assert [v["path"] for v in dash["views"]] == ["treadmill-workouts"]
+    assert sorted(p.name for p in DASH.glob("workout*.yaml")) == ["workout.yaml"]
+
+
+def test_dashboard_covers_both_people():
+    """The single dashboard must keep the walker selector and every person's totals."""
+    text = (DASH / "workout.yaml").read_text(encoding="utf-8")
+    assert "input_select.tm_current_walker" in text
+    assert "script.tm_set_walker_from_user" in text
+    for name, slug in (("Jacob", "jacob"), ("Rachel", "rachel"), ("Guest", "guest")):
+        assert f"('{name}','{slug}')" in text
+
+
+def test_no_backup_files_in_shipped_config():
+    """git is the backup: no *.bak / *.orig copies in the dirs pre_deploy ships."""
+    stray = [p.name for d in (DASH, PKG) for p in d.iterdir() if not p.name.endswith(".yaml")]
+    assert stray == []
 
 
 def test_no_retired_workout_entities_anywhere():

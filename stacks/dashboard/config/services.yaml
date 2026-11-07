@@ -216,6 +216,11 @@
       href: https://tasks.kmkdp.com/
       siteMonitor: https://tasks.kmkdp.com/
       description: Household chores & lists (OIDC)
+  - Workouts:
+      icon: wger
+      href: https://wger.kmkdp.com/
+      siteMonitor: https://wger.kmkdp.com/
+      description: Strength routines, workout logs & history (wger, SSO)
 
 - Identity & access:
   - Single Sign-On:
