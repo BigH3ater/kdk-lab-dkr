@@ -281,7 +281,18 @@ same catalog as the HA helpers (`tools/workout_catalog.json`) and the guide outp
   the HA treadmill auto-log finds today's routine by it. wger lists routines by start
   date (newest first), so the starts are staggered a day apart (Monday's routine starts
   on this week's Monday, Sunday's six days earlier) with one shared end 16 weeks later:
-  that is what keeps the list in Mon..Sun order.
+  that is what keeps the list in Mon..Sun order;
+- per person, one **public template** per weekday routine, owned by that person, with
+  the same day, slots and doses, so a day can be copied from the web UI (Routines →
+  Templates: `/routine/templates/overview/private` lists your own, `…/overview/public`
+  everyone's; open one → Copy makes it an ordinary routine of yours, starting today).
+  Names: "Mon · Lower A (template)" when that fits 25 characters, else
+  "Tpl · Wed · Walk + flow" (jmack: Wed and Sat use the short form, rach: all but Tue and
+  Fri). Tag `[kdk:tpl:mon]` .. `[kdk:tpl:sun]`, found among the person's own templates.
+  The iOS app (2.1.x) does not sync templates, so they never show in its list. wger
+  keeps no link from a copy to its template: copies are never touched, and deleting a
+  template never deletes a copy; a duplicate template is deleted only without logs or
+  sessions.
 
 It is idempotent: a second run with nothing changed makes no writes. It never deletes
 a routine, a slot or a day that has logs or sessions (a wger log is deleted with its
@@ -297,9 +308,10 @@ free weekdays whose exercises they already hold most of (jmack: PT + hands → M
 → Tue, Flow + yoga → Sun; rach: Daily → Mon, Cardio → Tue, Strength → Thu), their other
 days are deleted (no logs, no sessions), and the missing weekdays are created (jmack
 Wed/Thu/Sat, rach Wed/Fri/Sat/Sun). The older **Week (kdk)** is picked up the same way.
-On the live data of 2026-11-07 the dry run listed 402 routine writes for jmack and 214
-for rach (plus any exercise image writes), starting with `PATCH routine/5/ 'Mon · Lower A'`;
-no `DELETE routine/`.
+On the live data of 2026-11-07 the dry run listed 912 routine writes for jmack (402 for
+the routines, 510 for the 7 new templates) and 452 for rach (214 + 238), plus any
+exercise image writes, starting with `PATCH routine/5/ 'Mon · Lower A'`; no
+`DELETE routine/`.
 
 Needs steps 7 and 8 done, Python 3 with `requests` on the laptop, and the guide output.
 
@@ -359,8 +371,10 @@ python3 stacks/home-assistant/tools/gen_wger.py --posters "$G" --check    # "wge
 for who in JMACK RACH; do
   k=WGER_API_KEY_$who
   printf 'Authorization: Token %s\n' "${!k}" | curl -s -H @- "$WGER_URL/api/v2/routine/" \
-    | python3 -c 'import json,sys; [print(r["id"], r["name"], r["start"], r["end"], r["fit_in_week"]) for r in json.load(sys.stdin)["results"]]'
-done        # 7 rows each, Mon..Sun; starts a day apart (Mon = this week's Monday), one end, False on every row
+    | python3 -c 'import json,sys; [print(r["id"], r["name"], r["start"], r["end"], r["fit_in_week"], r["is_template"]) for r in json.load(sys.stdin)["results"]]'
+done        # per person: 7 routines Mon..Sun (template False) + 7 templates (True), starts a day apart
+            # (Mon = this week's Monday), one end, fit_in_week False; each list also shows the
+            # other person's 7 public templates (wger lists public templates to everyone)
 unset WGER_API_KEY_JMACK WGER_API_KEY_RACH
 ```
 

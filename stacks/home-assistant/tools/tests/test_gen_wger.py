@@ -102,12 +102,19 @@ class FakeWger:
             return Resp(200, {"result": perm})
         table = parts[0]
         oid = int(parts[1]) if len(parts) > 1 else None
+        if method == "GET" and table in ("templates", "public-templates"):
+            own = table == "templates"
+            rows = [r for r in self.t["routine"].values() if r.get("is_template")
+                    and (r["_user"] == user if own else r.get("is_public"))]
+            return Resp(200, {"count": len(rows), "next": None, "results": [self.pub(r) for r in rows]})
         if table in PRIVATE and user is None:
             return Resp(401, {"detail": "not authenticated"})
         if method == "GET":
             params = dict(params or {})
             limit, offset = int(params.pop("limit", 20)), int(params.pop("offset", 0))
             rows = self.rows(table, user)
+            if table == "routine":          # wger 2.7: everyone's public templates are listed too
+                rows += [r for r in self.t["routine"].values() if r["_user"] != user and r.get("is_public")]
             if oid is not None:
                 row = next((r for r in rows if r["id"] == oid), None)
                 return Resp(404, {"detail": "nf"}) if row is None else Resp(200, self.pub(row))
@@ -235,6 +242,11 @@ TITLES = {"Monday": "Lower A", "Tuesday": "Upper A", "Wednesday": "Treadmill + f
           "Sunday": "Yoga"}
 JACOB_NAMES = ["Mon · Lower A", "Tue · Upper A", "Wed · Treadmill + flow", "Thu · Lower B", "Fri · Upper B",
                "Sat · Walk + flow + PT", "Sun · Yoga"]
+JACOB_TPL = ["Mon · Lower A (template)", "Tue · Upper A (template)", "Tpl · Wed · Walk + flow",
+             "Thu · Lower B (template)", "Fri · Upper B (template)", "Tpl · Sat · Walk+flow+PT",
+             "Sun · Yoga (template)"]
+RACH_TPL = ["Tpl · Mon · Strength A", "Tue · Cardio (template)", "Tpl · Wed · Daily parts", "Tpl · Thu · Strength B",
+            "Fri · Cardio (template)", "Tpl · Sat · Daily parts", "Tpl · Sun · Daily parts"]
 RACH_NAMES = ["Mon · Strength A", "Tue · Cardio", "Wed · Daily parts", "Thu · Strength B", "Fri · Cardio",
               "Sat · Daily parts", "Sun · Daily parts"]
 
@@ -404,7 +416,8 @@ def test_weekday_routines(guide, fake):
     assert starts == [dt.date(2026, 11, 2) - dt.timedelta(days=i) for i in range(7)]   # staggered: list order
     assert {r["end"] for r in rs} == {"2027-02-22"}
     assert all((dt.date.fromisoformat(r["end"]) - st).days <= 120 for r, st in zip(rs, starts))
-    days = fake.rows("day", "jmack")
+    rids = {r["id"] for r in rs}
+    days = [d for d in fake.rows("day", "jmack") if d["routine"] in rids]
     assert len(days) == 7 and all(d["order"] == 1 and not d["is_rest"] and not d["need_logs_to_advance"]
                                   for d in days)
     tree = week(fake, "jmack")
@@ -431,8 +444,43 @@ def test_app_lists_the_weekdays_in_order(guide, fake):
     """wger (and the app) list routines by -start, -created: the staggered starts give Mon..Sun."""
     assert run(guide, "--apply") == 0
     for user in ("jmack", "rach"):
-        rows = sorted(fake.rows("routine", user), key=lambda r: (r["start"], r["id"]), reverse=True)
+        rows = sorted((r for r in fake.rows("routine", user) if not r.get("is_template")),
+                      key=lambda r: (r["start"], r["id"]), reverse=True)
         assert [gw.routine_tag(r) for r in rows] == gw.DAY_TAGS
+
+
+def test_templates_one_per_weekday_public_and_copy_safe(guide, fake, capsys):
+    assert run(guide, "--apply") == 0
+    for user, names in (("jmack", JACOB_TPL), ("rach", RACH_TPL)):
+        tpls = {gw.TPL_RE.search(r["description"]).group(1): r for r in fake.rows("routine", user)
+                if r.get("is_template")}
+        assert list(tpls) == gw.DAY_TAGS and [r["name"] for r in tpls.values()] == names
+        assert all(r["is_public"] and len(r["name"]) <= 25 and gw.routine_tag(r) is None for r in tpls.values())
+        for t, tp in tpls.items():                                  # same day and slots as the routine
+            assert fake.routine_tree(user, t)[1] == tree_of(fake, user, tp)
+    # rach sees jmack's public templates in routine/, but they never count as her routines
+    assert sum(1 for r in fake.t["routine"].values() if r["_user"] == "rach" and not r.get("is_template")) == 7
+    # a copy (what the web UI's copy makes: a plain routine, description and tag included) is left alone
+    tp = next(r for r in fake.rows("routine", "jmack") if r.get("is_template") and "[kdk:tpl:mon]" in r["description"])
+    fake.t["routine"][5000] = {**tp, "id": 5000, "is_template": False, "is_public": False, "_user": "rach"}
+    fake.writes.clear()
+    assert run(guide, "--apply") == 0 and fake.writes == []
+    assert run(guide, "--check") == 0
+    # a hand-edited template is put back, a duplicate without history is deleted
+    tp["name"] = "mine"
+    fake.t["routine"][5001] = {**tp, "id": 5001}
+    capsys.readouterr()
+    assert run(guide, "--apply") == 0
+    assert tp["name"] == JACOB_TPL[0] and 5001 not in fake.t["routine"] and 5000 in fake.t["routine"]
+
+
+def tree_of(fake, user, r):
+    key = "_tree_tmp"
+    r["description"] += f" [kdk:{key}]"
+    try:
+        return fake.routine_tree(user, key)[1]
+    finally:
+        r["description"] = r["description"].removesuffix(f" [kdk:{key}]")
 
 
 def test_routine_names_shorten_to_fit():
@@ -843,9 +891,12 @@ def block_week(guide, pl, warn):
 def make_blocks(guide, fake, monkeypatch):
     """Load the block layout, then add what the live jmack routine 1 holds: two walk logs on the
     Friday walk slot and their session on that day."""
+    real_templates = gw.sync_templates
     monkeypatch.setattr(gw, "plan_week", block_week)
+    monkeypatch.setattr(gw, "sync_templates", lambda *a: None)          # #413 made no templates
     assert run(guide, "--apply") == 0
     monkeypatch.setattr(gw, "plan_week", REAL_PLAN_WEEK)
+    monkeypatch.setattr(gw, "sync_templates", real_templates)
     daily = fake.routine("jmack", "daily")
     fri = next(d for d in fake.rows("day", "jmack") if d["routine"] == daily["id"] and d["name"] == "Friday")
     slot = next(s for s in fake.rows("slot", "jmack") if s["day"] == fri["id"] and s["order"] == 1)
@@ -874,9 +925,9 @@ def test_migration_from_the_blocks_keeps_the_walk_logs(guide, fake, monkeypatch,
         rs = {t: fake.routine(u, t) for t in gw.DAY_TAGS}
         assert [r["name"] for r in rs.values()] == names
         assert old[u] <= {r["id"] for r in rs.values()}                       # every block routine reused
-        assert len(fake.rows("routine", u)) == 7 and len(fake.rows("day", u)) == 7
+        assert len(fake.rows("routine", u)) == 14 and len(fake.rows("day", u)) == 14   # + 7 templates
     assert ("DELETE", "routine") not in fake.writes
-    assert [m for m, t in fake.writes if t == "routine"].count("POST") == 3 + 4
+    assert [m for m, t in fake.writes if t == "routine"].count("POST") == 3 + 4 + 14
     assert week(fake, "jmack")["Friday"][0] == [("treadmill-walk", "Minutes", 1, 15, None)]
     fake.writes.clear()
     assert run(guide, "--apply") == 0 and fake.writes == []
@@ -887,7 +938,7 @@ def test_migration_puts_blocks_on_the_weekdays_they_already_hold(guide, fake, mo
     daily, _, _ = make_blocks(guide, fake, monkeypatch)
     ids = {gw.routine_tag(r): r["id"] for r in fake.rows("routine", "jmack")}
     assert run(guide, "--apply") == 0
-    got = {gw.routine_tag(r): r["id"] for r in fake.rows("routine", "jmack")}
+    got = {gw.routine_tag(r): r["id"] for r in fake.rows("routine", "jmack") if not r.get("is_template")}
     assert got["fri"] == ids["daily"]
     assert got["sun"] == ids["flow"]                 # Sunday: the 4 flow/yoga slots it already has
     assert {got["mon"], got["tue"], got["thu"], got["sat"], got["wed"]} >= {ids["lifts"], ids["pt_hands"]}

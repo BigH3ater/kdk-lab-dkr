@@ -52,6 +52,13 @@ auto-log finds today's routine by it. History: one **Week (kdk)** per person unt
 2026-11-07, then block routines (Daily, Lifts, ...) for a day, then this; each change
 reused the routines in place, so jmack's 2026-11-06 walk logs are on **Fri · Upper B**.
 
+Each weekday routine also exists as a **public template** owned by the same person
+(names "Mon · Lower A (template)", or "Tpl · Wed · Walk + flow" where the suffix does not
+fit; tag `[kdk:tpl:<day>]`): the web UI's Routines → Templates view lists them (private:
+your own; public: both people's), and Copy turns one into an ordinary routine of the
+copier, starting today. The iOS app syncs no templates. A copy is independent (wger keeps
+no link), so the generator never touches copies.
+
 **Related:** [[dashboard]] · [[identity]] · [[traefik]] · [[backups]] · runbook [wger](../runbooks/wger.md)
 
 ## At a glance

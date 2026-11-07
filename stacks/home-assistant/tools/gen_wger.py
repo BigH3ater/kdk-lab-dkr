@@ -61,6 +61,17 @@ What it writes (runbook: docs/runbooks/wger.md, "Load the catalog"):
      sessions for the weekday those are on (jmack's Daily: Friday, its walk slot keeps the
      logs), the rest for the free weekdays whose exercises they already hold most of.
      Leftover generated routines are deleted when they have no logs and no sessions.
+  4. Per person, one routine TEMPLATE per weekday routine, owned by that person:
+     is_template + is_public (wger 2.7: public templates are listed to every user at
+     public-templates/ and in the web UI's Templates view, and anyone can copy one; the iOS
+     app 2.1.x syncs no templates), the same single day, slots and configs, the same
+     window, named "<routine name> (template)" when that fits 25 characters, else
+     "Tpl · <name>" (shortened further by SHORTEN), tagged "[kdk:tpl:<mon..sun>]" and found
+     by that tag among the person's own templates (templates/). A copy is an ordinary
+     routine of whoever made it (wger keeps no link and copies the description, whose
+     tpl tag the routine search ignores), so copies are never touched and deleting a
+     template never touches them; a duplicate template is deleted only without logs or
+     sessions.
 Slots are matched by their exercises, never rebuilt: a WorkoutLog cascades away with
 its slot entry, so a slot that has logs is never deleted (it is moved to the end and
 marked "[retired]" instead). A day is matched by its weekday name, and a day the plan does
@@ -89,7 +100,10 @@ LEGACY_NAME = "Week (kdk)"      # the one-routine-per-person layout before 2026-
 ROUTINE_NAME_MAX = 25           # wger Routine.name max_length
 TAG_RE = re.compile(r"\[kdk:([a-z_]+)\]")
 DAY_TAGS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
-SHORTEN = [("flexibility flow", "flow"), ("Treadmill", "Walk")]   # applied in turn until the name fits
+SHORTEN = [("flexibility flow", "flow"), ("Treadmill", "Walk"), (" + ", "+")]   # in turn until it fits
+TPL_RE = re.compile(r"\[kdk:tpl:([a-z]+)\]")
+TPL_SUFFIX = " (template)"
+TPL_PREFIX = "Tpl · "
 DAILY_PARTS = "Daily parts"     # Rachel's title for a day with only her every-day groups
 # wger rejects a translation whose name is >= 0.85 trigram-similar to any existing English
 # exercise (11 catalog names match upstream ones exactly). "(kdk)" is not distinct enough
@@ -475,18 +489,26 @@ def make_slots(wd: str, steps: list[dict], kinds: dict, warn) -> list[dict]:
     return slots
 
 
-def routine_name(abbr: str, title: str) -> str:
+def routine_name(abbr: str, title: str, limit: int = ROUTINE_NAME_MAX) -> str:
     """'Mon · Lower A' from the day title (any 'Monday — ' prefix dropped), shortened to fit."""
     title = re.sub(r"^\w+day\s+[—-]\s+", "", title or "").strip()
     name = f"{abbr} · {title}" if title else abbr
     for old, new in SHORTEN:
-        if len(name) <= ROUTINE_NAME_MAX:
+        if len(name) <= limit:
             break
         name = name.replace(old, new)
-    if len(name) > ROUTINE_NAME_MAX:
+    if len(name) > limit:
         raise WgerError(f"routine name {name!r} is longer than wger's {ROUTINE_NAME_MAX} characters; "
                         "shorten the day title or add a SHORTEN rule")
     return name
+
+
+def template_name(abbr: str, title: str) -> str:
+    """'Mon · Lower A (template)' when that fits, else 'Tpl · Wed · Walk + flow'."""
+    name = routine_name(abbr, title)
+    if len(name) + len(TPL_SUFFIX) <= ROUTINE_NAME_MAX:
+        return name + TPL_SUFFIX
+    return TPL_PREFIX + routine_name(abbr, title, ROUTINE_NAME_MAX - len(TPL_PREFIX))
 
 
 def plan_week(guide: dict, pl: dict, warn) -> list[dict]:
@@ -500,6 +522,7 @@ def plan_week(guide: dict, pl: dict, warn) -> list[dict]:
             raise WgerError(f"workout.json has no {wd}")
         slots = make_slots(wd, day_steps(guide, day), kinds, warn)
         out.append({"key": tag, "name": routine_name(wd[:3], day.get("title", "")),
+                    "template_name": template_name(wd[:3], day.get("title", "")),
                     "description": f"{wd}. {ROUTINE_DESC} [kdk:{tag}]",
                     "days": [{"name": wd, "description": short(day.get("summary", ""), 1000),
                               "is_rest": False, "slots": slots}]})
@@ -855,6 +878,7 @@ def sync_routines(api: Api, week: list[dict], ex_ids: dict, units: dict, today: 
     base = end - dt.timedelta(days=END_DAYS)
     for i, b in enumerate(week):
         sync_routine(api, b, got.get(b["key"]), base - dt.timedelta(days=i), end, st, ex_ids, units, warn)
+    sync_templates(api, week, st, base, end, ex_ids, units, warn)
     used = {r["id"] for r in got.values()}
     for r in rs:
         if r["id"] in used or not (routine_tag(r) or r.get("name") == LEGACY_NAME):
@@ -866,11 +890,42 @@ def sync_routines(api: Api, week: list[dict], ex_ids: dict, units: dict, today: 
             api.write("DELETE", f"routine/{r['id']}/", f"{r.get('name')!r} (not in the plan, no logs, no sessions)")
 
 
+def sync_templates(api: Api, week: list[dict], st: State, base: dt.date, end: dt.date, ex_ids: dict,
+                   units: dict, warn):
+    """One public template per weekday routine, owned by this person (the web UI's Templates view;
+    anyone can copy a public one). Found by [kdk:tpl:<day>] among the person's own templates; a
+    copy is an ordinary routine of whoever copied it and is never touched (wger keeps no link)."""
+    have: dict = {}
+    extra = []
+    for r in api.list("templates/"):
+        m = TPL_RE.search(r.get("description") or "")
+        if not m or not r.get("is_template"):
+            continue
+        if m.group(1) in DAY_TAGS and m.group(1) not in have:
+            have[m.group(1)] = r
+        else:
+            extra.append(r)
+    for i, b in enumerate(week):
+        wd = b["days"][0]["name"]
+        tb = {**b, "key": f"tpl:{b['key']}", "name": b["template_name"], "template": True,
+              "description": f"{wd}, as a template: copy it to get this day as your own routine. "
+                             f"{ROUTINE_DESC} [kdk:tpl:{b['key']}]"}
+        sync_routine(api, tb, have.get(b["key"]), base - dt.timedelta(days=i), end, st, ex_ids, units, warn)
+    for r in extra:
+        if st.has_history(r["id"]):
+            warn(f"{api.who}: template {r.get('name')!r} (id {r['id']}) is a duplicate but has logs or sessions; "
+                 "left alone")
+        else:
+            api.write("DELETE", f"routine/{r['id']}/", f"template {r.get('name')!r} (duplicate, no logs, no sessions)")
+
+
 def sync_routine(api: Api, block: dict, r: dict | None, start: dt.date, end: dt.date, st: State,
                  ex_ids: dict, units: dict, warn):
     name = block["name"]
     want = {"name": name, "description": block["description"], "fit_in_week": False,
             "start": start.isoformat(), "end": end.isoformat()}
+    if block.get("template"):
+        want.update(is_template=True, is_public=True)
     if r is None:
         r = api.write("POST", "routine/", f"{name!r} {want['start']}..{want['end']}", want)
     else:
