@@ -49,8 +49,13 @@ What it writes (runbook: docs/runbooks/wger.md, "Load the catalog"):
      mapping (with fit_in_week on, wger restarts the cycle each Monday and the day would
      only land on Mondays). One slot per step, supersets and "either one" pairs as one slot
      with two entries, "Every day" steps expanded, sets/reps/max-reps from the dose text,
-     weights left blank. The description ends with the tag "[kdk:<mon..sun>]": routines are
-     found by it, and the HA treadmill auto-log finds today's routine by it.
+     rest/max-rest from "rest 60–90 s" (the app's rest timer then counts that down), weights
+     left blank. A per-side dose ("/ leg", "/ side", "/ arm", "/ hand", "/ direction", "each
+     way") doubles the sets, one logged set per side (odd = left, even = right), said in the
+     slot and entry comments; the exercise description keeps the dose as written. A
+     "2–3× a day" dose is one break's worth (the break is not multiplied). The description
+     ends with the tag "[kdk:<mon..sun>]": routines are found by it, and the HA treadmill
+     auto-log finds today's routine by it.
      Window: wger caps a routine at 120 days and lists routines by -start, -created, so the
      starts are staggered one day per weekday (Monday's routine starts on this week's
      Monday, Sunday's six days earlier) with one shared end 16 weeks after that Monday: the
@@ -58,8 +63,10 @@ What it writes (runbook: docs/runbooks/wger.md, "Load the catalog"):
      days of the end rolls all seven forward to this week.
      Migration (from the block routines of 2026-11-07, or the older "Week (kdk)"): a
      generated routine without a weekday tag is reused for a weekday: one with logs or
-     sessions for the weekday those are on (jmack's Daily: Friday, its walk slot keeps the
-     logs), the rest for the free weekdays whose exercises they already hold most of.
+     sessions for the weekday of its first logs (jmack's Daily: Friday, its walk slot keeps
+     the logs); each other logged day of it moves, the same day row with its slots, into
+     that weekday's routine, its logs and sessions re-pointed (PATCH routine); the rest go to
+     the free weekdays whose exercises they already hold most of.
      Leftover generated routines are deleted when they have no logs and no sessions.
   4. Per person, one routine TEMPLATE per weekday routine, owned by that person:
      is_template + is_public (wger 2.7: public templates are listed to every user at
@@ -172,7 +179,16 @@ STEP_RE = re.compile(r"^ex-(?P<slug>[a-z0-9-]+)-step(?P<n>\d+)\.png$")
 STYLE_PHOTO = "4"          # wger 2.7 ExerciseImage.STYLE: 1 line, 2 3D, 3 low-poly, 4 photo, 5 other
 WEEKDAY_ABBR = [w[:3] for w in ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]]
 
-CONFIGS = {"sets": "sets-config", "reps": "repetitions-config", "max_reps": "max-repetitions-config"}
+CONFIGS = {"sets": "sets-config", "reps": "repetitions-config", "max_reps": "max-repetitions-config",
+           "rest": "rest-config", "max_rest": "max-rest-config"}
+# Per-side doses ("2 × 15–30 / leg", "30 s / side", "30 s each way"): every logged set is ONE side,
+# so the sets double (L, R, L, R ...) and the comments say so. "each position" is not a side.
+SIDE_RE = re.compile(r"(?:/\s*|\beach\s+)(leg|side|arm|hand|direction|way)\b")
+SIDE_NOTE = {"leg": "L/R", "side": "L/R", "arm": "L/R", "hand": "L/R", "direction": "dir", "way": "dir"}
+SIDE_ENTRY = {"L/R": "Each set is one side: odd sets left, even sets right",
+              "dir": "Each set is one direction: odd sets one way, even sets the other"}
+SIDE_SLOT = {"L/R": " · each set one side (L, R)", "dir": " · each set one direction"}
+REST_RE = re.compile(r"\brest\s+(\d+)(?:\s*[–-]\s*(\d+))?\s*s\b")      # "rest 60–90 s" (seconds)
 
 MARKER_RE = re.compile(r"kdk:(?P<slug>[a-z0-9-]+) v:(?P<v>[0-9a-f]{12}) img:(?P<img>[0-9a-f]{12}|none)"
                        r"(?:#(?P<imgid>\d+(?:,\d+)*))?")
@@ -477,16 +493,29 @@ def make_slots(wd: str, steps: list[dict], kinds: dict, warn) -> list[dict]:
             if d["sets"] is None:
                 warn(f"{wd} {st['slug']}: dose {st.get('dose')!r} not parsed; no sets/reps")
             dose = re.sub(r"\s*·\s*superset:.*$", "", st.get("dose", "")).strip()
-            entries.append({"slug": st["slug"], "unit": d["unit"], "sets": d["sets"],
-                            "reps": d["value"], "max_reps": d["max"], "comment": short(dose, 100)})
+            side = per_side(dose)
+            sets = d["sets"] * 2 if side and d["sets"] else d["sets"]
+            rest = REST_RE.search(dose)
+            note = f"{SIDE_ENTRY[side]} · {dose}" if side else dose
+            entries.append({"slug": st["slug"], "unit": d["unit"], "sets": sets, "side": side,
+                            "reps": d["value"], "max_reps": d["max"], "comment": short(note, 100),
+                            "rest": int(rest.group(1)) if rest else None,
+                            "max_rest": int(rest.group(2)) if rest and rest.group(2) else None})
         if len(group) == 2 and either:
             comment = EITHER_COMMENT
         elif len(group) == 2:
             comment = "Superset: alternate the two, rest after each pair"
         else:
-            comment = short(group[0].get("title", ""), 200)
+            side = entries[0]["side"]
+            comment = short(group[0].get("title", "") + (SIDE_SLOT[side] if side else ""), 200)
         slots.append({"comment": comment, "entries": entries})
     return slots
+
+
+def per_side(dose: str) -> str | None:
+    """'L/R' for a per-side dose, 'dir' for a per-direction one, else None."""
+    m = SIDE_RE.search(dose or "")
+    return SIDE_NOTE[m.group(1)] if m else None
 
 
 def routine_name(abbr: str, title: str, limit: int = ROUTINE_NAME_MAX) -> str:
@@ -814,6 +843,16 @@ class State:
                 n[d] = n.get(d, 0) + 1
         return n
 
+    def history_days(self, rid) -> list[dict]:
+        """The routine's days that hold logs or sessions, first used first."""
+        first: dict = {}
+        for x in self.sessions:
+            first.setdefault(x.get("day"), []).append(str(x.get("datetime_start") or ""))
+        for x in self.logs:
+            first.setdefault(self.day_of_entry.get(x.get("slot_entry")), []).append(str(x.get("date") or ""))
+        days = [d for d in self.days if d["routine"] == rid and d["id"] in first]
+        return sorted(days, key=lambda d: (min(first[d["id"]]), str(d["id"])))
+
     def has_history(self, rid) -> bool:
         return any(x.get("routine") == rid for x in self.logs + self.sessions) or bool(self.used_days(rid))
 
@@ -839,17 +878,14 @@ def assign(rs: list[dict], week: list[dict], st: State, ex_ids: dict, warn, who:
     spare = [r for r in rs if r["id"] not in taken and (routine_tag(r) or r.get("name") == LEGACY_NAME)]
     free_pool = []
     for r in sorted(spare, key=lambda r: str(r["id"])):
-        used = st.used_days(r["id"])
-        wd = None
-        if used:
-            best = max(used, key=lambda d: used[d])
-            name = next((d.get("name") for d in st.days if d["id"] == best), None)
-            wd = DAY_TAGS[WEEKDAYS.index(name)] if name in WEEKDAYS else None
-        if wd is not None and wd not in got:
-            got[wd] = r
+        tags = [day_tag(d) for d in st.history_days(r["id"])]
+        wd = next((t for t in tags if t is not None and t not in got), None)
+        if wd is not None:
+            got[wd] = r                 # the weekday of its first logs (jmack routine 1: Friday)
         else:
             free_pool.append(r)
-    free = [t for t in DAY_TAGS if t not in got]
+    held = {day_tag(d) for r in got.values() for d in st.history_days(r["id"])}
+    free = [t for t in DAY_TAGS if t not in got and t not in held]
     want = {b["key"]: {ex_ids[e["slug"]] for s in b["days"][0]["slots"] for e in s["entries"]} for b in week}
     overlap = {(r["id"], t): len(want[t] & st.exercises_on(r["id"], WEEKDAYS[DAY_TAGS.index(t)]))
                for r in free_pool for t in free}
@@ -861,14 +897,29 @@ def assign(rs: list[dict], week: list[dict], st: State, ex_ids: dict, warn, who:
             best, best_score = perm, score
     for r, t in zip(pool, best):
         got[t] = r
-    return got
+    moves: dict = {}
+    for t, r in got.items():
+        for d in st.history_days(r["id"]):
+            w = day_tag(d)
+            if w is None or w == t:
+                continue
+            if w in moves or (w in got and any(day_tag(x) == w for x in st.history_days(got[w]["id"]))):
+                warn(f"{who}: day {d.get('name')!r} (id {d['id']}) of routine {r.get('name')!r} has logs or "
+                     f"sessions but {w} already has some; left where it is")
+                continue
+            moves[w] = d
+    return got, moves
+
+
+def day_tag(d: dict) -> str | None:
+    return DAY_TAGS[WEEKDAYS.index(d["name"])] if d.get("name") in WEEKDAYS else None
 
 
 def sync_routines(api: Api, week: list[dict], ex_ids: dict, units: dict, today: dt.date, warn):
     """All seven of one person's weekday routines (see the module docstring)."""
     rs = [r for r in api.list("routine/") if not r.get("is_template")]
     st = State(api)
-    got = assign(rs, week, st, ex_ids, warn, api.who)
+    got, moves = assign(rs, week, st, ex_ids, warn, api.who)
     end = base_monday(today) + dt.timedelta(days=END_DAYS)
     for t in DAY_TAGS:                  # one window for all: the first still-valid one
         r = got.get(t)
@@ -876,8 +927,11 @@ def sync_routines(api: Api, week: list[dict], ex_ids: dict, units: dict, today: 
             end = dt.date.fromisoformat(r["end"])
             break
     base = end - dt.timedelta(days=END_DAYS)
-    for i, b in enumerate(week):
-        sync_routine(api, b, got.get(b["key"]), base - dt.timedelta(days=i), end, st, ex_ids, units, warn)
+    order = sorted(range(len(week)), key=lambda i: week[i]["key"] not in moves)   # moved days first
+    for i in order:
+        b = week[i]
+        sync_routine(api, b, got.get(b["key"]), base - dt.timedelta(days=i), end, st, ex_ids, units, warn,
+                     adopt=moves.get(b["key"]))
     sync_templates(api, week, st, base, end, ex_ids, units, warn)
     used = {r["id"] for r in got.values()}
     for r in rs:
@@ -920,7 +974,7 @@ def sync_templates(api: Api, week: list[dict], st: State, base: dt.date, end: dt
 
 
 def sync_routine(api: Api, block: dict, r: dict | None, start: dt.date, end: dt.date, st: State,
-                 ex_ids: dict, units: dict, warn):
+                 ex_ids: dict, units: dict, warn, adopt: dict | None = None):
     name = block["name"]
     want = {"name": name, "description": block["description"], "fit_in_week": False,
             "start": start.isoformat(), "end": end.isoformat()}
@@ -933,8 +987,21 @@ def sync_routine(api: Api, block: dict, r: dict | None, start: dt.date, end: dt.
         if patch:
             api.write("PATCH", f"routine/{r['id']}/", f"{name!r} {sorted(patch)}", patch)
     rid = r["id"]
-    fresh = is_dry(rid)
-    sdays = [] if fresh else [d for d in st.days if d["routine"] == rid]
+    if adopt is not None:
+        # a day with logs or sessions that sits in another routine (e.g. Saturday in the old Daily
+        # block): move it here with its slots, and point its logs and sessions at this routine
+        api.write("PATCH", f"day/{adopt['id']}/", f"{name} takes over day {adopt.get('name')!r} (id {adopt['id']}) "
+                  "with its logs", {"routine": rid})
+        for x in st.sessions:
+            if x.get("day") == adopt["id"] and x.get("routine") != rid:
+                api.write("PATCH", f"workoutsession/{x['id']}/", f"{name} session of the moved day", {"routine": rid})
+                x["routine"] = rid
+        for x in st.logs:
+            if st.day_of_entry.get(x.get("slot_entry")) == adopt["id"] and x.get("routine") != rid:
+                api.write("PATCH", f"workoutlog/{x['id']}/", f"{name} log of the moved day", {"routine": rid})
+                x["routine"] = rid
+        adopt["routine"] = rid
+    sdays = [d for d in st.days if d["routine"] == rid]
     day_ids = {d["id"] for d in sdays}
     sslots = [s for s in st.slots if s["day"] in day_ids]
     slot_ids = {s["id"] for s in sslots}
@@ -942,7 +1009,7 @@ def sync_routine(api: Api, block: dict, r: dict | None, start: dt.date, end: dt.
     entry_ids = {e["id"] for e in sentries}
     scfg = {k: [c for c in st.cfg[k] if c["slot_entry"] in entry_ids] for k in CONFIGS}
     logged = {x.get("slot_entry") for x in st.logs}
-    used = {} if fresh else st.used_days(rid)
+    used = st.used_days(rid)
 
     used_days = set()
     for order, pd in enumerate(block["days"], 1):

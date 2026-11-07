@@ -21,13 +21,14 @@ URL = "https://wger.test"
 KEYS = {"WGER_API_KEY_JMACK": "tok-jmack", "WGER_API_KEY_RACH": "tok-rach"}
 
 PRIVATE = {"routine", "day", "slot", "slot-entry", "sets-config", "repetitions-config",
-           "max-repetitions-config", "workoutlog", "workoutsession"}
+           "max-repetitions-config", "rest-config", "max-rest-config", "workoutlog", "workoutsession"}
 EXERCISE_WRITE = {"exercise", "exercise-translation", "exerciseimage"}
 CHILDREN = {"routine": [("day", "routine"), ("workoutsession", "routine")],
             "day": [("slot", "day"), ("workoutsession", "day")], "workoutsession": [("workoutlog", "session")],
             "slot": [("slot-entry", "slot")],
             "slot-entry": [("sets-config", "slot_entry"), ("repetitions-config", "slot_entry"),
-                           ("max-repetitions-config", "slot_entry"), ("workoutlog", "slot_entry")]}
+                           ("max-repetitions-config", "slot_entry"), ("rest-config", "slot_entry"),
+                           ("max-rest-config", "slot_entry"), ("workoutlog", "slot_entry")]}
 
 
 class Resp:
@@ -433,8 +434,8 @@ def test_weekday_routines(guide, fake):
     assert ("flex-sphinx", "Seconds", 3, 20, None) in [e for s in tree["Sunday"] for e in s]
     assert [("hammer-curl", "Repetitions", 2, 10, 12), ("triceps-ext", "Repetitions", 2, 10, 12)] \
         in tree["Tuesday"]                                                # superset = one slot, two entries
-    assert [("suitcase", "10-ft lengths", 3, 4, None)] in tree["Friday"]
-    assert [("pt-slr", "Repetitions", 2, 15, 30)] in tree["Monday"]
+    assert [("suitcase", "10-ft lengths", 6, 4, None)] in tree["Friday"]      # 3 × per side = 6 sets
+    assert [("pt-slr", "Repetitions", 4, 15, 30)] in tree["Monday"]           # 2 × 15–30 / leg
     lb = next(u["id"] for u in fake.t["setting-weightunit"].values() if u["name"] == "lb")
     assert all(e["weight_unit"] == lb for e in fake.t["slot-entry"].values())
     assert not any("weight" in t for _, t in fake.writes)                 # weights left blank
@@ -820,8 +821,9 @@ def test_rach_routines_are_her_plan(guide, fake):
         assert [e[0] for s in slots for e in s] == desk + session.get(wd, []) + evening, wd
     assert [("water-walk", "Minutes", 1, 20, 30)] in tree["Tuesday"]
     assert [("high-box-squat", "Repetitions", 3, 8, None)] in tree["Monday"]
-    assert [("kneeling-hip-flexor", "Seconds", 1, 30, None)] in tree["Sunday"]
-    assert [("side-lying-rest", "Minutes", 1, 2, 3)] in tree["Wednesday"]
+    assert [("kneeling-hip-flexor", "Seconds", 2, 30, None)] in tree["Sunday"]     # 30 s / side, one break
+    assert [("side-lying-rest", "Minutes", 2, 2, 3)] in tree["Wednesday"]           # 2–3 min / side
+    assert [("glute-calf-raise", "Repetitions", 1, 15, None)] in tree["Monday"]     # 15 reps, one break
     mon = next(d for d in fake.rows("day", "rach") if d["routine"] == fake.routine("rach", "mon")["id"])
     assert mon["description"] == "Desk breaks + Strength A + Evening mobility"
     jm = {e[0] for s in fake.routine_tree("jmack")[1]["Monday"] for e in s}
@@ -974,3 +976,154 @@ def test_an_extra_day_with_a_session_is_kept(guide, fake, capsys):
     del fake.t["workoutsession"][7]
     assert run(guide, "--apply") == 0
     assert extra["id"] not in fake.t["day"]
+
+
+# ---------------------------------------------------------------- tracking shape (2026-11-07 owner findings)
+@pytest.mark.parametrize("dose,kind,want", [
+    ("2 × 15–30 / leg", "r", (4, 15, 30, "reps", "L/R")),
+    ("2 × 15–30 / side", "r", (4, 15, 30, "reps", "L/R")),
+    ("3 × 8–10 / leg · start 10 lb", "w", (6, 8, 10, "reps", "L/R")),
+    ("3 × 10–12 / arm · start 20 lb", "w", (6, 10, 12, "reps", "L/R")),
+    ("3 × 4 lengths (10 ft) / side @25 lb", "wl", (6, 4, None, "lengths", "L/R")),
+    ("2 × 20 s / side", "t", (4, 20, None, "seconds", "L/R")),
+    ("2 × 20 s / hand", "done", (4, 20, None, "seconds", "L/R")),
+    ("5 slow reps / side", "done", (2, 5, None, "reps", "L/R")),
+    ("30 s / side", "done", (2, 30, None, "seconds", "L/R")),
+    ("2 × 20 s / side · Sunday", "done", (4, 20, None, "seconds", "L/R")),
+    ("2 × 5 / direction", "r", (4, 5, None, "reps", "dir")),
+    ("30 s each way", "done", (2, 30, None, "seconds", "dir")),
+    ("10–12 reps / leg · 2–3× a day", "r", (2, 10, 12, "reps", "L/R")),     # one desk break: L + R
+    ("30 s / side · 2–3× a day", "t", (2, 30, None, "seconds", "L/R")),
+    ("2–3 min / side", "min", (2, 2, 3, "minutes", "L/R")),
+    ("15 reps · 2–3× a day", "r", (1, 15, None, "reps", None)),             # one set per break
+    ("5 × each position", "done", (1, 5, None, "reps", None)),               # not a side
+    ("3 × 20 s", "t", (3, 20, None, "seconds", None)),
+    ("25–30 min · zone 2 (today's walk)", "min", (1, 25, 30, "minutes", None)),
+    ("2 × 15–20 · 6.6 → 8.8 → 11 lb", "w", (2, 15, 20, "reps", None)),
+])
+def test_per_side_doses_log_one_side_per_set(dose, kind, want):
+    (slot,) = gw.make_slots("Monday", [{"slug": "x", "title": "T", "dose": dose}], {"x": kind}, lambda m: None)
+    (e,) = slot["entries"]
+    assert (e["sets"], e["reps"], e["max_reps"], e["unit"], e["side"]) == want
+    if e["side"]:
+        assert e["comment"].startswith(gw.SIDE_ENTRY[e["side"]]) and dose[:20] in e["comment"]
+        assert slot["comment"] == "T" + gw.SIDE_SLOT[e["side"]]
+    assert len(e["comment"]) <= 100
+
+
+def test_every_per_side_item_in_both_plans_is_doubled(guide):
+    g = json.loads((guide / "workout.json").read_text())
+    cat = workout_catalog.load()
+    entries = {}
+    for wk in (gw.plan_week(g, cat, lambda m: None), gw.plan_week(gw.plan_guide(rach_plan()), rach_plan(),
+                                                                   lambda m: None)):
+        for b in wk:
+            for s_ in b["days"][0]["slots"]:
+                for e in s_["entries"]:
+                    entries[e["slug"]] = e
+    for slug in ("pt-slr", "pt-bridge", "pt-abduction", "hand-median", "flex-side-bend", "step-up",
+                 "side-plank", "suitcase", "seated-nerve-glide", "kneeling-hip-flexor", "side-lying-rest",
+                 "pallof-press"):
+        assert entries[slug]["side"] == "L/R", slug
+    assert entries["arm-circles"]["side"] == "dir"
+    assert entries["hand-glides"]["side"] is None and entries["glute-calf-raise"]["sets"] == 1
+
+
+def test_rest_from_the_dose_becomes_the_rest_timer(guide, fake):
+    assert run(guide, "--apply") == 0
+    rest = {c["slot_entry"]: float(c["value"]) for c in fake.t["rest-config"].values()}
+    mx = {c["slot_entry"]: float(c["value"]) for c in fake.t["max-rest-config"].values()}
+    ex = {gw.MARKER_RE.search(t["description_source"]).group("slug"): t["exercise"]
+          for t in fake.t["exercise-translation"].values() if gw.MARKER_RE.search(t["description_source"])}
+    by = {}
+    for e in fake.rows("slot-entry", "rach"):
+        by.setdefault(e["exercise"], []).append(e["id"])
+    hb = by[ex["high-box-squat"]][0]
+    assert (rest[hb], mx[hb]) == (60.0, 90.0)                              # "rest 60–90 s"
+    er = by[ex["elevated-rdl"]][0]
+    assert rest[er] == 90.0 and er not in mx                                 # "rest 90 s"
+    assert not any(e["id"] in rest for e in fake.rows("slot-entry", "jmack"))   # Jacob's doses name no rest
+
+
+def gym_pages(fake, user, tag, overview=True, timers=True):
+    """wger 2.7 date-sequence-gym (per slot: set n of every entry that has an n-th set, entries in
+    order) fed through app 2.1.2's GymStateNotifier page builder (per slot: one overview page per
+    exercise, then per set: log page, then timer page)."""
+    r = fake.routine(user, tag)
+    (day,) = [d for d in fake.rows("day", user) if d["routine"] == r["id"]]
+    pages = ["start"]
+    for s_ in sorted((x for x in fake.rows("slot", user) if x["day"] == day["id"]), key=lambda x: x["order"]):
+        ents = sorted((e for e in fake.rows("slot-entry", user) if e["slot"] == s_["id"]), key=lambda e: e["order"])
+        nsets = {e["id"]: int(float(next(c["value"] for c in fake.t["sets-config"].values()
+                                          if c["slot_entry"] == e["id"]))) for e in ents}
+        sets = [e for n in range(max(nsets.values())) for e in ents if nsets[e["id"]] > n]
+        if overview:
+            pages += [f"overview:{x}" for x in dict.fromkeys(e["exercise"] for e in ents)]
+        for e in sets:
+            pages.append(f"log:{e['exercise']}")
+            if timers:
+                pages.append(f"timer:{e['exercise']}")
+    return pages + ["session", "summary"]
+
+
+def test_gym_mode_records_each_set_before_its_rest_timer(guide, fake):
+    assert run(guide, "--apply") == 0
+    ex = {gw.MARKER_RE.search(t["description_source"]).group("slug"): t["exercise"]
+          for t in fake.t["exercise-translation"].values() if gw.MARKER_RE.search(t["description_source"])}
+    for user, tag in [("jmack", t) for t in gw.DAY_TAGS] + [("rach", t) for t in gw.DAY_TAGS]:
+        pages = gym_pages(fake, user, tag)
+        for i, p_ in enumerate(pages):
+            if p_.startswith("timer:"):
+                assert pages[i - 1] == "log:" + p_.split(":")[1], (user, tag, pages[i - 1:i + 1])
+        assert sum(p_.startswith("log:") for p_ in pages) == sum(p_.startswith("timer:") for p_ in pages)
+
+    def seq(tag, slug):
+        return [p_ for p_ in gym_pages(fake, "jmack", tag) if p_.endswith(f":{ex[slug]}")]
+
+    w = ex["wall-sit"]
+    assert seq("mon", "wall-sit") == [f"overview:{w}"] + [f"log:{w}", f"timer:{w}"] * 4      # timed hold, Seconds
+    b = ex["box-squat"]
+    assert seq("mon", "box-squat") == [f"overview:{b}"] + [f"log:{b}", f"timer:{b}"] * 3      # reps
+    t = ex["treadmill-walk"]
+    assert seq("mon", "treadmill-walk") == [f"overview:{t}", f"log:{t}", f"timer:{t}"]       # minutes
+    pages = gym_pages(fake, "jmack", "tue")
+    h, x = ex["hammer-curl"], ex["triceps-ext"]
+    i = pages.index(f"overview:{h}")
+    assert pages[i:i + 10] == [f"overview:{h}", f"overview:{x}",
+                               f"log:{h}", f"timer:{h}", f"log:{x}", f"timer:{x}",
+                               f"log:{h}", f"timer:{h}", f"log:{x}", f"timer:{x}"]      # superset pair
+    s_ = ex["pt-slr"]
+    assert seq("mon", "pt-slr") == [f"overview:{s_}"] + [f"log:{s_}", f"timer:{s_}"] * 4    # L, R, L, R
+
+
+def test_migration_moves_a_second_logged_day_with_its_logs(guide, fake, monkeypatch, capsys):
+    """Live on 2026-11-07: the Daily block also had Saturday logs, the Flow block logs on its
+    Wednesday day. Daily -> Friday (its first logs), its Saturday day moves into the new Saturday
+    routine with its logs and sessions; Flow -> Wednesday."""
+    daily, fri, walk = make_blocks(guide, fake, monkeypatch)
+    flow = fake.routine("jmack", "flow")
+    sat = next(d for d in fake.rows("day", "jmack") if d["routine"] == daily["id"] and d["name"] == "Saturday")
+    wed = next(d for d in fake.rows("day", "jmack") if d["routine"] == flow["id"] and d["name"] == "Wednesday")
+    for d, sid, rid, when in ((sat, 801, daily["id"], "2026-11-07T21:18:00Z"),
+                              (wed, 802, flow["id"], "2026-11-07T21:30:00Z")):
+        slot = next(s for s in fake.rows("slot", "jmack") if s["day"] == d["id"] and s["order"] == 1)
+        e = next(e for e in fake.rows("slot-entry", "jmack") if e["slot"] == slot["id"])
+        fake.t["workoutsession"][sid] = {"id": sid, "routine": rid, "day": d["id"], "datetime_start": when,
+                                         "_user": "jmack"}
+        fake.t["workoutlog"][sid + 100] = {"id": sid + 100, "routine": rid, "slot_entry": e["id"], "session": sid,
+                                            "date": when, "_user": "jmack"}
+    fake.t["workoutsession"][1]["datetime_start"] = "2026-11-06T21:00:00Z"
+    capsys.readouterr()
+    assert run(guide, "--apply") == 0
+    assert "has logs or sessions; left" not in capsys.readouterr().err
+    satr, wedr = fake.routine("jmack", "sat"), fake.routine("jmack", "wed")
+    assert fake.routine("jmack", "fri")["id"] == daily["id"] and wedr["id"] == flow["id"]
+    assert fake.t["day"][sat["id"]]["routine"] == satr["id"]                       # moved, same row
+    assert fake.t["workoutsession"][801]["routine"] == satr["id"]
+    assert fake.t["workoutlog"][901]["routine"] == satr["id"]
+    assert len(fake.t["workoutlog"]) == 4 and len(fake.t["workoutsession"]) == 3
+    assert [d["id"] for d in fake.rows("day", "jmack") if d["routine"] == daily["id"]] == [fri["id"]]
+    assert [d["id"] for d in fake.rows("day", "jmack") if d["routine"] == wedr["id"]] == [wed["id"]]
+    fake.writes.clear()
+    assert run(guide, "--apply") == 0 and fake.writes == []
+    assert run(guide, "--check") == 0

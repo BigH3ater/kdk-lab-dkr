@@ -48,7 +48,16 @@ Gym mode on it (a side effect: every routine shows the calendar icon every day).
 starts are staggered one day apart with one shared end, so the list (newest start first)
 reads Mon..Sun; the home-screen card shows the first, Monday. Each description ends with
 `[kdk:mon]` .. `[kdk:sun]`: the generator finds its routines by it, and the treadmill
-auto-log finds today's routine by it. History: one **Week (kdk)** per person until
+auto-log finds today's routine by it.
+
+How a day logs in gym mode (app 2.1.2): per slot one overview page per exercise, then
+per set a record page followed by a rest-timer page (supersets alternate A, B with a
+timer after each). Per-side doses are doubled sets, one side per logged set (odd = left,
+even = right). Rachel's "rest 60–90 s" doses set the rest timer; Jacob's count up.
+Seconds/Minutes items log the time in the reps field (the app has no hold timer yet,
+wger-project/flutter#1134). With no planned weight wger sends no weight unit and the app
+uses the profile's unit: jmack's profile is lb, rach's is kg (set hers to lb in the
+app's settings if her logs should be in lb). History: one **Week (kdk)** per person until
 2026-11-07, then block routines (Daily, Lifts, ...) for a day, then this; each change
 reused the routines in place, so jmack's 2026-11-06 walk logs are on **Fri · Upper B**.
 

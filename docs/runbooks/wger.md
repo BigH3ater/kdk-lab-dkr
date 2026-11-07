@@ -276,7 +276,15 @@ same catalog as the HA helpers (`tools/workout_catalog.json`) and the guide outp
   every date, so the app always shows it (no rest-day padding; with the weekly schedule
   on, wger restarts at each Monday and the day would only show on Mondays). One slot per
   guide step, supersets as one slot with two exercises, sets × reps / seconds / minutes /
-  10-ft lengths from the dose text, weights blank (you fill them in). The description
+  10-ft lengths from the dose text, weights blank (you fill them in). **Per side:** a dose
+  with "/ leg", "/ side", "/ arm", "/ hand", "/ direction" or "each way" doubles the sets,
+  and each logged set is one side (odd = left, even = right; "2 × 15–30 / leg" → 4 sets).
+  The slot line says "each set one side (L, R)" and the log page says it again; the
+  exercise description keeps the dose as written. **Rest:** "rest 60–90 s" in a dose
+  (Rachel's plan) becomes the rest config, so gym mode's rest timer counts that down;
+  Jacob's doses name no rest, so his timer counts up. **"2–3× a day"** (Rachel's desk
+  breaks) is one break's worth of sets: log the first break in gym mode, a later break by
+  opening the day again. The description
   ends with `[kdk:mon]` .. `[kdk:sun]`: the generator finds its routines by that tag and
   the HA treadmill auto-log finds today's routine by it. wger lists routines by start
   date (newest first), so the starts are staggered a day apart (Monday's routine starts
@@ -300,18 +308,24 @@ slot, a session with its day or routine), so it is safe to re-run after people h
 logged. A generated routine that is no longer in the plan and has neither is deleted.
 
 **Migration to weekday routines (once, after the block routines of #413).** The block
-routines are reused, not deleted: a routine with logs or sessions becomes the weekday
-those are on, so jmack's routine 1 (Daily · walk + stretches, the two 2026-11-06 walk
-logs on its Friday walk slot 64 and their session) becomes **Fri · Upper B**, keeping its
-Friday day (id 5), that slot and both logs. The other block routines (no logs) take the
-free weekdays whose exercises they already hold most of (jmack: PT + hands → Mon, Lifts
-→ Tue, Flow + yoga → Sun; rach: Daily → Mon, Cardio → Tue, Strength → Thu), their other
-days are deleted (no logs, no sessions), and the missing weekdays are created (jmack
-Wed/Thu/Sat, rach Wed/Fri/Sat/Sun). The older **Week (kdk)** is picked up the same way.
-On the live data of 2026-11-07 the dry run listed 912 routine writes for jmack (402 for
-the routines, 510 for the 7 new templates) and 452 for rach (214 + 238), plus any
-exercise image writes, starting with `PATCH routine/5/ 'Mon · Lower A'`; no
-`DELETE routine/`.
+routines are reused, not deleted. A routine with logs or sessions becomes the weekday of
+its first logs; each other logged day of it moves (the same day row with its slots; its
+logs and sessions are re-pointed) into that weekday's routine. The block routines without
+logs take the free weekdays whose exercises they already hold most of, their other days
+are deleted (no logs, no sessions), and the missing weekdays are created. Live on the
+evening of 2026-11-07:
+
+| Old routine | History | Becomes |
+|---|---|---|
+| jmack 1 Daily · walk + stretches | Friday: the two 2026-11-06 walks (slot 64) + 1 session; Saturday: 2 walk sessions, walk + PT-stretch logs (7) | **Fri · Upper B** (keeps day 5 and slot 64); its Saturday day (id 6) moves to the new **Sat · Walk + flow + PT** with its 2 sessions and 7 logs |
+| jmack 4 Flow + yoga | 11 flow logs + 1 session on its Wednesday day (id 18) | **Wed · Treadmill + flow** (keeps day 18) |
+| jmack 5 PT + hands, 6 Lifts | none | Mon · Lower A, Tue · Upper A; Thu and Sun are new |
+| rach 3 Daily, 7 Cardio, 8 Strength | none | Mon · Strength A, Tue · Cardio, Thu · Strength B; Wed, Fri, Sat, Sun are new |
+
+No log, session or routine is deleted. The dry run then listed 950 routine writes for
+jmack (440 for the routines including the 10 moves, 510 for the 7 new templates) and 476
+for rach (230 + 246), plus any exercise image writes; no `DELETE routine/`. Re-run the dry
+run right before the `--apply`: a new log on another weekday changes the mapping.
 
 Needs steps 7 and 8 done, Python 3 with `requests` on the laptop, and the guide output.
 
