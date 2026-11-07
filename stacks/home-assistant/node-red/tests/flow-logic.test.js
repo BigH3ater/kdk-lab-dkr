@@ -22,6 +22,9 @@
  * 2026-11-04 (fix/roborock-dashboard-2, after the robot's own mop routine):
  *   - f_ev_idle: error -> idle is not "Stopped by hand"
  *   - f_track 'job': a robot-started job replaces the last run's final phase
+ *
+ * 2026-11-07 (feat/roborock-dock-watcher, after zone A could not dock):
+ *   - stage dock watcher f_dw: retry once, alert, hold 30 min, continue or cancel
  */
 const fs = require("fs");
 const path = require("path");
@@ -619,6 +622,145 @@ console.log("E -- Rachel's office runs as its own last job (2026-11-05)");
   ok(Array.isArray(run(OFFICE.done, r[4], fr)), "recovery msg passes office done?");
   const fr2 = mkFlow({ rr_run: { active: true, phase: "Dock — emptying before Rachel's office" }, rr_pending: "", rr_waitgen: 5 });
   eq(run("f_hareconn", { payload: { event: "states_loaded" } }, fr2, g), [null, null, null, null, null], "reconnect during the empty -> nothing");
+}
+
+// ===========================================================================
+// 2026-11-07 stage dock watcher (f_dw, group 9), after zone A came home and
+// could not dock: 20 min of shuffling beside the dock, the alert only at 40 min.
+console.log("Stage dock watcher -- wiring and timings");
+{
+  const tab = flows.filter((n) => n.z === "rr_tab_1");
+  const ids = new Set(flows.map((n) => n.id));
+  // every wire / link / group member in the tab points at a node that exists
+  for (const n of tab) {
+    for (const w of n.wires || []) for (const t of w) ok(ids.has(t), `${n.id} wire -> ${t} exists`);
+    for (const t of n.links || []) ok(ids.has(t), `${n.id} link -> ${t} exists`);
+    for (const t of n.nodes || []) ok(ids.has(t), `${n.id} member ${t} exists`);
+  }
+  eq(byId["f_dw"].wires, [["f_short_A"], ["f_short_B"], ["d_rc"], [OFFICE.done], ["s_dw_ret"],
+     ["lo_n_dw"], ["lo_tr_dw"], ["lo_stop_dw"]], "f_dw outputs wired");
+  ok(byId["f_dw"].outputs === 8, "f_dw has 8 outputs");
+  eq(byId["t_dw"].wires, [["f_dw"]], "t_dw -> f_dw");
+  eq(byId["t_dw"].entities.entity, ["sensor.mr_slave_status_2"], "t_dw watches the status sensor");
+  ok(byId["t_dw"].ignorePrevStateUnavailable && byId["t_dw"].ignoreCurrentStateUnavailable, "t_dw ignores unavailable");
+  ok(byId["i_dw"].repeat === "30" && byId["i_dw"].wires[0][0] === "f_dw", "i_dw ticks f_dw every 30 s");
+  ok(byId["s_dw_ret"].action === "vacuum.return_to_base", "s_dw_ret = vacuum.return_to_base");
+  ok(byId["li_notify"].links.includes("lo_n_dw") && byId["li_tr"].links.includes("lo_tr_dw") &&
+     byId["li_stop"].links.includes("lo_stop_dw"), "link-ins list the new link-outs");
+  const C = (byId["f_dw"].func.match(/const C = (\{[^}]*\})/) || [])[1];
+  eq(C, "{ LEFT_MIN: 3, RETURN_MAX_MIN: 6, RETRY_MIN: 5, HOLD_MIN: 30 }", "dock watcher timings");
+  // stage caps unchanged (they bound a stage that never comes home; zone A alone takes 20-26 min)
+  eq(["w_42", "w_48", "w_54", OFFICE.wait].map((i) => byId[i].timeout), ["40", "40", "150", "40"], "stage caps");
+  for (const id of ["f_to_w_42", "f_to_w_48", "f_to_w_54", OFFICE.timeout]) {
+    ok(byId[id].func.includes("_dw.force = true"), `${id} hands a near-dock timeout to f_dw`);
+  }
+}
+
+console.log("Stage dock watcher -- behaviour");
+{
+  const T0 = Date.UTC(2026, 10, 7, 18, 26, 30);
+  const M = 60000;
+  const S = (status, vac, extra) => mkGlobal(state(Object.assign({
+    "sensor.mr_slave_status_2": status, "vacuum.mr_slave_2": vac, "sensor.mr_slave_battery_2": "75",
+    "binary_sensor.rr_recharge_pause": "off" }, extra || {})));
+  const runFlow = (pend, extra) => mkFlow(Object.assign({
+    rr_run: { active: true, phase: "Master bedroom — zone A", cancelled: false }, rr_pending: pend, rr_waitgen: 3 }, extra || {}));
+  const dw = (f, g, t) => withDate(t, () => run("f_dw", { payload: "tick" }, f, g));
+  const only = (r, i) => r.every((x, j) => (j === i ? x : x === null));
+
+  // 11-07 replay: returning from 18:26:30 and never charging
+  let f = runFlow("w_42");
+  ok(dw(f, S("returning_home", "returning"), T0).every((x) => x === null), "returning: nothing yet");
+  ok(dw(f, S("returning_home", "returning"), T0 + 5.5 * M).every((x) => x === null), "returning 5.5 min: nothing yet");
+  let r = dw(f, S("returning_home", "returning"), T0 + 6 * M);
+  ok(r[4] && r[6] && r[6].rr_phase === "Docking retry — Master bedroom zone A" && !r[5], "returning 6 min -> one return_to_base + retry phase, no alert yet");
+  ok(f.get("rr_waitgen") === 4 && f.get("rr_pending") === "" && f.get("rr_dw").state === "retry", "takeover bumps gen + clears pending");
+  eq(run("f_to_w_42", { rr_wgen: 3 }, f), null, "old w_42 timeout dropped after takeover");
+  eq(run("f_short_A", { rr_wgen: 3 }, f), null, "old w_42 success dropped after takeover");
+  ok(dw(f, S("returning_home", "returning"), T0 + 10.5 * M).every((x) => x === null), "retry 4.5 min: still waiting");
+  r = dw(f, S("idle", "idle"), T0 + 11 * M);
+  ok(r[5] && r[5].notify.urgent === true && r[5].notify.tag === "rr_dock_failed", "5 min after the retry -> one urgent rr_dock_failed alert");
+  ok(r[5].notify.message.startsWith("Roborock could not dock after Master bedroom zone A — needs a hand (battery 75 %)."), "alert text");
+  ok(r[6] && r[6].rr_phase === "Could not dock — Master bedroom zone A", "phase Could not dock — <stage>");
+  ok(!r[4] && !r[7], "no second retry, no cancel");
+  ok(dw(f, S("idle", "idle"), T0 + 30 * M).every((x) => x === null), "holding: no repeat alert");
+  // owner re-docks within the hold -> run continues to zone B's path
+  r = dw(f, S("charging", "docked"), T0 + 40 * M);
+  ok(r[0] && r[0].rr_wgen === 5 && r[5] && r[5].notify.urgent === false && !r[7], "docked in the hold -> continue + back-on-dock note");
+  const cont = withDate(T0 + 40 * M, () => run("f_short_A", r[0], mkFlow({ rr_waitgen: 5, rr_zone_t: T0 - 26 * M })));
+  ok(Array.isArray(cont) && cont[0], "continue msg passes f_short_A's guard");
+  eq(f.get("rr_dw"), { state: "idle" }, "watcher reset after continue");
+
+  // hold runs out -> f_stall cancels with the could-not-dock wording
+  f = runFlow("w_48");
+  dw(f, S("returning_home", "returning"), T0);
+  dw(f, S("idle", "idle"), T0 + 1 * M);
+  ok(dw(f, S("idle", "idle"), T0 + 3.5 * M).every((x) => x === null), "idle 2.5 min after the return: nothing yet");
+  r = dw(f, S("idle", "idle"), T0 + 4 * M);
+  ok(r[4] && r[6].rr_phase === "Docking retry — Master bedroom zone B", "idle 3 min after a return -> retry");
+  r = dw(f, S("idle", "idle"), T0 + 9 * M);
+  ok(r[5] && r[5].notify.urgent, "alert 8 min after it went idle");
+  r = dw(f, S("idle", "idle"), T0 + 39 * M);
+  ok(only(r, 7) && r[7].rr_nodock && r[7].rr_stage === "Master bedroom zone B" && r[7].rr_mins === 30, "hold ran out -> stall");
+  const sf = mkFlow({});
+  const s = run("f_stall", r[7], sf, S("idle", "idle"));
+  ok(s[0].notify.tag === "rr_run_failed" && s[0].notify.urgent && /could not dock/.test(s[0].notify.message), "f_stall: rr_run_failed, could-not-dock wording");
+  eq(s[1].rr_phase, "Could not dock — Master bedroom zone B", "f_stall phase keeps the could-not-dock text");
+  ok(sf.get("rr_cancel") === true, "f_stall cancels the run");
+  eq(run("f_stall", { rr_stage: "Main floor sweep", rr_mins: 150 }, mkFlow({}), S("segment_cleaning", "cleaning"))[1].rr_phase,
+     "Stalled — Main floor sweep", "plain stall keeps Stalled — <stage>");
+
+  // docked during the retry (before the alert): continue, no notify; office and sweep route right
+  f = runFlow(OFFICE.wait);
+  dw(f, S("returning_home", "returning"), T0);
+  dw(f, S("returning_home", "returning"), T0 + 6 * M);
+  r = dw(f, S("charging", "docked"), T0 + 12 * M);
+  ok(only(r, 3) && r[3].rr_wgen === 5, "office: docked on the retry -> out3 only, no note");
+  f = runFlow("w_54");
+  dw(f, S("returning_home", "returning"), T0);
+  dw(f, S("returning_home", "returning"), T0 + 6 * M);
+  r = dw(f, S("charging", "docked"), T0 + 11 * M);
+  ok(only(r, 2), "main sweep: docked on the retry -> out2 (d_rc) only");
+
+  // normal docking, recharge pause, cleaning again, no run, cancel: no action
+  f = runFlow("w_42");
+  dw(f, S("returning_home", "returning"), T0);
+  ok(dw(f, S("charging", "docked"), T0 + 2 * M).every((x) => x === null) && !f.get("rr_dw").retAt, "normal dock: nothing, return clock cleared");
+  f = runFlow("w_54");
+  ok(dw(f, S("charging", "docked", { "binary_sensor.rr_recharge_pause": "on" }), T0 + 60 * M).every((x) => x === null), "recharge pause: nothing");
+  dw(f, S("returning_home", "returning"), T0);
+  dw(f, S("segment_cleaning", "cleaning"), T0 + 1 * M);
+  ok(dw(f, S("paused", "paused"), T0 + 20 * M).every((x) => x === null), "paused mid-clean (no return since) -> nothing");
+  f = mkFlow({ rr_run: { active: false }, rr_pending: "w_42", rr_waitgen: 3 });
+  dw(f, S("returning_home", "returning"), T0);
+  ok(dw(f, S("idle", "idle"), T0 + 20 * M).every((x) => x === null), "no active run -> nothing");
+  f = runFlow("w_62");
+  dw(f, S("returning_home", "returning"), T0);
+  ok(dw(f, S("idle", "idle"), T0 + 20 * M).every((x) => x === null), "mop wait is not watched");
+  f = runFlow("w_42");
+  dw(f, S("returning_home", "returning"), T0);
+  dw(f, S("returning_home", "returning"), T0 + 6 * M);
+  f.set("rr_cancel", true);
+  ok(dw(f, S("idle", "idle"), T0 + 16 * M).every((x) => x === null) && f.get("rr_dw").state === "idle", "cancelled during the retry -> silent reset");
+
+  // the stage cap runs out while the robot is near the dock -> hand-off, not a stall
+  f = runFlow("w_42");
+  dw(f, S("returning_home", "returning"), T0);
+  eq(run("f_to_w_42", { rr_wgen: 3 }, f), null, "w_42 timeout near the dock -> no stall");
+  ok(f.get("rr_dw").force === true && f.get("rr_pending") === "w_42", "hand-off flag set, wait still pending");
+  r = dw(f, S("returning_home", "returning"), T0 + 1 * M);
+  ok(r[4] && f.get("rr_dw").state === "retry", "next tick takes over");
+  f = runFlow("w_42");
+  dw(f, S("zoned_cleaning", "cleaning"), T0);
+  ok(run("f_to_w_42", { rr_wgen: 3 }, f).rr_stage === "Master bedroom zone A", "w_42 timeout while still cleaning -> plain stall");
+
+  // the old any-time retry loop (f_dockevt) stands aside during a watched stage
+  const ev = { payload: "idle", data: { old_state: { state: "returning" } } };
+  eq(run("f_dockevt", ev, runFlow("w_42")), null, "f_dockevt: watched stage -> stands aside");
+  eq(run("f_dockevt", ev, mkFlow({ rr_pending: "", rr_dw: { state: "hold", wid: "w_42" } })), null, "f_dockevt: watcher holding -> stands aside");
+  const fo = mkFlow({ rr_pending: "" });
+  r = run("f_dockevt", ev, fo);
+  ok(r && r[0] && fo.get("rr_dock").busy === true, "f_dockevt: outside a run -> its 3-retry loop as before");
 }
 
 // ===========================================================================

@@ -293,6 +293,9 @@ reports a failed mop:
 - **Daily run stages** (since 2026-11-05). Each stage is its own robot job; the
   flow waits for the dock (`sensor.mr_slave_status_2` = `charging`) before the
   next, and a wait that runs out is a stall (alert, rest of run cancelled).
+  The dock wait is a cap on the whole stage (cleaning plus the trip home);
+  a robot that is home but not charging is caught much sooner by the stage
+  dock watcher below.
 
   | # | Stage (`input_text.rr_run_phase`) | Robot job | Dock wait | Stamps |
   |---|---|---|---|---|
@@ -323,6 +326,32 @@ reports a failed mop:
   detected by the recharge watcher (`d_rcpoll` → `f_rcpoll`) and routed to the
   mop gate **without** stamping the unfinished rooms, with an `rr_no_resume`
   alert (it no longer waits out a 240-min timeout and then stamps everything).
+- **Stage dock watcher (2026-11-07).** After zone A came home on 11-07, tried
+  to dock for 20 min and gave up idle beside the dock, the 40-min stage wait
+  was the first alert. `f_dw` (group 9, fed by every `sensor.mr_slave_status_2`
+  change `t_dw` and a 30 s tick `i_dw`) watches the zone A, zone B, main sweep
+  and office dock waits:
+
+  | Step | When | What happens |
+  |---|---|---|
+  | Detect | after `returning_home` the robot is `idle`/`paused` off the dock for **3 min**, or it has been `returning_home` for **6 min** (a normal return takes ~2 min; every return before 11-07 was charging within 90 s) | it takes the stage over from its wait (bumps `rr_waitgen`, clears `rr_pending`; the wait's own success/timeout is then dropped as stale) |
+  | Retry | at once | **one** `vacuum.return_to_base`; phase `Docking retry — <stage>` |
+  | Alert | not charging **5 min** after the retry | one urgent `rr_dock_failed` alert *"Roborock could not dock after <stage> — needs a hand (battery X %)"*; phase `Could not dock — <stage>` |
+  | Hold | up to **30 min** after the alert | the run waits. Charging (owner put it on the dock) → the run carries on to the next stage, plus a non-urgent "back on the dock" note under the same tag |
+  | Cancel | hold ran out | `f_stall`: urgent `rr_run_failed` ("could not dock and was not back on the charger 30 min after the alert"), rest of run cancelled, phase stays `Could not dock — <stage>` |
+
+  So the alert lands about 8 min after the robot gives up, or 11 min after it
+  started for home when it keeps shuffling at the dock (11-07 replayed: retry
+  18:32:30, alert 18:37:30 instead of the 18:40 stall, with one re-dock tried,
+  a clear message and the run still able to finish). If a stage cap (`f_to_*`) runs
+  out while the robot is heading home or idle after a return, it hands over to
+  the watcher instead of stalling. The recharge pause is home (status
+  `charging`, `binary_sensor.rr_recharge_pause`), so it never trips the watcher;
+  a robot still cleaning when the cap runs out is a plain `Stalled — <stage>`.
+  The mop pass is not watched (wash visits; `f_mopfail` covers it). While a
+  daily-run stage is watched, the any-time dock retry loop (group 8,
+  `f_dockevt`, up to 3 retries) stands aside; outside a run it works as before.
+  Timings are the `C` constants at the top of `f_dw`.
 
 Function-node logic has unit tests: `node stacks/home-assistant/node-red/tests/flow-logic.test.js`.
 
@@ -411,6 +440,16 @@ curl -s --http1.1 -m 3 -N -H 'Connection: Upgrade' -H 'Upgrade: websocket' \
   until she has a key, so her walks are skipped with a log warning). Guest walks
   and wger errors raise a persistent notification (id `tm_wger_autolog`).
   [wger runbook step 14](../runbooks/wger.md#14-treadmill-auto-log).
+- **"Vacuum: couldn't dock" alert during a daily run** (`rr_dock_failed`,
+  *"Roborock could not dock after <stage> — needs a hand (battery X %)"*) —
+  the robot came home, one automatic re-dock failed, and the run is on hold
+  for 30 min. Clear whatever is in front of or under the dock (rug edge,
+  cable, sock), check the dock's power light, wipe the charging contacts,
+  then set the robot on the dock (or press its home button). Once
+  `sensor.mr_slave_status_2` reads `charging` the run carries on by itself and
+  a "back on the dock" note replaces the alert. Not docked within 30 min →
+  `rr_run_failed` "daily clean stopped"; the rest of the run is cancelled and
+  the next scheduled run (or the Daily clean button) covers the rooms.
 - **OIDC login loop / missing button** — check `auth_oidc:` in
   `configuration.yaml`, the Authelia client `homeassistant`
   (PKCE S256 + `client_secret_post`, policy `ha_access`), and that the user is
