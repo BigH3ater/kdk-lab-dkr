@@ -612,7 +612,11 @@ console.log(`refreshed: last=${info.last_sync_hash ?? "?"} pending=${info.pendin
 # Deploys every git-linked kdk-lab stack whose DEPLOYED commit is behind the
 # repo HEAD AND whose run_directory has a changed file since that commit
 # (HEAD + file list from the GitHub API; a komodo/resources.toml change deploys
-# every stack not at HEAD; GitHub unreachable -> old latest_hash comparison).
+# every stack not at HEAD). GitHub unreachable -> NO deploys that tick
+# (2026-11-08 10:45Z: the old latest_hash fallback re-pulled 32 stacks on all 7
+# hosts during a GitHub API incident); the consecutive-failure count is kept in
+# the Komodo variable DEPLOY_CHANGED_HEAD_FAILS and alerted by Loki
+# (KomodoDeployChangedHeadLookupFailing, stacks/loki/rules/komodo.yml).
 # Repo-is-control semantic: a push re-converges the fleet, a stack nobody
 # touched is skipped (2026-10-29: 36-41 no-op deploys per merge before this).
 # NOT DeployStackIfChanged: Komodo's contents diff covers compose.yaml only, so
@@ -641,14 +645,36 @@ const tagId = tags.find((t) => t.name === TAG)?._id?.$oid ?? TAG;
 // ListStacks/ListFullStacks return at most 50 stacks (2026-10-29: 50 of 65, so
 // tailscale-*, trailarr, tandoor, wizarr*, tdarr-*, trivy-scan-* were never
 // deployed). List per server instead; every host is well under 50.
-const servers: any[] = await komodo.read("ListServers", {});
-const seen = new Set<string>();
-const stacks: any[] = [];
-for (const sv of servers) {
-  const part: any[] = await komodo.read("ListStacks", { query: { specific: { server_ids: [sv.id] } } });
-  for (const s of part) if (!seen.has(s.name)) { seen.add(s.name); stacks.push(s); }
+
+// ---- decision logic: plain JS (no type annotations) so
+// komodo/tests/deploy-changed.test.js can load this block out of the toml and
+// test the exact source that ships. Keep it free of komodo/fetch calls. ----
+function headGate(head, err) {
+  // No HEAD = no deploys this tick. The old fallback (deployed_hash vs Komodo's
+  // latest_hash) treats every stack a recent commit did not touch as behind, so
+  // one failed lookup redeployed the fleet (2026-11-08 10:45Z, 32 stacks).
+  if (head) return { run: true, line: "" };
+  return { run: false, line: `head lookup failed: ${err || "no sha"}; skipping deploy-changed this tick` };
 }
-console.log(`deploy-changed: ${stacks.length} stacks across ${servers.length} servers`);
+function nextFailCount(prev, ok) {
+  // prev = the DEPLOY_CHANGED_HEAD_FAILS value (null when the variable is absent)
+  return ok ? 0 : (parseInt(prev ?? "0", 10) || 0) + 1;
+}
+function decideOwn(head, dep, files, runDir) {
+  const h = head.slice(0, 7);
+  if (head.startsWith(dep)) return { deploy: false, why: "at HEAD" };
+  if (files === null) return { deploy: true, why: `${dep}->${h} (compare unknown)` };
+  const dir = runDir.replace(/\/+$/, "") + "/";
+  const mine = files.filter((f) => f.startsWith(dir));
+  if (mine.length) return { deploy: true, why: `${dep}->${h} ${mine.length} file(s): ${mine.slice(0, 3).join(",")}` };
+  if (files.includes("komodo/resources.toml")) return { deploy: true, why: `${dep}->${h} resources.toml changed` };
+  return { deploy: false, why: "untouched" };   // commits since dep touched other stacks only
+}
+function decideForeign(dep, lat) {
+  if (!lat || dep === lat) return { deploy: false, why: "" };
+  return { deploy: true, why: `${dep}->${lat} (latest_hash)` };
+}
+// ---- end decision logic ----
 
 // Komodo's per-stack latest_hash is a cache that lags HEAD after a burst of
 // merges (2026-10-29 05:32: 11 different values across 65 stacks, and
@@ -658,7 +684,6 @@ console.log(`deploy-changed: ${stacks.length} stacks across ${servers.length} se
 // commit; deploy a stack only when a file under its run_directory changed.
 // A change to komodo/resources.toml (stack env/config) falls back to "every
 // stack not at HEAD", because the toml patch does not say which stack it is.
-// If GitHub is unreachable, fall back to the old latest_hash comparison.
 const gh = async (path: string) => {
   const r = await fetch(`https://api.github.com/repos/${REPO}${path}`, {
     headers: { "Accept": "application/vnd.github+json", "User-Agent": "kdk-lab deploy-changed" },
@@ -666,8 +691,42 @@ const gh = async (path: string) => {
   if (!r.ok) throw new Error(`GitHub ${path}: HTTP ${r.status}`);
   return await r.json();
 };
-let head = "";
-try { head = (await gh("/commits/main")).sha; } catch (e) { console.log(`HEAD lookup failed, falling back to latest_hash: ${e}`); }
+let head = "", headErr = "";
+try { head = (await gh("/commits/main")).sha ?? ""; } catch (e) { headErr = `${e}`; }
+
+// Consecutive-failure counter. Core logs every write as
+// `WRITE REQUEST method="CreateVariable|UpdateVariableValue" username="Action"`
+// (the value is not logged); only this branch makes those writes, so Loki counts
+// failed ticks from them. Recovery deletes the variable (DeleteVariable is not
+// counted), so the counter in the UI is always "failed ticks in a row".
+const FAILVAR = "DEPLOY_CHANGED_HEAD_FAILS";
+let prevFails: string | null = null;
+try { prevFails = (await komodo.read("GetVariable", { name: FAILVAR }))?.value ?? null; } catch (e) {}
+const gate = headGate(head, headErr);
+if (!gate.run) {
+  const n = nextFailCount(prevFails, false);
+  console.log(gate.line);
+  try {
+    if (prevFails === null)
+      await komodo.write("CreateVariable", { name: FAILVAR, value: String(n), is_secret: false,
+        description: "deploy-changed: consecutive ticks whose GitHub HEAD lookup failed (deploys skipped). Deleted on recovery." });
+    else await komodo.write("UpdateVariableValue", { name: FAILVAR, value: String(n) });
+  } catch (e) { console.log(`could not record ${FAILVAR}=${n}: ${e}`); }
+  console.log(`head lookup failures in a row: ${n}`);
+} else if (prevFails !== null) {
+  try { await komodo.write("DeleteVariable", { name: FAILVAR }); } catch (e) { console.log(`could not clear ${FAILVAR}: ${e}`); }
+  console.log(`head lookup recovered after ${prevFails} failed tick(s)`);
+}
+
+// No HEAD -> list nothing, so the loop below queues nothing this tick.
+const servers: any[] = gate.run ? await komodo.read("ListServers", {}) : [];
+const seen = new Set<string>();
+const stacks: any[] = [];
+for (const sv of servers) {
+  const part: any[] = await komodo.read("ListStacks", { query: { specific: { server_ids: [sv.id] } } });
+  for (const s of part) if (!seen.has(s.name)) { seen.add(s.name); stacks.push(s); }
+}
+console.log(`deploy-changed: ${stacks.length} stacks across ${servers.length} servers`);
 const changed = new Map<string, string[] | null>();   // deployed short hash -> files (null = unknown)
 const filesSince = async (dep: string): Promise<string[] | null> => {
   if (changed.has(dep)) return changed.get(dep)!;
@@ -688,7 +747,7 @@ for (const s of stacks) {
   if (NOTE.test(s.name)) {
     const k: any = await komodo.read("GetStack", { stack: s.name });
     const dep = k?.info?.deployed_hash;
-    const lat = head ? head.slice(0, 7) : k?.info?.latest_hash;
+    const lat = head.slice(0, 7);
     if (dep && lat && !lat.startsWith(dep) && !dep.startsWith(lat))
       console.log(`komodo stack behind (${dep}->${lat}): apply by hand, never from deploy-changed`);
     continue;
@@ -699,30 +758,21 @@ for (const s of stacks) {
   const st: any = await komodo.read("GetStack", { stack: s.name });
   const dep: string | undefined = st?.info?.deployed_hash;
   if (!dep) continue;                       // never deployed through Komodo: not ours to start
-  let isBehind = false, why = "";
   // A stack from another repo (network-sre-learning) has a deployed_hash the
   // compare API cannot find in kdk-lab-dkr (404 -> "unknown" -> deployed every
   // run, 2026-10-29). Those keep the latest_hash comparison.
   const ownRepo = !st?.config?.repo || st.config.repo === REPO;
-  if (head && ownRepo) {
-    if (head.startsWith(dep)) { skipped++; continue; }
-    const files = await filesSince(dep);
-    if (files === null) { isBehind = true; why = `${dep}->${head.slice(0, 7)} (compare unknown)`; }
-    else {
-      const dir = (st?.config?.run_directory ?? `stacks/${s.name}`).replace(/\/+$/, "") + "/";
-      const toml = files.includes("komodo/resources.toml");
-      const mine = files.filter((f) => f.startsWith(dir));
-      if (mine.length) { isBehind = true; why = `${dep}->${head.slice(0, 7)} ${mine.length} file(s): ${mine.slice(0, 3).join(",")}`; }
-      else if (toml) { isBehind = true; why = `${dep}->${head.slice(0, 7)} resources.toml changed`; }
-      else { skipped++; continue; }         // commits since dep touched other stacks only
-    }
+  let d: { deploy: boolean, why: string };
+  if (ownRepo) {
+    const files = head.startsWith(dep) ? [] : await filesSince(dep);
+    d = decideOwn(head, dep, files, st?.config?.run_directory ?? `stacks/${s.name}`);
+    if (!d.deploy) { skipped++; continue; }
   } else {
     try { await komodo.write("RefreshStackCache", { stack: s.name }); } catch (e) {}
     const st2: any = await komodo.read("GetStack", { stack: s.name });
-    const lat = st2?.info?.latest_hash;
-    if (!lat || dep === lat) continue;
-    isBehind = true; why = `${dep}->${lat} (latest_hash)`;
+    d = decideForeign(dep, st2?.info?.latest_hash);
   }
+  const isBehind = d.deploy, why = d.why;
   if (!isBehind) continue;
   behind.push(`${s.name} ${why}`);
   try {

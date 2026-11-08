@@ -44,3 +44,38 @@ groups:
             gitops-sync does not revert it. See the operator in
             `docker logs komodo-core-1` (the username field).
           runbook: docs/runbooks/pushover-alerts.md#komodo-manual-deploy
+
+      # deploy-changed could not read HEAD from api.github.com for an hour. Since
+      # 2026-11-08 a failed lookup skips that tick's deploys (the old latest_hash
+      # fallback re-pulled 32 stacks on all 7 hosts during a GitHub API incident),
+      # so while this fires, merges are NOT reaching the fleet.
+      #
+      # SIGNAL: the action's console output goes to the Komodo Update log (DB),
+      # not to the container log. Its only footprint there is Core's per-write
+      # line, so on each failed tick the action writes the counter variable
+      # DEPLOY_CHANGED_HEAD_FAILS (CreateVariable on the first failure,
+      # UpdateVariableValue after) and Core logs
+      #   `... WRITE REQUEST ... method="UpdateVariableValue" ... username="Action"`.
+      # Recovery uses DeleteVariable, which is not counted. Nothing else writes
+      # variables as "Action" (0 variable writes of any kind over 7 days,
+      # 2026-11-08). gitops-sync ticks every 15 min, so >= 4 in 1h = the last
+      # hour of ticks all failed. Same ANSI caveat as above: match quoted values.
+      - alert: KomodoDeployChangedHeadLookupFailing
+        expr: |
+          sum(count_over_time({host="kdk-dkr-01", container="komodo-core-1"}
+            |= "WRITE REQUEST" |~ `"(CreateVariable|UpdateVariableValue)"` |= `"Action"` [1h])) >= 4
+        for: 0m
+        labels:
+          severity: warning
+          source: loki
+          scope: komodo
+        annotations:
+          summary: "deploy-changed cannot reach the GitHub API: gitops deploys skipped for 1h"
+          description: >-
+            The deploy-changed action's HEAD lookup against api.github.com failed
+            on {{ $value }} gitops-sync ticks in the last hour, so no stack has
+            been redeployed from the repo in that time. Check githubstatus.com
+            (API Requests) and egress/DNS from komodo-core-1 on kdk-dkr-01; the
+            reason is in the action's Update log in the Komodo UI. The count of
+            failed ticks in a row is the Komodo variable DEPLOY_CHANGED_HEAD_FAILS.
+          runbook: docs/runbooks/pushover-alerts.md#deploy-changed-head-lookup-failing

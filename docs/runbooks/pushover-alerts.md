@@ -244,6 +244,26 @@ operator somehow logged as `"Action"` would be missed. Expected while you deploy
 by hand; otherwise make the stack's on-host files match the repo so the next
 gitops tick does not revert your change.
 
+## deploy-changed head lookup failing
+
+`KomodoDeployChangedHeadLookupFailing` (`stacks/loki/rules/komodo.yml`,
+`severity: warning`) fires when the gitops `deploy-changed` action could not read
+HEAD from `api.github.com` on 4 ticks within an hour. A failed lookup skips that
+tick's deploys (it no longer falls back to Komodo's `latest_hash`, which
+redeployed the fleet on 2026-11-08), so while it fires **merges are not reaching
+the hosts**. The signal is Core's `WRITE REQUEST … method="CreateVariable|UpdateVariableValue" … username="Action"`
+line: each failed tick bumps the Komodo variable `DEPLOY_CHANGED_HEAD_FAILS`,
+and the first good tick deletes it.
+
+1. [githubstatus.com](https://www.githubstatus.com/history) → API Requests. The
+   action calls the API anonymously; 2026-11-08 10:36-12:32Z was a GitHub
+   incident for unauthenticated users only.
+2. Komodo UI → Actions → `deploy-changed` → latest Update: the `head lookup
+   failed: <reason>` line (`TypeError: fetch failed` = network/DNS/TLS from
+   Core; `HTTP 5xx` = GitHub; `HTTP 403` = anonymous rate limit).
+3. Once GitHub answers again the next tick deploys whatever changed; nothing to
+   re-run by hand.
+
 ## Test it
 
 Fire a one-off Pushover from the host to confirm creds and reachability before

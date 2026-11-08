@@ -171,9 +171,15 @@ GitHub API and, per stack, the list of files changed between the stack's
 deployed commit and HEAD (compare API). A stack is deployed only when a file
 under its `run_directory` changed; a `komodo/resources.toml` change deploys
 every stack not at HEAD (the patch does not say which stack it belongs to).
-Komodo's own `latest_hash` is only the fallback when GitHub is unreachable: it
-is a cache that lags HEAD after a burst of merges. The action lists stacks per
-server because `ListStacks` returns at most 50.
+Komodo's own `latest_hash` (a cache that lags HEAD after a burst of merges) is
+used only for stacks from another repo. **When the HEAD lookup fails, the tick
+deploys nothing** and logs `head lookup failed: <reason>; skipping
+deploy-changed this tick` (since 2026-11-08: the old `latest_hash` fallback
+re-pulled 32 stacks on all 7 hosts during a GitHub API incident). The count of
+failed ticks in a row sits in the Komodo variable `DEPLOY_CHANGED_HEAD_FAILS`
+(deleted on recovery); 4 failed ticks in an hour page as
+`KomodoDeployChangedHeadLookupFailing`. The action lists stacks per server
+because `ListStacks` returns at most 50.
 
 **Not covered by an automatic deploy:**
 
