@@ -30,23 +30,28 @@ groups:
           description: "The DMZ Traefik logged more than 30 requests to /j or /join on wizarr-public in 5m from {{ $labels.client }} (invite-code guessing). Block the IP at the WAF and check Wizarr Invitations for an unknown used code."
           runbook: docs/runbooks/security-alerts.md#wizarr
 
-      # D2: the admin router answered a tunnel client with anything but a 302 to
-      # SSO. The admin router is LAN-only today, so ANY tunnel hit on it is a
-      # routing regression; if remote admin is ever enabled (",tunnel" on the
-      # router), a non-302 means the ForwardAuth was lost.
+      # D2: a tunnel request for wizarr.kmkdp.com was served by any router other
+      # than wizarr-public. Only `tunnel-wizarr-public@docker` should ever answer
+      # on the tunnel; a tunnel path no router claims is a 404 with an empty
+      # RouterName (excluded here, EdgeWizarrAdminPathHit covers admin paths).
+      # So any other router (wizarr-admin gaining ",tunnel", a new router, a
+      # catch-all) answering a tunnel client with a non-404 is a routing
+      # regression that exposes something past the invitee allowlist. The old
+      # form required entryPointName="tunnel" AND RouterName wizarr-admin, which
+      # never co-occur because wizarr-admin is websecure-only (dead rule).
       - alert: WizarrAdminRouterNon302
         expr: |
-          sum(count_over_time({host="kdk-dkr-dmz-01", container="traefik"}
-            |= "wizarr-admin" | json | entryPointName="tunnel" | RequestHost="wizarr.kmkdp.com"
-            | RouterName=~".*wizarr-admin@docker" | DownstreamStatus!="302" [10m])) > 0
+          sum by (RouterName) (count_over_time({host="kdk-dkr-dmz-01", container="traefik"}
+            |= "wizarr.kmkdp.com" | json | entryPointName="tunnel" | RequestHost="wizarr.kmkdp.com"
+            | RouterName!~".*wizarr-public@docker" | DownstreamStatus!="404" [10m])) > 0
         for: 0m
         labels:
           severity: critical
           source: loki
           scope: wizarr
         annotations:
-          summary: "Wizarr admin router served a tunnel client without an SSO redirect"
-          description: "The DMZ Traefik logged a tunnel request on wizarr-admin answered with something other than a 302 to SSO: the ForwardAuth is gone or the router gained tunnel. Check stacks/wizarr/compose.yaml labels; remove the public hostname until fixed."
+          summary: "Wizarr: a tunnel request was served by router {{ $labels.RouterName }}, not wizarr-public"
+          description: "The DMZ Traefik answered a tunnel request for wizarr.kmkdp.com through router {{ $labels.RouterName }} (non-404), so something other than the invitee allowlist is reachable from the internet. Check stacks/wizarr/compose.yaml router entrypoints and ForwardAuth; remove the public hostname until fixed."
           runbook: docs/runbooks/security-alerts.md#wizarr
 
       # D3: posture finding F1 tripwire. The invite flow touched an EXISTING
@@ -79,14 +84,19 @@ groups:
           runbook: docs/runbooks/security-alerts.md#wizarr
 
       # D4: admin logins (proxy SSO since 2026-10-29: Wizarr's own password path is
-      # dead, so "AUTH FAIL" never appears; a 2xx/3xx on /login through the admin
-      # router IS an admin session for whoever Authelia let through) and
-      # admin/settings/API-key mutations.
+      # dead, so "AUTH FAIL" never appears) and admin/settings/API-key mutations.
+      # An admin session = an entry page (/, /login, /admin) on the admin router
+      # that Wizarr itself answered. OriginStatus!="0" is the ForwardAuth gate:
+      # when Authelia turns an anonymous client away (302 to sso / 401) Traefik
+      # never calls Wizarr and logs OriginStatus 0, which the old rule counted as a
+      # "login" (curl GET /login -> 302, 2026-11-08 01:22Z). Real sessions in 7d
+      # entered on / and /admin, never /login, hence the wider path set.
       - alert: WizarrAdminLogin
         expr: |
           sum by (client) (count_over_time({host="kdk-dkr-dmz-01", container="traefik"}
             |= "wizarr.kmkdp.com" | json | RequestHost="wizarr.kmkdp.com"
-            | RequestPath=~"^/login(\\?.*)?$" | DownstreamStatus=~"2..|3.."
+            | RouterName=~".*wizarr-admin@docker" | RequestPath=~"^/(login|admin)?(\\?.*)?$"
+            | DownstreamStatus=~"2..|3.." | OriginStatus!="0"
             | label_format client="{{ if .request_Cf_Connecting_Ip }}{{ .request_Cf_Connecting_Ip }}{{ else }}{{ .ClientHost }}{{ end }}" [10m])) > 0
         for: 0m
         labels:
@@ -95,7 +105,7 @@ groups:
           scope: wizarr
         annotations:
           summary: "Wizarr: admin login from {{ $labels.client }} (Authelia passed; Wizarr itself does no login)"
-          description: "The DMZ Traefik logged a 2xx/3xx on wizarr /login from {{ $labels.client }}, which is an admin session Authelia let through. Expected when you open Wizarr; otherwise check who reached the admin UI."
+          description: "The DMZ Traefik logged Wizarr answering /, /login or /admin on the admin router for {{ $labels.client }}, which is an admin session Authelia let through. Expected when you open Wizarr; otherwise check who reached the admin UI."
           runbook: docs/runbooks/security-alerts.md#wizarr
 
       # D5: an invite was accepted (the only write a stranger can do). Info, by client,
