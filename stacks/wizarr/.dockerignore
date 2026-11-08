@@ -1,0 +1,4 @@
+# Build context = the Dockerfile + patches only (wizard-images/steps and tests stay out).
+*
+!Dockerfile
+!patches/

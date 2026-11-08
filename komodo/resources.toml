@@ -429,6 +429,8 @@ compose_cmd_wrapper_include = ["config"]
 server = "kdk-dkr-dmz-01"
 repo = "BigH3ater/kdk-lab-dkr"
 run_directory = "stacks/wizarr"
+auto_pull = false   # image is built locally (kdk/wizarr, patched upstream) -> skip compose pull
+run_build = true    # docker compose build (Dockerfile + patches/) before up
 webhook_enabled = true
 
 [[stack]]

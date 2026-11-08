@@ -6,7 +6,7 @@ tier: dmz
 status: live
 storage: yes
 secrets: [wizarr-ldap, lldap-admin, jellyfin]
-updated: 2026-10-27
+updated: 2026-11-07
 tags: [homelab/stack, tier/dmz, status/live]
 ---
 
@@ -28,8 +28,8 @@ the invitee paths are reachable without auth; the admin portal is behind Autheli
 | Status | 🟢 Live — invitee paths open; admin = Authelia login only (`DISABLE_BUILTIN_AUTH=true`, group `wizarr-admin`, 2FA); Wizarr's native OIDC is still "Planned" upstream (V4) |
 | Host | [[kdk-dkr-dmz-01]] (192.168.191.20) |
 | Endpoint | `https://wizarr.kmkdp.com` (public invitee paths; admin behind Authelia) |
-| Image | `ghcr.io/wizarrrr/wizarr:v2026.10.1` (lldap create needs ≥ 2026.10.0: sends cn/sn, lowercases uids) |
-| Deploy | Komodo stack `wizarr` (git-linked) on kdk-dkr-dmz-01 |
+| Image | `kdk/wizarr:v2026.10.1-kdk1`, built on the host from `ghcr.io/wizarrrr/wizarr:v2026.10.1@sha256:08f2c6de534ec7d36d39a4f55b7c5c379021ca881dc519c702aad0ddafbdc67a` + one LDAP patch ([Local image (patched)](#local-image-patched)); lldap create needs ≥ 2026.10.0 (sends cn/sn, lowercases uids) |
+| Deploy | Komodo stack `wizarr` (git-linked, `run_build = true`, `auto_pull = false`) on kdk-dkr-dmz-01 |
 | Storage | `/mnt/appdata/wizarr` → `/data/database` (sqlite `database.db` + `secrets.json` + `sessions/`, ~6.6 MB) |
 | Blast radius | No new invites / onboarding; existing Jellyfin/Seerr users unaffected |
 
@@ -93,6 +93,8 @@ stack's server — moving the stack moved the record).
 | Admin portal reachable without login | public allowlist too broad / forwardauth missing | admin router has `middlewares=wizarr-auth` → `http://authelia:9091/api/authz/forward-auth` |
 | Invited user cannot log in via LDAP/SSO | invite not yet reconciled (no jellyfin-users group / default Jellyfin provider / not in Seerr) | wait for the next `:07/:22/:37/:52` `wizarr-sync` run, or run the Procedure now |
 | lldap create fails on invite | Wizarr < 2026.10.0 (no cn/sn, mixed-case uid) | image is `v2026.10.1`; check Wizarr logs for the lldap error |
+| Invitee sees "Failed to create LDAP user: That username is already taken" | the uid already exists in lldap; the patch refused it and changed nothing | expected: they pick another name. `ssh kdkadmin@192.168.191.20 'sudo docker logs wizarr 2>&1 \| grep "Refusing LDAP create"'` shows the DN |
+| Komodo deploy fails at the build step | a base-image bump changed the patched code (`apply.py`: "expected the old lines exactly once") | the old container keeps running; re-base the patch ([Local image (patched)](#local-image-patched)) |
 | 530/502 from the tunnel | CF public hostname missing/origin-server-name wrong | add `wizarr.kmkdp.com` → `https://traefik:8443` (the `tunnel` entrypoint; only the `wizarr-public` router listens there, admin paths 404 off-LAN), TLS origin server name = `wizarr.kmkdp.com` |
 
 ## Dependencies
@@ -122,7 +124,8 @@ own admin login as a second layer behind Authelia. Data on `/mnt/appdata/wizarr`
 
 | Path / setting | What it is |
 |---|---|
-| `stacks/wizarr/compose.yaml` | image, volume, both Traefik routers + `wizarr-auth` middleware |
+| `stacks/wizarr/compose.yaml` | local build + tag, volume, both Traefik routers + `wizarr-auth` middleware |
+| `stacks/wizarr/Dockerfile` + `patches/` | upstream pin (`FROM`), the LDAP patch and its zero-fuzz applier |
 | `DISABLE_BUILTIN_AUTH=true` | proxy SSO: Authelia (group `wizarr-admin`, 2FA) is the admin login; Wizarr runs on the Traefik-only `wizarr-ingress` network so nothing else can reach `/login` |
 | Wizarr → Settings → LDAP | stored in Wizarr's DB (not git); see the table below |
 | `stacks/wizarr-sync/` | the invite-reconcile one-shot (below) |
@@ -136,7 +139,7 @@ Settings → LDAP (stored in Wizarr's own DB, not in git):
 |---|---|
 | Server URL | `ldaps://lldap.kmkdp.com:6360` (Use TLS on, Verify certificate **on**: LE wildcard; name via the `identity_ldap` network alias) |
 | Base DN | `dc=kmkdp,dc=com` |
-| Service account DN | `uid=wizarr,ou=people,dc=kmkdp,dc=com` (member of `lldap_password_manager`, password `op://kdk-cluster/wizarr-ldap/password`) |
+| Service account DN | `uid=wizarr,ou=people,dc=kmkdp,dc=com` (member of **`lldap_admin`** since 2026-10-29, because lldap's `lldap_password_manager` cannot create users; password `op://kdk-cluster/wizarr-ldap/password`). An admin bind can rewrite any account, which is why the local patch stops invites touching existing entries |
 | User base DN / filter / attrs | `ou=people,dc=kmkdp,dc=com` · `(uid={username})` · `uid` · `mail` · object class `person` |
 | Group base DN / class / member attr | `ou=groups,dc=kmkdp,dc=com` · `groupOfUniqueNames` · `uniqueMember` |
 | Admin LDAP bind | off (Wizarr admin stays local) |
@@ -145,6 +148,84 @@ Settings → LDAP (stored in Wizarr's own DB, not in git):
 (members of `jellyfin-users` only) and the group-based Authelia rules reject them until
 they are added. This is now reconciled automatically by `wizarr-sync` (below) — no manual
 `users.kmkdp.com` step.
+
+## Local image (patched)
+
+**Why.** Upstream `LDAPClient.create_user()` (`app/services/ldap/client.py`, v2026.10.1)
+looks up the invitee's DN and, if it already exists, calls `_update_existing_user()`:
+the entry's `mail` is replaced and its password reset (RFC 3062) to what the invitee
+typed. Our bind is `lldap_admin`, so anyone with a valid invite code could reset any
+directory password by typing that username on the join form (security review
+2026-11-07, finding F1, in the vault).
+
+**What the patch does.** `stacks/wizarr/patches/0001-refuse-existing-ldap-user.patch`
+changes that one branch: it logs `Refusing LDAP create: <dn> already exists (left
+unchanged)` at WARNING and returns `(False, "That username is already taken")`. Both
+callers stop on it: the invite flow shows "Failed to create LDAP user: That username is
+already taken" before any Jellyfin account is made, and the admin "link to LDAP, create
+in LDAP" action fails rather than setting a random password on the existing account.
+`_update_existing_user()` stays in the file, unused, so the diff stays small. The
+`WizarrLdapExistingUserTouched` Loki alert (`stacks/loki/rules/wizarr.yml`) now means
+"the patch is missing": the lines it matches can no longer be logged.
+
+**Build.** `stacks/wizarr/Dockerfile` is `FROM` the upstream digest pin, copies
+`patches/` in and runs `patches/apply.py` (the Alpine image has no `patch` or `git`).
+The applier is zero-fuzz: every hunk's old lines must occur exactly once or the build
+exits non-zero. Komodo builds it on deploy (`run_build = true`, `auto_pull = false`)
+and tags it `kdk/wizarr:v2026.10.1-kdk1`; user, entrypoint and command are upstream's.
+`stacks/wizarr/tests/test_patch.py` (CI: `wizarr-patch` workflow) applies the patch to
+a byte-for-byte copy of the upstream file and checks the pins agree.
+
+**Upgrade.** Renovate bumps the `FROM` line (dmz patch group); `kdk/**` tags are not
+looked up. The bump PR is red in CI until the compose tag (`kdk/wizarr:<new>-kdk1`) and
+the Image row above move with it; that is the cue to re-check the patch:
+
+1. Copy the new upstream file into `stacks/wizarr/tests/fixtures/` (rename it for the
+   new version, update `FIXTURE_SHA256` in the test). Read it from the new image:
+   ```bash
+   ssh kdkadmin@192.168.191.20 'sudo docker run --rm --entrypoint cat ghcr.io/wizarrrr/wizarr:<new-tag> /app/app/services/ldap/client.py' > client_<new-tag>.py
+   ```
+2. If upstream fixed the issue, drop the patch and go back to `image:` (rollback below).
+   Otherwise re-base the hunk (`diff -u` old/new copies), run the stack test, push.
+3. If the build step fails on the host instead, the old container keeps running; the
+   applier's message names the hunk that no longer matches.
+
+**Rollback** (re-opens F1: only with trusted-recipient invites). In
+`stacks/wizarr/compose.yaml` replace the `build:` block and the `kdk/` tag with
+`image: ghcr.io/wizarrrr/wizarr:v2026.10.1@sha256:08f2c6de534ec7d36d39a4f55b7c5c379021ca881dc519c702aad0ddafbdc67a`,
+drop `auto_pull = false` / `run_build = true` from the `wizarr` stack in
+`komodo/resources.toml`, merge, and deploy. Check what is running:
+```bash
+ssh kdkadmin@192.168.191.20 'sudo docker inspect wizarr --format "{{.Config.Image}}"'
+ssh kdkadmin@192.168.191.20 'sudo docker exec wizarr grep -n "already taken" /app/app/services/ldap/client.py'
+```
+
+**Upstream issue (owner files it; paste as is).**
+
+> **Title:** LDAP: invite flow overwrites mail and password of an existing directory user
+>
+> **Version:** v2026.10.1 (same code on `main` as of 2026-11-07)
+>
+> **Where:** `app/services/ldap/client.py`, `LDAPClient.create_user()`. After
+> `build_user_dn(username)` it runs a BASE search on that DN, and `if conn.entries:` it
+> returns `self._update_existing_user(conn, user_dn, email, password)`.
+> `_update_existing_user()` does a `MODIFY_REPLACE` of the email attribute and then
+> `conn.extend.standard.modify_password(user_dn, None, password)`.
+>
+> **Effect:** on an invitation with "create LDAP user" enabled, the username, email and
+> password come from the public join form. If the username matches an existing
+> directory entry, that entry's email and password are replaced with the invitee's
+> values. With LLDAP the service account has to be in `lldap_admin` to create users at
+> all, so this succeeds for every account, administrators included: anyone holding a
+> valid invite code can take over any directory account. The same path is used by the
+> "link to LDAP / create in LDAP" user action (`app/services/ldap/user_sync.py`), which
+> sets a random password on the existing entry.
+>
+> **Suggested fix:** when the DN already exists, return an error ("username already
+> taken") and do not modify the entry. If updating an existing entry is a wanted
+> feature, make it an explicit admin-side option, never reachable from the invite flow.
+> We carry that change as a local patch: in the `if conn.entries:` branch, log a
+> warning and return `(False, "That username is already taken")`.
 
 ## Invitee guide (wizard steps)
 The pages an invitee sees after accepting live in Wizarr's database; their source text
