@@ -6,13 +6,13 @@ tier: dmz
 status: live
 storage: yes
 secrets: [jellyfin-oidc]
-updated: 2026-11-04
+updated: 2026-11-07
 tags: [homelab/stack, tier/dmz, status/live]
 ---
 
 # Jellyfin
 
-Media server on the DMZ node with Intel Arc A380 QSV transcode; **LAN + Tailscale only** since 2026-10-31 (off the Cloudflare tunnel, no public DNS record), with its own login (LDAP plugin, plus Authelia SSO on the web UI via the SSO Authentication plugin), no ForwardAuth.
+Media server on the DMZ node with Intel Arc A380 QSV transcode; **public again since 2026-11-07** through the Cloudflare tunnel (off it 2026-10-31 → 2026-11-07 during the Komodo-leak rotation), with its own login (LDAP plugin, plus Authelia SSO on the web UI via the SSO Authentication plugin), no ForwardAuth.
 
 **Related:** [[kdk-dkr-dmz-01]] · [[dmz-proxy]] · [[media]] · [[seerr]] · [[identity]] · [[jellyfin-sso]]
 
@@ -23,8 +23,8 @@ Media server on the DMZ node with Intel Arc A380 QSV transcode; **LAN + Tailscal
 | Purpose | Streaming server for the TV/movie library |
 | Status | 🟢 Live — login + playback work; plugins Active |
 | Host | [[kdk-dkr-dmz-01]], `/dev/dri` mapped (i915) |
-| Endpoint | `https://jellyfin.kmkdp.com` (LAN + Tailscale; off the Cloudflare tunnel since 2026-10-31) |
-| Edge | Not published. The tunnel ingress has no Jellyfin hostname and the zone has no `jellyfin` record (the edge answers 530 when forced to a Cloudflare IP). The five-rule WAF design (admin-API block, anonymous-stream block, OIDC skip, bots, non-US) plus the credential-path rate limit stays in place for a re-publish. Re-publishing is an owner procedure in the vault note `jellyfin-public-readiness-2026-11-04` (10.Homelab/Security); `scripts/edge-probe.sh` is its baseline step. The router keeps `entrypoints: websecure,tunnel` (`stacks/jellyfin/compose.yaml`), so a re-publish is a Cloudflare-side change only |
+| Endpoint | `https://jellyfin.kmkdp.com` (public via the Cloudflare tunnel since 2026-11-07; LAN and Tailscale resolve straight to the DMZ Traefik) |
+| Edge | Published 2026-11-07: tunnel public hostname `jellyfin.kmkdp.com` → `https://traefik:8443`, Origin Server Name `jellyfin.kmkdp.com`. The five-rule WAF (admin-API block, anonymous-stream block, OIDC skip, bots, non-US) plus the credential-path rate limit gate it; `scripts/edge-probe.sh` passed 63/0 after publishing (admin paths 403 at the edge, client paths 200). Readiness review: vault note `jellyfin-public-readiness-2026-11-07` (10.Homelab/Security). Rollback = delete the public hostname (edge answers 530 again) |
 | Image | `ghcr.io/linuxserver/jellyfin:12.3ubu2604-ls56` — 12.x line, pinned; server and plugins move together |
 | Hardening | compose baseline: `cap_drop: [ALL]` + `cap_add` CHOWN/SETUID/SETGID/DAC_OVERRIDE/FOWNER/KILL (s6 init), `no-new-privileges`, `mem_limit 10g` (includes the 6G transcode tmpfs), `pids_limit 2048`, `/health` healthcheck; exceptions `devices` (/dev/dri) and skip `read_only` (s6) |
 | Deploy | Komodo stack `jellyfin` (git-linked) |
@@ -35,8 +35,8 @@ Media server on the DMZ node with Intel Arc A380 QSV transcode; **LAN + Tailscal
 
 ```bash
 curl -s -o /dev/null -w '%{http_code}\n' https://jellyfin.kmkdp.com/health   # 200 (LAN or tailnet)
-dig +short jellyfin.kmkdp.com @1.1.1.1                                       # empty: not public
-curl -s -o /dev/null -w '%{http_code}\n' --resolve jellyfin.kmkdp.com:443:104.21.93.54 https://jellyfin.kmkdp.com/health   # 530: no tunnel route
+dig +short jellyfin.kmkdp.com @1.1.1.1                                       # two Cloudflare IPs
+curl -s -o /dev/null -w '%{http_code}\n' --resolve jellyfin.kmkdp.com:443:104.21.93.54 https://jellyfin.kmkdp.com/health   # 200 through the edge
 ssh kdkadmin@192.168.191.20 'sudo docker exec jellyfin ls /dev/dri'                       # renderD128 present
 ```
 In the dashboard, an active transcode shows `(hw)`, watched state is present, all plugins read Active.
