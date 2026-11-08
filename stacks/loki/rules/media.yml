@@ -1,0 +1,31 @@
+# Media stack on kdk-dkr-01 (stacks/media): operational log rules, not security.
+# Runbook: docs/runbooks/add-a-book.md
+groups:
+  - name: media
+    interval: 1m
+    rules:
+      # LazyLibrarian blocked a METADATA source for hours or days. HardCover
+      # blocks itself for 1 day on any 400/401/403 (hc.py: invalid_query from an
+      # import with no metadata match, invalid_token) and 2 hours on a 500. While
+      # the book_api source is blocked, findBook / addBookByISBN return
+      # "No results" and importBook cannot add a missing record, silently. Seen
+      # live: 2026-11-08 09:12 "Blocking provider HardCover for 1 days because
+      # invalid_query" (blockhandler.py:128, INFO, on docker stdout).
+      # The same log line is written for indexers (dognzb 429 = 30 s blocks,
+      # several a day) and for HardCover rate-limit pauses, so the rule matches
+      # only the metadata providers and only day/hour blocks. Checked against
+      # Loki for the 24 h to 2026-11-08 16:00Z: 21 "Blocking provider" lines, 1 match.
+      - alert: LazyLibrarianProviderBlocked
+        expr: |
+          sum by (host, provider) (count_over_time({host="kdk-dkr-01", container="media-lazylibrarian-1"}
+            |~ "Blocking provider (HardCover|GoodReads|OpenLibrary|openlibrary|googleapis) for [0-9]+ (days|hours)"
+            | regexp "Blocking provider (?P<provider>[A-Za-z]+) for" [10m])) > 0
+        for: 0m
+        labels:
+          severity: warning
+          source: loki
+          scope: media
+        annotations:
+          summary: "LazyLibrarian: metadata source {{ $labels.provider }} blocked for hours or days (kdk-dkr-01)"
+          description: "LazyLibrarian blocked its metadata source {{ $labels.provider }}; book searches and ISBN adds return No results until the block ends. Use source=OpenLibrary or flip book_api, then clear the block (runbook)."
+          runbook: docs/runbooks/add-a-book.md#metadata-source-blocked
