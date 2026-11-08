@@ -6,3 +6,6 @@ RUN apt-get update \
  && apt-get install -y calibre \
  && rm -rf /var/lib/apt/lists/*
 ENV HOME=/tmp QT_QPA_PLATFORM=offscreen PYTHONUNBUFFERED=1
+# The import loop (stacks/calibre/importer.py, tests in tests/): stdlib-only,
+# runs on this image's python3 and shells out to calibredb.
+COPY importer.py /app/importer.py
