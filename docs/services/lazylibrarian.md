@@ -6,7 +6,7 @@ tier: internal
 status: live
 storage: yes
 secrets: [lazylibrarian-api, audiobookshelf-api-root]
-updated: 2026-11-03
+updated: 2026-11-08
 tags: [homelab/stack, tier/internal, status/live]
 ---
 
@@ -84,7 +84,7 @@ If Prowlarr's app sync does not cover LazyLibrarian in your Prowlarr version, ad
 |---|---|---|
 | **eBook Library Folder** | `/data/media/books/ebook` | `EBOOK_DIR` |
 | **AudioBook Library Folder** | `/data/media/books/audiobook` | `AUDIO_DIR` |
-| **Alternate Directory** | leave blank (or a scratch import dir) | `ALTERNATE_DIR` |
+| **Alternate Directory** | `/data/media/staging/ebook` (pinned, see [Pinned settings](#pinned-settings); empty = the Import eBooks button does nothing) | `ALTERNATE_DIR` |
 
 LazyLibrarian keeps ebooks and audiobooks in **separate** base folders — verified in source (`configdefs.py`: `EBOOK_DIR` / `AUDIO_DIR`). This matches [[audiobookshelf|ABS]], which reads only `/mnt/media/books/audiobook`.
 
@@ -156,6 +156,48 @@ Standalones (no `SeriesDisplay`) get no OPF and no series folder; the scan still
 | Custom script | `/hooks/abs-notify.py` | `CUSTOM_SCRIPT` |
 
 Leave "Run on snatch" unticked. The ABS token and library id are supplied to the container from the host (see [Secret Rotation](#secret-rotation)); `ABS_URL`/`ABS_LIBRARY_ID` are set in the compose. Click **Test** — with no books yet it logs and exits 0.
+
+## Pinned settings
+
+LazyLibrarian owns `/opt/kdk-lab/media/lazylibrarian/config.ini` and rewrites it on every save, and the image reads no environment variable for these keys, so the compose cannot set them. The repo pins them **here**; the live file is checked against this table. Live values matched on 2026-11-08 (read-only `grep`).
+
+| config.ini `[section]` key | Pinned value | Why |
+|---|---|---|
+| `[GENERAL] alternate_dir` | `/data/media/staging/ebook` | the Manage Books → **Import eBooks** button and `cmd=importAlternate` read it; empty = the button silently does nothing (2026-11-08) |
+| `[API] book_api` | `HardCover` | primary metadata source, see [Metadata source](#metadata-source) |
+| `[API] hc_api` | `True` | HardCover enabled (needs its token, UI → Config, HardCover API) |
+| `[API] ol_api` | `True` | OpenLibrary enabled, so `source=OpenLibrary` and the `book_api` flip work during a HardCover block |
+| `[IMPORTER] multi_source` | `True` | author refreshes and library scans also try the other enabled sources |
+
+**Check** (read-only, prints only these keys):
+
+```bash
+ssh kdkadmin@10.1.20.20 'sudo grep -n -i -E "^(alternate_dir|book_api|hc_api|ol_api|multi_source) *=" /opt/kdk-lab/media/lazylibrarian/config.ini'
+```
+
+**Set a drifted value** (hand step). Preferred: the API, so LazyLibrarian writes its own file and nothing is restarted (laptop; key from 1Password, never printed):
+
+```bash
+LL_API_KEY=$(op read 'op://kdk-ops/lazylibrarian-api-rw/credential')
+curl -sG https://lazylibrarian.kmkdp.com/api --data-urlencode "apikey=$LL_API_KEY" \
+  --data-urlencode cmd=writeCFG --data-urlencode group=General \
+  --data-urlencode name=alternate_dir --data-urlencode value=/data/media/staging/ebook
+# same shape for book_api (group=API); then re-run the Check above
+```
+
+Only if the API is down: stop the container first (LazyLibrarian overwrites a file edited under it), open `/opt/kdk-lab/media/lazylibrarian/config.ini` in VS Code Remote-SSH (`kdkadmin@10.1.20.20`), edit the key, then `sudo chown 1000:1000 /opt/kdk-lab/media/lazylibrarian/config.ini && sudo chmod 644 /opt/kdk-lab/media/lazylibrarian/config.ini` and start it. The file stays owned by uid 1000 (the container's `abc` user must write it), not root 600. It holds the API key, the SABnzbd key and the Prowlarr indexer keys: never `cat` it, grep named keys only.
+
+### Metadata source
+
+**Decision (2026-11-08): keep `book_api = HardCover`, with OpenLibrary as the manual fallback.** LazyLibrarian has **no automatic fallback** for its API search/add calls: `findBook`, `addBook`, `addBookByISBN` and `importBook` of an unknown id use only `book_api` (or an explicit `source=`); `multi_source` covers author refreshes and library scans only (`importer.py`, `librarysync.py` at `fc698c6c`).
+
+| Source | Recent technical books | Editions | Series (used by the ABS hook) | Limits / key |
+|---|---|---|---|---|
+| **HardCover** (chosen) | found all 10 books added 2026-11-07 (it can pick a foreign edition: the Pragmatic Programmer record came with a Polish ISBN); not re-queried 2026-11-08, it needs the token | each edition its own record, so a 2nd edition can be pinned by ISBN | yes (`SeriesDisplay`, `member` rows) | personal token required (expired once, 2026-11-02); per-token rate limit; **any 400/401/403 blocks it for 1 day**, a 500 for 2 h |
+| OpenLibrary (fallback) | gaps: the DDIA 2nd-edition ISBNs (978-1098119065 / -058) were not in it on 2026-11-08 | one *work* for all editions (the 2019 Pragmatic Programmer sits under the 1999 work), so a work-id add carries the old edition's title | weak | no key; LazyLibrarian blocks it only 30 s on an error |
+| GoogleBooks (not used) | good ISBN coverage | one volume per edition, many duplicates | no | needs the lab's own API key (`gb_api` is empty) and a daily quota; a quota hit blocks it until midnight PT |
+
+The cost of HardCover is its self-block: a single rejected query stops every search for a day without an error-level log line. That is covered by the Loki alert `LazyLibrarianProviderBlocked` (warning, `stacks/loki/rules/media.yml`) and the fallback steps in the [add-a-book runbook](../runbooks/add-a-book.md#metadata-source-blocked) (`source=OpenLibrary`, the `writeCFG book_api` flip, clearing the block).
 
 ## Import trigger (SABnzbd → LazyLibrarian)
 
@@ -239,6 +281,9 @@ If the number is wrong/absent, check `SeriesDisplay` in LazyLibrarian (Add Serie
 | ABS never shows the new book | scan not triggered / token wrong | hook log shows `ABS scan requested: HTTP 200`; 401/403 = bad token; DNS/firewall to the DMZ |
 | Requested audiobook came as an ebook | Libreseerr `queueBook type=eBook` limitation | request in LazyLibrarian UI, or patch Libreseerr (see limitation above) |
 | Import copied instead of hardlinked | download dir and library on different mounts | both must be under the one `/mnt/media:/data/media` mount |
+| Every `findBook` / `addBookByISBN` says "No results" | metadata source blocked (HardCover: 1 day after a 400) | alert `LazyLibrarianProviderBlocked`; [runbook](../runbooks/add-a-book.md#metadata-source-blocked) |
+| GUI **Import eBooks** does nothing | `alternate_dir` empty | [Pinned settings](#pinned-settings) check |
+| `importBook` returns `False` for a staged folder | more than one file of one type in the folder (`multibook`) | one book per staging subfolder ([runbook](../runbooks/add-a-book.md#a-staging-import)) |
 
 ## Dependencies
 
@@ -252,7 +297,7 @@ If the number is wrong/absent, check `SeriesDisplay` in LazyLibrarian (Add Serie
 
 ## Observability
 
-No dashboard. `lazylibrarian.kmkdp.com` is probed by [[kdk-mon-01]]; container health via the compose `healthcheck`; the watchdog/Prometheus rules cover restart/OOM. Hook activity is in the container log (`grep abs-notify`).
+No dashboard. `lazylibrarian.kmkdp.com` is probed by [[kdk-mon-01]]; container health via the compose `healthcheck`; the watchdog/Prometheus rules cover restart/OOM. Hook activity is in the container log (`grep abs-notify`). Loki rule `LazyLibrarianProviderBlocked` (`stacks/loki/rules/media.yml`, warning) fires when a metadata source is blocked for hours or days. Adding books by hand: [Add a book](../runbooks/add-a-book.md). The `wanted` rows hold the Prowlarr key in their download URLs: never export them ([runbook](../runbooks/add-a-book.md#the-prowlarr-key-in-download-urls)).
 
 ## Architecture
 

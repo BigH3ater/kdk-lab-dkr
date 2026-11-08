@@ -12,6 +12,7 @@ illustrative.
 - [Add a Pushover alert](pushover-alerts.md) — wire a new alert into the per-host watchdog or a verify one-shot.
 - [Troubleshoot the Windows DEE VM](windows-vm-dee.md) — the FastAPI DeeZy wrapper, its SMB mount, and the scheduled task.
 - [Add a second DEE instance (kdk-dee-02)](dee-second-instance.md) — clone the Windows DEE VM as a second Tdarr DEE worker.
+- [Add a book to LazyLibrarian](add-a-book.md) — staging import, adding the record (ISBN / OpenLibrary work id), the library-tree fallback; the HardCover 1-day block and the Prowlarr key in download URLs.
 - [Troubleshoot Tdarr transcodes](tdarr-troubleshooting.md) — transcode/health errors, the DEE dependency, node flapping.
 - [Jellyfin transcoding (ramdisk + Arc QSV)](jellyfin-transcoding.md) — the RAM-disk transcode scratch and the Arc A380 QSV/HDR settings.
 - [Jellyfin SSO (Authelia OIDC)](jellyfin-sso.md) — install the SSO Authentication plugin, the `jellyfin` client secret, the login button, Quick Connect tests.
