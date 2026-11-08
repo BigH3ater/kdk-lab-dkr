@@ -1,0 +1,38 @@
+# Komodo action tests: komodo/tests/*.test.mjs load the action source straight
+# out of komodo/resources.toml and run it against a mock Komodo client, so a
+# change to an action's decision logic is checked before gitops-sync applies it.
+# Node runs from a pinned image (built-in test runner + TypeScript stripping;
+# no npm dependencies).
+name: komodo-actions
+
+on:
+  pull_request:
+    paths:
+      - "komodo/**"
+      - ".github/workflows/komodo-actions.yml"
+  push:
+    branches: [main]
+    paths:
+      - "komodo/**"
+      - ".github/workflows/komodo-actions.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: komodo-actions-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: node --test komodo/tests
+        run: >-
+          docker run --rm -v "$PWD:/w:ro" -w /w
+          node:24.11.1-alpine3.22@sha256:2867d550cf9d8bb50059a0fff528741f11a84d985c732e60e19e8e75c7239c43
+          sh -c 'node --test komodo/tests/*.test.mjs'
