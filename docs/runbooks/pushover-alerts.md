@@ -153,6 +153,7 @@ service availability from kdk-mon-01's external vantage point.
 | `NetExporterDown` | A network exporter on kdk-dkr-01 (unpoller / adguard / snmp) is down 10m; the Network dashboards are blind. Check the `net-exporters` stack |
 | `HostDiskSpaceLow` | Root filesystem under 10% free 30m. Clear space or grow the disk on the named instance |
 | `HostMemoryHigh` | Available memory under 10% for 15m (kdk-nas-01 is excluded — its RAM is ZFS ARC). Find the hungry process/container |
+| `HostRebooted` | `node_boot_time_seconds` changed in the last 10m: the host rebooted, even if it was back before `InstanceDown`'s 5m (kdk-dkr-01, 2026-11-08: down ~90 s, nothing paged). Unplanned? `journalctl -b -1 -k \| tail -50` on the host for a lockup/panic (see `KernelOopsOrLockup`, [security-alerts.md#hosts](security-alerts.md#hosts)), then the hypervisor task log. Silence it for a planned reboot |
 | `TLSCertExpiringSoon` | An LE cert for a probed name expires in under 14 days. Check the Traefik cf resolver (most names) or the roborock-cert lego one-shot (api-slave.kmkdp.com) |
 
 ## Monitoring blackout

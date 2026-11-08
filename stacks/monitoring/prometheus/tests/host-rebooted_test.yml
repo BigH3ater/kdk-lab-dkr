@@ -1,0 +1,66 @@
+# promtool unit tests for HostRebooted (service.yml, hosts group), added after
+# the 2026-11-08 kdk-dkr-01 soft-lockup reboot that paged nothing.
+# Run from the repo root:
+#   docker run --rm -v "$PWD/stacks/monitoring/prometheus:/p:ro" \
+#     prom/prometheus:v3.16.0 promtool test rules /p/tests/*_test.yml
+rule_files:
+  - ../rules/service.yml
+
+evaluation_interval: 1m
+
+tests:
+  # A reboot: the boot time steps once. Fires right away (for: 0m), names the
+  # new boot time, and resolves once the old sample leaves the 10m window.
+  - interval: 1m
+    input_series:
+      - series: 'node_boot_time_seconds{job="node-external",instance="10.1.20.20:9100"}'
+        values: '1000x10 2000x20'
+      - series: 'node_boot_time_seconds{job="node-external",instance="10.1.20.30:9100"}'
+        values: '1500x30'
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: HostRebooted
+        exp_alerts: []
+      - eval_time: 11m
+        alertname: HostRebooted
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              source: external-monitor
+              scope: hosts
+              job: node-external
+              instance: "10.1.20.20:9100"
+            exp_annotations:
+              summary: "host: rebooted in the last 10 min (10.1.20.20:9100)"
+              runbook: "docs/runbooks/pushover-alerts.md#service-and-host-alerts"
+              description: "10.1.20.20:9100 has a new boot time (1970-01-01 00:33:20 +0000 UTC). If the reboot was not planned, check `journalctl -b -1 -k | tail -50` on the host for an oops / lockup / panic (KernelOopsOrLockup in Loki) and the hypervisor task log."
+      - eval_time: 22m
+        alertname: HostRebooted
+        exp_alerts: []
+
+  # A Prometheus restart / scrape gap: no samples for a while, then the SAME
+  # boot time again. Not a reboot.
+  - interval: 1m
+    input_series:
+      - series: 'node_boot_time_seconds{job="node-external",instance="10.1.20.21:9100"}'
+        values: '1000x10 _x4 1000x10'
+    alert_rule_test:
+      - eval_time: 16m
+        alertname: HostRebooted
+        exp_alerts: []
+      - eval_time: 24m
+        alertname: HostRebooted
+        exp_alerts: []
+
+  # First scrape of a new host: changes() over a fresh series is 0.
+  - interval: 1m
+    input_series:
+      - series: 'node_boot_time_seconds{job="node-external",instance="10.1.20.99:9100"}'
+        values: '_x10 5000x10'
+    alert_rule_test:
+      - eval_time: 11m
+        alertname: HostRebooted
+        exp_alerts: []
+      - eval_time: 19m
+        alertname: HostRebooted
+        exp_alerts: []
