@@ -55,7 +55,8 @@ alerts are e-mailed as a digest (the `email-info` receiver), not paged.
 | Alert | First checks |
 |---|---|
 | `AutheliaFailedLoginBurst` | Postgres truth: `select time, username, remote_ip, auth_type from authentication_logs where successful = false and time > now() - interval '1 hour';` (`docker exec -it authelia-postgres psql -U authelia`). A public IP = block it at the WAF |
-| `AutheliaRegulationBan` | `select * from banned_user where revoked = false;` A family member locked out: `authelia storage bans user revoke <name>` |
+| `AutheliaUnknownUserBurst` | Wrong-username spray (usernames that do not exist; the edge probe's `edge-probe-nonexistent` is excluded). Regulation never bans these, so a public IP = block it at the WAF |
+| `AutheliaRegulationBan` (inferred) | Fires on a login attempt rejected because the user or IP is already banned (Authelia logs nothing when it creates a ban). `authelia storage bans ip list` / `bans user list` (or `select * from banned_user where revoked = false;`). A family member locked out: `authelia storage bans user revoke <name>` (or `bans ip revoke <ip>`) |
 | `AutheliaOidcClientAuthFailure` | Which client (line has `client_id`)? A wrong/rotated client secret after a change is the usual cause; an unknown client = probe |
 | `AutheliaForbiddenNamedUser` | The user is signed in but the access rule denies them: expected after a group change, else check `access_control` in `stacks/identity/authelia/configuration.yml` |
 | `AutheliaForwardAuthBadHeadersPublic` | Someone hit `/api/authz/forward-auth` directly from the internet: the tunnel must not route it. Check the public hostnames in the tunnel config |
@@ -83,10 +84,10 @@ alerts are e-mailed as a digest (the `email-info` receiver), not paged.
 | Alert | First checks |
 |---|---|
 | `WizarrInviteGuessBurst` | One client walking `/j/<code>`: block the IP at the WAF; check that no unknown invitation got used (Wizarr → Invitations) |
-| `WizarrAdminRouterNon302` (critical) | The admin router answered a tunnel client without the SSO redirect: the ForwardAuth middleware is gone or the router gained `tunnel`. Check `stacks/wizarr/compose.yaml` labels; remove the public hostname until fixed |
+| `WizarrAdminRouterNon302` (critical) | A tunnel request for wizarr.kmkdp.com was answered (non-404) by a router other than `wizarr-public` (the `RouterName` label says which): `wizarr-admin` gained `tunnel` or a new router claims the host. Check `stacks/wizarr/compose.yaml` labels; remove the public hostname until fixed |
 | `WizarrLdapExistingUserTouched` (critical) | An invite changed an existing lldap account (posture finding F1). In lldap, check that account's groups and reset its password; find the invite code in Wizarr and delete it |
 | `WizarrLdapUserCreated` (info) | Expected right after you sent an invite |
-| `WizarrAdminLogin` (info) | Expected admin login; the Authelia session already passed (Wizarr does no login of its own). Unexpected = check who reached the admin UI |
+| `WizarrAdminLogin` (info) | Wizarr answered `/`, `/login` or `/admin` on the admin router (`OriginStatus` not 0, so Authelia let the client through). Expected when you open Wizarr. Unexpected = check who reached the admin UI |
 | `WizarrInviteAccepted` (info) | An invite was accepted; expected right after you sent one. Unexpected = check Wizarr → Invitations for a code you did not issue |
 | `EdgeWizarrAdminPathHit` | An admin path was requested over the tunnel: confirm it was you; the admin router should force the SSO redirect, so a tunnel client reaching it is worth a look. (The lab's own `kdk-edge-probe` is excluded here; it has its own rule below) |
 | `EdgeWizarrAdminPathProbe` | The lab's edge probe (`/admin`, `/api/users`) reached the origin over the tunnel: the Cloudflare block for Wizarr admin paths is missing that path. Fix the WAF rule expression |
@@ -104,7 +105,7 @@ alerts are e-mailed as a digest (the `email-info` receiver), not paged.
 | `LibreseerrAdminWrite` (info) | Expected while you administer it |
 | `RequestAppsNonUSTraffic` | Same as `EdgeNonUSTraffic` for these two hosts |
 | `SeerrErrorRate` | `docker logs seerr \| grep "\[error\]"`: usually Jellyfin/Radarr connectivity, not security |
-| `RequestAppsContainerChange` (info) | Expected after a deploy (Renovate merge); otherwise check `docker events` history and the image digest |
+| `RequestAppsContainerChange` (info) | A Seerr/Libreseerr container was recreated (`create`) or crashed (`die`); pulls alone no longer count. Expected after a deploy that changed the image (Renovate merge); otherwise check `docker events` history and the image digest |
 
 ## Mobile apps
 

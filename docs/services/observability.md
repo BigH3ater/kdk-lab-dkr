@@ -68,7 +68,8 @@ Loki ruler rules live in `stacks/loki/rules/*.yml` (only `.yml` files there: the
 | `CloudflaredOutdated` | `edge.yml` | info | cloudflared reports a newer release: bump the pinned tag in stacks/dmz-proxy (or merge the Renovate PR) | [edge](../runbooks/security-alerts.md#edge) |
 | `CloudflaredEdgeFlapping` | `edge.yml` | warning | cloudflared lost its edge connection more than 4 times in 30m (WAN/ISP or Cloudflare side), held 5m | [edge](../runbooks/security-alerts.md#edge) |
 | `AutheliaFailedLoginBurst` | `identity.yml` | warning | Authelia: more than 10 failed authentications in 15m from … | [identity](../runbooks/security-alerts.md#identity) |
-| `AutheliaRegulationBan` | `identity.yml` | warning | Authelia regulation banned a user or IP | [identity](../runbooks/security-alerts.md#identity) |
+| `AutheliaUnknownUserBurst` | `identity.yml` | warning | Authelia: more than 10 logins with unknown usernames in 15m from … (username spray) | [identity](../runbooks/security-alerts.md#identity) |
+| `AutheliaRegulationBan` | `identity.yml` | warning | Authelia: login attempt from … rejected by a regulation ban (inferred) | [identity](../runbooks/security-alerts.md#identity) |
 | `AutheliaOidcClientAuthFailure` | `identity.yml` | warning | Authelia: an OIDC authorization request failed (bad client, redirect URI or secret) | [identity](../runbooks/security-alerts.md#identity) |
 | `AutheliaForbiddenNamedUser` | `identity.yml` | warning | Authelia denied a signed-in user by policy: … | [identity](../runbooks/security-alerts.md#identity) |
 | `AutheliaForwardAuthBadHeadersPublic` | `identity.yml` | warning | Authelia forward-auth endpoint called with bad headers from public IP … (direct probe of /api/authz) | [identity](../runbooks/security-alerts.md#identity) |
@@ -84,7 +85,7 @@ Loki ruler rules live in `stacks/loki/rules/*.yml` (only `.yml` files there: the
 | `JellyfinLoginFromInternet` | `jellyfin.yml` | info | Jellyfin: password login through the tunnel from … | [jellyfin](../runbooks/security-alerts.md#jellyfin) |
 | `JellyfinPluginInstalled` | `jellyfin.yml` | warning | Jellyfin: a plugin was installed or updated | [jellyfin](../runbooks/security-alerts.md#jellyfin) |
 | `WizarrInviteGuessBurst` | `wizarr.yml` | warning | Wizarr: … hit /j or /join more than 30 times in 5m (invite-code guessing) | [wizarr](../runbooks/security-alerts.md#wizarr) |
-| `WizarrAdminRouterNon302` | `wizarr.yml` | critical | Wizarr admin router served a tunnel client without an SSO redirect | [wizarr](../runbooks/security-alerts.md#wizarr) |
+| `WizarrAdminRouterNon302` | `wizarr.yml` | critical | Wizarr: a tunnel request was served by router …, not wizarr-public | [wizarr](../runbooks/security-alerts.md#wizarr) |
 | `WizarrLdapExistingUserTouched` | `wizarr.yml` | critical | Wizarr: an invite modified an existing lldap account (posture finding F1) | [wizarr](../runbooks/security-alerts.md#wizarr) |
 | `WizarrLdapUserCreated` | `wizarr.yml` | info | Wizarr created an lldap user (expected only right after you sent an invite) | [wizarr](../runbooks/security-alerts.md#wizarr) |
 | `WizarrAdminLogin` | `wizarr.yml` | info | Wizarr admin login (Authelia passed; Wizarr itself does no login) from … | [wizarr](../runbooks/security-alerts.md#wizarr) |
@@ -101,7 +102,7 @@ Loki ruler rules live in `stacks/loki/rules/*.yml` (only `.yml` files there: the
 | `LibreseerrUserProvisioned` | `request-apps.yml` | info | Libreseerr auto-provisioned an OIDC user | [request-apps](../runbooks/security-alerts.md#request-apps) |
 | `LibreseerrAdminWrite` | `request-apps.yml` | info | Libreseerr users/config/OIDC/LDAP write (expected only while you administer it) | [request-apps](../runbooks/security-alerts.md#request-apps) |
 | `SeerrErrorRate` | `request-apps.yml` | warning | Seerr logged more than 50 errors in 15m, held 5m | [request-apps](../runbooks/security-alerts.md#request-apps) |
-| `RequestAppsContainerChange` | `request-apps.yml` | info | Seerr/Libreseerr image pulled, container recreated or crashed on kdk-dkr-dmz-01 | [request-apps](../runbooks/security-alerts.md#request-apps) |
+| `RequestAppsContainerChange` | `request-apps.yml` | info | Seerr/Libreseerr container recreated or crashed on kdk-dkr-dmz-01 | [request-apps](../runbooks/security-alerts.md#request-apps) |
 | `AbsLoginFailures` | `mobile-apps.yml` | warning | Audiobookshelf: more than 5 failed logins in 10m (inferred wording) | [mobile-apps](../runbooks/security-alerts.md#mobile-apps) |
 | `AbsNewUserOrApiKey` | `mobile-apps.yml` | warning | Audiobookshelf: a user or API key was created (inferred wording) | [mobile-apps](../runbooks/security-alerts.md#mobile-apps) |
 | `ImmichLoginFailures` | `mobile-apps.yml` | warning | Immich: more than 5 failed logins in 10m | [mobile-apps](../runbooks/security-alerts.md#mobile-apps) |

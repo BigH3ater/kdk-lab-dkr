@@ -150,10 +150,14 @@ groups:
 
       # 8. Successful password login from the internet. Informational trail:
       # correlate with {container="jellyfin"} |~ `Authentication request for "kdkadmin" has succeeded`.
+      # The line filter is case-insensitive like the path matcher: Jellyfin
+      # clients send both /Users/AuthenticateByName and /Users/authenticatebyname
+      # (jketelaar's iPhone, 2026-11-08 01:47Z), and `|= "AuthenticateByName"`
+      # dropped the lowercase one before `| json` ever ran.
       - alert: JellyfinLoginFromInternet
         expr: |
           sum by (client) (count_over_time({host="kdk-dkr-dmz-01", container="traefik"}
-            |= "AuthenticateByName" | json | entryPointName="tunnel" | RequestHost="jellyfin.kmkdp.com"
+            |~ "(?i)authenticatebyname" | json | entryPointName="tunnel" | RequestHost="jellyfin.kmkdp.com"
             | RequestMethod="POST" | RequestPath=~"(?i)/users/authenticatebyname(\\?.*)?" | DownstreamStatus="200"
             | label_format client="{{ if .request_Cf_Connecting_Ip }}{{ .request_Cf_Connecting_Ip }}{{ else }}{{ .ClientHost }}{{ end }}" [5m])) > 0
         for: 0m
