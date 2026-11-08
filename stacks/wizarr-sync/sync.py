@@ -8,12 +8,16 @@ account on the DEFAULT auth provider. So the invitee cannot log in via LDAP/SSO
 to Seerr. For every Wizarr `user` row with is_ldap_user=1 this reconciles, idempotently:
 
   (a) lldap    -> ensure membership in jellyfin-users (and nothing else)
-  (b) Jellyfin -> set AuthenticationProviderId to the LDAP plugin if not already
+  (b) Jellyfin -> set AuthenticationProviderId to the LDAP plugin if not already,
+                  and apply the standard invitee policy (INVITEE_POLICY below) --
+                  one POST /Users/{id}/Policy only when a field differs; admins
+                  are never touched
   (c) Seerr    -> import the Jellyfin user if Seerr has no user with that id
 
-Nothing else: no other groups, no permission changes. Stdlib only. One line per
-action. DRY_RUN=1 reports without changing anything. Pushover summary only when
-something changed or errored. Exit 1 on any error.
+Nothing else: no other groups, no other policy fields (EnablePublicSharing and
+library access are left alone). Stdlib only. One line per action (one per
+changed policy field). DRY_RUN=1 reports without changing anything. Pushover
+summary only when something changed or errored. Exit 1 on any error.
 """
 import json
 import os
@@ -183,9 +187,52 @@ def jf_users():
     return body or []
 
 
-def jf_set_ldap_provider(user):
-    policy = dict(user.get("Policy") or {})
-    policy["AuthenticationProviderId"] = LDAP_PROVIDER_ID
+# Standard invitee policy (vault: 10.Homelab/Security/
+# jellyfin-invitee-policy-and-plugins-2026-10-30.md). Jellyfin defaults leave
+# lockout off, sessions unlimited and sync transcoding / media conversion /
+# shared device control on. The last five already match Wizarr's defaults and
+# are asserted so a drift is put back. IsAdministrator is NOT here: an admin is
+# skipped outright (never demoted), see policy_changes().
+INVITEE_POLICY = {
+    "LoginAttemptsBeforeLockout": 10,
+    "MaxActiveSessions": 3,
+    "EnableSyncTranscoding": False,
+    "EnableMediaConversion": False,
+    "EnableSharedDeviceControl": False,
+    "EnableRemoteAccess": True,
+    "EnableContentDownloading": False,
+    "EnableContentDeletion": False,
+    "EnableRemoteControlOfOtherUsers": False,
+    "EnableLiveTvManagement": False,
+}
+
+
+def policy_changes(policy, provider_id=None):
+    """{field: (current, desired)} for every field that differs, in a stable order.
+
+    Includes AuthenticationProviderId when provider_id is given. Returns None for
+    an administrator (never reconciled). Missing fields count as different.
+    """
+    policy = policy or {}
+    if policy.get("IsAdministrator"):
+        return None
+    desired = dict(INVITEE_POLICY)
+    if provider_id is not None:
+        desired = {"AuthenticationProviderId": provider_id, **desired}
+    return {k: (policy.get(k), v) for k, v in desired.items()
+            if k not in policy or policy[k] != v or type(policy[k]) is not type(v)}
+
+
+def apply_changes(policy, changes):
+    """Full policy body with only the changed fields replaced (no mutation)."""
+    body = dict(policy or {})
+    for k, (_cur, new) in changes.items():
+        body[k] = new
+    return body
+
+
+def jf_post_policy(user, changes):
+    policy = apply_changes(user.get("Policy"), changes)
     _req(
         f"{JELLYFIN_URL}/Users/{user['Id']}/Policy",
         "POST",
@@ -280,21 +327,25 @@ def main():
         except Exception as e:  # noqa: BLE001
             err(f"lldap {uid}: {e}")
 
-        # (b) Jellyfin auth provider
+        # (b) Jellyfin auth provider + standard invitee policy (one POST)
         jf_user = None
         if jf_index is not None:
             jf_user = jf_index.get(uid.lower())
             if jf_user is None:
                 err(f"jellyfin: no account named {uid!r}")
             else:
-                current = (jf_user.get("Policy") or {}).get("AuthenticationProviderId")
-                if current != LDAP_PROVIDER_ID:
+                changes = policy_changes(jf_user.get("Policy"), LDAP_PROVIDER_ID)
+                if changes is None:
+                    log(f"jellyfin: {uid} is an administrator; policy left alone")
+                elif changes:
+                    lines = [f"{uid} {k}: {cur!r} -> {new!r}"
+                             for k, (cur, new) in changes.items()]
                     try:
                         if DRY_RUN:
-                            actions.append(f"WOULD set LDAP provider on jellyfin {uid}")
+                            actions.extend(f"WOULD set jellyfin {ln}" for ln in lines)
                         else:
-                            jf_set_ldap_provider(jf_user)
-                            actions.append(f"jellyfin: set LDAP provider on {uid}")
+                            jf_post_policy(jf_user, changes)
+                            actions.extend(f"jellyfin: set {ln}" for ln in lines)
                     except Exception as e:  # noqa: BLE001
                         err(f"jellyfin policy {uid}: {e}")
 

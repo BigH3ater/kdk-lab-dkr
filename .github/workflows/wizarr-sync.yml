@@ -1,0 +1,32 @@
+# wizarr-sync invite reconcile (docs/services/wizarr.md, "Automation: wizarr-sync"):
+# unit tests for the Jellyfin invitee-policy diff in stacks/wizarr-sync/sync.py.
+name: wizarr-sync
+
+on:
+  pull_request:
+    paths:
+      - "stacks/wizarr-sync/**"
+      - ".github/workflows/wizarr-sync.yml"
+  push:
+    branches: [main]
+    paths:
+      - "stacks/wizarr-sync/**"
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+      - name: Install pytest
+        run: python -m pip install pytest==8.4.2
+      - name: Tests
+        run: python -m pytest -q stacks/wizarr-sync/tests

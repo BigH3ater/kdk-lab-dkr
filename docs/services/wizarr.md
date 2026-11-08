@@ -242,14 +242,38 @@ kdk-dkr-dmz-01. For every Wizarr `user` row with `is_ldap_user=1` it:
 
 1. **lldap** — ensures membership in `jellyfin-users` (via GraphQL `addUserToGroup`), and
    nothing else. (lldap admin password `op://kdk-cluster/lldap-admin/password`.)
-2. **Jellyfin** — if the account's `AuthenticationProviderId` is not the LDAP plugin
-   (`Jellyfin.Plugin.LDAP_Auth.LdapAuthenticationProviderPlugin`), sets it with a full
-   `POST /Users/{id}/Policy` round-trip. (API key `op://kdk-cluster/jellyfin-api-wizarr-sync/api-key` — a dedicated per-consumer Jellyfin key, App=`wizarr-sync`.)
+2. **Jellyfin** — sets `AuthenticationProviderId` to the LDAP plugin
+   (`Jellyfin.Plugin.LDAP_Auth.LdapAuthenticationProviderPlugin`) and the standard
+   invitee policy below, in one full `POST /Users/{id}/Policy` round-trip that is sent
+   only when a field differs (one log line per changed field). An account with
+   `IsAdministrator=true` is skipped outright, never demoted. (API key `op://kdk-cluster/jellyfin-api-wizarr-sync/api-key` — a dedicated per-consumer Jellyfin key, App=`wizarr-sync`.)
 3. **Seerr** — if no Seerr user has that Jellyfin user id, calls
    `POST /api/v1/user/import-from-jellyfin` `{"jellyfinUserIds":[id]}`. (Seerr API key read
    read-only from `/mnt/appdata/jellyseerr/settings.json` `main.apiKey`.)
 
-No other groups, no permission changes. The Wizarr sqlite is mounted read-only; it is
+**Invitee policy** (`INVITEE_POLICY` in `sync.py`; source: vault
+`10.Homelab/Security/jellyfin-invitee-policy-and-plugins-2026-10-30.md`). Jellyfin's
+defaults leave lockout off, sessions unlimited and the first three toggles on:
+
+| Field | Value | Why it is set |
+|---|---|---|
+| `LoginAttemptsBeforeLockout` | `10` | Jellyfin default is no lockout |
+| `MaxActiveSessions` | `3` | default `0` = unlimited |
+| `EnableSyncTranscoding` | `false` | default on |
+| `EnableMediaConversion` | `false` | default on |
+| `EnableSharedDeviceControl` | `false` | default on |
+| `EnableRemoteAccess` | `true` | Wizarr default; asserted |
+| `EnableContentDownloading` | `false` | Wizarr default; asserted |
+| `EnableContentDeletion` | `false` | Wizarr default; asserted |
+| `EnableRemoteControlOfOtherUsers` | `false` | Wizarr default; asserted |
+| `EnableLiveTvManagement` | `false` | Wizarr default; asserted |
+
+`EnablePublicSharing`, library access and the playback/transcoding toggles are left as
+they are. To change the standard, edit `INVITEE_POLICY` and its tests
+(`stacks/wizarr-sync/tests`, CI workflow `wizarr-sync`); the next run reconciles every
+invitee. A hand change to one of these fields on an invitee is put back within 15 min.
+
+No other groups and no other policy fields. The Wizarr sqlite is mounted read-only; it is
 WAL mode, so the one-shot copies `database.db` + `-wal` + `-shm` into a writable tmp dir
 and opens the copy (a `?mode=ro` connection fails on a read-only WAL directory). It
 reaches `lldap:17170` on `identity_default` and
@@ -276,11 +300,12 @@ and the wizard's **External URL** is `https://jellyfin.kmkdp.com` for what invit
 |---|---|---|---|
 | `wizarr-ldap` (kdk-cluster) | Wizarr's lldap service account (invite creates) | 🟢 self-service | rotate in lldap + Wizarr Settings → LDAP |
 | `lldap-admin` (kdk-cluster) | `wizarr-sync` GraphQL (add to jellyfin-users) | 🔴 identity core | rotate carefully; shared with Authelia/lldap |
-| `jellyfin` → `api-key` (kdk-cluster) | `wizarr-sync` sets the Jellyfin LDAP provider | 🟢 self-service | regenerate in Jellyfin → Dashboard → API Keys, update 1P |
+| `jellyfin` → `api-key` (kdk-cluster) | `wizarr-sync` sets the Jellyfin LDAP provider + invitee policy | 🟢 self-service | regenerate in Jellyfin → Dashboard → API Keys, update 1P |
 
 ## User Guide
 
 Admin: open `wizarr.kmkdp.com` (Authelia + Wizarr login), create an invite, send the
 `/j/<CODE>` link. The invitee opens the link, sets a username/password, and is onboarded
-to Jellyfin; within ~15 min `wizarr-sync` grants them LDAP/SSO login and a Seerr account.
+to Jellyfin; within ~15 min `wizarr-sync` grants them LDAP/SSO login, applies the invitee policy
+(3 sessions, lockout after 10 failed logins) and gives them a Seerr account.
 Once synced, invitees sign in to the Jellyfin web UI either with **Sign in with SSO** (Authelia, `jellyfin-users`) or with the username/password they chose (LDAP); TVs and phone apps use Quick Connect or that password. See [[jellyfin]] § SSO.
