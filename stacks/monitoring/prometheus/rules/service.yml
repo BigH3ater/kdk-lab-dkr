@@ -119,8 +119,8 @@ groups:
           description: >-
             {{ $labels.instance }} has a new boot time{{ with query (printf "node_boot_time_seconds{instance=%q}" $labels.instance) }}
             ({{ . | first | value | humanizeTimestamp }}){{ end }}. If the reboot was
-            not planned, check `journalctl -b -1 -k | tail -50` on the host for a
-            soft lockup / panic (KernelSoftLockup in Loki) and the hypervisor task log.
+            not planned, check `journalctl -b -1 -k | tail -50` on the host for an
+            oops / lockup / panic (KernelOopsOrLockup in Loki) and the hypervisor task log.
 
   # Per-container crash/unhealthy alerting is handled by the Docker-events
   # watcher in stacks/observability-agent (Docker API -> Pushover), because

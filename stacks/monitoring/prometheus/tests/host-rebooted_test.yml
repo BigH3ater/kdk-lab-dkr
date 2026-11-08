@@ -33,7 +33,7 @@ tests:
             exp_annotations:
               summary: "host: rebooted in the last 10 min (10.1.20.20:9100)"
               runbook: "docs/runbooks/pushover-alerts.md#service-and-host-alerts"
-              description: "10.1.20.20:9100 has a new boot time (1970-01-01 00:33:20 +0000 UTC). If the reboot was not planned, check `journalctl -b -1 -k | tail -50` on the host for a soft lockup / panic (KernelSoftLockup in Loki) and the hypervisor task log."
+              description: "10.1.20.20:9100 has a new boot time (1970-01-01 00:33:20 +0000 UTC). If the reboot was not planned, check `journalctl -b -1 -k | tail -50` on the host for an oops / lockup / panic (KernelOopsOrLockup in Loki) and the hypervisor task log."
       - eval_time: 22m
         alertname: HostRebooted
         exp_alerts: []
