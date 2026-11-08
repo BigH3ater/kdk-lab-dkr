@@ -24,7 +24,16 @@
 name: wizarr
 services:
   wizarr:
-    image: ghcr.io/wizarrrr/wizarr:v2026.10.1@sha256:08f2c6de534ec7d36d39a4f55b7c5c379021ca881dc519c702aad0ddafbdc67a
+    # Local build (Komodo run_build, auto_pull off): upstream v2026.10.1 plus
+    # patches/0001 (an invite never touches an existing LDAP account). The
+    # upstream pin lives in ./Dockerfile FROM; bump this tag with it (the
+    # stacks/wizarr test fails until they agree). docs/services/wizarr.md.
+    # provenance off: stable image ID, so a cached rebuild does not recreate it.
+    build:
+      context: .
+      dockerfile: Dockerfile
+      provenance: false
+    image: kdk/wizarr:v2026.10.1-kdk1
     container_name: wizarr
     restart: unless-stopped
     # Compose baseline (security plan A3; wizarr posture W4). The image starts as

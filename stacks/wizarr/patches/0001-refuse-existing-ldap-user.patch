@@ -1,0 +1,29 @@
+kdk patch 0001 (Wizarr v2026.10.1): refuse an existing LDAP user in create_user()
+
+Upstream create_user() looks up the invitee's DN and, when it already exists,
+calls _update_existing_user(), which replaces the entry's mail and resets its
+password (RFC 3062) to what the invitee typed. Wizarr's service account must be
+in lldap_admin to create users, so any valid invite code could reset any
+directory password. This returns a refusal instead and leaves the entry alone;
+_update_existing_user() stays in the file as dead code to keep the diff small.
+
+Applied at image build by apply.py (zero fuzz: every context and removed line
+must match exactly once, or the build fails). Path is relative to /app.
+
+--- a/app/services/ldap/client.py
++++ b/app/services/ldap/client.py
+@@ -205,7 +205,13 @@
+             )
+ 
+             if conn.entries:
+-                return self._update_existing_user(conn, user_dn, email, password)
++                # kdk patch 0001: never modify an existing directory entry here.
++                # Upstream reset its mail + password to the invitee's input, so any
++                # invite code could take over any account (service account is admin).
++                logger.warning(
++                    "Refusing LDAP create: %s already exists (left unchanged)", user_dn
++                )
++                return False, "That username is already taken"
+ 
+             return self._create_new_user(conn, user_dn, username, email, password)
+ 
