@@ -5,9 +5,11 @@
 # log in via LDAP/SSO and is unknown to Seerr. For every Wizarr user row with
 # is_ldap_user=1 this run:
 #   (a) lldap  -> ensures membership in jellyfin-users (and nothing else);
-#   (b) Jellyfin -> sets AuthenticationProviderId to the LDAP plugin if not set;
+#   (b) Jellyfin -> sets AuthenticationProviderId to the LDAP plugin and the
+#       standard invitee policy (sync.py INVITEE_POLICY), one POST only when a
+#       field differs; admins are never touched;
 #   (c) Seerr  -> imports the Jellyfin user if not already present.
-# Nothing else -- no other groups, no permission changes.
+# Nothing else -- no other groups, no other policy fields.
 #
 # deploy=false; run by the wizarr-sync Procedure every 15 min (:07,:22,:37,:52).
 # destroy_before_deploy (resources.toml) recreates it fresh each run. Stdlib-only
