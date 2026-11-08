@@ -1,6 +1,6 @@
 # Same digest-pinned base as stacks/obsidian-to-koreader/Dockerfile (one slim
 # Python to track for CVEs across the lab's home-built watchers).
-FROM python:3.12.16-slim@sha256:4840d514c583a4d3d8cad3940e68dee6f0f6f3635c12fcd0a3d74c21a5b93a54
+FROM python:3.12.16-slim@sha256:5e2bdb1b0d542d5039cffb8181c65930093949194a65c365dfb1b0fe13a4fa5b
 # DIRCON is a plain TCP protocol (Wahoo Direct Connect) — NO bleak/BlueZ. The
 # only dependency is the MQTT client. paho-mqtt 2.x uses the VERSION2 callback
 # API (bridge.py targets it).
