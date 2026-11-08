@@ -93,6 +93,35 @@ groups:
           runbook: docs/runbooks/pushover-alerts.md#service-and-host-alerts
           description: "Available memory below 10% for 15m on {{ $labels.instance }}."
 
+      # A host rebooted. Every reachability rule above has a 5m `for:`, so a host
+      # that comes back fast never pages: kdk-dkr-01 soft-locked and rebooted at
+      # 2026-11-08 08:40Z (boot 08:40:33Z), was down ~90 s, and nothing fired
+      # (vault 10.Homelab/Followups/alert-review-2026-11-08.md).
+      # node_boot_time_seconds is /proc/stat btime, constant for the life of a
+      # boot, so any change in it is a new boot. It does NOT fire on:
+      #  - a Prometheus restart: the series and its value survive in the TSDB, so
+      #    the samples either side of the gap are equal (the 2026-11-07 10:31Z
+      #    mon-01 reboot restarted Prometheus; only the three hosts that really
+      #    rebooted changed, the other ten stayed 0);
+      #  - the first scrape of a new host: changes() over a fresh series that has
+      #    only one value is 0.
+      # Down longer than the 10m window: no pre-boot sample is left in range, so
+      # this stays 0 -- InstanceDown (5m, critical) already paged for that case.
+      # for: 0m = point-in-time event (standards §5); it fires for ~10m, then
+      # resolves on its own.
+      - alert: HostRebooted
+        expr: changes(node_boot_time_seconds{job="node-external"}[10m]) > 0
+        for: 0m
+        labels: {severity: warning, source: external-monitor, scope: hosts}
+        annotations:
+          summary: "host: rebooted in the last 10 min ({{ $labels.instance }})"
+          runbook: docs/runbooks/pushover-alerts.md#service-and-host-alerts
+          description: >-
+            {{ $labels.instance }} has a new boot time{{ with query (printf "node_boot_time_seconds{instance=%q}" $labels.instance) }}
+            ({{ . | first | value | humanizeTimestamp }}){{ end }}. If the reboot was
+            not planned, check `journalctl -b -1 -k | tail -50` on the host for a
+            soft lockup / panic (KernelSoftLockup in Loki) and the hypervisor task log.
+
   # Per-container crash/unhealthy alerting is handled by the Docker-events
   # watcher in stacks/observability-agent (Docker API -> Pushover), because
   # cAdvisor cannot resolve container names under the containerd-snapshotter

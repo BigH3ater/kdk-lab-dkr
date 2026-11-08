@@ -1,0 +1,75 @@
+# Alert rules (docs/reference/alerting-standards.md §8).
+#   prometheus -- promtool check rules + promtool test rules with the image
+#                 kdk-mon-01 runs (same digest as stacks/monitoring/compose.yaml),
+#                 so "it passes here" means "Prometheus loads it there".
+#   loki       -- no offline LogQL linter exists in this repo (the grafana/loki
+#                 image ships no lokitool), so: every rule file parses and every
+#                 rule carries the §3/§4 labels and annotations. The live ruler on
+#                 kdk-log-01 is the final check after deploy.
+name: alert-rules
+
+on:
+  pull_request:
+    paths:
+      - "stacks/monitoring/prometheus/**"
+      - "stacks/loki/rules/**"
+      - ".github/workflows/alert-rules.yml"
+  push:
+    branches: [main]
+    paths:
+      - "stacks/monitoring/prometheus/**"
+      - "stacks/loki/rules/**"
+      - ".github/workflows/alert-rules.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: alert-rules-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  prometheus:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: promtool check + test rules
+        run: >-
+          docker run --rm -v "$PWD/stacks/monitoring/prometheus:/p:ro" --entrypoint sh
+          prom/prometheus:v3.16.0@sha256:e04987641b57704f408e31f6373ba4138ecf27cb4a165d24aabb6c38fddd0f06
+          -c 'promtool check rules /p/rules/*.yml && promtool test rules /p/tests/*_test.yml'
+
+  loki:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.13"
+      - name: Install PyYAML
+        run: python -m pip install pyyaml
+      - name: Rule files parse and carry the required labels/annotations
+        shell: python
+        run: |
+          import glob, sys, yaml
+          bad, n = [], 0
+          for f in sorted(glob.glob("stacks/loki/rules/*.yml")):
+              for g in yaml.safe_load(open(f))["groups"]:
+                  for r in g["rules"]:
+                      n += 1
+                      lab, ann = r.get("labels", {}), r.get("annotations", {})
+                      if lab.get("source") != "loki": bad.append((f, r["alert"], "source"))
+                      if lab.get("severity") not in ("critical", "warning", "info"): bad.append((f, r["alert"], "severity"))
+                      if not lab.get("scope"): bad.append((f, r["alert"], "scope"))
+                      if lab.get("notify") and lab.get("severity") != "info": bad.append((f, r["alert"], "notify on non-info"))
+                      for k in ("summary", "description", "runbook"):
+                          if not ann.get(k): bad.append((f, r["alert"], k))
+          for b in bad: print("::error::%s %s: %s" % b)
+          print(n, "rules checked")
+          sys.exit(1 if bad else 0)

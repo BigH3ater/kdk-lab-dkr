@@ -139,6 +139,7 @@ alerts are e-mailed as a digest (the `email-info` receiver), not paged.
 | `HostSshLoginFromUnexpectedSource` (critical) | `journalctl -u ssh --since -1h` on that host. Admin sources: 10.1.30.0/24, 10.1.20.20, 100.64.0.0/10, 192.168.2.0/24. 192.168.2.3 (posture L-05) is not in the set until identified. Unknown = rotate `op://kdk-ops/kdkadmin-ssh-key` and check `~/.ssh/authorized_keys` on every host |
 | `HostSudoFailure`, `HostSudoByUnexpectedUser` | Who ran it (`journalctl _COMM=sudo`)? Only `kdkadmin` has keys; any other account = lock it |
 | `HostUnknownImageOnDmz` | An image no DMZ stack uses was pulled or run on kdk-dkr-dmz-01: `docker ps -a`, `docker images`; a legit new stack = add its repository to the allowlist in `hosts.yml` in the same PR |
+| `KernelSoftLockup` | The kernel (`job="syslog", app="kernel"`) logged a soft/hard lockup, an RCU stall or a hung task. Not a security signal, it lives here because `hosts.yml` does. `journalctl -k -b -1` (or `-b 0` if it did not reboot) for the stack; a reboot usually follows (`HostRebooted`, [pushover-alerts.md](pushover-alerts.md#service-and-host-alerts)). kdk-dkr-01 2026-11-08: stack in the NFS read path (Tdarr) |
 
 ## Advisories
 
