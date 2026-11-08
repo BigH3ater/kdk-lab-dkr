@@ -10,6 +10,7 @@ onto the host. The two VM cloud-init files carry the same files so a rebuild get
 | `<host>/daemon.json` | `/etc/docker/daemon.json` | each host its own (address pool; dkr-01 keeps the nvidia runtime) |
 | `_common/sshd_config.d/98-kdk-admin.conf` | `/etc/ssh/sshd_config.d/` | all five |
 | `_common/sysctl.d/90-kdk-hardening.conf`, `91-kdk-nonlocal-bind.conf` | `/etc/sysctl.d/` | all five |
+| `_common/sysctl.d/92-kdk-panic.conf` | `/etc/sysctl.d/` | the VMs: dkr-01, dmz-01, dkr-04, log-01 (oops → reboot in 10 s; `docs/runbooks/host-kernel-crash.md`) |
 | `_common/apt/20auto-upgrades` | `/etc/apt/apt.conf.d/` | all five |
 | `_common/apt/52kdk-unattended-upgrades` | `/etc/apt/apt.conf.d/52kdk-unattended-upgrades` | dkr-01, dmz-01 |
 | `_common/apt/52kdk-unattended-upgrades-pi` | `/etc/apt/apt.conf.d/52kdk-unattended-upgrades` | mon-01, dkr-02, dkr-03 |
@@ -61,7 +62,14 @@ Keep this session open until the sshd step has been verified from a second termi
 ```sh
 sudo install -m 644 _common/sysctl.d/90-kdk-hardening.conf _common/sysctl.d/91-kdk-nonlocal-bind.conf /etc/sysctl.d/
 sudo sysctl --system | grep -E 'ptrace_scope|kptr_restrict|dmesg_restrict|sysrq|send_redirects|log_martians|nonlocal_bind'
+# VMs only (dkr-01, dmz-01, dkr-04, log-01): oops -> panic -> reboot after 10 s
+sudo install -m 644 _common/sysctl.d/92-kdk-panic.conf /etc/sysctl.d/
+sudo sysctl --system >/dev/null; sysctl kernel.panic_on_oops kernel.panic kernel.softlockup_panic
+# expect: 1 / 10 / 0
 ```
+
+Fleet-wide check (laptop, read-only; also the weekly pending-kernel check):
+`scripts/kernel-pending-check.sh` shows `BASELINE` for a VM without it.
 
 **2. sshd** (the Pis already have an older copy; this overwrites it)
 

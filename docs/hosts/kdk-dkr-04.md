@@ -12,7 +12,7 @@ vmid: kdkdkr04
 console: TrueNAS UI → Virtualization → kdkdkr04 → Console
 standards: baseline-at-build
 secrets: []
-updated: 2026-11-04
+updated: 2026-11-08
 tags: [homelab/host, role/docker-host, status/building, tier/internal]
 ---
 
@@ -87,6 +87,7 @@ ssh kdkadmin@10.1.20.22 'sudo ss -lntp | grep -E ":22 |:8120 "'   # sshd + perip
 | Admin account | `kdkadmin`, key-only, NOPASSWD, not in `docker` | ✅ at build | |
 | SSH hardening | `98-kdk-admin.conf` + kdkadmin key `from=` admin sources | ✅ at build | `hosts/_common/sshd_config.d` |
 | Kernel sysctl | `90-kdk-hardening.conf` | ✅ at build | |
+| Kernel panic | `92-kdk-panic.conf` (`panic_on_oops=1`, `panic=10`; softlockup/hung-task panic stay off) | ⏳ pending install (PR 2026-11-08; in cloud-init for a rebuild) | [host-kernel-crash](../runbooks/host-kernel-crash.md#panic-baseline) |
 | Patching | unattended-upgrades: Debian + Docker CE origins | ✅ at build | |
 | Docker daemon | `daemon.json`: log rotation, `live-restore`, `no-new-privileges`, `userland-proxy: false`, `icc: false`, pool 10.214 | ✅ at build | [[docker-daemon]] |
 | Host firewall | storage-net fence (`inet kdk-storage`) + DOCKER-USER unit `MODE=enforce` | ✅ at build | [[host-firewall]] |

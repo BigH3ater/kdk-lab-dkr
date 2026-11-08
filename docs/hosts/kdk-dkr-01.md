@@ -12,7 +12,7 @@ vmid: 300
 console: Proxmox → VM 300 → Console
 standards: drifted
 secrets: []
-updated: 2026-10-30
+updated: 2026-11-08
 tags: [homelab/host, role/docker-host, status/live, tier/internal]
 ---
 
@@ -30,7 +30,7 @@ The internal Docker host: Komodo control plane, 1Password Connect, internal Trae
 | Status | 🟢 Live — periphery active, all stacks up (2026-09-12) |
 | Host | VM 300 on kdk-hyp-01 |
 | Address | `10.1.20.20/27` (VLAN 20) · storage `172.16.30.50` (vmbr1, MTU 9000) |
-| OS | Debian 13, kernel `6.12.107+deb13-amd64` (full kernel — required for the NVIDIA driver) |
+| OS | Debian 13, kernel `6.12.115+deb13.1-amd64` since 2026-11-08 (full kernel — required for the NVIDIA driver; `linux-image-amd64` metapackage not installed, kernels arrive via unattended-upgrades security) |
 | Hardware | 12 vCPU / 47 GiB / 571 GB local-zfs · GTX 1050 Ti (hostpci) |
 | Managed by | cloud-init at build; Komodo periphery thereafter |
 | Runs | komodo, op-connect, proxy, docs, dashboard, media, apps, actual, jellystat, calibre, trailarr, net-exporters, tailscale-subnet-router, tailscale-dns, obsidian-headless, backup-dkr-01, observability-agent, node-exporter — plus scheduled one-shots (backup, arr/tdarr, vault pipelines). Representative, not exhaustive; `komodo/resources.toml` is the source of truth. (Loki + syslog moved to [[kdk-log-01]] 2026-10; the old `loki`/`loki-syslog` containers stay until 2026-11-28) |
@@ -60,6 +60,7 @@ ssh kdkadmin@10.1.20.20 'nvidia-smi -L'                    # GTX 1050 Ti
 | `nvidia-smi` fails | cloud kernel has no GPU driver | boot the full `linux-image-amd64` kernel |
 | A stack won't deploy | `op inject` can't reach Connect | `curl http://10.1.20.20:8080/heartbeat` → `.` |
 | NFS mounts missing | storage NIC / NFS down | `mount | grep 172.16.30.2` |
+| Rebooted on its own (`HostRebooted`, uptime minutes) | kernel oops → wedge → ICH9 TCO watchdog reset (2026-10-31, 2026-11-08) | [Kernel crashes and the watchdog](#kernel-crashes-and-the-watchdog) |
 
 ## Dependencies
 
@@ -81,12 +82,36 @@ Host reachability via `blackbox-http-app` on [[kdk-mon-01]]; alerts → Pushover
 | Admin account | `kdkadmin`, key-only, NOPASSWD | ✅ | |
 | SSH hardening | `98-kdk-admin.conf` (no root login, no X11/TCP/agent forwarding, `AllowUsers kdkadmin`, `MaxAuthTries 3`) + kdkadmin key `from=` admin sources | ⏳ pending apply (2026-10-28) | Debian VM defaults today (X11/TCP forwarding on). `hosts/README.md` |
 | Kernel sysctl | `90-kdk-hardening.conf` (ptrace_scope 1, kptr/dmesg restrict, no redirects, martians, sysrq 0) | ⏳ pending apply (2026-10-28) | |
+| Kernel panic | `92-kdk-panic.conf` (`panic_on_oops=1`, `panic=10`; softlockup/hung-task panic stay off) | ⏳ pending install (PR 2026-11-08) | [host-kernel-crash](../runbooks/host-kernel-crash.md#panic-baseline) |
 | Patching | unattended-upgrades: Debian + Docker CE origins | ⏳ pending apply (2026-10-28) | no automatic reboot (tailnet router) |
 | Docker daemon | `daemon.json`: log rotation 10m×3, `live-restore`, `no-new-privileges`, `userland-proxy: false`, `icc: false` | ⏳ pending apply (2026-10-28) | [[docker-daemon]] |
 | Host firewall | storage-net fence (`inet kdk-storage`) + DOCKER-USER unit | ✅ enforced (2026-10-29) | `MODE=enforce` since 2026-10-29 23:02 CDT after 3 days in `log` mode; replaces the `docker-forward` sidecar. [[host-firewall]] |
 | Timezone | America/Chicago | ✅ | CDT |
 | NTP | `ntp.kmkdp.com` primary | ⚠️ synced via public pools (timesyncd), not the internal server | |
 | Syslog | `syslog.kmkdp.com:514` | ✅ forwarding to [[kdk-log-01]] since 2026-10-28 (rsyslog installed by hand; cloud-init now includes the package, PR #84) | copy `hosts/_common/rsyslog.d/90-kdk-loki.conf` to `/etc/rsyslog.d/`, restart rsyslog |
+
+## Kernel crashes and the watchdog
+
+kdk-dkr-01 is a `q35` VM, so it has an emulated **ICH9 TCO hardware watchdog**
+(`iTCO_wdt`, `/dev/watchdog0`, heartbeat 30 s, `nowayout=0`). Nothing configures
+it: the kernel's own `watchdogd` thread pings it, and if the kernel wedges so hard
+that the pings stop, QEMU resets the VM. That is the **deliberate recovery path**:
+it brought dkr-01 back in ~90 s on 2026-10-31 and 2026-11-08 (kswapd0 NULL
+dereference in `list_lru_add` on 6.12.113, then soft lockups, then a TCO reset
+~55 s later). No Proxmox `watchdog:` option, no HA, no `watchdog` package.
+
+- **A TCO reset looks like:** the previous boot's journal ends mid-oops/lockup with
+  no shutdown lines; hyp-01 logs only `vfio-pci 0000:42:00.0: resetting` (the GPU)
+  at that second; no Proxmox task; the QEMU process start time predates the reboot.
+  A power or hypervisor event shows a hyp-01 reboot or a `qm*` task instead.
+- **Faster than the TCO:** `92-kdk-panic.conf` (`panic_on_oops=1`, `panic=10`) turns
+  an oops into a reboot after 10 s; the TCO stays the backstop.
+- **Triage:** `sudo journalctl -b -1 -k` → first `BUG:`/`Oops` line and its `RIP:`;
+  Loki `{host="kdk-dkr-01", app="kernel"}` when the local journal stops early
+  (alert `KernelOopsOrLockup`).
+
+Signatures, the full TCO-vs-power table and the triage steps:
+[host-kernel-crash](../runbooks/host-kernel-crash.md).
 
 ## Architecture
 
