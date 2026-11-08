@@ -119,11 +119,17 @@ groups:
       # D6: admin paths requested over the tunnel. The admin router is websecure-only,
       # so these are 404 at Traefik (or 403 at the Cloudflare edge before that); any hit
       # is someone probing the public hostname for the admin portal.
+      # The lab's own edge probe (UA kdk-edge-probe/1, scripts/edge-probe.sh) requests
+      # /admin and /api/users to canary the edge block; it is excluded here and
+      # surfaced by EdgeWizarrAdminPathProbe below, the same split as
+      # EdgeJellyfinAdminPathHit/Probe in edge.yml. A scanner that forges the probe
+      # UA lands in the Probe rule, so it is still seen.
       - alert: EdgeWizarrAdminPathHit
         expr: |
           sum by (client) (count_over_time({host="kdk-dkr-dmz-01", container="traefik"}
             | json | entryPointName="tunnel" | RequestHost="wizarr.kmkdp.com"
             | RequestPath=~"^/(admin|api|login|logout|settings|setup|webauthn|activity|health)(/.*)?$"
+            | request_User_Agent!~"kdk-edge-probe.*"
             | label_format client="{{ if .request_Cf_Connecting_Ip }}{{ .request_Cf_Connecting_Ip }}{{ else }}{{ .ClientHost }}{{ end }}" [10m])) > 0
         for: 0m
         labels:
@@ -133,6 +139,24 @@ groups:
         annotations:
           summary: "Wizarr: admin path requested over the tunnel from {{ $labels.client }}"
           description: "The DMZ Traefik logged a Wizarr admin path request on wizarr.kmkdp.com through the tunnel from {{ $labels.client }}, where the admin router is not routed. Confirm it was you; otherwise someone is probing for the admin portal."
+          runbook: docs/runbooks/security-alerts.md#wizarr
+
+      # The edge probe's own /admin and /api/users rows reached the origin: the
+      # Cloudflare block rule for Wizarr admin paths is missing or wrong.
+      - alert: EdgeWizarrAdminPathProbe
+        expr: |
+          sum(count_over_time({host="kdk-dkr-dmz-01", container="traefik"}
+            | json | entryPointName="tunnel" | RequestHost="wizarr.kmkdp.com"
+            | RequestPath=~"^/(admin|api|login|logout|settings|setup|webauthn|activity|health)(/.*)?$"
+            | request_User_Agent=~"kdk-edge-probe.*" [10m])) > 0
+        for: 0m
+        labels:
+          severity: warning
+          source: loki
+          scope: wizarr
+        annotations:
+          summary: "The lab's edge probe reached a Wizarr admin path through the tunnel: the Cloudflare block rule is missing that path"
+          description: "The lab's kdk-edge-probe request to a Wizarr admin path on wizarr.kmkdp.com reached the DMZ Traefik through the tunnel, so the Cloudflare edge block for Wizarr admin paths is missing that path. Fix the WAF rule expression."
           runbook: docs/runbooks/security-alerts.md#wizarr
 
       - alert: WizarrAdminMutation

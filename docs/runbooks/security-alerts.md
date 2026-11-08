@@ -88,7 +88,8 @@ alerts are e-mailed as a digest (the `email-info` receiver), not paged.
 | `WizarrLdapUserCreated` (info) | Expected right after you sent an invite |
 | `WizarrAdminLogin` (info) | Expected admin login; the Authelia session already passed (Wizarr does no login of its own). Unexpected = check who reached the admin UI |
 | `WizarrInviteAccepted` (info) | An invite was accepted; expected right after you sent one. Unexpected = check Wizarr → Invitations for a code you did not issue |
-| `EdgeWizarrAdminPathHit` | An admin path was requested over the tunnel: confirm it was you; the admin router should force the SSO redirect, so a tunnel client reaching it is worth a look |
+| `EdgeWizarrAdminPathHit` | An admin path was requested over the tunnel: confirm it was you; the admin router should force the SSO redirect, so a tunnel client reaching it is worth a look. (The lab's own `kdk-edge-probe` is excluded here; it has its own rule below) |
+| `EdgeWizarrAdminPathProbe` | The lab's edge probe (`/admin`, `/api/users`) reached the origin over the tunnel: the Cloudflare block for Wizarr admin paths is missing that path. Fix the WAF rule expression |
 | `WizarrAdminMutation` (info) | Expected only while you work in Wizarr |
 
 ## Request apps

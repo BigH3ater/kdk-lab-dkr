@@ -37,6 +37,8 @@ SSO=sso.kmkdp.com
 WZ=wizarr.kmkdp.com
 APEX=kmkdp.com
 ZERO=00000000000000000000000000000000   # syntactically valid, non-existent item id
+# Every curl below sends this UA (req/expect, the bursts, HSTS, TLS, DoH), so
+# the Loki rules can tell the probe apart (edge.yml, jellyfin.yml, wizarr.yml).
 UA="kdk-edge-probe/1 (+scripts/edge-probe.sh)"
 
 PASS=0 FAIL=0 SKIP=0
@@ -48,7 +50,7 @@ row() { # status check detail
 
 # --- public DNS (DoH) -------------------------------------------------------
 doh() { # name type -> answers, one per line
-  curl -fsS -m 10 -H 'accept: application/dns-json' \
+  curl -fsS -m 10 -A "$UA" -H 'accept: application/dns-json' \
     "https://cloudflare-dns.com/dns-query?name=$1&type=$2" 2>/dev/null |
     python3 -I -c '
 import json, sys
@@ -176,7 +178,7 @@ done
 
 for v in 1.0 1.1; do
   if [ -z "${EDGE[$SSO]}" ]; then row SKIP "TLS $v refused" "no A record"; continue; fi
-  err=$(curl -sS -o /dev/null -m 15 --resolve "$SSO:443:${EDGE[$SSO]}" --tlsv"$v" --tls-max "$v" \
+  err=$(curl -sS -o /dev/null -m 15 -A "$UA" --resolve "$SSO:443:${EDGE[$SSO]}" --tlsv"$v" --tls-max "$v" \
         --ciphers 'DEFAULT:@SECLEVEL=0' "https://$SSO/" 2>&1); rc=$?
   if [ $rc = 0 ]; then row FAIL "TLS $v handshake refused by the edge" "handshake succeeded (Minimum TLS < 1.2)"
   elif grep -qi 'protocol version\|alert\|handshake failure' <<<"$err"; then row PASS "TLS $v handshake refused by the edge" "refused (curl rc=$rc)"
