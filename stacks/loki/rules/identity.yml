@@ -9,14 +9,12 @@ groups:
   - name: identity
     interval: 1m
     rules:
-      # Failed first factor / TOTP / WebAuthn (Authelia prefixes them "Unsuccessful").
-      # Authelia's JSON log carries no user-agent, so the lab's edge probe (UA
-      # kdk-edge-probe/1, from the lab's public address) cannot be excluded by UA here.
-      # The probe POSTs /api/firstfactor with no credentials, which Authelia logs
-      # as `Unsuccessful 1FA authentication attempt by user ''` (empty user) — the
-      # only thing that tripped this in 7d. Dropping the empty-user attempts keeps
-      # every real failed login (those carry a username, so they are not excluded)
-      # and is robust to the probe's source IP changing.
+      # Failed first factor / TOTP / WebAuthn against an EXISTING user (Authelia
+      # prefixes them "Unsuccessful"). Authelia 4.39 logs `by user ''` whenever the
+      # submitted username does not exist (it logs the resolved name, which is
+      # empty), so the empty-user lines are wrong-username attempts, not
+      # credential-less posts. They are counted by AutheliaUnknownUserBurst below,
+      # which can see the submitted username and so can exclude the edge probe.
       - alert: AutheliaFailedLoginBurst
         expr: |
           sum by (remote_ip) (count_over_time({host="kdk-dkr-dmz-01", container="authelia"}
@@ -32,18 +30,59 @@ groups:
           description: "Authelia on kdk-dkr-dmz-01 logged more than 10 failed 1FA/2FA attempts with a username in 15m from {{ $labels.remote_ip }}. Check authentication_logs in authelia-postgres; a public IP = block it at the WAF."
           runbook: docs/runbooks/security-alerts.md#identity
 
-      - alert: AutheliaRegulationBan
+      # Wrong-username spray. For a username that does not exist Authelia logs
+      # `Error occurred getting details for user with username input '<name>' ...`
+      # next to the `Unsuccessful 1FA ... by user ''` line, and returns BEFORE its
+      # regulation ban check, so these attempts are never banned and never show up
+      # in AutheliaFailedLoginBurst. The lab's edge probe (scripts/edge-probe.sh)
+      # always submits the nonexistent name `edge-probe-nonexistent` (30 lines per
+      # run), so it is excluded by name, not by the house WAN IP: the repo is public
+      # and that IP is dynamic. Submitting that one name cannot guess anything, so
+      # the exclusion hides no real attack.
+      - alert: AutheliaUnknownUserBurst
         expr: |
-          sum(count_over_time({host="kdk-dkr-dmz-01", container="authelia"}
-            |~ "(?i)banned" | json | msg=~"(?i).*banned.*" [5m])) > 0
+          sum by (remote_ip) (count_over_time({host="kdk-dkr-dmz-01", container="authelia"}
+            |= "Error occurred getting details for user" | json
+            | msg=~"Error occurred getting details for user with username input .*"
+            | msg!~".*username input 'edge-probe-nonexistent'.*" [15m])) > 10
         for: 0m
         labels:
           severity: warning
           source: loki
           scope: identity
         annotations:
-          summary: "Authelia regulation banned a user or IP"
-          description: "Authelia on kdk-dkr-dmz-01 logged a regulation ban. Check banned_user in authelia-postgres; a locked-out family member is revoked with authelia storage bans user revoke."
+          summary: "Authelia: more than 10 logins with unknown usernames in 15m from {{ $labels.remote_ip }} (username spray)"
+          description: "Authelia on kdk-dkr-dmz-01 logged more than 10 first-factor attempts for usernames that do not exist in 15m from {{ $labels.remote_ip }} (edge probe excluded). Regulation never bans these; a public IP = block it at the WAF."
+          runbook: docs/runbooks/security-alerts.md#identity
+
+      # Authelia 4.39 writes NO log line when regulation creates a ban (the
+      # regulator only logs storage errors; checked in v4.39.28 source,
+      # internal/regulation/regulator.go, and in the 2026-11-07 ban of the house
+      # WAN, which left nothing at info level). The only log trace is a LATER
+      # first-factor attempt for an existing username from a banned user or IP:
+      # `Unsuccessful 1FA authentication attempt by user '<u>' and they are banned
+      # until <time>` (internal/handlers/response.go). Attempts for unknown
+      # usernames return before the ban check and never log it. So this alerts on
+      # "someone kept trying while banned", not on the ban itself; the ban rows
+      # live in the banned_ip / banned_user tables (no exporter today).
+      - alert: AutheliaRegulationBan
+        expr: |
+          sum by (remote_ip) (count_over_time({host="kdk-dkr-dmz-01", container="authelia"}
+            |= "and they are banned until" | json
+            | msg=~"Unsuccessful .* authentication attempt by user '.*' and they are banned until .*" [5m])) > 0
+        for: 0m
+        labels:
+          severity: warning
+          source: loki
+          scope: identity
+          # Message text from the Authelia source, not yet seen in this lab's
+          # logs (2026-11-08): promote (drop this label) once it fires on a real
+          # ban, or replace it with a banned_ip/banned_user table metric, by
+          # 2026-12-08 (alerting-standards §3).
+          kdk_inferred: "true"
+        annotations:
+          summary: "Authelia: login attempt from {{ $labels.remote_ip }} rejected by a regulation ban"
+          description: "Authelia on kdk-dkr-dmz-01 rejected a first-factor attempt for an existing user because the user or {{ $labels.remote_ip }} is banned by regulation. Check authelia storage bans ip list / user list; a locked-out family member is revoked with authelia storage bans user revoke (or bans ip revoke)."
           runbook: docs/runbooks/security-alerts.md#identity
 
       - alert: AutheliaOidcClientAuthFailure

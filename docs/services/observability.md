@@ -23,7 +23,7 @@ Metrics + alerting live on the independent monitor [[kdk-mon-01]]; logs live on 
 | Field | Value |
 |---|---|
 | Metrics/alerts | Prometheus + Alertmanager (→ Pushover for all; **critical also → email** via the Proton bridge) + Grafana on [[kdk-mon-01]]. Standard: [alerting](../runbooks/pushover-alerts.md#the-standard) |
-| Logs | Loki 3.7.9 on [[kdk-log-01]] (`10.1.20.21`), storage on the VM disk (`/opt/kdk-lab/loki/data`, PBS vzdump of VM 320), 30-day retention; ruler: 12 rule files / 79 alerts (`stacks/loki/rules/`, see Alert rules) → Alertmanager |
+| Logs | Loki 3.7.9 on [[kdk-log-01]] (`10.1.20.21`), storage on the VM disk (`/opt/kdk-lab/loki/data`, PBS vzdump of VM 320), 30-day retention; ruler: 12 rule files / 80 alerts (`stacks/loki/rules/`, see Alert rules) → Alertmanager |
 | Collection | per-host `observability-agent` (cAdvisor + Alloy + **docker-event-watch**); `node-exporter` on the two VMs |
 | Weekly security jobs | [[advisory-watch]] (upstream advisories vs pinned tags, kdk-log-01) and [[trivy-scan]] (Trivy on every host), both into Loki; Grafana → Security → Security Advisories |
 | Fan control | two `tigerblue77` containers on [[kdk-mon-01]]; `fanctl-hyp` **active** (R720 ~3000 RPM, 20%), `fanctl-nas` **active** (R730xd ~4800 RPM, 20%) |
@@ -37,7 +37,7 @@ Metrics + alerting live on the independent monitor [[kdk-mon-01]]; logs live on 
 ssh kdkadmin@10.1.20.30 'curl -s http://10.1.20.21:3100/ready'        # ready (Loki; from an allowlisted source)
 curl -s http://10.1.20.30:9090/api/v1/targets | grep -c '"up"'        # cadvisor/node/blackbox targets up
 ssh kdkadmin@10.1.20.30 'curl -sG http://10.1.20.21:3100/loki/api/v1/label/host/values'   # every host present (6)
-ssh kdkadmin@10.1.20.30 'curl -s http://10.1.20.21:3100/loki/api/v1/rules' | grep -c 'alert:'    # 78 (12 groups, see Alert rules)
+ssh kdkadmin@10.1.20.30 'curl -s http://10.1.20.21:3100/loki/api/v1/rules' | grep -c 'alert:'    # 80 (12 groups, see Alert rules)
 ssh kdkadmin@10.1.20.30 'sudo docker logs --tail 3 fanctl-hyp'        # temps logged, profile applied
 ```
 
@@ -68,7 +68,8 @@ Loki ruler rules live in `stacks/loki/rules/*.yml` (only `.yml` files there: the
 | `CloudflaredOutdated` | `edge.yml` | info | cloudflared reports a newer release: bump the pinned tag in stacks/dmz-proxy (or merge the Renovate PR) | [edge](../runbooks/security-alerts.md#edge) |
 | `CloudflaredEdgeFlapping` | `edge.yml` | warning | cloudflared lost its edge connection more than 4 times in 30m (WAN/ISP or Cloudflare side), held 5m | [edge](../runbooks/security-alerts.md#edge) |
 | `AutheliaFailedLoginBurst` | `identity.yml` | warning | Authelia: more than 10 failed authentications in 15m from … | [identity](../runbooks/security-alerts.md#identity) |
-| `AutheliaRegulationBan` | `identity.yml` | warning | Authelia regulation banned a user or IP | [identity](../runbooks/security-alerts.md#identity) |
+| `AutheliaUnknownUserBurst` | `identity.yml` | warning | Authelia: more than 10 logins with unknown usernames in 15m from … (username spray) | [identity](../runbooks/security-alerts.md#identity) |
+| `AutheliaRegulationBan` | `identity.yml` | warning | Authelia: login attempt from … rejected by a regulation ban (inferred) | [identity](../runbooks/security-alerts.md#identity) |
 | `AutheliaOidcClientAuthFailure` | `identity.yml` | warning | Authelia: an OIDC authorization request failed (bad client, redirect URI or secret) | [identity](../runbooks/security-alerts.md#identity) |
 | `AutheliaForbiddenNamedUser` | `identity.yml` | warning | Authelia denied a signed-in user by policy: … | [identity](../runbooks/security-alerts.md#identity) |
 | `AutheliaForwardAuthBadHeadersPublic` | `identity.yml` | warning | Authelia forward-auth endpoint called with bad headers from public IP … (direct probe of /api/authz) | [identity](../runbooks/security-alerts.md#identity) |
@@ -84,12 +85,13 @@ Loki ruler rules live in `stacks/loki/rules/*.yml` (only `.yml` files there: the
 | `JellyfinLoginFromInternet` | `jellyfin.yml` | info | Jellyfin: password login through the tunnel from … | [jellyfin](../runbooks/security-alerts.md#jellyfin) |
 | `JellyfinPluginInstalled` | `jellyfin.yml` | warning | Jellyfin: a plugin was installed or updated | [jellyfin](../runbooks/security-alerts.md#jellyfin) |
 | `WizarrInviteGuessBurst` | `wizarr.yml` | warning | Wizarr: … hit /j or /join more than 30 times in 5m (invite-code guessing) | [wizarr](../runbooks/security-alerts.md#wizarr) |
-| `WizarrAdminRouterNon302` | `wizarr.yml` | critical | Wizarr admin router served a tunnel client without an SSO redirect | [wizarr](../runbooks/security-alerts.md#wizarr) |
+| `WizarrAdminRouterNon302` | `wizarr.yml` | critical | Wizarr: a tunnel request was served by router …, not wizarr-public | [wizarr](../runbooks/security-alerts.md#wizarr) |
 | `WizarrLdapExistingUserTouched` | `wizarr.yml` | critical | Wizarr: an invite modified an existing lldap account (posture finding F1) | [wizarr](../runbooks/security-alerts.md#wizarr) |
 | `WizarrLdapUserCreated` | `wizarr.yml` | info | Wizarr created an lldap user (expected only right after you sent an invite) | [wizarr](../runbooks/security-alerts.md#wizarr) |
 | `WizarrAdminLogin` | `wizarr.yml` | info | Wizarr admin login (Authelia passed; Wizarr itself does no login) from … | [wizarr](../runbooks/security-alerts.md#wizarr) |
 | `WizarrInviteAccepted` | `wizarr.yml` | info | Wizarr: invite accepted from … | [wizarr](../runbooks/security-alerts.md#wizarr) |
 | `EdgeWizarrAdminPathHit` | `wizarr.yml` | warning | Wizarr: admin path requested over the tunnel from … | [wizarr](../runbooks/security-alerts.md#wizarr) |
+| `EdgeWizarrAdminPathProbe` | `wizarr.yml` | warning | The lab's edge probe reached a Wizarr admin path through the tunnel: the Cloudflare block rule is missing that path | [wizarr](../runbooks/security-alerts.md#wizarr) |
 | `WizarrAdminMutation` | `wizarr.yml` | info | Wizarr admin/settings mutation (expected only while you are working in Wizarr) | [wizarr](../runbooks/security-alerts.md#wizarr) |
 | `SeerrFailedLoginBurst` | `request-apps.yml` | warning | Seerr: more than 10 failed sign-ins in 10m | [request-apps](../runbooks/security-alerts.md#request-apps) |
 | `SeerrLoginFailuresPerClient` | `request-apps.yml` | warning | Seerr: more than 5 failed login POSTs in 10m from … | [request-apps](../runbooks/security-alerts.md#request-apps) |
@@ -100,7 +102,7 @@ Loki ruler rules live in `stacks/loki/rules/*.yml` (only `.yml` files there: the
 | `LibreseerrUserProvisioned` | `request-apps.yml` | info | Libreseerr auto-provisioned an OIDC user | [request-apps](../runbooks/security-alerts.md#request-apps) |
 | `LibreseerrAdminWrite` | `request-apps.yml` | info | Libreseerr users/config/OIDC/LDAP write (expected only while you administer it) | [request-apps](../runbooks/security-alerts.md#request-apps) |
 | `SeerrErrorRate` | `request-apps.yml` | warning | Seerr logged more than 50 errors in 15m, held 5m | [request-apps](../runbooks/security-alerts.md#request-apps) |
-| `RequestAppsContainerChange` | `request-apps.yml` | info | Seerr/Libreseerr image pulled, container recreated or crashed on kdk-dkr-dmz-01 | [request-apps](../runbooks/security-alerts.md#request-apps) |
+| `RequestAppsContainerChange` | `request-apps.yml` | info | Seerr/Libreseerr container recreated or crashed on kdk-dkr-dmz-01 | [request-apps](../runbooks/security-alerts.md#request-apps) |
 | `AbsLoginFailures` | `mobile-apps.yml` | warning | Audiobookshelf: more than 5 failed logins in 10m (inferred wording) | [mobile-apps](../runbooks/security-alerts.md#mobile-apps) |
 | `AbsNewUserOrApiKey` | `mobile-apps.yml` | warning | Audiobookshelf: a user or API key was created (inferred wording) | [mobile-apps](../runbooks/security-alerts.md#mobile-apps) |
 | `ImmichLoginFailures` | `mobile-apps.yml` | warning | Immich: more than 5 failed logins in 10m | [mobile-apps](../runbooks/security-alerts.md#mobile-apps) |
@@ -139,7 +141,7 @@ Not in Loki: long-lived HA tokens (`ha_llat_count`, Prometheus on kdk-mon-01). R
 Check after a deploy:
 
 ```bash
-ssh kdkadmin@10.1.20.30 'curl -s http://10.1.20.21:3100/loki/api/v1/rules' | grep -c 'alert:'   # 77 (via mon-01)
+ssh kdkadmin@10.1.20.30 'curl -s http://10.1.20.21:3100/loki/api/v1/rules' | grep -c 'alert:'   # 80 (via mon-01)
 ssh kdkadmin@10.1.20.21 'sudo docker logs loki 2>&1 | grep -i -E "rule|ruler" | grep -i -E "err|fail" | tail'   # empty
 ```
 

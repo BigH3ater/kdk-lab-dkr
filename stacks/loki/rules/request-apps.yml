@@ -154,18 +154,22 @@ groups:
           description: "The seerr container on kdk-dkr-dmz-01 logged more than 50 [error] lines in 15m for 5m. Check docker logs seerr | grep error; usually Jellyfin or Radarr connectivity, not security."
           runbook: docs/runbooks/security-alerts.md#request-apps
 
-      # 9. Image pull / container create / crash for the request apps on dmz-01
+      # 9. Container create (recreate) / crash for the request apps on dmz-01
       # (docker-event-watch logs `event ... action=<a> ... image=<ref>`).
+      # Pulls are not counted: every gitops redeploy, resources.toml merge and the
+      # deploy-changed GitHub-unreachable fallback (2026-11-08 10:45Z, 32 stacks)
+      # re-pulls the digest-pinned images with no recreate. A real digest change
+      # always recreates the container, so `create` catches it.
       - alert: RequestAppsContainerChange
         expr: |
           sum(count_over_time({host="kdk-dkr-dmz-01", container="docker-event-watch"}
-            |~ "seerr" |~ "action=(pull|create|die)" [10m])) > 0
+            |~ "seerr" |~ "action=(create|die)" [10m])) > 0
         for: 0m
         labels:
           severity: info
           source: loki
           scope: request-apps
         annotations:
-          summary: "Seerr/Libreseerr image pulled, container recreated or crashed on kdk-dkr-dmz-01"
-          description: "docker-event-watch on kdk-dkr-dmz-01 logged a pull, create or die for a Seerr/Libreseerr container. Expected after a deploy or Renovate merge; otherwise check docker events and the image digest."
+          summary: "Seerr/Libreseerr container recreated or crashed on kdk-dkr-dmz-01"
+          description: "docker-event-watch on kdk-dkr-dmz-01 logged a create or die for a Seerr/Libreseerr container (container recreated or crashed). Expected after a deploy or Renovate merge that changed the image; otherwise check docker events and the image digest."
           runbook: docs/runbooks/security-alerts.md#request-apps
