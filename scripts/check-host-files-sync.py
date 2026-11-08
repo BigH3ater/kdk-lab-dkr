@@ -28,6 +28,7 @@ COMMON_VM = [
     ("/etc/ssh/sshd_config.d/98-kdk-admin.conf", "hosts/_common/sshd_config.d/98-kdk-admin.conf", None),
     ("/etc/sysctl.d/90-kdk-hardening.conf", "hosts/_common/sysctl.d/90-kdk-hardening.conf", None),
     ("/etc/sysctl.d/91-kdk-nonlocal-bind.conf", "hosts/_common/sysctl.d/91-kdk-nonlocal-bind.conf", None),
+    ("/etc/sysctl.d/92-kdk-panic.conf", "hosts/_common/sysctl.d/92-kdk-panic.conf", None),
     ("/etc/apt/apt.conf.d/20auto-upgrades", "hosts/_common/apt/20auto-upgrades", None),
     ("/etc/apt/apt.conf.d/52kdk-unattended-upgrades", "hosts/_common/apt/52kdk-unattended-upgrades", None),
     ("/etc/systemd/system/kdk-storage-fence.service", "hosts/_common/systemd/kdk-storage-fence.service", None),

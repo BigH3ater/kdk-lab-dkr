@@ -25,6 +25,7 @@ illustrative.
 - [Post-merge validation](post-merge-validation.md) — the reviewer's read-only checks and the table posted on every PR.
 - [linux-tools share](linux-tools-share.md) — `vmpool/linux-tools` NFS share on kdk-dkr-04 for portable build kits (thud): NAS create steps, mount, seed, verify, rollback.
 - [Storage network & NFS](storage-network.md) — the `172.16.30.0/24` storage plane, the Tailscale-CGNAT collision that broke NFS, renumber + hung-mount procedures.
+- [Host kernel crash, watchdog reset and pending kernels](host-kernel-crash.md) — the ICH9 TCO watchdog as the recovery path, crash signatures, triage after an unexpected reboot, the `panic_on_oops` baseline, the weekly pending-kernel check, crash-evidence options.
 - [Host firewall (storage fence + DOCKER-USER)](host-firewall.md) — the nft storage-net fence and the DOCKER-USER egress policy on the two VMs: install, verify, log -> enforce, rollback.
 - [Approval tasks (Vikunja ⇄ Home Assistant)](approval-tasks.md) — actionable phone notifications for Vikunja decisions; the job contract, task-declared choices, reminders, setup, and rollback.
 - [Grocery planner — seed, run, and tune](grocery-planner.md) — seed Tandoor from scored real recipes, the weekly meal-plan + two-store list run, adding/swapping a recipe, changing the rules, troubleshooting.

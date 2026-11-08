@@ -12,7 +12,7 @@ vmid: 320
 console: Proxmox → VM 320 → Console
 standards: compliant
 secrets: []
-updated: 2026-10-30
+updated: 2026-11-08
 tags: [homelab/host, role/log-host, status/live, tier/internal]
 ---
 
@@ -90,6 +90,7 @@ Prometheus on [[kdk-mon-01]] scrapes `10.1.20.21:9100` (`node-external`) and `:9
 | NTP | `ntp.kmkdp.com` primary | ⚠️ timesyncd defaults | same gap as the other VMs |
 | Syslog | `syslog.kmkdp.com:514` | ✅ forwards to itself (`/etc/rsyslog.d/90-kdk-loki.conf`) | |
 | sshd hardening | drop-in, no root, key-only, `AllowUsers kdkadmin` | ✅ `/etc/ssh/sshd_config.d/98-kdk-admin.conf` | `MaxAuthTries 3`, `LoginGraceTime 20`, no X11/TCP/agent forwarding |
+| Kernel panic | `92-kdk-panic.conf` (`panic_on_oops=1`, `panic=10`; softlockup/hung-task panic stay off) | ⏳ pending install (PR 2026-11-08) | [host-kernel-crash](../runbooks/host-kernel-crash.md#panic-baseline) |
 | Host firewall | default-deny inbound, source allowlists | ✅ `inet kdk-input` (`hosts/kdk-log-01/nftables.conf`) | covers Docker-published ports via a prerouting guard |
 | Docker daemon | pool + log rotation + `live-restore` + `no-new-privileges` | ✅ `hosts/kdk-log-01/daemon.json` | pool `10.213.0.0/16` |
 | Periphery bind | VLAN address only | ✅ `bind_ip = "10.1.20.21"`, `allowed_ips = ["10.1.20.20"]` | |
