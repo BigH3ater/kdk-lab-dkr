@@ -6,7 +6,7 @@ tier: internal
 status: live
 storage: yes
 secrets: [vikunja-app, jellyfin-api-ro, seerr-api-ro, audiobookshelf-api-ro, vikunja-api-ro, dashboard-tandoor-rw]
-updated: 2026-11-06
+updated: 2026-11-08
 tags: [homelab/stack, tier/internal, status/live]
 ---
 
@@ -69,8 +69,29 @@ truth. See the [approval-tasks runbook](../runbooks/approval-tasks.md).
 | `stacks/dashboard/config/*.yaml` | Homepage services/bookmarks/widgets/settings (git-tracked) |
 | `stacks/dashboard/guides/*.html` | Family how-to pages (served under `/guides`; each sets `<base href="/guides/">` so relative links survive the StripPrefix) |
 | `stacks/dashboard/guides/shared-nav.{css,js}` | The one Kodiak sidebar shared by Homepage, guides and `/meal` (same links/order/labels, active-link state, mobile top-bar overlay); `shared-nav.js` hides it inside an iframe so the embedded `/meal` panels stay bare |
-| `stacks/dashboard/mealplan/app.py` | Tandoor session read + rating write-back |
+| `stacks/dashboard/mealplan/app.py` | Tandoor session read + rating write-back; groceries snapshot cache (env `GROCERY_TTL_S`, `GROCERY_REFRESH_S`, `RECIPE_TTL_S`) |
 | `stacks/dashboard/.env.tpl` | op refs (Vikunja JWT, widget API keys, Tandoor creds, ICS URL) |
+
+## Performance: groceries page
+
+`/meal/groceries` renders from an in-memory snapshot of the Tandoor shopping list, the
+two-week meal plan and the planned recipes. A warmer thread re-reads it every
+`GROCERY_REFRESH_S` (120 s): 2 calls when recipes are cached (one `page_size=200` shopping
+page plus the meal plan), plus one parallel `/api/recipe/<id>/` per planned recipe every
+`RECIPE_TTL_S` (30 min). A snapshot older than `GROCERY_TTL_S` (120 s) is still served while
+a background refresh runs. After 15 min, or on a new day, the request refreshes before it
+renders. Ticks mark the cached entry checked at once, and add/reorder re-read the list
+before the redirect, so the page never shows a ticked item again. **updated … · refresh**
+(`?refresh=1`) forces a re-read for changes made in Tandoor itself.
+
+| 2026-11-08, timed inside the container | Before (measured) | After (render measured on live data, cache path from tests; re-time after deploy) |
+|---|---|---|
+| Page view, recipes cached | ~1.0 s, 3 Tandoor calls | ~0.12 s render, 0 calls |
+| Page view after 10 min idle | ~4.9 s, 19 calls (16 recipes in a row + photo re-reads) | ~0.12 s, 0 calls (the refresh runs in the background, ~1.1 s, 18 parallel calls) |
+
+Each render logs `groceries render ms=… source=cache|stale|sync age_s=…` and each refresh
+logs `grocery refresh reason=… ms=… upstream_calls=… upstream_ms=…`. Query them in Loki with
+`{host="kdk-dkr-01",container="dashboard-mealplan"} |= "groceries render"`.
 
 ## Retired: Workout guide and /workout/ Today page
 
