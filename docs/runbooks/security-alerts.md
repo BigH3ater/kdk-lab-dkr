@@ -44,6 +44,7 @@ alerts are e-mailed as a digest (the `email-info` receiver), not paged.
 | `EdgeAuthFailureBurst` | `sum by (ClientHost, RequestHost)` of the 401/403 lines; one IP = add it to a WAF block or rate-limit rule; many IPs on one host = credential stuffing, check that app's own lockout |
 | `EdgeJellyfinAdminPathHit` (critical) | An admin path reached the origin through the tunnel at all (any status — Jellyfin answering 401/405 still means the edge block was missing). The WAF rule that blocks Jellyfin admin paths failed. Check the path in the line, the WAF rule expression, and Jellyfin's activity log for what the request did. Remove `jellyfin.kmkdp.com` from the tunnel until fixed. (The lab's own `kdk-edge-probe` is excluded here — it has its own rule below) |
 | `EdgeJellyfinAdminPathProbe` (warning) | The lab's edge probe reached a Jellyfin admin path over the tunnel (any status): the Cloudflare block rule is missing that path. Same fix as above — correct the WAF rule expression. Warning, not critical, because it is the lab canarying itself, but it must stay visible even when nobody is reading the probe's PASS/FAIL table |
+| `EdgeAbsAdminPathHit` (critical), `EdgeAbsAdminPathProbe` (warning) | An Audiobookshelf admin API path (`/api/users`, `/api/backups`, `/api/settings`, `/api/share` …, bare or under `/audiobookshelf`) reached Traefik through the tunnel: the ABS branch of the "Block admin APIs" rule is missing that path. Fix the expression ([[audiobookshelf]] → Publishing has the current form); for the critical, check the audiobookshelf container log for what the request did and remove `audiobookshelf.kmkdp.com` from the tunnel until fixed. The Probe variant is the lab's own `kdk-edge-probe` row |
 | `EdgeSpoofedCfHeaders` | A LAN client sent `Cf-*` headers and `strip-cf` was not applied on `websecure` (dmz-proxy compose: `--entrypoints.websecure.http.middlewares=strip-cf@file`). Fix the flag; find the client by `ClientHost` |
 | `CloudflaredOutdated` (info) | Merge the Renovate PR for `cloudflare/cloudflared` in `stacks/dmz-proxy` |
 | `CloudflaredEdgeFlapping` | WAN: UniFi internet health; Cloudflare status page; `docker logs cloudflared` on dmz-01 |
@@ -114,7 +115,9 @@ alerts are e-mailed as a digest (the `email-info` receiver), not paged.
 | Alert | First checks |
 |---|---|
 | `AbsLoginFailures`, `ImmichLoginFailures`, `TandoorLoginFailures` | Which client? ABS and Tandoor have no lockout; block at the WAF |
-| `AbsNewUserOrApiKey` | ABS → Settings → Users / API keys: expected? |
+| `AbsNewUserOrApiKey` | ABS → Settings → Users / API keys: expected? A new API key gets an expiry |
+| `AbsLoginFromInternet` (info, phone) | Expected for remote family use. Unknown IP: the audiobookshelf log line `[LocalAuth] User "…" logged in from ip …` names the user; regenerate that user's token and change the password |
+| `AbsMassDownload` | Which user/device? ABS → Settings → Sessions; if not a household device, regenerate the token / delete the API key |
 | `ImmichAdminApiFromInternet`, `TandoorAdminFromInternet` (critical) | Admin API reached through the tunnel: the WAF path block failed. Remove the public hostname until fixed |
 | `ImmichMassDownload` | Which user session? Immich → Administration → Users → sessions: revoke unknown sessions |
 

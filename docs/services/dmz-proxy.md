@@ -35,7 +35,7 @@ DMZ ingress: Traefik terminates TLS and host-routes the public services, and clo
 curl -s -o /dev/null -w '%{http_code}\n' https://sso.kmkdp.com/     # 200, valid TLS
 ssh kdkadmin@192.168.191.20 'sudo docker logs cloudflared 2>&1 | grep -i "registered tunnel" | tail -2'
 ```
-Off-LAN, only the tunnel hostnames answer, with a `server: cloudflare` header. Today that is `sso` alone: `jellyfin` left the tunnel on 2026-10-31 (no DNS record; see [[jellyfin]]), and the `wizarr` invitee paths are not published.
+Off-LAN, only the tunnel hostnames answer, with a `server: cloudflare` header. Since 2026-11-07 that is `sso`, `jellyfin` and the `wizarr` invitee paths (tunnel ingress v22). `audiobookshelf` has the `tunnel` entrypoint label but no public hostname yet (see [[audiobookshelf]] → Publishing).
 
 **On kdk-dkr-dmz-01 as kdkadmin** (`ssh kdkadmin@192.168.191.20`)
 
@@ -79,7 +79,7 @@ Two HTTPS entrypoints, split by who may set client-IP headers (2026-10-28, edge 
 | Entrypoint | Listens | Trusts `X-Forwarded-*` from | `Cf-*` headers | Routers |
 |---|---|---|---|---|
 | `websecure` | `:443`, published | `10.1.20.20/32` (internal Traefik), `10.1.30.21/32` (Pi Traefik, ForwardAuth) | **stripped** (`strip-cf@file`) | every DMZ router (the only default entrypoint) |
-| `tunnel` | `:8443`, `proxy-dmz` only | `10.211.2.2/32` (cloudflared); `notAppendXForwardedFor` so backends see the visitor IP one hop behind Traefik | kept (real visitor IP/geo) | only routers labelled `entrypoints=websecure,tunnel`: `authelia` (sso), `jellyfin`, `wizarr-public` |
+| `tunnel` | `:8443`, `proxy-dmz` only | `10.211.2.2/32` (cloudflared); `notAppendXForwardedFor` so backends see the visitor IP one hop behind Traefik | kept (real visitor IP/geo) | only routers labelled `entrypoints=websecure,tunnel`: `authelia` (sso), `jellyfin`, `wizarr-public`, `audiobookshelf` (no public hostname yet) |
 
 Both entrypoints delete alias-named request headers (`aliasHeadersStrategy=delete`, e.g. `Cf_Connecting_Ip`), so WSGI-style backends cannot be fed a header that strip-cf did not see. Every DMZ router carries an explicit `entrypoints` label; a Cloudflare hostname accidentally pointed at an internal-only host (immich, recipes, users …) gets Traefik's 404 on the tunnel entrypoint, not the app. Tunnel traffic in Loki: `entryPointName="tunnel"` or `ClientAddr=~"10\\.211\\.2\\.2:.*"`. The tunnel's public hostnames are dashboard-managed (operator-owned); Traefik host-routes what arrives. Most public services carry their own auth; the one exception is [[wizarr]], whose **admin** router declares a label-defined `wizarr-auth` ForwardAuth middleware (→ `http://authelia:9091/api/authz/forward-auth`) while its invitee paths stay open on a higher-priority public router.
 

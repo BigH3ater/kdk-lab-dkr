@@ -50,7 +50,7 @@ LOKI_URL = os.environ.get("LOKI_URL", "http://10.1.20.21:3100").strip()
 NODE_NAME = os.environ.get("NODE_NAME", "kdk-log-01").strip()
 # Hostnames whose proxied CNAMEs ride the tunnel; used by the probe fallback.
 TUNNEL_HOSTS = [h.strip() for h in os.environ.get(
-    "TUNNEL_HOSTS", "sso.kmkdp.com,jellyfin.kmkdp.com").split(",") if h.strip()]
+    "TUNNEL_HOSTS", "sso.kmkdp.com,jellyfin.kmkdp.com,audiobookshelf.kmkdp.com").split(",") if h.strip()]
 HTTP_TIMEOUT = int(os.environ.get("HTTP_TIMEOUT", "25"))
 
 # Expected zone settings. A live value different from this is drift (status

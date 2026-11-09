@@ -1,7 +1,10 @@
 # Mobile-app backends on kdk-dkr-dmz-01: Audiobookshelf, Immich, Tandoor.
 # Source: vault 10.Homelab/Security/mobile-apps-posture-2026-10.md section 7.
-# None of the three is on the tunnel yet (routers are websecure-only), so the
-# "FromInternet" rules are tripwires for the day a router gains `tunnel`.
+# Immich and Tandoor are not on the tunnel (routers are websecure-only), so their
+# "FromInternet" rules are tripwires for the day a router gains `tunnel`. The ABS
+# router serves `tunnel` too; the hostname is public only once the owner adds the
+# tunnel public hostname (docs/services/audiobookshelf.md#publishing).
+# ABS admin-path edge canaries live in edge.yml (EdgeAbsAdminPath*).
 # "From the internet" = entryPointName="tunnel" (fallback
 # ClientAddr=~"10\\.211\\.2\\.2:.*"). RequestPath includes the query string.
 #
@@ -10,39 +13,89 @@ groups:
   - name: mobile-apps
     interval: 1m
     rules:
-      # ABS log strings are Inferred (none observed in the 24 h sample).
+      # ABS log text Confirmed 2026-11-08 on 2.37.2 (vault
+      # audiobookshelf-public-readiness-2026-11-08 §2.6), e.g.
+      #   ERROR: [LocalAuth] Failed login attempt for username "x" from ip 10.1.30.188 (User not found)
+      # ABS has no lockout; its own limiter allows 40 POST /login per 10 min per IP.
+      # The edge probe's ABS /login burst (scripts/edge-probe.sh without
+      # --no-ratelimit) trips this on purpose: up to 36 failed logins for
+      # "edge-probe-nonexistent" once the hostname is public.
       - alert: AbsLoginFailures
         expr: |
           sum(count_over_time({host="kdk-dkr-dmz-01", container="audiobookshelf"}
-            |~ "(?i)(failed login|invalid username|too many authentication)" [10m])) > 5
+            |= "[LocalAuth] Failed login attempt" [10m])) > 5
         for: 0m
         labels:
           severity: warning
           source: loki
           scope: mobile-apps
-          # Inferred log text since 2026-10-28: promote (drop this label) or
-          # delete the rule by 2026-11-27 (alerting-standards §3).
-          kdk_inferred: "true"
         annotations:
           summary: "Audiobookshelf: more than 5 failed logins in 10m"
-          description: "The audiobookshelf container on kdk-dkr-dmz-01 logged more than 5 failed logins in 10m (inferred log text). ABS has no lockout; find the client and block it at the WAF."
+          description: "The audiobookshelf container on kdk-dkr-dmz-01 logged more than 5 [LocalAuth] Failed login attempt lines in 10m. ABS has no lockout; each line names the username and client IP: block a public IP at the WAF."
           runbook: docs/runbooks/security-alerts.md#mobile-apps
 
+      # Confirmed: `INFO: [ApiKeyController] Created API key "kdk-cluster"`
+      # (2026-11-02, the owner). `[User] openid: Auto-registering user` is the
+      # 2.37.2 code's line for a first OIDC login (auto-register is on; read from
+      # /app/server in the running container, not yet seen in the log). A user
+      # created in Settings -> Users logs nothing at info level, so that path is
+      # not covered by this rule.
       - alert: AbsNewUserOrApiKey
         expr: |
           sum(count_over_time({host="kdk-dkr-dmz-01", container="audiobookshelf"}
-            |~ "(?i)(user created|new user|api key created|created api key)" [1h])) > 0
+            |~ `\[ApiKeyController\] Created API key|\[User\] openid: Auto-registering user` [1h])) > 0
         for: 0m
         labels:
           severity: warning
           source: loki
           scope: mobile-apps
-          # Inferred log text since 2026-10-28: promote (drop this label) or
-          # delete the rule by 2026-11-27 (alerting-standards §3).
-          kdk_inferred: "true"
         annotations:
-          summary: "Audiobookshelf: a user or API key was created"
-          description: "The audiobookshelf container on kdk-dkr-dmz-01 logged a user or API key creation (inferred log text). Check ABS Settings Users and API keys that it is expected."
+          summary: "Audiobookshelf: an API key was created or a new OIDC user auto-registered"
+          description: "The audiobookshelf container on kdk-dkr-dmz-01 logged Created API key or openid Auto-registering user. Check ABS Settings Users and API keys that it is expected; give a new API key an expiry."
+          runbook: docs/runbooks/security-alerts.md#mobile-apps
+
+      # Successful ABS login through the tunnel, by client (Cf-Connecting-Ip on the
+      # tunnel). Local login = POST /login 200 (a failure is 401). OIDC = the
+      # /auth/openid/callback answer: 302 for the web flow (seen on websecure),
+      # 200 JSON for the app flow. A broken OIDC callback can also answer 302, so
+      # this may over-fire on a failed SSO attempt; it is info. GET /login is the
+      # client page (200/301), not a login. Same shape as JellyfinLoginFromInternet.
+      - alert: AbsLoginFromInternet
+        expr: |
+          sum by (client) (count_over_time({host="kdk-dkr-dmz-01", container="traefik"}
+            |= "audiobookshelf.kmkdp.com" | json | entryPointName="tunnel" | RequestHost="audiobookshelf.kmkdp.com"
+            | (RequestMethod="POST" and RequestPath=~"(/audiobookshelf)?/login(\\?.*)?" and DownstreamStatus="200")
+              or (RequestPath=~"(/audiobookshelf)?/auth/openid/callback(\\?.*)?" and DownstreamStatus=~"200|302")
+            | label_format client="{{ if .request_Cf_Connecting_Ip }}{{ .request_Cf_Connecting_Ip }}{{ else }}{{ .ClientHost }}{{ end }}" [5m])) > 0
+        for: 0m
+        labels:
+          severity: info
+          source: loki
+          scope: mobile-apps
+          # Security-adjacent: an internet login also pings the phone (quiet
+          # Pushover) promptly, like JellyfinLoginFromInternet.
+          notify: phone
+        annotations:
+          summary: "Audiobookshelf: login through the tunnel from {{ $labels.client }}"
+          description: "The DMZ Traefik logged a successful Audiobookshelf login (POST /login 200 or the OIDC callback) for audiobookshelf.kmkdp.com through the tunnel from {{ $labels.client }}. Expected for remote family use; act only if the IP is unexpected (the audiobookshelf container log names the local-login user)."
+          runbook: docs/runbooks/security-alerts.md#mobile-apps
+
+      # Bulk download: per-item download, single-file download and the bulk
+      # library download (2.36+). Streaming (/public/session/<id>/track/<n>) is
+      # not counted. Any entrypoint: a stolen token is used from wherever it leaked.
+      - alert: AbsMassDownload
+        expr: |
+          sum by (ClientHost) (count_over_time({host="kdk-dkr-dmz-01", container="traefik"}
+            |= "audiobookshelf.kmkdp.com" | json | RequestHost="audiobookshelf.kmkdp.com"
+            | RequestPath=~"(/audiobookshelf)?/api/(items/[^/]+/(download|file/.*)|libraries/[^/]+/download).*" [15m])) > 10
+        for: 0m
+        labels:
+          severity: warning
+          source: loki
+          scope: mobile-apps
+        annotations:
+          summary: "Audiobookshelf: {{ $labels.ClientHost }} made more than 10 download requests in 15m (bulk export or a stolen token)"
+          description: "The DMZ Traefik logged more than 10 Audiobookshelf item, file or library download requests in 15m from {{ $labels.ClientHost }}. Check ABS Settings Sessions for the user and device; regenerate the token or API key if it is not a household device."
           runbook: docs/runbooks/security-alerts.md#mobile-apps
 
       - alert: ImmichLoginFailures
