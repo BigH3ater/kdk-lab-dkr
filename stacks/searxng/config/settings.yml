@@ -1,0 +1,103 @@
+# SearXNG settings for search.kmkdp.com (stacks/searxng). Mounted read-only at
+# /etc/searxng/settings.yml; read once at start (the Komodo pre_deploy hashes this
+# directory into SEARXNG_CONFIG_SHA, so a merged edit recreates the container).
+#
+# use_default_settings: start from the upstream searx/settings.yml of the pinned image
+# and override only what is listed here. Upstream reference for every key:
+# https://docs.searxng.org/admin/settings/index.html
+#
+# Secret: server.secret_key is NOT set here. SEARXNG_SECRET (op inject -> .env ->
+# compose) overrides it at start.
+use_default_settings:
+  engines:
+    # Only these engines exist on this instance; every other upstream engine (including
+    # all that need an API key: wolframalpha_api, bing_news API, ...) is dropped.
+    # To add one: put its upstream `name:` here (and, if upstream ships it
+    # `disabled: true`, an `engines:` entry below with `disabled: false`).
+    # docs/services/searxng.md "Add or remove an engine".
+    keep_only:
+      # general (web)
+      - google
+      - duckduckgo
+      - brave
+      - wikipedia
+      - wikidata            # infobox next to the results (same Wikimedia source)
+      - currency            # "10 usd in eur"
+      # images
+      - google images
+      - duckduckgo images
+      - brave.images
+      - bing images
+      # videos
+      - youtube
+      - google videos
+      - duckduckgo videos
+      - brave.videos
+      # news
+      - google news
+      - duckduckgo news
+      - brave.news
+      # map
+      - openstreetmap
+      # it
+      - github
+      - stackoverflow
+      - superuser
+      - askubuntu
+      - mdn
+      - arch linux wiki
+      - docker hub
+      - pypi
+      # science
+      - arxiv
+      # Reddit is not here: upstream removed its engine on 2026-07-30 (Reddit now
+      # requires authentication). Search reddit through google/ddg with `site:reddit.com`.
+
+general:
+  instance_name: "Kodiak Search"
+  privacypolicy_url: false
+  donation_url: false
+  contact_url: false
+  enable_metrics: true      # /stats: per-engine response times + errors (behind Authelia)
+
+search:
+  safe_search: 0            # household default: off. 1 = moderate, 2 = strict.
+  autocomplete: duckduckgo  # suggestions while typing (the query goes to DDG from this host)
+  autocomplete_min: 3
+  default_lang: "en-US"     # English, US region. "en" = English, every region.
+  formats:
+    - html                  # no json/csv/rss API output: the page is for people only
+
+server:
+  base_url: https://search.kmkdp.com/   # absolute links + /opensearch.xml templates
+  limiter: true             # bot detection + rate limit (config/limiter.toml, needs valkey)
+  public_instance: false
+  image_proxy: true         # thumbnails load through this host, not from the engines
+  method: GET               # search URL carries ?q= (browser default-engine needs GET)
+
+valkey:
+  url: valkey://valkey:6379/0
+
+ui:
+  default_theme: simple
+  default_locale: en
+  theme_args:
+    simple_style: auto      # follows the device light/dark setting
+  query_in_title: false     # keep queries out of tab titles / shared screenshots
+
+outgoing:
+  # DNS: SearXNG uses the container resolver (Docker -> the host's upstreams
+  # 10.1.1.53/.54, the lab AdGuard pair); compose sets `dns_search: .`.
+  request_timeout: 3.0      # per engine; slower engines are dropped from that page
+  max_request_timeout: 10.0
+  enable_http2: true
+
+engines:
+  # Upstream ships Google web/images `disabled: true` (Google often answers bots with a
+  # CAPTCHA). Enabled for the household; when Google blocks this host's IP, SearXNG
+  # suspends the engine for search.suspended_times.SearxEngineCaptcha (3600 s in the
+  # upstream settings) and the other engines carry on. docs/services/searxng.md "Troubleshooting".
+  - name: google
+    disabled: false
+  - name: google images
+    disabled: false

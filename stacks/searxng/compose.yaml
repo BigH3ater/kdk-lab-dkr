@@ -1,0 +1,134 @@
+# SearXNG (self-hosted metasearch) on kdk-dkr-01, LAN + tailnet only, never the tunnel.
+# The household's private search page: one query goes to several engines (Google,
+# DuckDuckGo, Brave, Wikipedia, ...) from this host, the results are merged, nothing
+# is tracked and there is no account. docs/services/searxng.md, docs/runbooks/searxng.md.
+#
+# Reached at https://search.kmkdp.com through the internal Traefik (stacks/proxy),
+# entrypoint websecure only, behind Authelia forward-auth (two_factor, group
+# dashboard-users, the same gate as home.kmkdp.com). SearXNG has no login of its own.
+# Authelia bypasses exactly two paths: /healthz (Homepage siteMonitor) and
+# /opensearch.xml (so a browser can add the engine).
+#
+# Upstream: searxng/searxng container/docker-compose.yml + container/entrypoint.sh at
+# the pinned build. Two services: searxng (Granian WSGI server, port 8080) and valkey
+# (limiter counters + cache; the docs require Valkey for server.limiter).
+#
+# Config: ./config is mounted read-only over /etc/searxng (settings.yml with
+# use_default_settings + limiter.toml). Read once at start, so the Komodo pre_deploy
+# writes SEARXNG_CONFIG_SHA and the label below recreates the container on an edit.
+# Secret: SEARXNG_SECRET (overrides server.secret_key) from .env, rendered from
+# .env.tpl by the Komodo pre_deploy (op inject, kdk-cluster vault). Never commit .env.
+#
+# Egress: searxng needs the internet (every search fans out to the engines). The
+# DOCKER-USER policy on kdk-dkr-01 drops only RFC1918 destinations outside the
+# container's own bridges (plus a DNS exception for 10.1.1.53/.54), so public HTTPS
+# works. valkey sits on an internal network with no route out.
+#
+# State: none worth keeping. The cache dir is tmpfs (favicons off) and valkey runs
+# without persistence, so a recreate only resets the limiter counters. Nothing to back up.
+#
+# read_only + no capabilities: NOT verified on a running container when this file was
+# written (the builder had no docker daemon). As uid 977 the entrypoint skips its
+# root-only chown and update-ca-certificates steps, so nothing should write outside the
+# tmpfs paths; the runbook's first-deploy step checks it and names the fallback.
+name: searxng
+
+x-hardened: &hardened
+  security_opt: ["no-new-privileges:true"]
+  cap_drop: [ALL]
+  read_only: true
+  tmpfs: [/tmp]
+  restart: unless-stopped
+  pids_limit: 256
+  mem_limit: 512m
+  logging:
+    driver: json-file
+    options: { max-size: "10m", max-file: "3" }
+
+services:
+  searxng:
+    <<: *hardened
+    # Rolling release: tags are YYYY.M.D-<commit> (no semver); Renovate tracks them with
+    # the searxng regex rule in renovate.json.
+    image: docker.io/searxng/searxng:2026.11.8-3a3dd15bf@sha256:bed9946e14c009da4efdb477545eb48eb8d1d87af25e9738ff8b8584cb89a311
+    container_name: searxng
+    # The image's own searxng user (uid/gid 977, owns /etc/searxng and /var/cache/searxng
+    # in the base image). The image defaults to root only so the entrypoint can chown
+    # mounts and run update-ca-certificates; as 977 both steps are skipped, so no cap_add
+    # is needed (no CHOWN/SETUID/SETGID). The entrypoint prints a WARNING that
+    # /etc/searxng is not owned by searxng:searxng: expected, the mount is read-only.
+    user: "977:977"
+    init: true                 # python (Granian): tini reaps children, forwards SIGTERM
+    tmpfs:
+      - /tmp
+      - /var/cache/searxng:uid=977,gid=977,mode=0755   # faviconcache.db etc. (ephemeral)
+    # The hosts' resolv.conf carries `search kmkdp.com` and AdGuard rewrites *.kmkdp.com
+    # to Traefik. No search list, so an engine hostname can never resolve into the lab
+    # (same fix as stacks/kroki). Lookups still go through Docker's resolver to the
+    # host's upstreams (10.1.1.53/.54, the lab's AdGuard pair).
+    dns_search: .
+    environment:
+      TZ: America/Chicago
+      SEARXNG_SECRET: ${SEARXNG_SECRET}
+      # IPv4 listener (image default "::"); the stack's networks are IPv4-only.
+      GRANIAN_HOST: 0.0.0.0
+      GRANIAN_PORT: "8080"
+    volumes:
+      - ./config:/etc/searxng:ro
+    healthcheck:
+      # /healthz is exempt from the limiter. busybox wget is in the image.
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    depends_on:
+      valkey: { condition: service_healthy }
+    # backend reaches valkey; proxy is the shared Traefik network and also carries the
+    # outbound engine traffic (a normal bridge with a gateway).
+    networks: [backend, proxy]
+    labels:
+      traefik.enable: "true"
+      traefik.docker.network: "proxy"
+      traefik.http.routers.searxng.rule: "Host(`search.kmkdp.com`)"
+      traefik.http.routers.searxng.entrypoints: "websecure"
+      traefik.http.routers.searxng.middlewares: "forwardauth@file"   # Authelia
+      traefik.http.services.searxng.loadbalancer.server.port: "8080"
+      # Recreate on a config/ change (read once at start). SEARXNG_CONFIG_SHA comes from
+      # the Komodo pre_deploy.
+      kdk.config-sha: "${SEARXNG_CONFIG_SHA:-unset}"
+
+  valkey:
+    <<: *hardened
+    image: docker.io/valkey/valkey:9.1.3-alpine@sha256:bf09d58e96d6b4524a15396b65b242bbe18beebbcc15a04d8ee75ddac62fae0b
+    container_name: searxng-valkey
+    # image's valkey user: the entrypoint skips its chown/su-exec step when not root
+    user: "999:1000"
+    tmpfs: [/tmp, /data]       # WORKDIR /data is an image VOLUME; tmpfs = no anonymous volume
+    mem_limit: 128m
+    # Limiter counters + cache only; nothing needs to survive a restart, so no
+    # persistence. allkeys-lru: under memory pressure old keys go, never an OOM error.
+    command:
+      - valkey-server
+      - --save
+      - ""
+      - --appendonly
+      - "no"
+      - --maxmemory
+      - 64mb
+      - --maxmemory-policy
+      - allkeys-lru
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks: [backend]
+
+networks:
+  # valkey tier: internal = no route out of the host; only searxng joins both.
+  backend:
+    internal: true
+  proxy:
+    external: true

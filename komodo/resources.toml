@@ -491,6 +491,24 @@ webhook_enabled = true
 # container (single-file / read-at-start config).
 pre_deploy.command = "sh -c 'install -d -o 1000 -g 1000 -m 755 /opt/kdk-lab/wger/static /opt/kdk-lab/wger/media /opt/kdk-lab/wger/beat && . /etc/komodo/op.env && op inject -f -i .env.tpl -o .env && echo WGER_NGINX_SHA=$(sha256sum nginx.conf | cut -c1-12) >> .env && echo WGER_POWERSYNC_SHA=$(cat powersync/powersync.yaml powersync/sync_rules.yaml | sha256sum | cut -c1-12) >> .env'"
 
+[[stack]]
+tags = ["kdk-lab"]
+name = "searxng"
+deploy = true
+after = ["proxy"]
+[stack.config]
+compose_cmd_wrapper = "/usr/local/sbin/kdk-compose-config-redact [[COMPOSE_COMMAND]]"   # redact env values from the stored Compose Config log (komodo#1636)
+compose_cmd_wrapper_include = ["config"]
+server = "kdk-dkr-01"
+repo = "BigH3ater/kdk-lab-dkr"
+run_directory = "stacks/searxng"
+webhook_enabled = true
+# SearXNG metasearch at search.kmkdp.com (docs/services/searxng.md). op inject renders
+# .env (SEARXNG_SECRET from kdk-cluster/searxng), THEN the config-SHA echo appends, so
+# an edit to config/settings.yml or config/limiter.toml (read once at start) recreates
+# the searxng container. No host dirs: all state is tmpfs.
+pre_deploy.command = "sh -c '. /etc/komodo/op.env && op inject -f -i .env.tpl -o .env && echo SEARXNG_CONFIG_SHA=$(cat config/settings.yml config/limiter.toml | sha256sum | cut -c1-12) >> .env'"
+
 # ---- procedures ----
 [[procedure]]
 tags = ["kdk-lab"]

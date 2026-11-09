@@ -221,6 +221,11 @@
       href: https://wger.kmkdp.com/
       siteMonitor: https://wger.kmkdp.com/
       description: Strength routines, workout logs & history (wger, SSO)
+  - Search:
+      icon: searxng
+      href: https://search.kmkdp.com/
+      siteMonitor: https://search.kmkdp.com/healthz   # Authelia bypass; / is a 302 to sso
+      description: Private web search for the household (SearXNG, SSO)
 
 - Identity & access:
   - Single Sign-On:

@@ -139,6 +139,17 @@
       "versioning": "regex:^alpine(?<major>\\d+)\\.(?<minor>\\d+)-r(?<patch>\\d+)$"
     },
     {
+      "description": "SearXNG rolling release: tags are YYYY.M.D-<commit> (several a day, no semver). Year/month/day = major/minor/patch; the commit hash is not compared. Day bumps ride the weekly internal patch group.",
+      "matchDatasources": [
+        "docker"
+      ],
+      "matchPackageNames": [
+        "docker.io/searxng/searxng",
+        "searxng/searxng"
+      ],
+      "versioning": "regex:^(?<major>\\d{4})\\.(?<minor>\\d{1,2})\\.(?<patch>\\d{1,2})-[0-9a-f]+$"
+    },
+    {
       "description": "NUT: a recreate once shut down kdk-hyp-01. Never a version PR; digest refreshes only, and only on explicit dashboard approval.",
       "matchFileNames": [
         "stacks/nut/**"
@@ -163,9 +174,12 @@
       "enabled": false
     },
     {
-      "description": "Immich database + cache: the tag follows Immich's own release compose (postgres 14-vectorchord, valkey 9); digest refreshes only, never a tag bump here.",
+      "description": "Immich database + cache: the tag follows Immich's own release compose (postgres 14-vectorchord, valkey 9); digest refreshes only, never a tag bump here. Scoped to stacks/immich so other valkey users (stacks/searxng) get normal version PRs.",
       "matchDatasources": [
         "docker"
+      ],
+      "matchFileNames": [
+        "stacks/immich/**"
       ],
       "matchPackageNames": [
         "ghcr.io/immich-app/postgres",
