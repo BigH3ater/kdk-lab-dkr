@@ -18,8 +18,8 @@ was retired.
 | wger | one custom exercise per slug (images, muscles, description) + each person's seven weekday routines (Mon · … .. Sun · …) | `tools/gen_wger.py` from the catalog, the sidecar and the scratch dir |
 
 Nothing in Home Assistant or on home.kmkdp.com follows the plan any more: the HA
-**Workout** dashboards are the Treadmill view only, and treadmill walks reach wger through
-`treadmill_wger.yaml` ([wger runbook step 14](wger.md#14-treadmill-auto-log)).
+**Workout** dashboards are the Treadmill view only. The treadmill → wger auto-log was
+retired 2026-11-08; walks are logged in the app.
 
 **Why the guide generator stays.** `gen_wger.py --posters DIR` reads Jacob's week (doses,
 cues, step order) and every poster from the guide output. Keeping
@@ -134,7 +134,7 @@ per-exercise helpers for both people (`workout_strength.yaml`,
 Plan dashboard views, `gen_workout.py` and its CI step, and the `dashboard-workout`
 firewall exception. The owner accepted losing the helpers' recorder history; the
 `/workout/` CSV log never received a row (directory empty on 2026-11-06). Kept: everything
-treadmill (`treadmill.yaml`, `treadmill_wger.yaml`, the Treadmill view on both Workout
+treadmill (`treadmill.yaml`, the Treadmill view on both Workout
 dashboards and the sidebar links to them), the wger stack, `gen_wger.py`, both catalog
 files.
 

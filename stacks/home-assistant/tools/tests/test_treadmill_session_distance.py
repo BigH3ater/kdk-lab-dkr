@@ -3,16 +3,48 @@
 Replays the 2026-11-06 15:02 walk the way HA saw it (US customary unit system, so the
 counter is in ft and the speed in mph; counter 3.28 ft per tick up to 951.44 ft, then
 0.0 four seconds after the stop) through the package's START, tracker and END
-automation actions, with the template stand-in from test_treadmill_wger.py. Before
-the fix END read 0 after the reset and credited nothing."""
+automation actions, with a small Jinja stand-in for HA templates (results parsed the
+way HA does: strip, then literal_eval). Before the fix END read 0 after the reset and
+credited nothing."""
+import ast
 from pathlib import Path
 
+import jinja2.sandbox
 import yaml
-
-from test_treadmill_wger import ENV, SecretLoader, load_pkg, render
 
 PKG = Path(__file__).resolve().parents[2] / "config" / "packages" / "treadmill.yaml"
 FT = 0.3048
+
+
+class SecretLoader(yaml.SafeLoader):
+    pass
+
+
+SecretLoader.add_constructor("!secret", lambda loader, node: ("SECRET", loader.construct_scalar(node)))
+
+ENV = jinja2.sandbox.ImmutableSandboxedEnvironment()
+
+
+def parse_result(text):
+    """homeassistant.helpers.template: strip, numeric fast path, literal_eval, keep strings."""
+    text = text.strip()
+    try:
+        v = ast.literal_eval(text)
+    except (ValueError, TypeError, SyntaxError, MemoryError):
+        return text
+    return text if isinstance(v, str) else v
+
+
+def render(value, ctx):
+    if isinstance(value, str):
+        if "{{" in value or "{%" in value:
+            return parse_result(ENV.from_string(value).render(**ctx))
+        return value
+    if isinstance(value, dict):
+        return {k: render(v, ctx) for k, v in value.items()}
+    if isinstance(value, list):
+        return [render(v, ctx) for v in value]
+    return value
 
 
 def is_number(v):
@@ -178,17 +210,6 @@ def test_end_falls_back_to_the_raw_delta_when_untracked():
     f.now += 600
     f.run("tm_session_end")
     assert round(f.num("input_number.tm_total_distance_jacob"), 2) == round(1000 * FT, 2)
-
-
-def test_wger_autolog_reads_the_tracked_distance():
-    f = Fake()
-    walk_1502(f)
-    auto = next(a for a in load_pkg()["automation"] if a["id"] == "tm_wger_autolog")
-    ctx = f.ctx()
-    for k, v in auto["actions"][0]["variables"].items():
-        if k in ("peak", "cur", "start_dist", "to_m", "dist_m"):
-            ctx[k] = render(v, ctx)
-    assert round(ctx["dist_m"], 1) == 290.0
 
 
 def test_calorie_rate_converts_mph():
