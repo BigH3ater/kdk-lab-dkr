@@ -19,10 +19,10 @@ The first deploy's `op inject` fails without it.
 **Laptop**
 
 ```bash
-openssl rand -hex 32 \
-  | jq -Rn '{title: "searxng", category: "PASSWORD",
-             fields: [{id: "secret", label: "secret", type: "CONCEALED", value: input}]}' \
-  | op item create --vault kdk-cluster -
+# A Password item must carry its main `password` field; the stack reads the `secret`
+# field, so set both to the same value (the value never reaches the terminal).
+V=$(openssl rand -hex 32); op item create --vault kdk-cluster --category password --title searxng \
+  "password=$V" "secret[concealed]=$V" >/dev/null; unset V
 op read op://kdk-cluster/searxng/secret | tr -d '\n' | wc -c     # 64
 ```
 
