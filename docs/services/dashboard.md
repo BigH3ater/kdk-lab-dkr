@@ -6,7 +6,7 @@ tier: internal
 status: live
 storage: yes
 secrets: [vikunja-app, jellyfin-api-ro, seerr-api-ro, audiobookshelf-api-ro, vikunja-api-ro, dashboard-tandoor-rw]
-updated: 2026-11-08
+updated: 2026-11-09
 tags: [homelab/stack, tier/internal, status/live]
 ---
 
@@ -104,6 +104,9 @@ guide generator survives as a laptop-only build step for wger
 published). Since 2026-11-07 wger has a **Workouts** tile in the Home group and a
 **Workouts** sidebar link; the sidebar's two HA workout links became one **Treadmill**
 link (`/treadmill-workouts`), removed 2026-11-08 with the treadmill HA integration. Removal and host clean-up: [workout-tracking-update runbook](../runbooks/workout-tracking-update.md#retirement-of-the-in-house-tracker-2026-11-06).
+
+Since 2026-11 the Home group also has a **Search** tile for [[searxng]]
+(`search.kmkdp.com`); its siteMonitor polls `/healthz`, which Authelia bypasses.
 
 ## Secret Rotation
 

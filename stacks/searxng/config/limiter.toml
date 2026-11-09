@@ -1,0 +1,43 @@
+# SearXNG limiter (bot detection + rate limit), stacks/searxng. Mounted read-only at
+# /etc/searxng/limiter.toml; only the keys below override the upstream defaults
+# (searx/limiter.toml of the pinned image). Counters live in valkey.
+#
+# Every request already passed Authelia 2FA, so the limiter is a second line: it stops
+# a script or a looping browser tab from hammering the engines (which get this host's
+# IP CAPTCHA'd for everyone). Upstream defaults per client IP: 15 /search requests
+# per 20 s burst window, 150 per 10 min; non-browser User-Agents (curl, wget,
+# python-requests, ...) get 429 on every path except /healthz.
+
+[botdetection]
+
+# One client = one IPv4 address (LAN, tailnet 100.64.0.0/10, WireGuard 192.168.2.0/24
+# all keep their real source address through Traefik).
+ipv4_prefix = 32
+ipv6_prefix = 48
+
+# Read the client IP from X-Forwarded-For only when the request comes from Traefik.
+# Traefik's address on the `proxy` network is pool-assigned from kdk-dkr-01's docker
+# range (docs/reference/docker-ipam.md), so trust the whole range rather than today's
+# /24: if the proxy network is ever re-created on another /24, every household client
+# would otherwise share Traefik's one address and one rate-limit bucket.
+trusted_proxies = [
+  '127.0.0.0/8',
+  '::1',
+  '10.208.0.0/16',
+]
+
+[botdetection.ip_limit]
+
+# link_token (a CSS-token check against scripted clients) stays off: it is meant for
+# public instances and would add a hard-to-explain failure mode for a private one.
+link_token = false
+
+[botdetection.ip_lists]
+
+# Limiter false positive for a household device? Add its address (or the /24) here,
+# for example '10.1.10.0/24'. Each matching request then logs one WARNING line
+# ("PASS ... matched PASSLIST"), so pass only what needs it.
+pass_ip = []
+
+# No public listing on searx.space: the instance is private.
+pass_searxng_org = false

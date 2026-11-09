@@ -377,6 +377,11 @@
     "redis": {
       "github": "redis/redis"
     },
+    "searxng/searxng": {
+      "github": "searxng/searxng",
+      "note": "metasearch (Python/Granian), stacks/searxng. Rolling release: tag = build date + commit (YYYY.M.D-<sha>), not a semver, so verdicts stay Unknown; read the advisory by hand. Sidecar valkey/valkey has its own entry",
+      "tag_is_version": false
+    },
     "shenxn/protonmail-bridge": {
       "github": "ProtonMail/proton-bridge",
       "note": "image from shenxn/protonmail-bridge-docker; tag N.N.N-B = bridge version + build"

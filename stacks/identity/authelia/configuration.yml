@@ -805,6 +805,17 @@ access_control:
         - 'docs.kmkdp.com'
       resources:
         - '^/healthz$'
+    # search.kmkdp.com (SearXNG, stacks/searxng): /healthz for the Homepage siteMonitor
+    # (answers "OK", no data) and /opensearch.xml, the static engine description a
+    # browser fetches to add the site as a search engine (it may fetch without the
+    # Authelia cookie). Exact paths only; searches and /autocompleter fall through to
+    # the two_factor rule below.
+    - policy: bypass
+      domain:
+        - 'search.kmkdp.com'
+      resources:
+        - '^/healthz$'
+        - '^/opensearch\.xml$'
     - policy: two_factor
       domain:
         - 'home.kmkdp.com'
@@ -816,6 +827,13 @@ access_control:
     - policy: two_factor
       domain:
         - 'wger.kmkdp.com'
+      subject:
+        - ['group:dashboard-users']
+    # SearXNG household search (stacks/searxng): no login of its own, so this rule is
+    # the only gate. Same group as home.kmkdp.com (both adults).
+    - policy: two_factor
+      domain:
+        - 'search.kmkdp.com'
       subject:
         - ['group:dashboard-users']
     # LLDAP admin UI (H1, ForwardAuth label on the lldap router). Directory
