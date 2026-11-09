@@ -17,9 +17,9 @@ was retired.
 | Laptop scratch dir (default `/tmp/workout-guide`) | `workout.json` (Jacob's days, steps, doses, cues) + `exercise/` posters | `tools/gen-workout-guide.py` from the vault; **never committed, never published** |
 | wger | one custom exercise per slug (images, muscles, description) + each person's seven weekday routines (Mon · … .. Sun · …) | `tools/gen_wger.py` from the catalog, the sidecar and the scratch dir |
 
-Nothing in Home Assistant or on home.kmkdp.com follows the plan any more: the HA
-**Workout** dashboards are the Treadmill view only. The treadmill → wger auto-log was
-retired 2026-11-08; walks are logged in the app.
+Nothing in Home Assistant or on home.kmkdp.com follows the plan any more. The treadmill
+→ wger auto-log and then the whole treadmill HA integration (package, Treadmill
+dashboard, bridge) were retired 2026-11-08; walks are logged in the app.
 
 **Why the guide generator stays.** `gen_wger.py --posters DIR` reads Jacob's week (doses,
 cues, step order) and every poster from the guide output. Keeping
@@ -135,8 +135,9 @@ Plan dashboard views, `gen_workout.py` and its CI step, and the `dashboard-worko
 firewall exception. The owner accepted losing the helpers' recorder history; the
 `/workout/` CSV log never received a row (directory empty on 2026-11-06). Kept: everything
 treadmill (`treadmill.yaml`, the Treadmill view on both Workout
-dashboards and the sidebar links to them), the wger stack, `gen_wger.py`, both catalog
-files.
+dashboards and the sidebar links to them; all retired 2026-11-08, see
+[the retired treadmill page](treadmill-glassos-bridge.md)), the wger stack, `gen_wger.py`,
+both catalog files.
 
 Host steps, in order, after the PR is merged. The main session runs the checks and
 watches the deploys; the deletes, the token and the 1Password archive are the owner's.
@@ -239,4 +240,4 @@ with `gen-workout-guide.py --out` and copy it to `/opt/kdk-lab/dashboard/workout
 
 Related: [wger](../services/wger.md) · [wger runbook](wger.md) ·
 [Home Assistant](../services/home-assistant.md) · [Dashboard](../services/dashboard.md) ·
-[Treadmill bridge](treadmill-glassos-bridge.md)
+[Treadmill console HUD](treadmill-hud.md)

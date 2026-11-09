@@ -1,6 +1,6 @@
 ---
 title: linux-tools share
-updated: 2026-11-04
+updated: 2026-11-08
 ---
 
 # linux-tools share
@@ -13,7 +13,7 @@ fetched artifacts that must outlive a laptop or a session scratchpad. First tena
 cloned to `thud/src/`, and read `KIT=${KIT:-/mnt/linux-tools/thud}`.
 
 **Related:** [Storage network & NFS](storage-network.md) · [[kdk-dkr-04]] ·
-[Treadmill bridge](treadmill-glassos-bridge.md)
+[Treadmill console HUD](treadmill-hud.md)
 
 | Item | Value |
 |---|---|

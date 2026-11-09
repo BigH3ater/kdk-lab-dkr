@@ -38,7 +38,7 @@ local-only `node-red` user (admin, required by the websocket nodes) instead of t
 | Host | [[kdk-dkr-02]] (10.1.30.21, VLAN 30), HA + Node-RED, HomeKit bridge |
 | Login | **Authelia OIDC** (`hass-oidc-auth` custom component, client `homeassistant`, Authelia policy `ha_access` = LLDAP group **`ha-users`** with 2FA; `ha-admins` → HA admin role); local login kept as fallback (usernames `jmack`/`rach`) |
 | Theme | **Kodiak** (INK GROUND dark, `config/themes/kodiak.yaml`), a dark-only `modes:` theme set as backend default on start; carries the MD3 / `ha-color-*` tokens the 2026.4+ frontend uses (see [Theme tokens after 2026.4](#theme-tokens-after-20264)) |
-| Dashboards | **Home** (iOS-Home-style rooms, sections+tile), **Roborock**, **Homelab**, **Treadmill** — YAML-mode, registered in `configuration.yaml` |
+| Dashboards | **Home** (iOS-Home-style rooms, sections+tile), **Roborock**, **Homelab** — YAML-mode, registered in `configuration.yaml` |
 | Home controls | per-room sections: blinds (Zigbee covers), theater lights (+group), T9 thermostat, ceiling fan, outlets, Bosch dishwasher, HomePods/Apple TVs |
 | Homelab telemetry | REST sensors pulling [[observability]] Prometheus (`10.1.20.30:9090`): iDRAC fans/temps/power + per-host CPU/mem/uptime, plus the [[nut]] UPS |
 | Roborock | fully local vacuum — live map (tap-to-clean), per-room buttons, routines, per-room last-cleaned stamps, next-run; automation in Node-RED |
@@ -61,9 +61,8 @@ local-only `node-red` user (admin, required by the websocket nodes) instead of t
   [Roborock dashboard](#roborock-dashboard-2026-11-04).
 - **Homelab** (`/homelab-hw`) — iDRAC gauges for [[kdk-hyp-01]] and
   [[kdk-nas-01]], the [[nut]] UPS, and CPU/memory/uptime for all monitored hosts.
-- **Treadmill** (`/treadmill-workouts`, `config/dashboards/workout.yaml`) — one
-  dashboard for both people: live session, walker selector / "I'm Walking", this
-  week, per-person totals (Jacob, Rachel, Guest). Strength training is in [[wger]].
+- **Treadmill** — retired 2026-11-08 with the whole treadmill integration (see
+  below). Exercise, walks included, is logged in [[wger]].
 
 ### Theme tokens after 2026.4
 
@@ -404,33 +403,20 @@ curl -s --http1.1 -m 3 -N -H 'Connection: Upgrade' -H 'Upgrade: websocket' \
   **registering a new dashboard or the themes dir needs an HA restart**;
   package edits reload with Developer Tools → "Reload all YAML" (a *new*
   package that adds integrations needs a one-time restart).
-- **Treadmill page** — `config/dashboards/workout.yaml` (`/treadmill-workouts`,
-  sidebar title **Treadmill**) is the **Treadmill view only**, hand-edited, and the one
-  dashboard for both people since 2026-11-07 (Rachel's identical copy
-  `workout_rachel.yaml` / `/workout-rachel` was dropped; CI test
-  `tools/tests/test_treadmill_dashboards.py`). The per-exercise `ex_*` helpers,
-  `script.workout_mark_done` and the Strength / Progress / Plan views were
-  retired 2026-11-06 when [[wger]] won the tracking pilot; exercise logging and
-  history are in wger. `tools/` keeps only the wger side (catalog, `gen_wger.py`,
-  `gen-workout-guide.py`): [workout-tracking-update runbook](../runbooks/workout-tracking-update.md).
 - **Approval tasks** — `config/packages/approval_tasks.yaml` is a generic
   decision loop: a Vikunja task in the Approvals project raises an actionable
   notification (polled, no inbound path, no container), and Approve/Skip (or
   task-declared choices) is recorded back on the task. Token/project/label ids
   live in the host `secrets.yaml` (`vikunja_approvals_*`). See the
   [approval-tasks runbook](../runbooks/approval-tasks.md).
-- **Treadmill sessions** — `config/packages/treadmill.yaml`: speed > 0 opens a
-  session, speed 0 for 2 min closes it and credits the selected walker's
-  distance/time totals. The console **resets its distance counter to 0 about
-  4 s after the belt stops**, so the session distance is accumulated while the
-  session is open (automation `Treadmill: track session distance` →
-  `input_number.tm_session_peak_distance`, metres, never drops; a reset or a
-  console reboot mid-walk only moves the reference) and END credits that. HA's
-  unit system is US customary, so the bridge's m and km/h show as ft and mph;
-  the templates convert by the state's unit, so the helpers are metres and the
-  calorie maths gets km/h. Until this fix (2026-11-06) the totals got 0 m per walk (the
-  reset) and, earlier, raw ft stored as m.
-- **Treadmill → wger auto-log** — retired 2026-11-08; walks are logged in the app.
+- **Treadmill integration (retired 2026-11-08)** — owner decision: the treadmill
+  keeps only the thud HUD on its console ([Treadmill console HUD](../runbooks/treadmill-hud.md)).
+  Gone: the `treadmill-bridge` stack (DIRCON→MQTT) and its broker user, the
+  `treadmill.yaml` package (`tm_*` helpers, sessions, walker webhook, totals), the
+  `treadmill_wger.yaml` auto-log, the **Treadmill** dashboard (`/treadmill-workouts`)
+  and the CI tests for them. Host clean-up:
+  [retired treadmill page](../runbooks/treadmill-glassos-bridge.md). `secrets.yaml`
+  `tm_webhook_id` is unused since then.
 - **"Vacuum: couldn't dock" alert during a daily run** (`rr_dock_failed`,
   *"Roborock could not dock after <stage> — needs a hand (battery X %)"*) —
   the robot came home, one automatic re-dock failed, and the run is on hold
