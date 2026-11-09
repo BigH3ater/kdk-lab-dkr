@@ -113,10 +113,13 @@ alerts are e-mailed as a digest (the `email-info` receiver), not paged.
 
 | Alert | First checks |
 |---|---|
-| `AbsLoginFailures`, `ImmichLoginFailures`, `TandoorLoginFailures` | Which client? ABS and Tandoor have no lockout; block at the WAF |
+| `AbsLoginFailures`, `ImmichLoginFailures`, `TandoorLoginFailures` | Which client? ABS and Tandoor have no lockout (Tandoor's 429s are allauth's per-IP limiter, counted too); block at the WAF |
 | `AbsNewUserOrApiKey` | ABS → Settings → Users / API keys: expected? |
 | `ImmichAdminApiFromInternet`, `TandoorAdminFromInternet` (critical) | Admin API reached through the tunnel: the WAF path block failed. Remove the public hostname until fixed |
 | `ImmichMassDownload` | Which user session? Immich → Administration → Users → sessions: revoke unknown sessions |
+| `TandoorSpaceOrUserCreated` (info, phone) | Who invited whom? Tandoor (kdkadmin, LAN) → space settings → members / invite links. Unexpected → delete the invite or member |
+| `TandoorPasswordLoginFromInternet` (info, phone) | Which account? `docker exec tandoor-db psql -U tandoor -d tandoor -c "select u.username, s.ip, s.created_at from usersessions_usersession s join auth_user u on u.id = s.user_id order by s.created_at desc limit 5"`. Unknown → delete the session row and change that password |
+| `TandoorUploadBurst` | Which client and space? Check the space's file storage, set `max_file_storage_mb` |
 
 ## Home Assistant
 

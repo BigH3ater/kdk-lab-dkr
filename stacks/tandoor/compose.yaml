@@ -2,22 +2,63 @@
 # meal plan + pantry-aware shopping list. Uses Tandoor's OWN multi-user auth (NOT behind
 # Authelia forwardauth) so a family member (wife) can have a Tandoor account without an
 # Authelia identity -- same rationale as audiobookshelf. Internet-facing via the Cloudflare
-# tunnel: add the public hostname `recipes.kmkdp.com` in the CF dashboard (dashboard-managed).
-# On the home network it's browseable directly via Traefik.
+# tunnel once the owner adds the public hostname `recipes.kmkdp.com` in the CF dashboard
+# (dashboard-managed; publish checklist in docs/services/tandoor.md). On the home network
+# it's browseable directly via Traefik.
 #
 # The recipes image is ALL-IN-ONE: it runs its own internal nginx on :80 (serves /static +
 # /media and proxies to the local gunicorn unix socket), so we only need this app container
-# plus Postgres. Traefik fronts the app on :80. default network (db <-> web) auto-allocates
-# from the host's 10.211.0.0/16 pool; proxy-dmz (external) is Traefik ingress. dns-reconcile
-# points recipes.kmkdp.com at the DMZ Traefik from the Host label.
+# plus Postgres. Traefik fronts the app on :80.
+#
+# Networks:
+#   default (tandoor_default, internal)  web <-> db only (+ backup-dmz's pgdump-tandoor,
+#                                         which joins it as external). No egress for the db.
+#   proxy-dmz (external)                  Traefik ingress; web's internet egress (URL import,
+#                                         Authelia OIDC discovery) goes out this one.
+# dns-reconcile points recipes.kmkdp.com at the DMZ Traefik from the Host label.
 name: tandoor
+
+# Logging per docs/reference/compose-baseline.md: json-file 10m x 3 (Alloy reads it).
+x-logging: &logging
+  driver: json-file
+  options: { max-size: "10m", max-file: "3" }
 
 services:
   db:
     image: docker.io/postgres:18.6-alpine@sha256:123b17998ccaf47e53b502e8c6a1e79afd8f579c6f3eec83c563da026f957395   # PG16->18 major: dump/restore per docs/runbooks/postgres-major-upgrade.md; attended window only
     container_name: tandoor-db
     restart: unless-stopped
-    env_file: [.env]
+    # Data dir /opt/kdk-lab/tandoor/postgres is already owned by uid 70 (the image's
+    # postgres user; checked 2026-11-08: no file with another uid), so the entrypoint
+    # needs no root step. Same pattern as identity's authelia-postgres.
+    user: "70:70"
+    read_only: true
+    # Socket/lock dir + scratch on tmpfs; PGDATA is the rw bind below.
+    tmpfs: [/run/postgresql, /tmp]
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: [ALL]
+    # No-op while user: 70:70 (non-root gets no effective caps). Kept so a rollback
+    # that only deletes `user:` still starts (root entrypoint chowns PGDATA, then
+    # drops to postgres via su-exec).
+    cap_add:
+      - CHOWN          # entrypoint: chown PGDATA / socket dir to postgres
+      - SETUID         # su-exec to postgres
+      - SETGID         # su-exec to postgres
+      - DAC_OVERRIDE   # root reads PGDATA (0700, uid 70)
+      - FOWNER         # chmod of PGDATA it does not own
+    # 2026-11-08: 63 MiB / 13 pids in use.
+    mem_limit: 512m
+    pids_limit: 128
+    logging: *logging
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    # No env_file here: the stack .env also holds SECRET_KEY and the OIDC client
+    # secret (SOCIALACCOUNT_PROVIDERS), which the db must not carry. Only the
+    # POSTGRES_* keys, interpolated from the same .env.
     environment:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
@@ -30,15 +71,41 @@ services:
     volumes:
       - /opt/kdk-lab/tandoor/postgres:/var/lib/postgresql/data
     networks: [default]
-    logging:
-      driver: json-file
-      options: { max-size: "10m", max-file: "3" }
 
   web:
     image: ghcr.io/tandoorrecipes/recipes:2.7.2@sha256:1b6d43c3c0f5d2888aa564d9daf29883212b79ad496f59f3c684c099eb1a57b9
     container_name: tandoor-web
     restart: unless-stopped
     env_file: [.env]
+    security_opt: ["no-new-privileges:true"]
+    # The image runs as root: tini -> boot.sh -> nginx master (root, workers as `nginx`)
+    # + gunicorn (root). Docker sets net.ipv4.ip_unprivileged_port_start=0 in the
+    # container (read 2026-11-08), so nginx binds :80 without NET_BIND_SERVICE.
+    # Set Inferred from boot.sh + the nginx config -- VALIDATE ON DEPLOY: `docker logs
+    # tandoor-web` shows no "Operation not permitted" and the healthcheck passes.
+    # Rollback: delete cap_drop/cap_add (keep the rest) and redeploy the stack.
+    cap_drop: [ALL]
+    cap_add:
+      - CHOWN          # nginx master chowns its /tmp/*_temp dirs to the nginx worker user
+      - SETUID         # nginx master -> worker user `nginx`
+      - SETGID         # nginx master -> worker group
+      - DAC_OVERRIDE   # root master opens nginx-owned 0700 temp dirs / 0750 /var/lib/nginx
+      - FOWNER         # boot.sh `chmod -R 755` on mediafiles for files not owned by root
+    # 2026-11-08: 1011 MiB / 24 pids in use (gunicorn 3 workers x 2 threads + nginx).
+    mem_limit: 2g
+    pids_limit: 256
+    logging: *logging
+    healthcheck:
+      # /accounts/login/ is the SPA shell (200, ~10 KB; /openapi/ is 467 KB). Host must
+      # be in ALLOWED_HOSTS (127.0.0.1 gets a 400). The X-Forwarded-For header gives
+      # allauth its two-entry chain (see ALLAUTH_TRUSTED_PROXY_COUNT) so the probe can
+      # never trip ImproperlyConfigured. busybox wget (in the image); tested 2026-11-08 -> 200.
+      test: ["CMD-SHELL", "wget -q -T 5 -O /dev/null --header 'Host: recipes.kmkdp.com' --header 'X-Forwarded-For: 127.0.0.1' http://127.0.0.1/accounts/login/ || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      # boot.sh runs migrate + collectstatic --clear before gunicorn starts.
+      start_period: 180s
     environment:
       SECRET_KEY: ${SECRET_KEY}
       DB_ENGINE: django.db.backends.postgresql
@@ -51,6 +118,14 @@ services:
       ALLOWED_HOSTS: recipes.kmkdp.com
       # Behind Traefik (TLS terminated) -- trust the https origin for CSRF on login/POST.
       CSRF_TRUSTED_ORIGINS: https://recipes.kmkdp.com
+      # allauth takes the client IP as X-Forwarded-For[-N]. The image's own nginx appends
+      # its peer (Traefik, 10.211.2.3) to XFF, so Django always sees "<client>, <traefik>"
+      # on both entrypoints. The image default (1) resolves every visitor to Traefik and
+      # turns the per-IP login/signup/reset limits into ONE global bucket (3 login POSTs
+      # a minute from anyone = 429 for everyone). 2 = the real client. A request that
+      # reaches nginx with fewer than two XFF entries gets a 500 on the auth endpoints
+      # (only a sibling container on proxy-dmz could send one).
+      ALLAUTH_TRUSTED_PROXY_COUNT: "2"
       # URL-import rate limit per user (Tandoor default 60/hour). The grocery planner's
       # seed imports ~100 approved recipes in one run and hit 429s at the default
       # (2026-11-01). Imports need a logged-in user, so this stays an abuse guard.
@@ -58,19 +133,37 @@ services:
     volumes:
       - /opt/kdk-lab/tandoor/staticfiles:/opt/recipes/staticfiles
       - /opt/kdk-lab/tandoor/mediafiles:/opt/recipes/mediafiles
-    depends_on: [db]
+    depends_on:
+      db: { condition: service_healthy }
     networks: [default, proxy-dmz]
     labels:
+      # boot.sh renders /opt/recipes/http.d/Recipes.conf (envsubst) into the image layer
+      # at every start; that dir also holds the template and the error pages, so a tmpfs
+      # over it would hide them. Revisit if upstream moves the rendered config to /tmp.
+      kdk.baseline.skip: "read_only"
       traefik.enable: "true"
+      traefik.docker.network: "proxy-dmz"
       traefik.http.routers.tandoor.rule: "Host(`recipes.kmkdp.com`)"
-      # LAN only: never on the Cloudflare tunnel entrypoint (docs/services/dmz-proxy.md).
-      traefik.http.routers.tandoor.entrypoints: "websecure"
+      # Public: LAN entrypoint + the cloudflared-only `tunnel` entrypoint. Nothing is
+      # reachable from the internet until the owner adds the public hostname in the
+      # Cloudflare dashboard. No Authelia: Tandoor has its own auth (allauth + OIDC).
+      # /admin is blocked at the edge (Cloudflare custom rule 1, an owner step before the
+      # hostname is added); the TandoorAdminFromInternet alert is the canary for that.
+      traefik.http.routers.tandoor.entrypoints: "websecure,tunnel"
+      traefik.http.routers.tandoor.middlewares: "tandoor-headers"
+      # Same values Django already sends (no behaviour change), plus Server hidden.
+      # No STS here: HSTS is zone-level at Cloudflare.
+      traefik.http.middlewares.tandoor-headers.headers.contentTypeNosniff: "true"
+      traefik.http.middlewares.tandoor-headers.headers.customFrameOptionsValue: "SAMEORIGIN"
+      traefik.http.middlewares.tandoor-headers.headers.referrerPolicy: "same-origin"
+      traefik.http.middlewares.tandoor-headers.headers.customResponseHeaders.Server: ""
       traefik.http.services.tandoor.loadbalancer.server.port: "80"
-    logging:
-      driver: json-file
-      options: { max-size: "10m", max-file: "3" }
 
 networks:
-  default: {}
+  default:
+    # web <-> db only; the db needs no egress. web reaches the internet via proxy-dmz.
+    # Flipping this on an existing network makes compose recreate tandoor_default on
+    # deploy (stop, disconnect, remove, create, reconnect); see docs/services/tandoor.md.
+    internal: true
   proxy-dmz:
     external: true
