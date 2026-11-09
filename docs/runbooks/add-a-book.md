@@ -31,8 +31,8 @@ ll --data-urlencode cmd=getVersion                                     # a versi
 ll --data-urlencode cmd=readCFG --data-urlencode name=book_api --data-urlencode group=API   # [HardCover]
 ```
 
-Never run `cmd=getHistory` or `cmd=getSnatched` into a terminal you will paste
-from: see [The Prowlarr key in download URLs](#the-prowlarr-key-in-download-urls).
+Never run `cmd=getHistory`, `cmd=getSnatched` or `cmd=listNabProviders` into a
+terminal you will paste from: see [The Prowlarr key in download URLs](#the-prowlarr-key-in-download-urls).
 
 ## A. Staging import
 
@@ -139,6 +139,40 @@ Calibre still de-duplicates by title and author: a file whose embedded title
 equals a book already in Calibre (a 2nd edition titled like the 1st) is skipped,
 so give it a distinct title first.
 
+## Matcher misses
+
+A search can log `found 0 books` although the release is on the indexers.
+LazyLibrarian scores each result against the record's **author and title**, and
+drops anything under the match ratio. The log shows the near miss as
+`Nearest match (NN%): <release>`. When nothing at all comes back, search Prowlarr
+directly (prowlarr.kmkdp.com → Search, category Books) to see whether the release
+exists. Three shapes, found on 2026-11-09:
+
+| Shape | Example release name | Fix |
+|---|---|---|
+| Subtitle in the name, no author | `Oreilly.Learning.Domain-Driven.Design.Aligning.Software.Architecture.And.Business.Strategy.2022.RETAiL.ePub.eBook-LiBRiCiDE` (49.6%) | pick it by hand: the book's page → **Search** → choose the release |
+| ISBN as the name | `9780321601919.Pearson.Continuous.Delivery.Sep.2010` | pick it by hand, as above |
+| Wrong or mangled author on the record (`Brené. Brown`, `Titus/ Manshreck Tom/ Wright Winters (Hyrum)`, the second author instead of the first) | `Matthew.Skelton.-.Team.Topologies.epub-xpost` against a record filed under Manuel Pais | fix the author, lock the book, search again (below) |
+
+Fixing the author through the API (no DB edit):
+
+```bash
+ll --data-urlencode cmd=findAuthorID --data-urlencode "name=Matthew Skelton"    # authorid from the book_api source
+ll --data-urlencode cmd=addAuthorID --data-urlencode id=<AuthorID>              # adds the author only, not their books
+ll --data-urlencode cmd=moveBook --data-urlencode id=<BookID> --data-urlencode toid=<AuthorID>
+ll --data-urlencode cmd=setBookLock --data-urlencode id=<BookID>
+ll --data-urlencode cmd=searchBook --data-urlencode id=<BookID> --data-urlencode type=eBook --data-urlencode wait=1
+```
+
+If `findAuthorID` returns the **same** AuthorID the record already has (the
+author row itself is misspelled, as with `Brené. Brown`), the API cannot rename
+it: UI → the author's page → **Edit** (next to the name in the heading) →
+**Author Name** → tick **Lock settings** → Save, then search the book again.
+
+The matcher also takes a wrong book when the record title is a substring of
+another title (`Beyond the Phoenix Project` scored 101% for *The Phoenix
+Project*). Check the snatched release name in the log before trusting the import.
+
 ## Metadata source blocked
 
 The lab's `book_api` is **HardCover**. HardCover blocks itself in LazyLibrarian
@@ -184,6 +218,9 @@ into LazyLibrarian put **Prowlarr's API key** in that URL as plain text. So:
   output of `cmd=getHistory` / `cmd=getSnatched` (both return `SELECT *`,
   `NZBurl` included). Libreseerr calls `getSnatched`, so the key also crosses to
   the DMZ in that reply.
+- `cmd=listNabProviders` returns the same key in the `Apikey` field of every
+  provider Prowlarr synced (seen 2026-11-09). Read only the names from it, for
+  example `| python3 -c 'import json,sys; [print(p["Name"]) for p in json.load(sys.stdin)["Data"]["Newznabs"]]'`.
 - A read-only DB query names its columns (`BookID, NZBtitle, NZBprov, NZBdate,
   Status`) and never selects `NZBurl` or `*`.
 - If the key has been exposed, rotate it per [Rotate a secret](rotate-a-secret.md):
