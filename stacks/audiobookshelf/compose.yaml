@@ -1,5 +1,5 @@
-# Audiobookshelf on the DMZ node -- internet-facing via the Cloudflare tunnel,
-# SSO via Authelia OIDC (client_id `audiobookshelf`). NOT behind forwardauth:
+# Audiobookshelf on the DMZ node -- the router serves the Cloudflare tunnel
+# entrypoint; public once the tunnel public hostname exists. SSO via Authelia OIDC (client_id `audiobookshelf`). NOT behind forwardauth:
 # OIDC (and ABS's own auth) is the gate, and forwardauth would break the mobile
 # apps. Reads the audiobook library read-only from the media NFS (dmz-01 mounts
 # /mnt/media ro). Podcasts live on the rw appdata NFS (/mnt/appdata/audiobookshelf/
@@ -67,8 +67,20 @@ services:
     labels:
       traefik.enable: "true"
       traefik.http.routers.audiobookshelf.rule: "Host(`audiobookshelf.kmkdp.com`)"
-      # LAN only: never on the Cloudflare tunnel entrypoint (docs/services/dmz-proxy.md).
-      traefik.http.routers.audiobookshelf.entrypoints: "websecure"
+      # Public: LAN entrypoint + the cloudflared-only `tunnel` entrypoint. The
+      # router alone publishes nothing: the hostname is reachable from the
+      # internet only once the owner adds the tunnel public hostname
+      # (docs/services/audiobookshelf.md#publishing). NO forwardauth: ABS's own
+      # auth (local + Authelia OIDC) is the gate, and ForwardAuth breaks the apps.
+      traefik.http.routers.audiobookshelf.entrypoints: "websecure,tunnel"
+      traefik.http.routers.audiobookshelf.middlewares: "abs-headers"
+      # Response headers, same pattern as wizarr-headers. ABS already sends
+      # CSP frame-ancestors 'self' and Referrer-Policy no-referrer; keep both
+      # (SAMEORIGIN, not DENY: the web ebook reader frames same-origin content).
+      traefik.http.middlewares.abs-headers.headers.customFrameOptionsValue: "SAMEORIGIN"
+      traefik.http.middlewares.abs-headers.headers.contentTypeNosniff: "true"
+      traefik.http.middlewares.abs-headers.headers.referrerPolicy: "no-referrer"
+      traefik.http.middlewares.abs-headers.headers.customResponseHeaders.Server: ""
       traefik.http.services.audiobookshelf.loadbalancer.server.port: "80"
 networks:
   proxy-dmz:

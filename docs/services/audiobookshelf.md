@@ -6,13 +6,13 @@ tier: dmz
 status: live
 storage: yes
 secrets: []
-updated: 2026-10-28
+updated: 2026-11-08
 tags: [homelab/stack, tier/dmz, status/live]
 ---
 
 # Audiobookshelf
 
-Audiobook + podcast server on the DMZ node; LAN/Tailscale only — its router is on the DMZ Traefik's `websecure` entrypoint, not the Cloudflare tunnel (publishing planned). Login is ABS's own auth or Authelia OIDC (client `audiobookshelf`), no ForwardAuth (it would break the mobile apps).
+Audiobook + podcast server on the DMZ node. Its router serves the DMZ Traefik's `websecure` and `tunnel` entrypoints, but it stays LAN/Tailscale only until the owner adds the tunnel public hostname ([Publishing](#publishing)). Login is ABS's own auth or Authelia OIDC (client `audiobookshelf`), no ForwardAuth (it would break the mobile apps).
 
 **Related:** [[kdk-dkr-dmz-01]] · [[dmz-proxy]] · [[identity]] · [[media]]
 
@@ -52,6 +52,88 @@ ssh kdkadmin@192.168.191.20 'ls /mnt/appdata/audiobookshelf/podcasts | head'    
 | `/mnt/media/books/audiobook` → `/audiobooks:ro` | audiobook library (media NFS is read-only on the DMZ) |
 | `/mnt/appdata/audiobookshelf/podcasts` → `/podcasts` | podcast library, written by ABS. Moved off the 59 GB root disk 2026-10-28 (7.5 GB). Library path in ABS stays `/podcasts`. Not in backup-dmz (tankz3 snapshots only; re-downloadable) |
 
+## Observability
+
+Loki rules (`stacks/loki/rules/`), runbook [security alerts → mobile apps](../runbooks/security-alerts.md#mobile-apps):
+
+| Alert | File | Severity | Fires on |
+|---|---|---|---|
+| `AbsLoginFailures` | `mobile-apps.yml` | warning | more than 5 `[LocalAuth] Failed login attempt` lines in 10m |
+| `AbsNewUserOrApiKey` | `mobile-apps.yml` | warning | `[ApiKeyController] Created API key` or `[User] openid: Auto-registering user` |
+| `AbsLoginFromInternet` | `mobile-apps.yml` | info, `notify: phone` | tunnel `POST /login` 200 or OIDC callback 200/302 |
+| `AbsMassDownload` | `mobile-apps.yml` | warning | more than 10 item/file/library download requests from one client in 15m |
+| `EdgeAbsAdminPathHit` | `edge.yml` | critical | a non-probe admin API request reached Traefik through the tunnel |
+| `EdgeAbsAdminPathProbe` | `edge.yml` | warning | the edge probe's own admin row reached Traefik (rule 1 is missing a path) |
+
+`scripts/edge-probe.sh` has ABS rows (client paths, admin 403s, `/login` + `/api/authorize` rate-limit bursts); they SKIP until the hostname has a public A record.
+
+## Publishing
+
+Repo side is done (router `entrypoints: websecure,tunnel`, `abs-headers` middleware, the rules above, edge-probe rows, `TUNNEL_HOSTS` in cloudflare-watch). Source: vault `10.Homelab/Security/audiobookshelf-public-readiness-2026-11-08.md` (verdict GO-with-conditions for audiobooks + podcasts). Do the steps in order; the public hostname is the last one.
+
+### Pre-publish hand steps (owner)
+
+1. **C1 — legacy tokens and API keys (ABS UI, from the LAN).** Settings → Users → each of `kdkadmin`, `jmack`, `admin` → *Regenerate API token* (invalidates the never-expiring legacy `users.token`). Settings → API keys → give `readarr` and `kdk-cluster` an expiry (recreate them with one if the UI cannot edit it; a key's value is shown once). Move `abs-notify` onto an API key **in the same step**, on the laptop:
+
+   ```bash
+   op item edit audiobookshelf-api-root --vault kdk-ops 'credential=<the new API key>'
+   op read op://kdk-ops/audiobookshelf-api-root/credential | \
+     ssh kdkadmin@10.1.20.20 'sudo tee /etc/kdk/abs-notify.env >/dev/null <<<"ABS_API_TOKEN=$(cat)" && sudo chmod 600 /etc/kdk/abs-notify.env && sudo chown root:root /etc/kdk/abs-notify.env'
+   ```
+
+   `env_file` is read at compose time, so redeploy the `media` stack (it recreates `lazylibrarian`) and check the next import's rescan (`docker logs lazylibrarian | grep abs-notify`). Update the 1Password item of the `kdk-cluster` key's consumer the same way.
+2. **C2 — the `admin` OIDC account.** Settings → Users → `admin`: demote to `user` or delete it (second admin-role account, no password, unused since 2026-09-18; OIDC auto-register is on).
+3. **Host tidy (kdk-dkr-dmz-01).** DB mode 600 and the stale backup gone:
+
+   ```bash
+   sudo chmod 600 /opt/kdk-lab/audiobookshelf/config/absdatabase.sqlite
+   sudo rm /opt/kdk-lab/audiobookshelf/config/absdatabase.sqlite.bak.20260923
+   ```
+
+### Cloudflare edits (owner, dashboard)
+
+4. **C3 — Rule 1 "Block admin APIs"** (Security → Security rules). Replace the ABS branch with the compact form:
+
+   ```
+   or (http.host eq "audiobookshelf.kmkdp.com" and (
+     (lower(http.request.uri.path) contains "/api/" and (lower(http.request.uri.path) contains "/users" or lower(http.request.uri.path) contains "/backups" or lower(http.request.uri.path) contains "/filesystem" or lower(http.request.uri.path) contains "/api-keys" or lower(http.request.uri.path) contains "/settings" or lower(http.request.uri.path) contains "/tools" or lower(http.request.uri.path) contains "/cache" or lower(http.request.uri.path) contains "/emails" or lower(http.request.uri.path) contains "/notifications" or lower(http.request.uri.path) contains "/share" or lower(http.request.uri.path) contains "/upload" or lower(http.request.uri.path) contains "/custom-metadata"))
+     or (http.request.method ne "GET" and lower(http.request.uri.path) contains "/api/libraries")
+   ))
+   ```
+
+   Byte budget: the deployed rule is 3893 B of the 4096 B limit; the long one-path-per-line form would land at ~4180 B (rejected). The compact form is about +150 B → ~4040 B, ~50 B spare (the editor shows the count). If it is still rejected, drop `/upload` and `/custom-metadata` first (admin-only, LAN use). `/settings` also covers `/auth-settings`.
+5. **Rate-limit rule** ("Ratelimit Jellyfin /users"): add to the `in {…}` set
+
+   ```
+   "/login" "/audiobookshelf/login" "/api/authorize" "/audiobookshelf/api/authorize" "/auth/refresh" "/audiobookshelf/auth/refresh"
+   ```
+
+   and the line
+
+   ```
+   or starts_with(lower(http.request.uri.path), "/auth/openid")
+   ```
+
+   (covers `/auth/openid`, `/auth/openid/callback`, `/auth/openid/mobile-redirect`). ABS has no lockout and its own limiter is 40 / 10 min per IP: the edge rule is the real brake.
+6. **Transform rule** "Strip client X-Forwarded-For": add `"audiobookshelf.kmkdp.com"` to the host set. Cosmetic since `cf-realip@file` on the `tunnel` entrypoint does the real work; keep the convention (every tunnel hostname is in the set).
+7. **Baseline:** `scripts/edge-probe.sh --no-ratelimit`: ABS rows SKIP, every other row PASS.
+
+### Publish
+
+8. Zero Trust → Networks → Tunnels → `cloudflare-tunnel-credentials` → Public hostname → Add `audiobookshelf.kmkdp.com` → service **HTTPS** `traefik:8443` → TLS → **Origin Server Name** `audiobookshelf.kmkdp.com` (the convention for every tunnel hostname: without it the origin TLS name is `traefik` and the edge answers 502/530), No TLS Verify off. The proxied CNAME appears with it.
+9. **Post-publish probes:** `scripts/edge-probe.sh` (with the rate-limit bursts) → ABS rows PASS: `/ping`, `/status` 200, `/login` 200/301, `/api/authorize` 401, the nine admin paths 403, and a 429 in both burst tails (the `/login` burst fires `AbsLoginFailures` once; expected). One real login per platform from off Wi-Fi → `AbsLoginFromInternet` pings the phone. Then check Security → Events for unexpected 403s.
+
+**Rollback:** delete the public hostname (the CNAME goes with it): edge 530 within a minute. The router label can stay (the `tunnel` entrypoint only receives what cloudflared sends) or be reverted to `websecure`; the Cloudflare rule edits are inert without the host.
+
+## Apps and ebooks
+
+- Which phone apps to use (iOS/Android, audio vs ebooks, OIDC schemes): vault `3. Resources/Reading/ABS Apps and Ebooks 2026-11-08.md`.
+- **Ebook library = phase 2, not part of publishing.** When it is added: one read-only books mount (`/mnt/media/books:/books:ro`, both libraries under it), never rw — ABS must never write the Calibre source folder. Calibre OPDS stays the reMarkable path (ABS has no OPDS).
+
 ## Secret Rotation
 
-N/A in this stack; the OIDC client secret lives in [[identity]].
+| Secret (1P item) | Used for | Rotate |
+|---|---|---|
+| `kdk-ops/audiobookshelf-api-root` | `abs-notify` rescan hook (`/etc/kdk/abs-notify.env` on kdk-dkr-01, `ABS_API_TOKEN`) | create a new API key with an expiry in ABS → `op item edit` → `op read` → host file (root 600) → redeploy `media`, all in one step ([C1](#pre-publish-hand-steps-owner)) |
+
+The OIDC client secret lives in [[identity]].

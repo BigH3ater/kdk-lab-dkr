@@ -97,6 +97,48 @@ groups:
           description: "The lab's kdk-edge-probe request to a Jellyfin admin path reached the DMZ Traefik through the tunnel, so the Cloudflare block rule is missing that path. Fix the WAF rule expression."
           runbook: docs/runbooks/security-alerts.md#edge
 
+      # Audiobookshelf admin API paths, mirroring the ABS branch of the Cloudflare
+      # "Block admin APIs" rule (vault audiobookshelf-public-readiness-2026-11-08
+      # §7). ABS serves everything bare and under /audiobookshelf (ROUTER_BASE_PATH),
+      # hence the optional prefix. Status-agnostic like EdgeJellyfinAdminPathHit:
+      # an admin path reaching the origin through the tunnel at all means the edge
+      # rule is missing that path. On websecure these paths are the owner's admin
+      # UI (18 in 7d on 2026-11-08), which is why this is tunnel-only. The edge
+      # probe (kdk-edge-probe/1) is split out into EdgeAbsAdminPathProbe below.
+      - alert: EdgeAbsAdminPathHit
+        expr: |
+          sum(count_over_time({host="kdk-dkr-dmz-01", container="traefik"}
+            |= "audiobookshelf.kmkdp.com" | json | entryPointName="tunnel" | RequestHost="audiobookshelf.kmkdp.com"
+            | RequestPath=~"(?i)(/audiobookshelf)?/api/(users|backups|settings|auth-settings|tools|api-keys|filesystem|cache|emails|notifications|share|upload|custom-metadata-providers).*"
+            | request_User_Agent!~"kdk-edge-probe.*" [5m])) > 0
+        for: 0m
+        labels:
+          severity: critical
+          source: loki
+          scope: edge
+        annotations:
+          summary: "An Audiobookshelf admin API path reached the origin through the tunnel: the Cloudflare WAF block rule was bypassed or is missing"
+          description: "A non-probe request to an Audiobookshelf admin API path on audiobookshelf.kmkdp.com reached the DMZ Traefik through the tunnel (any status). Check the ABS branch of the WAF block rule and the audiobookshelf container log for what it did; pull audiobookshelf.kmkdp.com off the tunnel until fixed."
+          runbook: docs/runbooks/security-alerts.md#edge
+
+      # The edge probe's own ABS admin rows reached the origin: the Cloudflare
+      # block rule is missing that path. Warning, same split as Jellyfin/Wizarr.
+      - alert: EdgeAbsAdminPathProbe
+        expr: |
+          sum(count_over_time({host="kdk-dkr-dmz-01", container="traefik"}
+            |= "audiobookshelf.kmkdp.com" | json | entryPointName="tunnel" | RequestHost="audiobookshelf.kmkdp.com"
+            | RequestPath=~"(?i)(/audiobookshelf)?/api/(users|backups|settings|auth-settings|tools|api-keys|filesystem|cache|emails|notifications|share|upload|custom-metadata-providers).*"
+            | request_User_Agent=~"kdk-edge-probe.*" [5m])) > 0
+        for: 0m
+        labels:
+          severity: warning
+          source: loki
+          scope: edge
+        annotations:
+          summary: "The lab's edge probe reached an Audiobookshelf admin path through the tunnel: the Cloudflare block rule is missing that path"
+          description: "The lab's kdk-edge-probe request to an Audiobookshelf admin API path reached the DMZ Traefik through the tunnel, so the ABS branch of the Cloudflare block rule is missing that path. Fix the WAF rule expression."
+          runbook: docs/runbooks/security-alerts.md#edge
+
       # Canary for the strip-cf middleware on the LAN entrypoint (PR #68). Traefik
       # logs the request header map AFTER the middleware chain ran, so while
       # strip-cf works a forged Cf-* header is removed before it is logged and

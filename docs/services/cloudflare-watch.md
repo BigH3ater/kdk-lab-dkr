@@ -73,7 +73,7 @@ Lines are pushed straight to Loki (job `cloudflare-watch`) and land under `{cont
 |---|---|
 | `watch.py` `EXPECTED_SETTINGS` | the zone-setting policy compared each hour (min_tls_version, always_use_https, ssl, security_level, tls_1_3, automatic_https_rewrites) |
 | `watch.py` `HSTS_MIN_MAX_AGE` (15552000) / `WARN_CERT_DAYS` (14) | HSTS min max-age; edge-cert warn threshold |
-| `TUNNEL_HOSTS` (sso,jellyfin) | hostnames probed only if the account tunnel scope is denied |
+| `TUNNEL_HOSTS` (sso,jellyfin,audiobookshelf) | hostnames probed only if the account tunnel scope is denied (today the API answers: `source=api`). Until audiobookshelf has its public hostname a fallback run reports it `warn` (split DNS reaches the LAN origin, no cf-ray) or `fail` (no record) |
 | `CF_ZONE` (kmkdp.com) | the zone to read; `CFWATCH_MODE=weekly` switches to the weekly check |
 | `LOKI_URL` (http://10.1.20.21:3100) / `NODE_NAME` (kdk-log-01) | direct Loki push target and the `host` stream label; empty `LOKI_URL` disables the push |
 | `.env.tpl` | `CF_API_TOKEN=op://kdk-cluster/cloudflare-monitor-ro/credential`, rendered only where `/etc/komodo/op.env` exists |

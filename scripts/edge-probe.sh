@@ -12,12 +12,15 @@
 #   JF_STREAM_ID=<jellyfin item id>  optional: also probe a real item's stream
 #                                    (HEAD only) with and without a bogus key
 #
-# The rate-limit bursts POST a nonexistent user to the Jellyfin and Authelia
-# login endpoints (expect failed-login lines in Loki) and get this IP blocked
-# on those paths for 10 s. Since security batch 5 the Authelia burst also trips
+# The rate-limit bursts POST a nonexistent user to the Jellyfin, Authelia and
+# Audiobookshelf login endpoints (expect failed-login lines in Loki; the ABS
+# /login burst fires AbsLoginFailures) and get this IP blocked on those paths
+# for 10 s. Since security batch 5 the Authelia burst also trips
 # Authelia's own IP regulation: the address you run from is banned from sso for
 # 5 minutes. Prefer --no-ratelimit; lift a ban on kdk-dkr-dmz-01 with
 # `sudo docker exec authelia authelia storage bans ip revoke <ip>`.
+# Hosts without a public A record (Wizarr, Audiobookshelf before publishing)
+# report SKIP, not FAIL.
 #
 # What the checks verify: vault note "Cloudflare edge rules (2026-10)"
 # (10.Homelab/Security). Exits 1 if any row is FAIL. Needs curl >= 7.84.
@@ -27,7 +30,7 @@ RATELIMIT=1
 for a in "$@"; do
   case "$a" in
     --no-ratelimit) RATELIMIT=0 ;;
-    -h|--help) sed -n '2,22p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,26p' "$0"; exit 0 ;;
     *) echo "unknown argument: $a" >&2; exit 2 ;;
   esac
 done
@@ -35,10 +38,12 @@ done
 JF=jellyfin.kmkdp.com
 SSO=sso.kmkdp.com
 WZ=wizarr.kmkdp.com
+ABS=audiobookshelf.kmkdp.com
 APEX=kmkdp.com
 ZERO=00000000000000000000000000000000   # syntactically valid, non-existent item id
 # Every curl below sends this UA (req/expect, the bursts, HSTS, TLS, DoH), so
-# the Loki rules can tell the probe apart (edge.yml, jellyfin.yml, wizarr.yml).
+# the Loki rules can tell the probe apart (edge.yml, jellyfin.yml, wizarr.yml,
+# EdgeAbsAdminPathHit/Probe).
 UA="kdk-edge-probe/1 (+scripts/edge-probe.sh)"
 
 PASS=0 FAIL=0 SKIP=0
@@ -63,7 +68,7 @@ except Exception:
     pass' "$2"
 }
 declare -A EDGE
-for h in "$JF" "$SSO" "$WZ" "$APEX"; do
+for h in "$JF" "$SSO" "$WZ" "$ABS" "$APEX"; do
   EDGE[$h]=$(doh "$h" A | head -n1)
 done
 
@@ -162,6 +167,21 @@ expect "$WZ" "wizarr GET /j/TEST (invitee page)" GET /j/TEST 200
 expect "$WZ" "wizarr GET /admin (edge block)" GET /admin 403
 expect "$WZ" "wizarr GET /api/users (edge block)" GET /api/users 403
 
+# --- 6b. Audiobookshelf (only once published on the tunnel) -------------------
+# Client paths the apps need must pass the edge; the bare /login is the client
+# page and redirects to the /audiobookshelf base path (301). /api/authorize
+# without a token is ABS's own 401, not an edge 403.
+expect "$ABS" "abs    GET /login (client page)" GET /login '200|301'
+expect "$ABS" "abs    GET /ping" GET /ping 200
+expect "$ABS" "abs    GET /status" GET /status 200
+expect "$ABS" "abs    POST /api/authorize (no token)" POST /api/authorize 401
+# Admin API blocked at the edge: the ABS branch of rule "Block admin APIs".
+# A row that reaches the origin also fires EdgeAbsAdminPathProbe (edge.yml).
+for p in /api/users /api/backups /api/settings /api/tools /api/emails \
+         /api/notifications /api/share /api/upload /api/custom-metadata-providers; do
+  expect "$ABS" "abs    admin GET $p" GET "$p" 403
+done
+
 # --- 7. zone settings ---------------------------------------------------------
 for h in "$SSO" "$JF"; do
   if [ -z "${EDGE[$h]}" ]; then row SKIP "HSTS on $h" "no A record"; continue; fi
@@ -228,6 +248,13 @@ if [ "$RATELIMIT" = 1 ]; then
   burst "$JF" /users/authenticatebyname "ratelimit burst+tail POST /users/authenticatebyname (case)"
   sleep 11
   burst "$SSO" /api/firstfactor "ratelimit burst+tail POST $SSO/api/firstfactor"
+  sleep 11
+  # ABS's own limiter (40 / 10 min per IP) stays under its threshold on one run
+  # (36 requests), so a 429 in the tail is the edge rule's. A second full run
+  # within 10 minutes can pass on ABS's own 429: wait 10 min between runs.
+  burst "$ABS" /login "ratelimit burst+tail POST $ABS/login"
+  sleep 11
+  burst "$ABS" /api/authorize "ratelimit burst+tail POST $ABS/api/authorize"
 else
   row SKIP "rate limit bursts" "--no-ratelimit"
 fi
@@ -244,5 +271,5 @@ printf '%-5s | %-58s | %s\n' STATE CHECK DETAIL
 printf '%s\n' "------+------------------------------------------------------------+-------------------------"
 printf '%s\n' "${ROWS[@]}"
 echo
-echo "PASS=$PASS FAIL=$FAIL SKIP/INFO=$SKIP  (edge: jellyfin=${EDGE[$JF]:-none} sso=${EDGE[$SSO]:-none})"
+echo "PASS=$PASS FAIL=$FAIL SKIP/INFO=$SKIP  (edge: jellyfin=${EDGE[$JF]:-none} sso=${EDGE[$SSO]:-none} abs=${EDGE[$ABS]:-none})"
 [ "$FAIL" -eq 0 ]

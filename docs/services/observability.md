@@ -64,6 +64,8 @@ Loki ruler rules live in `stacks/loki/rules/*.yml` (only `.yml` files there: the
 | `EdgeAuthFailureBurst` | `edge.yml` | warning | More than 60 401/403 per 5m from tunnel traffic for 5m (credential stuffing or a scanner) | [edge](../runbooks/security-alerts.md#edge) |
 | `EdgeJellyfinAdminPathHit` | `edge.yml` | critical | A Jellyfin admin path reached the origin through the tunnel: the Cloudflare WAF block rule was bypassed or is missing | [edge](../runbooks/security-alerts.md#edge) |
 | `EdgeJellyfinAdminPathProbe` | `edge.yml` | warning | The lab's edge probe reached a Jellyfin admin path through the tunnel: the Cloudflare block rule is missing that path | [edge](../runbooks/security-alerts.md#edge) |
+| `EdgeAbsAdminPathHit` | `edge.yml` | critical | An Audiobookshelf admin API path reached the origin through the tunnel: the Cloudflare WAF block rule was bypassed or is missing | [edge](../runbooks/security-alerts.md#edge) |
+| `EdgeAbsAdminPathProbe` | `edge.yml` | warning | The lab's edge probe reached an Audiobookshelf admin path through the tunnel: the Cloudflare block rule is missing that path | [edge](../runbooks/security-alerts.md#edge) |
 | `EdgeSpoofedCfHeaders` | `edge.yml` | warning | Cf-Connecting-Ip seen on the LAN entrypoint (websecure): the strip-cf middleware is not applied there | [edge](../runbooks/security-alerts.md#edge) |
 | `CloudflaredOutdated` | `edge.yml` | info | cloudflared reports a newer release: bump the pinned tag in stacks/dmz-proxy (or merge the Renovate PR) | [edge](../runbooks/security-alerts.md#edge) |
 | `CloudflaredEdgeFlapping` | `edge.yml` | warning | cloudflared lost its edge connection more than 4 times in 30m (WAN/ISP or Cloudflare side), held 5m | [edge](../runbooks/security-alerts.md#edge) |
@@ -103,8 +105,10 @@ Loki ruler rules live in `stacks/loki/rules/*.yml` (only `.yml` files there: the
 | `LibreseerrAdminWrite` | `request-apps.yml` | info | Libreseerr users/config/OIDC/LDAP write (expected only while you administer it) | [request-apps](../runbooks/security-alerts.md#request-apps) |
 | `SeerrErrorRate` | `request-apps.yml` | warning | Seerr logged more than 50 errors in 15m, held 5m | [request-apps](../runbooks/security-alerts.md#request-apps) |
 | `RequestAppsContainerChange` | `request-apps.yml` | info | Seerr/Libreseerr container recreated or crashed on kdk-dkr-dmz-01 | [request-apps](../runbooks/security-alerts.md#request-apps) |
-| `AbsLoginFailures` | `mobile-apps.yml` | warning | Audiobookshelf: more than 5 failed logins in 10m (inferred wording) | [mobile-apps](../runbooks/security-alerts.md#mobile-apps) |
-| `AbsNewUserOrApiKey` | `mobile-apps.yml` | warning | Audiobookshelf: a user or API key was created (inferred wording) | [mobile-apps](../runbooks/security-alerts.md#mobile-apps) |
+| `AbsLoginFailures` | `mobile-apps.yml` | warning | Audiobookshelf: more than 5 failed logins in 10m | [mobile-apps](../runbooks/security-alerts.md#mobile-apps) |
+| `AbsNewUserOrApiKey` | `mobile-apps.yml` | warning | Audiobookshelf: an API key was created or a new OIDC user auto-registered | [mobile-apps](../runbooks/security-alerts.md#mobile-apps) |
+| `AbsLoginFromInternet` | `mobile-apps.yml` | info | Audiobookshelf: login through the tunnel from … (also pings the phone) | [mobile-apps](../runbooks/security-alerts.md#mobile-apps) |
+| `AbsMassDownload` | `mobile-apps.yml` | warning | Audiobookshelf: … made more than 10 download requests in 15m (bulk export or a stolen token) | [mobile-apps](../runbooks/security-alerts.md#mobile-apps) |
 | `ImmichLoginFailures` | `mobile-apps.yml` | warning | Immich: more than 5 failed logins in 10m | [mobile-apps](../runbooks/security-alerts.md#mobile-apps) |
 | `ImmichAdminApiFromInternet` | `mobile-apps.yml` | critical | Immich admin API reached through the tunnel | [mobile-apps](../runbooks/security-alerts.md#mobile-apps) |
 | `ImmichMassDownload` | `mobile-apps.yml` | warning | Immich: more than 500 original/download requests in 15m (bulk export or a stolen session) | [mobile-apps](../runbooks/security-alerts.md#mobile-apps) |
