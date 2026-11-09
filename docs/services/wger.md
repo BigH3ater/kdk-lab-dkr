@@ -6,7 +6,7 @@ tier: internal
 status: live
 storage: yes
 secrets: [wger-secret-key, wger-postgres, wger-powersync-storage, wger-jwt-keys, wger-admin, wger-api-jmack, wger-api-rach]
-updated: 2026-11-07
+updated: 2026-11-08
 tags: [homelab/stack, tier/internal, status/live]
 ---
 
@@ -47,8 +47,7 @@ repeats that day on every date, so the app always shows it and its play button o
 Gym mode on it (a side effect: every routine shows the calendar icon every day). The
 starts are staggered one day apart with one shared end, so the list (newest start first)
 reads Mon..Sun; the home-screen card shows the first, Monday. Each description ends with
-`[kdk:mon]` .. `[kdk:sun]`: the generator finds its routines by it, and the treadmill
-auto-log finds today's routine by it.
+`[kdk:mon]` .. `[kdk:sun]`: the generator finds its routines by it.
 
 How a day logs in gym mode (app 2.1.2): per slot one overview page per exercise, then
 per set a record page followed by a rest-timer page (supersets alternate A, B with a
@@ -82,7 +81,7 @@ no link), so the generator never touches copies.
 | Deploy | Komodo stack `wger` (`deploy = true`, webhook; `pre_deploy` creates the bind dirs, `op inject`s `.env`, appends the nginx/PowerSync config SHAs) |
 | Storage | `/opt/kdk-lab/wger/postgres` (Postgres 18), `/opt/kdk-lab/wger/media` (exercise images, uploads), `/opt/kdk-lab/wger/static` (collectstatic output, regenerable), `/opt/kdk-lab/wger/beat` (Celery beat schedule) |
 | Backup | `pgdump-wger` in `backup-dkr-01`: nightly `wger-YYYY-MM-DD.sql.gz` (keeps 15) in `/mnt/backup/dkr/kdk-dkr-01/pgdump/`, PowerSync's `powersync` schema excluded (derived). `wger/postgres` and `wger/static` are excluded from the rsync; `media` and `beat` ride it. `backup-verify` pages if today's dump is missing or corrupt |
-| Blast radius | No exercise logging at all (wger is the only tracker since 2026-11-06); treadmill walks still land in HA (`tm_*`); a walk that ends while wger is down is not auto-logged (persistent notification `tm_wger_autolog`) |
+| Blast radius | No exercise logging at all (wger is the only tracker since 2026-11-06); treadmill walks still land in HA (`tm_*`) |
 
 ## Auth model
 
@@ -119,27 +118,10 @@ wger: AUTH_PROXY_HEADER=HTTP_REMOTE_USER, trusted IP = nginx; acts ONLY on /user
   this Traefik, and no wider: containers of other stacks that are not on `proxy`
   cannot forge it.
 
-## Treadmill auto-log (Track A3)
+## Treadmill auto-log (retired)
 
-Home Assistant logs every treadmill walk in wger for the person who walked
-(`stacks/home-assistant/config/packages/treadmill_wger.yaml`, set up in
-[runbook step 14](../runbooks/wger.md#14-treadmill-auto-log)). When the belt has
-been stopped for 2 minutes and HA closes the session, it calls the REST API with
-that person's key:
-
-| What | Value |
-|---|---|
-| Session | one per person per day: `datetime_start`/`datetime_end` of the walk, impression Neutral, today's weekday routine (tag `[kdk:fri]` on a Friday, e.g. Fri · Upper B) + its one day, notes `treadmill auto-log: 2.41 km, 4.8 km/h avg, 30.0 min (07:12–07:42)` |
-| Log | exercise treadmill-walk (id 1937), the weekday's walk slot entry, `repetitions` = minutes, unit Minutes (id 4), no weight |
-| Second walk that day | its notes line is appended to the same session (also to a session the app created for today's routine; a session of another routine is left alone and the walk gets its own), plus a second log |
-| Same walk again | nothing (the notes line is the idempotency key) |
-| Guest walk | not logged; HA shows a persistent notification |
-| Person without a key | not logged; a warning in the HA log (rach until her key exists) |
-| wger down / refused | HA shows a persistent notification with the walk's line, to enter by hand |
-
-The minutes are the belt time (start to the moment the speed reached 0), not the
-2-minute wait HA uses to decide the walk is over. Distance comes from the
-treadmill bridge; when the console reports none the notes say so.
+Retired 2026-11-08; walks are logged in the app (the Home Assistant auto-log
+double-counted a walk the owner also logged by hand).
 
 ## Verify
 
@@ -178,7 +160,6 @@ ls -t /mnt/backup/dkr/kdk-dkr-01/pgdump/wger-*.sql.gz | head -3                 
 | A custom muscle is listed under the map but not coloured | by design: the app colours only the 16 built-in muscle ids (bundled SVGs) | none |
 | `gen_wger.py --check` exits 1 | the catalog/guide changed since the last load, someone edited the routine in the app, or the 17-week window ends within 28 days | run it without `--check` to read the differences, then `--apply` (runbook step 9) |
 | `gen_wger.py` prints an ADMIN STEP | a repetition unit it needs (`10-ft lengths`) does not exist; REST cannot create units | run the printed `manage.py shell` one-liner on kdk-dkr-01, then re-run |
-| A treadmill walk is missing in wger | the walker was Guest, the person's key is the placeholder or revoked, or wger was down | HA notifications (id `tm_wger_autolog`); HA log `kdk.treadmill_wger`; the trace of automation `Treadmill: log walk to wger` / script `tm_wger_log_walk`. Re-log by hand from Developer Tools → Actions (`script.tm_wger_log_walk`, same fields; it writes nothing for a walk already there) |
 | `gen_wger.py`: HTTP 403 on `exercise/` | jmack is not a wger superuser (exercise writes need a trusted account) | runbook step 7 |
 | Deploy fails `Pool overlaps with other one on this address space` | another network already took 10.208.200.0/24 | pick a free /24 in 10.208.0.0/16, change it in `compose.yaml` (network + nginx `ipv4_address` + `AUTH_PROXY_TRUSTED_IPS`) and `nginx.conf` (`geo`), one PR |
 | Nightly `backup-dkr-01` fails with `network wger_backend not found` | the wger stack is down or was destroyed | deploy `wger` again; until then the whole dkr-01 stage is blocked (the pgdump job joins the network) |
@@ -250,7 +231,7 @@ All items in `kdk-cluster`, field `password` unless named.
 | `wger-powersync-storage` | PowerSync bucket-storage role | 🟢 self-service | new value, Deploy `wger`, re-run `setup-powersync-storage` (it updates the role password) |
 | `wger-jwt-keys` (`public_key`, `private_key`) | signs API JWTs + PowerSync tokens | 🟡 attended | regenerate (runbook step 1), Deploy `wger`; both apps must log in again |
 | `wger-admin` | break-glass Django `admin` | 🟢 self-service | new value, Deploy `wger`, re-run runbook step 4 |
-| `wger-api-jmack`, `wger-api-rach` | per-person REST API keys (A3 treadmill auto-log, A4 cards) | 🟢 self-service | regenerate on the person's API-key page, `op item edit` from stdin, then replace the `wger_api_key_<login>` line in HA `secrets.yaml` and reload `rest_command` ([runbook step 14](../runbooks/wger.md#14-treadmill-auto-log)) |
+| `wger-api-jmack`, `wger-api-rach` | per-person REST API keys (`gen_wger.py`, A4 cards) | 🟢 self-service | regenerate on the person's API-key page, `op item edit` from stdin ([runbook step 8](../runbooks/wger.md#8-api-key-per-person--1password)) |
 
 ## User Guide
 

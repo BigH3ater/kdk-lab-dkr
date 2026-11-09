@@ -95,7 +95,7 @@ input_number:
     icon: mdi:counter
   # Distance walked in the open session, metres, never decreases while the
   # latch is on (see SESSION DISTANCE above). START resets it to 0; it keeps
-  # the last session's value after END, which treadmill_wger.yaml reads.
+  # the last session's value after END.
   tm_session_peak_distance:
     name: Treadmill Session Peak Distance
     min: 0

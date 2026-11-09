@@ -4,11 +4,11 @@
 #   - gen-workout-guide.py (laptop-only, the --posters input of gen_wger.py) still prefers
 #     the range-of-motion PNG and writes workout.json (fake vault; the real one is private);
 #   - the HA Workout dashboards are the Treadmill view only and point at helpers that exist;
-#   - the treadmill -> wger package builds wger 2.7 payloads (tools/tests/test_treadmill_wger.py)
-#     and treadmill.yaml credits the session distance across the console reset
+#   - treadmill.yaml credits the session distance across the console reset
 #     (tools/tests/test_treadmill_session_distance.py).
 # The in-house HA helper generator (gen_workout.py) and the /workout/ Today page were
-# retired 2026-11-06 when wger won the tracking pilot.
+# retired 2026-11-06 when wger won the tracking pilot; the treadmill -> wger auto-log
+# (treadmill_wger.yaml) was retired 2026-11-08 (walks are logged in the app).
 name: workout-generated
 
 on:
@@ -39,7 +39,7 @@ jobs:
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.13"
-      - name: Install pytest (+ requests for gen_wger, PyYAML and Jinja2 for the HA package tests)
+      - name: Install pytest (+ requests for gen_wger, PyYAML and Jinja2 for the treadmill package test)
         run: python -m pip install pytest==8.4.2 requests==2.32.3 pyyaml==6.0.2 jinja2==3.1.6
       - name: Tests
         run: python -m pytest -q stacks/home-assistant/tools/tests

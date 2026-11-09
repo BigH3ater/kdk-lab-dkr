@@ -1,6 +1,6 @@
 ---
 title: Treadmill → Home Assistant (GlassOS/DIRCON bridge)
-updated: 2026-11-06
+updated: 2026-11-08
 ---
 
 # Treadmill → Home Assistant (GlassOS/DIRCON bridge)
@@ -296,7 +296,7 @@ It needs one host secret and two console profiles.
 
 ## Troubleshooting
 
-- **A walk was credited 0 m (or wger says "distance not reported")** — the
+- **A walk was credited 0 m** — the
   tracker did not see the counter rise during the session. Check the trace of
   `Treadmill: track session distance` (it must run while
   `input_boolean.tm_session_active` is on) and the history of
