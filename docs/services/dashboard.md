@@ -6,7 +6,7 @@ tier: internal
 status: live
 storage: yes
 secrets: [vikunja-app, jellyfin-api-ro, seerr-api-ro, audiobookshelf-api-ro, vikunja-api-ro, dashboard-tandoor-rw]
-updated: 2026-11-06
+updated: 2026-11-08
 tags: [homelab/stack, tier/internal, status/live]
 ---
 
@@ -82,7 +82,7 @@ guide generator survives as a laptop-only build step for wger
 (`stacks/home-assistant/tools/gen-workout-guide.py`, output to a scratch dir, never
 published). Since 2026-11-07 wger has a **Workouts** tile in the Home group and a
 **Workouts** sidebar link; the sidebar's two HA workout links became one **Treadmill**
-link (`/treadmill-workouts`). Removal and host clean-up: [workout-tracking-update runbook](../runbooks/workout-tracking-update.md#retirement-of-the-in-house-tracker-2026-11-06).
+link (`/treadmill-workouts`), removed 2026-11-08 with the treadmill HA integration. Removal and host clean-up: [workout-tracking-update runbook](../runbooks/workout-tracking-update.md#retirement-of-the-in-house-tracker-2026-11-06).
 
 ## Secret Rotation
 

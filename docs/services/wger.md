@@ -81,7 +81,7 @@ no link), so the generator never touches copies.
 | Deploy | Komodo stack `wger` (`deploy = true`, webhook; `pre_deploy` creates the bind dirs, `op inject`s `.env`, appends the nginx/PowerSync config SHAs) |
 | Storage | `/opt/kdk-lab/wger/postgres` (Postgres 18), `/opt/kdk-lab/wger/media` (exercise images, uploads), `/opt/kdk-lab/wger/static` (collectstatic output, regenerable), `/opt/kdk-lab/wger/beat` (Celery beat schedule) |
 | Backup | `pgdump-wger` in `backup-dkr-01`: nightly `wger-YYYY-MM-DD.sql.gz` (keeps 15) in `/mnt/backup/dkr/kdk-dkr-01/pgdump/`, PowerSync's `powersync` schema excluded (derived). `wger/postgres` and `wger/static` are excluded from the rsync; `media` and `beat` ride it. `backup-verify` pages if today's dump is missing or corrupt |
-| Blast radius | No exercise logging at all (wger is the only tracker since 2026-11-06); treadmill walks still land in HA (`tm_*`) |
+| Blast radius | No exercise logging at all (wger is the only tracker since 2026-11-06); treadmill walks too since 2026-11-08 (the HA treadmill integration is retired) |
 
 ## Auth model
 

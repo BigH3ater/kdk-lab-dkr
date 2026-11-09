@@ -1,6 +1,6 @@
 ---
 title: Home Assistant housekeeping
-updated: 2026-11-07
+updated: 2026-11-08
 ---
 
 # Home Assistant housekeeping
@@ -16,7 +16,7 @@ read-only; the fixes are noted next to each.
    backup. HA loads every `*.yaml` under `packages/`, and `pre_deploy` (`cp -f`)
    never deletes, so a stray copy can keep a retired package alive or hide which
    file is live. CI enforces it for the repo side
-   (`stacks/home-assistant/tools/tests/test_treadmill_dashboards.py`); the host side
+   (`stacks/home-assistant/tools/tests/test_ha_shipped_config.py`); the host side
    is the check below. Back up a host-only file (like `configuration.yaml`) with a
    dated copy *next to it* in `config/`, never inside those two dirs, and delete
    it once the change is validated.
@@ -84,4 +84,5 @@ If it is missing, take one by hand first: Settings → System → Backups →
 - 2026-11-07: removed the unused `blueair` and `scrypted` custom components (no
   config entry, no YAML; blueair's upstream repo was removed from the HACS
   marketplace) and merged the two identical treadmill dashboards into one
-  **Treadmill** dashboard (`/treadmill-workouts`).
+  **Treadmill** dashboard (`/treadmill-workouts`; retired 2026-11-08 with the
+  rest of the treadmill HA integration).
