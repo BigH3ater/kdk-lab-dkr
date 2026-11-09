@@ -1,7 +1,9 @@
 # Mobile-app backends on kdk-dkr-dmz-01: Audiobookshelf, Immich, Tandoor.
 # Source: vault 10.Homelab/Security/mobile-apps-posture-2026-10.md section 7.
-# None of the three is on the tunnel yet (routers are websecure-only), so the
-# "FromInternet" rules are tripwires for the day a router gains `tunnel`.
+# ABS and Immich are not on the tunnel (routers are websecure-only), so their
+# "FromInternet" rules are tripwires for the day a router gains `tunnel`. The Tandoor
+# router carries `websecure,tunnel` since the 2026-11-08 publish prep; it is public
+# only once the owner adds recipes.kmkdp.com as a tunnel public hostname.
 # "From the internet" = entryPointName="tunnel" (fallback
 # ClientAddr=~"10\\.211\\.2\\.2:.*"). RequestPath includes the query string.
 #
@@ -94,15 +96,16 @@ groups:
         expr: |
           sum(count_over_time({host="kdk-dkr-dmz-01", container="traefik"}
             |= "recipes.kmkdp.com" | json | RequestHost="recipes.kmkdp.com"
-            | RequestPath=~"/_allauth/browser/v1/auth/login(\\?.*)?" | DownstreamStatus=~"40[01]" [10m])) > 5
+            | RequestPath=~"/_allauth/browser/v1/auth/login(\\?.*)?" | RequestMethod="POST"
+            | DownstreamStatus=~"40[01]|429" [10m])) > 5
         for: 0m
         labels:
           severity: warning
           source: loki
           scope: mobile-apps
         annotations:
-          summary: "Tandoor: more than 5 failed logins in 10m"
-          description: "The DMZ Traefik logged more than 5 400/401s on the Tandoor allauth login for recipes.kmkdp.com in 10m. Tandoor has no lockout; find the client and block it at the WAF."
+          summary: "Tandoor: more than 5 failed or rate-limited logins in 10m"
+          description: "The DMZ Traefik logged more than 5 400/401/429s on the Tandoor allauth login POST for recipes.kmkdp.com in 10m (429 = allauth's per-IP limiter, 3 login POSTs/min). Tandoor has no lockout beyond that; find the client (ClientHost) and block it at the WAF."
           runbook: docs/runbooks/security-alerts.md#mobile-apps
 
       - alert: TandoorAdminFromInternet
@@ -118,4 +121,63 @@ groups:
         annotations:
           summary: "Tandoor /admin reached through the tunnel"
           description: "The DMZ Traefik logged a request to /admin on recipes.kmkdp.com through the tunnel, which should never be routed. Remove the public hostname until the WAF path block is fixed."
+          runbook: docs/runbooks/security-alerts.md#mobile-apps
+
+      # Tandoor publish prep (vault tandoor-public-readiness-2026-11-08, section 6).
+      # Spaces, invite links, space memberships and invite signups made through the
+      # web. Expected ~0 a month; host-side ORM/shell writes never show here.
+      - alert: TandoorSpaceOrUserCreated
+        expr: |
+          sum by (RequestPath, ClientHost) (count_over_time({host="kdk-dkr-dmz-01", container="traefik"}
+            |= "recipes.kmkdp.com" | json | RequestHost="recipes.kmkdp.com"
+            | RequestMethod="POST" | DownstreamStatus=~"2.."
+            | RequestPath=~"/api/(space|invite-link|user-space)/.*|/_allauth/browser/v1/auth/signup.*" [15m])) > 0
+        for: 0m
+        labels:
+          severity: info
+          source: loki
+          scope: mobile-apps
+          # Security-adjacent account/space change: also ping the phone (quiet
+          # Pushover) promptly, not only the info e-mail digest.
+          notify: phone
+        annotations:
+          summary: "Tandoor: a space, invite link, membership or signup was created"
+          description: "The DMZ Traefik logged a successful POST to a Tandoor space/invite-link/user-space endpoint or the allauth signup for recipes.kmkdp.com. Expected only when the owner or a space admin invites someone; otherwise check Tandoor space settings, members and invite links (kdkadmin, LAN)."
+          runbook: docs/runbooks/security-alerts.md#mobile-apps
+
+      # Any successful password login through the tunnel (the Traefik log has no
+      # username; OIDC logins go through Authelia, not this endpoint). Only kdkadmin,
+      # dashboard (LAN-only) and invitee accounts have passwords.
+      - alert: TandoorPasswordLoginFromInternet
+        expr: |
+          sum(count_over_time({host="kdk-dkr-dmz-01", container="traefik"}
+            |= "recipes.kmkdp.com" | json | RequestHost="recipes.kmkdp.com" | entryPointName="tunnel"
+            | RequestMethod="POST" | RequestPath=~"/_allauth/browser/v1/auth/login(\\?.*)?"
+            | DownstreamStatus=~"2.." [15m])) > 0
+        for: 0m
+        labels:
+          severity: info
+          source: loki
+          scope: mobile-apps
+          notify: phone
+        annotations:
+          summary: "Tandoor: password login through the tunnel"
+          description: "The DMZ Traefik logged a successful Tandoor password login (allauth) arriving on the tunnel entrypoint. Expected for an invitee household; if nobody expected it, check usersessions_usersession (user + real IP) and revoke the session."
+          runbook: docs/runbooks/security-alerts.md#mobile-apps
+
+      # Mediafiles abuse by a space member: Tandoor has no per-space storage cap
+      # unless the space quota (max_file_storage_mb) is set.
+      - alert: TandoorUploadBurst
+        expr: |
+          sum by (ClientHost) (count_over_time({host="kdk-dkr-dmz-01", container="traefik"}
+            |= "recipes.kmkdp.com" | json | RequestHost="recipes.kmkdp.com"
+            | RequestMethod=~"POST|PUT" | RequestPath=~"/api/(user-file/|recipe/[0-9]+/image/).*" [10m])) > 50
+        for: 0m
+        labels:
+          severity: warning
+          source: loki
+          scope: mobile-apps
+        annotations:
+          summary: "Tandoor: more than 50 uploads from one client in 10m"
+          description: "The DMZ Traefik logged more than 50 Tandoor file/image uploads from one ClientHost in 10m. Check which user/space (Tandoor space settings, file storage) and du -sh /opt/kdk-lab/tandoor/mediafiles; set the space's max_file_storage_mb."
           runbook: docs/runbooks/security-alerts.md#mobile-apps
