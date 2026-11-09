@@ -6,7 +6,7 @@ tier: dmz
 status: live
 storage: yes
 secrets: [authelia-app-secrets]
-updated: 2026-10-29
+updated: 2026-11-08
 tags: [homelab/stack, tier/dmz, status/live]
 ---
 
@@ -28,6 +28,21 @@ Shared household recipe manager + weekly meal plan + pantry-aware shopping list 
 | Storage | Postgres `tandoor` in `/opt/kdk-lab/tandoor/postgres`; `staticfiles` + `mediafiles` local on disk |
 | Backup | Postgres is `pg_dump`ed nightly by `backup-dmz` (`tandoor-YYYY-MM-DD.sql.gz`, keeps 15, in `/mnt/backup/dkr/kdk-dkr-dmz-01/pgdump/`); the live `tandoor/postgres` cluster dir is excluded from the rsync. `mediafiles` (uploaded images) rides the rsync offsite; `staticfiles` is excluded (regenerable). See [[backups]] |
 | Blast radius | No recipes / meal plan / shopping list |
+
+## Households / spaces
+
+Each household gets its own Tandoor **space**: its own recipes, meal plan and shopping list. Members of one space cannot see another space.
+
+| Space (id) | Household | Members |
+|---|---|---|
+| Mack House (3) | The Macks | jmack, rach (admin), `dashboard` (user, API token for the home dashboard) |
+| Ketelaar (5) | Ketelaar | jketelaar (admin, local account, 2026-11-08) |
+
+`admin's Space` (2) and `kdkadmin's Space` (4) are the automatic personal spaces of the two admin accounts.
+
+**Gotcha:** with `SOCIAL_DEFAULT_ACCESS=1`, a person's **first** "Sign in with Authelia" also adds them as a guest to `Space.objects.first()` (today that is `admin's Space`, not Mack House), and Tandoor creates a "<user>'s Space" for them as well. So for a person who belongs only in their own household, create a **local** account in that space instead (one `manage.py shell` run inside `tandoor-web`, using `/opt/recipes/venv/bin/python`). Put the temporary password in 1Password, and the person can link Authelia afterwards from their account settings. If someone does go through the Authelia signup, remove the extra memberships afterwards under Space settings → Members.
+
+Reachability: `recipes.kmkdp.com` is LAN-only (no tunnel hostname), so people outside the house need Tailscale.
 
 ## Verify
 
