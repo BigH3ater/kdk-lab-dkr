@@ -163,9 +163,13 @@ BODYWEIGHT = "none (bodyweight exercise)"
 MUSCLES = ("Shoulders", "Biceps", "Hamstrings", "Brachialis", "Lower back", "Calves", "Glutes", "Lats",
            "Obliquus externus abdominis", "Chest", "Quads", "Abs", "Serratus anterior", "Soleus",
            "Trapezius", "Triceps")
-# Local muscle rows (runbook step 13) for areas the built-ins miss: name -> is_front. The app lists
-# them by name under the map and never colours them. A sidecar name the server lacks is left out
-# with a warning when it is one of these, and is an error (a typo) otherwise.
+# Local muscle rows (runbook step 13) for areas the built-ins miss: name -> is_front. They stay in
+# the sidecar for the description text, but LINK_CUSTOM_MUSCLES keeps them off the wger exercise:
+# the iOS app loads a bundled muscle-<id>.svg for every linked muscle, ships only ids 1-16, and
+# raises an error for any other id (seen on app 2.1.2, 2026-11-09). Set it to True once the app
+# skips muscles it has no image for. While True, a sidecar name the server lacks is left out with
+# a warning when it is one of these, and is an error (a typo) otherwise.
+LINK_CUSTOM_MUSCLES = False
 CUSTOM_MUSCLES = {"Forearm flexors": True, "Forearm extensors": False, "Hand intrinsics": True,
                   "Adductors": True, "Tibialis anterior": True}
 PROSE = {"Obliquus externus abdominis": "obliques", "Serratus anterior": "serratus",
@@ -724,6 +728,8 @@ def sync_exercises(api: Api, specs: dict, ref: dict, can_write: bool, warn) -> d
         muscles, secondary = [], []
         for names, out in ((sp["muscles"], muscles), (sp["secondary"], secondary)):
             for n in names:
+                if n in CUSTOM_MUSCLES and not LINK_CUSTOM_MUSCLES:
+                    continue
                 if n in ref["muscle"]:
                     out.append(ref["muscle"][n])
                 elif n in CUSTOM_MUSCLES:

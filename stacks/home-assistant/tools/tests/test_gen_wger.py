@@ -766,7 +766,35 @@ def test_local_equipment_rows_link_per_slug(guide, fake):
     assert names("treadmill-walk") == ["Treadmill"]
 
 
-def test_custom_muscles_left_out_until_created_then_linked(guide, fake, capsys):
+def test_custom_muscles_are_never_linked_but_stay_in_the_text(guide, fake, capsys):
+    """The iOS app errors on any linked muscle id without a bundled SVG (ids above 16)."""
+    fake.t["muscle"][90] = {"id": 90, "name": "Forearm flexors", "name_en": "Forearm flexors"}
+    assert run(guide, "--apply") == 0
+    assert "wger has no muscle" not in capsys.readouterr().err
+    by = by_slug(fake)
+    glides = fake.t["exercise"][by["hand-glides"]["exercise"]]
+    assert glides["muscles"] == [] and glides["muscles_secondary"] == []
+    wc = fake.t["exercise"][by["wrist-curl"]["exercise"]]
+    assert wc["muscles"] == [] and wc["muscles_secondary"] == muscle_ids(fake, ["Brachialis"])
+    assert by["wrist-curl"]["description_source"].startswith("Works the forearm flexors; also the brachialis.")
+    fake.writes.clear()
+    assert run(guide, "--apply") == 0 and fake.writes == []
+    assert run(guide, "--check") == 0
+
+
+def test_an_already_linked_custom_muscle_is_unlinked(guide, fake, monkeypatch):
+    fake.t["muscle"][90] = {"id": 90, "name": "Forearm flexors", "name_en": "Forearm flexors"}
+    monkeypatch.setattr(gw, "LINK_CUSTOM_MUSCLES", True)
+    assert run(guide, "--apply") == 0
+    ex = fake.t["exercise"][by_slug(fake)["wrist-curl"]["exercise"]]
+    assert ex["muscles"] == [90]
+    monkeypatch.setattr(gw, "LINK_CUSTOM_MUSCLES", False)
+    assert run(guide, "--apply") == 0
+    assert ex["muscles"] == []
+
+
+def test_custom_muscles_left_out_until_created_then_linked(guide, fake, capsys, monkeypatch):
+    monkeypatch.setattr(gw, "LINK_CUSTOM_MUSCLES", True)
     assert run(guide, "--apply") == 0
     err = capsys.readouterr().err
     for n in gw.CUSTOM_MUSCLES:

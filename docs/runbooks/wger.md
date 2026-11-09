@@ -540,6 +540,8 @@ Then step 9's `--apply` links them (the `wger has no equipment 'Pool'` warnings 
 
 ## 13. Custom muscles (admin, staged; after step 12)
 
+> **Not linked since 2026-11-09.** The iOS app raises `Unable to load asset … muscle-<id>.svg` for any muscle id above 16, so `LINK_CUSTOM_MUSCLES = False` in `gen_wger.py` keeps these rows off the exercises. The five rows still exist on the server and the descriptions still name the muscles. Set the constant to `True` and re-run step 9 only once the app skips muscles it has no image for.
+
 wger's 16 built-in muscles have no hands, forearms, adductors or shins.
 `tools/wger_exercises.json` already names five local muscles for those slugs:
 
