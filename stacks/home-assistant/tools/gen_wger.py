@@ -54,8 +54,8 @@ What it writes (runbook: docs/runbooks/wger.md, "Load the catalog"):
      way") doubles the sets, one logged set per side (odd = left, even = right), said in the
      slot and entry comments; the exercise description keeps the dose as written. A
      "2–3× a day" dose is one break's worth (the break is not multiplied). The description
-     ends with the tag "[kdk:<mon..sun>]": routines are found by it, and the HA treadmill
-     auto-log finds today's routine by it.
+     ends with the tag "[kdk:<mon..sun>]": routines are found by it (the HA treadmill
+     auto-log that also read it was retired 2026-11-08).
      Window: wger caps a routine at 120 days and lists routines by -start, -created, so the
      starts are staggered one day per weekday (Monday's routine starts on this week's
      Monday, Sunday's six days earlier) with one shared end 16 weeks after that Monday: the

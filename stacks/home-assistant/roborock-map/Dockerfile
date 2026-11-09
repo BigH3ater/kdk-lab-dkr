@@ -1,5 +1,5 @@
-# Same digest-pinned base as stacks/treadmill-bridge/Dockerfile (one slim Python
-# to track for CVEs across the lab's home-built services). numpy + Pillow ship
+# Digest-pinned slim Python base (one slim Python to track for CVEs across the
+# lab's home-built services). numpy + Pillow ship
 # manylinux aarch64 wheels, so no compiler is needed on the Pi.
 FROM python:3.12.16-slim@sha256:5e2bdb1b0d542d5039cffb8181c65930093949194a65c365dfb1b0fe13a4fa5b
 COPY requirements.txt /app/requirements.txt

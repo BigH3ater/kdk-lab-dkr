@@ -33,7 +33,8 @@ illustrative.
 - [wger — first deploy and onboarding](wger.md) — pilot Track A: 1Password items (incl. the JWT keypair from wger's generator), deploy, bootstrap-admin reset, PowerSync storage, Authelia header login, per-person API keys, iOS app login + offline test, backup check, rollback.
 - [Exercise plan update (wger)](workout-tracking-update.md) — change an exercise, dose or cue and load it into both people's wger routines; also the 2026-11-06 retirement of the in-house tracker (host steps).
 - [Home Assistant housekeeping](home-assistant-housekeeping.md) — standing rules: no `*.bak` in packages/dashboards, unused custom components out, dead Zigbee devices pruned, entity-registry orphan check, the daily-backup check before an upgrade.
-- [Treadmill → Home Assistant (GlassOS/DIRCON bridge)](treadmill-glassos-bridge.md) — the read-only DIRCON→MQTT bridge on kdk-dkr-02: console prerequisites (NordicFTMS, DHCP reservation), the MackTrack console app loop (GitHub Actions build, install/smoke/rollback from kdk-dkr-04), deploy order, optional broker auth, the three-slice rollout.
+- [Treadmill console HUD (MackTrack)](treadmill-hud.md) — the thud fork on the treadmill console: prerequisites (NordicFTMS, DHCP reservation), GitHub Actions build, pair/install/smoke/rollback from kdk-dkr-04 with `kdk/tm-*.sh`.
+- [Treadmill → Home Assistant (retired)](treadmill-glassos-bridge.md) — retired 2026-11-08: the DIRCON→MQTT bridge, the HA treadmill package and dashboard; what was removed and where the HUD docs went.
 
 Conventions used throughout:
 

@@ -30,7 +30,6 @@
     ["Home Control",      "https://homeassistant.kmkdp.com/home-controls"],
     ["Vacuum",            "https://homeassistant.kmkdp.com/roborock-vac/mr-slave"],
     ["Homelab",           "https://homeassistant.kmkdp.com/homelab-hw"],
-    ["Treadmill",         "https://homeassistant.kmkdp.com/treadmill-workouts"],
     ["Workouts",          "https://wger.kmkdp.com/"],
     ["Budget",            "https://budget.kmkdp.com/"],
     ["Watch",             "https://jellyfin.kmkdp.com/"],

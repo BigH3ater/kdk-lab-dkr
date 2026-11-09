@@ -188,7 +188,7 @@
     },
     "ghcr.io/tandoorrecipes/recipes": {
       "github": "TandoorRecipes/recipes",
-      "note": "GHSA-c7mc-c9jr-38hf (2026-10) carries the malformed range 'recipes' upstream, so it stays Unknown/Medium by design; re-check when Tandoor fixes the advisory metadata."
+      "note": "GHSA-c7mc-c9jr-38hf (2026-10) carries the malformed range 'recipes' upstream, so it stays Unknown/Medium by design; it is PATCHED in 2.7.0 (release notes name the GHSA; running 2.7.2 code filters by request.space, verified 2026-11-08). Re-check when Tandoor fixes the advisory metadata."
     },
     "ghcr.io/tecnativa/docker-socket-proxy": {
       "github": "Tecnativa/docker-socket-proxy",
@@ -285,11 +285,6 @@
       "local": true,
       "base": "python",
       "note": "built from stacks/home-assistant/roborock-map/Dockerfile; recolours HA's Roborock map PNG (Flask+numpy+Pillow), loopback only"
-    },
-    "kdk/treadmill-bridge": {
-      "local": true,
-      "base": "python",
-      "note": "built from stacks/treadmill-bridge/Dockerfile; DIRCON(TCP)->MQTT telemetry bridge, read-only"
     },
     "kdk/wizarr": {
       "local": true,

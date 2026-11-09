@@ -29,3 +29,13 @@ def repo_cfg(monkeypatch):
     monkeypatch.setattr(stock, "_cleanup", cfg["cleanup"])
     monkeypatch.setattr(stock, "_config", cfg["config"])
     return cfg
+
+
+@pytest.fixture(autouse=True)
+def _fresh_caches():
+    """Each test starts with an empty grocery snapshot and recipe cache (both
+    are process-wide in the app)."""
+    import app
+    app._gcache.update(ts=0.0, day=None, entries=None, plan=None, lines=[])
+    app._RECIPE_CACHE.clear()
+    yield

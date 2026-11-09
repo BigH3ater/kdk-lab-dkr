@@ -25,7 +25,8 @@ The login flow (django-allauth) and the meal-plan / cook-log field names are the
 load-bearing bits to confirm on first deploy -- they are called out inline below.
 """
 from __future__ import annotations
-import os, re, json, datetime, logging
+import os, re, json, datetime, logging, threading, time
+from concurrent.futures import ThreadPoolExecutor
 from zoneinfo import ZoneInfo
 import requests
 import urllib3
@@ -56,8 +57,28 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(mess
 log = logging.getLogger("mealplan")
 app = Flask(__name__)
 
-# One shared requests.Session; re-login lazily if the session goes stale (403/redirect).
+# One shared requests.Session (keep-alive: every call reuses the same TLS
+# connection pool); re-login lazily if the session goes stale (403/redirect).
 _sess: requests.Session | None = None
+_login_lock = threading.Lock()
+
+# Upstream call counter for the timing log lines. A refresh sets _tl.stats to a
+# dict; every Tandoor call made on that thread -- or on a recipe prefetch worker
+# handed the same dict -- adds one call and its milliseconds.
+_tl = threading.local()
+_stats_lock = threading.Lock()
+
+
+def _count(t0: float) -> None:
+    st = getattr(_tl, "stats", None)
+    if st is not None:
+        with _stats_lock:
+            st["calls"] += 1
+            st["ms"] += (time.monotonic() - t0) * 1000
+
+
+def _new_stats() -> dict:
+    return {"calls": 0, "ms": 0.0}
 
 
 def _login() -> requests.Session:
@@ -94,17 +115,31 @@ def _login() -> requests.Session:
 def _session() -> requests.Session:
     global _sess
     if _sess is None:
-        _sess = _login()
+        with _login_lock:                     # prefetch workers must not all log in
+            if _sess is None:
+                _sess = _login()
+    return _sess
+
+
+def _relogin(stale: requests.Session) -> requests.Session:
+    """Replace a stale session once, even if several threads hit the 403 together."""
+    global _sess
+    with _login_lock:
+        if _sess is stale or _sess is None:
+            _sess = _login()
     return _sess
 
 
 def _api_get(path: str) -> requests.Response:
-    global _sess
     s = _session()
+    t0 = time.monotonic()
     r = s.get(f"{TANDOOR_URL}{path}", timeout=20)
+    _count(t0)
     if r.status_code in (401, 403):           # stale session -> re-login once
-        _sess = _login()
-        r = _sess.get(f"{TANDOOR_URL}{path}", timeout=20)
+        s = _relogin(s)
+        t0 = time.monotonic()
+        r = s.get(f"{TANDOOR_URL}{path}", timeout=20)
+        _count(t0)
     return r
 
 
@@ -126,21 +161,74 @@ def _parse_date(v: str) -> datetime.date | None:
             return None
 
 
-_IMG_CACHE: dict[int, str | None] = {}
+# One cache for everything the pages need from /api/recipe/<id>/ (photo,
+# servings, ingredients), so a recipe is fetched once per TTL, not once for the
+# photo and again for the ingredients. Misses are fetched in parallel
+# (_prefetch_recipes) instead of one ~300 ms round trip after another.
+_RECIPE_CACHE: dict[int, tuple[float, dict]] = {}
+_RECIPE_TTL = int(os.environ.get("RECIPE_TTL_S", "1800"))   # recipes change rarely
+_RECIPE_WORKERS = 6
+
+
+def _recipe(rid: int) -> dict:
+    """{servings, image, ingredients: [{food, amount, unit}]} for a recipe (cached).
+    Tandoor 2.x recipe JSON: steps[].ingredients[] with food{name}, unit{name}|null,
+    amount, is_header, no_amount."""
+    hit = _RECIPE_CACHE.get(rid)
+    if hit and time.time() - hit[0] < _RECIPE_TTL:
+        return hit[1]
+    r = _api_get(f"/api/recipe/{rid}/")
+    r.raise_for_status()
+    d = r.json()
+    ings = []
+    for step in d.get("steps") or []:
+        for ing in step.get("ingredients") or []:
+            food = (ing.get("food") or {}).get("name")
+            if not food or ing.get("is_header"):
+                continue
+            unit = ing.get("unit")
+            unit = unit.get("name") if isinstance(unit, dict) else (unit or "")
+            ings.append({"food": food,
+                         "amount": 0 if ing.get("no_amount") else float(ing.get("amount") or 0),
+                         "unit": unit or ""})
+    out = {"servings": d.get("servings"), "image": d.get("image"), "ingredients": ings}
+    _RECIPE_CACHE[rid] = (time.time(), out)
+    return out
+
+
+def _prefetch_recipes(rids, fetch=None) -> None:
+    """Warm _RECIPE_CACHE for every uncached/expired recipe id, in parallel
+    (`fetch` defaults to _recipe). Failures are left to the caller's own
+    (logged) fallback."""
+    fetch = fetch or _recipe
+    now = time.time()
+    todo = sorted({r for r in rids if r and not (
+        r in _RECIPE_CACHE and now - _RECIPE_CACHE[r][0] < _RECIPE_TTL)})
+    if not todo:
+        return
+    stats = getattr(_tl, "stats", None)
+
+    def one(rid):
+        _tl.stats = stats                      # count the worker's calls too
+        try:
+            fetch(rid)
+        except Exception:
+            log.warning("recipe %s prefetch failed", rid)
+
+    with ThreadPoolExecutor(max_workers=min(_RECIPE_WORKERS, len(todo))) as pool:
+        list(pool.map(one, todo))
 
 
 def _recipe_image(rid: int, nested: dict) -> str | None:
     """Recipe photo URL. Tandoor's /media/ files are UUID-named and served without
     a login, so the browser loads them directly. Falls back to the recipe detail
-    when the nested meal-plan recipe has no image field (cached per process)."""
+    when the nested meal-plan recipe has no image field (shared recipe cache)."""
     if nested.get("image"):
         return nested["image"]
-    if rid not in _IMG_CACHE:
-        try:
-            _IMG_CACHE[rid] = _api_get(f"/api/recipe/{rid}/").json().get("image")
-        except Exception:
-            return None
-    return _IMG_CACHE[rid]
+    try:
+        return _recipe(rid).get("image")
+    except Exception:
+        return None
 
 
 def fetch_plan(mon: datetime.date, sun: datetime.date) -> list[dict]:
@@ -151,6 +239,10 @@ def fetch_plan(mon: datetime.date, sun: datetime.date) -> list[dict]:
     r.raise_for_status()
     data = r.json()
     rows = data.get("results", data) if isinstance(data, dict) else data
+    # Photos missing from the nested recipe come from the recipe detail: fetch
+    # those in parallel up front, not one by one inside the loop.
+    _prefetch_recipes(e["recipe"].get("id") for e in rows or []
+                      if isinstance(e.get("recipe"), dict) and not e["recipe"].get("image"))
     out = []
     for e in rows or []:
         d = _parse_date(e.get("from_date") or e.get("date") or "")
@@ -617,12 +709,15 @@ def _api_write(method: str, path: str, body: dict) -> bool:
     """POST/PATCH to Tandoor with the CSRF header + Referer, re-login once on 401/403."""
     s = _session()
     hdrs = {"X-CSRFToken": s.cookies.get("csrftoken", ""), "Referer": f"{TANDOOR_URL}/"}
+    t0 = time.monotonic()
     r = s.request(method, f"{TANDOOR_URL}{path}", json=body, headers=hdrs, timeout=20)
+    _count(t0)
     if r.status_code in (401, 403):
-        globals()["_sess"] = _login()
-        s = _sess
+        s = _relogin(s)
         hdrs["X-CSRFToken"] = s.cookies.get("csrftoken", "")
+        t0 = time.monotonic()
         r = s.request(method, f"{TANDOOR_URL}{path}", json=body, headers=hdrs, timeout=20)
+        _count(t0)
     return r.status_code in (200, 201, 204)
 
 
@@ -637,8 +732,10 @@ def _parse_cat(name: str):
 
 
 def _fetch_shopping():
-    """All shopping-list entries (follow pagination)."""
-    out, path = [], "/api/shopping-list-entry/"
+    """All shopping-list entries. One page of up to 200 (the weekly list plus
+    Tandoor's recently-checked tail is ~100; the default page of 50 cost a second
+    ~350 ms round trip), still following `next` if a list ever outgrows it."""
+    out, path = [], "/api/shopping-list-entry/?page_size=200"
     while path:
         r = _api_get(path)
         r.raise_for_status()
@@ -841,6 +938,8 @@ background:var(--ink);color:var(--ash);border:1px solid var(--ink-hairline);bord
 padding:7px 14px;cursor:pointer;min-height:36px}
 .tabs button[aria-selected=true]{color:var(--ink);background:var(--ember);border-color:var(--ember)}
 .tabs .n{margin-left:6px;opacity:.8}
+.tabs .upd{margin-left:auto;align-self:center;font:400 11px 'JetBrains Mono',monospace;
+color:var(--ash);text-decoration:none}
 .js .tab{display:none}
 .js .tab.on{display:block}
 .gi .lbl .qty{color:var(--ember);margin-left:8px;font-family:'JetBrains Mono',monospace;font-size:13px}
@@ -920,7 +1019,14 @@ document.addEventListener('click', function (e) {
   history.replaceState(null, '', '#' + b.dataset.tab);
   showTab(b.dataset.tab);
 });
+// "refresh" keeps the open tab, and the ?refresh=1 is dropped from the URL
+// afterwards so a plain reload is served from the cache again.
+document.addEventListener('click', function (e) {
+  var a = e.target.closest('a.upd');
+  if (a) { a.href = 'groceries?refresh=1' + location.hash; }
+});
 document.addEventListener('DOMContentLoaded', function () {
+  if (location.search) { history.replaceState(null, '', 'groceries' + location.hash); }
   showTab(location.hash.slice(1) || 'newpi');
 });
 """
@@ -960,37 +1066,13 @@ def _render_meal_cards(plan: list[dict] | None, today: datetime.date, thaw_line:
 # next weekly build is unaffected. Thaw: the week's freezer-stock ingredients
 # (Amana beef, O'Connell chicken/pork, Costco frozen salmon) with the time to
 # move each to the fridge, from the `thaw:` lead table in the planner config.
-_RECIPE_CACHE: dict[int, tuple[float, dict]] = {}
-_RECIPE_TTL = 600            # s; recipes change rarely, the page reloads often
 DATA_DIR = os.environ.get("MEALPLAN_DATA", "/data")
 THAW_FILE = os.path.join(DATA_DIR, "thaw.json")
 
 
 def _recipe_detail(rid: int) -> dict:
-    """{servings, ingredients: [{food, amount, unit}]} for a recipe (cached).
-    Tandoor 2.x recipe JSON: steps[].ingredients[] with food{name}, unit{name}|null,
-    amount, is_header, no_amount."""
-    import time as _t
-    hit = _RECIPE_CACHE.get(rid)
-    if hit and _t.time() - hit[0] < _RECIPE_TTL:
-        return hit[1]
-    r = _api_get(f"/api/recipe/{rid}/")
-    r.raise_for_status()
-    d = r.json()
-    ings = []
-    for step in d.get("steps") or []:
-        for ing in step.get("ingredients") or []:
-            food = (ing.get("food") or {}).get("name")
-            if not food or ing.get("is_header"):
-                continue
-            unit = ing.get("unit")
-            unit = unit.get("name") if isinstance(unit, dict) else (unit or "")
-            ings.append({"food": food,
-                         "amount": 0 if ing.get("no_amount") else float(ing.get("amount") or 0),
-                         "unit": unit or ""})
-    out = {"servings": d.get("servings"), "ingredients": ings}
-    _RECIPE_CACHE[rid] = (_t.time(), out)
-    return out
+    """{servings, ingredients} for a recipe, from the shared recipe cache."""
+    return _recipe(rid)
 
 
 def _plan_lines(plan: list[dict], detail=None) -> list[dict]:
@@ -1171,10 +1253,162 @@ def _render_thaw(rows: list[dict], today: datetime.date) -> str:
 
 
 
-def _render_groceries():
+# ---- Grocery data cache -----------------------------------------------------
+# Before this cache every page load fetched the whole shopping list (2 pages,
+# ~300 KB), the 2-week meal plan, and -- every 10 min -- each planned recipe one
+# by one: ~1 s warm, ~5 s cold (2026-11-08, 16 recipes). Now one snapshot
+# {entries, plan, lines} lives in memory and the page renders from it:
+#   * a warmer thread refreshes it every GROCERY_REFRESH_S (default 120 s), so a
+#     page view never waits on Tandoor;
+#   * a snapshot older than GROCERY_TTL_S is still served, and a background
+#     refresh is kicked; older than _GROCERY_MAX_STALE (or none yet, or a new
+#     day) the request refreshes synchronously;
+#   * this page's own writes update the snapshot at once: a tick marks the
+#     entries checked in place, an add/reorder re-reads the list before the
+#     redirect -- so the page never shows a ticked item again;
+#   * ?refresh=1 (the "refresh" link) forces a synchronous refresh, for changes
+#     made in Tandoor itself that should show before the next warm cycle.
+# Every render and refresh logs one logfmt line (ms, upstream_calls) for Loki.
+_GROCERY_TTL = int(os.environ.get("GROCERY_TTL_S", "120"))
+_GROCERY_REFRESH = int(os.environ.get("GROCERY_REFRESH_S", "120"))   # 0 = no warmer
+_GROCERY_MAX_STALE = 900
+_gcache: dict = {"ts": 0.0, "day": None, "entries": None, "plan": None, "lines": []}
+_gcache_lock = threading.Lock()      # guards _gcache
+_refresh_lock = threading.Lock()     # one refresh at a time (single flight)
+
+
+def _with_stats(stats, fn, *a):
+    _tl.stats = stats
+    try:
+        return fn(*a)
+    finally:
+        _tl.stats = None
+
+
+def _plan_and_lines(today: datetime.date):
+    """One plan fetch feeds Meals, Pantry ("used this week") and Thaw: from the
+    start of this plan week (Sun) to two weeks out (the planner fills next week
+    on Tuesday). Recipe details are fetched in parallel, then expanded."""
+    plan = fetch_plan(stock.plan_week_start(today), today + datetime.timedelta(days=13))
+    _prefetch_recipes((e.get("recipe_id") for e in plan), fetch=_recipe_detail)
+    return plan, _plan_lines(plan)
+
+
+def _snapshot() -> dict:
+    with _gcache_lock:
+        return dict(_gcache)
+
+
+def _grocery_refresh(plan: bool = True, reason: str = "sync") -> dict:
+    """Re-read the shopping list (and, with plan=True, the meal plan + recipes)
+    from Tandoor and swap the snapshot in. A failed shopping fetch raises and
+    leaves the old snapshot alone; a failed plan fetch keeps the old plan for
+    the same day, else plan=None (the tabs say "couldn't load")."""
+    with _refresh_lock:
+        stats, t0 = _new_stats(), time.monotonic()
+        today = datetime.datetime.now(TZ).date()
+        old = _snapshot()
+        new_plan, lines = old["plan"], old["lines"]
+        if plan:
+            with ThreadPoolExecutor(max_workers=2) as pool:
+                fs = pool.submit(_with_stats, stats, _fetch_shopping)
+                fp = pool.submit(_with_stats, stats, _plan_and_lines, today)
+                try:
+                    new_plan, lines = fp.result()
+                except Exception:
+                    log.exception("groceries: plan fetch failed")
+                    if old["day"] != today:
+                        new_plan, lines = None, []
+                entries = fs.result()
+        else:
+            entries = _with_stats(stats, _fetch_shopping)
+        with _gcache_lock:
+            _gcache.update(ts=time.time(), day=today, entries=entries,
+                           plan=new_plan, lines=lines)
+            snap = dict(_gcache)
+        log.info("grocery refresh reason=%s ms=%d upstream_calls=%d upstream_ms=%d "
+                 "entries=%d plan_entries=%s", reason, (time.monotonic() - t0) * 1000,
+                 stats["calls"], stats["ms"], len(entries),
+                 "none" if new_plan is None else len(new_plan))
+        return snap
+
+
+def _kick_refresh(reason: str) -> None:
+    """Refresh in the background unless one is already running."""
+    if _refresh_lock.locked():
+        return
+
+    def run():
+        try:
+            _grocery_refresh(reason=reason)
+        except Exception:
+            log.exception("grocery %s refresh failed", reason)
+    threading.Thread(target=run, daemon=True, name=f"grocery-{reason}").start()
+
+
+def _grocery_data(force: bool = False) -> tuple[dict, str]:
+    """(snapshot, source) where source is cache | stale | sync | error-stale.
+    Raises only if Tandoor is unreachable AND there is no snapshot yet."""
+    def usable(sn):
+        return sn["entries"] is not None and sn["day"] == datetime.datetime.now(TZ).date()
+
+    snap = _snapshot()
+    age = time.time() - snap["ts"]
+    if usable(snap) and not force:
+        if age < _GROCERY_TTL:
+            return snap, "cache"
+        if age < _GROCERY_MAX_STALE:
+            _kick_refresh("stale")
+            return snap, "stale"
+    if not force and _refresh_lock.locked():
+        with _refresh_lock:                 # a refresh is in flight: wait for it
+            pass
+        fresh = _snapshot()
+        if usable(fresh) and time.time() - fresh["ts"] < _GROCERY_TTL:
+            return fresh, "cache"
+    try:
+        return _grocery_refresh(reason="force" if force else "sync"), "sync"
+    except Exception:
+        if snap["entries"] is None:
+            raise
+        log.exception("grocery refresh failed; serving the last snapshot")
+        return snap, "error-stale"
+
+
+def _grocery_mark_checked(ids) -> None:
+    """A tick from this page: mark the cached entries checked right away."""
+    ids = set(ids)
+    with _gcache_lock:
+        for e in _gcache["entries"] or []:
+            if e.get("id") in ids:
+                e["checked"] = True
+
+
+def _grocery_warmer() -> None:
+    while True:
+        try:
+            _grocery_refresh(reason="warm")
+        except Exception:
+            log.exception("grocery warm refresh failed")
+        time.sleep(_GROCERY_REFRESH)
+
+
+def start_grocery_warmer() -> None:
+    if _GROCERY_REFRESH > 0:
+        threading.Thread(target=_grocery_warmer, daemon=True, name="grocery-warmer").start()
+
+
+def _ago(sec: float) -> str:
+    sec = max(0, int(sec))
+    return f"{sec}s ago" if sec < 90 else f"{sec // 60} min ago"
+
+
+def _render_groceries(force: bool = False):
+    t0 = time.monotonic()
     today = datetime.datetime.now(TZ).date()
     try:
-        entries = _fetch_shopping()
+        snap, source = _grocery_data(force)
+        entries = snap["entries"]
         stores, manual = _split_groceries(entries)
     except Exception:
         log.exception("groceries fetch failed")
@@ -1185,15 +1419,7 @@ def _render_groceries():
     tg = {a: _combine(v) for a, v in (stores.get("Target") or {}).items()}
     n_np = sum(len(v) for v in np.values())
     n_tg = sum(len(v) for v in tg.values())
-    # One plan fetch feeds Meals, Pantry ("used this week") and Thaw: from the
-    # start of this plan week (Sun) to two weeks out (the planner fills next
-    # week on Tuesday).
-    try:
-        plan = fetch_plan(stock.plan_week_start(today), today + datetime.timedelta(days=13))
-    except Exception:
-        log.exception("groceries: plan fetch failed")
-        plan = None
-    lines = _plan_lines(plan or [])
+    plan, lines = snap["plan"], snap["lines"]
     thaw = _thaw_rows(lines, today, _load_thaw(today))
     n_thaw = sum(1 for r in thaw if not r["done"])
     tabs = [("newpi", "New Pi", n_np), ("target", "Target", n_tg),
@@ -1203,7 +1429,10 @@ def _render_groceries():
         f"<button type='button' data-tab='{tid}' aria-selected='false'>{label}"
         + (f"<span class='n'>{n}</span>" if n is not None else "") + "</button>"
         for tid, label, n in tabs)
-    parts = ["<div class='gwrap'>", f"<nav class='tabs' aria-label='Shopping lists'>{bar}</nav>"]
+    upd = (f"<a class='upd' href='groceries?refresh=1' title='re-read the list from Tandoor'>"
+           f"updated {_ago(time.time() - snap['ts'])} · refresh</a>")
+    parts = ["<div class='gwrap'>",
+             f"<nav class='tabs' aria-label='Shopping lists'>{bar}{upd}</nav>"]
     # New Pi -- in-store tap-to-tick checklist; each name links to the New Pi
     # product (opens in a new tab) when foods.yaml carries a newpi_url for it.
     parts.append("<section class='tab store' id='newpi'><h2>New Pi — tap a name to order</h2>")
@@ -1250,15 +1479,20 @@ def _render_groceries():
                  f"{_render_meal_cards(plan, today, _thaw_today_line(thaw, today))}</section>")
     parts.append("</div>")
     body = "".join(parts)
-    return (f"<!doctype html><html><head><meta charset='utf-8'>"
+    html = (f"<!doctype html><html><head><meta charset='utf-8'>"
             f"<meta name='viewport' content='width=device-width,initial-scale=1'>"
             f"{NAV_HEAD}<style>{GROCERIES_CSS}</style><script>{GROCERIES_JS}</script></head>"
             f"<body>{body}</body></html>")
+    log.info("groceries render ms=%d source=%s age_s=%d entries=%d bytes=%d",
+             (time.monotonic() - t0) * 1000, source, time.time() - snap["ts"],
+             len(entries), len(html))
+    return html
 
 
 @app.get("/groceries")
 def groceries():
-    return Response(_render_groceries(), mimetype="text/html")
+    return Response(_render_groceries(force=request.args.get("refresh") == "1"),
+                    mimetype="text/html")
 
 
 @app.post("/groceries/tick")
@@ -1266,7 +1500,8 @@ def groceries_tick():
     try:
         # One row can stand for several entries of the same food ("12,57,90").
         for eid in [int(x) for x in request.form["id"].split(",") if x.strip()]:
-            _api_write("PATCH", f"/api/shopping-list-entry/{eid}/", {"checked": True})
+            if _api_write("PATCH", f"/api/shopping-list-entry/{eid}/", {"checked": True}):
+                _grocery_mark_checked([eid])        # the next render drops it at once
             log.info("grocery entry %s checked", eid)
     except Exception:
         log.exception("grocery tick failed")
@@ -1283,6 +1518,7 @@ def groceries_add():
             _api_write("POST", "/api/shopping-list-entry/",
                        {"food": {"name": item[:80]}, "amount": 1, "checked": False})
             log.info("grocery manual add: %s", item[:80])
+            _grocery_refresh(plan=False, reason="add")    # new entry shows on redirect
     except Exception:
         log.exception("grocery add failed")
     return redirect("../groceries#manual", code=303)   # back to the Manual tab
@@ -1296,7 +1532,9 @@ def groceries_reorder():
     try:
         food = (request.form.get("food") or "").strip()[:80]
         if food and stock.is_pantry_or_stock(food):
-            if food.lower() in _open_reorders(_fetch_shopping()):
+            # Duplicate guard on a LIVE read (not the snapshot): it decides a write.
+            snap = _grocery_refresh(plan=False, reason="reorder-check")
+            if food.lower() in _open_reorders(snap["entries"]):
                 log.info("grocery reorder: %s already on the list", food)
             else:
                 body = {"food": {"name": food}, "amount": 1, "checked": False}
@@ -1305,6 +1543,7 @@ def groceries_reorder():
                     body["unit"] = {"name": buy["unit"]}
                 _api_write("POST", "/api/shopping-list-entry/", body)
                 log.info("grocery reorder: %s", food)
+                _grocery_refresh(plan=False, reason="reorder")
         elif food:
             log.info("grocery reorder refused (not a pantry/stock food): %s", food)
     except Exception:
@@ -1334,4 +1573,5 @@ def groceries_thaw_tick():
 if __name__ == "__main__":
     if not (USER and PASS):
         log.warning("TANDOOR_USER/TANDOOR_PASS not set -- meal plan will fail to load")
+    start_grocery_warmer()      # first refresh right away: the first view is hot too
     serve(app, host="0.0.0.0", port=8080)

@@ -86,8 +86,6 @@ scrypted-homebridge/scrypted: no-new-privileges,cap_drop,read_only,pids_limit,me
 storage-health/verify: no-new-privileges,cap_drop,read_only,pids_limit,mem_limit,logging,healthcheck,host-net
 tailscale-dns/coredns: no-new-privileges,cap_drop,read_only,pids_limit,mem_limit,logging,restart,healthcheck,host-net
 tailscale-subnet-router/tailscale: no-new-privileges,cap_drop,read_only,pids_limit,mem_limit,logging,healthcheck,host-net,devices
-tandoor/db: no-new-privileges,cap_drop,read_only,pids_limit,mem_limit,healthcheck
-tandoor/web: no-new-privileges,cap_drop,read_only,pids_limit,mem_limit,healthcheck
 tdarr-backlog/backlog: no-new-privileges,cap_drop,read_only,pids_limit,mem_limit,logging,healthcheck,host-net
 tdarr-remediate/remediate: no-new-privileges,cap_drop,read_only,pids_limit,mem_limit,logging,healthcheck,host-net
 tdarr-verify/verify: no-new-privileges,cap_drop,read_only,pids_limit,mem_limit,logging,healthcheck,host-net

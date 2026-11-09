@@ -3,27 +3,27 @@
 #     turns it + a guide output into wger 2.7 writes (fake API, tools/tests/test_gen_wger.py);
 #   - gen-workout-guide.py (laptop-only, the --posters input of gen_wger.py) still prefers
 #     the range-of-motion PNG and writes workout.json (fake vault; the real one is private);
-#   - the HA Workout dashboards are the Treadmill view only and point at helpers that exist;
-#   - the treadmill -> wger package builds wger 2.7 payloads (tools/tests/test_treadmill_wger.py)
-#     and treadmill.yaml credits the session distance across the console reset
-#     (tools/tests/test_treadmill_session_distance.py).
+#   - the shipped HA config dirs hold no *.bak and no retired helper (tools/tests/test_ha_shipped_config.py).
 # The in-house HA helper generator (gen_workout.py) and the /workout/ Today page were
-# retired 2026-11-06 when wger won the tracking pilot.
+# retired 2026-11-06 when wger won the tracking pilot; the treadmill -> wger auto-log
+# (treadmill_wger.yaml) was retired 2026-11-08 (walks are logged in the app), and the
+# whole treadmill HA integration (treadmill.yaml, the Treadmill dashboard and their
+# tests) the same day.
 name: workout-generated
 
 on:
   pull_request:
     paths:
       - "stacks/home-assistant/tools/**"
-      - "stacks/home-assistant/config/packages/treadmill*.yaml"
-      - "stacks/home-assistant/config/dashboards/workout*.yaml"
+      - "stacks/home-assistant/config/dashboards/**"
+      - "stacks/home-assistant/config/packages/**"
       - ".github/workflows/workout-generated.yml"
   push:
     branches: [main]
     paths:
       - "stacks/home-assistant/tools/**"
-      - "stacks/home-assistant/config/packages/treadmill*.yaml"
-      - "stacks/home-assistant/config/dashboards/workout*.yaml"
+      - "stacks/home-assistant/config/dashboards/**"
+      - "stacks/home-assistant/config/packages/**"
 
 permissions:
   contents: read
@@ -39,7 +39,7 @@ jobs:
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.13"
-      - name: Install pytest (+ requests for gen_wger, PyYAML and Jinja2 for the HA package tests)
-        run: python -m pip install pytest==8.4.2 requests==2.32.3 pyyaml==6.0.2 jinja2==3.1.6
+      - name: Install pytest (+ requests for gen_wger)
+        run: python -m pip install pytest==8.4.2 requests==2.32.3
       - name: Tests
         run: python -m pytest -q stacks/home-assistant/tools/tests
