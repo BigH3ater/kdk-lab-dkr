@@ -29,7 +29,7 @@ paired-device cookie (see [Kitchen host and device pairing](#kitchen-host-and-de
 | Purpose | One home screen for watch/listen/read/request/cook/tasks/calendar |
 | Status | 🟢 Live (P1); meal-plan sidecar = P2, calendar = P3 |
 | Host | [[kdk-dkr-01]] |
-| Endpoints | `home.kmkdp.com` (+ `/guides`, `/meal`, kitchen board `/meal/kitchen`, pantry check `/meal/kitchen/pantry`, household page `/meal/home`, device admin `/meal/kitchen/devices`), `kitchen.kmkdp.com` (paired kitchen screen, no Authelia), `tasks.kmkdp.com` |
+| Endpoints | `home.kmkdp.com` (+ `/guides`, `/meal`, kitchen board `/meal/kitchen`, pantry check `/meal/kitchen/pantry`, household page `/meal/home`, device admin `/meal/kitchen/devices`), `kitchen.kmkdp.com` (paired kitchen screen, no Authelia), `admin.kmkdp.com` (lab admin page, jmack only), `tasks.kmkdp.com` |
 | Images | `ghcr.io/gethomepage/homepage:v2.7.0`, `nginx:1.31.8-alpine`, `vikunja/vikunja:2.7.1`, `kdk/dashboard-mealplan` (built) |
 | Deploy | Komodo stack `dashboard` (git-linked, `op inject` pre_deploy) |
 | Storage | `/opt/kdk-lab/dashboard/vikunja` (SQLite + files), `/opt/kdk-lab/dashboard/kitchen-state` (kitchen device registry, add-box forced-manual ids) |
@@ -88,8 +88,9 @@ truth. See the [approval-tasks runbook](../runbooks/approval-tasks.md).
 | `stacks/dashboard/guides/shared-nav.{css,js}` | The one Kodiak sidebar shared by Homepage, guides and `/meal` (same links/order/labels, active-link state, mobile top-bar overlay); `shared-nav.js` hides it inside an iframe so the embedded `/meal` panels stay bare |
 | `stacks/dashboard/mealplan/{kitchen,homecal,vacuum}.py`, `mealplan/static/` | Kitchen board + household page: rendering, ICS calendar expansion, the HA vacuum line, and the shared stylesheet/script/fonts/icons (see below) |
 | `stacks/dashboard/mealplan/app.py` | Tandoor session read + rating write-back; groceries snapshot cache (env `GROCERY_TTL_S`, `GROCERY_REFRESH_S`, `RECIPE_TTL_S`); the meal page repeats the planner's Sunday prep lunches as "Lunch prep" on Mon–Sat of that plan week (Tandoor filters meal plans on `to_date` only, so a Sun→Sat entry would drop out of some windows) |
+| `stacks/dashboard/mealplan/admin.py` | admin.kmkdp.com: status sources (Alertmanager, Prometheus, Loki, HA, GitHub, Komodo), sign-in parsing, LogQL escaping for the syslog search, sparklines and the page (see [Admin page](#admin-page-adminkmkdpcom)) |
 | `stacks/dashboard/mealplan/devices.py` | kitchen.kmkdp.com pairing: device token signing/verifying, the registry, pair codes, rate limit, the pair and devices pages |
-| `stacks/dashboard/.env.tpl` | op refs (Vikunja JWT, widget API keys, Tandoor creds, ICS URL, `KITCHEN_DEVICE_KEY`) |
+| `stacks/dashboard/.env.tpl` | op refs (Vikunja JWT, widget API keys, Tandoor creds, ICS URL, `KITCHEN_DEVICE_KEY`; `KOMODO_API_KEY`/`SECRET` once minted) |
 
 ## Kitchen board and household page
 
@@ -360,6 +361,165 @@ Vikunja logs in through Authelia OIDC only (`two_factor`), so Kitchen is a direc
    `stacks/dashboard/.env.tpl` (only once the item exists). After its deploy the
    start log says `chore ticks use the Kitchen Vikunja account`, and a tick from the
    kitchen screen shows Kitchen as the doer in Vikunja.
+
+## Admin page (admin.kmkdp.com)
+
+The lab admin page for jmack: live status, firing alerts, recent sign-ins, a
+syslog search, six sparklines and the admin service tiles that are not on the
+household page. It is a native page from the `mealplan` sidecar (`admin.py`),
+not Homepage, and it is **read-only**: it has no forms that write and no POST
+route, and it runs no JavaScript.
+
+**Routing and access.** A third router on the `mealplan` sidecar, on the
+internal Traefik on kdk-dkr-01 only (LAN and Tailscale, never the tunnel),
+**with** `forwardauth@file`. Three gates, in order:
+
+1. Authelia rule `admin.kmkdp.com` → `two_factor`, subject `user:jmack` (there
+   is no admins group). It sits above the `home.kmkdp.com` rule in
+   `stacks/identity/authelia/configuration.yml`.
+2. The sidecar checks `Remote-User` against `ADMIN_USERS` (default `jmack`,
+   comma-separated) and answers **403** to anyone else, on every path.
+3. On that host it serves only `GET /` (the page; the syslog search is the same
+   page with `?q=&host=&range=`) and `GET /static/*`. Every other path and every
+   POST is a **404**, and the page exists on no other host: `home.kmkdp.com` and
+   `kitchen.kmkdp.com` never serve it (the kitchen marker wins if both match).
+
+Responses on the admin host carry `Cache-Control: no-store`, a strict CSP
+(`default-src 'none'`; styles, images and fonts from self only; no scripts),
+`X-Frame-Options: DENY`, `nosniff` and `Referrer-Policy: same-origin`. The page
+reloads itself every 60 s with a meta refresh, except on a search result.
+
+The household page (`/meal/home`) shows an **Admin** link in its header only to
+`ADMIN_USERS`.
+
+DNS and certificate need nothing by hand: dns-reconcile adds the AdGuard rewrite
+`admin.kmkdp.com → 10.1.20.20` from the `Host()` label (the `*.kmkdp.com`
+wildcard rewrite answers until then), and the `*.kmkdp.com` Let's Encrypt
+wildcard covers the name. No public DNS record, no tunnel hostname.
+
+**Sources and caches.** Every source is a server-side `Feed` (the same cache the
+kitchen board uses) refreshed by an `admin-warmer` thread (`ADMIN_REFRESH_S`,
+default 30 s; 0 = off). A page view only reads the caches: a source that has not
+answered yet shows "loading", a failed one shows "unreachable" and keeps its
+last good value when it had one. The browser never talks to any of them.
+
+| Tile / panel | Source | Cache |
+|---|---|---|
+| Alerts firing + the alert list | Alertmanager `GET /api/v2/alerts?active=true&silenced=false&inhibited=false` on `10.1.20.30:9093` | 30 s |
+| Services down + the tile dots | Prometheus `probe_success` and `up{job!~"blackbox-.*"}` on `10.1.20.30:9090` | 60 s |
+| Backups | Loki: the backup-* one-shots' `event name=backup-… action=die code=N` lines from docker-event-watch (the Grafana "Backups" dashboard's source), last 26 h, latest exit per container | 5 min |
+| Deploys failed | Komodo `POST /read` `ListUpdates` (updates of the last 24 h; failed = a finished `*Deploy*` update with `success: false`). Shows **"not configured"** until `KOMODO_API_KEY`/`KOMODO_API_SECRET` exist (hand step below) | 5 min |
+| Draft PRs | GitHub `GET /repos/BigH3ater/kdk-lab-dkr/pulls?state=open` (public, **no token**; anonymous limit 60/h, so 15 min cache and a 5 min retry) | 15 min |
+| Updates | open Renovate PRs (same GitHub call) + `vulnerable=` from advisory-watch's weekly `summary=1` line in Loki (`{job="advisory-watch"}`, last 8 days); "to review" = its `unknown=` | 15 min |
+| UPS | Home Assistant NUT sensors `sensor.computer_room_eaton_5px_*` (status flags, load, charge; runtime when HA has a runtime sensor), with the existing dashboard HA token. Prometheus has **no NUT exporter**, so HA is the source | 60 s |
+| Recent sign-ins | Loki `{container="authelia"} |~ "Unsuccessful|getting details for user|requires 2FA"`, last 24 h | 5 min |
+| Sparklines (24 h, 15 min steps) | Prometheus `query_range`: lab-wide CPU busy and memory used, the fullest root disk, the `tankz3` pool on kdk-nas-01, NIC in+out on all lab hosts; UPS load from HA history (averaged per 15 min) | 5 min |
+| Syslog host list | Loki `host` label values for `{job="syslog"}` (fallback: the 10 known hosts) | 1 h |
+
+**Sign-ins: what Authelia logs.** At `log.level: info` Authelia 4.39 writes a
+line for a failed first factor (`Unsuccessful 1FA … by user 'x'`), an unknown
+username (`… username input 'x' …`), a failed or banned 2FA, and an accepted
+first factor only while 2FA is still due (`<url> requires 2FA, cannot be
+redirected yet`, which has no username, or `OpenID Connect 1.0 client requires
+2FA`, which has the username and client id). A finished 2FA and a remembered
+session write nothing. So the panel lists sign-in **attempts**: failures with the
+user, and first factors with the app (and the user for OIDC). The edge probe's
+`edge-probe-nonexistent` attempts are hidden and counted. The complete record is
+`authentication_logs` in authelia-postgres. Client IPs are not shown.
+
+**Syslog search.** A text box, a host select and a 1 h / 6 h / 24 h range. The
+sidecar builds `{job="syslog"[, host="<host>"]} |~ "(?i)<text>"`:
+
+- the text is escaped twice: every RE2 metacharacter gets a backslash (so it
+  matches literally, case-insensitively), then the whole regex goes into one
+  LogQL double-quoted string with `\` and `"` escaped. Control characters and
+  more than 200 characters are refused. The text can never reach a label matcher
+  or a pipeline stage (tests cover `"} or {job=~".+` and friends);
+- the host must be one of the Loki `host` values (and `^[a-z0-9][a-z0-9.-]*$`);
+- the range is one of the three values;
+- Loki `query_range`, newest first, **200 lines max**, 10 s timeout; 30 searches
+  per 10 minutes per user. The log line records user, host, range, the text
+  length and the line count, never the text;
+- ANSI colour codes (`#033[…m`) are stripped for display; every line is
+  HTML-escaped.
+
+"Open in Grafana Explore" opens the same query (Loki datasource `loki-dkr01`)
+for the full set.
+
+**Service tiles.** Eight groups (Media ops, Books, Home automation, Identity,
+Deploy, Infrastructure, Monitoring, Household data), hrefs from
+`config/services.yaml` (a test keeps them in sync). A green or red dot means a
+blackbox probe exists for that host name (or, for the IP tiles, an ICMP probe
+of that IP); no dot means no probe.
+
+**Network.** The sidecar needs Prometheus and Alertmanager on kdk-mon-01, which
+the dkr-01 DOCKER-USER policy blocks: `allow_ctr dashboard-mealplan 10.1.20.30
+tcp 9090,9093` in `hosts/kdk-dkr-01/kdk-docker-user.conf` (host step below).
+Loki on kdk-log-01 `:3100` is already open to every container (the Alloy
+`allow_dst` line). Home Assistant `:8123` has its own line (vacuum). GitHub and
+`komodo.kmkdp.com` were reachable from the container on 2026-11-10; Prometheus
+and Alertmanager were not (connect timeout), as expected before the host step.
+
+**Settings** (compose `environment`, all optional): `ADMIN_USERS`, `ADMIN_HOST`,
+`ADMIN_REFRESH_S`, `PROM_URL`, `ALERTMANAGER_URL`, `ALERTMANAGER_UI`, `LOKI_URL`,
+`GRAFANA_UI`, `HA_UI`, `KOMODO_URL`, `UPS_ENTITY_PREFIX`, `NAS_INSTANCE`,
+`NAS_POOL`.
+
+### Host step: the DOCKER-USER exception (after the PR merges)
+
+The policy file is applied by hand (no gitops for host files). From the repo root
+on the laptop, after `git pull`:
+
+```sh
+ssh kdkadmin@10.1.20.20 'sudo install -m 644 /dev/stdin /etc/default/kdk-docker-user && sudo systemctl start kdk-docker-user.service' < hosts/kdk-dkr-01/kdk-docker-user.conf
+ssh kdkadmin@10.1.20.20 'sudo iptables -S DOCKER-USER | grep -c "10.1.20.30.*9090,9093"'   # 1
+ssh kdkadmin@10.1.20.20 "sudo docker exec dashboard-mealplan python3 -c \"import urllib.request as u;[print(p, u.urlopen('http://10.1.20.30'+p, timeout=4).status) for p in (':9090/-/ready', ':9093/-/ready')]\""   # 200 200
+```
+
+The rule follows the container's address (the timer refreshes it every 5
+minutes and on every Docker start), so a redeploy needs no new step.
+
+### Hand step: the Komodo read key (optional, any time)
+
+Until this is done the "Deploys failed" tile says "not configured"; nothing
+else depends on it.
+
+1. Komodo UI → **Settings → Users**: create a service user `dashboard-read`,
+   **not** admin, no create permissions. Give it **Read** on the resources
+   whose deploys you want counted (all stacks and procedures).
+2. On that user, **New API key** (name `dashboard-admin-page`). Copy the key
+   and secret straight into 1Password, never into a file or chat. Laptop, `op`
+   signed in:
+
+   ```sh
+   read -rs KEY; read -rs SECRET      # paste each, Enter (nothing echoes, nothing in history)
+   op item create --vault kdk-cluster --category login --title komodo-api-ro \
+     "username=$KEY" "password=$SECRET"; unset KEY SECRET
+   op read op://kdk-cluster/komodo-api-ro/username | tr -d '\n' | wc -c   # > 0
+   op read op://kdk-cluster/komodo-api-ro/password | tr -d '\n' | wc -c   # > 0
+   ```
+
+3. In `stacks/dashboard/.env.tpl` turn the two commented `KOMODO_API_KEY` /
+   `KOMODO_API_SECRET` notes into real assignments
+   (`KOMODO_API_KEY={{ op://kdk-cluster/komodo-api-ro/username }}`, same for the
+   secret with `password`) in a small PR. Merge → the deploy op-injects them.
+4. Check: the tile shows "N of M in 24 h". The ListUpdates call was written
+   against the Komodo client docs and has not run against the live Core yet
+   (no key existed); if the tile says "Komodo unreachable", look at
+   `docker logs dashboard-mealplan | grep admin-komodo`.
+
+### Verify (after merge, the Authelia restart and the host step)
+
+```sh
+curl -s -o /dev/null -w '%{http_code}\n' https://admin.kmkdp.com/        # 302 or 401 from Authelia (not signed in), never the page
+# signed in as jmack in a browser: the page, 7 tiles, no "unreachable"
+# signed in as rach: Authelia 403 (the rule), never the page
+ssh kdkadmin@10.1.20.20 "sudo docker exec dashboard-mealplan python3 -c \"import http.client as h
+for user in ('jmack', 'rach'):
+    c = h.HTTPConnection('127.0.0.1', 8080); c.request('GET', '/', headers={'Host': 'admin.kmkdp.com', 'Remote-User': user})
+    print(user, c.getresponse().status)\""                                  # jmack 200, rach 403
+ssh kdkadmin@10.1.20.20 'sudo docker logs dashboard-mealplan --since 10m 2>&1 | grep -E "feed admin-|admin:"'   # no refresh failures
+```
 
 ## Performance: groceries page
 

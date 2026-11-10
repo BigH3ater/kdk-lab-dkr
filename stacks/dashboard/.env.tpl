@@ -61,3 +61,12 @@ KITCHEN_DEVICE_KEY={{ op://kdk-cluster/dashboard-kitchen-device-key/password }}
 # once its token exists (item vikunja-api-kitchen in kdk-cluster, field password);
 # until then they fall back to the jmack token. Add the VIKUNJA_TOKEN_KITCHEN line
 # as a real assignment only after that item exists (see docs/services/dashboard.md).
+
+# ---- admin.kmkdp.com: Komodo deploy-failures tile (optional) ---------------------
+# A READ-ONLY Komodo API key for a non-admin service user (see
+# docs/services/dashboard.md "Hand step: the Komodo read key"). Until the item
+# kdk-cluster/komodo-api-ro exists, leave these two lines commented: the tile
+# then says "not configured" and nothing else changes. Uncomment both only AFTER
+# the item exists, or op inject fails and the stack won't deploy.
+# KOMODO_API_KEY <- 1P item kdk-cluster/komodo-api-ro field username (no template braces in a comment: op inject would still resolve them)
+# KOMODO_API_SECRET <- 1P item kdk-cluster/komodo-api-ro field password

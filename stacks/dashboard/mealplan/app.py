@@ -22,6 +22,10 @@ Served (behind Traefik, StripPrefix /meal):
   GET  /kitchen/devices, POST /kitchen/devices/{pair,revoke,revoke-all}
                     -> kitchen device pairing (home.kmkdp.com, KITCHEN_ADMINS only)
 
+admin.kmkdp.com (internal Traefik, forwardauth, Authelia user:jmack) reaches this
+same app for the lab admin page only: GET / and /static/*, ADMIN_USERS only
+(403 otherwise), everything else 404 there (admin.py).
+
 kitchen.kmkdp.com (internal Traefik, NO forwardauth) reaches this same app for
 paired kitchen devices only: /, /ingredients, /steps, /pantry, /step-photo/<id>,
 /manifest.webmanifest, /static/*, POST /tasks/complete, /groceries/add,
@@ -55,6 +59,7 @@ import kitchen  # kitchen board + household page rendering
 import vacuum  # robot vacuum line from Home Assistant
 import devices  # kitchen.kmkdp.com device pairing (signed cookie + registry)
 import forced  # the add box's "Manual list instead" registry (/state)
+import admin  # admin.kmkdp.com: status strip, alerts, sign-ins, syslog, charts
 
 TANDOOR_URL = os.environ.get("TANDOOR_URL", "https://recipes.kmkdp.com").rstrip("/")
 USER = os.environ.get("TANDOOR_USER", "")
@@ -123,8 +128,9 @@ class Feed:
     upstream URLs are secrets). The home warmer thread refreshes every feed
     when it goes stale, so the request path is normally cache-only."""
 
-    def __init__(self, name: str, ttl: float, fetch):
+    def __init__(self, name: str, ttl: float, fetch, retry: float | None = None):
         self.name, self.ttl, self.fetch = name, ttl, fetch
+        self.retry = min(ttl, 60) if retry is None else retry   # wait after a failed try
         self.value, self.ts, self.error = None, 0.0, ""
         self.tried = 0.0                  # last attempt, good or bad
         self._lock = threading.Lock()
@@ -133,9 +139,9 @@ class Feed:
         return self.value is not None and time.time() - self.ts < self.ttl
 
     def due(self) -> bool:
-        """Stale, and not retried in the last min(ttl, 60) s (a dead upstream
-        is retried once a minute, not on every request)."""
-        return not self.fresh() and time.time() - self.tried >= min(self.ttl, 60)
+        """Stale, and not retried in the last `retry` s (default min(ttl, 60):
+        a dead upstream is retried once a minute, not on every request)."""
+        return not self.fresh() and time.time() - self.tried >= self.retry
 
     def refresh(self):
         with self._lock:
@@ -2269,7 +2275,8 @@ def household():
     all_chores = request.args.get("chores") == "all"
     if request.args.get("fragment") == "1":
         return _html(kitchen.household_fragment(d, all_chores))
-    d = dict(d, flash=_added_flash(), manual_ok=FORCED.writable())
+    d = dict(d, flash=_added_flash(), manual_ok=FORCED.writable(),
+             admin_url=ADMIN_ORIGIN + "/" if remote_user() in ADMIN_USERS else "")
     return _html(kitchen.household_page(d, ASSET_VER, all_chores))
 
 
@@ -2510,15 +2517,25 @@ def _host_gate():
     on = _is_kitchen_request()
     kitchen.set_kitchen_host(on)          # every request sets it: waitress reuses threads
     if not on:
-        return None
+        # admin.kmkdp.com (the kitchen check wins: it only ever narrows)
+        return _admin_host_gate() if _is_admin_request() else None
     for k in _REMOTE_ENV:                 # also catches Remote_User (same WSGI key)
         request.environ.pop(k, None)
     return _kitchen_gate()
 
 
+ADMIN_CSP = ("default-src 'none'; style-src 'self'; img-src 'self'; font-src 'self'; "
+             "form-action 'self'; base-uri 'none'; frame-ancestors 'none'")
+
+
 @app.after_request
 def _kitchen_headers(resp: Response) -> Response:
-    if kitchen.on_kitchen_host():
+    admin_host = not kitchen.on_kitchen_host() and _is_admin_request()
+    if admin_host:
+        resp.headers["Content-Security-Policy"] = ADMIN_CSP
+        if not request.path.startswith("/static/"):
+            resp.headers["Cache-Control"] = "no-store"
+    if kitchen.on_kitchen_host() or admin_host:
         resp.headers.setdefault("X-Frame-Options", "DENY")
         resp.headers.setdefault("X-Content-Type-Options", "nosniff")
         resp.headers.setdefault("Referrer-Policy", "same-origin")
@@ -2626,11 +2643,147 @@ def kitchen_devices_revoke_all():
     return redirect(f"{kitchen.BASE}/kitchen/devices", code=303)
 
 
+# ---- admin.kmkdp.com: the lab admin page (Authelia two_factor, user:jmack) ------
+# The internal Traefik routes admin.kmkdp.com here WITH forwardauth; Authelia's
+# admin.kmkdp.com rule admits only jmack, and the sidecar checks Remote-User
+# against ADMIN_USERS again (403 otherwise). On that host only GET / (the page,
+# with the syslog search as query args) and /static/* exist; every other path
+# is a 404, and the admin page exists on no other host. Read-only: no POSTs.
+# Every source sits in a Feed warmed by its own thread, so a page view only
+# reads caches; the syslog search is the one on-demand upstream call (timeout,
+# rate limit, capped at 200 lines).
+ADMIN_HOST = os.environ.get("ADMIN_HOST", "admin.kmkdp.com").strip().lower()
+ADMIN_ORIGIN = f"https://{ADMIN_HOST}"
+ADMIN_USERS = {u.strip() for u in os.environ.get("ADMIN_USERS", "jmack").split(",") if u.strip()}
+ADMIN_REFRESH_S = int(os.environ.get("ADMIN_REFRESH_S", "30"))          # 0 = no warmer
+PROM_URL = os.environ.get("PROM_URL", "http://10.1.20.30:9090").rstrip("/")
+AM_URL = os.environ.get("ALERTMANAGER_URL", "http://10.1.20.30:9093").rstrip("/")
+AM_UI = os.environ.get("ALERTMANAGER_UI", "https://alertmanager.kmkdp.com").rstrip("/")
+LOKI_URL = os.environ.get("LOKI_URL", "http://10.1.20.21:3100").rstrip("/")
+GRAFANA_UI = os.environ.get("GRAFANA_UI", "https://grafana.kmkdp.com").rstrip("/")
+HA_UI = os.environ.get("HA_UI", "https://homeassistant.kmkdp.com").rstrip("/")
+KOMODO_URL = os.environ.get("KOMODO_URL", "https://komodo.kmkdp.com").rstrip("/")
+KOMODO_API_KEY = os.environ.get("KOMODO_API_KEY", "")          # a secret: never log it
+KOMODO_API_SECRET = os.environ.get("KOMODO_API_SECRET", "")    # a secret: never log it
+UPS_PREFIX = os.environ.get("UPS_ENTITY_PREFIX", "sensor.computer_room_eaton_5px_")
+NAS_INSTANCE = os.environ.get("NAS_INSTANCE", "10.1.3.5:9100")
+NAS_POOL = os.environ.get("NAS_POOL", "tankz3")
+SYSLOG_HOSTS_FALLBACK = ["kdk-dkr-01", "kdk-dkr-02", "kdk-dkr-03", "kdk-dkr-04", "kdk-dkr-dmz-01",
+                         "kdk-dns-01", "kdk-gw-01", "kdk-hyp-01", "kdk-log-01", "kdk-mon-01"]
+SYSLOG_LIMIT = devices.RateLimiter(limit=30, window=600)        # per admin user
+CHART_DEFS = admin.chart_defs(GRAFANA_UI, HA_UI, NAS_INSTANCE, NAS_POOL, UPS_PREFIX)
+
+ADMIN_FEEDS = {
+    "alerts": Feed("admin-alerts", 30, lambda: admin.fetch_alerts(AM_URL)),
+    "probes": Feed("admin-probes", 60, lambda: admin.fetch_probes(PROM_URL)),
+    "backups": Feed("admin-backups", 300, lambda: admin.fetch_backups(LOKI_URL)),
+    "komodo": Feed("admin-komodo", 300, lambda: admin.fetch_komodo(KOMODO_URL, KOMODO_API_KEY, KOMODO_API_SECRET)),
+    # anonymous GitHub API = 60 requests/h per IP: 15 min cache, 5 min retry
+    "github": Feed("admin-github", 900, lambda: admin.fetch_github(admin.GITHUB_REPO), retry=300),
+    "advisories": Feed("admin-advisories", 900, lambda: admin.fetch_advisories(LOKI_URL)),
+    "ups": Feed("admin-ups", 60, lambda: admin.fetch_ups(HA_URL, HA_TOKEN, UPS_PREFIX)),
+    "charts": Feed("admin-charts", 300, lambda: admin.fetch_charts(PROM_URL, HA_URL, HA_TOKEN, CHART_DEFS)),
+    "signins": Feed("admin-signins", 300, lambda: admin.fetch_signins(LOKI_URL)),
+    "hosts": Feed("admin-syslog-hosts", 3600, lambda: admin.fetch_syslog_hosts(LOKI_URL)),
+}
+
+
+def _admin_warmer() -> None:
+    while True:
+        for f in ADMIN_FEEDS.values():
+            if f.due():
+                f.kick()
+        time.sleep(ADMIN_REFRESH_S)
+
+
+def start_admin_warmer() -> None:
+    if ADMIN_REFRESH_S > 0:
+        threading.Thread(target=_admin_warmer, daemon=True, name="admin-warmer").start()
+
+
+def _feed_state(f: Feed) -> tuple:
+    """(value, 'ok' | 'loading' | 'failed') from the cache only (never blocks)."""
+    v = f.get(block=False)
+    if v is not None:
+        return v, "ok"
+    return None, ("failed" if f.tried and f.error else "loading")
+
+
+def _is_admin_request() -> bool:
+    return _norm_host(request.host) == ADMIN_HOST
+
+
+def _syslog_hosts() -> list[str]:
+    return ADMIN_FEEDS["hosts"].get(block=False) or SYSLOG_HOSTS_FALLBACK
+
+
+def _syslog_search(user: str) -> tuple[dict, dict | None]:
+    args = request.args
+    rng = args.get("range") if args.get("range") in admin.RANGES else "1h"
+    host = (args.get("host") or "").strip()
+    form = {"q": (args.get("q") or "")[:admin.QUERY_MAX * 2], "host": host, "range": rng}
+    if "q" not in args:
+        return form, None
+    try:
+        q = admin.clean_query(args.get("q"))
+    except ValueError as e:
+        return form, {"error": str(e), "rows": []}
+    form["q"] = q
+    if host and (not admin.HOST_RE.match(host) or host not in _syslog_hosts()):
+        return form, {"error": "Unknown host.", "rows": []}
+    if not q:
+        return form, {"error": "Type something to search for.", "rows": []}
+    if not SYSLOG_LIMIT.hit(user, time.time()):
+        log.warning("admin: syslog search rate-limited user=%s", user)
+        return form, {"error": "Too many searches: wait a few minutes.", "rows": []}
+    t0 = time.monotonic()
+    try:
+        rows = admin.search_syslog(LOKI_URL, q, host, rng)
+    except Exception as e:
+        log.warning("admin: syslog search failed: %s", type(e).__name__)
+        return form, {"error": "Loki did not answer in time. Try a shorter range or open Grafana Explore.", "rows": []}
+    # the query text is the admin's own and may be anything: its length only in the log
+    log.info("admin: syslog search user=%s host=%s range=%s len=%d lines=%d ms=%.0f",
+             user, host or "all", rng, len(q), len(rows), (time.monotonic() - t0) * 1000)
+    return form, {"rows": rows}
+
+
+def admin_page(user: str) -> Response:
+    now = time.time()
+    st = {k: _feed_state(f) for k, f in ADMIN_FEEDS.items()}
+    form, result = _syslog_search(user)
+    ok = result is not None and not result.get("error")
+    expr = admin.syslog_logql(form["q"] if ok else "", form["host"] if ok else "")
+    d = {"tiles": admin.status_tiles(st, now, TZ), "alerts": st["alerts"], "signins": st["signins"],
+         "charts": st["charts"], "chart_defs": CHART_DEFS, "probes": st["probes"],
+         "form": form, "syslog": result, "hosts": _syslog_hosts(), "user": user,
+         "home_url": f"{HOME_ORIGIN}{kitchen.BASE}/home", "am_ui": AM_UI,
+         "explore": admin.explore_url(GRAFANA_UI, expr, form["range"]), "now": now, "tz": TZ,
+         "admin_host": ADMIN_HOST}
+    return _html(admin.page(d, ASSET_VER))
+
+
+def _admin_host_gate():
+    """admin.kmkdp.com: ADMIN_USERS only, GET / and /static/* only."""
+    user = (request.headers.get("Remote-User") or "").strip()
+    if user not in ADMIN_USERS:
+        log.warning("admin: refused for %r path=%s", user or "anonymous", request.path)
+        return _text("forbidden", 403)
+    if request.method not in ("GET", "HEAD"):
+        return _text("not found", 404)
+    if request.path.startswith("/static/"):
+        return None                                  # Flask's static route
+    if request.path == "/":
+        return admin_page(user)
+    return _text("not found", 404)
+
+
 if __name__ == "__main__":
     if not (USER and PASS):
         log.warning("TANDOOR_USER/TANDOOR_PASS not set -- meal plan will fail to load")
     start_grocery_warmer()      # first refresh right away: the first view is hot too
     start_home_warmer()         # weather, calendar, chores, vacuum for the kitchen pages
+    start_admin_warmer()        # admin.kmkdp.com status sources (first refresh right away)
     log_kitchen_token_mode()    # once: is the Kitchen Vikunja account in use yet?
     if _pairing() is None:
         log.warning("KITCHEN_DEVICE_KEY missing or shorter than %d bytes: "

@@ -820,9 +820,12 @@ def household_page(d: dict, asset_ver: str, all_chores: bool = False) -> str:
     wx = d.get("wx")
     wxs = (f"{wx_icon(wx['code'], wx['night'], 28, wx['desc'])}<span><b>{wx['temp']}°</b> {escape(wx['desc'])}"
            f"<span class='muted'> · H {wx['hi']}° L {wx['lo']}°</span></span>") if wx else ""
+    # admin.kmkdp.com link: only for ADMIN_USERS (app.py sets admin_url; never on the kitchen host)
+    admin = (f"<a class='hh-admin' href='{escape(d['admin_url'])}'>Admin</a>"
+             if d.get("admin_url") and not on_kitchen_host() else "")
     return (head("Mack House", asset_ver, kiosk=False)
             + "<body data-page='home' class='household'>"
-            "<header class='hh-top'><div class='brand'>Mack House</div>"
+            f"<header class='hh-top'><div class='brand'>Mack House</div>{admin}"
             f"<div class='hh-when'><span>{now:%a, %b %-d}</span><span class='hh-wx'>{wxs}</span></div></header>"
             f"<div class='hh-add'>{add_box('home', compact=True, flash=d.get('flash'), manual_ok=d.get('manual_ok', True))}</div>"
             f"<main class='hh-main' id='board' data-fragment='{base()}/home?fragment=1{'&amp;chores=all' if all_chores else ''}'>"

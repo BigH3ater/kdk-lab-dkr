@@ -23,6 +23,8 @@ COPY kitchen.py homecal.py vacuum.py /app/
 COPY devices.py /app/
 # The add box's "Manual list instead" registry (/state/manual-forced.json).
 COPY forced.py /app/
+# admin.kmkdp.com: status sources, LogQL escaping and the admin page HTML.
+COPY admin.py /app/
 COPY static /app/static
 ENV PYTHONUNBUFFERED=1
 EXPOSE 8080
