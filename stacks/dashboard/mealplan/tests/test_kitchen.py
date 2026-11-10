@@ -488,3 +488,18 @@ def test_clean_titles_on_every_page(home, monkeypatch):
     for path in ("/kitchen", "/home"):
         html = home.get(path).get_data(as_text=True)
         assert ">Filet Mignon in Mushroom Sauce</span>" in html and ">Fall Chicken Sheet Pan Dinner</span>" in html
+
+
+def test_heading_only_step_becomes_next_step_title():
+    from kitchen import make_dish, is_heading, heading_title
+    rec = {"servings": 2, "ingredients": [{"id": 1, "food": "steak", "amount": 2, "unit": ""}],
+           "steps": [{"name": "", "instruction": "How to Cook Filet Mignon Recipe:", "ingredients": []},
+                     {"name": "", "instruction": "Sear the steaks 4 minutes a side.", "ingredients": [0]},
+                     {"name": "", "instruction": "Serve hot.", "ingredients": []}]}
+    dish = make_dish({"recipe_id": 46, "servings": 2, "title": "Filet"}, rec)
+    assert [s["title"] for s in dish["steps"]][0] == "Cook Filet Mignon"
+    assert len(dish["steps"]) == 2                      # heading folded, "Serve hot." kept
+    assert dish["steps"][1]["body"].startswith("Serve hot")
+    assert is_heading("For the sauce") and is_heading("Instructions:")
+    assert not is_heading("Serve hot.") and not is_heading("Rest for 5 minutes.")
+    assert heading_title("How to Cook Filet Mignon Recipe:") == "Cook Filet Mignon"
