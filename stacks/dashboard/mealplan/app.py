@@ -13,8 +13,11 @@ Served (behind Traefik, StripPrefix /meal):
   GET  /mealplan.json -> compact JSON (for a Homepage customapi widget, optional)
   POST /rate        -> create a CookLog rating, then redirect back to /
   GET  /healthz     -> "ok"
-  GET  /kitchen, /kitchen/ingredients, /kitchen/steps, /kitchen/step-photo/<id>
+  GET  /kitchen, /kitchen/ingredients, /kitchen/steps, /kitchen/pantry,
+       /kitchen/step-photo/<id>
                     -> the kitchen board (iPad) and its sub-views (kitchen.py)
+  POST /groceries/add, /groceries/reorder (ajax=1, next=pantry|home)
+                    -> the only grocery writes the kitchen pages make
   GET  /home        -> the household page (phone/laptop)
 
 RATING ATTRIBUTION CAVEAT (by design, per the approved plan): Tandoor ratings are
@@ -1748,47 +1751,107 @@ def groceries_tick():
     return redirect("../groceries", code=303)
 
 
+# The kitchen pages (pantry check, household add box) post to these same two
+# routes with `next` (a fixed key, never a URL) to land back where they were,
+# and with ajax=1 to get a small JSON answer instead of a redirect.
+_NEXT = {"pantry": "/kitchen/pantry", "pantry-home": "/kitchen/pantry?from=home",
+         "home": "/home"}
+MANUAL_MAX = 80
+
+
+def _back_to(default: str) -> str:
+    nxt = _NEXT.get(request.form.get("next") or "")
+    return f"{kitchen.BASE}{nxt}" if nxt else default
+
+
+def _json(body: dict, status: int = 200) -> Response:
+    r = Response(json.dumps(body), status=status, mimetype="application/json")
+    r.headers["Cache-Control"] = "no-store"
+    return r
+
+
+def _manual_add(raw: str) -> tuple[str, str]:
+    """(status, item): status is added | empty | error. The item is trimmed and
+    capped at MANUAL_MAX characters."""
+    item = (raw or "").strip()[:MANUAL_MAX].strip()
+    if not item:
+        return "empty", ""
+    # Ad-hoc entry: a food created by name (Tandoor auto-creates it),
+    # amount 1, no linked recipe -> shows under the manual list.
+    if not _api_write("POST", "/api/shopping-list-entry/",
+                      {"food": {"name": item}, "amount": 1, "checked": False}):
+        log.warning("grocery manual add failed: %s", item)
+        return "error", item
+    log.info("grocery manual add: %s", item)
+    try:
+        _grocery_refresh(plan=False, reason="add")    # new entry shows on redirect
+    except Exception:
+        log.exception("grocery refresh after add failed")
+    return "added", item
+
+
 @app.post("/groceries/add")
 def groceries_add():
     try:
-        item = (request.form.get("item") or "").strip()
-        if item:
-            # Ad-hoc entry: a food created by name (Tandoor auto-creates it),
-            # amount 1, no linked recipe -> shows under the manual list.
-            _api_write("POST", "/api/shopping-list-entry/",
-                       {"food": {"name": item[:80]}, "amount": 1, "checked": False})
-            log.info("grocery manual add: %s", item[:80])
-            _grocery_refresh(plan=False, reason="add")    # new entry shows on redirect
+        status, item = _manual_add(request.form.get("item"))
     except Exception:
         log.exception("grocery add failed")
-    return redirect("../groceries#manual", code=303)   # back to the Manual tab
+        status, item = "error", ""
+    if request.form.get("ajax") == "1":
+        code = {"added": 200, "empty": 422}.get(status, 502)
+        return _json({"status": status, "item": item}, code)
+    return redirect(_back_to("../groceries#manual"), code=303)   # back to the Manual tab
+
+
+# One reorder at a time: the duplicate check and the write must not interleave,
+# or two quick taps (or the tablet and a phone) could both pass the check.
+_reorder_lock = threading.Lock()
+
+
+def _pantry_reorder(raw: str) -> str:
+    """ONE recipe-less shopping entry for a pantry/stock food: amount 1, unit =
+    the foods.yaml `buy:` unit if any. The food's on-hand flag is not touched.
+    Returns added | on_list (an open recipe-less entry exists: no write) |
+    refused (not a pantry/stock food, or empty) | error."""
+    food = (raw or "").strip()[:80]
+    if not food or not stock.is_pantry_or_stock(food):
+        if food:
+            log.info("grocery reorder refused (not a pantry/stock food): %s", food)
+        return "refused"
+    with _reorder_lock:
+        # Duplicate guard on a LIVE read (not the snapshot): it decides a write.
+        snap = _grocery_refresh(plan=False, reason="reorder-check")
+        if food.lower() in _open_reorders(snap["entries"]):
+            log.info("grocery reorder: %s already on the list", food)
+            return "on_list"
+        body = {"food": {"name": food}, "amount": 1, "checked": False}
+        buy = newpi.buy_for(food)
+        if buy:
+            body["unit"] = {"name": buy["unit"]}
+        if not _api_write("POST", "/api/shopping-list-entry/", body):
+            log.warning("grocery reorder failed: %s", food)
+            return "error"
+        log.info("grocery reorder: %s", food)
+        try:
+            _grocery_refresh(plan=False, reason="reorder")
+        except Exception:                 # the entry exists; the next read shows it
+            log.exception("grocery refresh after reorder failed")
+        return "added"
 
 
 @app.post("/groceries/reorder")
 def groceries_reorder():
-    """ONE recipe-less shopping entry for a pantry/stock food: amount 1, unit =
-    the foods.yaml `buy:` unit if any. The food's on-hand flag is not touched.
-    No-op if an open recipe-less entry for the food already exists."""
+    """Pantry reorder (groceries Pantry tab, kitchen pantry check). Refuses
+    non-pantry foods; a second press while the entry is open is a no-op."""
     try:
-        food = (request.form.get("food") or "").strip()[:80]
-        if food and stock.is_pantry_or_stock(food):
-            # Duplicate guard on a LIVE read (not the snapshot): it decides a write.
-            snap = _grocery_refresh(plan=False, reason="reorder-check")
-            if food.lower() in _open_reorders(snap["entries"]):
-                log.info("grocery reorder: %s already on the list", food)
-            else:
-                body = {"food": {"name": food}, "amount": 1, "checked": False}
-                buy = newpi.buy_for(food)
-                if buy:
-                    body["unit"] = {"name": buy["unit"]}
-                _api_write("POST", "/api/shopping-list-entry/", body)
-                log.info("grocery reorder: %s", food)
-                _grocery_refresh(plan=False, reason="reorder")
-        elif food:
-            log.info("grocery reorder refused (not a pantry/stock food): %s", food)
+        status = _pantry_reorder(request.form.get("food"))
     except Exception:
         log.exception("grocery reorder failed")
-    return redirect("../groceries#pantry", code=303)
+        status = "error"
+    if request.form.get("ajax") == "1":
+        code = {"added": 200, "on_list": 200, "refused": 422}.get(status, 502)
+        return _json({"status": status}, code)
+    return redirect(_back_to("../groceries#pantry"), code=303)
 
 
 @app.post("/groceries/thaw-tick")
@@ -1958,6 +2021,49 @@ def kitchen_steps():
         rid = 0
     dish = next((x for x in dishes if x["rid"] == rid), dishes[0] if dishes else None)
     return _html(kitchen.steps_page(dish, dishes, ASSET_VER, _back_href()))
+
+
+def _pantry_check_data(now: datetime.datetime | None = None) -> dict:
+    """The pantry check view, from the groceries snapshot (no extra upstream
+    call): this plan week's pantry/stock foods by store and aisle, the rest of
+    the pantry catalog, what is already on the list, and the Manual items."""
+    now = now or _now()
+    today = now.date()
+    entries, lines, plan_ok = None, [], False
+    try:
+        snap, _src = _grocery_data()
+        entries, lines, plan_ok = snap["entries"], snap["lines"] or [], snap["plan"] is not None
+    except Exception:
+        log.exception("pantry check: groceries snapshot unavailable")
+    on = _open_reorders(entries or [])
+
+    def label(store, aisle):
+        return f"{_STORE_LABEL.get(store, store)} · {aisle}"
+
+    used = _used_this_week(lines, stock.plan_week_start(today))
+    recipes = {u["food"]: u["recipes"] for u in used}
+    used_groups = [{"label": label(st, a), "foods": [
+        {"food": f, "recipes": recipes[f], "on_list": f.lower() in on} for f in foods]}
+        for st, aisles in stock.group(list(recipes), sort_names=False).items()
+        for a, foods in aisles.items()]
+    used_low = {f.lower() for f in recipes}
+    staples = []
+    for st, aisles in stock.catalog().items():
+        for a, foods in aisles.items():
+            rest = [{"food": f, "recipes": [], "on_list": f.lower() in on}
+                    for f in foods if f.lower() not in used_low]
+            if rest:
+                staples.append({"label": label(st, a), "foods": rest})
+    manual = None
+    if entries is not None:
+        manual = [_item_label(e) for e in _split_groceries(entries)[1]]
+    return {"today": today, "plan_ok": plan_ok, "used": used_groups,
+            "staples": staples, "manual": manual}
+
+
+@app.get("/kitchen/pantry")
+def kitchen_pantry():
+    return _html(kitchen.pantry_page(_pantry_check_data(), ASSET_VER, _back_href()))
 
 
 @app.get("/home")

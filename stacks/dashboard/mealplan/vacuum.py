@@ -9,7 +9,9 @@ one GET per entity. Cached 60 s by the caller.
   sensor.rr_room_*_cleaned               state = last clean (ISO), attribute `at`
                                          = "Mon Nov 9 13:32" (local)
   input_datetime.rr_next_run             next scheduled run (local)
-  binary_sensor.mr_slave_water_shortage_2  on = water tank empty
+  binary_sensor.mr_slave_water_shortage_2  water shortage flag (see water_empty)
+  binary_sensor.mr_slave_dock_clean_water_box  on = clean water box empty
+  sensor.mr_slave_dock_dock_error        `water_empty` = dock out of water
   sensor.rr_vacuum_error                 "no error" or the error, advice.title
   sensor.mr_slave_*_time_left*           consumable time left; < 0 = overdue
 """
@@ -25,24 +27,59 @@ ROOM_RE = re.compile(r"^sensor\.rr_room_.+_cleaned$")
 CONSUMABLE_RE = re.compile(r"^sensor\.mr_slave_.+_time_left")
 NEXT_RUN = "input_datetime.rr_next_run"
 WATER = "binary_sensor.mr_slave_water_shortage_2"
+WATER_BOX = "binary_sensor.mr_slave_dock_clean_water_box"
+DOCK_ERROR = "sensor.mr_slave_dock_dock_error"
 ERROR = "sensor.rr_vacuum_error"
 _NO_ERROR = {"", "no error", "none", "ok", "unknown", "unavailable"}
 
 
 def wanted(entity_id: str) -> bool:
     return bool(ROOM_RE.match(entity_id) or CONSUMABLE_RE.match(entity_id)
-                or entity_id in (NEXT_RUN, WATER, ERROR))
+                or entity_id in (NEXT_RUN, WATER, WATER_BOX, DOCK_ERROR, ERROR))
 
 
 def fetch_states(base: str, token: str, timeout: float = 8) -> dict[str, dict]:
-    """{entity_id: {state, attributes}} for the vacuum entities."""
+    """{entity_id: {state, attributes, last_changed}} for the vacuum entities."""
     if not token:
         raise RuntimeError("HA token not set")
     r = requests.get(f"{base.rstrip('/')}/api/states",
                      headers={"Authorization": f"Bearer {token}"}, timeout=timeout)
     r.raise_for_status()
-    return {s["entity_id"]: {"state": s.get("state"), "attributes": s.get("attributes") or {}}
+    return {s["entity_id"]: {"state": s.get("state"), "attributes": s.get("attributes") or {},
+                             "last_changed": s.get("last_changed")}
             for s in r.json() if wanted(s.get("entity_id", ""))}
+
+
+def _changed(s: dict | None) -> datetime.datetime | None:
+    try:
+        v = datetime.datetime.fromisoformat(str((s or {}).get("last_changed")))
+    except ValueError:
+        return None
+    return v if v.tzinfo else v.replace(tzinfo=datetime.timezone.utc)
+
+
+def _is(s: dict | None, value: str) -> bool:
+    return str((s or {}).get("state")).strip().lower() == value
+
+
+def water_empty(states: dict[str, dict]) -> bool:
+    """Same rule as HA's rr_water_empty_alert (packages/roborock.yaml). The
+    shortage flag only re-evaluates when the dock pumps water, so it stays on
+    after a refill; it counts only if the clean water box has not changed since
+    the flag came on (or the box entity is missing). The dock error
+    `water_empty` and the box sensor itself count on their own."""
+    if _is(states.get(DOCK_ERROR), "water_empty") or _is(states.get(WATER_BOX), "on"):
+        return True
+    flag = states.get(WATER)
+    if not _is(flag, "on"):
+        return False
+    box = states.get(WATER_BOX)
+    if box is None:
+        return True
+    box_t, flag_t = _changed(box), _changed(flag)
+    if box_t is None or flag_t is None:
+        return True                       # cannot compare: trust the flag
+    return box_t < flag_t
 
 
 def _cleaned_on(s: dict, tz: ZoneInfo, year: int) -> datetime.date | None:
@@ -83,7 +120,7 @@ def summary(states: dict[str, dict], now: datetime.datetime, tz: ZoneInfo) -> di
     rooms = [s for eid, s in states.items() if ROOM_RE.match(eid)]
     today_n = sum(1 for s in rooms if _cleaned_on(s, tz, today.year) == today)
     alerts = []
-    if str((states.get(WATER) or {}).get("state")).lower() == "on":
+    if water_empty(states):
         alerts.append("water tank empty")
     err = states.get(ERROR)
     if err and str(err.get("state") or "").strip().lower() not in _NO_ERROR:

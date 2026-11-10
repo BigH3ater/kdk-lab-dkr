@@ -1,5 +1,6 @@
 /* Kitchen board + household page behaviour. Small on purpose: everything is
    rendered server-side; this only adds the clock, ticks, checklists, timers,
+   pantry reorders and the grocery add box,
    wake lock, idle return, night view, anti-ghosting shift and the 2-minute
    fragment refresh. Pages work (read-only) without it. */
 (function () {
@@ -72,7 +73,7 @@
 
   // ---- idle return: sub-views go back to the board after 5 idle minutes --------
   var timersRunning = 0;
-  if (page === "ingredients" || page === "steps") {
+  if (page === "ingredients" || page === "steps" || page === "pantry") {
     var home = body.dataset.home || "/meal/kitchen", last = Date.now();
     ["pointerdown", "keydown", "touchstart", "scroll"].forEach(function (ev) {
       document.addEventListener(ev, function () { last = Date.now(); }, {passive: true, capture: true});
@@ -230,5 +231,112 @@
     }, 250);
     chip.textContent = fmt(Math.round((end - Date.now()) / 1000));
     chip.addEventListener("click", stop);
+  });
+
+  // ---- pantry check: "Checked" ticks (this browser, tonight only) ---------------
+  function chicagoDate() {
+    try { return new Intl.DateTimeFormat("en-CA", {timeZone: TZ, year: "numeric", month: "2-digit", day: "2-digit"}).format(new Date()); }
+    catch (e) { return new Date().toISOString().slice(0, 10); }
+  }
+  var pchecks = document.querySelectorAll("[data-pcheck]");
+  if (pchecks.length) {
+    var pday = pchecks[0].dataset.pcheck.slice(0, 10);
+    try {
+      for (var pi = window.localStorage.length - 1; pi >= 0; pi--) {
+        var pk = window.localStorage.key(pi);
+        if (pk && pk.indexOf("pan:") === 0 && pk.slice(4, 14) !== pday) { window.localStorage.removeItem(pk); }
+      }
+    } catch (e) { /* no storage */ }
+    var setP = function (b, on) {
+      b.classList.toggle("got", on); b.setAttribute("aria-pressed", on ? "true" : "false");
+      if (b.parentNode) { b.parentNode.classList.toggle("got", on); }
+      store("pan:" + b.dataset.pcheck, on ? "1" : null);
+    };
+    var ptally = function () {
+      var t = document.querySelector("[data-pchecked]");
+      if (t) { t.textContent = document.querySelectorAll("[data-sec=used] .pcheck.got").length; }
+    };
+    pchecks.forEach(function (b) { if (store("pan:" + b.dataset.pcheck) === "1") { setP(b, true); } });
+    ptally();
+    document.addEventListener("click", function (e) {
+      var b = e.target.closest && e.target.closest("[data-pcheck]");
+      if (b) { setP(b, !b.classList.contains("got")); ptally(); return; }
+      var m = e.target.closest && e.target.closest("[data-markall]");
+      if (m) {
+        document.querySelectorAll("[data-sec=" + m.dataset.markall + "] [data-pcheck]").forEach(function (x) { setP(x, true); });
+        ptally();
+      }
+    });
+  }
+
+  // ---- pantry "Running low" + the manual add box (ajax; plain POST without JS) --
+  function onList(f) {
+    var s = document.createElement("span");
+    s.className = "onlist"; s.textContent = "On the list";
+    f.hidden = true; f.parentNode.insertBefore(s, f.nextSibling);
+    return s;
+  }
+  var addDay = chicagoDate();
+  function addedList(f) { return f.parentNode.querySelector("[data-added]"); }
+  function showAdded(ul, item) {
+    var li = document.createElement("li"); li.textContent = item;
+    ul.insertBefore(li, ul.firstChild);
+    ul.parentNode.hidden = false;
+  }
+  function savedAdds() {
+    try { var v = JSON.parse(store("added:" + addDay) || "[]"); return Array.isArray(v) ? v : []; }
+    catch (e) { return []; }
+  }
+  try {
+    for (var ai = window.localStorage.length - 1; ai >= 0; ai--) {
+      var ak = window.localStorage.key(ai);
+      if (ak && ak.indexOf("added:") === 0 && ak !== "added:" + addDay) { window.localStorage.removeItem(ak); }
+    }
+  } catch (e) { /* no storage */ }
+  document.querySelectorAll("form.additem").forEach(function (f) {
+    var ul = addedList(f);
+    if (ul) { savedAdds().slice().reverse().forEach(function (x) { showAdded(ul, String(x)); }); }
+  });
+  document.addEventListener("submit", async function (e) {
+    var f = e.target;
+    if (!f.classList) { return; }
+    if (f.classList.contains("reorder")) {
+      e.preventDefault();
+      if (f.classList.contains("busy")) { return; }
+      f.classList.add("busy");
+      var badge = onList(f);                      // optimistic
+      var fd = new FormData(f); fd.append("ajax", "1");
+      try {
+        var r = await fetch(f.action, {method: "POST", body: fd, credentials: "same-origin", redirect: "manual"});
+        if (r.status !== 200) { throw new Error(r.status); }
+      } catch (err) {
+        badge.remove(); f.hidden = false;
+        var b = f.querySelector("button"); if (b) { b.textContent = "Try again"; }
+      }
+      f.classList.remove("busy");
+      return;
+    }
+    if (f.classList.contains("additem")) {
+      e.preventDefault();
+      var inp = f.querySelector("input[name=item]");
+      var item = (inp.value || "").trim().slice(0, 80);
+      if (!item || f.classList.contains("busy")) { inp.value = item; return; }
+      f.classList.add("busy");
+      var ul = addedList(f);
+      var fd2 = new FormData(f); fd2.set("item", item); fd2.append("ajax", "1");
+      try {
+        var r2 = await fetch(f.action, {method: "POST", body: fd2, credentials: "same-origin", redirect: "manual"});
+        if (r2.status !== 200) { throw new Error(r2.status); }
+        var j = await r2.json();
+        var got = String(j.item || item);
+        if (ul) { showAdded(ul, got); }
+        var saved = savedAdds(); saved.unshift(got); store("added:" + addDay, JSON.stringify(saved.slice(0, 30)));
+        inp.value = ""; f.classList.remove("err");
+      } catch (err) {
+        f.classList.add("err");                   // keep the text so it can be sent again
+      }
+      f.classList.remove("busy");
+      inp.focus();
+    }
   });
 })();
