@@ -21,6 +21,8 @@ COPY stock.py /app/stock.py
 COPY kitchen.py homecal.py vacuum.py /app/
 # kitchen.kmkdp.com device pairing: signed cookie, device registry (/state), pair codes.
 COPY devices.py /app/
+# The add box's "Manual list instead" registry (/state/manual-forced.json).
+COPY forced.py /app/
 COPY static /app/static
 ENV PYTHONUNBUFFERED=1
 EXPOSE 8080

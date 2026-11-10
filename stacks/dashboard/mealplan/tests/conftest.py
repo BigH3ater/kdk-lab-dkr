@@ -32,6 +32,18 @@ def repo_cfg(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def _forced_registry(monkeypatch, tmp_path):
+    """The forced-manual registry lives in a per-test /state stand-in."""
+    import app
+    import forced
+    d = tmp_path / "state"
+    d.mkdir()
+    reg = forced.Registry(str(d / "manual-forced.json"))
+    monkeypatch.setattr(app, "FORCED", reg)
+    return reg
+
+
+@pytest.fixture(autouse=True)
 def _fresh_caches():
     """Each test starts with an empty grocery snapshot and recipe cache (both
     are process-wide in the app)."""

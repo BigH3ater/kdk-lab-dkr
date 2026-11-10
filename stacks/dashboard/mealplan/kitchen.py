@@ -620,14 +620,30 @@ def steps_page(dish: dict | None, dishes: list[dict], asset_ver: str, back: str)
 # The kitchen tablet's two grocery writes both post to the groceries page's own
 # routes (no second write path): "Running low" -> /groceries/reorder (pantry and
 # stock foods only, no duplicate while one is open), the add box -> /groceries/add
-# (the Manual list). `next` brings a plain form POST back here; home.js sends
-# ajax=1 instead. "Checked" ticks live in the browser for the evening only.
+# (a known Tandoor food lands on its store list, an unknown name on the Manual
+# list; "Manual list instead" forces Manual). `next` brings a plain form POST
+# back here with the result in ?added=; home.js sends ajax=1 instead and shows
+# where each item went under "Added tonight". "Checked" ticks live in the
+# browser for the evening only.
 ADD_MAX = 80
+MANUAL_OFF_NOTE = "Manual list instead is off: the dashboard can't save it right now."
 
 
-def add_box(next_key: str, compact: bool = False, manual: list[str] | None = None) -> str:
-    """Text entry for a manual grocery item, "Added tonight" (filled by home.js)
-    and, unless compact, the Manual list's current items."""
+def manual_toggle(ok: bool, el_id: str = "add-manual") -> str:
+    """The "Manual list instead" checkbox (off by default; the whole label is
+    the >= 44 px touch target). Disabled when /state is not writable."""
+    dis = "" if ok else " disabled"
+    tip = "" if ok else f" title='{escape(MANUAL_OFF_NOTE)}'"
+    return (f"<label class='mtog{'' if ok else ' off'}' for='{escape(el_id)}'{tip}>"
+            f"<input type='checkbox' id='{escape(el_id)}' name='manual' value='1'{dis}>"
+            "<span>Manual list instead</span></label>")
+
+
+def add_box(next_key: str, compact: bool = False, manual: list[str] | None = None,
+            flash: dict | None = None, manual_ok: bool = True) -> str:
+    """Text entry for a manual grocery item with the "Manual list instead"
+    toggle, "Added tonight" (filled by home.js; a form-fallback `flash` shows
+    there server-side) and, unless compact, the Manual list's current items."""
     cur = ""
     if manual is not None and not compact:
         items = "".join(f"<li>{escape(m)}</li>" for m in manual)
@@ -641,9 +657,20 @@ def add_box(next_key: str, compact: bool = False, manual: list[str] | None = Non
             f"<input id='add-item' name='item' type='text' required maxlength='{ADD_MAX}' "
             "placeholder='Add a grocery item…' enterkeyhint='done' autocapitalize='sentences' "
             "autocomplete='off' autocorrect='on' spellcheck='true'>"
+            f"{manual_toggle(manual_ok)}"
             "<button class='btn primary' type='submit'>Add to list</button></form>"
-            "<div class='added' hidden><div class='label'>Added tonight</div><ul class='addlist' data-added></ul></div>"
+            + ("" if manual_ok else f"<div class='muted small addnote'>{escape(MANUAL_OFF_NOTE)}</div>")
+            + f"<div class='added'{'' if flash else ' hidden'}><div class='label'>Added tonight</div>"
+            f"<ul class='addlist' data-added>{_flash_li(flash)}</ul></div>"
             f"{cur}</section>")
+
+
+def _flash_li(flash: dict | None) -> str:
+    if not flash:
+        return ""
+    cls = " class='err'" if not flash.get("ok") else ""
+    return (f"<li{cls}><span class='ai'>{escape(flash['item'])}</span>"
+            f"<span class='where'>{escape(flash['text'])}</span></li>")
 
 
 def _pantry_row(f: dict, today: datetime.date, next_key: str) -> str:
@@ -691,7 +718,7 @@ def pantry_page(d: dict, asset_ver: str, back: str) -> str:
             "<div class='tally'><div class='big'><span data-pchecked>0</span> / "
             f"<span data-ptotal>{n_used}</span></div><div class='muted small'>checked</div></div></header>"
             "<div class='pantry-scroll'>"
-            f"{add_box(next_key, manual=d.get('manual'))}"
+            f"{add_box(next_key, manual=d.get('manual'), flash=d.get('flash'), manual_ok=d.get('manual_ok', True))}"
             f"<section class='card psec' data-sec='used'><div class='psec-h'><h2>Used this week</h2>"
             f"<span class='muted'>{n_used}</span>{mark.format('used') if n_used else ''}</div>{used_html}</section>"
             f"<details class='card psec staples' data-sec='staples'><summary><h2>All pantry staples</h2>"
@@ -797,7 +824,7 @@ def household_page(d: dict, asset_ver: str, all_chores: bool = False) -> str:
             + "<body data-page='home' class='household'>"
             "<header class='hh-top'><div class='brand'>Mack House</div>"
             f"<div class='hh-when'><span>{now:%a, %b %-d}</span><span class='hh-wx'>{wxs}</span></div></header>"
-            f"<div class='hh-add'>{add_box('home', compact=True)}</div>"
+            f"<div class='hh-add'>{add_box('home', compact=True, flash=d.get('flash'), manual_ok=d.get('manual_ok', True))}</div>"
             f"<main class='hh-main' id='board' data-fragment='{base()}/home?fragment=1{'&amp;chores=all' if all_chores else ''}'>"
             f"{household_fragment(d, all_chores)}</main>"
             "</body></html>")

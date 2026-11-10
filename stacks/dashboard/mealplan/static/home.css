@@ -258,6 +258,11 @@ body.household{min-height:100vh}
 .addlist{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:8px}
 .addlist li{padding:6px 12px;border-radius:999px;background:var(--raised);font-size:15px;overflow-wrap:anywhere}
 .addlist.cur li{background:transparent;border:1px solid var(--hairline);color:var(--muted)}
+.addlist li .where{display:block;font-size:13px;color:var(--muted)}
+.addlist li.err .where{color:var(--late)}
+.mtog{display:flex;align-items:center;gap:8px;min-height:44px;min-width:44px;padding:0 6px;color:var(--muted);font-size:15px;cursor:pointer;white-space:nowrap;flex:0 0 auto}
+.mtog input{width:24px;height:24px;margin:0;accent-color:var(--tan);flex:0 0 auto}
+.mtog.off{opacity:.5;cursor:not-allowed}
 .addbox.compact{padding:12px 14px}
 .addbox.compact .additem input{min-height:48px;font-size:17px}
 .addbox.compact .btn{min-height:48px;font-size:16px;padding:0 16px}
@@ -294,8 +299,11 @@ body.household{min-height:100vh}
   .prows{grid-template-columns:minmax(0,1fr)}
   .additem{flex-wrap:wrap}
   .additem .btn{flex:1 1 100%}
-  .addbox.compact .additem{flex-wrap:nowrap}
+  .additem .mtog{flex:1 1 100%}
   .addbox.compact .additem .btn{flex:0 0 auto}
+  .addbox.compact .additem{flex-wrap:wrap}
+  .addbox.compact .additem input{flex:1 1 0}
+  .addbox.compact .additem .mtog{order:3;min-height:44px}
   .psec-h{flex-wrap:wrap}
   .pname .src{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
   .subhdr .tally{margin-left:auto}
