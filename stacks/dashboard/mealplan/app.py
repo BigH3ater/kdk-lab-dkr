@@ -19,6 +19,14 @@ Served (behind Traefik, StripPrefix /meal):
   POST /groceries/add, /groceries/reorder (ajax=1, next=pantry|home)
                     -> the only grocery writes the kitchen pages make
   GET  /home        -> the household page (phone/laptop)
+  GET  /kitchen/devices, POST /kitchen/devices/{pair,revoke,revoke-all}
+                    -> kitchen device pairing (home.kmkdp.com, KITCHEN_ADMINS only)
+
+kitchen.kmkdp.com (internal Traefik, NO forwardauth) reaches this same app for
+paired kitchen devices only: /, /ingredients, /steps, /pantry, /step-photo/<id>,
+/manifest.webmanifest, /static/*, POST /tasks/complete, /groceries/add,
+/groceries/reorder, and /pair. Everything else is a 404 there, Remote-* headers
+are ignored, and every other request needs the signed device cookie (devices.py).
 
 RATING ATTRIBUTION CAVEAT (by design, per the approved plan): Tandoor ratings are
 per-user (CookLog), so every rating sent through this shared account is recorded as
@@ -37,7 +45,7 @@ from zoneinfo import ZoneInfo
 import requests
 import urllib3
 urllib3.disable_warnings()
-from flask import Flask, request, Response, redirect
+from flask import Flask, request, Response, redirect, g
 from markupsafe import escape  # HTML-escape any value rendered into a page (CodeQL py/reflective-xss)
 from waitress import serve
 import newpi  # New Pi product-link lookup (reads the mounted foods.yaml)
@@ -45,6 +53,7 @@ import stock  # pantry list + freezer/thaw rules (mounted cleanup.yaml + planner
 import homecal  # household ICS calendar (kitchen board + household page)
 import kitchen  # kitchen board + household page rendering
 import vacuum  # robot vacuum line from Home Assistant
+import devices  # kitchen.kmkdp.com device pairing (signed cookie + registry)
 
 TANDOOR_URL = os.environ.get("TANDOOR_URL", "https://recipes.kmkdp.com").rstrip("/")
 USER = os.environ.get("TANDOOR_USER", "")
@@ -55,11 +64,20 @@ TZ = ZoneInfo(os.environ.get("TZ", "America/Chicago"))
 # household display names; unknown users fall back to Remote-Name or the login.
 USER_DISPLAY = {"jmack": "Jacob", "rach": "Rachel"}
 
+def remote_user() -> str:
+    """The Authelia login (Remote-User) on home.kmkdp.com. Always "" on
+    kitchen.kmkdp.com: that host has no forwardauth, so a Remote-* header
+    there can only come from the client (Traefik strips them as well)."""
+    if kitchen.on_kitchen_host():
+        return ""
+    return (request.headers.get("Remote-User") or "").strip()
+
+
 def rater_from_headers() -> str:
-    login = (request.headers.get("Remote-User") or "").strip()
+    login = remote_user()
     if login in USER_DISPLAY:
         return USER_DISPLAY[login]
-    name = (request.headers.get("Remote-Name") or "").strip()
+    name = "" if kitchen.on_kitchen_host() else (request.headers.get("Remote-Name") or "").strip()
     return name or login or "family"
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -611,10 +629,31 @@ VIKUNJA_TOKENS = {
     "jmack": os.environ.get("VIKUNJA_TOKEN_JMACK", ""),
     "rach": os.environ.get("VIKUNJA_TOKEN_RACH", ""),
 }
+# Chore ticks from kitchen.kmkdp.com are credited to a Vikunja "Kitchen"
+# account when its token is set; until then they use the jmack token.
+VIKUNJA_TOKEN_KITCHEN = os.environ.get("VIKUNJA_TOKEN_KITCHEN", "")
+
+
+def kitchen_tick_token() -> tuple[str, bool]:
+    """(token, fallback): the Kitchen account's token, else jmack's (fallback True)."""
+    if VIKUNJA_TOKEN_KITCHEN:
+        return VIKUNJA_TOKEN_KITCHEN, False
+    return VIKUNJA_TOKENS.get("jmack", ""), True
+
+
+def log_kitchen_token_mode() -> None:
+    if kitchen_tick_token()[1]:
+        log.warning("VIKUNJA_TOKEN_KITCHEN not set: kitchen.kmkdp.com chore ticks use "
+                    "the jmack token (fallback active)")
+    else:
+        log.info("kitchen.kmkdp.com chore ticks use the Kitchen Vikunja account")
 
 def _vik_token() -> tuple[str, str]:
     """(login, token) for the authenticated user; empty token if none stored."""
-    login = (request.headers.get("Remote-User") or "").strip()
+    if kitchen.on_kitchen_host():
+        dev = getattr(g, "kitchen_device", None) or {}
+        return f"kitchen:{dev.get('name') or 'device'}", kitchen_tick_token()[0]
+    login = remote_user()
     return login, VIKUNJA_TOKENS.get(login, "")
 
 def _vik(method: str, path: str, token: str, body=None):
@@ -844,6 +883,8 @@ def tasks_complete():
         except Exception:
             log.exception("task board refresh after tick failed")
         return Response(status=204 if ok else 502)
+    if kitchen.on_kitchen_host():
+        return redirect(kitchen.kpath(), code=303)
     # relative to /meal/tasks/complete -> ../tasks == /meal/tasks (survives the
     # StripPrefix; a bare "tasks" resolved to /meal/tasks/tasks -> 404)
     return redirect("../tasks", code=303)
@@ -1760,7 +1801,10 @@ MANUAL_MAX = 80
 
 
 def _back_to(default: str) -> str:
-    nxt = _NEXT.get(request.form.get("next") or "")
+    key = request.form.get("next") or ""
+    if kitchen.on_kitchen_host():          # only the kitchen views exist there
+        return kitchen.kpath("/pantry") if key.startswith("pantry") else kitchen.kpath()
+    nxt = _NEXT.get(key)
     return f"{kitchen.BASE}{nxt}" if nxt else default
 
 
@@ -1988,6 +2032,8 @@ def _home_data(now: datetime.datetime | None = None) -> dict:
 
 
 def _back_href() -> str:
+    if kitchen.on_kitchen_host():
+        return kitchen.kpath()
     return f"{kitchen.BASE}/home" if request.args.get("from") == "home" else f"{kitchen.BASE}/kitchen"
 
 
@@ -2169,10 +2215,13 @@ def kitchen_step_photo(fid: int):
 
 @app.get("/manifest.webmanifest")
 def manifest():
-    b = kitchen.BASE
+    b = kitchen.base()
+    start, scope = f"{b}/kitchen", f"{b}/"
+    if kitchen.on_kitchen_host():
+        start = scope = f"{KITCHEN_ORIGIN}/"
     body = {
         "name": "Mack House Kitchen", "short_name": "Kitchen",
-        "start_url": f"{b}/kitchen", "scope": f"{b}/", "display": "standalone",
+        "start_url": start, "scope": scope, "display": "standalone",
         "orientation": "landscape", "background_color": "#100D0B", "theme_color": "#100D0B",
         "icons": [{"src": f"{b}/static/icon-192.png", "sizes": "192x192", "type": "image/png"},
                   {"src": f"{b}/static/icon-512.png", "sizes": "512x512", "type": "image/png"}],
@@ -2180,9 +2229,264 @@ def manifest():
     return Response(json.dumps(body), mimetype="application/manifest+json")
 
 
+# ---- kitchen.kmkdp.com: paired kitchen devices, no Authelia ------------------
+# The internal Traefik routes kitchen.kmkdp.com here with NO forwardauth; its
+# middleware strips client-sent Remote-* headers and sets X-Kdk-Kitchen: 1.
+# This app treats a request as the kitchen host when the Host matches OR that
+# header is set (either one only ever narrows what a request can do), drops
+# Remote-* again (other containers can reach :8080 directly), serves only the
+# kitchen allowlist and wants the signed device cookie for all of it except
+# /static, the manifest and /pair. Pairing codes are issued on home.kmkdp.com
+# (Authelia two_factor) by a KITCHEN_ADMINS user.
+KITCHEN_HOST = os.environ.get("KITCHEN_HOST", "kitchen.kmkdp.com").strip().lower()
+KITCHEN_ORIGIN = f"https://{KITCHEN_HOST}"
+HOME_ORIGIN = os.environ.get("HOME_ORIGIN", "https://home.kmkdp.com").rstrip("/")
+KITCHEN_ADMINS = {u.strip() for u in os.environ.get("KITCHEN_ADMINS", "jmack").split(",") if u.strip()}
+KITCHEN_DEVICE_KEY = os.environ.get("KITCHEN_DEVICE_KEY", "")        # a secret: never log it
+KITCHEN_STATE = os.path.join(os.environ.get("KITCHEN_STATE_DIR", "/state"), "devices.json")
+_REMOTE_ENV = ("HTTP_REMOTE_USER", "HTTP_REMOTE_NAME", "HTTP_REMOTE_EMAIL", "HTTP_REMOTE_GROUPS")
+PAIR_LIMIT = devices.RateLimiter(limit=10, window=600)
+_pair_state: dict = {"sig": None, "signer": None, "registry": None}
+_pair_lock = threading.Lock()
+
+
+def _pairing():
+    """(Signer, Registry), or None when KITCHEN_DEVICE_KEY is missing/short."""
+    if not devices.key_ok(KITCHEN_DEVICE_KEY):
+        return None
+    import hashlib
+    sig = (hashlib.sha256(KITCHEN_DEVICE_KEY.encode()).hexdigest(), KITCHEN_STATE)
+    with _pair_lock:
+        if _pair_state["sig"] != sig:
+            signer = devices.Signer(KITCHEN_DEVICE_KEY)
+            try:
+                reg = devices.Registry(KITCHEN_STATE, signer.kid)
+            except OSError:                    # /state not mounted or not writable
+                log.exception("kitchen: device registry not writable; kitchen host answers 503")
+                return None
+            _pair_state.update(sig=sig, signer=signer, registry=reg)
+        return _pair_state["signer"], _pair_state["registry"]
+
+
+def _norm_host(h: str) -> str:
+    h = (h or "").strip().lower()
+    if h.startswith("["):                      # [v6]:port
+        return h
+    return h.rsplit(":", 1)[0].rstrip(".") if ":" in h else h.rstrip(".")
+
+
+def _is_kitchen_request() -> bool:
+    return (_norm_host(request.host) == KITCHEN_HOST
+            or request.headers.get("X-Kdk-Kitchen") == "1")
+
+
+def _client_ip() -> str:
+    """The client as Traefik saw it: the last X-Forwarded-For hop (Traefik
+    replaces any client-sent X-Forwarded-For, untrusted by default)."""
+    xff = [x.strip() for x in (request.headers.get("X-Forwarded-For") or "").split(",") if x.strip()]
+    return xff[-1] if xff else (request.remote_addr or "?")
+
+
+def _text(msg: str, status: int) -> Response:
+    r = Response(msg, status=status, mimetype="text/plain")
+    r.headers["Cache-Control"] = "no-store"
+    return r
+
+
+def _page(body: str, status: int = 200) -> Response:
+    r = _html(body)
+    r.status_code = status
+    return r
+
+
+def _current_device(p) -> dict | None:
+    signer, reg = p
+    now = time.time()
+    claims, why = signer.verify(request.cookies.get(devices.COOKIE), now)
+    dev = reg.active(claims) if claims else None
+    if claims and dev is None:
+        why = "unknown or revoked device"
+    if dev is None:
+        if why != "no cookie":
+            log.info("kitchen: device cookie refused (%s) ip=%s", why, _client_ip())
+        return None
+    reg.touch(dev["id"], now)
+    return dev
+
+
+_KITCHEN_GET = {"/": "kitchen_board", "/ingredients": "kitchen_ingredients",
+                "/steps": "kitchen_steps", "/pantry": "kitchen_pantry"}
+_KITCHEN_POST = {"/tasks/complete", "/groceries/add", "/groceries/reorder"}
+_STEP_PHOTO = re.compile(r"^/step-photo/(\d{1,9})$")
+
+
+def _kitchen_gate():
+    p = _pairing()
+    if p is None:
+        return _text("kitchen pairing not configured", 503)
+    path, method = request.path, request.method
+    get = method in ("GET", "HEAD")
+    photo = _STEP_PHOTO.match(path) if get else None
+    if path == "/pair" and method in ("GET", "HEAD", "POST"):
+        return None                                  # pair(): rate limit + Origin check
+    if get and (path.startswith("/static/") or path == "/manifest.webmanifest"):
+        return None                                  # not secret; the Home Screen icon fetch has no cookie
+    allowed = (get and (path in _KITCHEN_GET or photo)) or (method == "POST" and path in _KITCHEN_POST)
+    if not allowed:
+        return _text("not found", 404)
+    dev = _current_device(p)
+    if dev is None:
+        if get and not photo:
+            return _page(devices.unpaired_page(kitchen.head("Pair this screen", ASSET_VER, kiosk=False)), 401)
+        return _text("this device is not paired", 401)
+    g.kitchen_device = dev
+    if method == "POST":
+        if not devices.origin_ok(request.headers.get("Origin"), request.headers.get("Referer"), KITCHEN_ORIGIN):
+            log.warning("kitchen: POST %s refused (origin) device=%s", path, dev["id"])
+            return _text("forbidden", 403)
+        if request.form.get("ajax") == "1" and request.headers.get("X-Kitchen") != "1":
+            log.warning("kitchen: POST %s refused (no X-Kitchen) device=%s", path, dev["id"])
+            return _text("forbidden", 403)
+        return None                                  # the existing handler
+    if photo:
+        return kitchen_step_photo(int(photo.group(1)))
+    return app.view_functions[_KITCHEN_GET[path]]()
+
+
+@app.before_request
+def _host_gate():
+    on = _is_kitchen_request()
+    kitchen.set_kitchen_host(on)          # every request sets it: waitress reuses threads
+    if not on:
+        return None
+    for k in _REMOTE_ENV:                 # also catches Remote_User (same WSGI key)
+        request.environ.pop(k, None)
+    return _kitchen_gate()
+
+
+@app.after_request
+def _kitchen_headers(resp: Response) -> Response:
+    if kitchen.on_kitchen_host():
+        resp.headers.setdefault("X-Frame-Options", "DENY")
+        resp.headers.setdefault("X-Content-Type-Options", "nosniff")
+        resp.headers.setdefault("Referrer-Policy", "same-origin")
+    return resp
+
+
+@app.route("/pair", methods=["GET", "POST"])
+def pair():
+    if not kitchen.on_kitchen_host():
+        return _text("not found", 404)
+    signer, reg = _pairing()                         # the gate already answered 503 without a key
+    ip = _client_ip()
+    head = kitchen.head("Pair this screen", ASSET_VER, kiosk=False)
+    raw = request.form.get("code") if request.method == "POST" else request.args.get("code")
+    if raw is None and request.method != "POST":
+        return _page(devices.pair_page(head))        # the code entry form
+    if not PAIR_LIMIT.hit(ip, time.time()):
+        log.warning("kitchen: pair rate-limited ip=%s", ip)
+        return _page(devices.message_page(head, "Too many tries", "Wait ten minutes and try again."), 429)
+    code = devices.normalize_code(raw)
+    now = time.time()
+    if request.method == "POST":
+        if not devices.origin_ok(request.headers.get("Origin"), request.headers.get("Referer"), KITCHEN_ORIGIN):
+            log.warning("kitchen: pair POST refused (origin) ip=%s", ip)
+            return _text("forbidden", 403)
+        if not reg.consume_code(code, now):
+            log.info("kitchen: pair refused (unknown, used or expired code) ip=%s", ip)
+            return _page(devices.pair_page(head, error="That code is used or expired. Make a new one."), 400)
+        dev = reg.add_device(request.form.get("name"), now)
+        token = signer.issue(dev["id"], dev["issued"], dev["expires"])
+        log.info("kitchen: device paired id=%s name=%r ip=%s", dev["id"], dev["name"], ip)
+        r = redirect("/", code=303)
+        # host-only (no Domain), so the cookie never reaches another *.kmkdp.com host
+        r.set_cookie(devices.COOKIE, token, max_age=devices.TOKEN_TTL, path="/",
+                     secure=True, httponly=True, samesite="Strict")
+        r.headers["Cache-Control"] = "no-store"
+        return r
+    # GET: check the code, then ask for a name. The code is consumed by the
+    # POST, so a link preview or prefetch of the GET cannot burn it.
+    if not reg.code_valid(code, now):
+        log.info("kitchen: pair link refused (unknown, used or expired code) ip=%s", ip)
+        return _page(devices.pair_page(head, error="That code is used or expired. Make a new one."), 400)
+    return _page(devices.pair_page(head, code=code))
+
+
+# ---- device admin on home.kmkdp.com (Authelia two_factor, KITCHEN_ADMINS) ------
+def _admin_gate(post: bool):
+    if kitchen.on_kitchen_host():
+        return _text("not found", 404)
+    user = remote_user()
+    if user not in KITCHEN_ADMINS:
+        log.warning("kitchen devices: refused for %r", user or "anonymous")
+        return _text("forbidden", 403)
+    if post and not devices.origin_ok(request.headers.get("Origin"), request.headers.get("Referer"), HOME_ORIGIN):
+        log.warning("kitchen devices: POST refused (origin) user=%s", user)
+        return _text("forbidden", 403)
+    return None
+
+
+def _devices_view(code: str = "") -> Response:
+    p = _pairing()
+    devs = p[1].devices() if p else []
+    link = f"{KITCHEN_ORIGIN}/pair?code={code}" if code else ""
+    body = devices.devices_page(kitchen.head("Kitchen devices", ASSET_VER, kiosk=False), devs, TZ,
+                                p is not None, kitchen.BASE, code=code, link=link,
+                                qr=devices.qr_svg(link) if code else "")
+    return _page(body)
+
+
+@app.get("/kitchen/devices")
+def kitchen_devices():
+    return _admin_gate(post=False) or _devices_view()
+
+
+@app.post("/kitchen/devices/pair")
+def kitchen_devices_pair():
+    refused = _admin_gate(post=True)
+    if refused:
+        return refused
+    p = _pairing()
+    if p is None:
+        return _devices_view()
+    code = p[1].new_code(remote_user(), time.time())
+    log.info("kitchen: pairing code issued by %s (valid %d min)", remote_user(), devices.CODE_TTL // 60)
+    return _devices_view(code)
+
+
+@app.post("/kitchen/devices/revoke")
+def kitchen_devices_revoke():
+    refused = _admin_gate(post=True)
+    if refused:
+        return refused
+    p = _pairing()
+    did = request.form.get("id") or ""
+    if p and devices.device_id_ok(did):
+        dev = p[1].revoke(did, remote_user(), time.time())
+        if dev:
+            log.info("kitchen: device revoked id=%s name=%r by %s", did, dev.get("name"), remote_user())
+    return redirect(f"{kitchen.BASE}/kitchen/devices", code=303)
+
+
+@app.post("/kitchen/devices/revoke-all")
+def kitchen_devices_revoke_all():
+    refused = _admin_gate(post=True)
+    if refused:
+        return refused
+    p = _pairing()
+    if p:
+        n = p[1].revoke_all(remote_user(), time.time())
+        log.info("kitchen: all devices revoked (%d) by %s", n, remote_user())
+    return redirect(f"{kitchen.BASE}/kitchen/devices", code=303)
+
+
 if __name__ == "__main__":
     if not (USER and PASS):
         log.warning("TANDOOR_USER/TANDOOR_PASS not set -- meal plan will fail to load")
     start_grocery_warmer()      # first refresh right away: the first view is hot too
     start_home_warmer()         # weather, calendar, chores, vacuum for the kitchen pages
+    log_kitchen_token_mode()    # once: is the Kitchen Vikunja account in use yet?
+    if _pairing() is None:
+        log.warning("KITCHEN_DEVICE_KEY missing or shorter than %d bytes: "
+                    "kitchen.kmkdp.com answers 503", devices.MIN_KEY_BYTES)
     serve(app, host="0.0.0.0", port=8080)

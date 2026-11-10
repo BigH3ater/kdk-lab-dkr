@@ -127,7 +127,7 @@ services:
     init: true
     container_name: dashboard-mealplan
     restart: unless-stopped
-    env_file: [.env]                # TANDOOR_USER/TANDOOR_PASS (op-injected)
+    env_file: [.env]                # TANDOOR_USER/TANDOOR_PASS, KITCHEN_DEVICE_KEY (op-injected)
     environment:
       TANDOOR_URL: "https://recipes.kmkdp.com"
       TANDOOR_SPACE: "Mack House"
@@ -148,6 +148,10 @@ services:
       - ../../stacks/grocery-planner/config.yaml:/app/planner-config.yaml:ro
       # Thaw-tab ticks (thaw.json, a few lines; pruned each plan week).
       - mealplan-data:/data
+      # kitchen.kmkdp.com device registry (devices.json: id, name, issued,
+      # last_seen, revoked + hashed one-time pair codes; written atomically).
+      # Losing it only means re-pairing the kitchen screen.
+      - /opt/kdk-lab/dashboard/kitchen-state:/state
     networks: [default, proxy]
     labels:
       traefik.enable: "true"
@@ -156,6 +160,21 @@ services:
       traefik.http.routers.mealplan.middlewares: "forwardauth@file,mealplan-strip"
       traefik.http.middlewares.mealplan-strip.stripprefix.prefixes: "/meal"
       traefik.http.services.mealplan.loadbalancer.server.port: "8080"
+      # kitchen.kmkdp.com: the paired kitchen screen. Internal Traefik only (LAN +
+      # Tailscale; never the tunnel or the DMZ). NO forwardauth on purpose: the
+      # sidecar wants its signed device cookie (pairing issued from
+      # home.kmkdp.com/meal/kitchen/devices) and serves only the kitchen views.
+      # The middleware deletes client-sent Remote-* headers (an empty value
+      # removes the header) and marks the request with X-Kdk-Kitchen: 1; the
+      # sidecar ignores Remote-* on this host as well.
+      traefik.http.routers.kitchen.rule: "Host(`kitchen.kmkdp.com`)"
+      traefik.http.routers.kitchen.service: "mealplan"
+      traefik.http.routers.kitchen.middlewares: "kitchen-headers"
+      traefik.http.middlewares.kitchen-headers.headers.customrequestheaders.Remote-User: ""
+      traefik.http.middlewares.kitchen-headers.headers.customrequestheaders.Remote-Name: ""
+      traefik.http.middlewares.kitchen-headers.headers.customrequestheaders.Remote-Email: ""
+      traefik.http.middlewares.kitchen-headers.headers.customrequestheaders.Remote-Groups: ""
+      traefik.http.middlewares.kitchen-headers.headers.customrequestheaders.X-Kdk-Kitchen: "1"
     logging:
       driver: json-file
       options: { max-size: "10m", max-file: "3" }

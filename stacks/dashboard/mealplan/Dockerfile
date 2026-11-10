@@ -8,6 +8,8 @@ RUN pip install --no-cache-dir flask==3.0.3 requests==2.32.3 waitress==3.0.1 pyy
 RUN pip install --no-cache-dir icalendar==7.3.0 recurring-ical-events==3.8.2 \
     x-wr-timezone==2.0.1 python-dateutil==2.9.0.post0 tzdata==2026.5 \
     typing-extensions==4.16.0 click==8.5.0
+# Kitchen device pairing: the QR code for the pairing link (pure Python, no deps).
+RUN pip install --no-cache-dir segno==1.6.6
 WORKDIR /app
 COPY app.py /app/app.py
 # New Pi product-link lookup; reads foods.yaml bind-mounted at /app/foods.yaml.
@@ -17,6 +19,8 @@ COPY stock.py /app/stock.py
 # Kitchen board + household page (/meal/kitchen, /meal/home): rendering,
 # calendar, vacuum line, and the static css/js/fonts/icons served at /meal/static.
 COPY kitchen.py homecal.py vacuum.py /app/
+# kitchen.kmkdp.com device pairing: signed cookie, device registry (/state), pair codes.
+COPY devices.py /app/
 COPY static /app/static
 ENV PYTHONUNBUFFERED=1
 EXPOSE 8080

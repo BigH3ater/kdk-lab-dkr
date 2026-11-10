@@ -9,6 +9,7 @@ lock, idle return, night view, fragment refresh).
 """
 from __future__ import annotations
 
+import contextvars
 import datetime
 import re
 
@@ -18,6 +19,34 @@ import homecal
 import vacuum
 
 BASE = "/meal"                    # Traefik StripPrefix; every link is absolute
+# The same pages also serve kitchen.kmkdp.com (paired kitchen devices, no
+# Authelia) at the host root: /, /ingredients, /steps, /pantry. app.py sets
+# this per request; the default (and every test that renders directly) is
+# home.kmkdp.com under /meal.
+_KITCHEN_HOST: contextvars.ContextVar[bool] = contextvars.ContextVar("kitchen_host", default=False)
+
+
+def set_kitchen_host(on: bool) -> None:
+    _KITCHEN_HOST.set(bool(on))
+
+
+def on_kitchen_host() -> bool:
+    return _KITCHEN_HOST.get()
+
+
+def base() -> str:
+    """Prefix for the sidecar's own routes (static, groceries, tasks)."""
+    return "" if on_kitchen_host() else BASE
+
+
+def kpath(sub: str = "") -> str:
+    """URL of a kitchen view: kpath("/pantry") is /meal/kitchen/pantry on
+    home.kmkdp.com and /pantry on kitchen.kmkdp.com (kpath() is / there)."""
+    if on_kitchen_host():
+        return sub if sub.startswith("/") else "/" + sub
+    return f"{BASE}/kitchen{sub}"
+
+
 NIGHT_START, NIGHT_END = 22, 6    # local hours (America/Chicago): 22:00-06:00
 
 # ---- small formatting ----------------------------------------------------------
@@ -314,7 +343,7 @@ def chore_counts(columns: list[dict], today: datetime.date) -> dict:
 def _chore_row(t: dict, due, today: datetime.date, project: str = "") -> str:
     lbl, late = _due_label(due, today)
     proj = f"<span class='proj'>{escape(project)}</span>" if project else ""
-    return (f"<form class='chore{' late' if late else ''}' method='post' action='{BASE}/tasks/complete'>"
+    return (f"<form class='chore{' late' if late else ''}' method='post' action='{base()}/tasks/complete'>"
             f"<input type='hidden' name='task_id' value='{int(t['id'])}'>"
             f"<button type='submit' class='tick-row' aria-label='Done: {escape(t.get('title') or '')}'>"
             "<span class='box' aria-hidden='true'></span>"
@@ -374,7 +403,7 @@ def cal_line(events: list[dict] | None, day: datetime.date) -> str:
 def head(title: str, asset_ver: str, kiosk: bool) -> str:
     app_meta = ""
     if kiosk:
-        app_meta = (f"<link rel='manifest' href='{BASE}/manifest.webmanifest' crossorigin='use-credentials'>"
+        app_meta = (f"<link rel='manifest' href='{base()}/manifest.webmanifest' crossorigin='use-credentials'>"
                     "<meta name='apple-mobile-web-app-capable' content='yes'>"
                     "<meta name='mobile-web-app-capable' content='yes'>"
                     "<meta name='apple-mobile-web-app-status-bar-style' content='black-translucent'>"
@@ -383,11 +412,11 @@ def head(title: str, asset_ver: str, kiosk: bool) -> str:
             "<meta name='viewport' content='width=device-width,initial-scale=1,viewport-fit=cover'>"
             f"<title>{escape(title)}</title>"
             "<meta name='theme-color' content='#100D0B'>"
-            f"<link rel='apple-touch-icon' href='{BASE}/static/icon-180.png'>"
-            f"<link rel='icon' type='image/png' sizes='192x192' href='{BASE}/static/icon-192.png'>"
+            f"<link rel='apple-touch-icon' href='{base()}/static/icon-180.png'>"
+            f"<link rel='icon' type='image/png' sizes='192x192' href='{base()}/static/icon-192.png'>"
             f"{app_meta}"
-            f"<link rel='stylesheet' href='{BASE}/static/home.css?v={asset_ver}'>"
-            f"<script defer src='{BASE}/static/home.js?v={asset_ver}'></script></head>")
+            f"<link rel='stylesheet' href='{base()}/static/home.css?v={asset_ver}'>"
+            f"<script defer src='{base()}/static/home.js?v={asset_ver}'></script></head>")
 
 
 def _back(href: str) -> str:
@@ -420,8 +449,8 @@ def _dinner_card(dishes: list[dict], big: bool = True) -> str:
             f"<h1 class='dish'>{title_html(main['title'])}</h1>{side}"
             f"<div class='muted meta'>{escape(' · '.join(m for m in meta if m))}</div>"
             "<div class='actions'>"
-            f"<a class='btn primary' href='{BASE}/kitchen/ingredients'>Pull ingredients</a>"
-            f"<a class='btn ghost' href='{BASE}/kitchen/steps'>Steps</a></div></div></article>")
+            f"<a class='btn primary' href='{kpath('/ingredients')}'>Pull ingredients</a>"
+            f"<a class='btn ghost' href='{kpath('/steps')}'>Steps</a></div></div></article>")
 
 
 def _lunch_card(lunch: dict | None, today: datetime.date) -> str:
@@ -479,7 +508,7 @@ def board_fragment(d: dict) -> str:
             f"<section class='meals'>{_dinner_card(d.get('dinner') or [])}"
             f"<div class='meal-side'>{_lunch_card(d.get('lunch'), today)}"
             f"{_tomorrow_card(d.get('tomorrow_titles') or [], d.get('thaw') or '')}"
-            f"<a class='btn ghost pantry-btn' href='{BASE}/kitchen/pantry'>Pantry check</a></div></section>"
+            f"<a class='btn ghost pantry-btn' href='{kpath('/pantry')}'>Pantry check</a></div></section>"
             f"{chores}</div>")
 
 
@@ -490,7 +519,7 @@ def kitchen_page(d: dict, asset_ver: str) -> str:
           if night_ev else "")
     return (head("Kitchen", asset_ver, kiosk=True)
             + f"<body data-page='kitchen' class='kiosk{' is-night' if night else ''}'>"
-            f"<div class='shell' id='board' data-fragment='{BASE}/kitchen?fragment=1'>{board_fragment(d)}</div>"
+            f"<div class='shell' id='board' data-fragment='{kpath('?fragment=1')}'>{board_fragment(d)}</div>"
             f"<div class='night' id='night' role='button' tabindex='0' aria-label='Show the board'>"
             f"<div class='night-clock' data-clock>{fmt_clock(d['now'])}</div>{ev}</div>"
             "</body></html>")
@@ -539,7 +568,7 @@ def _step_html(s: dict, n: int, total: int, dish: dict) -> str:
         "<svg aria-hidden='true' width='22' height='22' viewBox='0 0 24 24' fill='none' stroke='currentColor' "
         "stroke-width='2' stroke-linecap='round'><circle cx='12' cy='13' r='8'/><path d='M12 9v4l2 2M9 2h6'/></svg>"
         f"Start {escape(fmt_minutes(m))} timer</button>" for m in s["timers"])
-    photo = (f"<img class='step-photo' src='{BASE}/kitchen/step-photo/{int(s['photo'])}' alt='' loading='lazy'>"
+    photo = (f"<img class='step-photo' src='{kpath('/step-photo')}/{int(s['photo'])}' alt='' loading='lazy'>"
              if s.get("photo") else "")
     uses = "".join(f"<div class='use'><span class='qty'>{escape(u['qty'])}</span><span>{escape(u['food'])}</span></div>"
                    for u in s["uses"])
@@ -568,11 +597,11 @@ def steps_page(dish: dict | None, dishes: list[dict], asset_ver: str, back: str)
         q = "&from=home" if back.endswith("/home") else ""
         others = "".join(
             f"<a class='btn ghost dishsw{' on' if d['rid'] == dish['rid'] else ''}' "
-            f"href='{BASE}/kitchen/steps?r={int(d['rid'])}{q}'>{title_html(d['title'])}</a>"
+            f"href='{kpath('/steps')}?r={int(d['rid'])}{q}'>{title_html(d['title'])}</a>"
             for d in dishes if d.get("rid"))
     nexts = [f"Next: {s['title']}" for s in steps[1:]] + ["Done cooking"]
     serv = f" · serves {fmt_num(float(dish['servings']))}" if dish["servings"] else ""
-    ing_href = f"{BASE}/kitchen/ingredients" + ("?from=home" if back.endswith("/home") else "")
+    ing_href = f"{kpath('/ingredients')}" + ("?from=home" if back.endswith("/home") else "")
     return (head("Steps", asset_ver, kiosk=True)
             + f"<body data-page='steps' data-home='{escape(back)}' class='kiosk sub'><div class='shell steps-shell'>"
             f"<header class='subhdr'>{_back(back)}<div class='subtitle'>"
@@ -606,7 +635,7 @@ def add_box(next_key: str, compact: bool = False, manual: list[str] | None = Non
                + (f"<ul class='addlist cur'>{items}</ul>" if items
                   else "<div class='muted small'>Nothing yet.</div>"))
     return (f"<section class='card addbox{' compact' if compact else ''}'>"
-            f"<form class='additem' method='post' action='{BASE}/groceries/add'>"
+            f"<form class='additem' method='post' action='{base()}/groceries/add'>"
             f"<input type='hidden' name='next' value='{escape(next_key)}'>"
             "<label class='sr' for='add-item'>Add to the grocery list</label>"
             f"<input id='add-item' name='item' type='text' required maxlength='{ADD_MAX}' "
@@ -623,7 +652,7 @@ def _pantry_row(f: dict, today: datetime.date, next_key: str) -> str:
     if f["on_list"]:
         act = "<span class='onlist'>On the list</span>"
     else:
-        act = (f"<form class='reorder' method='post' action='{BASE}/groceries/reorder'>"
+        act = (f"<form class='reorder' method='post' action='{base()}/groceries/reorder'>"
                f"<input type='hidden' name='food' value='{escape(food)}'>"
                f"<input type='hidden' name='next' value='{escape(next_key)}'>"
                "<button class='btn low' type='submit'>Running low</button></form>")
@@ -708,12 +737,12 @@ def household_fragment(d: dict, all_chores: bool = False) -> str:
                   f"<div class='muted'>{sides}{' · ' if sides and meta else ''}{escape(meta)}</div>"
                   f"<details class='hh-ings'><summary class='btn primary'>Ingredients ({n_ing})</summary>"
                   f"{ingredient_groups(dishes, today)}</details>"
-                  f"<a class='btn ghost' href='{BASE}/kitchen/steps?from=home'>Steps</a>"
-                  f"<a class='btn ghost' href='{BASE}/kitchen/pantry?from=home'>Pantry check</a></div></article>")
+                  f"<a class='btn ghost' href='{kpath('/steps')}?from=home'>Steps</a>"
+                  f"<a class='btn ghost' href='{kpath('/pantry')}?from=home'>Pantry check</a></div></article>")
     else:
         dinner = ("<article class='card hh-dinner'><div class='pad'><div class='eyebrow rust'>Dinner tonight</div>"
                   "<h2 class='dish'>No dinner planned</h2>"
-                  f"<a class='btn ghost' href='{BASE}/kitchen/pantry?from=home'>Pantry check</a></div></article>")
+                  f"<a class='btn ghost' href='{kpath('/pantry')}?from=home'>Pantry check</a></div></article>")
     lunch = _lunch_card(d.get("lunch"), today)
     tomorrow = _tomorrow_card(d.get("tomorrow_titles") or [], d.get("thaw") or "")
     # chores: due + late first, everything behind a fold
@@ -731,9 +760,9 @@ def household_fragment(d: dict, all_chores: bool = False) -> str:
                 if len(due) > len(shown) else "")
         if all_chores:
             board = (f"<div class='hh-all' id='all-chores'>{chores_columns_html(cols, today)}</div>"
-                     f"<a class='hh-link' href='{BASE}/home'>Hide all chores</a>")
+                     f"<a class='hh-link' href='{base()}/home'>Hide all chores</a>")
         else:
-            board = (f"<a class='hh-link' href='{BASE}/home?chores=all#all-chores'>"
+            board = (f"<a class='hh-link' href='{base()}/home?chores=all#all-chores'>"
                      f"All chores ({counts['total']})</a>")
         chores = (f"<section class='card hh-chores'><div class='chores-h'><h2>Chores</h2>{chores_head(counts)}</div>"
                   f"<div class='hh-due'>{rows}</div>{more}{board}</section>")
@@ -769,6 +798,6 @@ def household_page(d: dict, asset_ver: str, all_chores: bool = False) -> str:
             "<header class='hh-top'><div class='brand'>Mack House</div>"
             f"<div class='hh-when'><span>{now:%a, %b %-d}</span><span class='hh-wx'>{wxs}</span></div></header>"
             f"<div class='hh-add'>{add_box('home', compact=True)}</div>"
-            f"<main class='hh-main' id='board' data-fragment='{BASE}/home?fragment=1{'&amp;chores=all' if all_chores else ''}'>"
+            f"<main class='hh-main' id='board' data-fragment='{base()}/home?fragment=1{'&amp;chores=all' if all_chores else ''}'>"
             f"{household_fragment(d, all_chores)}</main>"
             "</body></html>")

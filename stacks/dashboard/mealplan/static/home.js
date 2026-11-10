@@ -129,7 +129,7 @@
     f.classList.add("busy", "done");
     var fd = new FormData(f); fd.append("ajax", "1");
     try {
-      var r = await fetch(f.action, {method: "POST", body: fd, credentials: "same-origin", redirect: "manual"});
+      var r = await fetch(f.action, {method: "POST", body: fd, credentials: "same-origin", redirect: "manual", headers: {"X-Kitchen": "1"}});
       if (r.status !== 204) { throw new Error(r.status); }
       f.classList.remove("busy");
       setTimeout(refresh, 600);
@@ -307,7 +307,7 @@
       var badge = onList(f);                      // optimistic
       var fd = new FormData(f); fd.append("ajax", "1");
       try {
-        var r = await fetch(f.action, {method: "POST", body: fd, credentials: "same-origin", redirect: "manual"});
+        var r = await fetch(f.action, {method: "POST", body: fd, credentials: "same-origin", redirect: "manual", headers: {"X-Kitchen": "1"}});
         if (r.status !== 200) { throw new Error(r.status); }
       } catch (err) {
         badge.remove(); f.hidden = false;
@@ -325,7 +325,7 @@
       var ul = addedList(f);
       var fd2 = new FormData(f); fd2.set("item", item); fd2.append("ajax", "1");
       try {
-        var r2 = await fetch(f.action, {method: "POST", body: fd2, credentials: "same-origin", redirect: "manual"});
+        var r2 = await fetch(f.action, {method: "POST", body: fd2, credentials: "same-origin", redirect: "manual", headers: {"X-Kitchen": "1"}});
         if (r2.status !== 200) { throw new Error(r2.status); }
         var j = await r2.json();
         var got = String(j.item || item);

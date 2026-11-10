@@ -50,3 +50,14 @@ HOMEPAGE_VAR_ICS_URL={{ op://kdk-cluster/proton-calendar-ics/url }}
 # ratings -- nothing else.
 TANDOOR_USER={{ op://kdk-cluster/dashboard-tandoor-rw/username }}
 TANDOOR_PASS={{ op://kdk-cluster/dashboard-tandoor-rw/password }}
+
+# ---- kitchen.kmkdp.com device pairing -----------------------------------------
+# HMAC key that signs the kitchen screen's 1-year device cookie. Item
+# dashboard-kitchen-device-key in kdk-cluster, field password (generated, 64
+# characters). Must exist in 1Password BEFORE this merges or op inject fails and
+# the stack won't deploy. Rotating it revokes every paired device (re-pair after).
+KITCHEN_DEVICE_KEY={{ op://kdk-cluster/dashboard-kitchen-device-key/password }}
+# Chore ticks from the kitchen screen are credited to a Vikunja "Kitchen" account
+# once its token exists (item vikunja-api-kitchen in kdk-cluster, field password);
+# until then they fall back to the jmack token. Add the VIKUNJA_TOKEN_KITCHEN line
+# as a real assignment only after that item exists (see docs/services/dashboard.md).

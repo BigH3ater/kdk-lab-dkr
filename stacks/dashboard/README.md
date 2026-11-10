@@ -11,13 +11,14 @@ services that carry their own login (most now Authelia OIDC, incl. Home Assistan
 | `vikunja` | `https://tasks.kmkdp.com` | Checkable household tasks (own auth, SQLite) |
 | `mealplan` (P2) | `https://home.kmkdp.com/meal/` | Tandoor weekly plan + star-rating write-back |
 | `mealplan` (kitchen) | `https://home.kmkdp.com/meal/kitchen`, `/meal/home` | Kitchen board for the iPad + household phone page (native, no iframes; see docs/services/dashboard.md) |
+| `mealplan` (kitchen host) | `https://kitchen.kmkdp.com/` | The same kitchen views for the paired kitchen screen: no Authelia, a signed 1-year device cookie instead; pair and revoke at `home.kmkdp.com/meal/kitchen/devices` (jmack) |
 
 ## Config (all git-tracked)
 - `config/` — Homepage YAML (`settings`, `services`, `bookmarks`, `widgets`, `custom.css`, `custom.js`). `custom.css` `@import`s `/guides/shared-nav.css`; `custom.js` is a tiny loader that pulls in `/guides/shared-nav.js` (Homepage only auto-loads its own `custom.js`).
 - `guides/` — static HTML guides. Served under `/guides` via Traefik StripPrefix; each page sets `<base href="/guides/">` so relative links/assets resolve under the prefix even without a trailing slash.
 - `guides/shared-nav.css` + `guides/shared-nav.js` — the **one** Kodiak sidebar, shared by Homepage, the guides and the `/meal` pages (same link set/order/labels, active-link state, and a <960px top-bar + hamburger overlay). `shared-nav.js` injects the markup, marks the current surface with `aria-current="page"`, and **hides the nav inside an iframe** (so the dashboard-embedded `/meal` grid/tasks/weather stay bare; standalone `/meal/groceries` gets the sidebar). Served same-origin from `/guides`, behind Authelia — no CDN.
 - `guides.nginx.conf` — mounted read-only over the container's `default.conf`; sends `Cache-Control: no-cache` for HTML and a short `max-age` + `must-revalidate` for css/js so guide edits show up without a hard refresh. Single-file bind mount → conf edits need a container recreate to apply.
-- `mealplan/` — the sidecar (`Dockerfile` + `app.py`); `kitchen.py`, `homecal.py`, `vacuum.py` and `static/` (css, js, self-hosted fonts with their OFL licences, bear icons) make the kitchen board and the household page. Tests: `mealplan/tests/` (run command in docs/services/dashboard.md).
+- `mealplan/` — the sidecar (`Dockerfile` + `app.py`); `kitchen.py`, `homecal.py`, `vacuum.py` and `static/` (css, js, self-hosted fonts with their OFL licences, bear icons) make the kitchen board and the household page; `devices.py` is the kitchen.kmkdp.com device pairing (signed cookie, registry on `/opt/kdk-lab/dashboard/kitchen-state`). Tests: `mealplan/tests/` (run command in docs/services/dashboard.md).
 - `.env.tpl` — op refs, injected at deploy (`pre_deploy`).
 
 ## Secrets (create in 1Password **before** the first deploy)
