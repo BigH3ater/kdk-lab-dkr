@@ -503,3 +503,42 @@ def test_heading_only_step_becomes_next_step_title():
     assert is_heading("For the sauce") and is_heading("Instructions:")
     assert not is_heading("Serve hot.") and not is_heading("Rest for 5 minutes.")
     assert heading_title("How to Cook Filet Mignon Recipe:") == "Cook Filet Mignon"
+
+
+def test_unnamed_steps_get_an_excerpt_tab_not_step_n(home):
+    html = home.get("/kitchen/steps").get_data(as_text=True)
+    tabs = re.findall(r"<button type='button' class='tab'[^>]*>(.*?)</button>", html)
+    # step 1 has no name: its opening words, not a second "Step 1" next to the number
+    assert tabs[0] == "<span class='tn'>1</span> Start the rice first"
+    assert tabs[1] == "<span class='tn'>2</span> Make the sauce"
+    assert "Step 1 of 4</div>" in html and "Step 1 of 4 · Step 1" not in html
+    assert "Step 2 of 4 · Make the sauce" in html
+    assert kitchen.tab_label("Pour in the broth. Simmer 2 minutes.", 4) == "Pour in the broth"
+    assert kitchen.tab_label("", 4) == "Step 4"
+
+
+def _css_rules(css: str) -> dict:
+    """selector -> declarations for the top-level rules (comments and @media blocks dropped)."""
+    css = re.sub(r"/\*.*?\*/", "", css, flags=re.S)
+    css = re.sub(r"@media[^{]*\{(?:[^{}]*\{[^{}]*\})*[^{}]*\}", "", css)
+    out = {}
+    for sel, body in re.findall(r"([^{}]+)\{([^{}]*)\}", css):
+        out[sel.strip()] = out.get(sel.strip(), "") + body + ";"
+    return out
+
+
+def test_kitchen_css_sizes_to_the_viewport():
+    """The board fits whatever height Safari leaves (100dvh after a 100vh
+    fallback); header and meals rows size to their content; the side cards
+    (lunch, tomorrow, pantry button) never get a fixed pixel height again."""
+    import os
+    with open(os.path.join(os.path.dirname(kitchen.__file__), "static", "home.css")) as fh:
+        rules = _css_rules(fh.read())
+    for sel in ("body.kiosk", ".shell"):
+        assert "height:100vh;height:100dvh" in rules[sel].replace(" ", ""), sel
+    assert "grid-template-rows:auto auto minmax(0,1fr)" in rules[".board-in"]
+    side = {k: v for k, v in rules.items() if re.search(r"\.(meal-side|lunch|tomorrow|pantry-btn)\b", k)}
+    assert len(side) >= 4
+    for sel, decl in side.items():
+        assert not re.search(r"(^|;)\s*(max-|min-)?height\s*:\s*\d+px", decl), (sel, decl)
+    assert "clamp(" in rules[".step-body p"] and "clamp(" in rules[".dish"]

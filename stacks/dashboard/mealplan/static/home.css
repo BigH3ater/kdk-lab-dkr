@@ -45,50 +45,72 @@ button{font:inherit;color:inherit}
 .btn.ghost:hover{color:var(--text);border-color:var(--muted)}
 .box{flex:0 0 auto;width:24px;height:24px;border-radius:7px;border:2px solid var(--box);background:transparent}
 
-/* ---------------- kitchen board ---------------- */
+/* ---------------- kitchen board ----------------
+   Sized to the viewport, not to one iPad: 100dvh (Safari's toolbar leaves ~760 px
+   in a tab, ~820 px as a Home Screen app), the header and meals rows take their
+   content height, the chores get the rest and each column scrolls. Type scales
+   with clamp(min, vh, max): full size at 820 tall, a little smaller at 700-760. */
 body.kiosk{overflow:hidden;height:100vh;height:100dvh;user-select:none;-webkit-user-select:none}
-.shell{height:100vh;height:100dvh;padding:max(20px,env(safe-area-inset-top)) max(22px,env(safe-area-inset-right)) max(18px,env(safe-area-inset-bottom)) max(22px,env(safe-area-inset-left));
+body.kiosk{--gap:clamp(10px,1.9vh,16px)}
+.shell{height:100vh;height:100dvh;padding:max(clamp(12px,2.4vh,20px),env(safe-area-inset-top)) max(22px,env(safe-area-inset-right)) max(clamp(12px,2.2vh,18px),env(safe-area-inset-bottom)) max(22px,env(safe-area-inset-left));
   transform:translate(var(--sx,0px),var(--sy,0px));transition:transform 2s ease}
 /* fixed: the hourly shift never makes the page scrollable */
 body.kiosk .shell{position:fixed;inset:0}
-.board-in{height:100%;display:grid;grid-template-rows:122px 292px minmax(0,1fr);gap:var(--gap)}
-.hdr{display:grid;grid-template-columns:236px minmax(0,1fr) minmax(0,320px);gap:var(--gap);min-height:0}
-.hdr .card{padding:14px 20px;display:flex;flex-direction:column;justify-content:center;gap:6px;min-width:0}
-.clock .date{font-size:18px}
-.wx{flex-direction:row!important;align-items:center;gap:20px!important}
-.wx-now{display:flex;align-items:center;gap:14px;flex:0 0 auto}
+.board-in{height:100%;display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:auto auto minmax(0,1fr);gap:var(--gap)}
+.hdr{display:grid;grid-template-columns:clamp(196px,20vw,236px) minmax(0,1fr) minmax(0,clamp(240px,27vw,320px));gap:var(--gap);min-height:0}
+.hdr .card{padding:clamp(10px,1.7vh,14px) 20px;display:flex;flex-direction:column;justify-content:center;gap:clamp(2px,.7vh,6px);min-width:0}
+.kiosk .big{font-size:clamp(34px,5.4vh,44px)}
+.clock .date{font-size:clamp(15px,2.2vh,18px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wx{flex-direction:row!important;align-items:center;gap:clamp(12px,1.7vw,20px)!important}
+.wx-now{display:flex;align-items:center;gap:14px;flex:0 1 auto;min-width:0}
+.wx-now>div{min-width:0}
+.wx-now .muted{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .wxi{color:var(--tan);flex:0 0 auto}
+.kiosk .wx-now .wxi{width:clamp(40px,6.3vh,52px);height:clamp(40px,6.3vh,52px)}
 .hours{display:flex;flex:1 1 auto;justify-content:space-between;gap:4px;min-width:0}
 .hr{display:flex;flex-direction:column;align-items:center;gap:2px;flex:1 1 0;min-width:0;white-space:nowrap}
-.hv{font-size:18px;font-weight:600}
+.hv{font-size:clamp(16px,2.2vh,18px);font-weight:600}
 .pop{font-size:13px;color:var(--tan)}
 .cal .calrow{display:flex;gap:10px;align-items:baseline;min-width:0}
 .calday{flex:0 0 64px;font-weight:600;color:var(--tan)}
 .calev{flex:1 1 auto;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .meals{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr);gap:var(--gap);min-height:0}
-.dinner{display:grid;grid-template-columns:minmax(0,290px) minmax(0,1fr);overflow:hidden;min-height:0}
+.dinner{display:grid;grid-template-columns:minmax(0,clamp(200px,22vw,290px)) minmax(0,1fr);overflow:hidden;min-height:0}
 .dinner.none{grid-template-columns:1fr}
-.photo{background:var(--raised);min-height:0}
-.photo img{display:block;width:100%;height:100%;object-fit:cover}
-.noimg{width:100%;height:100%;background:var(--raised)}
-.dinner-body{padding:20px 24px;display:flex;flex-direction:column;gap:8px;min-width:0}
-.dish{font-size:34px;line-height:1.1;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-.side{font-size:18px;color:var(--muted)}
-.meta{font-size:16px}
-.actions{display:flex;gap:12px;margin-top:auto;flex-wrap:wrap}
-.meal-side{display:flex;flex-direction:column;gap:var(--gap);min-height:0}
-.meal-side .card{padding:14px 20px;display:flex;flex-direction:column;gap:4px;min-height:0;overflow:hidden}
-.lunch{flex:1 1 auto}
+/* the photo fills whatever height the text sets; it never sets the height itself */
+.photo{background:var(--raised);min-height:0;position:relative}
+.photo img{display:block;position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.noimg{position:absolute;inset:0;background:var(--raised)}
+.dinner-body{padding:clamp(14px,2.4vh,20px) 24px;display:flex;flex-direction:column;gap:clamp(4px,1vh,8px);min-width:0}
+.dish{font-size:clamp(26px,4.15vh,34px);line-height:1.1;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.side{font-size:clamp(15px,2.2vh,18px);color:var(--muted);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.meta{font-size:clamp(14px,1.95vh,16px)}
+.dinner .meta{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.actions{display:flex;gap:12px;margin-top:auto;flex-wrap:wrap;padding-top:clamp(4px,1vh,8px)}
+.kiosk .actions .btn{min-height:clamp(48px,6.8vh,56px)}
+/* side cards take their content height; long lines end in an ellipsis instead of
+   being cut off by the card (no fixed heights) */
+.meal-side{display:flex;flex-direction:column;gap:clamp(8px,1.6vh,14px);min-height:0;min-width:0}
+.meal-side .card{flex:0 0 auto;padding:clamp(9px,1.6vh,14px) 18px;display:flex;flex-direction:column;gap:2px;min-width:0;overflow:hidden}
+.meal-side .card>*{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.meal-side .eyebrow{font-size:clamp(12px,1.7vh,14px)}
+.meal-side .muted{font-size:clamp(14px,1.95vh,16px)}
+.meal-side .muted.small{font-size:clamp(13px,1.7vh,14px)}
+.meal-side .thaw{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
 .ltitle{font-size:18px;font-weight:600;line-height:1.25}
+.meal-side .ltitle{font-size:clamp(15px,2.15vh,18px)}
 .thaw{font-size:15px;color:var(--tan);font-weight:500}
-.chores{padding:14px 16px;display:flex;flex-direction:column;gap:12px;min-height:0}
-.chores-h{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
-.chores-h h2{font-size:22px}
+.meal-side .thaw{font-size:clamp(14px,1.85vh,15px);line-height:1.3}
+.chores{padding:clamp(10px,1.6vh,14px) 16px;display:flex;flex-direction:column;gap:clamp(8px,1.3vh,12px);min-height:0}
+.chores-h{display:flex;align-items:baseline;gap:4px 12px;flex-wrap:wrap}
+.chores-h h2{font-size:clamp(18px,2.7vh,22px)}
 .late-n{color:var(--late);font-weight:600}
 .vac{margin-left:auto;font-size:15px;color:var(--muted);text-align:right}
 .vac-k{font-weight:600;color:var(--text)}
 .alert{color:var(--late);font-weight:600}
-.cols{display:grid;grid-template-columns:repeat(var(--ncols,5),minmax(0,1fr));gap:10px;min-height:0;flex:1 1 auto}
+.cols{display:grid;grid-template-columns:repeat(var(--ncols,5),minmax(120px,1fr));gap:10px;min-height:0;flex:1 1 auto;
+  overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:none}
+.cols::-webkit-scrollbar{display:none}
 .col{background:var(--ground);border:1px solid var(--hairline);border-radius:14px;padding:8px 8px 4px;display:flex;flex-direction:column;min-width:0;min-height:0}
 .col-h{display:flex;flex-direction:column;gap:0;font-size:14px;font-weight:600;color:var(--muted);padding:0 4px 6px;border-bottom:1px solid var(--hairline)}
 .col-h .col-name{color:var(--text)}
@@ -96,6 +118,8 @@ body.kiosk .shell{position:fixed;inset:0}
 .col-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .col-n{white-space:nowrap}
 .col-list{overflow-y:auto;min-height:0;flex:1 1 auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;scrollbar-width:thin;scrollbar-color:var(--hairline) transparent}
+/* more below: fade the last row out so a part-shown chore reads as "scroll" (home.js) */
+.col-list.more{-webkit-mask-image:linear-gradient(#000 calc(100% - 32px),transparent);mask-image:linear-gradient(#000 calc(100% - 32px),transparent)}
 .chore{margin:0}
 .tick-row{display:flex;align-items:center;gap:10px;width:100%;min-height:44px;padding:4px 4px;border:0;border-radius:10px;background:transparent;text-align:left;cursor:pointer;font-size:15px;line-height:1.25}
 .tick-row:active{background:var(--raised)}
@@ -121,15 +145,17 @@ body.is-night .night{display:flex}
 body.is-night .shell{visibility:hidden}
 
 /* sub-views: header row */
-.sub .shell{display:flex;flex-direction:column;gap:18px}
-.subhdr{display:flex;align-items:center;gap:20px;flex:0 0 auto}
+.sub .shell{display:flex;flex-direction:column;gap:clamp(12px,2.2vh,18px)}
+.subhdr{display:flex;align-items:center;gap:clamp(12px,1.7vw,20px);flex:0 0 auto}
+.subhdr>.btn{flex:0 0 auto;white-space:nowrap}
 .subtitle{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1 1 auto}
-.subtitle h1{font-size:32px}
+.subtitle h1{font-size:clamp(26px,3.9vh,32px)}
+.subtitle .eyebrow{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .tally{text-align:right;flex:0 0 auto}
-.tally .big{font-size:34px}
+.tally .big{font-size:clamp(28px,4.15vh,34px)}
 
 /* ingredients view */
-.dishes{display:grid;gap:18px;flex:1 1 auto;min-height:0;grid-template-columns:minmax(0,1fr)}
+.dishes{display:grid;gap:clamp(12px,2.2vh,18px);flex:1 1 auto;min-height:0;grid-template-columns:minmax(0,1fr)}
 .dishes.n2,.dishes.n3{grid-template-columns:minmax(0,1.55fr) minmax(0,1fr)}
 .dishes.n3 .dishlist:nth-child(3){grid-column:2}
 .dishlist{padding:16px 18px;display:flex;flex-direction:column;gap:6px;min-height:0}
@@ -147,31 +173,36 @@ body.is-night .shell{visibility:hidden}
 .ing.got .box{background:var(--rust);border-color:var(--rust)}
 
 /* steps view */
-.steps-shell{gap:14px!important}
-.dishsws{display:flex;gap:8px;flex-wrap:wrap}
-.dishsw{min-height:44px;font-size:15px;padding:0 14px}
+.steps-shell{gap:clamp(10px,1.7vh,14px)!important}
+.dishsws{display:flex;gap:8px;flex-wrap:wrap;min-width:0}
+.dishsw{display:inline-block;min-height:44px;line-height:42px;font-size:15px;padding:0 14px;max-width:min(380px,100%);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .dishsw.on{border-color:var(--rust)}
 .timerbar{display:flex;gap:8px;flex-wrap:wrap}
 .tchip{min-height:48px;padding:0 16px;border-radius:12px;border:2px solid var(--rust);background:var(--raised);font-family:var(--head);font-size:22px;font-weight:600;cursor:pointer}
 .tchip.ring{background:var(--rust);color:var(--ground)}
-.tabs{display:flex;gap:10px;flex:0 0 auto;overflow-x:auto}
-.tab{flex:1 1 0;min-width:120px;min-height:48px;padding:0 12px;border-radius:12px;border:1px solid var(--hairline);background:transparent;font-size:15px;font-weight:600;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
+/* tabs keep a readable width and scroll sideways once they no longer fit (8+ steps) */
+.tabs{display:flex;gap:10px;flex:0 0 auto;overflow-x:auto;overscroll-behavior-x:contain;scroll-snap-type:x proximity;scrollbar-width:none}
+.tabs::-webkit-scrollbar{display:none}
+.tab{flex:1 0 clamp(140px,14vw,170px);max-width:340px;min-width:0;min-height:48px;padding:0 12px;border-radius:12px;border:1px solid var(--hairline);background:transparent;font-size:15px;font-weight:600;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;scroll-snap-align:start}
 .tab[aria-selected="true"]{border-color:var(--rust);background:var(--raised)}
 .tab.past{color:var(--muted)}
 .tn{color:var(--tan);margin-right:4px}
-.step{flex:1 1 auto;min-height:0;display:grid;grid-template-columns:minmax(0,1fr);gap:18px}
-.step.has-aside{grid-template-columns:minmax(0,1fr) 340px}
-.step-main{padding:28px 32px;display:flex;flex-direction:column;gap:16px;min-height:0;overflow-y:auto}
-.step-body p{margin:0 0 12px;font-size:28px;line-height:1.45}
+/* the step takes its content height (up to the space there is, then the card
+   scrolls), the aside matches it, and the Previous/Next bar sits at the bottom */
+.step{flex:0 1 auto;min-height:min(36vh,320px);display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,auto);gap:clamp(12px,1.6vw,18px)}
+.step.has-aside{grid-template-columns:minmax(0,1fr) clamp(250px,28vw,340px)}
+.step-main{padding:clamp(18px,3.2vh,28px) clamp(20px,2.7vw,32px);display:flex;flex-direction:column;gap:clamp(10px,1.8vh,16px);min-height:0;overflow-y:auto}
+.step-body p{margin:0 0 .5em;font-size:clamp(20px,2.9vh,24px);line-height:1.45}
+.step-body p:last-child{margin-bottom:0}
 .timers{display:flex;gap:12px;flex-wrap:wrap}
 .btn.timer{border:2px solid var(--rust);background:transparent;align-self:flex-start}
-.step-aside{padding:18px;display:flex;flex-direction:column;gap:6px;min-height:0;overflow-y:auto}
-.step-photo{width:100%;max-height:220px;object-fit:cover;border-radius:14px;margin-bottom:8px;background:var(--raised)}
-.use{display:flex;gap:12px;align-items:baseline;font-size:18px;min-height:36px}
+.step-aside{padding:clamp(14px,2.2vh,18px);display:flex;flex-direction:column;gap:6px;min-height:0;overflow-y:auto}
+.step-photo{width:100%;max-height:clamp(140px,24vh,220px);object-fit:cover;border-radius:14px;margin-bottom:8px;background:var(--raised);flex:0 0 auto}
+.use{display:flex;gap:12px;align-items:baseline;font-size:clamp(16px,2.2vh,18px);min-height:36px}
 .use .qty{min-width:76px;font-weight:600;color:var(--tan)}
-.stepnav{display:flex;gap:14px;flex:0 0 auto}
-.stepnav .btn{min-height:64px;font-size:20px}
-.stepnav .prev{flex:0 0 220px}
+.stepnav{display:flex;gap:14px;flex:0 0 auto;margin-top:auto}
+.stepnav .btn{min-height:clamp(52px,7.8vh,64px);font-size:clamp(18px,2.45vh,20px);min-width:0}
+.stepnav .prev{flex:0 0 clamp(140px,19vw,220px)}
 .stepnav .next{flex:1 1 auto}
 
 /* ---------------- household page ---------------- */
@@ -224,6 +255,26 @@ body.household{min-height:100vh}
   .hh-photo{height:200px}
   .hh-all .cols{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
+/* narrower landscape (1024 wide): four hours of weather instead of six */
+@media (min-width:761px) and (max-width:1100px) and (orientation:landscape){
+  .hours .hr:nth-child(n+5){display:none}
+}
+/* iPad portrait (820 wide): clock + calendar, then weather full width; dinner full
+   width, the side cards in a row under it; chores below, scrolling inside */
+@media (min-width:761px) and (orientation:portrait){
+  .hdr{grid-template-columns:minmax(0,1fr) minmax(0,1.4fr);grid-template-areas:"clock cal" "wx wx"}
+  .hdr .clock{grid-area:clock} .hdr .wx{grid-area:wx} .hdr .cal{grid-area:cal}
+  .meals{grid-template-columns:minmax(0,1fr)}
+  .meal-side{flex-direction:row;align-items:stretch}
+  .meal-side .card{flex:1 1 0}
+  .meal-side .pantry-btn{flex:0 0 auto;align-self:stretch;padding:0 18px}
+  .cols{grid-template-columns:repeat(var(--ncols,5),minmax(150px,1fr))}
+  .dishes.n2,.dishes.n3{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1.55fr) minmax(0,1fr)}
+  .dishes.n3{grid-template-rows:minmax(0,1.4fr) minmax(0,1fr) minmax(0,1fr)}
+  .dishes.n3 .dishlist:nth-child(3){grid-column:auto}
+  .step.has-aside{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,auto) minmax(0,auto)}
+  .step-aside .step-photo{max-height:clamp(140px,18vh,220px)}
+}
 /* kitchen pages on a phone (not the target, but never broken): stack and scroll */
 @media (max-width:760px){
   body.kiosk{overflow:auto;height:auto;user-select:auto;-webkit-user-select:auto}
@@ -246,7 +297,7 @@ body.household{min-height:100vh}
 }
 /* pantry check view + the grocery add box */
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
-.pantry-btn{flex:0 0 auto;min-height:56px}
+.pantry-btn{flex:0 0 auto;min-height:clamp(48px,6.8vh,56px)}
 .pantry-scroll{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;display:flex;flex-direction:column;gap:16px;padding-bottom:8px}
 .addbox{padding:14px 18px;display:flex;flex-direction:column;gap:8px;flex:0 0 auto}
 .additem{display:flex;gap:12px}

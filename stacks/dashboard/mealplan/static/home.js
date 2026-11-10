@@ -106,10 +106,23 @@
         var d = c.querySelector("details"); if (d && open[c.dataset.cat]) { d.open = true; }
       });
       if (ingOpen) { var g = board.querySelector("details.hh-ings"); if (g) { g.open = true; } }
-      syncNight(); restoreChecks();
+      syncNight(); restoreChecks(); markMore();
     } catch (e) { /* keep the old board; try again next cycle (a login redirect lands here too) */ }
     busy = false;
   }
+  // ---- chore columns: fade the bottom while there is more to scroll -----------
+  function markMore() {
+    document.querySelectorAll(".col-list").forEach(function (l) {
+      l.classList.toggle("more", l.scrollTop + l.clientHeight < l.scrollHeight - 2);
+    });
+  }
+  document.addEventListener("scroll", function (e) {
+    if (e.target && e.target.classList && e.target.classList.contains("col-list")) { markMore(); }
+  }, {passive: true, capture: true});
+  document.addEventListener("toggle", markMore, true);       // a "+N later" fold opened
+  window.addEventListener("resize", markMore);
+  markMore();
+  if (document.fonts && document.fonts.ready) { document.fonts.ready.then(markMore); }
   function syncNight() {
     var bi = board && board.querySelector(".board-in");
     var ne = document.querySelector(".night-ev");
