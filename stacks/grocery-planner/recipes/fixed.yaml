@@ -78,3 +78,15 @@ recipes:
       - {food: "tomato", amount: 1, unit: ""}
       - {food: "red onion", amount: 1, unit: ""}
       - {food: "dill pickles", amount: 1, unit: jar}
+  # Rice side (owner 2026-11-10): the household uses brown quick-rice microwave
+  # packets. The weekly build creates this recipe when it is missing
+  # (run.ensure_setup) and plans it next to every main served over rice (config
+  # `rice`), 1 packet per 2 servings, so the packets reach the Target list like
+  # any other side ("rice" routes to Target/weekly: Pantry & Grains).
+  - name: "Brown Rice (microwave packet)"
+    servings: 2
+    servings_text: "1 packet, 2 people"
+    keywords: [rice-side]
+    instruction: "Microwave the packet per its directions (about 90 seconds). Fluff and serve."
+    ingredients:
+      - {food: "brown rice microwave packet", amount: 1, unit: packet}

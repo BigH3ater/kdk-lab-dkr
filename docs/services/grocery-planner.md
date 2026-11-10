@@ -44,8 +44,16 @@ plan page lives in the dashboard mealplan sidecar at `home.kmkdp.com/meal/grocer
    weekend eggs. **Every other week (parity A) a Wednesday slow-cooker roast
    replaces one ground-beef dinner** (`roast_night`, owner decision), with its
    own veg side and its leftovers planned as **Thursday lunch** (no extra beef).
-   It also plans a rotating veg side per dinner (no repeats), 2 lunch preps at 4
-   servings, and the weekly-staples + snack feeders; writes the meal-plan entries
+   It also plans a rotating veg side per dinner (no repeats) **unless the main
+   already holds a vegetable** (`sides.vegetables`, matched on the main's Tandoor
+   ingredient foods), a **brown-rice microwave-packet side** next to every main
+   served over rice (`rice`: the `serve-with-rice` keyword, else a "cooked rice"
+   ingredient or a step naming rice; `no-rice-side` opts a recipe out), **3 lunch
+   preps at 4 servings** on Sunday (6 lunch days x 2), the weekly staples as
+   Breakfast and the snack feeders as the **Snack** meal type. Before planning,
+   the build creates anything missing that it needs (Snack meal type, the rice
+   keywords, the "Brown Rice (microwave packet)" recipe from
+   `recipes/fixed.yaml`; a no-op once done). It writes the meal-plan entries
    (idempotent per week key `gp:<ISO week>`); materializes the shopping list via
    the native meal-plan add-to-shopping (2 servings; lunches 4; on-hand + pet
    foods dropped); splits it by the store prefix of each food's supermarket

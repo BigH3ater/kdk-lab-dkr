@@ -15,7 +15,8 @@ Tandoor-driven, human-submitted (no store ordering API). Full design:
   `docs/reference/grocery-recipe-candidates.md`.
 - **Weekly job:** `grocery/run.py` generates next week's plan (season by date,
   1 fish + 4 chicken breast + 1 ground beef + 1 steak, fish Sunday, salmon/tuna
-  + Greek/Asian beef by ISO-week parity, rotating veg sides, no repeats, caps),
+  + Greek/Asian beef by ISO-week parity, rotating veg sides (none when the main has a vegetable),
+  a brown-rice packet side for rice dishes, 3 lunch preps, snacks as Snack, caps),
   writes the meal-plan entries (idempotent per week key), builds the New Pi +
   Target list minus on-hand items, and raises one combined Vikunja approval task.
 - **Page:** the dashboard mealplan sidecar serves `home.kmkdp.com/meal/groceries`

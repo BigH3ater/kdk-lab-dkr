@@ -555,7 +555,19 @@ public rating, and demote dishes the household rates low (Phase 2).
   `--apply`, it re-reads it), or a Costco/stock store (not a weekly list).
 - **Week already planned.** A re-run logs `skip: week already planned` — the week
   key marker (`gp:<ISO week>`) is already on the meal-plan entries. Delete those
-  entries in Tandoor to force a regenerate.
+  entries in Tandoor to force a regenerate. A config change never reaches a
+  planned week: when the planned week has fewer dinners or lunch preps than the
+  config now asks for, the skip line is `level: warn` with `short` (W46 was
+  built 2026-11-01 with 2 lunch preps, hours before the 3-batch rule merged, and
+  stayed at 2). Add the missing entries by hand or delete and regenerate.
+- **A dinner has no veg side.** Its main already holds a vegetable from
+  `sides.vegetables` in `config.yaml` (whole-word match on the Tandoor food
+  name; optional lines ignored). Edit that list to change what counts.
+- **Rice side missing or unwanted.** Tag the recipe `serve-with-rice` in Tandoor
+  to force the "Brown Rice (microwave packet)" side, or `no-rice-side` to stop a
+  wrong detection. A recipe that lists its own raw rice (e.g. "white rice")
+  keeps that line and gets no packet. If the build logs `setup` it created the
+  rice recipe / Snack meal type that run; nothing to do.
 - **Nothing routed to a store / lots of "unrouted".** Foods lack a
   `supermarket_category`; run the seed (it routes recipe foods) or assign in
   Tandoor. The page groups unrouted items nowhere — fix the category.
