@@ -162,6 +162,14 @@ def heading_title(text: str) -> str:
     return (t[:1].upper() + t[1:]) if t else ""
 
 
+def tab_label(body: str, n: int) -> str:
+    """A step with no name: its tab shows the opening words instead of a second
+    "Step n" next to the number (CSS ends a long one with an ellipsis)."""
+    first = re.split(r"(?<=[.!?])\s", (body or "").strip(), maxsplit=1)[0].strip()
+    first = re.sub(r"[.!?]+$", "", first)
+    return first[:60] or f"Step {n}"
+
+
 def body_html(body: str) -> str:
     paras = [p.strip() for p in re.split(r"\n\s*\n", body or "") if p.strip()]
     return "".join(f"<p>{escape(p)}</p>".replace("\n", "<br>") for p in paras)
@@ -239,7 +247,9 @@ def make_dish(entry: dict, rec: dict, onhand=None) -> dict:
         n = len(steps) + 1
         title, body = step_title(st.get("name") or carry, st.get("instruction") or "", n)
         carry = ""
-        steps.append({"title": title, "body": body,
+        named = title != f"Step {n}"
+        steps.append({"title": title, "named": named, "tab": title if named else tab_label(body, n),
+                      "body": body,
                       "timers": timers(body, int(st.get("time") or 0)),
                       "photo": st.get("file_id"),
                       "uses": [ings[i] for i in st.get("ingredients") or [] if i < len(ings)]})
@@ -609,8 +619,9 @@ def _step_html(s: dict, n: int, total: int, dish: dict) -> str:
         aside = (f"<aside class='card step-aside'>{photo}"
                  + (f"<div class='label'>This step uses</div>{uses}" if uses else "")
                  + "</aside>")
+    name = f" · {escape(s['title'])}" if s.get("named", True) else ""     # not "Step 1 of 6 · Step 1"
     return (f"<section class='step{' has-aside' if aside else ''}' data-step='{n}' {'hidden' if n else ''}>"
-            f"<article class='card step-main'><div class='eyebrow tan'>Step {n + 1} of {total} · {escape(s['title'])}</div>"
+            f"<article class='card step-main'><div class='eyebrow tan'>Step {n + 1} of {total}{name}</div>"
             f"<div class='step-body'>{body_html(s['body'])}</div>"
             f"<div class='timers'>{tm}</div></article>{aside}</section>")
 
@@ -623,7 +634,8 @@ def steps_page(dish: dict | None, dishes: list[dict], asset_ver: str, back: str)
                 f"<header class='subhdr'>{_back(back)}</header><div class='card empty'>{escape(msg)}</div></div></body></html>")
     steps = dish["steps"]
     tabs = "".join(f"<button type='button' class='tab' data-go='{n}' aria-selected='{'true' if n == 0 else 'false'}'>"
-                   f"<span class='tn'>{n + 1}</span> {escape(s['title'])}</button>" for n, s in enumerate(steps))
+                   f"<span class='tn'>{n + 1}</span> {escape(s.get('tab') or s['title'])}</button>"
+                   for n, s in enumerate(steps))
     others = ""
     if len(dishes) > 1:
         q = "&from=home" if back.endswith("/home") else ""

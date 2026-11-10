@@ -102,7 +102,7 @@ refresh. Homepage at `/` is unchanged (it is retired in a later PR).
 
 | Route | What it is |
 |---|---|
-| `/meal/kitchen` | Kitchen board for the landscape iPad (~1180×820, fine at 1280×800): clock + date, weather now/high/low + 6-hour strip, calendar line for today and tomorrow; large dinner card (main + side, photo, total time, servings, ingredient and on-hand count); lunch card (this plan week's prep lunches); tomorrow card (dinner + thaw hint); chore columns (every open task, scrolling per column, tick-off) with the vacuum line. Breakfast and snacks are not shown, and nothing personal (no budget, no workouts) |
+| `/meal/kitchen` | Kitchen board for the landscape iPad (sized to the viewport with `100dvh`: ~1180×760 in a Safari tab, ~1180×820 as a Home Screen app; also stacks for portrait and phone): clock + date, weather now/high/low + 6-hour strip, calendar line for today and tomorrow; large dinner card (main + side, photo, total time, servings, ingredient and on-hand count); lunch card (this plan week's prep lunches); tomorrow card (dinner + thaw hint); chore columns (every open task, scrolling per column, tick-off) with the vacuum line. Breakfast and snacks are not shown, and nothing personal (no budget, no workouts) |
 | `/meal/kitchen/ingredients` | Full-screen checklist for tonight's dinner, scaled to the planned servings, grouped by dish (main, then sides); "on hand" marks pantry/stock foods (planner `pantry:` list, stock stores, or Tandoor's on-hand flag). Ticks live in the browser (`localStorage`, keyed by date) for the evening |
 | `/meal/kitchen/steps` | One large step at a time with step tabs and Previous/Next; "This step uses" from the ingredients Tandoor attaches to each step; the step photo; a timer button for every minute/hour value the step text names (chime on the page). `?r=<recipe id>` picks the side dish |
 | `/meal/kitchen/pantry` | Pantry check (the **Pantry check** button on the board, and on the household page's dinner card). At the top, a large **Add to list** box for a manual grocery item, with "Added tonight" and the Manual list's current items below it. **Used this week**: the pantry and stock foods this plan week's recipes call for, grouped by store and aisle, each with the recipes it is for. **All pantry staples** (collapsed): the rest of the planner `pantry:` list and the stock-store foods. Each row has a large **Running low** button (or "On the list" when an open entry already exists) and a **Checked** tick that only marks it reviewed tonight (browser `localStorage`, keyed by date); **Mark all checked** ticks a whole section. Built from the groceries snapshot, so a view makes no extra upstream call |
@@ -187,7 +187,12 @@ in a Home Screen app). The sub-views (ingredients, steps, pantry check) return t
 timer runs). The board refreshes every 2 minutes and on wake without a page flash, keeping
 each column's scroll. 22:00–06:00 Chicago time the board turns into a near-black night view
 (dim clock and tomorrow's first event); a tap shows the board for 3 minutes. The layout
-moves by up to 3 px every hour against LCD ghosting. Targets are at least 44 px.
+moves by up to 3 px every hour against LCD ghosting. Targets are at least 44 px. No fixed
+row heights: header and meals rows take their content height, the chores get the rest
+(each column scrolls and fades out while there is more), side-card lines end in an
+ellipsis, and type scales with `clamp()` so it is full size at 820 px tall and a little
+smaller at 700–760. Step tabs scroll sideways once they no longer fit (8+ steps); an unnamed step's tab shows
+its opening words.
 
 **Tests** (fixtures only, no network), from `stacks/dashboard/mealplan`:
 
