@@ -12,7 +12,7 @@ tags: [homelab/stack, tier/dmz, status/live]
 
 # Audiobookshelf
 
-Audiobook, ebook and podcast server on the DMZ node. Its router serves the DMZ Traefik's `websecure` and `tunnel` entrypoints, but it stays LAN/Tailscale only until the owner adds the tunnel public hostname ([Publishing](#publishing)). Login is ABS's own auth or Authelia OIDC (client `audiobookshelf`), no ForwardAuth (it would break the mobile apps).
+Audiobook, ebook and podcast server on the DMZ node. Its router serves the DMZ Traefik's `websecure` and `tunnel` entrypoints, but it stays LAN/Tailscale only until the owner adds the tunnel public hostname ([Publishing](#publishing)). Login is ABS's own auth or Authelia OIDC (client `audiobookshelf`), no ForwardAuth (it would break the mobile apps). Registered mobile OIDC schemes (ABS Settings → Authentication → Allowed Mobile Redirect URIs, `authOpenIDMobileRedirectURIs`, a live setting held in the ABS database, not in git): `audiobookshelf://oauth`, `prologue://oauth`, `plappa://oauth`. ABS checks the app scheme itself and gives Authelia only its own `https://audiobookshelf.kmkdp.com/auth/openid/mobile-redirect` callback, so a new app needs only an ABS entry, not an Authelia change.
 
 **Related:** [[kdk-dkr-dmz-01]] · [[dmz-proxy]] · [[identity]] · [[media]]
 
