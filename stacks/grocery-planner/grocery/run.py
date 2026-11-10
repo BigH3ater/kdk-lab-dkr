@@ -25,6 +25,7 @@ import datetime
 import json
 import logging
 import os
+import re
 import sys
 
 import yaml
@@ -121,9 +122,84 @@ def _ingredient_count(recipe):
     return n
 
 
-def build_pool(recipes, season):
+def _is_optional(ing):
+    text = " ".join(str(ing.get(k) or "") for k in ("original_text", "note")).lower()
+    return "optional" in text
+
+
+def _food_names(recipe, skip_optional=True):
+    out = []
+    for step in recipe.get("steps") or []:
+        for ing in step.get("ingredients") or []:
+            name = ((ing.get("food") or {}).get("name") or "").strip().lower()
+            if not name or ing.get("is_header") or (skip_optional and _is_optional(ing)):
+                continue
+            out.append(name)
+    return out
+
+
+def _word_re(words):
+    """One regex matching any of `words` as whole words, plural s/es allowed:
+    "carrot" hits "baby carrots", "corn" does not hit "cornstarch"."""
+    alts = "|".join(re.escape(w.lower()) for w in sorted(words, key=len, reverse=True))
+    return re.compile(rf"\b(?:{alts})(?:e?s)?\b") if alts else None
+
+
+def veg_foods(recipe, vegetables):
+    """The recipe's vegetable foods (config sides.vegetables, whole-word match on
+    the Tandoor food name; optional garnish lines ignored). Tandoor holds no
+    vegetable flag: its food categories here are store aisles ("NewPi/weekly:
+    Produce" also holds garlic, herbs and lemons), so the list lives in config."""
+    rx = _word_re(vegetables or [])
+    if not rx:
+        return []
+    return sorted({n for n in _food_names(recipe) if rx.search(n)})
+
+
+# "rice" as the grain, not rice vinegar / rice wine / cauliflower rice etc.
+_RICE = re.compile(r"(?<!cauliflower )\brice\b(?! vinegar| wine| noodle| paper| cake)")
+_OPTIONAL = re.compile(r"\boptional\b|\bif you like\b|\bif desired\b|\bif using\b"
+                       r"|\bor rice\b|\brice,? or\b")   # "potatoes, noodles, or rice" = a choice
+
+
+def wants_rice(recipe, rice_cfg):
+    """True when the dish is served over rice the household makes separately
+    (the microwave packet): the `serve-with-rice` keyword (explicit), else
+    detection -- a serving-rice ingredient (`serving_foods`, e.g. "cooked rice"),
+    or no rice ingredient at all while a step sentence names rice ("serve over
+    hot rice", "Cook rice as per package instructions"). Sentences that make it
+    optional ("over rice, or ... if you like") do not count, and a recipe that
+    lists its own raw rice ("white rice") keeps it, so gets no side. The
+    `no-rice-side` keyword switches detection off for one recipe."""
+    rc = rice_cfg or {}
+    if not rc.get("enabled", False):
+        return False
+    names = {(k.get("name") or "").lower() for k in (recipe.get("keywords") or [])}
+    if rc.get("keyword", "serve-with-rice") in names:
+        return True
+    if rc.get("opt_out_keyword", "no-rice-side") in names or not rc.get("detect", True):
+        return False
+    foods = set(_food_names(recipe, skip_optional=False))
+    serving = {f.lower() for f in rc.get("serving_foods") or ["cooked rice"]}
+    if serving & foods:
+        return True
+    if any(_RICE.search(f) for f in foods):
+        return False                       # the recipe brings (and cooks) its own rice
+    for st in recipe.get("steps") or []:
+        for sentence in re.split(r"[.!?]", (st.get("instruction") or "").lower()):
+            if _RICE.search(sentence) and not _OPTIONAL.search(sentence):
+                return True
+    return False
+
+
+def build_pool(recipes, season, cfg=None):
     """Turn Tandoor recipe detail dicts into generator pool items for a season.
-    Variant comes from keywords (salmon/tuna, greek/asian). kind from keywords."""
+    Variant comes from keywords (salmon/tuna, greek/asian). kind from keywords.
+    With `cfg`, each item also carries `veg_foods` (no veg side when non-empty)
+    and `rice` (gets the rice side)."""
+    cfg = cfg or {}
+    vegetables = (cfg.get("sides") or {}).get("vegetables") or []
+    rice_cfg = cfg.get("rice") or {}
     pool = []
     for r in recipes:
         # Lower-case: Tandoor already had a "Pork" keyword, which the seed reused for
@@ -169,6 +245,8 @@ def build_pool(recipes, season):
             "ingredient_count": None, "slot": "",
             "servings": r.get("servings", 2),
             "tags": sorted(names & {"beef-lunch", "short-ribs", "tri-tip"}),
+            "veg_foods": [] if kind == "side" else veg_foods(r, vegetables),
+            "rice": kind != "side" and wants_rice(r, rice_cfg),
         })
     return pool
 
@@ -246,12 +324,46 @@ def _tandoor(cfg):
                    household_id=cfg["tandoor"].get("household_id")).login()
 
 
-def _already_planned(t, start, end, wk):
+def _week_notes(t, start, end, wk):
     marker = f"[gp:{wk}]"
-    for e in t.meal_plan(start.isoformat(), end.isoformat()):
-        if marker in (e.get("note") or ""):
-            return True
-    return False
+    return [e.get("note") or "" for e in t.meal_plan(start.isoformat(), end.isoformat())
+            if marker in (e.get("note") or "")]
+
+
+def _already_planned(t, start, end, wk):
+    return bool(_week_notes(t, start, end, wk))
+
+
+def ensure_setup(t, cfg):
+    """Idempotent Tandoor setup the weekly build needs; creates only what is
+    missing, so it is a no-op once done: every configured meal type (the Snack
+    type, added 2026-11), the two rice keywords, and the rice side recipe from
+    recipes/fixed.yaml. Returns the names it created."""
+    from . import seed as SD
+    created = []
+    have = t.meal_types()
+    for i, name in enumerate(cfg["tandoor"]["meal_types"].values()):
+        if name not in have:
+            t.post("/api/meal-type/", {"name": name, "order": i})
+            created.append(f"meal-type:{name}")
+    rc = cfg.get("rice") or {}
+    if not rc.get("enabled"):
+        return created
+    kws = t.keywords()
+    for kw in (rc.get("keyword", "serve-with-rice"), rc.get("opt_out_keyword", "no-rice-side")):
+        if kw not in kws:
+            t.ensure_keyword(kw)
+            created.append(f"keyword:{kw}")
+    name = rc.get("recipe", "Brown Rice (microwave packet)")
+    if not any(r.get("name") == name for r in t.get_all("/api/recipe/")):   # exact name, like seed_fixed
+        _, foods_cfg, fixed_cfg, _ = SD.load_configs()
+        only = [r for r in fixed_cfg.get("recipes") or [] if r["name"] == name]
+        if not only:
+            raise G.PlanError(f"rice recipe {name!r} is not in recipes/fixed.yaml")
+        SD.seed_fixed(t, {"recipes": only}, cfg, foods_cfg,
+                      t.supermarket_categories(), t.keywords())
+        created.append(f"recipe:{name}")
+    return created
 
 
 def run_weekly(cfg, poll=False):
@@ -265,15 +377,33 @@ def run_weekly(cfg, poll=False):
     if poll:
         return _poll_pass(cfg, t, start, end, wk)
 
-    if _already_planned(t, start, end, wk):
-        jlog(event="skip", reason="week already planned", week=wk)
+    notes = _week_notes(t, start, end, wk)
+    if notes:
+        # Never re-plan a planned week, but say so when it is short of what the
+        # config asks for now (W46: built 2026-11-01 with 2 lunch preps, before
+        # the 3-batch rule merged; every later build skipped it silently).
+        short = G.missing_counts(notes, cfg)
+        extra = ({"level": "warn",
+                  "short": {k: {"have": h, "want": w} for k, (h, w) in short.items()},
+                  "note": "planned before a config change; add the missing entries by hand"}
+                 if short else {})
+        jlog(event="skip", reason="week already planned", week=wk, **extra)
         return 0
+
+    try:
+        created = ensure_setup(t, cfg)     # Snack meal type + rice side recipe (idempotent)
+    except G.PlanError as e:
+        jlog(event="plan_error", week=wk, error=str(e))
+        log.error("setup error: %s", e)
+        return 1
+    if created:
+        jlog(event="setup", week=wk, created=created)
 
     season = G.season_for_date(start, cfg.get("seasons"))
     # pull candidate recipes (detail, for working_time + ingredients) by season book/keywords
     recipes = [t.get(f"/api/recipe/{r['id']}/")
                for r in t.get_all("/api/recipe/", keyword=_kw_id(t, season))]
-    pool = build_pool(recipes, season)
+    pool = build_pool(recipes, season, cfg)
     pool += _fixed_pool(t)                 # season-independent staples + snacks
     try:
         _require_fixed(cfg, pool)          # loud fail if a fixed recipe isn't seeded
@@ -340,7 +470,7 @@ def _fixed_pool(t):
     """Fetch the fixed breakfast/snack feeder recipes (season-independent) and
     return them as pool items by name, so the generator can place them."""
     out, seen = [], set()
-    for kw in ("breakfast", "snack", "burger-night"):
+    for kw in ("breakfast", "snack", "burger-night", "rice-side"):
         kid = _kw_id(t, kw)
         if not kid:
             continue
@@ -494,7 +624,7 @@ def preview(cfg, week_of=None):
         print(f"NOTE: {wk} is already planned in Tandoor; the real run will skip it.")
     recipes = [t.get(f"/api/recipe/{r['id']}/")
                for r in t.get_all("/api/recipe/", keyword=_kw_id(t, season))]
-    pool = build_pool(recipes, season) + _fixed_pool(t)
+    pool = build_pool(recipes, season, cfg) + _fixed_pool(t)
     try:
         _require_fixed(cfg, pool)
         entries = G.generate_week(pool, start, cfg)
@@ -592,7 +722,7 @@ def freezer_usage(cfg, weeks=4, week_of=None):
         if season not in recipes_by_season:
             recipes_by_season[season] = [t.get(f"/api/recipe/{r['id']}/")
                                          for r in t.get_all("/api/recipe/", keyword=_kw_id(t, season))]
-        pool = build_pool(recipes_by_season[season], season) + _fixed_pool(t)
+        pool = build_pool(recipes_by_season[season], season, cfg) + _fixed_pool(t)
         try:
             entries = G.generate_week(pool, s, cfg)
         except G.PlanError as e:

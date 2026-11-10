@@ -259,8 +259,64 @@ def fetch_plan(mon: datetime.date, sun: datetime.date) -> list[dict]:
             "url": f"{TANDOOR_URL}/view/recipe/{rid}" if rid else None,
             "image": _recipe_image(rid, rec) if rid else None,
             "servings": e.get("servings"),
+            "note": e.get("note") or "",
         })
     return out
+
+
+# Lunch prep is cooked on the plan week's prep day (Sunday) and eaten Mon-Sat,
+# but Tandoor holds it as one Sunday entry, so it vanished from the rolling week
+# on Monday. Tandoor 2.7.2 filters /api/meal-plan/ on to_date only (to_date >=
+# from_date param AND to_date <= to_date param), so a Sun->Sat range would drop
+# out of any window that holds the Sunday but not the Saturday; the sidecar
+# instead repeats the planner's prep lunches (note "[gp:<wk>] lunch" or
+# "... side" on Lunch, never the roast "leftover") on each later day of that
+# plan week, labelled "Lunch prep". The prep day is the plan week's first day
+# (planner config: cadence Sunday, lunches.prep_day sunday).
+LUNCH_PREP_LABEL = "Lunch prep"
+
+
+def _plan_week_start(d: datetime.date) -> datetime.date:
+    return stock.plan_week_start(d)
+
+
+def _is_prep_lunch(e: dict) -> bool:
+    note = e.get("note") or ""
+    return (e.get("meal_type") == "Lunch" and "[gp:" in note
+            and note.rsplit("] ", 1)[-1].strip() in ("lunch", "side"))
+
+
+def with_lunch_prep(plan: list[dict], start: datetime.date, prep: list[dict] | None = None,
+                    days: int = 7) -> list[dict]:
+    """`plan` plus a "Lunch prep" copy of each prep-day lunch on every later day
+    of its plan week inside [start, start+days). `prep` holds extra entries for a
+    prep day before `start` (fetched separately). Pure; the copies keep the
+    recipe link/photo and carry `prep_copy: True`."""
+    src = [e for e in list(plan) + list(prep or []) if e.get("date") and _is_prep_lunch(e)]
+    seen, by_day = set(), {}
+    for e in src:
+        key = (e["date"], e.get("recipe_id"), e.get("title"))
+        if key not in seen:
+            seen.add(key)
+            by_day.setdefault(e["date"], []).append(e)
+    out = list(plan)
+    for i in range(days):
+        d = start + datetime.timedelta(days=i)
+        ws = _plan_week_start(d)
+        if d == ws:
+            continue                       # the prep day shows the real entries
+        for e in by_day.get(ws.isoformat(), []):
+            out.append(dict(e, date=d.isoformat(), meal_type=LUNCH_PREP_LABEL, prep_copy=True))
+    return out
+
+
+def fetch_plan_with_prep(start: datetime.date, end: datetime.date) -> list[dict]:
+    """fetch_plan for [start, end] plus the lunch-prep copies; fetches the
+    current plan week's prep day too when it falls before `start`."""
+    plan = fetch_plan(start, end)
+    ws = _plan_week_start(start)
+    prep = fetch_plan(ws, ws) if ws < start else []
+    return with_lunch_prep(plan, start, prep, (end - start).days + 1)
 
 
 def post_rating(recipe_id: int, rating: int, who: str) -> bool:
@@ -424,7 +480,7 @@ def index():
     today = datetime.datetime.now(TZ).date()
     mon, sun = _week_bounds(today)
     try:
-        plan = fetch_plan(mon, sun)
+        plan = fetch_plan_with_prep(mon, sun)   # + Mon-Sat "Lunch prep" copies
         note = ""
         if not plan:
             # The planner fills NEXT week (Sun-Sat) on Tuesday, so the rolling

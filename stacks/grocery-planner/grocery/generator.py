@@ -12,15 +12,22 @@ selected recipes:
   * ground beef dishes vary: no repeat within the week, at most one Asian-style
     (e.g. beef & broccoli); feta rides on the weekend eggs;
   * fish is Sunday; odd ISO week => salmon, even ISO week => tuna;
-  * a rotating veg side per dinner, no repeat within the week;
-  * 2 lunch preps at 4 servings, breakfast + snack feeder recipes once a week;
+  * a rotating veg side per dinner, no repeat within the week, SKIPPED when the
+    main already holds a vegetable (`veg_foods`, see config sides.vegetables);
+  * a brown-rice side (microwave packet recipe) for every main served over rice
+    (`rice`, from the serve-with-rice keyword or detection in run.build_pool);
+  * N lunch preps (config lunches.recipes_per_week) at 4 servings, breakfast
+    staples once a week, snack feeders once a week as the Snack meal type;
   * simplicity caps (working_time, ingredient count) as a fail-closed filter;
   * deterministic per week key, so a double run yields the same plan (the run
     job additionally refuses to re-POST a week that is already planned).
 
 The pool is a list of plain dicts so tests need no Tandoor. Each recipe:
-  {id, name, slot, kind, season, working_time, ingredient_count, variant?}
+  {id, name, slot, kind, season, working_time, ingredient_count, variant?,
+   veg_foods?, rice?}
 kind in fish|chicken|ground_beef|steak|side|lunch|staple|snack.
+veg_foods: the main's vegetable foods (non-empty -> no veg side). rice: True ->
+the main gets the rice side.
 variant: fish -> salmon|tuna ; ground_beef -> greek|asian (else None).
 """
 from __future__ import annotations
@@ -45,11 +52,11 @@ class PlanError(Exception):
 @dataclass
 class PlanEntry:
     date: datetime.date
-    meal_type: str               # config key: breakfast|lunch|dinner
+    meal_type: str               # config key: breakfast|lunch|dinner|snack
     recipe_id: int
     recipe_name: str
     servings: int
-    role: str                    # dinner-main|side|lunch|breakfast|snack
+    role: str                    # dinner-main|side|rice|lunch|leftover|breakfast|snack
     slot: str
     note: str
 
@@ -228,11 +235,19 @@ def generate_week(pool: list[dict], week_start: datetime.date, config: dict) -> 
     for d, rec in zip(days, other):
         mains_by_day[d] = rec
 
-    # Sides: one per dinner. No repeat when >= 7 distinct are available; else the
-    # interim rule repeats a side up to sides.max_repeats_per_week (relaxing only
-    # if the approved pool is tiny) so the week always fills.
-    sides = _pick_sides(pool, season, caps, rng, 7,
-                        config["sides"].get("max_repeats_per_week", 2))
+    # Sides: one veg side per dinner whose main has no vegetable of its own
+    # (sides.skip_when_main_has_veg; W46: the broccoli stir fry got green beans).
+    # No repeat when enough distinct sides are available; else the interim rule
+    # repeats a side up to sides.max_repeats_per_week (relaxing only if the
+    # approved pool is tiny) so every dinner that needs one gets one.
+    sides_cfg = config["sides"]
+    side_days = [d for d in range(7) if sides_cfg["per_dinner"]
+                 and not (sides_cfg.get("skip_when_main_has_veg", True)
+                          and mains_by_day[d].get("veg_foods"))]
+    sides = (_pick_sides(pool, season, caps, rng, len(side_days),
+                         sides_cfg.get("max_repeats_per_week", 2)) if side_days else [])
+    side_for = dict(zip(side_days, sides))
+    rice = _rice_recipe(pool, config)
 
     for d in range(7):
         date = week_start + datetime.timedelta(days=d)
@@ -242,10 +257,13 @@ def generate_week(pool: list[dict], week_start: datetime.date, config: dict) -> 
         servings = 4 if (roast is not None and main is roast) else 2
         entries.append(PlanEntry(date, "dinner", main["id"], main["name"], servings,
                                  "dinner-main", main.get("slot", ""), note("dinner")))
-        if config["sides"]["per_dinner"]:
-            side = sides[d]
+        if d in side_for:
+            side = side_for[d]
             entries.append(PlanEntry(date, "dinner", side["id"], side["name"], 2,
                                      "side", side.get("slot", ""), note("side")))
+        if rice and main.get("rice"):
+            entries.append(PlanEntry(date, "dinner", rice["id"], rice["name"], 2,
+                                     "rice", rice.get("slot", ""), note("side")))
 
     # ---- lunches: N preps at 4 servings, on the prep day -------------------
     prep_day = _offset(week_start, _DOW[config["lunches"]["prep_day"]])
@@ -260,14 +278,22 @@ def generate_week(pool: list[dict], week_start: datetime.date, config: dict) -> 
         rng.shuffle(cands)
         beef_lunch = cands[0] if cands else None      # none free/seeded: plain lunches
     n_lunch = config["lunches"]["recipes_per_week"] - (1 if beef_lunch else 0)
+    if beef_lunch:
+        # Reserve it BEFORE the lunch pick, so a beef lunch that also carries the
+        # lunch-prep keyword can't be picked twice (2 distinct batches, not 3).
+        used.add(beef_lunch["id"])
     lunches = _pick(pool, "lunch", season, caps, rng, used, n_lunch)
     if beef_lunch:
-        used.add(beef_lunch["id"])
         lunches.append(beef_lunch)
+    lunch_servings = config["lunches"]["servings_each"]
     for rec in lunches:
         entries.append(PlanEntry(prep_date, "lunch", rec["id"], rec["name"],
-                                 config["lunches"]["servings_each"], "lunch",
+                                 lunch_servings, "lunch",
                                  rec.get("slot", ""), note("lunch")))
+        if rice and rec.get("rice"):
+            entries.append(PlanEntry(prep_date, "lunch", rice["id"], rice["name"],
+                                     lunch_servings, "rice", rice.get("slot", ""),
+                                     note("side")))
 
     # Roast leftovers -> Thursday lunch (role "leftover"; the run job posts it
     # WITHOUT addshopping, so no extra beef/pantry is ordered for it).
@@ -286,7 +312,8 @@ def generate_week(pool: list[dict], week_start: datetime.date, config: dict) -> 
     for key in ("buy_recipe", "prep_recipe"):
         fixed = _by_name(pool, config["snacks"][key])
         if fixed:
-            entries.append(PlanEntry(prep_date, "breakfast", fixed["id"], fixed["name"],
+            # Filed under the Snack meal type (was Breakfast: no Snack type existed).
+            entries.append(PlanEntry(prep_date, "snack", fixed["id"], fixed["name"],
                                      fixed.get("servings", 14), "snack",
                                      fixed.get("slot", ""), note("snack")))
 
@@ -332,6 +359,31 @@ def _unscheduled(pool, kind, wk, config):
     return [r for r in pool if not (r.get("kind") == kind and tags & set(r.get("tags") or ()))]
 
 
+def _rice_recipe(pool, config):
+    """The rice side recipe (config rice.recipe), or None when rice sides are
+    off or the recipe is not in Tandoor yet (the build pass creates it)."""
+    rc = config.get("rice") or {}
+    if not rc.get("enabled", False):
+        return None
+    return _by_name(pool, rc.get("recipe", "Brown Rice (microwave packet)"))
+
+
+def missing_counts(existing_notes, config):
+    """Compare an ALREADY planned week (the `[gp:<wk>] <role>` notes of its
+    meal-plan entries) with what the config asks for now. Returns {role: (have,
+    want)} for each short role. The build never re-plans a planned week, so a
+    config change made after a week was built (W46: written 2026-11-01 with 2
+    lunch preps, hours before the 3-batch rule merged) stays short; the build
+    logs this so the gap is visible instead of silent."""
+    have = {}
+    for n in existing_notes:
+        role = (n or "").rsplit("] ", 1)[-1].strip()
+        have[role] = have.get(role, 0) + 1
+    want = {"dinner": int(config["proteins"]["dinners_per_week"]),
+            "lunch": int(config["lunches"]["recipes_per_week"])}
+    return {r: (have.get(r, 0), w) for r, w in want.items() if have.get(r, 0) < w}
+
+
 def _by_name(pool, name):
     for r in pool:
         if r.get("name") == name:
@@ -341,9 +393,10 @@ def _by_name(pool, name):
 
 def plan_summary(entries: list[PlanEntry]) -> dict:
     """Counts used by tests and the log line."""
-    out = {"dinners": 0, "sides": 0, "lunches": 0, "breakfast": 0, "snacks": 0,
-           "leftovers": 0}
-    role_key = {"dinner-main": "dinners", "side": "sides", "lunch": "lunches",
+    out = {"dinners": 0, "sides": 0, "rice": 0, "lunches": 0, "breakfast": 0,
+           "snacks": 0, "leftovers": 0}
+    role_key = {"dinner-main": "dinners", "side": "sides", "rice": "rice",
+                "lunch": "lunches",
                 "breakfast": "breakfast", "snack": "snacks", "leftover": "leftovers"}
     for e in entries:
         k = role_key.get(e.role)

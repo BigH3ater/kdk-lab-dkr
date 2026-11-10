@@ -27,10 +27,13 @@ tandoor:
   # Tandoor meal types the generator writes into. Names must match Tandoor
   # (confirmed live: /api/meal-type/ has name + order). The seed creates any
   # that are missing.
+  # The weekly build (run.ensure_setup) creates any that are missing, e.g. Snack
+  # (added 2026-11: the snack feeders used to be filed under Breakfast).
   meal_types:
     breakfast: "Breakfast"
     lunch: "Lunch"
     dinner: "Dinner"
+    snack: "Snack"
 
 # Plan cadence. The plan week runs Sunday -> Saturday; the fish/beef A-B parity
 # keys off the Monday inside that span (week_start + 1 day) so each calendar
@@ -232,12 +235,63 @@ roast:
   leftovers: thursday_lunch    # where the leftovers go (documented; no extra shopping)
 
 sides:
-  per_dinner: 1                # every dinner gets a rotating veg side
+  per_dinner: 1                # a rotating veg side per dinner...
+  # ...unless the main already holds a vegetable (owner 2026-11-10; W46 put green
+  # beans next to a broccoli stir fry). Decided from the main's Tandoor
+  # ingredient foods: a whole-word match (plural ok) against `vegetables`;
+  # optional garnish lines are ignored. Tandoor has no vegetable flag (its food
+  # categories are store aisles, and Produce also holds garlic, herbs, lemons),
+  # so the list lives here. Aromatics (onion, garlic, celery), mushrooms,
+  # tomatoes/sauce and starchy potatoes are left out on purpose: a dish with only
+  # those still gets a side.
+  skip_when_main_has_veg: true
+  vegetables:
+    - broccoli
+    - broccolini
+    - green bean
+    - haricot vert
+    - carrot
+    - cauliflower
+    - zucchini
+    - squash
+    - asparagus
+    - spinach
+    - kale
+    - cabbage
+    - brussels sprout
+    - bell pepper
+    - snap pea
+    - snow pea
+    - pea
+    - bok choy
+    - eggplant
+    - cucumber
+    - lettuce
+    - romaine
+    - mixed greens
+    - okra
+    - artichoke
   no_repeat_within_week: true
   # Interim rule while the approved side pool is short of 7: allow a side to
   # repeat up to this many times in a week (used only when the pool can't fill
   # 7 distinct). Drops back to no-repeat once enough sides are approved.
   max_repeats_per_week: 2
+
+# Rice side (owner 2026-11-10): a main (dinner or lunch prep) served over rice
+# gets the brown-rice microwave-packet recipe (recipes/fixed.yaml; the weekly
+# build creates it if missing) at the dish's servings, 1 packet per 2 servings,
+# so the packets land on the Target list. Needs rice when the recipe carries
+# `keyword`; otherwise, with `detect`, when it lists a serving-rice food
+# (`serving_foods`) or a step says "serve over/with ... rice". A recipe that
+# lists raw rice cooks its own and gets no side; tag a recipe `opt_out_keyword`
+# to stop a wrong detection. Planned with the note "[gp:<wk>] side".
+rice:
+  enabled: true
+  recipe: "Brown Rice (microwave packet)"
+  keyword: serve-with-rice
+  opt_out_keyword: no-rice-side
+  detect: true
+  serving_foods: [cooked rice, steamed rice, hot rice]
 
 lunches:
   # Owner 2026-11-01: lunches on weekends too -> 6 lunch days x 2 people = 12
