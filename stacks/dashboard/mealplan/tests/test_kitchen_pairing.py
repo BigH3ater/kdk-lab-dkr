@@ -358,7 +358,10 @@ def test_paths_outside_the_allowlist_are_404(kit):
 @pytest.fixture
 def writes(monkeypatch):
     seen = []
-    monkeypatch.setattr(app, "_manual_add", lambda raw: (seen.append(raw) or "added", raw))
+    def add(raw, to_manual=False):
+        seen.append(raw)
+        return {"status": "added", "item": raw, "store": "NewPi", "aisle": "Dairy & Eggs"}
+    monkeypatch.setattr(app, "_manual_add", add)
     return seen
 
 
@@ -371,11 +374,14 @@ def test_kitchen_posts_need_cookie_and_origin(kit, writes):
     assert writes == []
     # form fallback: Origin (or Referer) is enough, then back to the pantry view
     r = kpost(kit, "/groceries/add", data={"item": "milk", "next": "pantry"})
-    assert r.status_code == 303 and r.headers["Location"] == "/pantry"
+    assert r.status_code == 303 and r.headers["Location"] == "/pantry?added=NewPi%7CDairy+%26+Eggs%7Cmilk"
     r = kpost(kit, "/groceries/add", origin=None, data={"item": "eggs", "next": "home"},
               headers={"Referer": K + "/pantry"})
-    assert r.status_code == 303 and r.headers["Location"] == "/"
-    assert writes == ["milk", "eggs"]
+    assert r.status_code == 303 and r.headers["Location"] == "/?added=NewPi%7CDairy+%26+Eggs%7Ceggs"
+    # a `next` that is a URL is ignored: the kitchen host only knows its own views
+    r = kpost(kit, "/groceries/add", data={"item": "oats", "next": "https://evil.example/"})
+    assert r.headers["Location"].startswith("/?added=")
+    assert writes == ["milk", "eggs", "oats"]
 
 
 def test_kitchen_ajax_posts_need_the_custom_header(kit, writes):
@@ -383,7 +389,12 @@ def test_kitchen_ajax_posts_need_the_custom_header(kit, writes):
     r = kpost(kit, "/groceries/add", data={"item": "milk", "ajax": "1"})
     assert r.status_code == 403 and writes == []
     r = kpost(kit, "/groceries/add", data={"item": "milk", "ajax": "1"}, headers={"X-Kitchen": "1"})
-    assert r.status_code == 200 and json.loads(r.get_data(as_text=True))["status"] == "added"
+    j = json.loads(r.get_data(as_text=True))
+    assert r.status_code == 200 and j["status"] == "added"
+    assert (j["store"], j["aisle"], j["text"]) == ("NewPi", "Dairy & Eggs", "Added to New Pi · Dairy & Eggs")
+    # the toggle rides the same CSRF rules: no X-Kitchen, no write
+    r = kpost(kit, "/groceries/add", data={"item": "rice", "ajax": "1", "manual": "1"})
+    assert r.status_code == 403 and writes == ["milk"]
 
 
 def test_kitchen_security_headers(kit):

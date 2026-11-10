@@ -150,7 +150,8 @@ services:
       - mealplan-data:/data
       # kitchen.kmkdp.com device registry (devices.json: id, name, issued,
       # last_seen, revoked + hashed one-time pair codes; written atomically).
-      # Losing it only means re-pairing the kitchen screen.
+      # Losing it only means re-pairing the kitchen screen. Also manual-forced.json:
+      # the grocery add box's "Manual list instead" entry ids (pruned on read).
       - /opt/kdk-lab/dashboard/kitchen-state:/state
     networks: [default, proxy]
     labels:

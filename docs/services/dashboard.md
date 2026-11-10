@@ -32,7 +32,7 @@ paired-device cookie (see [Kitchen host and device pairing](#kitchen-host-and-de
 | Endpoints | `home.kmkdp.com` (+ `/guides`, `/meal`, kitchen board `/meal/kitchen`, pantry check `/meal/kitchen/pantry`, household page `/meal/home`, device admin `/meal/kitchen/devices`), `kitchen.kmkdp.com` (paired kitchen screen, no Authelia), `tasks.kmkdp.com` |
 | Images | `ghcr.io/gethomepage/homepage:v2.7.0`, `nginx:1.31.8-alpine`, `vikunja/vikunja:2.7.1`, `kdk/dashboard-mealplan` (built) |
 | Deploy | Komodo stack `dashboard` (git-linked, `op inject` pre_deploy) |
-| Storage | `/opt/kdk-lab/dashboard/vikunja` (SQLite + files), `/opt/kdk-lab/dashboard/kitchen-state` (kitchen device registry) |
+| Storage | `/opt/kdk-lab/dashboard/vikunja` (SQLite + files), `/opt/kdk-lab/dashboard/kitchen-state` (kitchen device registry, add-box forced-manual ids) |
 | Blast radius | Cosmetic — a launcher; the underlying services are unaffected |
 
 ## Verify
@@ -143,7 +143,43 @@ URL) for the plain-form fallback:
 | Write | Route | Behaviour |
 |---|---|---|
 | Running low | `POST /meal/groceries/reorder` | ONE recipe-less shopping entry (amount 1, the `foods.yaml` `buy:` unit if any) for a pantry or stock food; any other food is refused (422). Idempotent: the duplicate check reads the list live and a lock holds the check and the write together, so a second tap, or the tablet and a phone at once, answers `on_list` without a new entry. The button comes back once the entry is ticked off |
-| Add to list | `POST /meal/groceries/add` | The Manual tab's add box: trimmed, empty refused (422), capped at 80 characters, a recipe-less entry by name (amount 1) that lands on the Manual list. The page shows it under "Added tonight" (browser-only, for the evening) |
+| Add to list | `POST /meal/groceries/add` | The add box (pantry check, household page, groceries Manual tab): trimmed, empty refused (422), capped at 80 characters, a recipe-less entry by name (amount 1). See "The add box" below for where it lands |
+
+**The add box.** Tandoor reuses an existing food by name, so a **known food lands on its
+store list** (NewPi or Target, by the food's supermarket category, the same
+`_split_groceries` rule as every list on the page) and an **unknown name on the Manual
+list**. The answer says where it went: "Added to New Pi · Dairy & Eggs", "Added to Target ·
+Pantry & Grains", "Added to Manual list" (pet food: "stays off the store lists"). It comes
+from the created entry in Tandoor's POST answer (food + `supermarket_category`), or the
+re-read list if the answer lacks it. The ajax answer is
+`{status, item, store, aisle, text}` (`store` = `NewPi`, `Target`, `Manual`, `Off`, or
+empty if unknown); the plain-form fallback carries it in one fixed query key,
+`?added=<store>|<aisle>|<item>` (URL-encoded, re-validated and HTML-escaped when shown).
+The pantry and household views list each add under "Added tonight" with its destination
+(home.js, browser `localStorage` for the evening); the groceries page shows a flash line
+under the Manual tab's box.
+
+**Manual list instead.** A checkbox next to the add button (44 px target, off by default,
+back to off after each add) keeps the item on the Manual list even when the food is known,
+so it stays out of the New Pi and Target tabs. Tandoor is not changed (no food or category
+edit): the new entry's id goes into `/state/manual-forced.json`
+(`/opt/kdk-lab/dashboard/kitchen-state/manual-forced.json`, the same bind mount as the
+device registry; written atomically, mode 600, `{"ids": {"<entry id>": <added at>}}`).
+`_split_groceries` puts those ids on the Manual list. Every read prunes ids whose entry is
+checked, or is gone from the list and older than 30 minutes (a page may render from a
+snapshot read before the add), so the file only holds the few open forced items. Deleting
+it only sends those items back to their store lists. If `/state` is not writable the box
+shows the toggle disabled with a short note, and normal routing keeps working.
+
+**Outside the dashboard.** The page's tabs, counts, the pantry view's Manual list and the
+Target search links all use `_split_groceries`; `/mealplan.json` is the meal plan only.
+Two readers go to Tandoor directly and do **not** know the registry: the grocery-planner's
+weekly run (`build_store_lists`, Tue 18:03) counts an open forced item under its store in
+the approval task's "New Pi N items, Target N items", and `scripts/newpi-order.py` (a
+workstation dry run; `--cart` is not built) lists every unchecked entry whatever its
+category. Neither adds to a store cart, and the Thursday poll only deletes entries linked to
+that week's meal plan, never an add-box entry. Ordering is done from the page, so a
+forced-manual item is not ordered.
 
 **Kitchen behaviour.** Screen Wake Lock, re-requested on `visibilitychange` (iPadOS 18.4+
 in a Home Screen app). The sub-views (ingredients, steps, pantry check) return to the board after 5 idle minutes (not while a
@@ -239,7 +275,9 @@ The key id is a hash of the key, so **rotating the key revokes every device**.
 **The registry.** `/opt/kdk-lab/dashboard/kitchen-state/devices.json` (bind
 mount `/state`, written atomically, mode 600): id, name, issued, expires,
 last_seen (written at most every 5 minutes), revoked, plus the open pairing
-codes as SHA-256 hashes. Losing it only means re-pairing the screen.
+codes as SHA-256 hashes. Losing it only means re-pairing the screen. The same
+mount holds `manual-forced.json`, the add box's "Manual list instead" ids (see
+"The add box" above).
 
 **Pairing and revoking** (`home.kmkdp.com/meal/kitchen/devices`, behind the usual
 Authelia rule, and only for `KITCHEN_ADMINS`, default `jmack`; comma-separated):

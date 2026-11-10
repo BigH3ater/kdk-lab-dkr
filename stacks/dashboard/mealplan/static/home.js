@@ -278,8 +278,15 @@
   }
   var addDay = chicagoDate();
   function addedList(f) { return f.parentNode.querySelector("[data-added]"); }
-  function showAdded(ul, item) {
-    var li = document.createElement("li"); li.textContent = item;
+  // An "Added tonight" chip: the item and where it went ("Added to New Pi ·
+  // Dairy & Eggs"). Saved chips from before this change are plain strings.
+  function showAdded(ul, x) {
+    var item = typeof x === "string" ? x : String((x && x.item) || "");
+    var where = typeof x === "string" ? "" : String((x && x.where) || "");
+    if (!item) { return; }
+    var li = document.createElement("li");
+    var a = document.createElement("span"); a.className = "ai"; a.textContent = item; li.appendChild(a);
+    if (where) { var w = document.createElement("span"); w.className = "where"; w.textContent = where; li.appendChild(w); }
     ul.insertBefore(li, ul.firstChild);
     ul.parentNode.hidden = false;
   }
@@ -295,7 +302,7 @@
   } catch (e) { /* no storage */ }
   document.querySelectorAll("form.additem").forEach(function (f) {
     var ul = addedList(f);
-    if (ul) { savedAdds().slice().reverse().forEach(function (x) { showAdded(ul, String(x)); }); }
+    if (ul) { savedAdds().slice().reverse().forEach(function (x) { showAdded(ul, x); }); }
   });
   document.addEventListener("submit", async function (e) {
     var f = e.target;
@@ -328,10 +335,11 @@
         var r2 = await fetch(f.action, {method: "POST", body: fd2, credentials: "same-origin", redirect: "manual", headers: {"X-Kitchen": "1"}});
         if (r2.status !== 200) { throw new Error(r2.status); }
         var j = await r2.json();
-        var got = String(j.item || item);
+        var got = {item: String(j.item || item), where: String(j.text || "")};
         if (ul) { showAdded(ul, got); }
         var saved = savedAdds(); saved.unshift(got); store("added:" + addDay, JSON.stringify(saved.slice(0, 30)));
         inp.value = ""; f.classList.remove("err");
+        var tog = f.querySelector("input[name=manual]"); if (tog) { tog.checked = false; }  // back to off
       } catch (err) {
         f.classList.add("err");                   // keep the text so it can be sent again
       }

@@ -54,6 +54,7 @@ import homecal  # household ICS calendar (kitchen board + household page)
 import kitchen  # kitchen board + household page rendering
 import vacuum  # robot vacuum line from Home Assistant
 import devices  # kitchen.kmkdp.com device pairing (signed cookie + registry)
+import forced  # the add box's "Manual list instead" registry (/state)
 
 TANDOOR_URL = os.environ.get("TANDOOR_URL", "https://recipes.kmkdp.com").rstrip("/")
 USER = os.environ.get("TANDOOR_USER", "")
@@ -989,7 +990,7 @@ _AISLE_ORDER = {
 _GROCERY_EXCLUDE = ("dog food", "pet food", "dog treats")
 
 
-def _api_write(method: str, path: str, body: dict) -> bool:
+def _api_send(method: str, path: str, body: dict) -> requests.Response:
     """POST/PATCH to Tandoor with the CSRF header + Referer, re-login once on 401/403."""
     s = _session()
     hdrs = {"X-CSRFToken": s.cookies.get("csrftoken", ""), "Referer": f"{TANDOOR_URL}/"}
@@ -1002,7 +1003,25 @@ def _api_write(method: str, path: str, body: dict) -> bool:
         t0 = time.monotonic()
         r = s.request(method, f"{TANDOOR_URL}{path}", json=body, headers=hdrs, timeout=20)
         _count(t0)
-    return r.status_code in (200, 201, 204)
+    return r
+
+
+def _api_write(method: str, path: str, body: dict) -> bool:
+    return _api_send(method, path, body).status_code in (200, 201, 204)
+
+
+def _api_create(path: str, body: dict) -> dict | None:
+    """POST that returns the created object (Tandoor answers 201 + the entry,
+    food and its supermarket_category included); None on failure, {} when the
+    answer carried no JSON object."""
+    r = _api_send("POST", path, body)
+    if r.status_code not in (200, 201):
+        return None
+    try:
+        d = r.json()
+    except ValueError:
+        return {}
+    return d if isinstance(d, dict) else {}
 
 
 def _parse_cat(name: str):
@@ -1048,29 +1067,65 @@ def _from_recipe(e) -> bool:
     return bool(e.get("list_recipe") or e.get("list_recipe_data"))
 
 
-def _split_groceries(entries):
+# The add box's "Manual list instead" toggle: entry ids kept on the Manual list
+# although their food has a store category (forced.py; /state/manual-forced.json).
+FORCED = forced.Registry(os.path.join(os.environ.get("KITCHEN_STATE_DIR", "/state"),
+                                      "manual-forced.json"))
+_STORES = ("NewPi", "Target")
+
+
+def _route(e, forced_ids=frozenset()) -> tuple[str, str] | None:
+    """Where an entry is listed: (store, aisle) for NewPi/Target, ("Manual", "")
+    for an unrouted or forced-manual entry, None when it is on no list."""
+    if e.get("checked") or _delayed(e):
+        return None
+    food = e.get("food") or {}
+    if food.get("food_onhand") and _from_recipe(e):
+        return None               # pantry/stock line a recipe pulled in: on hand
+    fname = (food.get("name") or "").lower()
+    if any(x in fname for x in _GROCERY_EXCLUDE):
+        return None               # pets are budgeted in Actual, never ordered here
+    if e.get("id") in forced_ids:
+        return "Manual", ""       # the add box's "Manual list instead"
+    cat = food.get("supermarket_category")
+    cat_name = cat.get("name") if isinstance(cat, dict) else (cat or "")
+    store, aisle = _parse_cat(cat_name)
+    if store in _STORES:
+        return store, aisle
+    return "Manual", ""           # ad-hoc / unrouted (an unknown food from the add box)
+
+
+def _forced_ids(entries) -> set[int]:
+    """The forced-manual ids, pruned against this list read. Never raises: a
+    missing or broken /state only means no forced items."""
+    try:
+        return FORCED.ids(entries)
+    except Exception:
+        log.exception("grocery: forced-manual registry unreadable")
+        return set()
+
+
+def _split_groceries(entries, forced_ids=None):
     """(stores, manual): stores = {store: {aisle: [entry]}} bucketed by the
     supermarket-category store prefix (regardless of whether the entry is tied to
-    a recipe); manual = entries with no routable store — i.e. the add-box's
-    ad-hoc items. Skips checked and poll-delayed entries, and
-    on-hand foods a recipe pulled in (a recipe-less reorder of one still shows)."""
+    a recipe); manual = entries with no routable store (the add box's unknown
+    foods) plus the ids in the forced-manual registry. Skips checked and
+    poll-delayed entries, and on-hand foods a recipe pulled in (a recipe-less
+    reorder of one still shows). Every Manual-vs-store decision on the page goes
+    through here (store tabs, Manual tab, pantry view); `forced_ids` defaults to
+    the registry, pruned against `entries`."""
+    if forced_ids is None:
+        forced_ids = _forced_ids(entries)
     stores, manual = {}, []
     for e in entries:
-        if e.get("checked") or _delayed(e):
+        where = _route(e, forced_ids)
+        if where is None:
             continue
-        food = e.get("food") or {}
-        if food.get("food_onhand") and _from_recipe(e):
-            continue              # pantry/stock line a recipe pulled in: on hand
-        fname = (food.get("name") or "").lower()
-        if any(x in fname for x in _GROCERY_EXCLUDE):
-            continue              # pets are budgeted in Actual, never ordered here
-        cat = food.get("supermarket_category")
-        cat_name = cat.get("name") if isinstance(cat, dict) else (cat or "")
-        store, aisle = _parse_cat(cat_name)
-        if store in ("NewPi", "Target"):
-            stores.setdefault(store, {}).setdefault(aisle, []).append(e)
+        store, aisle = where
+        if store == "Manual":
+            manual.append(e)
         else:
-            manual.append(e)      # ad-hoc / unrouted (what the add-box creates)
+            stores.setdefault(store, {}).setdefault(aisle, []).append(e)
     for store, aisles in stores.items():
         order = _AISLE_ORDER.get(store, [])
         stores[store] = {a: aisles[a] for a in sorted(
@@ -1256,6 +1311,13 @@ text-transform:uppercase;color:var(--ash);margin:10px 0 3px}
 .addbox input{flex:1 1 auto;background:var(--ink);border:1px solid var(--ink-hairline);
 border-radius:7px;color:var(--paper);padding:9px;font:15px 'Space Grotesk',sans-serif}
 .addbox button{background:var(--ember);border:none;color:var(--ink);border-radius:7px;padding:0 14px;font-weight:600;cursor:pointer}
+.addbox .mtog{display:flex;align-items:center;gap:6px;min-height:44px;min-width:44px;padding:0 4px;
+color:var(--ash);font:500 12px 'JetBrains Mono',monospace;cursor:pointer;white-space:nowrap}
+.addbox .mtog input{width:22px;height:22px;margin:0;accent-color:var(--ember);flex:0 0 auto}
+.addbox .mtog.off{opacity:.5;cursor:not-allowed}
+.addflash{color:var(--ok);font-size:14px;padding:6px 2px}
+.addflash.err{color:var(--danger)}
+.addnote{color:var(--ash);font-size:12px;padding:2px 2px 4px}
 .empty2{color:var(--ash);font-size:13px;padding:14px 6px}
 .gi form.reorderform button.reorder{background:none;border:1px solid var(--ember);color:var(--ember);
 border-radius:7px;padding:5px 10px;font:500 12px 'JetBrains Mono',monospace;cursor:pointer;min-height:32px}
@@ -1687,7 +1749,7 @@ def _ago(sec: float) -> str:
     return f"{sec}s ago" if sec < 90 else f"{sec // 60} min ago"
 
 
-def _render_groceries(force: bool = False):
+def _render_groceries(force: bool = False, flash: dict | None = None):
     t0 = time.monotonic()
     today = datetime.datetime.now(TZ).date()
     try:
@@ -1744,7 +1806,13 @@ def _render_groceries(force: bool = False):
     parts.append("<section class='tab store' id='manual'><h2>Manual list</h2>"
                  "<form class='addbox' method='post' action='groceries/add'>"
                  "<input name='item' placeholder='Add an item…' maxlength='80' autocomplete='off'>"
+                 f"{kitchen.manual_toggle(FORCED.writable(), 'g-manual')}"
                  "<button type='submit'>Add</button></form>")
+    if not FORCED.writable():
+        parts.append(f"<div class='addnote'>{kitchen.MANUAL_OFF_NOTE}</div>")
+    if flash:
+        parts.append(f"<div class='addflash{'' if flash['ok'] else ' err'}' role='status'>"
+                     f"{escape(flash['text'])}: {escape(flash['item'])}</div>")
     if not manual:
         parts.append("<div class='empty2'>No ad-hoc items.</div>")
     for e in manual:
@@ -1775,7 +1843,8 @@ def _render_groceries(force: bool = False):
 
 @app.get("/groceries")
 def groceries():
-    return Response(_render_groceries(force=request.args.get("refresh") == "1"),
+    return Response(_render_groceries(force=request.args.get("refresh") == "1",
+                                      flash=_added_flash()),
                     mimetype="text/html")
 
 
@@ -1814,37 +1883,118 @@ def _json(body: dict, status: int = 200) -> Response:
     return r
 
 
-def _manual_add(raw: str) -> tuple[str, str]:
-    """(status, item): status is added | empty | error. The item is trimmed and
-    capped at MANUAL_MAX characters."""
+_ADD_LABEL = {"NewPi": "New Pi", "Target": "Target"}
+
+
+def _dest_text(store: str, aisle: str) -> str:
+    """The add box's confirmation: where the item went (plain text; every view
+    escapes it or sets it as textContent)."""
+    if store in _ADD_LABEL:
+        return f"Added to {_ADD_LABEL[store]}" + (f" · {aisle}" if aisle else "")
+    if store == "Manual":
+        return "Added to Manual list"
+    if store == "Off":
+        return "Added (pet food stays off the store lists)"
+    return "Added to the list"
+
+
+def _manual_add(raw: str, to_manual: bool = False) -> dict:
+    """{status, item, store, aisle}: status is added | empty | error. The item
+    is trimmed and capped at MANUAL_MAX characters. Tandoor reuses an existing
+    food by name, so a known food lands on its store list (NewPi/Target by its
+    supermarket category) and an unknown name on the Manual list. `to_manual`
+    (the "Manual list instead" toggle) records the new entry id in the
+    forced-manual registry, so it lists under Manual even for a known food;
+    Tandoor itself is not changed. `store` is NewPi | Target | Manual | Off
+    (on no list: pet food) | "" (unknown)."""
     item = (raw or "").strip()[:MANUAL_MAX].strip()
+    out = {"status": "empty", "item": item, "store": "", "aisle": ""}
     if not item:
-        return "empty", ""
-    # Ad-hoc entry: a food created by name (Tandoor auto-creates it),
-    # amount 1, no linked recipe -> shows under the manual list.
-    if not _api_write("POST", "/api/shopping-list-entry/",
-                      {"food": {"name": item}, "amount": 1, "checked": False}):
+        return out
+    # Recipe-less entry by food name, amount 1 (Tandoor reuses or creates the food).
+    created = _api_create("/api/shopping-list-entry/",
+                          {"food": {"name": item}, "amount": 1, "checked": False})
+    if created is None:
         log.warning("grocery manual add failed: %s", item)
-        return "error", item
-    log.info("grocery manual add: %s", item)
+        return dict(out, status="error")
+    eid = created.get("id")
+    forced_ok = False
+    if to_manual and isinstance(eid, int):
+        try:
+            forced_ok = FORCED.add(eid)
+        except Exception:
+            log.exception("grocery: forced-manual registry write failed")
+        if not forced_ok:
+            log.warning("grocery add: /state not writable, %s keeps its normal list", item)
+    snap = None
     try:
-        _grocery_refresh(plan=False, reason="add")    # new entry shows on redirect
+        snap = _grocery_refresh(plan=False, reason="add")    # new entry shows on redirect
     except Exception:
         log.exception("grocery refresh after add failed")
-    return "added", item
+    entry = created
+    if "supermarket_category" not in (created.get("food") or {}):
+        # no category in the POST answer: look the entry up in the re-read list
+        entry = next((e for e in (snap or {}).get("entries") or [] if e.get("id") == eid), created)
+    where = None
+    if "supermarket_category" in (entry.get("food") or {}) or forced_ok:
+        where = _route(entry, {eid} if forced_ok else frozenset())
+        if where is None:
+            where = ("Off", "")
+    store, aisle = where or ("", "")
+    log.info("grocery manual add: %s -> %s%s", item, store or "?", " (forced)" if forced_ok else "")
+    return {"status": "added", "item": item, "store": store, "aisle": aisle}
+
+
+# The form fallback (no JS) carries the result back in ONE fixed query key,
+# `added`: "<store>|<aisle>|<item>", URL-encoded, re-validated and HTML-escaped
+# when the page renders it. The redirect target itself stays the fixed `next`
+# map above (never a URL from the request).
+ADDED_KEY = "added"
+_FLASH_STORES = {"NewPi", "Target", "Manual", "Off", "", "error"}
+
+
+def _added_query(res: dict) -> str:
+    store = res["store"] if res["status"] == "added" else "error"
+    val = f"{store}|{res['aisle'][:60]}|{res['item'][:MANUAL_MAX]}"
+    return _ulib.urlencode({ADDED_KEY: " ".join(val.splitlines())})
+
+
+def _with_query(url: str, q: str) -> str:
+    path, hash_, frag = url.partition("#")
+    return f"{path}{'&' if '?' in path else '?'}{q}{hash_}{frag}"
+
+
+def _added_flash() -> dict | None:
+    """The `added` query value from a form-fallback redirect: {item, text, ok}
+    (plain text, escaped by the renderer), or None."""
+    raw = request.args.get(ADDED_KEY)
+    if not raw:
+        return None
+    store, _, rest = raw[:200].partition("|")
+    aisle, _, item = rest.partition("|")
+    if store not in _FLASH_STORES or not item.strip():
+        return None
+    item = item.strip()[:MANUAL_MAX]
+    if store == "error":
+        return {"item": item, "text": "Couldn't add it right now, try again", "ok": False}
+    return {"item": item, "text": _dest_text(store, aisle.strip()[:60]), "ok": True}
 
 
 @app.post("/groceries/add")
 def groceries_add():
     try:
-        status, item = _manual_add(request.form.get("item"))
+        res = _manual_add(request.form.get("item"), request.form.get("manual") == "1")
     except Exception:
         log.exception("grocery add failed")
-        status, item = "error", ""
+        res = {"status": "error", "item": "", "store": "", "aisle": ""}
     if request.form.get("ajax") == "1":
-        code = {"added": 200, "empty": 422}.get(status, 502)
-        return _json({"status": status, "item": item}, code)
-    return redirect(_back_to("../groceries#manual"), code=303)   # back to the Manual tab
+        code = {"added": 200, "empty": 422}.get(res["status"], 502)
+        text = _dest_text(res["store"], res["aisle"]) if res["status"] == "added" else ""
+        return _json(dict(res, text=text), code)
+    back = _back_to("../groceries#manual")                      # back to the Manual tab
+    if res["status"] in ("added", "error") and res["item"]:
+        back = _with_query(back, _added_query(res))
+    return redirect(back, code=303)
 
 
 # One reorder at a time: the duplicate check and the write must not interleave,
@@ -2109,7 +2259,8 @@ def _pantry_check_data(now: datetime.datetime | None = None) -> dict:
 
 @app.get("/kitchen/pantry")
 def kitchen_pantry():
-    return _html(kitchen.pantry_page(_pantry_check_data(), ASSET_VER, _back_href()))
+    d = dict(_pantry_check_data(), flash=_added_flash(), manual_ok=FORCED.writable())
+    return _html(kitchen.pantry_page(d, ASSET_VER, _back_href()))
 
 
 @app.get("/home")
@@ -2118,6 +2269,7 @@ def household():
     all_chores = request.args.get("chores") == "all"
     if request.args.get("fragment") == "1":
         return _html(kitchen.household_fragment(d, all_chores))
+    d = dict(d, flash=_added_flash(), manual_ok=FORCED.writable())
     return _html(kitchen.household_page(d, ASSET_VER, all_chores))
 
 
