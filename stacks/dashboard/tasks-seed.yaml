@@ -85,7 +85,7 @@ projects:
     - { title: Test smoke alarms, repeat: 3 months, next_due: 2026-08-02 }
     - { title: Wax cutting boards, repeat: monthly, next_due: 2026-07-01 }
   General:
-    - { title: Check bathroom supplies (soap refills, shampoo, etc.), repeat: monthly, next_due: 2026-07-06 }
+    - { title: "Check bathroom supplies (soap refills, shampoo, etc.)", repeat: monthly, next_due: 2026-07-06 }
     - { title: Clean cars, repeat: 2 weeks, next_due: 2026-06-28 }
     - { title: Garbage on the curb, repeat: weekly, next_due: 2026-09-24, note: "7:00 AM" }
     - { title: Get groceries, repeat: weekly, next_due: 2026-06-14 }

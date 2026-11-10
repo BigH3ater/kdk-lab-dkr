@@ -477,11 +477,102 @@ def _vik(method: str, path: str, token: str, body=None):
     r.raise_for_status()
     return r.json() if r.text else None
 
+def _vik_all(path: str, token: str, per_page: int = 50) -> list:
+    """Every row of a paginated Vikunja list. The server caps a page at
+    service.maxitemsperpage (default 50) whatever per_page asks for, so follow
+    x-pagination-total-pages instead of trusting one big page."""
+    rows: list = []
+    sep = "&" if "?" in path else "?"
+    page = 1
+    while page <= 100:  # hard stop: never loop forever on a bad header
+        r = requests.get(f"{VIKUNJA_URL}/api/v1{path}{sep}per_page={per_page}&page={page}",
+            headers={"Authorization": f"Bearer {token}"}, timeout=15, verify=False)
+        r.raise_for_status()
+        batch = (r.json() if r.text else None) or []
+        rows.extend(batch)
+        try:
+            total = int(r.headers.get("x-pagination-total-pages") or 1)
+        except ValueError:
+            total = 1
+        if not batch or page >= total:
+            break
+        page += 1
+    return rows
+
+def _task_due(t: dict) -> datetime.date | None:
+    """Local due date of a Vikunja task, None when it has none. Vikunja sends an
+    unset date as Go's zero time (0001-01-01T00:00:00Z), not null."""
+    d = _parse_date((t.get("due_date") or "")[:10])
+    return d if d and d.year > 1900 else None
+
+TASK_HORIZON_DAYS = 14
+TASK_CAT_ORDER = ["Cleaning", "Dogs", "Robot Vacuum", "Yard", "Water Filtration",
+                  "House Maintenance", "General"]
+
+def _task_row(t: dict, due: datetime.date | None, today: datetime.date) -> str:
+    overdue = " over" if (due and due < today) else ""
+    if due is None:
+        due_s = "no date"
+    elif due == today:
+        due_s = "today"
+    else:
+        due_s = due.strftime("%b %-d")
+    return (f"<div class='task{overdue}'>"
+            f"<form method='post' action='tasks/complete'>"
+            f"<input type='hidden' name='task_id' value='{int(t['id'])}'>"
+            f"<button title='done'></button></form>"
+            f"<span class='tw'><span class='tt'>{escape(t.get('title') or '')}</span>"
+            f"<span class='due'>{due_s}</span></span></div>")
+
+def _tasks_board(projects: dict, tasks: list, today: datetime.date) -> str:
+    """Board body: one column per project with EVERY open task. Overdue, undated
+    and due-within-the-horizon tasks are listed (the column scrolls); anything
+    due later sits in a collapsed 'later' fold with its count, so nothing is
+    dropped. (Before 2026-11-09 each column was cut at 6 rows and later tasks
+    were discarded outright: 28 of 83 open chores reached the page.)"""
+    horizon = today + datetime.timedelta(days=TASK_HORIZON_DAYS)
+    by_cat: dict[str, tuple[list, list]] = {}
+    for t in tasks:
+        if t.get("done"):
+            continue
+        due = _task_due(t)
+        soon, later = by_cat.setdefault(projects.get(t.get("project_id"), "Other"), ([], []))
+        (later if (due and due > horizon) else soon).append((due, t))
+    if not by_cat:
+        return "<div class='note'>No open chores. 🎉</div>"
+    # dated first (oldest overdue on top), undated after them, ties by title
+    key = lambda dt: (dt[0] is None, dt[0] or today, (dt[1].get("title") or "").lower())
+    names = [c for c in TASK_CAT_ORDER if c in by_cat] + sorted(c for c in by_cat if c not in TASK_CAT_ORDER)
+    cols = []
+    for cat in names:
+        soon, later = (sorted(x, key=key) for x in by_cat[cat])
+        late_n = sum(1 for d, _ in soon if d and d < today)
+        counts = f"<span class='n'>{len(soon)}</span>"
+        if late_n:
+            counts += f"<span class='n late'>{late_n} late</span>"
+        rows = "".join(_task_row(t, d, today) for d, t in soon)
+        if not soon:
+            rows = "<div class='none'>nothing due in 2 weeks</div>"
+        fold = ""
+        if later:
+            fold = (f"<details class='later'><summary>+{len(later)} later</summary>"
+                    + "".join(_task_row(t, d, today) for d, t in later) + "</details>")
+        cols.append(f"<div class='cat' data-cat='{escape(cat)}'><h3><span>{escape(cat)}</span>{counts}</h3>"
+                    f"<div class='list'>{rows}{fold}</div></div>")
+    return f"<div class='cats'>{''.join(cols)}</div>"
+
 TASKS_CSS = PAGE_CSS + """
 .cats{display:flex;gap:8px;padding:10px;overflow-x:auto;align-items:flex-start}
-.cat{flex:1 0 150px;background:var(--ink);border:1px solid var(--ink-hairline);border-radius:9px;padding:8px;min-height:90px}
+.cat{flex:1 0 160px;background:var(--ink);border:1px solid var(--ink-hairline);border-radius:9px;padding:8px;
+min-height:90px;max-height:calc(100vh - 34px);box-sizing:border-box;display:flex;flex-direction:column}
+.cat .list{overflow-y:auto;min-height:0;flex:1 1 auto;scrollbar-width:thin;scrollbar-color:var(--ink-hairline) transparent}
+.cats{scrollbar-width:thin;scrollbar-color:var(--ink-hairline) transparent}
 .cat h3{font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:500;letter-spacing:.18em;
-text-transform:uppercase;color:var(--ash);margin:0 0 6px;border-bottom:1px solid var(--ink-hairline);padding-bottom:5px}
+text-transform:uppercase;color:var(--ash);margin:0 0 6px;border-bottom:1px solid var(--ink-hairline);padding-bottom:5px;
+display:flex;gap:6px;align-items:baseline;flex:0 0 auto}
+.cat h3 span:first-child{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cat h3 .n{letter-spacing:0;color:var(--stone);white-space:nowrap}
+.cat h3 .n.late{color:var(--danger)}
 .task{display:flex;align-items:flex-start;gap:6px;padding:5px 0;border-bottom:1px solid var(--ink-hairline)}
 .task:last-child{border-bottom:none}
 .task form{display:flex;margin:1px 0 0}
@@ -492,6 +583,8 @@ text-transform:uppercase;color:var(--ash);margin:0 0 6px;border-bottom:1px solid
 .due{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--ash);white-space:nowrap}
 .task.over .due{color:var(--danger);font-weight:500}
 .task.over .tt{color:var(--danger)}
+.later summary{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ash);cursor:pointer;padding:5px 0}
+.none{font-size:11px;color:var(--ash);padding:4px 0}
 .note{padding:10px;font-size:12px;color:var(--ash)}
 .task.busy{opacity:.45}
 """
@@ -500,7 +593,8 @@ text-transform:uppercase;color:var(--ash);margin:0 0 6px;border-bottom:1px solid
 # the horizontally scrolled category row (and the page) back to the start. POST in
 # the background, then swap in the re-rendered board (recurring chores come back
 # with a new due date, so it has to be re-rendered, not just removed) and restore
-# the scroll. Without JS the form still posts and redirects as before.
+# the scroll -- the row's, each column's list, and which 'later' folds were open.
+# Without JS the form still posts and redirects as before.
 TASKS_JS = """
 document.addEventListener('submit', async function (e) {
   var f = e.target;
@@ -510,12 +604,21 @@ document.addEventListener('submit', async function (e) {
   if (row.classList.contains('busy')) return;
   row.classList.add('busy');
   var cats = document.querySelector('.cats');
-  var x = cats ? cats.scrollLeft : 0, y = window.scrollY;
+  var x = cats ? cats.scrollLeft : 0, y = window.scrollY, keep = {};
+  document.querySelectorAll('.cat').forEach(function (c) {
+    var l = c.querySelector('.list'), d = c.querySelector('details');
+    keep[c.dataset.cat] = {top: l ? l.scrollTop : 0, open: !!(d && d.open)};
+  });
   try {
     var r = await fetch(f.action, {method: 'POST', body: new FormData(f)});
     if (!r.ok) throw new Error(r.status);
     var doc = new DOMParser().parseFromString(await r.text(), 'text/html');
     document.body.replaceWith(doc.body);
+    document.querySelectorAll('.cat').forEach(function (c) {
+      var k = keep[c.dataset.cat]; if (!k) return;
+      var d = c.querySelector('details'); if (d && k.open) d.open = true;
+      var l = c.querySelector('.list'); if (l) l.scrollTop = k.top;
+    });
     var c = document.querySelector('.cats');
     if (c) c.scrollLeft = x;
     window.scrollTo(0, y);
@@ -533,49 +636,18 @@ def tasks_view():
     # source of truth); completion still uses the viewer's own token when stored
     # so Vikunja attributes the done-by correctly.
     token = VIKUNJA_TOKENS.get("jmack", "")
-    who = rater_from_headers()
     if not token:
         return Response(f"<!doctype html><style>{TASKS_CSS}</style><div class='note'>Task board not connected yet - store the family token as the 1Password item vikunja-api-jmack and redeploy.</div>", mimetype="text/html")
     try:
-        projects = {p["id"]: p["title"] for p in _vik("GET", "/projects", token)}
+        projects = {p["id"]: p["title"] for p in _vik_all("/projects", token)}
         # per-project route: /tasks/all needs a token permission this one lacks
         tasks = []
         for pid in projects:
-            if pid == 1:  # skip Inbox
-                continue
-            tasks.extend(_vik("GET", f"/projects/{pid}/tasks?per_page=100", token) or [])
-        tasks = [t for t in tasks if not t.get("done")]
-        tasks.sort(key=lambda t: ((t.get("due_date") or "9999")[:10]))
+            tasks.extend(_vik_all(f"/projects/{pid}/tasks", token))
     except Exception:
         log.exception("vikunja fetch failed")
         return Response(f"<!doctype html><style>{TASKS_CSS}</style><div class='note'>Couldn't reach the task list right now.</div>", mimetype="text/html")
-    today = datetime.datetime.now(TZ).date()
-    horizon = today + datetime.timedelta(days=14)
-    CAT_ORDER = ["Cleaning", "Dogs", "Robot Vacuum", "Yard", "Water Filtration",
-                 "House Maintenance", "General"]
-    by_cat: dict[str, list] = {}
-    for t in tasks:
-        if t.get("done"): continue
-        due = _parse_date((t.get("due_date") or "")[:10])
-        if due and due > horizon: continue
-        proj = projects.get(t.get("project_id"), "Other")
-        by_cat.setdefault(proj, []).append((due, t))
-    cols = []
-    names = [c for c in CAT_ORDER if c in by_cat] + [c for c in sorted(by_cat) if c not in CAT_ORDER]
-    for cat in names:
-        items = []
-        for due, t in by_cat[cat][:6]:
-            overdue = " over" if (due and due < today) else ""
-            due_s = due.strftime("%b %-d") if due else ""
-            items.append(
-                f"<div class='task{overdue}'>"
-                f"<form method='post' action='tasks/complete'>"
-                f"<input type='hidden' name='task_id' value='{t['id']}'>"
-                f"<button title='done'></button></form>"
-                f"<span class='tw'><span class='tt'>{t['title']}</span>"
-                f"<span class='due'>{due_s}</span></span></div>")
-        cols.append(f"<div class='cat'><h3>{cat}</h3>{''.join(items)}</div>")
-    body = f"<div class='cats'>{''.join(cols)}</div>" if cols else "<div class='note'>Nothing due in the next two weeks. 🎉</div>"
+    body = _tasks_board(projects, tasks, datetime.datetime.now(TZ).date())
     return Response(f"<!doctype html><html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'>{NAV_HEAD}<style>{TASKS_CSS}</style><script>{TASKS_JS}</script></head><body>{body}</body></html>", mimetype="text/html")
 
 @app.post("/tasks/complete")
