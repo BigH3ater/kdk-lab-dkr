@@ -484,25 +484,23 @@ minutes and on every Docker start), so a redeploy needs no new step.
 Until this is done the "Deploys failed" tile says "not configured"; nothing
 else depends on it.
 
-1. Komodo UI → **Settings → Users**: create a service user `dashboard-read`,
-   **not** admin, no create permissions. Give it **Read** on the resources
-   whose deploys you want counted (all stacks and procedures).
-2. On that user, **New API key** (name `dashboard-admin-page`). Copy the key
-   and secret straight into 1Password, never into a file or chat. Laptop, `op`
-   signed in:
+Done 2026-11-10: the item `kdk-cluster/komodo-api-ro` (fields `key`, `secret`) holds the
+key of a non-admin **service user** (verified: `ListUsers` is refused as admin-only, while
+`ListUpdates` and `ListStacks` read fine), and `.env.tpl` injects it. To redo it:
+
+1. Komodo UI → **Settings → Users → New Service User** (not the sign-up page: that
+   replaces your session). Not admin, no create permissions; **Read** on the resource
+   types whose deploys you want counted (stacks, procedures).
+2. On that user's page, **API Keys → New** (`dashboard-admin-page`, with an expiry).
+   Copy the key and secret straight into the item's `key` and `secret` fields, never
+   into a file or chat. Check by length:
 
    ```sh
-   read -rs KEY; read -rs SECRET      # paste each, Enter (nothing echoes, nothing in history)
-   op item create --vault kdk-cluster --category login --title komodo-api-ro \
-     "username=$KEY" "password=$SECRET"; unset KEY SECRET
-   op read op://kdk-cluster/komodo-api-ro/username | tr -d '\n' | wc -c   # > 0
-   op read op://kdk-cluster/komodo-api-ro/password | tr -d '\n' | wc -c   # > 0
+   op read op://kdk-cluster/komodo-api-ro/key | tr -d '\n' | wc -c      # 44
+   op read op://kdk-cluster/komodo-api-ro/secret | tr -d '\n' | wc -c   # 44
    ```
 
-3. In `stacks/dashboard/.env.tpl` turn the two commented `KOMODO_API_KEY` /
-   `KOMODO_API_SECRET` notes into real assignments
-   (`KOMODO_API_KEY={{ op://kdk-cluster/komodo-api-ro/username }}`, same for the
-   secret with `password`) in a small PR. Merge → the deploy op-injects them.
+3. Never use an admin user's key here: the page only reads, and an admin key could deploy.
 4. Check: the tile shows "N of M in 24 h". The ListUpdates call was written
    against the Komodo client docs and has not run against the live Core yet
    (no key existed); if the tile says "Komodo unreachable", look at
