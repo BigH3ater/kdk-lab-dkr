@@ -127,11 +127,18 @@ services:
     init: true
     container_name: dashboard-mealplan
     restart: unless-stopped
-    env_file: [.env]                # TANDOOR_USER/TANDOOR_PASS, KITCHEN_DEVICE_KEY (op-injected)
+    env_file: [.env]                # TANDOOR_USER/TANDOOR_PASS, KITCHEN_DEVICE_KEY (op-injected); KOMODO_API_KEY/SECRET once minted
     environment:
       TANDOOR_URL: "https://recipes.kmkdp.com"
       TANDOOR_SPACE: "Mack House"
       TZ: America/Chicago
+      # admin.kmkdp.com sources (read-only). mon-01 :9090/:9093 need the
+      # dashboard-mealplan allow_ctr lines in hosts/kdk-dkr-01/kdk-docker-user.conf;
+      # Loki :3100 is already open to every container (allow_dst for Alloy).
+      ADMIN_USERS: "jmack"
+      PROM_URL: "http://10.1.20.30:9090"
+      ALERTMANAGER_URL: "http://10.1.20.30:9093"
+      LOKI_URL: "http://10.1.20.21:3100"
     volumes:
       # Read-only view of the grocery-planner's store-routing table so the New Pi
       # groceries tab can link each item to its market.newpi.coop product (the
@@ -176,6 +183,14 @@ services:
       traefik.http.middlewares.kitchen-headers.headers.customrequestheaders.Remote-Email: ""
       traefik.http.middlewares.kitchen-headers.headers.customrequestheaders.Remote-Groups: ""
       traefik.http.middlewares.kitchen-headers.headers.customrequestheaders.X-Kdk-Kitchen: "1"
+      # admin.kmkdp.com: the lab admin page (status strip, alerts, sign-ins,
+      # syslog search, charts, service tiles). Internal Traefik only, WITH
+      # forwardauth: the Authelia rule for this host is two_factor + user:jmack,
+      # and the sidecar checks Remote-User against ADMIN_USERS again (403
+      # otherwise). It serves only GET / and /static/* there (404 for the rest).
+      traefik.http.routers.dashboard-admin.rule: "Host(`admin.kmkdp.com`)"
+      traefik.http.routers.dashboard-admin.service: "mealplan"
+      traefik.http.routers.dashboard-admin.middlewares: "forwardauth@file"
     logging:
       driver: json-file
       options: { max-size: "10m", max-file: "3" }

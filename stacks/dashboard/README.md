@@ -12,6 +12,7 @@ services that carry their own login (most now Authelia OIDC, incl. Home Assistan
 | `mealplan` (P2) | `https://home.kmkdp.com/meal/` | Tandoor weekly plan + star-rating write-back |
 | `mealplan` (kitchen) | `https://home.kmkdp.com/meal/kitchen`, `/meal/home` | Kitchen board for the iPad + household phone page (native, no iframes; see docs/services/dashboard.md) |
 | `mealplan` (kitchen host) | `https://kitchen.kmkdp.com/` | The same kitchen views for the paired kitchen screen: no Authelia, a signed 1-year device cookie instead; pair and revoke at `home.kmkdp.com/meal/kitchen/devices` (jmack) |
+| `mealplan` (admin host) | `https://admin.kmkdp.com/` | Lab admin page, jmack only (Authelia `user:jmack` + `ADMIN_USERS`): live status strip, firing alerts, sign-ins, syslog search, sparklines, admin service tiles; read-only (`mealplan/admin.py`, docs/services/dashboard.md) |
 
 ## Config (all git-tracked)
 - `config/` — Homepage YAML (`settings`, `services`, `bookmarks`, `widgets`, `custom.css`, `custom.js`). `custom.css` `@import`s `/guides/shared-nav.css`; `custom.js` is a tiny loader that pulls in `/guides/shared-nav.js` (Homepage only auto-loads its own `custom.js`).

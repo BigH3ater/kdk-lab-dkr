@@ -816,6 +816,15 @@ access_control:
       resources:
         - '^/healthz$'
         - '^/opensearch\.xml$'
+    # Lab admin page (stacks/dashboard, mealplan sidecar, internal Traefik,
+    # forwardauth@file): live status, firing alerts, sign-ins, syslog search.
+    # jmack only (there is no admins group); the sidecar re-checks Remote-User
+    # against ADMIN_USERS. Kept above the broader dashboard rules.
+    - policy: two_factor
+      domain:
+        - 'admin.kmkdp.com'
+      subject:
+        - ['user:jmack']
     - policy: two_factor
       domain:
         - 'home.kmkdp.com'
