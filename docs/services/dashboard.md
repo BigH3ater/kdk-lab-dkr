@@ -27,7 +27,7 @@ the Remote-User header drives rating/task attribution.
 | Purpose | One home screen for watch/listen/read/request/cook/tasks/calendar |
 | Status | 🟢 Live (P1); meal-plan sidecar = P2, calendar = P3 |
 | Host | [[kdk-dkr-01]] |
-| Endpoints | `home.kmkdp.com` (+ `/guides`, `/meal`, kitchen board `/meal/kitchen`, household page `/meal/home`), `tasks.kmkdp.com` |
+| Endpoints | `home.kmkdp.com` (+ `/guides`, `/meal`, kitchen board `/meal/kitchen`, pantry check `/meal/kitchen/pantry`, household page `/meal/home`), `tasks.kmkdp.com` |
 | Images | `ghcr.io/gethomepage/homepage:v2.7.0`, `nginx:1.31.8-alpine`, `vikunja/vikunja:2.7.1`, `kdk/dashboard-mealplan` (built) |
 | Deploy | Komodo stack `dashboard` (git-linked, `op inject` pre_deploy) |
 | Storage | `/opt/kdk-lab/dashboard/vikunja` (SQLite + files) |
@@ -42,7 +42,7 @@ curl -s -o /dev/null -w '%{http_code}\n' https://home.kmkdp.com/guides/     # 20
 curl -s -o /dev/null -w '%{http_code}\n' https://tasks.kmkdp.com/           # 200
 curl -s https://home.kmkdp.com/meal/mealplan.json | head -c 200            # JSON (P2)
 # kitchen board + household page (through Authelia: check in a signed-in browser, or inside the container)
-ssh kdkadmin@10.1.20.20 "sudo docker exec dashboard-mealplan python3 -c \"import urllib.request as u;[print(p, u.urlopen('http://127.0.0.1:8080'+p).status) for p in ('/kitchen','/kitchen/ingredients','/kitchen/steps','/home','/manifest.webmanifest','/static/home.css')]\""
+ssh kdkadmin@10.1.20.20 "sudo docker exec dashboard-mealplan python3 -c \"import urllib.request as u;[print(p, u.urlopen('http://127.0.0.1:8080'+p).status) for p in ('/kitchen','/kitchen/ingredients','/kitchen/steps','/kitchen/pantry','/home','/manifest.webmanifest','/static/home.css')]\""
 ```
 
 ## Architecture
@@ -97,8 +97,9 @@ refresh. Homepage at `/` is unchanged (it is retired in a later PR).
 | `/meal/kitchen` | Kitchen board for the landscape iPad (~1180×820, fine at 1280×800): clock + date, weather now/high/low + 6-hour strip, calendar line for today and tomorrow; large dinner card (main + side, photo, total time, servings, ingredient and on-hand count); lunch card (this plan week's prep lunches); tomorrow card (dinner + thaw hint); chore columns (every open task, scrolling per column, tick-off) with the vacuum line. Breakfast and snacks are not shown, and nothing personal (no budget, no workouts) |
 | `/meal/kitchen/ingredients` | Full-screen checklist for tonight's dinner, scaled to the planned servings, grouped by dish (main, then sides); "on hand" marks pantry/stock foods (planner `pantry:` list, stock stores, or Tandoor's on-hand flag). Ticks live in the browser (`localStorage`, keyed by date) for the evening |
 | `/meal/kitchen/steps` | One large step at a time with step tabs and Previous/Next; "This step uses" from the ingredients Tandoor attaches to each step; the step photo; a timer button for every minute/hour value the step text names (chime on the page). `?r=<recipe id>` picks the side dish |
+| `/meal/kitchen/pantry` | Pantry check (the **Pantry check** button on the board, and on the household page's dinner card). At the top, a large **Add to list** box for a manual grocery item, with "Added tonight" and the Manual list's current items below it. **Used this week**: the pantry and stock foods this plan week's recipes call for, grouped by store and aisle, each with the recipes it is for. **All pantry staples** (collapsed): the rest of the planner `pantry:` list and the stock-store foods. Each row has a large **Running low** button (or "On the list" when an open entry already exists) and a **Checked** tick that only marks it reviewed tonight (browser `localStorage`, keyed by date); **Mark all checked** ticks a whole section. Built from the groceries snapshot, so a view makes no extra upstream call |
 | `/meal/kitchen/step-photo/<file id>` | Step photo proxy (see below) |
-| `/meal/home` | Household page, phone-first (390 px, 16 px gutter) and two columns at laptop width: weather, dinner card with its ingredient checklist and a Steps link, lunch prep, tomorrow, chores (at most 8: late first, then due today; **All chores (N)** opens the full board at `?chores=all`), this week's calendar, and the household app grid (Recipes, Groceries, Tasks, Watch, Listen & read, Photos, Request TV, Request books, Workouts, Budget, Home control, Guides; links from `guides/shared-nav.js`). Recipe titles on all kitchen and household views show without import clutter (" Recipe", "(VIDEO)", "(Quick & Easy)" and similar), with the original in the title attribute; Tandoor is not changed |
+| `/meal/home` | Household page, phone-first (390 px, 16 px gutter) and two columns at laptop width: weather, dinner card with its ingredient checklist and a Steps link, lunch prep, tomorrow, chores (at most 8: late first, then due today; **All chores (N)** opens the full board at `?chores=all`), this week's calendar, a compact **Add to list** box at the top (outside the 2-minute refresh, so typing survives it), a **Pantry check** link, and the household app grid (Recipes, Groceries, Tasks, Watch, Listen & read, Photos, Request TV, Request books, Workouts, Budget, Home control, Guides; links from `guides/shared-nav.js`). Recipe titles on all kitchen and household views show without import clutter (" Recipe", "(VIDEO)", "(Quick & Easy)" and similar), with the original in the title attribute; Tandoor is not changed |
 | `/meal/kitchen?fragment=1`, `/meal/home?fragment=1` | The swappable page body for the 2-minute refresh |
 | `/meal/manifest.webmanifest`, `/meal/static/*` | Home Screen manifest (`display: standalone`, start `/meal/kitchen`), `home.css` (the Bernese tokens), `home.js`, the self-hosted Inter and Space Grotesk fonts (OFL, `static/fonts/`), bear icons |
 
@@ -125,8 +126,20 @@ the viewer's Vikunja token (else jmack's), re-reads the board and answers 204; t
 swaps in the fresh board, so a recurring chore comes back with its next date. Without
 JavaScript the form posts and redirects as before.
 
+**Writes from the kitchen pages.** The kitchen tablet can tick chores (above), add pantry
+staples to the shopping list, and add manual grocery items. Nothing else is written: no
+Tandoor on-hand (`food_onhand`) edits, no recipe or meal-plan changes. Both grocery writes
+use the groceries page's own routes, with `ajax=1` (a JSON answer) and a fixed `next` key
+(`pantry`, `pantry-home`, `home`; anything else falls back to the groceries page, never a
+URL) for the plain-form fallback:
+
+| Write | Route | Behaviour |
+|---|---|---|
+| Running low | `POST /meal/groceries/reorder` | ONE recipe-less shopping entry (amount 1, the `foods.yaml` `buy:` unit if any) for a pantry or stock food; any other food is refused (422). Idempotent: the duplicate check reads the list live and a lock holds the check and the write together, so a second tap, or the tablet and a phone at once, answers `on_list` without a new entry. The button comes back once the entry is ticked off |
+| Add to list | `POST /meal/groceries/add` | The Manual tab's add box: trimmed, empty refused (422), capped at 80 characters, a recipe-less entry by name (amount 1) that lands on the Manual list. The page shows it under "Added tonight" (browser-only, for the evening) |
+
 **Kitchen behaviour.** Screen Wake Lock, re-requested on `visibilitychange` (iPadOS 18.4+
-in a Home Screen app). The sub-views return to the board after 5 idle minutes (not while a
+in a Home Screen app). The sub-views (ingredients, steps, pantry check) return to the board after 5 idle minutes (not while a
 timer runs). The board refreshes every 2 minutes and on wake without a page flash, keeping
 each column's scroll. 22:00–06:00 Chicago time the board turns into a near-black night view
 (dim clock and tomorrow's first event); a tap shows the board for 3 minutes. The layout

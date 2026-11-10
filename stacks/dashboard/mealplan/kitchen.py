@@ -478,7 +478,8 @@ def board_fragment(d: dict) -> str:
             f"<header class='hdr'>{clock}{wx_html}{cal_html}</header>"
             f"<section class='meals'>{_dinner_card(d.get('dinner') or [])}"
             f"<div class='meal-side'>{_lunch_card(d.get('lunch'), today)}"
-            f"{_tomorrow_card(d.get('tomorrow_titles') or [], d.get('thaw') or '')}</div></section>"
+            f"{_tomorrow_card(d.get('tomorrow_titles') or [], d.get('thaw') or '')}"
+            f"<a class='btn ghost pantry-btn' href='{BASE}/kitchen/pantry'>Pantry check</a></div></section>"
             f"{chores}</div>")
 
 
@@ -586,6 +587,90 @@ def steps_page(dish: dict | None, dishes: list[dict], asset_ver: str, back: str)
             "</footer></div></body></html>")
 
 
+# ---- pantry check view -------------------------------------------------------------
+# The kitchen tablet's two grocery writes both post to the groceries page's own
+# routes (no second write path): "Running low" -> /groceries/reorder (pantry and
+# stock foods only, no duplicate while one is open), the add box -> /groceries/add
+# (the Manual list). `next` brings a plain form POST back here; home.js sends
+# ajax=1 instead. "Checked" ticks live in the browser for the evening only.
+ADD_MAX = 80
+
+
+def add_box(next_key: str, compact: bool = False, manual: list[str] | None = None) -> str:
+    """Text entry for a manual grocery item, "Added tonight" (filled by home.js)
+    and, unless compact, the Manual list's current items."""
+    cur = ""
+    if manual is not None and not compact:
+        items = "".join(f"<li>{escape(m)}</li>" for m in manual)
+        cur = (f"<div class='label'>On the manual list ({len(manual)})</div>"
+               + (f"<ul class='addlist cur'>{items}</ul>" if items
+                  else "<div class='muted small'>Nothing yet.</div>"))
+    return (f"<section class='card addbox{' compact' if compact else ''}'>"
+            f"<form class='additem' method='post' action='{BASE}/groceries/add'>"
+            f"<input type='hidden' name='next' value='{escape(next_key)}'>"
+            "<label class='sr' for='add-item'>Add to the grocery list</label>"
+            f"<input id='add-item' name='item' type='text' required maxlength='{ADD_MAX}' "
+            "placeholder='Add a grocery item…' enterkeyhint='done' autocapitalize='sentences' "
+            "autocomplete='off' autocorrect='on' spellcheck='true'>"
+            "<button class='btn primary' type='submit'>Add to list</button></form>"
+            "<div class='added' hidden><div class='label'>Added tonight</div><ul class='addlist' data-added></ul></div>"
+            f"{cur}</section>")
+
+
+def _pantry_row(f: dict, today: datetime.date, next_key: str) -> str:
+    food = f["food"]
+    src = (f"<span class='src'>for {escape(', '.join(f['recipes']))}</span>" if f["recipes"] else "")
+    if f["on_list"]:
+        act = "<span class='onlist'>On the list</span>"
+    else:
+        act = (f"<form class='reorder' method='post' action='{BASE}/groceries/reorder'>"
+               f"<input type='hidden' name='food' value='{escape(food)}'>"
+               f"<input type='hidden' name='next' value='{escape(next_key)}'>"
+               "<button class='btn low' type='submit'>Running low</button></form>")
+    key = f"{today.isoformat()}:{food.lower()}"
+    return (f"<div class='prow'><button type='button' class='pcheck' data-pcheck='{escape(key)}' "
+            f"aria-pressed='false' aria-label='Checked: {escape(food)}'><span class='box' aria-hidden='true'></span>"
+            f"<span class='pname'><span class='fname'>{escape(food)}</span>{src}</span></button>{act}</div>")
+
+
+def _pantry_groups(groups: list[dict], today: datetime.date, next_key: str) -> str:
+    return "".join(f"<div class='pgroup'><div class='label'>{escape(g['label'])}</div>"
+                   f"<div class='prows'>{''.join(_pantry_row(f, today, next_key) for f in g['foods'])}</div></div>"
+                   for g in groups)
+
+
+def pantry_page(d: dict, asset_ver: str, back: str) -> str:
+    today = d["today"]
+    next_key = "pantry-home" if back.endswith("/home") else "pantry"
+    used = d.get("used") or []
+    staples = d.get("staples") or []
+    n_used = sum(len(g["foods"]) for g in used)
+    n_st = sum(len(g["foods"]) for g in staples)
+    if not d.get("plan_ok"):
+        used_html = "<div class='muted'>Couldn't load this week's meal plan right now.</div>"
+    elif not used:
+        used_html = "<div class='muted'>No pantry or stock foods in this week's recipes.</div>"
+    else:
+        used_html = _pantry_groups(used, today, next_key)
+    mark = "<button type='button' class='btn ghost markall' data-markall='{}'>Mark all checked</button>"
+    staples_html = (_pantry_groups(staples, today, next_key)
+                    or "<div class='muted'>No other pantry staples configured.</div>")
+    return (head("Pantry check", asset_ver, kiosk=True)
+            + f"<body data-page='pantry' data-home='{escape(back)}' class='kiosk sub'><div class='shell'>"
+            f"<header class='subhdr'>{_back(back)}<div class='subtitle'>"
+            "<div class='eyebrow rust'>This plan week</div><h1>Pantry check</h1></div>"
+            "<div class='tally'><div class='big'><span data-pchecked>0</span> / "
+            f"<span data-ptotal>{n_used}</span></div><div class='muted small'>checked</div></div></header>"
+            "<div class='pantry-scroll'>"
+            f"{add_box(next_key, manual=d.get('manual'))}"
+            f"<section class='card psec' data-sec='used'><div class='psec-h'><h2>Used this week</h2>"
+            f"<span class='muted'>{n_used}</span>{mark.format('used') if n_used else ''}</div>{used_html}</section>"
+            f"<details class='card psec staples' data-sec='staples'><summary><h2>All pantry staples</h2>"
+            f"<span class='muted'>{n_st}</span><span class='chev' aria-hidden='true'></span></summary>"
+            f"<div class='psec-h'>{mark.format('staples') if n_st else ''}</div>"
+            f"{staples_html}</details></div></div></body></html>")
+
+
 # ---- household page ----------------------------------------------------------------
 APPS = [  # household only; hrefs from guides/shared-nav.js
     ("Recipes", "https://recipes.kmkdp.com/"),
@@ -623,10 +708,12 @@ def household_fragment(d: dict, all_chores: bool = False) -> str:
                   f"<div class='muted'>{sides}{' · ' if sides and meta else ''}{escape(meta)}</div>"
                   f"<details class='hh-ings'><summary class='btn primary'>Ingredients ({n_ing})</summary>"
                   f"{ingredient_groups(dishes, today)}</details>"
-                  f"<a class='btn ghost' href='{BASE}/kitchen/steps?from=home'>Steps</a></div></article>")
+                  f"<a class='btn ghost' href='{BASE}/kitchen/steps?from=home'>Steps</a>"
+                  f"<a class='btn ghost' href='{BASE}/kitchen/pantry?from=home'>Pantry check</a></div></article>")
     else:
         dinner = ("<article class='card hh-dinner'><div class='pad'><div class='eyebrow rust'>Dinner tonight</div>"
-                  "<h2 class='dish'>No dinner planned</h2></div></article>")
+                  "<h2 class='dish'>No dinner planned</h2>"
+                  f"<a class='btn ghost' href='{BASE}/kitchen/pantry?from=home'>Pantry check</a></div></article>")
     lunch = _lunch_card(d.get("lunch"), today)
     tomorrow = _tomorrow_card(d.get("tomorrow_titles") or [], d.get("thaw") or "")
     # chores: due + late first, everything behind a fold
@@ -681,6 +768,7 @@ def household_page(d: dict, asset_ver: str, all_chores: bool = False) -> str:
             + "<body data-page='home' class='household'>"
             "<header class='hh-top'><div class='brand'>Mack House</div>"
             f"<div class='hh-when'><span>{now:%a, %b %-d}</span><span class='hh-wx'>{wxs}</span></div></header>"
+            f"<div class='hh-add'>{add_box('home', compact=True)}</div>"
             f"<main class='hh-main' id='board' data-fragment='{BASE}/home?fragment=1{'&amp;chores=all' if all_chores else ''}'>"
             f"{household_fragment(d, all_chores)}</main>"
             "</body></html>")

@@ -127,6 +127,14 @@ def catalog(foods_cfg: Optional[dict] = None, config: Optional[dict] = None,
         m = str(rule.get("match", "")).strip().lower()
         if m and m not in names and is_stock(str(rule.get("category", "")), config):
             names.append(m)
+    return group(names, foods_cfg, config)
+
+
+def group(names, foods_cfg: Optional[dict] = None, config: Optional[dict] = None,
+          sort_names: bool = True) -> dict[str, dict[str, list[str]]]:
+    """{store: {aisle: [food]}} for `names`, grouped where route_for puts each.
+    Stores follow config `stores.order`, aisles `stores.aisles`; names sort
+    alphabetically, or keep their given order with sort_names=False."""
     out: dict[str, dict[str, list[str]]] = {}
     for n in names:
         store, aisle = split_cat(route_for(n, foods_cfg, config))
@@ -138,7 +146,10 @@ def catalog(foods_cfg: Optional[dict] = None, config: Optional[dict] = None,
     def _idx(seq, x):
         return (seq.index(x) if x in seq else len(seq), x)
 
-    return {st: {a: sorted(out[st][a]) for a in sorted(out[st], key=lambda a: _idx(list(aisles.get(st) or []), a))}
+    def _names(xs):
+        return sorted(xs) if sort_names else list(xs)
+
+    return {st: {a: _names(out[st][a]) for a in sorted(out[st], key=lambda a: _idx(list(aisles.get(st) or []), a))}
             for st in sorted(out, key=lambda st: _idx(order, st))}
 
 
