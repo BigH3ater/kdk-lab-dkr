@@ -284,3 +284,12 @@ def test_add_failed_write_reports_error(fake, monkeypatch):
     monkeypatch.setattr(app, "_api_write", lambda *a: False)
     r = app.app.test_client().post("/groceries/add", data={"item": "milk", "ajax": "1"})
     assert r.status_code == 502 and r.get_json()["status"] == "error"
+
+
+def test_recipe_names_are_cleaned_like_the_other_views(fake, monkeypatch):
+    plan = _plan()
+    plan[0]["title"] = "Chicken and Broccoli Stir Fry Recipe"
+    monkeypatch.setattr(app, "fetch_plan", lambda a, b: plan)
+    cumin = _row(_sec(_page(app.app.test_client()), "used"), "cumin")
+    assert ("for <span title='Chicken and Broccoli Stir Fry Recipe'>Chicken and Broccoli Stir Fry</span>, "
+            "Chicken Fajita Bowls") in cumin

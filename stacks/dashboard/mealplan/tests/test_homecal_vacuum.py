@@ -111,3 +111,57 @@ def test_vacuum_entity_filter():
 def test_fetch_states_requires_token():
     with pytest.raises(RuntimeError):
         vacuum.fetch_states("http://ha.example:8123", "")
+
+
+# ---- water tank: same rule as HA's rr_water_empty_alert ---------------------------
+FLAG, BOX, DOCK = ("binary_sensor.mr_slave_water_shortage_2",
+                   "binary_sensor.mr_slave_dock_clean_water_box", "sensor.mr_slave_dock_dock_error")
+
+
+def _st(state, changed="2026-11-09T19:14:00+00:00"):
+    return {"state": state, "attributes": {}, "last_changed": changed}
+
+
+def test_water_flag_stale_after_refill_is_not_empty():
+    """Live 2026-11-10: flag on since 19:14Z, box off and changed at 01:45Z the
+    next day (refilled after the flag) -> no alert."""
+    st = {FLAG: _st("on", "2026-11-09T19:14:00.123456+00:00"),
+          BOX: _st("off", "2026-11-10T01:45:00.5+00:00"), DOCK: _st("ok")}
+    assert vacuum.water_empty(st) is False
+    assert "water tank empty" not in vacuum.summary(st, NOW, TZ)["alerts"]
+
+
+def test_water_flag_on_and_box_unchanged_since_is_empty():
+    st = {FLAG: _st("on", "2026-11-09T19:14:00+00:00"), BOX: _st("off", "2026-11-08T10:00:00+00:00")}
+    assert vacuum.water_empty(st) is True
+
+
+def test_water_flag_on_and_box_missing_is_empty():
+    assert vacuum.water_empty({FLAG: _st("on")}) is True
+
+
+def test_water_box_on_is_empty_even_without_flag():
+    assert vacuum.water_empty({FLAG: _st("off"), BOX: _st("on", "2026-11-10T01:45:00+00:00")}) is True
+
+
+def test_water_dock_error_is_empty():
+    assert vacuum.water_empty({DOCK: _st("water_empty"), FLAG: _st("off"), BOX: _st("off")}) is True
+
+
+def test_water_all_clear():
+    assert vacuum.water_empty({FLAG: _st("off"), BOX: _st("off"), DOCK: _st("ok")}) is False
+    assert vacuum.water_empty({}) is False
+
+
+def test_fetch_states_keeps_last_changed(monkeypatch):
+    class R:
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return [{"entity_id": BOX, "state": "off", "attributes": {}, "last_changed": "2026-11-10T01:45:00+00:00"},
+                    {"entity_id": DOCK, "state": "ok", "attributes": {}, "last_changed": "x"},
+                    {"entity_id": "light.kitchen", "state": "on"}]
+    monkeypatch.setattr(vacuum.requests, "get", lambda *a, **k: R())
+    got = vacuum.fetch_states("http://ha", "tok")
+    assert set(got) == {BOX, DOCK} and got[BOX]["last_changed"] == "2026-11-10T01:45:00+00:00"

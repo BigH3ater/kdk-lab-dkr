@@ -619,7 +619,7 @@ def add_box(next_key: str, compact: bool = False, manual: list[str] | None = Non
 
 def _pantry_row(f: dict, today: datetime.date, next_key: str) -> str:
     food = f["food"]
-    src = (f"<span class='src'>for {escape(', '.join(f['recipes']))}</span>" if f["recipes"] else "")
+    src = (f"<span class='src'>for {titles_html(f['recipes'], ', ')}</span>" if f["recipes"] else "")
     if f["on_list"]:
         act = "<span class='onlist'>On the list</span>"
     else:
