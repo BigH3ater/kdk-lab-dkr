@@ -138,6 +138,30 @@ def step_title(name: str, text: str, n: int) -> tuple[str, str]:
     return f"Step {n}", body
 
 
+_HEADING_START_RE = re.compile(r"^(how to|for the|to make|instructions|directions|method|prepare|assemble|make the)\b", re.I)
+
+
+def is_heading(text: str) -> bool:
+    """An imported section heading stored as its own step ("How to Cook Filet
+    Mignon Recipe:", "For the sauce"): short, and either ends in ":" or starts
+    like a heading with no sentence punctuation. Callers only ask this for steps
+    with no ingredients and no photo, so a real short step ("Serve hot.") stays."""
+    t = (text or "").strip()
+    if not t or len(t) > 80 or "\n" in t:
+        return False
+    if t.endswith(":"):
+        return True
+    return bool(_HEADING_START_RE.match(t)) and not re.search(r"[.!?]$", t)
+
+
+def heading_title(text: str) -> str:
+    """'How to Cook Filet Mignon Recipe:' -> 'Cook Filet Mignon'."""
+    t = re.sub(r":\s*$", "", (text or "").strip())
+    t = re.sub(r"^how to\s+", "", t, flags=re.I)
+    t = re.sub(r"\s+recipe\b", "", t, flags=re.I).strip()
+    return (t[:1].upper() + t[1:]) if t else ""
+
+
 def body_html(body: str) -> str:
     paras = [p.strip() for p in re.split(r"\n\s*\n", body or "") if p.strip()]
     return "".join(f"<p>{escape(p)}</p>".replace("\n", "<br>") for p in paras)
@@ -203,10 +227,18 @@ def make_dish(entry: dict, rec: dict, onhand=None) -> dict:
                      "food": ing["food"], "note": ing.get("note") or "",
                      "onhand": bool(ing.get("onhand") or (onhand and onhand(ing["food"])))})
     steps = []
-    for n, st in enumerate(rec.get("steps") or [], 1):
-        title, body = step_title(st.get("name") or "", st.get("instruction") or "", n)
-        if not body and not st.get("ingredients") and not st.get("file_id"):
+    carry = ""                                         # an imported section heading
+    for st in rec.get("steps") or []:
+        text = _plain(st.get("instruction") or "")
+        bare = not st.get("ingredients") and not st.get("file_id")
+        if bare and not text:
             continue                                   # empty header step
+        if bare and is_heading(text):
+            carry = carry or heading_title(text)       # becomes the next step's title
+            continue
+        n = len(steps) + 1
+        title, body = step_title(st.get("name") or carry, st.get("instruction") or "", n)
+        carry = ""
         steps.append({"title": title, "body": body,
                       "timers": timers(body, int(st.get("time") or 0)),
                       "photo": st.get("file_id"),
