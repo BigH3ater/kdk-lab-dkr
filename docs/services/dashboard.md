@@ -56,6 +56,15 @@ The meal-plan sidecar logs into Tandoor with a dedicated account (session auth â
 are disabled) and reads `/api/meal-plan/`; ratings post back as CookLog entries. Per-user
 ratings remain available by opening the recipe page (each meal deep-links there).
 
+The **Tasks** strip (`/meal/tasks`, a 175px Homepage iframe) reads every Vikunja project with the
+jmack token, following `x-pagination-total-pages` (Vikunja caps a page at 50 rows), and shows
+**every open task**, one column per project. Each column lists the overdue, undated and
+due-within-14-days tasks (it scrolls inside the card) under a header with the count and the
+number late; tasks due later sit in a collapsed `+N later` fold. Nothing is cut: before
+2026-11-09 each column stopped at 6 rows and later tasks were dropped, so 28 of 83 open chores
+showed. Ticking a box completes the task with the viewer's own token when one is stored, else
+jmack's.
+
 An **Approvals** project (with labels `approved`, `skipped`, `notified`) drives the generic
 approval-task loop: tasks needing a decision raise an actionable phone notification via
 [[home-assistant|Home Assistant]], which polls this project and records the decision back on the
