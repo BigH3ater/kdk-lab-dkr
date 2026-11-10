@@ -106,7 +106,7 @@ With an Authelia session (browser, as a `dashboard-users` member):
 3. Ten quick searches in a row: none returns `Too Many Requests` (the limiter does not
    block a normal LAN client; its burst limit is 15 per 20 s).
 4. `https://search.kmkdp.com/stats`: per-engine response times, few errors.
-5. `https://home.kmkdp.com`: the **Search** tile in the Home group has a green dot.
+5. `https://home.kmkdp.com`: the household page's **Search** app opens it. (Before 2026-11-10 this checked the Homepage tile's dot.)
 
 The limiter saw the real client address, not Traefik's:
 

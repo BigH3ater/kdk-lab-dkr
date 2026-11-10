@@ -9,24 +9,14 @@
 # Create: op item "vikunja-app" in kdk-cluster with a field `jwt_secret` (random 64+ chars).
 VIKUNJA_SERVICE_JWTSECRET={{ op://kdk-cluster/vikunja-app/jwt_secret }}
 
-# ---- P1: Homepage status/stat widget API keys (read-only) ---------------------
-# Each is a read-only API key minted in that service's own settings, stored as the
-# `password` field of the named kdk-cluster item. If one isn't ready yet, comment out
-# BOTH this line AND its widget block in config/services.yaml to let P1 deploy, then
-# add it back. (siteMonitor up/down health needs no key and always works.)
-# P1b: HOMEPAGE_VAR_SEERR_KEY <- 1P item kdk-cluster/seerr-api-ro field password (uncomment as a real line once the item exists)
-# P1b: HOMEPAGE_VAR_ABS_KEY <- 1P item kdk-cluster/audiobookshelf-api-ro field password (uncomment as a real line once the item exists)
-HOMEPAGE_VAR_VIKUNJA_KEY={{ op://kdk-cluster/vikunja-api-ro/credential }}
-# Jellyfin read-only widget key (Jellyfin App=homepage-ro). Item jellyfin-api-ro is
-# minted by the owner's op helper (see the PR); must exist in 1P BEFORE this merges
-# or op inject fails and the stack won't deploy.
-HOMEPAGE_VAR_JELLYFIN_KEY={{ op://kdk-cluster/jellyfin-api-ro/password }}
-# Home Assistant long-lived access token for the Workout group's homeassistant
-# widgets (config/services.yaml). Read-only use: the widget only GETs entity
-# states. The owner mints it in HA -> Profile -> Security -> Long-lived access
-# tokens and pastes it into the 1P API-Credential item kdk-cluster/homepage-ha-token field
-# `credential` (see the PR body / rotate-a-secret.md). Must exist in 1P BEFORE
-# this merges or `op inject` fails and the stack won't deploy.
+# ---- Home Assistant token (household + kitchen vacuum line) ---------------------
+# Long-lived HA access token, read-only use: the mealplan sidecar only GETs
+# /api/states (mealplan/vacuum.py). The name HOMEPAGE_VAR_HA_TOKEN and the item
+# name homepage-ha-token date from the retired Homepage widgets; the sidecar reads
+# this exact variable, so a rename is a follow-up (sidecar + .env.tpl + 1P item
+# together), not churn to do in passing. Owner mints it in HA -> Profile ->
+# Security -> Long-lived access tokens into the 1P API-Credential item
+# kdk-cluster/homepage-ha-token field `credential` (see rotate-a-secret.md).
 HOMEPAGE_VAR_HA_TOKEN={{ op://kdk-cluster/homepage-ha-token/credential }}
 
 # ---- P2b: per-user Vikunja tokens (task write-back attributed via SSO) --------
@@ -39,8 +29,9 @@ VIKUNJA_TOKEN_JMACK={{ op://kdk-cluster/vikunja-api-rw/credential }}
 # VIKUNJA_TOKEN_RACH <- 1P item kdk-cluster/vikunja-api-rach field password (uncomment once rach has minted hers)
 
 # ---- P3: household calendar (Proton "Share via link" ICS) ---------------------
-# Proton "Share via link" ICS (1Password item kdk-cluster/proton-calendar-ics, field url, read-only). The calendar widget in
-# config/services.yaml reads this via the HOMEPAGE_VAR_ICS_URL variable.
+# Proton "Share via link" ICS (1Password item kdk-cluster/proton-calendar-ics, field url, read-only).
+# The mealplan sidecar (mealplan/homecal.py) reads it as HOMEPAGE_VAR_ICS_URL; the
+# name is left over from the retired Homepage calendar widget (rename = follow-up).
 HOMEPAGE_VAR_ICS_URL={{ op://kdk-cluster/proton-calendar-ics/url }}
 
 # ---- P2: mealplan sidecar (dedicated Tandoor account) -------------------------

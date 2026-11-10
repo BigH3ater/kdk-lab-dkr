@@ -1,11 +1,10 @@
 /* Kodiak shared navigation -- the ONE sidebar for home.kmkdp.com.
-   Loaded by Homepage (via config/custom.css @import "/guides/shared-nav.css"),
-   by every guide page, and by the /meal sidecar pages, so all three present one
+   Loaded by every guide page and by the /meal sidecar pages, so both present one
    look and behaviour. The markup is injected by shared-nav.js, which also hides
-   it inside an iframe (the /meal grid/tasks/weather pages are embedded on the
-   dashboard) and adds .has-kodiak-nav to <body> only when it actually renders --
-   so a page that merely loads this file inside a frame gets no stray offset.
-   Tokens are redefined here (same values as Brand.md / custom.css) so the file
+   it inside an iframe and adds .has-kodiak-nav to <body> only when it actually
+   renders -- so a page that merely loads this file inside a frame gets no stray
+   offset.
+   Tokens are redefined here (same values as Brand.md) so the file
    styles correctly on any page that loads it, standalone or not. Ink ground:
    accent is --ember (never --rust), secondary text --ash. Never #000/#fff. */
 :root {

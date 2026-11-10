@@ -1,7 +1,7 @@
 """Household calendar for the kitchen board and the household page.
 
-Reads the Proton "Share via link" ICS feed (env HOMEPAGE_VAR_ICS_URL, the same
-secret the Homepage calendar widget uses) server-side and expands recurring
+Reads the Proton "Share via link" ICS feed (env HOMEPAGE_VAR_ICS_URL; the name
+is left from the retired Homepage calendar widget) server-side and expands recurring
 events with recurring-ical-events. The URL is a bearer secret: it is never
 logged or rendered, and fetch errors log only the exception type (a requests
 exception message carries the URL).

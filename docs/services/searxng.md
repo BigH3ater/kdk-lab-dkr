@@ -112,7 +112,8 @@ the session ends the first search shows the SSO login, then the results.
   ignores OpenSearch for that. Use a bookmark/Home Screen icon for
   `https://search.kmkdp.com`, or a search-redirect extension. On iPhone, Home Screen
   icon: Safari → Share → **Add to Home Screen**.
-- **Homepage**: the **Search** tile in the Home group opens it.
+- **Home page**: **Search** in the sidebar and in the household page's app grid
+  (`home.kmkdp.com`) opens it. (Until 2026-11-10 it was a Homepage tile.)
 
 Address-bar suggestions use `/autocompleter`, which is behind Authelia. A browser that
 sends those requests without the Authelia cookie gets no suggestions; typing on the

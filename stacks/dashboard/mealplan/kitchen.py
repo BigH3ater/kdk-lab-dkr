@@ -740,6 +740,7 @@ APPS = [  # household only; hrefs from guides/shared-nav.js
     ("Workouts", "https://wger.kmkdp.com/"),
     ("Budget", "https://budget.kmkdp.com/"),
     ("Home control", "https://homeassistant.kmkdp.com/home-controls"),
+    ("Search", "https://search.kmkdp.com/"),
     ("Guides", "/guides/"),
 ]
 

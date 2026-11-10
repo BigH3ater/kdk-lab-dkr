@@ -176,7 +176,7 @@ write_files:
 
       # DMZ Traefik (public anyway): jellystat -> jellyfin, internal Traefik
       # forward-auth -> sso.kmkdp.com, OIDC discovery for actual/vikunja/komodo,
-      # homepage widgets, arr -> jellyfin notifications.
+      # arr -> jellyfin notifications.
       allow_dst 192.168.191.20 tcp 443
 
       # Komodo Core (stacks/komodo) -> Periphery on every other host.

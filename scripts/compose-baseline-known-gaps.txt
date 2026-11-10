@@ -25,7 +25,6 @@ backup-offsite/offsite: no-new-privileges,cap_drop,read_only,pids_limit,mem_limi
 backup-offsite/pack: read_only,healthcheck
 backup-verify/verify: no-new-privileges,cap_drop,read_only,pids_limit,mem_limit,logging,healthcheck
 dashboard/guides: no-new-privileges,cap_drop,read_only,pids_limit,mem_limit,healthcheck
-dashboard/homepage: no-new-privileges,cap_drop,read_only,pids_limit,mem_limit,healthcheck
 dashboard/mealplan: no-new-privileges,cap_drop,read_only,pids_limit,mem_limit,healthcheck
 dashboard/vikunja: no-new-privileges,cap_drop,read_only,pids_limit,mem_limit,healthcheck
 dmz-apps/libreseerr: no-new-privileges,cap_drop,read_only,pids_limit,mem_limit,logging,healthcheck
