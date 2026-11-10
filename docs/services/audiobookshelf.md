@@ -6,13 +6,13 @@ tier: dmz
 status: live
 storage: yes
 secrets: []
-updated: 2026-11-08
+updated: 2026-11-09
 tags: [homelab/stack, tier/dmz, status/live]
 ---
 
 # Audiobookshelf
 
-Audiobook + podcast server on the DMZ node. Its router serves the DMZ Traefik's `websecure` and `tunnel` entrypoints, but it stays LAN/Tailscale only until the owner adds the tunnel public hostname ([Publishing](#publishing)). Login is ABS's own auth or Authelia OIDC (client `audiobookshelf`), no ForwardAuth (it would break the mobile apps).
+Audiobook, ebook and podcast server on the DMZ node. Its router serves the DMZ Traefik's `websecure` and `tunnel` entrypoints, but it stays LAN/Tailscale only until the owner adds the tunnel public hostname ([Publishing](#publishing)). Login is ABS's own auth or Authelia OIDC (client `audiobookshelf`), no ForwardAuth (it would break the mobile apps).
 
 **Related:** [[kdk-dkr-dmz-01]] · [[dmz-proxy]] · [[identity]] · [[media]]
 
@@ -20,13 +20,13 @@ Audiobook + podcast server on the DMZ node. Its router serves the DMZ Traefik's 
 
 | Field | Value |
 |---|---|
-| Purpose | Audiobooks (LazyLibrarian-managed, read-only) and podcasts (RSS auto-download) |
+| Purpose | Audiobooks and ebooks (LazyLibrarian-managed, read-only) and podcasts (RSS auto-download) |
 | Host | [[kdk-dkr-dmz-01]] |
 | Endpoint | `https://audiobookshelf.kmkdp.com` (native `/audiobookshelf` base path) |
 | Image | `ghcr.io/advplyr/audiobookshelf:2.37.2` (digest-pinned in `stacks/audiobookshelf/compose.yaml`) |
 | Deploy | Komodo stack `audiobookshelf` (git-linked) |
-| Storage | config + metadata (SQLite DB) local in `/opt/kdk-lab/audiobookshelf`; audiobooks RO from `/mnt/media/books/audiobook`; podcasts rw on NFS `/mnt/appdata/audiobookshelf/podcasts` |
-| Blast radius | No audiobook/podcast streaming; progress sync pauses |
+| Storage | config + metadata (SQLite DB) local in `/opt/kdk-lab/audiobookshelf`; audiobooks RO from `/mnt/media/books/audiobook`; ebooks RO from `/mnt/media/books/ebook`; podcasts rw on NFS `/mnt/appdata/audiobookshelf/podcasts` |
+| Blast radius | No audiobook/podcast streaming or phone/browser ebook reading; progress sync pauses. The reMarkable keeps working (Calibre OPDS) |
 
 ## Verify
 
@@ -50,6 +50,7 @@ ssh kdkadmin@192.168.191.20 'ls /mnt/appdata/audiobookshelf/podcasts | head'    
 | `/opt/kdk-lab/audiobookshelf/config` | SQLite DB, users, settings (local disk, nightly backup-dmz) |
 | `/opt/kdk-lab/audiobookshelf/metadata` | covers, cache (local disk) |
 | `/mnt/media/books/audiobook` → `/audiobooks:ro` | audiobook library (media NFS is read-only on the DMZ) |
+| `/mnt/media/books/ebook` → `/ebooks:ro` | `ebooks` library. Same folder `calibre-import` reads; ABS must never write it |
 | `/mnt/appdata/audiobookshelf/podcasts` → `/podcasts` | podcast library, written by ABS. Moved off the 59 GB root disk 2026-10-28 (7.5 GB). Library path in ABS stays `/podcasts`. Not in backup-dmz (tankz3 snapshots only; re-downloadable) |
 
 ## Observability
@@ -128,7 +129,22 @@ Repo side is done (router `entrypoints: websecure,tunnel`, `abs-headers` middlew
 ## Apps and ebooks
 
 - Which phone apps to use (iOS/Android, audio vs ebooks, OIDC schemes): vault `3. Resources/Reading/ABS Apps and Ebooks 2026-11-08.md`.
-- **Ebook library = phase 2, not part of publishing.** When it is added: one read-only books mount (`/mnt/media/books:/books:ro`, both libraries under it), never rw — ABS must never write the Calibre source folder. Calibre OPDS stays the reMarkable path (ABS has no OPDS).
+- **Ebooks for phones and browsers live here.** Calibre serves the reMarkable only (ABS has no OPDS).
+- **`/ebooks` is its own mount**, so the audiobook library keeps its `/audiobooks` path and its items and progress are not re-matched.
+- **New books appear within the hour.** The `ebooks` library scans at minute 15 of every hour, because the watcher does not see writes made on the NFS server and the `abs-notify` hook only handles audiobooks.
+- **Invitees see every library by default.** New ABS accounts get "access all libraries". Untick it and choose libraries for anyone who should not see the ebook shelf.
+
+Create the library once, after the `/ebooks` mount is deployed (the API needs an admin token; never echo it):
+
+```bash
+TOKEN="$(op read op://kdk-ops/audiobookshelf-api-root/credential | tr -d '[:space:]')"
+curl -s -X POST https://audiobookshelf.kmkdp.com/api/libraries \
+  -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  -d '{"name":"ebooks","mediaType":"book","icon":"book-1","provider":"google",
+       "folders":[{"fullPath":"/ebooks"}],
+       "settings":{"coverAspectRatio":0,"autoScanCronExpression":"15 * * * *",
+         "metadataPrecedence":["folderStructure","audioMetatags","nfoFile","txtFiles","opfFile","absMetadata"]}}'
+```
 
 ## Secret Rotation
 
