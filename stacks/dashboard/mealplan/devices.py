@@ -192,14 +192,6 @@ class Registry:
             self._save()
         return code
 
-    def code_valid(self, code: str, now: float) -> bool:
-        if not code:
-            return False
-        h = _hash_code(code)
-        with self._lock:
-            return any(hmac.compare_digest(c["hash"], h) and c.get("expires", 0) > now
-                       for c in self._data["codes"])
-
     def consume_code(self, code: str, now: float) -> bool:
         """True once for a valid code; it is gone afterwards."""
         if not code:
@@ -335,14 +327,28 @@ def _shell(head: str, body: str) -> str:
     return f"{head.replace('</head>', _CSS + '</head>', 1)}<body class='sub'><main class='pair'>{body}</main></body></html>"
 
 
-def code_form(error: str = "") -> str:
+# The pairing link carries the code in the URL fragment (/pair#code=...), which
+# a browser never sends to a server, so Traefik's access log and Loki never see
+# it. This script copies it into the form, clears the fragment and focuses the
+# name; the code reaches the server only in the POST body. Without JS the code
+# box is typed by hand.
+_PAIR_JS = ("<script>(function(){var m=/(?:^#|&)code=([^&]*)/.exec(location.hash||'');"
+            "if(!m){return;}var c=document.getElementById('code');"
+            "try{c.value=decodeURIComponent(m[1]);}catch(e){c.value=m[1];}"
+            "try{history.replaceState(null,'',location.pathname);}catch(e){}"
+            "var n=document.getElementById('name');if(n){n.focus();n.select();}})();</script>")
+
+
+def pair_form(error: str = "") -> str:
     err = f"<p class='err'>{escape(error)}</p>" if error else ""
     return ("<section class='card'><h1>Pair this screen</h1>"
             f"{err}<p>Open the pairing link from the devices page, or type the code it shows.</p>"
-            "<form method='get' action='/pair'><label for='code'>Pairing code</label>"
+            "<form method='post' action='/pair'><label for='code'>Pairing code</label>"
             "<input id='code' name='code' type='text' autocomplete='off' autocapitalize='characters' "
             "spellcheck='false' required maxlength='40'>"
-            "<button class='btn primary' type='submit'>Next</button></form></section>")
+            "<label for='name'>Device name</label>"
+            f"<input id='name' name='name' type='text' value='Kitchen iPad' maxlength='{NAME_MAX}' required>"
+            "<button class='btn primary' type='submit'>Pair</button></form></section>" + _PAIR_JS)
 
 
 def unpaired_page(head: str) -> str:
@@ -350,18 +356,11 @@ def unpaired_page(head: str) -> str:
                   "<p>On a laptop or phone signed in as Jacob, open "
                   "<b>home.kmkdp.com/meal/kitchen/devices</b> and press <b>Pair a device</b>. "
                   "Then open the link on this screen, or type the code below.</p></section>"
-                  + code_form())
+                  + pair_form())
 
 
-def pair_page(head: str, code: str = "", error: str = "") -> str:
-    if not code:
-        return _shell(head, code_form(error))
-    return _shell(head, "<section class='card'><h1>Name this screen</h1>"
-                  "<form method='post' action='/pair'>"
-                  f"<input type='hidden' name='code' value='{escape(code)}'>"
-                  "<label for='name'>Device name</label>"
-                  f"<input id='name' name='name' type='text' value='Kitchen iPad' maxlength='{NAME_MAX}' required>"
-                  "<button class='btn primary' type='submit'>Pair</button></form></section>")
+def pair_page(head: str, error: str = "") -> str:
+    return _shell(head, pair_form(error))
 
 
 def message_page(head: str, title: str, text: str) -> str:

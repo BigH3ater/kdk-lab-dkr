@@ -221,7 +221,7 @@ hostname; do not add one.
 | `GET /`, `/?fragment=1`, `/ingredients`, `/steps`, `/pantry`, `/step-photo/<id>` | device cookie |
 | `POST /tasks/complete`, `/groceries/reorder`, `/groceries/add` (the existing handlers) | device cookie + `Origin` (or `Referer`) `https://kitchen.kmkdp.com`; with `ajax=1` also `X-Kitchen: 1` (home.js sends it). A plain form post relies on the Origin check plus `SameSite=Strict` |
 | `GET /manifest.webmanifest` (`start_url` and `scope` `https://kitchen.kmkdp.com/`), `GET /static/*` | nothing (not secret; the Home Screen icon fetch has no cookie) |
-| `GET/POST /pair` | a pairing code; rate-limited to 10 tries per 10 minutes per client IP (the last `X-Forwarded-For` hop, set by Traefik) |
+| `GET /pair` (the form), `POST /pair` | a pairing code in the POST body; POSTs rate-limited to 10 tries per 10 minutes per client IP (the last `X-Forwarded-For` hop, set by Traefik) |
 
 An unpaired screen gets a 401 page with a box for the pairing code. If
 `KITCHEN_DEVICE_KEY` is missing (or shorter than 32 bytes), or `/state` is not
@@ -246,11 +246,16 @@ Authelia rule, and only for `KITCHEN_ADMINS`, default `jmack`; comma-separated):
 
 - **Pair a device** makes a one-time code: 128 random bits (26 base32
   characters), valid 10 minutes, single use, stored hashed. The page shows the link
-  `https://kitchen.kmkdp.com/pair?code=…`, a QR code of it (segno, pinned) and the
+  `https://kitchen.kmkdp.com/pair#code=…`, a QR code of it (segno, pinned) and the
   code in groups of four for typing.
-- Opening the link checks the code and asks for a device name. **Pair** uses up
-  the code, sets the cookie and goes to `/`. The code is used up by that POST, not
-  by opening the link, so a link preview cannot burn it.
+- The code rides in the URL **fragment**, which a browser never sends to a server,
+  so it never appears in Traefik's access log or Loki. The `/pair` page script
+  copies it into the code box, clears the fragment (`history.replaceState`) and
+  focuses the device name; without JavaScript, type the code into the box. A
+  `?code=` query is ignored (not read, not logged).
+- **Pair** posts the code and name, uses up the code, sets the cookie and goes to
+  `/`. The code reaches the server only in that POST body; opening the link uses
+  nothing up, so a link preview cannot burn it.
 - The list shows each device with paired and last-seen times, a **Revoke** button
   per device and **Revoke all**. A revoked screen gets the pairing page on its next
   request.

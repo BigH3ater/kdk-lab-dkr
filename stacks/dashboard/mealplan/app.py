@@ -2380,36 +2380,30 @@ def pair():
     signer, reg = _pairing()                         # the gate already answered 503 without a key
     ip = _client_ip()
     head = kitchen.head("Pair this screen", ASSET_VER, kiosk=False)
-    raw = request.form.get("code") if request.method == "POST" else request.args.get("code")
-    if raw is None and request.method != "POST":
-        return _page(devices.pair_page(head))        # the code entry form
+    if request.method != "POST":
+        # The link is /pair#code=...: the code stays in the browser and the page
+        # script fills it in. A ?code= query is ignored on purpose (not read,
+        # not logged), so a code never travels in a URL the server sees.
+        return _page(devices.pair_page(head))
     if not PAIR_LIMIT.hit(ip, time.time()):
         log.warning("kitchen: pair rate-limited ip=%s", ip)
         return _page(devices.message_page(head, "Too many tries", "Wait ten minutes and try again."), 429)
-    code = devices.normalize_code(raw)
+    if not devices.origin_ok(request.headers.get("Origin"), request.headers.get("Referer"), KITCHEN_ORIGIN):
+        log.warning("kitchen: pair POST refused (origin) ip=%s", ip)
+        return _text("forbidden", 403)
     now = time.time()
-    if request.method == "POST":
-        if not devices.origin_ok(request.headers.get("Origin"), request.headers.get("Referer"), KITCHEN_ORIGIN):
-            log.warning("kitchen: pair POST refused (origin) ip=%s", ip)
-            return _text("forbidden", 403)
-        if not reg.consume_code(code, now):
-            log.info("kitchen: pair refused (unknown, used or expired code) ip=%s", ip)
-            return _page(devices.pair_page(head, error="That code is used or expired. Make a new one."), 400)
-        dev = reg.add_device(request.form.get("name"), now)
-        token = signer.issue(dev["id"], dev["issued"], dev["expires"])
-        log.info("kitchen: device paired id=%s name=%r ip=%s", dev["id"], dev["name"], ip)
-        r = redirect("/", code=303)
-        # host-only (no Domain), so the cookie never reaches another *.kmkdp.com host
-        r.set_cookie(devices.COOKIE, token, max_age=devices.TOKEN_TTL, path="/",
-                     secure=True, httponly=True, samesite="Strict")
-        r.headers["Cache-Control"] = "no-store"
-        return r
-    # GET: check the code, then ask for a name. The code is consumed by the
-    # POST, so a link preview or prefetch of the GET cannot burn it.
-    if not reg.code_valid(code, now):
-        log.info("kitchen: pair link refused (unknown, used or expired code) ip=%s", ip)
+    if not reg.consume_code(devices.normalize_code(request.form.get("code")), now):
+        log.info("kitchen: pair refused (unknown, used or expired code) ip=%s", ip)
         return _page(devices.pair_page(head, error="That code is used or expired. Make a new one."), 400)
-    return _page(devices.pair_page(head, code=code))
+    dev = reg.add_device(request.form.get("name"), now)
+    token = signer.issue(dev["id"], dev["issued"], dev["expires"])
+    log.info("kitchen: device paired id=%s name=%r ip=%s", dev["id"], dev["name"], ip)
+    r = redirect("/", code=303)
+    # host-only (no Domain), so the cookie never reaches another *.kmkdp.com host
+    r.set_cookie(devices.COOKIE, token, max_age=devices.TOKEN_TTL, path="/",
+                 secure=True, httponly=True, samesite="Strict")
+    r.headers["Cache-Control"] = "no-store"
+    return r
 
 
 # ---- device admin on home.kmkdp.com (Authelia two_factor, KITCHEN_ADMINS) ------
@@ -2429,7 +2423,7 @@ def _admin_gate(post: bool):
 def _devices_view(code: str = "") -> Response:
     p = _pairing()
     devs = p[1].devices() if p else []
-    link = f"{KITCHEN_ORIGIN}/pair?code={code}" if code else ""
+    link = f"{KITCHEN_ORIGIN}/pair#code={code}" if code else ""   # fragment: never sent to a server
     body = devices.devices_page(kitchen.head("Kitchen devices", ASSET_VER, kiosk=False), devs, TZ,
                                 p is not None, kitchen.BASE, code=code, link=link,
                                 qr=devices.qr_svg(link) if code else "")

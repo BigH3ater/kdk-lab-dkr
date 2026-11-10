@@ -20,7 +20,7 @@ K = "https://kitchen.kmkdp.com"
 H = "https://home.kmkdp.com"
 KEY = "test-kitchen-device-key-" + "x" * 40          # not a real secret
 ADMIN = {"Remote-User": "jmack", "Origin": H}
-CODE_RE = re.compile(r"/pair\?code=([A-Z2-7]{26})")
+CODE_RE = re.compile(r"/pair#code=([A-Z2-7]{26})")
 
 
 def _reset_pairing():
@@ -88,8 +88,13 @@ def test_pair_flow_sets_a_strict_host_only_cookie(kit):
     if importlib.util.find_spec("segno"):                            # pinned in the Dockerfile
         assert "<svg" in page                                       # QR code
     assert "Or type the code" in page
-    r = kget(kit, f"/pair?code={code}")
-    assert r.status_code == 200 and "name='name'" in r.get_data(as_text=True)
+    assert "?code=" not in page
+    assert f"https://kitchen.kmkdp.com/pair#code={CODE_RE.search(page).group(1)}" in page
+    r = kget(kit, "/pair")                                          # what the browser sends for /pair#code=...
+    form = r.get_data(as_text=True)
+    assert r.status_code == 200 and "name='code'" in form and "name='name'" in form
+    assert "method='post' action='/pair'" in form
+    assert "location.hash" in form and "history.replaceState" in form and "n.focus()" in form
     r = kpost(kit, "/pair", data={"code": devices.group_code(code).lower(), "name": "  Kitchen   <iPad> "})
     assert r.status_code == 303 and r.headers["Location"] == "/"
     sc = r.headers["Set-Cookie"]
@@ -142,20 +147,21 @@ def test_pair_code_is_single_use(kit):
     assert kpost(kit, "/pair", data={"code": code, "name": "one"}).status_code == 303
     again = kpost(kit, "/pair", data={"code": code, "name": "two"})
     assert again.status_code == 400 and "Set-Cookie" not in again.headers
-    assert kget(kit, f"/pair?code={code}").status_code == 400
     assert [d["name"] for d in registry().devices()] == ["one"]
 
 
-def test_pair_get_does_not_consume_the_code(kit):
+def test_query_code_is_ignored_and_not_logged(kit, caplog):
+    caplog.set_level(logging.INFO)
     code = issue_code(kit)
-    assert kget(kit, f"/pair?code={code}").status_code == 200       # a link preview
-    assert kget(kit, f"/pair?code={code}").status_code == 200
-    assert kpost(kit, "/pair", data={"code": code}).status_code == 303
+    for _ in range(12):                                             # not read, not rate-counted
+        r = kget(kit, f"/pair?code={code}", headers={"X-Forwarded-For": "10.1.30.52"})
+        assert r.status_code == 200 and code not in r.get_data(as_text=True)
+    assert code not in caplog.text and "pair refused" not in caplog.text
+    assert kpost(kit, "/pair", data={"code": code}, headers={"X-Forwarded-For": "10.1.30.52"}).status_code == 303
 
 
 def test_pair_code_expires_after_10_minutes(kit):
     code = registry().new_code("jmack", time.time() - devices.CODE_TTL - 1)
-    assert kget(kit, f"/pair?code={code}").status_code == 400
     assert kpost(kit, "/pair", data={"code": code}).status_code == 400
     assert registry().devices() == []
 
@@ -171,14 +177,15 @@ def test_pair_codes_are_random_128_bit_and_stored_hashed(kit):
 def test_pair_rate_limit_per_ip(kit):
     bad = "A" * 26
     for _ in range(10):
-        assert kget(kit, f"/pair?code={bad}", headers={"X-Forwarded-For": "10.1.30.50"}).status_code == 400
-    r = kget(kit, f"/pair?code={bad}", headers={"X-Forwarded-For": "10.1.30.50"})
+        assert kpost(kit, "/pair", data={"code": bad}, headers={"X-Forwarded-For": "10.1.30.50"}).status_code == 400
+    r = kpost(kit, "/pair", data={"code": bad}, headers={"X-Forwarded-For": "10.1.30.50"})
     assert r.status_code == 429
     good = issue_code(kit)
     r = kpost(kit, "/pair", data={"code": good}, headers={"X-Forwarded-For": "10.1.30.50"})
     assert r.status_code == 429                                     # even a good code, for 10 min
     # another client is not affected; the last X-Forwarded-For hop (Traefik's) counts
-    assert kget(kit, f"/pair?code={good}", headers={"X-Forwarded-For": "10.1.30.50, 10.1.30.51"}).status_code == 200
+    assert kpost(kit, "/pair", data={"code": good},
+                 headers={"X-Forwarded-For": "10.1.30.50, 10.1.30.51"}).status_code == 303
 
 
 def test_pair_post_needs_the_kitchen_origin(kit):
@@ -186,7 +193,7 @@ def test_pair_post_needs_the_kitchen_origin(kit):
     assert kpost(kit, "/pair", origin="https://evil.example", data={"code": code}).status_code == 403
     assert kpost(kit, "/pair", origin=None, data={"code": code}).status_code == 403
     assert kpost(kit, "/pair", origin=None, data={"code": code},
-                 headers={"Referer": K + "/pair?code=x"}).status_code == 303
+                 headers={"Referer": K + "/pair"}).status_code == 303
 
 
 def test_pair_is_404_on_the_home_host(kit):
