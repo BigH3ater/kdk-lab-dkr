@@ -5,8 +5,8 @@ stack: dashboard
 tier: internal
 status: live
 storage: yes
-secrets: [vikunja-app, jellyfin-api-ro, seerr-api-ro, audiobookshelf-api-ro, vikunja-api-ro, dashboard-tandoor-rw]
-updated: 2026-11-09
+secrets: [vikunja-app, jellyfin-api-ro, seerr-api-ro, audiobookshelf-api-ro, vikunja-api-ro, vikunja-api-rw, dashboard-tandoor-rw, homepage-ha-token, proton-calendar-ics]
+updated: 2026-11-10
 tags: [homelab/stack, tier/internal, status/live]
 ---
 
@@ -27,7 +27,7 @@ the Remote-User header drives rating/task attribution.
 | Purpose | One home screen for watch/listen/read/request/cook/tasks/calendar |
 | Status | 🟢 Live (P1); meal-plan sidecar = P2, calendar = P3 |
 | Host | [[kdk-dkr-01]] |
-| Endpoints | `home.kmkdp.com` (+ `/guides`, `/meal`), `tasks.kmkdp.com` |
+| Endpoints | `home.kmkdp.com` (+ `/guides`, `/meal`, kitchen board `/meal/kitchen`, household page `/meal/home`), `tasks.kmkdp.com` |
 | Images | `ghcr.io/gethomepage/homepage:v2.7.0`, `nginx:1.31.8-alpine`, `vikunja/vikunja:2.7.1`, `kdk/dashboard-mealplan` (built) |
 | Deploy | Komodo stack `dashboard` (git-linked, `op inject` pre_deploy) |
 | Storage | `/opt/kdk-lab/dashboard/vikunja` (SQLite + files) |
@@ -41,6 +41,8 @@ curl -s -o /dev/null -w '%{http_code}\n' https://home.kmkdp.com/            # 20
 curl -s -o /dev/null -w '%{http_code}\n' https://home.kmkdp.com/guides/     # 200
 curl -s -o /dev/null -w '%{http_code}\n' https://tasks.kmkdp.com/           # 200
 curl -s https://home.kmkdp.com/meal/mealplan.json | head -c 200            # JSON (P2)
+# kitchen board + household page (through Authelia: check in a signed-in browser, or inside the container)
+ssh kdkadmin@10.1.20.20 "sudo docker exec dashboard-mealplan python3 -c \"import urllib.request as u;[print(p, u.urlopen('http://127.0.0.1:8080'+p).status) for p in ('/kitchen','/kitchen/ingredients','/kitchen/steps','/home','/manifest.webmanifest','/static/home.css')]\""
 ```
 
 ## Architecture
@@ -78,8 +80,85 @@ truth. See the [approval-tasks runbook](../runbooks/approval-tasks.md).
 | `stacks/dashboard/config/*.yaml` | Homepage services/bookmarks/widgets/settings (git-tracked) |
 | `stacks/dashboard/guides/*.html` | Family how-to pages (served under `/guides`; each sets `<base href="/guides/">` so relative links survive the StripPrefix) |
 | `stacks/dashboard/guides/shared-nav.{css,js}` | The one Kodiak sidebar shared by Homepage, guides and `/meal` (same links/order/labels, active-link state, mobile top-bar overlay); `shared-nav.js` hides it inside an iframe so the embedded `/meal` panels stay bare |
+| `stacks/dashboard/mealplan/{kitchen,homecal,vacuum}.py`, `mealplan/static/` | Kitchen board + household page: rendering, ICS calendar expansion, the HA vacuum line, and the shared stylesheet/script/fonts/icons (see below) |
 | `stacks/dashboard/mealplan/app.py` | Tandoor session read + rating write-back; groceries snapshot cache (env `GROCERY_TTL_S`, `GROCERY_REFRESH_S`, `RECIPE_TTL_S`); the meal page repeats the planner's Sunday prep lunches as "Lunch prep" on Mon–Sat of that plan week (Tandoor filters meal plans on `to_date` only, so a Sun→Sat entry would drop out of some windows) |
 | `stacks/dashboard/.env.tpl` | op refs (Vikunja JWT, widget API keys, Tandoor creds, ICS URL) |
+
+## Kitchen board and household page
+
+Two native pages served by the mealplan sidecar, behind the same Authelia
+ForwardAuth (`dashboard-users`) as the rest of `home.kmkdp.com`. No iframes:
+everything is rendered server-side with escaped values; `static/home.js` only adds
+the clock, ticks, checklists, timers, wake lock, idle return, night view and the
+refresh. Homepage at `/` is unchanged (it is retired in a later PR).
+
+| Route | What it is |
+|---|---|
+| `/meal/kitchen` | Kitchen board for the landscape iPad (~1180×820, fine at 1280×800): clock + date, weather now/high/low + 6-hour strip, calendar line for today and tomorrow; large dinner card (main + side, photo, total time, servings, ingredient and on-hand count); lunch card (this plan week's prep lunches); tomorrow card (dinner + thaw hint); chore columns (every open task, scrolling per column, tick-off) with the vacuum line. Breakfast and snacks are not shown, and nothing personal (no budget, no workouts) |
+| `/meal/kitchen/ingredients` | Full-screen checklist for tonight's dinner, scaled to the planned servings, grouped by dish (main, then sides); "on hand" marks pantry/stock foods (planner `pantry:` list, stock stores, or Tandoor's on-hand flag). Ticks live in the browser (`localStorage`, keyed by date) for the evening |
+| `/meal/kitchen/steps` | One large step at a time with step tabs and Previous/Next; "This step uses" from the ingredients Tandoor attaches to each step; the step photo; a timer button for every minute/hour value the step text names (chime on the page). `?r=<recipe id>` picks the side dish |
+| `/meal/kitchen/step-photo/<file id>` | Step photo proxy (see below) |
+| `/meal/home` | Household page, phone-first (390 px, 16 px gutter) and two columns at laptop width: weather, dinner card with its ingredient checklist and a Steps link, lunch prep, tomorrow, chores (at most 8: late first, then due today; **All chores (N)** opens the full board at `?chores=all`), this week's calendar, and the household app grid (Recipes, Groceries, Tasks, Watch, Listen & read, Photos, Request TV, Request books, Workouts, Budget, Home control, Guides; links from `guides/shared-nav.js`). Recipe titles on all kitchen and household views show without import clutter (" Recipe", "(VIDEO)", "(Quick & Easy)" and similar), with the original in the title attribute; Tandoor is not changed |
+| `/meal/kitchen?fragment=1`, `/meal/home?fragment=1` | The swappable page body for the 2-minute refresh |
+| `/meal/manifest.webmanifest`, `/meal/static/*` | Home Screen manifest (`display: standalone`, start `/meal/kitchen`), `home.css` (the Bernese tokens), `home.js`, the self-hosted Inter and Space Grotesk fonts (OFL, `static/fonts/`), bear icons |
+
+**Data and caches.** A page view reads caches only; the `home-warmer` thread refreshes
+each feed when it goes stale (`HOME_REFRESH_S`, 30 s). A failed refresh keeps the last
+good value and is retried after a minute; errors log the exception type only.
+
+| Source | Cache | Upstream call |
+|---|---|---|
+| Meal plan + recipes | the groceries snapshot (120 s warmer) and the recipe cache (30 min) | Tandoor `/api/meal-plan/`, `/api/recipe/<id>/` (steps, step ingredients, step files) |
+| Weather | 15 min, shared with `/meal/weather` | Open-Meteo forecast (keyless) |
+| Calendar | 15 min | the Proton ICS feed (`HOMEPAGE_VAR_ICS_URL`, already in `.env`), expanded with `recurring-ical-events` (RRULE, EXDATE, moved occurrences, multi-day all-day events, times shown in America/Chicago). The URL is a secret: it is never logged or rendered |
+| Chores | 2 min; a tick re-reads it | Vikunja, every project (jmack token), the `Approvals` project left out |
+| Vacuum line | 60 s | Home Assistant `GET /api/states` at `http://10.1.30.21:8123` (`HA_URL`) with `HOMEPAGE_VAR_HA_TOKEN`, filtered to `sensor.rr_room_*_cleaned` (attribute `at`), `input_datetime.rr_next_run`, `binary_sensor.mr_slave_water_shortage_2`, `sensor.rr_vacuum_error` and `sensor.mr_slave_*_time_left*` (negative = due). Needs the `allow_ctr dashboard-mealplan 10.1.30.21 tcp 8123` line in `hosts/kdk-dkr-01/kdk-docker-user.conf`; without it the line is simply missing |
+
+**Step photos.** Tandoor serves a step's UserFile at `/api/download-file/<id>/` only to a
+logged-in session (and wraps it in a one-file zip). The proxy serves only file ids attached
+to a step of a recipe in the meal-plan snapshot (this plan week to two weeks out); anything
+else is a 404 without a Tandoor call. It unwraps the zip, sends only real images
+(JPEG/PNG/WebP/GIF by magic bytes), and caches up to 80 photos for a day.
+
+**Ticks.** A chore tick posts `ajax=1` to `/meal/tasks/complete`, which completes the task with
+the viewer's Vikunja token (else jmack's), re-reads the board and answers 204; the page then
+swaps in the fresh board, so a recurring chore comes back with its next date. Without
+JavaScript the form posts and redirects as before.
+
+**Kitchen behaviour.** Screen Wake Lock, re-requested on `visibilitychange` (iPadOS 18.4+
+in a Home Screen app). The sub-views return to the board after 5 idle minutes (not while a
+timer runs). The board refreshes every 2 minutes and on wake without a page flash, keeping
+each column's scroll. 22:00–06:00 Chicago time the board turns into a near-black night view
+(dim clock and tomorrow's first event); a tap shows the board for 3 minutes. The layout
+moves by up to 3 px every hour against LCD ghosting. Targets are at least 44 px.
+
+**Tests** (fixtures only, no network), from `stacks/dashboard/mealplan`:
+
+```bash
+uv run --no-project --with flask==3.0.3 --with requests==2.32.3 --with waitress==3.0.1 \
+  --with pyyaml==6.0.3 --with icalendar==7.3.0 --with recurring-ical-events==3.8.2 \
+  --with x-wr-timezone==2.0.1 --with python-dateutil==2.9.0.post0 --with tzdata==2026.5 \
+  --with pytest python -m pytest -q tests
+```
+
+### Runbook: the kitchen iPad as a Home Screen app
+
+**On the kitchen iPad (iPadOS 18.4 or later), in Safari**
+
+1. Open `https://home.kmkdp.com/meal/kitchen` and sign in to Authelia (the dedicated kitchen
+   login comes in a later PR; until then use a household account).
+2. Share → **Add to Home Screen** → name it **Kitchen** → Add. The bear icon appears.
+3. Open **Kitchen** from the Home Screen. It runs full screen with its own cookie jar, so
+   sign in to Authelia once more inside the app and tick **Remember me**.
+4. Settings → Display & Brightness → Auto-Lock can stay as it is: the page holds a screen
+   wake lock while it is open. If the screen still dims, check the iPadOS version (wake
+   lock needs 18.4+ in Home Screen apps).
+5. Check: the clock ticks, a chore tick strikes through and the board comes back with it
+   gone, **Steps** shows a timer that chimes (the first tap on a timer unlocks audio).
+
+To update the app after a deploy nothing is needed: the page fetches fresh HTML every
+time, and `home.css`/`home.js` carry a content hash. To start over, long-press the icon →
+Remove App, then repeat the steps.
 
 ## Performance: groceries page
 

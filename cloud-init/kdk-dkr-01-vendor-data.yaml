@@ -216,6 +216,12 @@ write_files:
       # reMarkable tablet over SSH: koreader-highlights, obsidian-to-koreader,
       # readwise-koreader.
       allow_dst 10.1.30.245 tcp 22
+
+      # Dashboard mealplan sidecar -> Home Assistant API on the Pi: the kitchen
+      # board's vacuum line (read-only GET /api/states with the dashboard HA token,
+      # every 60 s). Only this container; HA itself stays reachable from VLAN 20
+      # hosts per the UniFi policy (docs/network.md row 6).
+      allow_ctr dashboard-mealplan 10.1.30.21 tcp 8123
   - path: /etc/ssh/sshd_config.d/98-kdk-admin.conf
     content: |
       # kdk-lab SSH baseline, every host. Install: /etc/ssh/sshd_config.d/98-kdk-admin.conf
