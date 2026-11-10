@@ -37,6 +37,10 @@ RECIPES = {
 }
 
 
+KNOWN = {"milk": "NewPi/weekly: Dairy & Eggs", "rice": "Target/weekly: Pantry & Grains",
+         "dog food": "Target/weekly: Pets"}
+
+
 @pytest.fixture
 def fake(monkeypatch, repo_cfg, tmp_path):
     """Tandoor faked at the shopping-list/meal-plan/recipe seams; any other
@@ -57,10 +61,22 @@ def fake(monkeypatch, repo_cfg, tmp_path):
                                  "food": {"name": body["food"]["name"]}})
         return True
 
+    def create(path, body):
+        # Tandoor reuses a known food by name (with its category), else creates it.
+        state["writes"].append(("POST", path, body))
+        name = body["food"]["name"]
+        cat = KNOWN.get(name.lower())
+        e = {"id": 900 + len(state["entries"]), "checked": False, "list_recipe": None,
+             "amount": body["amount"], "unit": None, "delay_until": None,
+             "food": {"id": 1, "name": name, "supermarket_category": {"name": cat} if cat else None}}
+        state["entries"].append(e)
+        return dict(e)
+
     monkeypatch.setattr(app.requests, "get", no_net)
     monkeypatch.setattr(app, "_api_get", no_net)
     monkeypatch.setattr(app, "_fetch_shopping", fetch)
     monkeypatch.setattr(app, "_api_write", write)
+    monkeypatch.setattr(app, "_api_create", create)
     monkeypatch.setattr(app, "fetch_plan", lambda a, b: _plan())
     monkeypatch.setattr(app, "_recipe_detail", lambda rid: RECIPES[rid])
     monkeypatch.setattr(app, "THAW_FILE", str(tmp_path / "thaw.json"))
@@ -243,7 +259,9 @@ def test_add_box_renders_with_ipad_keyboard_hints_and_manual_items(fake):
 
 def test_add_ajax_trims_and_returns_the_item(fake):
     r = app.app.test_client().post("/groceries/add", data={"item": "  Paper towels  ", "ajax": "1"})
-    assert r.status_code == 200 and r.get_json() == {"status": "added", "item": "Paper towels"}
+    assert r.status_code == 200 and r.get_json() == {
+        "status": "added", "item": "Paper towels", "store": "Manual", "aisle": "",
+        "text": "Added to Manual list"}
     assert fake["writes"] == [("POST", "/api/shopping-list-entry/",
                                {"food": {"name": "Paper towels"}, "amount": 1, "checked": False})]
     # it shows on the Manual list right away
@@ -275,13 +293,20 @@ def test_add_escapes_markup_on_every_view(fake):
 
 def test_add_form_post_returns_to_where_it_came_from(fake):
     c = app.app.test_client()
-    assert c.post("/groceries/add", data={"item": "a", "next": "home"}).headers["Location"].endswith("/meal/home")
-    assert c.post("/groceries/add", data={"item": "b", "next": "pantry"}).headers["Location"].endswith("/meal/kitchen/pantry")
-    assert c.post("/groceries/add", data={"item": "c"}).headers["Location"].endswith("groceries#manual")
+    assert c.post("/groceries/add", data={"item": "a", "next": "home"}).headers["Location"].endswith(
+        "/meal/home?added=Manual%7C%7Ca")
+    assert c.post("/groceries/add", data={"item": "b", "next": "pantry"}).headers["Location"].endswith(
+        "/meal/kitchen/pantry?added=Manual%7C%7Cb")
+    assert c.post("/groceries/add", data={"item": "c"}).headers["Location"].endswith(
+        "groceries?added=Manual%7C%7Cc#manual")
+    assert c.post("/groceries/add", data={"item": "d", "next": "pantry-home"}).headers["Location"].endswith(
+        "/meal/kitchen/pantry?from=home&added=Manual%7C%7Cd")
+    # an empty add carries nothing back
+    assert c.post("/groceries/add", data={"item": " ", "next": "home"}).headers["Location"].endswith("/meal/home")
 
 
 def test_add_failed_write_reports_error(fake, monkeypatch):
-    monkeypatch.setattr(app, "_api_write", lambda *a: False)
+    monkeypatch.setattr(app, "_api_create", lambda *a: None)
     r = app.app.test_client().post("/groceries/add", data={"item": "milk", "ajax": "1"})
     assert r.status_code == 502 and r.get_json()["status"] == "error"
 

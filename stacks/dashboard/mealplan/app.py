@@ -19,6 +19,18 @@ Served (behind Traefik, StripPrefix /meal):
   POST /groceries/add, /groceries/reorder (ajax=1, next=pantry|home)
                     -> the only grocery writes the kitchen pages make
   GET  /home        -> the household page (phone/laptop)
+  GET  /kitchen/devices, POST /kitchen/devices/{pair,revoke,revoke-all}
+                    -> kitchen device pairing (home.kmkdp.com, KITCHEN_ADMINS only)
+
+admin.kmkdp.com (internal Traefik, forwardauth, Authelia user:jmack) reaches this
+same app for the lab admin page only: GET / and /static/*, ADMIN_USERS only
+(403 otherwise), everything else 404 there (admin.py).
+
+kitchen.kmkdp.com (internal Traefik, NO forwardauth) reaches this same app for
+paired kitchen devices only: /, /ingredients, /steps, /pantry, /step-photo/<id>,
+/manifest.webmanifest, /static/*, POST /tasks/complete, /groceries/add,
+/groceries/reorder, and /pair. Everything else is a 404 there, Remote-* headers
+are ignored, and every other request needs the signed device cookie (devices.py).
 
 RATING ATTRIBUTION CAVEAT (by design, per the approved plan): Tandoor ratings are
 per-user (CookLog), so every rating sent through this shared account is recorded as
@@ -37,7 +49,7 @@ from zoneinfo import ZoneInfo
 import requests
 import urllib3
 urllib3.disable_warnings()
-from flask import Flask, request, Response, redirect
+from flask import Flask, request, Response, redirect, g
 from markupsafe import escape  # HTML-escape any value rendered into a page (CodeQL py/reflective-xss)
 from waitress import serve
 import newpi  # New Pi product-link lookup (reads the mounted foods.yaml)
@@ -45,6 +57,9 @@ import stock  # pantry list + freezer/thaw rules (mounted cleanup.yaml + planner
 import homecal  # household ICS calendar (kitchen board + household page)
 import kitchen  # kitchen board + household page rendering
 import vacuum  # robot vacuum line from Home Assistant
+import devices  # kitchen.kmkdp.com device pairing (signed cookie + registry)
+import forced  # the add box's "Manual list instead" registry (/state)
+import admin  # admin.kmkdp.com: status strip, alerts, sign-ins, syslog, charts
 
 TANDOOR_URL = os.environ.get("TANDOOR_URL", "https://recipes.kmkdp.com").rstrip("/")
 USER = os.environ.get("TANDOOR_USER", "")
@@ -55,11 +70,20 @@ TZ = ZoneInfo(os.environ.get("TZ", "America/Chicago"))
 # household display names; unknown users fall back to Remote-Name or the login.
 USER_DISPLAY = {"jmack": "Jacob", "rach": "Rachel"}
 
+def remote_user() -> str:
+    """The Authelia login (Remote-User) on home.kmkdp.com. Always "" on
+    kitchen.kmkdp.com: that host has no forwardauth, so a Remote-* header
+    there can only come from the client (Traefik strips them as well)."""
+    if kitchen.on_kitchen_host():
+        return ""
+    return (request.headers.get("Remote-User") or "").strip()
+
+
 def rater_from_headers() -> str:
-    login = (request.headers.get("Remote-User") or "").strip()
+    login = remote_user()
     if login in USER_DISPLAY:
         return USER_DISPLAY[login]
-    name = (request.headers.get("Remote-Name") or "").strip()
+    name = "" if kitchen.on_kitchen_host() else (request.headers.get("Remote-Name") or "").strip()
     return name or login or "family"
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -104,8 +128,9 @@ class Feed:
     upstream URLs are secrets). The home warmer thread refreshes every feed
     when it goes stale, so the request path is normally cache-only."""
 
-    def __init__(self, name: str, ttl: float, fetch):
+    def __init__(self, name: str, ttl: float, fetch, retry: float | None = None):
         self.name, self.ttl, self.fetch = name, ttl, fetch
+        self.retry = min(ttl, 60) if retry is None else retry   # wait after a failed try
         self.value, self.ts, self.error = None, 0.0, ""
         self.tried = 0.0                  # last attempt, good or bad
         self._lock = threading.Lock()
@@ -114,9 +139,9 @@ class Feed:
         return self.value is not None and time.time() - self.ts < self.ttl
 
     def due(self) -> bool:
-        """Stale, and not retried in the last min(ttl, 60) s (a dead upstream
-        is retried once a minute, not on every request)."""
-        return not self.fresh() and time.time() - self.tried >= min(self.ttl, 60)
+        """Stale, and not retried in the last `retry` s (default min(ttl, 60):
+        a dead upstream is retried once a minute, not on every request)."""
+        return not self.fresh() and time.time() - self.tried >= self.retry
 
     def refresh(self):
         with self._lock:
@@ -611,10 +636,31 @@ VIKUNJA_TOKENS = {
     "jmack": os.environ.get("VIKUNJA_TOKEN_JMACK", ""),
     "rach": os.environ.get("VIKUNJA_TOKEN_RACH", ""),
 }
+# Chore ticks from kitchen.kmkdp.com are credited to a Vikunja "Kitchen"
+# account when its token is set; until then they use the jmack token.
+VIKUNJA_TOKEN_KITCHEN = os.environ.get("VIKUNJA_TOKEN_KITCHEN", "")
+
+
+def kitchen_tick_token() -> tuple[str, bool]:
+    """(token, fallback): the Kitchen account's token, else jmack's (fallback True)."""
+    if VIKUNJA_TOKEN_KITCHEN:
+        return VIKUNJA_TOKEN_KITCHEN, False
+    return VIKUNJA_TOKENS.get("jmack", ""), True
+
+
+def log_kitchen_token_mode() -> None:
+    if kitchen_tick_token()[1]:
+        log.warning("VIKUNJA_TOKEN_KITCHEN not set: kitchen.kmkdp.com chore ticks use "
+                    "the jmack token (fallback active)")
+    else:
+        log.info("kitchen.kmkdp.com chore ticks use the Kitchen Vikunja account")
 
 def _vik_token() -> tuple[str, str]:
     """(login, token) for the authenticated user; empty token if none stored."""
-    login = (request.headers.get("Remote-User") or "").strip()
+    if kitchen.on_kitchen_host():
+        dev = getattr(g, "kitchen_device", None) or {}
+        return f"kitchen:{dev.get('name') or 'device'}", kitchen_tick_token()[0]
+    login = remote_user()
     return login, VIKUNJA_TOKENS.get(login, "")
 
 def _vik(method: str, path: str, token: str, body=None):
@@ -844,6 +890,8 @@ def tasks_complete():
         except Exception:
             log.exception("task board refresh after tick failed")
         return Response(status=204 if ok else 502)
+    if kitchen.on_kitchen_host():
+        return redirect(kitchen.kpath(), code=303)
     # relative to /meal/tasks/complete -> ../tasks == /meal/tasks (survives the
     # StripPrefix; a bare "tasks" resolved to /meal/tasks/tasks -> 404)
     return redirect("../tasks", code=303)
@@ -948,7 +996,7 @@ _AISLE_ORDER = {
 _GROCERY_EXCLUDE = ("dog food", "pet food", "dog treats")
 
 
-def _api_write(method: str, path: str, body: dict) -> bool:
+def _api_send(method: str, path: str, body: dict) -> requests.Response:
     """POST/PATCH to Tandoor with the CSRF header + Referer, re-login once on 401/403."""
     s = _session()
     hdrs = {"X-CSRFToken": s.cookies.get("csrftoken", ""), "Referer": f"{TANDOOR_URL}/"}
@@ -961,7 +1009,25 @@ def _api_write(method: str, path: str, body: dict) -> bool:
         t0 = time.monotonic()
         r = s.request(method, f"{TANDOOR_URL}{path}", json=body, headers=hdrs, timeout=20)
         _count(t0)
-    return r.status_code in (200, 201, 204)
+    return r
+
+
+def _api_write(method: str, path: str, body: dict) -> bool:
+    return _api_send(method, path, body).status_code in (200, 201, 204)
+
+
+def _api_create(path: str, body: dict) -> dict | None:
+    """POST that returns the created object (Tandoor answers 201 + the entry,
+    food and its supermarket_category included); None on failure, {} when the
+    answer carried no JSON object."""
+    r = _api_send("POST", path, body)
+    if r.status_code not in (200, 201):
+        return None
+    try:
+        d = r.json()
+    except ValueError:
+        return {}
+    return d if isinstance(d, dict) else {}
 
 
 def _parse_cat(name: str):
@@ -1007,29 +1073,65 @@ def _from_recipe(e) -> bool:
     return bool(e.get("list_recipe") or e.get("list_recipe_data"))
 
 
-def _split_groceries(entries):
+# The add box's "Manual list instead" toggle: entry ids kept on the Manual list
+# although their food has a store category (forced.py; /state/manual-forced.json).
+FORCED = forced.Registry(os.path.join(os.environ.get("KITCHEN_STATE_DIR", "/state"),
+                                      "manual-forced.json"))
+_STORES = ("NewPi", "Target")
+
+
+def _route(e, forced_ids=frozenset()) -> tuple[str, str] | None:
+    """Where an entry is listed: (store, aisle) for NewPi/Target, ("Manual", "")
+    for an unrouted or forced-manual entry, None when it is on no list."""
+    if e.get("checked") or _delayed(e):
+        return None
+    food = e.get("food") or {}
+    if food.get("food_onhand") and _from_recipe(e):
+        return None               # pantry/stock line a recipe pulled in: on hand
+    fname = (food.get("name") or "").lower()
+    if any(x in fname for x in _GROCERY_EXCLUDE):
+        return None               # pets are budgeted in Actual, never ordered here
+    if e.get("id") in forced_ids:
+        return "Manual", ""       # the add box's "Manual list instead"
+    cat = food.get("supermarket_category")
+    cat_name = cat.get("name") if isinstance(cat, dict) else (cat or "")
+    store, aisle = _parse_cat(cat_name)
+    if store in _STORES:
+        return store, aisle
+    return "Manual", ""           # ad-hoc / unrouted (an unknown food from the add box)
+
+
+def _forced_ids(entries) -> set[int]:
+    """The forced-manual ids, pruned against this list read. Never raises: a
+    missing or broken /state only means no forced items."""
+    try:
+        return FORCED.ids(entries)
+    except Exception:
+        log.exception("grocery: forced-manual registry unreadable")
+        return set()
+
+
+def _split_groceries(entries, forced_ids=None):
     """(stores, manual): stores = {store: {aisle: [entry]}} bucketed by the
     supermarket-category store prefix (regardless of whether the entry is tied to
-    a recipe); manual = entries with no routable store — i.e. the add-box's
-    ad-hoc items. Skips checked and poll-delayed entries, and
-    on-hand foods a recipe pulled in (a recipe-less reorder of one still shows)."""
+    a recipe); manual = entries with no routable store (the add box's unknown
+    foods) plus the ids in the forced-manual registry. Skips checked and
+    poll-delayed entries, and on-hand foods a recipe pulled in (a recipe-less
+    reorder of one still shows). Every Manual-vs-store decision on the page goes
+    through here (store tabs, Manual tab, pantry view); `forced_ids` defaults to
+    the registry, pruned against `entries`."""
+    if forced_ids is None:
+        forced_ids = _forced_ids(entries)
     stores, manual = {}, []
     for e in entries:
-        if e.get("checked") or _delayed(e):
+        where = _route(e, forced_ids)
+        if where is None:
             continue
-        food = e.get("food") or {}
-        if food.get("food_onhand") and _from_recipe(e):
-            continue              # pantry/stock line a recipe pulled in: on hand
-        fname = (food.get("name") or "").lower()
-        if any(x in fname for x in _GROCERY_EXCLUDE):
-            continue              # pets are budgeted in Actual, never ordered here
-        cat = food.get("supermarket_category")
-        cat_name = cat.get("name") if isinstance(cat, dict) else (cat or "")
-        store, aisle = _parse_cat(cat_name)
-        if store in ("NewPi", "Target"):
-            stores.setdefault(store, {}).setdefault(aisle, []).append(e)
+        store, aisle = where
+        if store == "Manual":
+            manual.append(e)
         else:
-            manual.append(e)      # ad-hoc / unrouted (what the add-box creates)
+            stores.setdefault(store, {}).setdefault(aisle, []).append(e)
     for store, aisles in stores.items():
         order = _AISLE_ORDER.get(store, [])
         stores[store] = {a: aisles[a] for a in sorted(
@@ -1215,6 +1317,13 @@ text-transform:uppercase;color:var(--ash);margin:10px 0 3px}
 .addbox input{flex:1 1 auto;background:var(--ink);border:1px solid var(--ink-hairline);
 border-radius:7px;color:var(--paper);padding:9px;font:15px 'Space Grotesk',sans-serif}
 .addbox button{background:var(--ember);border:none;color:var(--ink);border-radius:7px;padding:0 14px;font-weight:600;cursor:pointer}
+.addbox .mtog{display:flex;align-items:center;gap:6px;min-height:44px;min-width:44px;padding:0 4px;
+color:var(--ash);font:500 12px 'JetBrains Mono',monospace;cursor:pointer;white-space:nowrap}
+.addbox .mtog input{width:22px;height:22px;margin:0;accent-color:var(--ember);flex:0 0 auto}
+.addbox .mtog.off{opacity:.5;cursor:not-allowed}
+.addflash{color:var(--ok);font-size:14px;padding:6px 2px}
+.addflash.err{color:var(--danger)}
+.addnote{color:var(--ash);font-size:12px;padding:2px 2px 4px}
 .empty2{color:var(--ash);font-size:13px;padding:14px 6px}
 .gi form.reorderform button.reorder{background:none;border:1px solid var(--ember);color:var(--ember);
 border-radius:7px;padding:5px 10px;font:500 12px 'JetBrains Mono',monospace;cursor:pointer;min-height:32px}
@@ -1646,7 +1755,7 @@ def _ago(sec: float) -> str:
     return f"{sec}s ago" if sec < 90 else f"{sec // 60} min ago"
 
 
-def _render_groceries(force: bool = False):
+def _render_groceries(force: bool = False, flash: dict | None = None):
     t0 = time.monotonic()
     today = datetime.datetime.now(TZ).date()
     try:
@@ -1703,7 +1812,13 @@ def _render_groceries(force: bool = False):
     parts.append("<section class='tab store' id='manual'><h2>Manual list</h2>"
                  "<form class='addbox' method='post' action='groceries/add'>"
                  "<input name='item' placeholder='Add an item…' maxlength='80' autocomplete='off'>"
+                 f"{kitchen.manual_toggle(FORCED.writable(), 'g-manual')}"
                  "<button type='submit'>Add</button></form>")
+    if not FORCED.writable():
+        parts.append(f"<div class='addnote'>{kitchen.MANUAL_OFF_NOTE}</div>")
+    if flash:
+        parts.append(f"<div class='addflash{'' if flash['ok'] else ' err'}' role='status'>"
+                     f"{escape(flash['text'])}: {escape(flash['item'])}</div>")
     if not manual:
         parts.append("<div class='empty2'>No ad-hoc items.</div>")
     for e in manual:
@@ -1734,7 +1849,8 @@ def _render_groceries(force: bool = False):
 
 @app.get("/groceries")
 def groceries():
-    return Response(_render_groceries(force=request.args.get("refresh") == "1"),
+    return Response(_render_groceries(force=request.args.get("refresh") == "1",
+                                      flash=_added_flash()),
                     mimetype="text/html")
 
 
@@ -1760,7 +1876,10 @@ MANUAL_MAX = 80
 
 
 def _back_to(default: str) -> str:
-    nxt = _NEXT.get(request.form.get("next") or "")
+    key = request.form.get("next") or ""
+    if kitchen.on_kitchen_host():          # only the kitchen views exist there
+        return kitchen.kpath("/pantry") if key.startswith("pantry") else kitchen.kpath()
+    nxt = _NEXT.get(key)
     return f"{kitchen.BASE}{nxt}" if nxt else default
 
 
@@ -1770,37 +1889,118 @@ def _json(body: dict, status: int = 200) -> Response:
     return r
 
 
-def _manual_add(raw: str) -> tuple[str, str]:
-    """(status, item): status is added | empty | error. The item is trimmed and
-    capped at MANUAL_MAX characters."""
+_ADD_LABEL = {"NewPi": "New Pi", "Target": "Target"}
+
+
+def _dest_text(store: str, aisle: str) -> str:
+    """The add box's confirmation: where the item went (plain text; every view
+    escapes it or sets it as textContent)."""
+    if store in _ADD_LABEL:
+        return f"Added to {_ADD_LABEL[store]}" + (f" · {aisle}" if aisle else "")
+    if store == "Manual":
+        return "Added to Manual list"
+    if store == "Off":
+        return "Added (pet food stays off the store lists)"
+    return "Added to the list"
+
+
+def _manual_add(raw: str, to_manual: bool = False) -> dict:
+    """{status, item, store, aisle}: status is added | empty | error. The item
+    is trimmed and capped at MANUAL_MAX characters. Tandoor reuses an existing
+    food by name, so a known food lands on its store list (NewPi/Target by its
+    supermarket category) and an unknown name on the Manual list. `to_manual`
+    (the "Manual list instead" toggle) records the new entry id in the
+    forced-manual registry, so it lists under Manual even for a known food;
+    Tandoor itself is not changed. `store` is NewPi | Target | Manual | Off
+    (on no list: pet food) | "" (unknown)."""
     item = (raw or "").strip()[:MANUAL_MAX].strip()
+    out = {"status": "empty", "item": item, "store": "", "aisle": ""}
     if not item:
-        return "empty", ""
-    # Ad-hoc entry: a food created by name (Tandoor auto-creates it),
-    # amount 1, no linked recipe -> shows under the manual list.
-    if not _api_write("POST", "/api/shopping-list-entry/",
-                      {"food": {"name": item}, "amount": 1, "checked": False}):
+        return out
+    # Recipe-less entry by food name, amount 1 (Tandoor reuses or creates the food).
+    created = _api_create("/api/shopping-list-entry/",
+                          {"food": {"name": item}, "amount": 1, "checked": False})
+    if created is None:
         log.warning("grocery manual add failed: %s", item)
-        return "error", item
-    log.info("grocery manual add: %s", item)
+        return dict(out, status="error")
+    eid = created.get("id")
+    forced_ok = False
+    if to_manual and isinstance(eid, int):
+        try:
+            forced_ok = FORCED.add(eid)
+        except Exception:
+            log.exception("grocery: forced-manual registry write failed")
+        if not forced_ok:
+            log.warning("grocery add: /state not writable, %s keeps its normal list", item)
+    snap = None
     try:
-        _grocery_refresh(plan=False, reason="add")    # new entry shows on redirect
+        snap = _grocery_refresh(plan=False, reason="add")    # new entry shows on redirect
     except Exception:
         log.exception("grocery refresh after add failed")
-    return "added", item
+    entry = created
+    if "supermarket_category" not in (created.get("food") or {}):
+        # no category in the POST answer: look the entry up in the re-read list
+        entry = next((e for e in (snap or {}).get("entries") or [] if e.get("id") == eid), created)
+    where = None
+    if "supermarket_category" in (entry.get("food") or {}) or forced_ok:
+        where = _route(entry, {eid} if forced_ok else frozenset())
+        if where is None:
+            where = ("Off", "")
+    store, aisle = where or ("", "")
+    log.info("grocery manual add: %s -> %s%s", item, store or "?", " (forced)" if forced_ok else "")
+    return {"status": "added", "item": item, "store": store, "aisle": aisle}
+
+
+# The form fallback (no JS) carries the result back in ONE fixed query key,
+# `added`: "<store>|<aisle>|<item>", URL-encoded, re-validated and HTML-escaped
+# when the page renders it. The redirect target itself stays the fixed `next`
+# map above (never a URL from the request).
+ADDED_KEY = "added"
+_FLASH_STORES = {"NewPi", "Target", "Manual", "Off", "", "error"}
+
+
+def _added_query(res: dict) -> str:
+    store = res["store"] if res["status"] == "added" else "error"
+    val = f"{store}|{res['aisle'][:60]}|{res['item'][:MANUAL_MAX]}"
+    return _ulib.urlencode({ADDED_KEY: " ".join(val.splitlines())})
+
+
+def _with_query(url: str, q: str) -> str:
+    path, hash_, frag = url.partition("#")
+    return f"{path}{'&' if '?' in path else '?'}{q}{hash_}{frag}"
+
+
+def _added_flash() -> dict | None:
+    """The `added` query value from a form-fallback redirect: {item, text, ok}
+    (plain text, escaped by the renderer), or None."""
+    raw = request.args.get(ADDED_KEY)
+    if not raw:
+        return None
+    store, _, rest = raw[:200].partition("|")
+    aisle, _, item = rest.partition("|")
+    if store not in _FLASH_STORES or not item.strip():
+        return None
+    item = item.strip()[:MANUAL_MAX]
+    if store == "error":
+        return {"item": item, "text": "Couldn't add it right now, try again", "ok": False}
+    return {"item": item, "text": _dest_text(store, aisle.strip()[:60]), "ok": True}
 
 
 @app.post("/groceries/add")
 def groceries_add():
     try:
-        status, item = _manual_add(request.form.get("item"))
+        res = _manual_add(request.form.get("item"), request.form.get("manual") == "1")
     except Exception:
         log.exception("grocery add failed")
-        status, item = "error", ""
+        res = {"status": "error", "item": "", "store": "", "aisle": ""}
     if request.form.get("ajax") == "1":
-        code = {"added": 200, "empty": 422}.get(status, 502)
-        return _json({"status": status, "item": item}, code)
-    return redirect(_back_to("../groceries#manual"), code=303)   # back to the Manual tab
+        code = {"added": 200, "empty": 422}.get(res["status"], 502)
+        text = _dest_text(res["store"], res["aisle"]) if res["status"] == "added" else ""
+        return _json(dict(res, text=text), code)
+    back = _back_to("../groceries#manual")                      # back to the Manual tab
+    if res["status"] in ("added", "error") and res["item"]:
+        back = _with_query(back, _added_query(res))
+    return redirect(back, code=303)
 
 
 # One reorder at a time: the duplicate check and the write must not interleave,
@@ -1988,6 +2188,8 @@ def _home_data(now: datetime.datetime | None = None) -> dict:
 
 
 def _back_href() -> str:
+    if kitchen.on_kitchen_host():
+        return kitchen.kpath()
     return f"{kitchen.BASE}/home" if request.args.get("from") == "home" else f"{kitchen.BASE}/kitchen"
 
 
@@ -2063,7 +2265,8 @@ def _pantry_check_data(now: datetime.datetime | None = None) -> dict:
 
 @app.get("/kitchen/pantry")
 def kitchen_pantry():
-    return _html(kitchen.pantry_page(_pantry_check_data(), ASSET_VER, _back_href()))
+    d = dict(_pantry_check_data(), flash=_added_flash(), manual_ok=FORCED.writable())
+    return _html(kitchen.pantry_page(d, ASSET_VER, _back_href()))
 
 
 @app.get("/home")
@@ -2072,6 +2275,8 @@ def household():
     all_chores = request.args.get("chores") == "all"
     if request.args.get("fragment") == "1":
         return _html(kitchen.household_fragment(d, all_chores))
+    d = dict(d, flash=_added_flash(), manual_ok=FORCED.writable(),
+             admin_url=ADMIN_ORIGIN + "/" if remote_user() in ADMIN_USERS else "")
     return _html(kitchen.household_page(d, ASSET_VER, all_chores))
 
 
@@ -2169,10 +2374,13 @@ def kitchen_step_photo(fid: int):
 
 @app.get("/manifest.webmanifest")
 def manifest():
-    b = kitchen.BASE
+    b = kitchen.base()
+    start, scope = f"{b}/kitchen", f"{b}/"
+    if kitchen.on_kitchen_host():
+        start = scope = f"{KITCHEN_ORIGIN}/"
     body = {
         "name": "Mack House Kitchen", "short_name": "Kitchen",
-        "start_url": f"{b}/kitchen", "scope": f"{b}/", "display": "standalone",
+        "start_url": start, "scope": scope, "display": "standalone",
         "orientation": "landscape", "background_color": "#100D0B", "theme_color": "#100D0B",
         "icons": [{"src": f"{b}/static/icon-192.png", "sizes": "192x192", "type": "image/png"},
                   {"src": f"{b}/static/icon-512.png", "sizes": "512x512", "type": "image/png"}],
@@ -2180,9 +2388,404 @@ def manifest():
     return Response(json.dumps(body), mimetype="application/manifest+json")
 
 
+# ---- kitchen.kmkdp.com: paired kitchen devices, no Authelia ------------------
+# The internal Traefik routes kitchen.kmkdp.com here with NO forwardauth; its
+# middleware strips client-sent Remote-* headers and sets X-Kdk-Kitchen: 1.
+# This app treats a request as the kitchen host when the Host matches OR that
+# header is set (either one only ever narrows what a request can do), drops
+# Remote-* again (other containers can reach :8080 directly), serves only the
+# kitchen allowlist and wants the signed device cookie for all of it except
+# /static, the manifest and /pair. Pairing codes are issued on home.kmkdp.com
+# (Authelia two_factor) by a KITCHEN_ADMINS user.
+KITCHEN_HOST = os.environ.get("KITCHEN_HOST", "kitchen.kmkdp.com").strip().lower()
+KITCHEN_ORIGIN = f"https://{KITCHEN_HOST}"
+HOME_ORIGIN = os.environ.get("HOME_ORIGIN", "https://home.kmkdp.com").rstrip("/")
+KITCHEN_ADMINS = {u.strip() for u in os.environ.get("KITCHEN_ADMINS", "jmack").split(",") if u.strip()}
+KITCHEN_DEVICE_KEY = os.environ.get("KITCHEN_DEVICE_KEY", "")        # a secret: never log it
+KITCHEN_STATE = os.path.join(os.environ.get("KITCHEN_STATE_DIR", "/state"), "devices.json")
+_REMOTE_ENV = ("HTTP_REMOTE_USER", "HTTP_REMOTE_NAME", "HTTP_REMOTE_EMAIL", "HTTP_REMOTE_GROUPS")
+PAIR_LIMIT = devices.RateLimiter(limit=10, window=600)
+_pair_state: dict = {"sig": None, "signer": None, "registry": None}
+_pair_lock = threading.Lock()
+
+
+def _pairing():
+    """(Signer, Registry), or None when KITCHEN_DEVICE_KEY is missing/short."""
+    if not devices.key_ok(KITCHEN_DEVICE_KEY):
+        return None
+    import hashlib
+    sig = (hashlib.sha256(KITCHEN_DEVICE_KEY.encode()).hexdigest(), KITCHEN_STATE)
+    with _pair_lock:
+        if _pair_state["sig"] != sig:
+            signer = devices.Signer(KITCHEN_DEVICE_KEY)
+            try:
+                reg = devices.Registry(KITCHEN_STATE, signer.kid)
+            except OSError:                    # /state not mounted or not writable
+                log.exception("kitchen: device registry not writable; kitchen host answers 503")
+                return None
+            _pair_state.update(sig=sig, signer=signer, registry=reg)
+        return _pair_state["signer"], _pair_state["registry"]
+
+
+def _norm_host(h: str) -> str:
+    h = (h or "").strip().lower()
+    if h.startswith("["):                      # [v6]:port
+        return h
+    return h.rsplit(":", 1)[0].rstrip(".") if ":" in h else h.rstrip(".")
+
+
+def _is_kitchen_request() -> bool:
+    return (_norm_host(request.host) == KITCHEN_HOST
+            or request.headers.get("X-Kdk-Kitchen") == "1")
+
+
+def _client_ip() -> str:
+    """The client as Traefik saw it: the last X-Forwarded-For hop (Traefik
+    replaces any client-sent X-Forwarded-For, untrusted by default)."""
+    xff = [x.strip() for x in (request.headers.get("X-Forwarded-For") or "").split(",") if x.strip()]
+    return xff[-1] if xff else (request.remote_addr or "?")
+
+
+def _text(msg: str, status: int) -> Response:
+    r = Response(msg, status=status, mimetype="text/plain")
+    r.headers["Cache-Control"] = "no-store"
+    return r
+
+
+def _page(body: str, status: int = 200) -> Response:
+    r = _html(body)
+    r.status_code = status
+    return r
+
+
+def _current_device(p) -> dict | None:
+    signer, reg = p
+    now = time.time()
+    claims, why = signer.verify(request.cookies.get(devices.COOKIE), now)
+    dev = reg.active(claims) if claims else None
+    if claims and dev is None:
+        why = "unknown or revoked device"
+    if dev is None:
+        if why != "no cookie":
+            log.info("kitchen: device cookie refused (%s) ip=%s", why, _client_ip())
+        return None
+    reg.touch(dev["id"], now)
+    return dev
+
+
+_KITCHEN_GET = {"/": "kitchen_board", "/ingredients": "kitchen_ingredients",
+                "/steps": "kitchen_steps", "/pantry": "kitchen_pantry"}
+_KITCHEN_POST = {"/tasks/complete", "/groceries/add", "/groceries/reorder"}
+_STEP_PHOTO = re.compile(r"^/step-photo/(\d{1,9})$")
+
+
+def _kitchen_gate():
+    p = _pairing()
+    if p is None:
+        return _text("kitchen pairing not configured", 503)
+    path, method = request.path, request.method
+    get = method in ("GET", "HEAD")
+    photo = _STEP_PHOTO.match(path) if get else None
+    if path == "/pair" and method in ("GET", "HEAD", "POST"):
+        return None                                  # pair(): rate limit + Origin check
+    if get and (path.startswith("/static/") or path == "/manifest.webmanifest"):
+        return None                                  # not secret; the Home Screen icon fetch has no cookie
+    allowed = (get and (path in _KITCHEN_GET or photo)) or (method == "POST" and path in _KITCHEN_POST)
+    if not allowed:
+        return _text("not found", 404)
+    dev = _current_device(p)
+    if dev is None:
+        if get and not photo:
+            return _page(devices.unpaired_page(kitchen.head("Pair this screen", ASSET_VER, kiosk=False)), 401)
+        return _text("this device is not paired", 401)
+    g.kitchen_device = dev
+    if method == "POST":
+        if not devices.origin_ok(request.headers.get("Origin"), request.headers.get("Referer"), KITCHEN_ORIGIN):
+            log.warning("kitchen: POST %s refused (origin) device=%s", path, dev["id"])
+            return _text("forbidden", 403)
+        if request.form.get("ajax") == "1" and request.headers.get("X-Kitchen") != "1":
+            log.warning("kitchen: POST %s refused (no X-Kitchen) device=%s", path, dev["id"])
+            return _text("forbidden", 403)
+        return None                                  # the existing handler
+    if photo:
+        return kitchen_step_photo(int(photo.group(1)))
+    return app.view_functions[_KITCHEN_GET[path]]()
+
+
+@app.before_request
+def _host_gate():
+    on = _is_kitchen_request()
+    kitchen.set_kitchen_host(on)          # every request sets it: waitress reuses threads
+    if not on:
+        # admin.kmkdp.com (the kitchen check wins: it only ever narrows)
+        return _admin_host_gate() if _is_admin_request() else None
+    for k in _REMOTE_ENV:                 # also catches Remote_User (same WSGI key)
+        request.environ.pop(k, None)
+    return _kitchen_gate()
+
+
+ADMIN_CSP = ("default-src 'none'; style-src 'self'; img-src 'self'; font-src 'self'; "
+             "form-action 'self'; base-uri 'none'; frame-ancestors 'none'")
+
+
+@app.after_request
+def _kitchen_headers(resp: Response) -> Response:
+    admin_host = not kitchen.on_kitchen_host() and _is_admin_request()
+    if admin_host:
+        resp.headers["Content-Security-Policy"] = ADMIN_CSP
+        if not request.path.startswith("/static/"):
+            resp.headers["Cache-Control"] = "no-store"
+    if kitchen.on_kitchen_host() or admin_host:
+        resp.headers.setdefault("X-Frame-Options", "DENY")
+        resp.headers.setdefault("X-Content-Type-Options", "nosniff")
+        resp.headers.setdefault("Referrer-Policy", "same-origin")
+    return resp
+
+
+@app.route("/pair", methods=["GET", "POST"])
+def pair():
+    if not kitchen.on_kitchen_host():
+        return _text("not found", 404)
+    signer, reg = _pairing()                         # the gate already answered 503 without a key
+    ip = _client_ip()
+    head = kitchen.head("Pair this screen", ASSET_VER, kiosk=False)
+    if request.method != "POST":
+        # The link is /pair#code=...: the code stays in the browser and the page
+        # script fills it in. A ?code= query is ignored on purpose (not read,
+        # not logged), so a code never travels in a URL the server sees.
+        return _page(devices.pair_page(head))
+    if not PAIR_LIMIT.hit(ip, time.time()):
+        log.warning("kitchen: pair rate-limited ip=%s", ip)
+        return _page(devices.message_page(head, "Too many tries", "Wait ten minutes and try again."), 429)
+    if not devices.origin_ok(request.headers.get("Origin"), request.headers.get("Referer"), KITCHEN_ORIGIN):
+        log.warning("kitchen: pair POST refused (origin) ip=%s", ip)
+        return _text("forbidden", 403)
+    now = time.time()
+    if not reg.consume_code(devices.normalize_code(request.form.get("code")), now):
+        log.info("kitchen: pair refused (unknown, used or expired code) ip=%s", ip)
+        return _page(devices.pair_page(head, error="That code is used or expired. Make a new one."), 400)
+    dev = reg.add_device(request.form.get("name"), now)
+    token = signer.issue(dev["id"], dev["issued"], dev["expires"])
+    log.info("kitchen: device paired id=%s name=%r ip=%s", dev["id"], dev["name"], ip)
+    r = redirect("/", code=303)
+    # host-only (no Domain), so the cookie never reaches another *.kmkdp.com host
+    r.set_cookie(devices.COOKIE, token, max_age=devices.TOKEN_TTL, path="/",
+                 secure=True, httponly=True, samesite="Strict")
+    r.headers["Cache-Control"] = "no-store"
+    return r
+
+
+# ---- device admin on home.kmkdp.com (Authelia two_factor, KITCHEN_ADMINS) ------
+def _admin_gate(post: bool):
+    if kitchen.on_kitchen_host():
+        return _text("not found", 404)
+    user = remote_user()
+    if user not in KITCHEN_ADMINS:
+        log.warning("kitchen devices: refused for %r", user or "anonymous")
+        return _text("forbidden", 403)
+    if post and not devices.origin_ok(request.headers.get("Origin"), request.headers.get("Referer"), HOME_ORIGIN):
+        log.warning("kitchen devices: POST refused (origin) user=%s", user)
+        return _text("forbidden", 403)
+    return None
+
+
+def _devices_view(code: str = "") -> Response:
+    p = _pairing()
+    devs = p[1].devices() if p else []
+    link = f"{KITCHEN_ORIGIN}/pair#code={code}" if code else ""   # fragment: never sent to a server
+    body = devices.devices_page(kitchen.head("Kitchen devices", ASSET_VER, kiosk=False), devs, TZ,
+                                p is not None, kitchen.BASE, code=code, link=link,
+                                qr=devices.qr_svg(link) if code else "")
+    return _page(body)
+
+
+@app.get("/kitchen/devices")
+def kitchen_devices():
+    return _admin_gate(post=False) or _devices_view()
+
+
+@app.post("/kitchen/devices/pair")
+def kitchen_devices_pair():
+    refused = _admin_gate(post=True)
+    if refused:
+        return refused
+    p = _pairing()
+    if p is None:
+        return _devices_view()
+    code = p[1].new_code(remote_user(), time.time())
+    log.info("kitchen: pairing code issued by %s (valid %d min)", remote_user(), devices.CODE_TTL // 60)
+    return _devices_view(code)
+
+
+@app.post("/kitchen/devices/revoke")
+def kitchen_devices_revoke():
+    refused = _admin_gate(post=True)
+    if refused:
+        return refused
+    p = _pairing()
+    did = request.form.get("id") or ""
+    if p and devices.device_id_ok(did):
+        dev = p[1].revoke(did, remote_user(), time.time())
+        if dev:
+            log.info("kitchen: device revoked id=%s name=%r by %s", did, dev.get("name"), remote_user())
+    return redirect(f"{kitchen.BASE}/kitchen/devices", code=303)
+
+
+@app.post("/kitchen/devices/revoke-all")
+def kitchen_devices_revoke_all():
+    refused = _admin_gate(post=True)
+    if refused:
+        return refused
+    p = _pairing()
+    if p:
+        n = p[1].revoke_all(remote_user(), time.time())
+        log.info("kitchen: all devices revoked (%d) by %s", n, remote_user())
+    return redirect(f"{kitchen.BASE}/kitchen/devices", code=303)
+
+
+# ---- admin.kmkdp.com: the lab admin page (Authelia two_factor, user:jmack) ------
+# The internal Traefik routes admin.kmkdp.com here WITH forwardauth; Authelia's
+# admin.kmkdp.com rule admits only jmack, and the sidecar checks Remote-User
+# against ADMIN_USERS again (403 otherwise). On that host only GET / (the page,
+# with the syslog search as query args) and /static/* exist; every other path
+# is a 404, and the admin page exists on no other host. Read-only: no POSTs.
+# Every source sits in a Feed warmed by its own thread, so a page view only
+# reads caches; the syslog search is the one on-demand upstream call (timeout,
+# rate limit, capped at 200 lines).
+ADMIN_HOST = os.environ.get("ADMIN_HOST", "admin.kmkdp.com").strip().lower()
+ADMIN_ORIGIN = f"https://{ADMIN_HOST}"
+ADMIN_USERS = {u.strip() for u in os.environ.get("ADMIN_USERS", "jmack").split(",") if u.strip()}
+ADMIN_REFRESH_S = int(os.environ.get("ADMIN_REFRESH_S", "30"))          # 0 = no warmer
+PROM_URL = os.environ.get("PROM_URL", "http://10.1.20.30:9090").rstrip("/")
+AM_URL = os.environ.get("ALERTMANAGER_URL", "http://10.1.20.30:9093").rstrip("/")
+AM_UI = os.environ.get("ALERTMANAGER_UI", "https://alertmanager.kmkdp.com").rstrip("/")
+LOKI_URL = os.environ.get("LOKI_URL", "http://10.1.20.21:3100").rstrip("/")
+GRAFANA_UI = os.environ.get("GRAFANA_UI", "https://grafana.kmkdp.com").rstrip("/")
+HA_UI = os.environ.get("HA_UI", "https://homeassistant.kmkdp.com").rstrip("/")
+KOMODO_URL = os.environ.get("KOMODO_URL", "https://komodo.kmkdp.com").rstrip("/")
+KOMODO_API_KEY = os.environ.get("KOMODO_API_KEY", "")          # a secret: never log it
+KOMODO_API_SECRET = os.environ.get("KOMODO_API_SECRET", "")    # a secret: never log it
+UPS_PREFIX = os.environ.get("UPS_ENTITY_PREFIX", "sensor.computer_room_eaton_5px_")
+NAS_INSTANCE = os.environ.get("NAS_INSTANCE", "10.1.3.5:9100")
+NAS_POOL = os.environ.get("NAS_POOL", "tankz3")
+SYSLOG_HOSTS_FALLBACK = ["kdk-dkr-01", "kdk-dkr-02", "kdk-dkr-03", "kdk-dkr-04", "kdk-dkr-dmz-01",
+                         "kdk-dns-01", "kdk-gw-01", "kdk-hyp-01", "kdk-log-01", "kdk-mon-01"]
+SYSLOG_LIMIT = devices.RateLimiter(limit=30, window=600)        # per admin user
+CHART_DEFS = admin.chart_defs(GRAFANA_UI, HA_UI, NAS_INSTANCE, NAS_POOL, UPS_PREFIX)
+
+ADMIN_FEEDS = {
+    "alerts": Feed("admin-alerts", 30, lambda: admin.fetch_alerts(AM_URL)),
+    "probes": Feed("admin-probes", 60, lambda: admin.fetch_probes(PROM_URL)),
+    "backups": Feed("admin-backups", 300, lambda: admin.fetch_backups(LOKI_URL)),
+    "komodo": Feed("admin-komodo", 300, lambda: admin.fetch_komodo(KOMODO_URL, KOMODO_API_KEY, KOMODO_API_SECRET)),
+    # anonymous GitHub API = 60 requests/h per IP: 15 min cache, 5 min retry
+    "github": Feed("admin-github", 900, lambda: admin.fetch_github(admin.GITHUB_REPO), retry=300),
+    "advisories": Feed("admin-advisories", 900, lambda: admin.fetch_advisories(LOKI_URL)),
+    "ups": Feed("admin-ups", 60, lambda: admin.fetch_ups(HA_URL, HA_TOKEN, UPS_PREFIX)),
+    "charts": Feed("admin-charts", 300, lambda: admin.fetch_charts(PROM_URL, HA_URL, HA_TOKEN, CHART_DEFS)),
+    "signins": Feed("admin-signins", 300, lambda: admin.fetch_signins(LOKI_URL)),
+    "hosts": Feed("admin-syslog-hosts", 3600, lambda: admin.fetch_syslog_hosts(LOKI_URL)),
+}
+
+
+def _admin_warmer() -> None:
+    while True:
+        for f in ADMIN_FEEDS.values():
+            if f.due():
+                f.kick()
+        time.sleep(ADMIN_REFRESH_S)
+
+
+def start_admin_warmer() -> None:
+    if ADMIN_REFRESH_S > 0:
+        threading.Thread(target=_admin_warmer, daemon=True, name="admin-warmer").start()
+
+
+def _feed_state(f: Feed) -> tuple:
+    """(value, 'ok' | 'loading' | 'failed') from the cache only (never blocks)."""
+    v = f.get(block=False)
+    if v is not None:
+        return v, "ok"
+    return None, ("failed" if f.tried and f.error else "loading")
+
+
+def _is_admin_request() -> bool:
+    return _norm_host(request.host) == ADMIN_HOST
+
+
+def _syslog_hosts() -> list[str]:
+    return ADMIN_FEEDS["hosts"].get(block=False) or SYSLOG_HOSTS_FALLBACK
+
+
+def _syslog_search(user: str) -> tuple[dict, dict | None]:
+    args = request.args
+    rng = args.get("range") if args.get("range") in admin.RANGES else "1h"
+    host = (args.get("host") or "").strip()
+    form = {"q": (args.get("q") or "")[:admin.QUERY_MAX * 2], "host": host, "range": rng}
+    if "q" not in args:
+        return form, None
+    try:
+        q = admin.clean_query(args.get("q"))
+    except ValueError as e:
+        return form, {"error": str(e), "rows": []}
+    form["q"] = q
+    if host and (not admin.HOST_RE.match(host) or host not in _syslog_hosts()):
+        return form, {"error": "Unknown host.", "rows": []}
+    if not q:
+        return form, {"error": "Type something to search for.", "rows": []}
+    if not SYSLOG_LIMIT.hit(user, time.time()):
+        log.warning("admin: syslog search rate-limited user=%s", user)
+        return form, {"error": "Too many searches: wait a few minutes.", "rows": []}
+    t0 = time.monotonic()
+    try:
+        rows = admin.search_syslog(LOKI_URL, q, host, rng)
+    except Exception as e:
+        log.warning("admin: syslog search failed: %s", type(e).__name__)
+        return form, {"error": "Loki did not answer in time. Try a shorter range or open Grafana Explore.", "rows": []}
+    # the query text is the admin's own and may be anything: its length only in the log
+    log.info("admin: syslog search user=%s host=%s range=%s len=%d lines=%d ms=%.0f",
+             user, host or "all", rng, len(q), len(rows), (time.monotonic() - t0) * 1000)
+    return form, {"rows": rows}
+
+
+def admin_page(user: str) -> Response:
+    now = time.time()
+    st = {k: _feed_state(f) for k, f in ADMIN_FEEDS.items()}
+    form, result = _syslog_search(user)
+    ok = result is not None and not result.get("error")
+    expr = admin.syslog_logql(form["q"] if ok else "", form["host"] if ok else "")
+    d = {"tiles": admin.status_tiles(st, now, TZ), "alerts": st["alerts"], "signins": st["signins"],
+         "charts": st["charts"], "chart_defs": CHART_DEFS, "probes": st["probes"],
+         "form": form, "syslog": result, "hosts": _syslog_hosts(), "user": user,
+         "home_url": f"{HOME_ORIGIN}{kitchen.BASE}/home", "am_ui": AM_UI,
+         "explore": admin.explore_url(GRAFANA_UI, expr, form["range"]), "now": now, "tz": TZ,
+         "admin_host": ADMIN_HOST}
+    return _html(admin.page(d, ASSET_VER))
+
+
+def _admin_host_gate():
+    """admin.kmkdp.com: ADMIN_USERS only, GET / and /static/* only."""
+    user = (request.headers.get("Remote-User") or "").strip()
+    if user not in ADMIN_USERS:
+        log.warning("admin: refused for %r path=%s", user or "anonymous", request.path)
+        return _text("forbidden", 403)
+    if request.method not in ("GET", "HEAD"):
+        return _text("not found", 404)
+    if request.path.startswith("/static/"):
+        return None                                  # Flask's static route
+    if request.path == "/":
+        return admin_page(user)
+    return _text("not found", 404)
+
+
 if __name__ == "__main__":
     if not (USER and PASS):
         log.warning("TANDOOR_USER/TANDOOR_PASS not set -- meal plan will fail to load")
     start_grocery_warmer()      # first refresh right away: the first view is hot too
     start_home_warmer()         # weather, calendar, chores, vacuum for the kitchen pages
+    start_admin_warmer()        # admin.kmkdp.com status sources (first refresh right away)
+    log_kitchen_token_mode()    # once: is the Kitchen Vikunja account in use yet?
+    if _pairing() is None:
+        log.warning("KITCHEN_DEVICE_KEY missing or shorter than %d bytes: "
+                    "kitchen.kmkdp.com answers 503", devices.MIN_KEY_BYTES)
     serve(app, host="0.0.0.0", port=8080)
