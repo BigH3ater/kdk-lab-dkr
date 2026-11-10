@@ -13,6 +13,9 @@ Served (behind Traefik, StripPrefix /meal):
   GET  /mealplan.json -> compact JSON (for a Homepage customapi widget, optional)
   POST /rate        -> create a CookLog rating, then redirect back to /
   GET  /healthz     -> "ok"
+  GET  /kitchen, /kitchen/ingredients, /kitchen/steps, /kitchen/step-photo/<id>
+                    -> the kitchen board (iPad) and its sub-views (kitchen.py)
+  GET  /home        -> the household page (phone/laptop)
 
 RATING ATTRIBUTION CAVEAT (by design, per the approved plan): Tandoor ratings are
 per-user (CookLog), so every rating sent through this shared account is recorded as
@@ -36,6 +39,9 @@ from markupsafe import escape  # HTML-escape any value rendered into a page (Cod
 from waitress import serve
 import newpi  # New Pi product-link lookup (reads the mounted foods.yaml)
 import stock  # pantry list + freezer/thaw rules (mounted cleanup.yaml + planner config)
+import homecal  # household ICS calendar (kitchen board + household page)
+import kitchen  # kitchen board + household page rendering
+import vacuum  # robot vacuum line from Home Assistant
 
 TANDOOR_URL = os.environ.get("TANDOOR_URL", "https://recipes.kmkdp.com").rstrip("/")
 USER = os.environ.get("TANDOOR_USER", "")
@@ -56,6 +62,9 @@ def rater_from_headers() -> str:
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger("mealplan")
 app = Flask(__name__)
+# /static (served at /meal/static after the StripPrefix): home.css, home.js,
+# fonts, icons. css/js carry ?v=<content hash>; the rest changes rarely.
+app.config["SEND_FILE_MAX_AGE_DEFAULT"] = 86400
 
 # One shared requests.Session (keep-alive: every call reuses the same TLS
 # connection pool); re-login lazily if the session goes stale (403/redirect).
@@ -79,6 +88,63 @@ def _count(t0: float) -> None:
 
 def _new_stats() -> dict:
     return {"calls": 0, "ms": 0.0}
+
+
+class Feed:
+    """A small server-side cache for one upstream (weather, calendar, HA,
+    Vikunja), so a page render never waits on it when a value exists:
+      * fresh (younger than `ttl`)  -> served as is;
+      * stale                       -> served, and one background refresh runs;
+      * none yet                    -> fetched on the request (with the fetch's
+                                       own timeout), or None with block=False.
+    A failed refresh keeps the last good value (logged by type only: some
+    upstream URLs are secrets). The home warmer thread refreshes every feed
+    when it goes stale, so the request path is normally cache-only."""
+
+    def __init__(self, name: str, ttl: float, fetch):
+        self.name, self.ttl, self.fetch = name, ttl, fetch
+        self.value, self.ts, self.error = None, 0.0, ""
+        self.tried = 0.0                  # last attempt, good or bad
+        self._lock = threading.Lock()
+
+    def fresh(self) -> bool:
+        return self.value is not None and time.time() - self.ts < self.ttl
+
+    def due(self) -> bool:
+        """Stale, and not retried in the last min(ttl, 60) s (a dead upstream
+        is retried once a minute, not on every request)."""
+        return not self.fresh() and time.time() - self.tried >= min(self.ttl, 60)
+
+    def refresh(self):
+        with self._lock:
+            self.tried = time.time()
+            try:
+                v = self.fetch()
+            except Exception as e:
+                self.error = type(e).__name__
+                log.warning("feed %s refresh failed: %s", self.name, self.error)
+                return self.value
+            self.value, self.ts, self.error = v, time.time(), ""
+            return v
+
+    def kick(self) -> None:
+        if self._lock.locked():
+            return
+        threading.Thread(target=self.refresh, daemon=True, name=f"feed-{self.name}").start()
+
+    def get(self, block: bool = True):
+        if self.fresh():
+            return self.value
+        if self.value is not None or not block or self.tried:
+            if self.due():
+                self.kick()
+            return self.value             # stale, or None after a failed try
+        return self.refresh()             # never tried yet: fetch now
+
+    def set(self, value) -> None:
+        """Seed a value (tests, fixtures)."""
+        self.value, self.ts, self.error = value, time.time(), ""
+        self.tried = self.ts
 
 
 def _login() -> requests.Session:
@@ -179,21 +245,42 @@ def _recipe(rid: int) -> dict:
         return hit[1]
     r = _api_get(f"/api/recipe/{rid}/")
     r.raise_for_status()
-    d = r.json()
-    ings = []
+    out = _shape_recipe(r.json())
+    _RECIPE_CACHE[rid] = (time.time(), out)
+    return out
+
+
+def _shape_recipe(d: dict) -> dict:
+    """The cached recipe view. `ingredients` (flat, recipe order) feeds the
+    grocery pages; `steps` feeds the kitchen step view: {id, name, instruction,
+    time, file_id, ingredients: [index into `ingredients`]}. A step file is a
+    Tandoor UserFile (step photo), served through /kitchen/step-photo."""
+    ings, steps = [], []
     for step in d.get("steps") or []:
+        idx = []
         for ing in step.get("ingredients") or []:
-            food = (ing.get("food") or {}).get("name")
+            fd = ing.get("food") or {}
+            food = fd.get("name")
             if not food or ing.get("is_header"):
                 continue
             unit = ing.get("unit")
             unit = unit.get("name") if isinstance(unit, dict) else (unit or "")
-            ings.append({"food": food,
+            idx.append(len(ings))
+            ings.append({"id": ing.get("id"), "food": food,
                          "amount": 0 if ing.get("no_amount") else float(ing.get("amount") or 0),
-                         "unit": unit or ""})
-    out = {"servings": d.get("servings"), "image": d.get("image"), "ingredients": ings}
-    _RECIPE_CACHE[rid] = (time.time(), out)
-    return out
+                         "unit": unit or "", "note": (ing.get("note") or "").strip(),
+                         "onhand": bool(fd.get("food_onhand"))})
+        f = step.get("file")
+        fid = f.get("id") if isinstance(f, dict) else None
+        steps.append({"id": step.get("id"), "name": (step.get("name") or "").strip(),
+                      "instruction": step.get("instruction") or "",
+                      "time": int(step.get("time") or 0),
+                      "file_id": int(fid) if isinstance(fid, int) else None,
+                      "ingredients": idx})
+    return {"name": d.get("name") or "", "servings": d.get("servings"), "image": d.get("image"),
+            "working_time": int(d.get("working_time") or 0),
+            "waiting_time": int(d.get("waiting_time") or 0),
+            "ingredients": ings, "steps": steps}
 
 
 def _prefetch_recipes(rids, fetch=None) -> None:
@@ -580,29 +667,45 @@ def _task_row(t: dict, due: datetime.date | None, today: datetime.date) -> str:
             f"<span class='tw'><span class='tt'>{escape(t.get('title') or '')}</span>"
             f"<span class='due'>{due_s}</span></span></div>")
 
+def _task_columns(projects: dict, tasks: list, today: datetime.date,
+                  skip: tuple = ()) -> list[dict]:
+    """Open tasks per project, in board order: [{cat, soon: [(due, task)],
+    later: [(due, task)], late}]. `soon` = overdue, undated and due within the
+    horizon (dated first, oldest overdue on top, then undated, ties by title);
+    `later` = due past the horizon. Nothing is dropped. Projects named in
+    `skip` are left out."""
+    horizon = today + datetime.timedelta(days=TASK_HORIZON_DAYS)
+    by_cat: dict[str, tuple[list, list]] = {}
+    for t in tasks:
+        if t.get("done"):
+            continue
+        cat = projects.get(t.get("project_id"), "Other")
+        if cat in skip:
+            continue
+        due = _task_due(t)
+        soon, later = by_cat.setdefault(cat, ([], []))
+        (later if (due and due > horizon) else soon).append((due, t))
+    key = lambda dt: (dt[0] is None, dt[0] or today, (dt[1].get("title") or "").lower())
+    names = [c for c in TASK_CAT_ORDER if c in by_cat] + sorted(c for c in by_cat if c not in TASK_CAT_ORDER)
+    cols = []
+    for cat in names:
+        soon, later = (sorted(x, key=key) for x in by_cat[cat])
+        cols.append({"cat": cat, "soon": soon, "later": later,
+                     "late": sum(1 for d, _ in soon if d and d < today)})
+    return cols
+
 def _tasks_board(projects: dict, tasks: list, today: datetime.date) -> str:
     """Board body: one column per project with EVERY open task. Overdue, undated
     and due-within-the-horizon tasks are listed (the column scrolls); anything
     due later sits in a collapsed 'later' fold with its count, so nothing is
     dropped. (Before 2026-11-09 each column was cut at 6 rows and later tasks
     were discarded outright: 28 of 83 open chores reached the page.)"""
-    horizon = today + datetime.timedelta(days=TASK_HORIZON_DAYS)
-    by_cat: dict[str, tuple[list, list]] = {}
-    for t in tasks:
-        if t.get("done"):
-            continue
-        due = _task_due(t)
-        soon, later = by_cat.setdefault(projects.get(t.get("project_id"), "Other"), ([], []))
-        (later if (due and due > horizon) else soon).append((due, t))
-    if not by_cat:
+    columns = _task_columns(projects, tasks, today)
+    if not columns:
         return "<div class='note'>No open chores. 🎉</div>"
-    # dated first (oldest overdue on top), undated after them, ties by title
-    key = lambda dt: (dt[0] is None, dt[0] or today, (dt[1].get("title") or "").lower())
-    names = [c for c in TASK_CAT_ORDER if c in by_cat] + sorted(c for c in by_cat if c not in TASK_CAT_ORDER)
     cols = []
-    for cat in names:
-        soon, later = (sorted(x, key=key) for x in by_cat[cat])
-        late_n = sum(1 for d, _ in soon if d and d < today)
+    for c in columns:
+        cat, soon, later, late_n = c["cat"], c["soon"], c["later"], c["late"]
         counts = f"<span class='n'>{len(soon)}</span>"
         if late_n:
             counts += f"<span class='n late'>{late_n} late</span>"
@@ -686,6 +789,15 @@ document.addEventListener('submit', async function (e) {
 });
 """
 
+def _fetch_tasks(token: str) -> tuple[dict, list]:
+    """({project id: title}, [every task]) from Vikunja."""
+    projects = {p["id"]: p["title"] for p in _vik_all("/projects", token)}
+    # per-project route: /tasks/all needs a token permission this one lacks
+    tasks = []
+    for pid in projects:
+        tasks.extend(_vik_all(f"/projects/{pid}/tasks", token))
+    return projects, tasks
+
 @app.get("/tasks")
 def tasks_view():
     # Shared family board: the LIST always comes from the jmack account (single
@@ -695,11 +807,7 @@ def tasks_view():
     if not token:
         return Response(f"<!doctype html><style>{TASKS_CSS}</style><div class='note'>Task board not connected yet - store the family token as the 1Password item vikunja-api-jmack and redeploy.</div>", mimetype="text/html")
     try:
-        projects = {p["id"]: p["title"] for p in _vik_all("/projects", token)}
-        # per-project route: /tasks/all needs a token permission this one lacks
-        tasks = []
-        for pid in projects:
-            tasks.extend(_vik_all(f"/projects/{pid}/tasks", token))
+        projects, tasks = _fetch_tasks(token)
     except Exception:
         log.exception("vikunja fetch failed")
         return Response(f"<!doctype html><style>{TASKS_CSS}</style><div class='note'>Couldn't reach the task list right now.</div>", mimetype="text/html")
@@ -709,6 +817,7 @@ def tasks_view():
 @app.post("/tasks/complete")
 def tasks_complete():
     login, token = _vik_token()
+    ok = False
     try:
         tid = int(request.form["task_id"])
         if not token:
@@ -720,8 +829,18 @@ def tasks_complete():
             t["done"] = True
             _vik("POST", f"/tasks/{tid}", token, t)
             log.info("task %s completed by %s", tid, login)
+            ok = True
     except Exception:
         log.exception("task completion failed")
+    if request.form.get("ajax") == "1":
+        # Kitchen/household pages: tick in the background, then re-read the
+        # board so the next fragment shows the real state (a recurring chore
+        # comes back with its next due date).
+        try:
+            TASKS_FEED.refresh()
+        except Exception:
+            log.exception("task board refresh after tick failed")
+        return Response(status=204 if ok else 502)
     # relative to /meal/tasks/complete -> ../tasks == /meal/tasks (survives the
     # StripPrefix; a bare "tasks" resolved to /meal/tasks/tasks -> 404)
     return redirect("../tasks", code=303)
@@ -733,8 +852,17 @@ WX_URL = ("https://api.open-meteo.com/v1/forecast?latitude=41.706&longitude=-91.
           "&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max"
           "&hourly=temperature_2m,precipitation_probability,weather_code"
           "&temperature_unit=fahrenheit&timezone=America%2FChicago&forecast_days=7")
-_wx_cache: tuple[float, dict] | None = None
-_wx_hourly: dict | None = None
+
+
+def _wx_fetch() -> dict:
+    """The full Open-Meteo forecast: {"daily": {...}, "hourly": {...}}."""
+    full = requests.get(WX_URL, timeout=15).json()
+    if "daily" not in full:
+        raise RuntimeError("open-meteo: no daily block")
+    return full
+
+
+WX_FEED = Feed("weather", 900, _wx_fetch)      # 15 min, shared by /weather and the boards
 
 WMO = {0:"Clear",1:"Mostly clear",2:"Partly cloudy",3:"Overcast",45:"Fog",48:"Fog",
        51:"Drizzle",53:"Drizzle",55:"Drizzle",61:"Rain",63:"Rain",65:"Heavy rain",
@@ -762,22 +890,10 @@ WX_CSS = PAGE_CSS + """
 
 @app.get("/weather")
 def weather():
-    global _wx_cache
-    import time as _t
-    now = _t.time()
-    if _wx_cache and now - _wx_cache[0] < 900:
-        d = _wx_cache[1]
-    else:
-        try:
-            _full = requests.get(WX_URL, timeout=15).json()
-            d = _full["daily"]
-            globals()["_wx_hourly"] = _full.get("hourly")
-            _wx_cache = (now, d)
-        except Exception:
-            log.exception("open-meteo fetch failed")
-            if _wx_cache: d = _wx_cache[1]
-            else:
-                return Response(f"<!doctype html><style>{WX_CSS}</style><div class='empty'>Weather unavailable right now.</div>", mimetype="text/html")
+    full = WX_FEED.get()
+    if not full:
+        return Response(f"<!doctype html><style>{WX_CSS}</style><div class='empty'>Weather unavailable right now.</div>", mimetype="text/html")
+    d = full["daily"]
     today = datetime.datetime.now(TZ).date()
     cells = []
     for i, day in enumerate(d["time"]):
@@ -792,11 +908,7 @@ def weather():
             f"<div class='pop'>{int(d['precipitation_probability_max'][i] or 0)}% rain</div></div>")
     # hourly strip: the next 12 hours from now
     hours = []
-    try:
-        h = _wx_cache[1]["__hourly"] if isinstance(_wx_cache[1], dict) and "__hourly" in _wx_cache[1] else None
-    except Exception:
-        h = None
-    hr = _wx_hourly or {}
+    hr = full.get("hourly") or {}
     now_dt = datetime.datetime.now(TZ)
     if hr:
         for i, ts in enumerate(hr["time"]):
@@ -1698,8 +1810,272 @@ def groceries_thaw_tick():
     return redirect("../groceries#thaw", code=303)
 
 
+
+# ---- Kitchen board (/meal/kitchen) + household page (/meal/home) -------------
+# Native pages, no iframes (owner design 2026-11-10). Everything renders from
+# server-side caches, so a page view does not wait on an upstream:
+#   meal plan + recipes  the groceries snapshot (_grocery_data, warmed every 120 s)
+#                        and the shared recipe cache (30 min)
+#   weather              WX_FEED, Open-Meteo, 15 min (shared with /weather)
+#   calendar             CAL_FEED, the Proton ICS feed, 15 min, recurring expanded
+#   chores               TASKS_FEED, Vikunja (jmack token), 2 min; a tick re-reads it
+#   vacuum               HA_FEED, Home Assistant /api/states, 60 s
+# The home warmer thread refreshes each feed when it goes stale.
+ICS_URL = os.environ.get("HOMEPAGE_VAR_ICS_URL", "")          # a secret: never log it
+HA_URL = os.environ.get("HA_URL", "http://10.1.30.21:8123")
+HA_TOKEN = os.environ.get("HOMEPAGE_VAR_HA_TOKEN", "")
+HOME_REFRESH_S = int(os.environ.get("HOME_REFRESH_S", "30"))   # 0 = no warmer
+KITCHEN_SKIP_PROJECTS = ("Approvals",)    # decision tasks, not chores
+CAL_DAYS = 9                              # today .. a week out, plus the night view
+
+
+def _cal_fetch() -> list[dict]:
+    today = datetime.datetime.now(TZ).date()
+    return homecal.expand(homecal.fetch_ics(ICS_URL), today, CAL_DAYS, TZ)
+
+
+CAL_FEED = Feed("calendar", 900, _cal_fetch)
+HA_FEED = Feed("vacuum", 60, lambda: vacuum.fetch_states(HA_URL, HA_TOKEN))
+TASKS_FEED = Feed("tasks", 120, lambda: _fetch_tasks(VIKUNJA_TOKENS.get("jmack", "")))
+HOME_FEEDS = (WX_FEED, CAL_FEED, HA_FEED, TASKS_FEED)
+
+
+def _home_warmer() -> None:
+    while True:
+        for f in HOME_FEEDS:
+            if f.due():
+                f.kick()                  # one thread per feed: a slow one can't hold the rest
+        time.sleep(HOME_REFRESH_S)
+
+
+def start_home_warmer() -> None:
+    if HOME_REFRESH_S > 0:
+        threading.Thread(target=_home_warmer, daemon=True, name="home-warmer").start()
+
+
+def _asset_ver() -> str:
+    import hashlib
+    h = hashlib.sha256()
+    for name in ("home.css", "home.js"):
+        try:
+            with open(os.path.join(app.static_folder, name), "rb") as fh:
+                h.update(fh.read())
+        except OSError:
+            pass
+    return h.hexdigest()[:10]
+
+
+ASSET_VER = _asset_ver()
+
+
+def _onhand(food: str) -> bool:
+    try:
+        return stock.is_pantry_or_stock(food)
+    except Exception:
+        return False
+
+
+def _dishes(entries: list[dict]) -> list[dict]:
+    out = []
+    for e in entries:
+        if not e.get("recipe_id"):
+            continue
+        try:
+            out.append(kitchen.make_dish(e, _recipe(e["recipe_id"]), _onhand))
+        except Exception:
+            log.warning("kitchen: recipe %s unavailable", e.get("recipe_id"))
+    return out
+
+
+def _now() -> datetime.datetime:
+    return datetime.datetime.now(TZ)
+
+
+def _home_data(now: datetime.datetime | None = None) -> dict:
+    """Everything both pages show, from the caches."""
+    now = now or _now()
+    today = now.date()
+    tomorrow = today + datetime.timedelta(days=1)
+    plan, lines = [], []
+    try:
+        snap, _src = _grocery_data()
+        plan, lines = snap["plan"] or [], snap["lines"] or []
+    except Exception:
+        log.exception("kitchen: meal plan unavailable")
+    tasks = TASKS_FEED.get()
+    cols = (_task_columns(tasks[0], tasks[1], today, KITCHEN_SKIP_PROJECTS)
+            if tasks is not None else None)
+    ha = HA_FEED.get()
+    thaw = ""
+    try:
+        thaw = kitchen.thaw_hint(_thaw_rows(lines, today, _load_thaw(today)), tomorrow, today)
+    except Exception:
+        log.exception("kitchen: thaw rows failed")
+    return {
+        "now": now, "today": today,
+        "wx": kitchen.wx_view(WX_FEED.get(), now, WMO),
+        "cal": CAL_FEED.get(),
+        "dinner": _dishes(kitchen.dinner_entries(plan, today)),
+        "lunch": kitchen.lunch_prep(plan, stock.plan_week_start(today)),
+        "tomorrow_titles": [e["title"] for e in kitchen.dinner_entries(plan, tomorrow)],
+        "thaw": thaw,
+        "chores": cols,
+        "vacuum": vacuum.summary(ha, now, TZ) if ha is not None else None,
+    }
+
+
+def _back_href() -> str:
+    return f"{kitchen.BASE}/home" if request.args.get("from") == "home" else f"{kitchen.BASE}/kitchen"
+
+
+def _html(body: str) -> Response:
+    r = Response(body, mimetype="text/html")
+    r.headers["Cache-Control"] = "no-store"
+    return r
+
+
+@app.get("/kitchen")
+def kitchen_board():
+    d = _home_data()
+    if request.args.get("fragment") == "1":
+        return _html(kitchen.board_fragment(d))
+    return _html(kitchen.kitchen_page(d, ASSET_VER))
+
+
+@app.get("/kitchen/ingredients")
+def kitchen_ingredients():
+    d = _home_data()
+    return _html(kitchen.ingredients_page(d["dinner"], d["today"], ASSET_VER, _back_href()))
+
+
+@app.get("/kitchen/steps")
+def kitchen_steps():
+    d = _home_data()
+    dishes = d["dinner"]
+    try:
+        rid = int(request.args.get("r") or 0)
+    except ValueError:
+        rid = 0
+    dish = next((x for x in dishes if x["rid"] == rid), dishes[0] if dishes else None)
+    return _html(kitchen.steps_page(dish, dishes, ASSET_VER, _back_href()))
+
+
+@app.get("/home")
+def household():
+    d = _home_data()
+    if request.args.get("fragment") == "1":
+        return _html(kitchen.household_fragment(d))
+    return _html(kitchen.household_page(d, ASSET_VER))
+
+
+# Step photos are Tandoor UserFiles: /api/download-file/<id>/ needs the
+# dashboard's session (anonymous = 403), so the browser cannot load them
+# directly. This proxy serves ONLY file ids attached to a step of a planned
+# recipe (the meal-plan snapshot: this plan week to two weeks out), caches the
+# bytes in memory and sends them as an image.
+_PHOTO_CACHE: dict[int, tuple[float, bytes, str]] = {}
+_PHOTO_TTL = 86400
+_PHOTO_MAX = 80                       # ~80 x 30-150 KB
+_PHOTO_MAX_BYTES = 8 * 1024 * 1024
+_photo_lock = threading.Lock()
+
+
+def _planned_photo_ids() -> set[int]:
+    try:
+        snap, _src = _grocery_data()
+    except Exception:
+        return set()
+    ids: set[int] = set()
+    for rid in {e.get("recipe_id") for e in snap["plan"] or [] if e.get("recipe_id")}:
+        try:
+            ids |= {s["file_id"] for s in _recipe(rid).get("steps") or [] if s.get("file_id")}
+        except Exception:
+            continue
+    return ids
+
+
+def _image_type(b: bytes) -> str | None:
+    if b[:3] == b"\xff\xd8\xff":
+        return "image/jpeg"
+    if b[:8] == b"\x89PNG\r\n\x1a\n":
+        return "image/png"
+    if b[:4] == b"RIFF" and b[8:12] == b"WEBP":
+        return "image/webp"
+    if b[:6] in (b"GIF87a", b"GIF89a"):
+        return "image/gif"
+    return None
+
+
+def _fetch_photo(fid: int) -> tuple[bytes, str] | None:
+    with _photo_lock:
+        hit = _PHOTO_CACHE.get(fid)
+    if hit and time.time() - hit[0] < _PHOTO_TTL:
+        return hit[1], hit[2]
+    r = _api_get(f"/api/download-file/{fid}/")
+    if r.status_code != 200 or len(r.content) > _PHOTO_MAX_BYTES:
+        return None
+    data = _unzip_one(r.content)
+    ctype = _image_type(data) if data else None
+    if not ctype:                     # only images leave this route
+        return None
+    with _photo_lock:
+        if len(_PHOTO_CACHE) >= _PHOTO_MAX:
+            _PHOTO_CACHE.pop(min(_PHOTO_CACHE, key=lambda k: _PHOTO_CACHE[k][0]))
+        _PHOTO_CACHE[fid] = (time.time(), data, ctype)
+    return data, ctype
+
+
+def _unzip_one(body: bytes) -> bytes | None:
+    """Tandoor 2.x's download-file sends the UserFile wrapped in a zip
+    (attachment "<name>.zip", one member "files/<uuid>.jpg", seen live
+    2026-11-10). Return that member; a bare file passes through."""
+    if body[:4] != b"PK\x03\x04":
+        return body
+    import io
+    import zipfile
+    try:
+        with zipfile.ZipFile(io.BytesIO(body)) as z:
+            for info in z.infolist():
+                if not info.is_dir() and info.file_size <= _PHOTO_MAX_BYTES:
+                    return z.read(info)
+    except zipfile.BadZipFile:
+        return None
+    return None
+
+
+@app.get("/kitchen/step-photo/<int:fid>")
+def kitchen_step_photo(fid: int):
+    if fid not in _planned_photo_ids():
+        return Response("not found", status=404, mimetype="text/plain")
+    try:
+        got = _fetch_photo(fid)
+    except Exception:
+        log.warning("step photo %s fetch failed", fid)
+        got = None
+    if not got:
+        return Response("not found", status=404, mimetype="text/plain")
+    r = Response(got[0], mimetype=got[1])
+    r.headers["Cache-Control"] = "private, max-age=86400"
+    r.headers["X-Content-Type-Options"] = "nosniff"
+    return r
+
+
+@app.get("/manifest.webmanifest")
+def manifest():
+    b = kitchen.BASE
+    body = {
+        "name": "Mack House Kitchen", "short_name": "Kitchen",
+        "start_url": f"{b}/kitchen", "scope": f"{b}/", "display": "standalone",
+        "orientation": "landscape", "background_color": "#100D0B", "theme_color": "#100D0B",
+        "icons": [{"src": f"{b}/static/icon-192.png", "sizes": "192x192", "type": "image/png"},
+                  {"src": f"{b}/static/icon-512.png", "sizes": "512x512", "type": "image/png"}],
+    }
+    return Response(json.dumps(body), mimetype="application/manifest+json")
+
+
 if __name__ == "__main__":
     if not (USER and PASS):
         log.warning("TANDOOR_USER/TANDOOR_PASS not set -- meal plan will fail to load")
     start_grocery_warmer()      # first refresh right away: the first view is hot too
+    start_home_warmer()         # weather, calendar, chores, vacuum for the kitchen pages
     serve(app, host="0.0.0.0", port=8080)
