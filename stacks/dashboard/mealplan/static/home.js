@@ -93,7 +93,6 @@
       var l = c.querySelector(".col-list"); if (l) { keep[c.dataset.cat] = l.scrollTop; }
       var d = c.querySelector("details"); if (d && d.open) { open[c.dataset.cat] = true; }
     });
-    var allOpen = !!board.querySelector("details.hh-all[open]");
     var ingOpen = !!board.querySelector("details.hh-ings[open]");
     try {
       var r = await fetch(board.dataset.fragment, {credentials: "same-origin", cache: "no-store"});
@@ -105,7 +104,6 @@
         var l = c.querySelector(".col-list"); if (l && keep[c.dataset.cat]) { l.scrollTop = keep[c.dataset.cat]; }
         var d = c.querySelector("details"); if (d && open[c.dataset.cat]) { d.open = true; }
       });
-      if (allOpen) { var a = board.querySelector("details.hh-all"); if (a) { a.open = true; } }
       if (ingOpen) { var g = board.querySelector("details.hh-ings"); if (g) { g.open = true; } }
       syncNight(); restoreChecks();
     } catch (e) { /* keep the old board; try again next cycle (a login redirect lands here too) */ }

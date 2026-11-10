@@ -1963,9 +1963,10 @@ def kitchen_steps():
 @app.get("/home")
 def household():
     d = _home_data()
+    all_chores = request.args.get("chores") == "all"
     if request.args.get("fragment") == "1":
-        return _html(kitchen.household_fragment(d))
-    return _html(kitchen.household_page(d, ASSET_VER))
+        return _html(kitchen.household_fragment(d, all_chores))
+    return _html(kitchen.household_page(d, ASSET_VER, all_chores))
 
 
 # Step photos are Tandoor UserFiles: /api/download-file/<id>/ needs the

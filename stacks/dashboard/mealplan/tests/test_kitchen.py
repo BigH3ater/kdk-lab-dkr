@@ -293,7 +293,7 @@ def test_household_page(home):
         assert f">{name}</a>" in html
     assert "href='/meal/groceries'" in html and "href='https://wger.kmkdp.com/'" in html
     # due/late first (with project), then everything behind the fold
-    due = html.split("class='hh-due'")[1].split("</div><details")[0]
+    due = html.split("class='hh-due'")[1].split("class='hh-link'")[0]
     assert due.index("Clean fridge") < due.index("Clean stove top") and "Dog baths" not in due
     assert "All chores (4)" in html
     # this week's calendar, recurring expanded
@@ -409,3 +409,82 @@ def test_feed_keeps_last_value_and_does_not_block_after_a_failure():
     f.tried = 0
     f.fetch = boom
     assert f.refresh() == "good"                             # failure keeps the last value
+
+
+# ---- household chore cap (review: 47 late chores made the phone page ~3,400 px) -------
+def _many_late(n):
+    late = [{"id": 200 + i, "title": f"Late chore {i:02d}", "project_id": 4, "done": False,
+             "due_date": f"2026-10-{1 + i % 28:02d}T17:00:00-06:00"} for i in range(n)]
+    today = [{"id": 300, "title": "Today chore", "project_id": 5, "done": False,
+              "due_date": "2026-11-09T17:00:00-06:00"}]
+    return late + today
+
+
+def test_household_chore_list_is_capped(home):
+    app.TASKS_FEED.set((PROJECTS, _many_late(47)))
+    html = home.get("/home").get_data(as_text=True)
+    due = html.split("class='hh-due'")[1].split("hh-more")[0]
+    assert due.count("<form class='chore") == kitchen.HH_CHORE_CAP == 8
+    assert "Today chore" not in due                              # late first: 47 late fill the 8
+    assert "40 more late or due today" in html
+    assert "href='/meal/home?chores=all#all-chores'>All chores (48)</a>" in html
+    assert "id='all-chores'" not in html                         # the full board stays out
+
+
+def test_household_cap_shows_due_today_after_late(home):
+    app.TASKS_FEED.set((PROJECTS, _many_late(5)))
+    due = home.get("/home").get_data(as_text=True).split("class='hh-due'")[1].split("class='hh-link'")[0]
+    assert due.count("<form class='chore") == 6 and due.index("Late chore") < due.index("Today chore")
+    assert "more late or due today" not in due
+
+
+def test_household_all_chores_view(home):
+    app.TASKS_FEED.set((PROJECTS, _many_late(47)))
+    html = home.get("/home?chores=all").get_data(as_text=True)
+    board = html.split("id='all-chores'")[1]
+    assert board.count("name='task_id'") == 48                   # every open chore
+    assert "Hide all chores" in html
+    assert "data-fragment='/meal/home?fragment=1&amp;chores=all'" in html
+    assert "id='all-chores'" in home.get("/home?fragment=1&chores=all").get_data(as_text=True)
+
+
+# ---- clean recipe titles -----------------------------------------------------------------
+@pytest.mark.parametrize("raw,clean", [
+    ("Chicken and Broccoli Stir Fry Recipe", "Chicken and Broccoli Stir Fry"),
+    ("Filet Mignon Recipe in Mushroom Sauce (VIDEO)", "Filet Mignon in Mushroom Sauce"),
+    ("Garlic Butter Salmon (Easy Recipe)", "Garlic Butter Salmon"),
+    ("Beef Stroganoff (Quick & Easy)", "Beef Stroganoff"),
+    ("Pad Thai RECIPE", "Pad Thai"),
+    ("Shrimp Recipe with Lemon (video)", "Shrimp with Lemon"),
+    ("Tacos (Best Ever) [Video]", "Tacos"),
+    ("Chili (Mild)", "Chili (Mild)"),                          # not marketing: kept
+    ("Recipe Box Soup", "Recipe Box Soup"),                    # middle "Recipe" not before in/with
+    ("Recipe", "Recipe"),                                      # never empty
+    ("Sautéed Green Beans with Garlic", "Sautéed Green Beans with Garlic"),
+])
+def test_clean_title(raw, clean):
+    assert kitchen.clean_title(raw) == clean
+
+
+def test_title_html_keeps_the_original():
+    assert kitchen.title_html("Filet Mignon Recipe in Mushroom Sauce (VIDEO)") == \
+        "<span title='Filet Mignon Recipe in Mushroom Sauce (VIDEO)'>Filet Mignon in Mushroom Sauce</span>"
+    assert kitchen.title_html("Tom & Jerry's <Pie> Recipe") == \
+        "<span title='Tom &amp; Jerry&#39;s &lt;Pie&gt; Recipe'>Tom &amp; Jerry&#39;s &lt;Pie&gt;</span>"
+    assert kitchen.title_html("Roasted Carrots") == "Roasted Carrots"
+
+
+def test_clean_titles_on_every_page(home, monkeypatch):
+    plan = [dict(e) for e in PLAN]
+    plan[6]["title"] = "Chicken and Broccoli Stir Fry Recipe"
+    plan[7]["title"] = "Filet Mignon Recipe in Mushroom Sauce (VIDEO)"
+    plan[0]["title"] = "Fall Chicken Sheet Pan Dinner (Easy Recipe)"
+    snap = {"ts": 0, "day": NOW.date(), "entries": [], "plan": plan, "lines": []}
+    monkeypatch.setattr(app, "_grocery_data", lambda force=False: (snap, "cache"))
+    for path in ("/kitchen", "/home", "/kitchen/ingredients", "/kitchen/steps"):
+        html = home.get(path).get_data(as_text=True)
+        assert ">Chicken and Broccoli Stir Fry</span>" in html, path
+        assert "title='Chicken and Broccoli Stir Fry Recipe'" in html, path
+    for path in ("/kitchen", "/home"):
+        html = home.get(path).get_data(as_text=True)
+        assert ">Filet Mignon in Mushroom Sauce</span>" in html and ">Fall Chicken Sheet Pan Dinner</span>" in html

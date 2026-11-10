@@ -114,6 +114,43 @@ def body_html(body: str) -> str:
     return "".join(f"<p>{escape(p)}</p>".replace("\n", "<br>") for p in paras)
 
 
+# Recipe titles keep their import clutter in Tandoor ("... Recipe", "(VIDEO)",
+# "(Quick & Easy)"); the pages show a clean name and keep the original in the
+# title attribute. Tandoor data is never changed.
+_MARKETING_RE = re.compile(
+    r"\s*[(\[][^()\[\]]*\b(?:video|recipe|easy|quick|best|simple|healthy|minutes?|"
+    r"one[- ]pan|one[- ]pot|sheet[- ]pan|homemade|gluten[- ]free|keto|vegan|copycat|"
+    r"restaurant[- ]style|authentic)\b[^()\[\]]*[)\]]\s*$", re.I)
+_TRAIL_RECIPE_RE = re.compile(r"\s+recipe\s*[!.]?\s*$", re.I)
+_MID_RECIPE_RE = re.compile(r"\s+recipe(?=\s+(?:in|with)\s)", re.I)
+
+
+def clean_title(title: str) -> str:
+    """"Filet Mignon Recipe in Mushroom Sauce (VIDEO)" -> "Filet Mignon in
+    Mushroom Sauce": trailing marketing parentheses and a trailing " Recipe"
+    go; a middle " Recipe" only before " in " / " with "."""
+    t = (title or "").strip()
+    prev = None
+    while prev != t:
+        prev = t
+        t = _MARKETING_RE.sub("", t)
+        t = _TRAIL_RECIPE_RE.sub("", t).rstrip(" -–—:,")
+    t = _MID_RECIPE_RE.sub("", t).strip()
+    return t or (title or "").strip()
+
+
+def title_html(title: str) -> str:
+    """The clean title, escaped; the original in a title attribute when it differs."""
+    clean = clean_title(title)
+    if clean == (title or "").strip():
+        return str(escape(clean))
+    return f"<span title='{escape(title)}'>{escape(clean)}</span>"
+
+
+def titles_html(titles, sep: str = " and ") -> str:
+    return sep.join(title_html(t) for t in titles)
+
+
 def role_of(e: dict) -> str:
     """The planner role from the meal-plan note ("[gp:2026-W46] side")."""
     note = e.get("note") or ""
@@ -376,11 +413,11 @@ def _dinner_card(dishes: list[dict], big: bool = True) -> str:
     meta.append(f"{n_ing} ingredients, {n_on} on hand" if n_on else f"{n_ing} ingredients")
     photo = (f"<img src='{escape(main['image'])}' alt=''>" if main.get("image")
              else "<div class='noimg'></div>")
-    side = (f"<div class='side'>with {escape(' and '.join(d['title'] for d in sides))}</div>"
+    side = (f"<div class='side'>with {titles_html(d['title'] for d in sides)}</div>"
             if sides else "")
     return (f"<article class='card dinner'><div class='photo'>{photo}</div>"
             "<div class='dinner-body'><div class='eyebrow rust'>Dinner tonight</div>"
-            f"<h1 class='dish'>{escape(main['title'])}</h1>{side}"
+            f"<h1 class='dish'>{title_html(main['title'])}</h1>{side}"
             f"<div class='muted meta'>{escape(' · '.join(m for m in meta if m))}</div>"
             "<div class='actions'>"
             f"<a class='btn primary' href='{BASE}/kitchen/ingredients'>Pull ingredients</a>"
@@ -391,8 +428,8 @@ def _lunch_card(lunch: dict | None, today: datetime.date) -> str:
     if not lunch:
         return ("<article class='card lunch'><div class='eyebrow tan'>Lunch · meal prep</div>"
                 "<div class='muted'>No lunch prep this week</div></article>")
-    rows = "".join(f"<div class='ltitle'>{escape(t)}</div>" for t in lunch["mains"])
-    sides = (f"<div class='muted'>with {escape(', '.join(lunch['sides']))}</div>"
+    rows = "".join(f"<div class='ltitle'>{title_html(t)}</div>" for t in lunch["mains"])
+    sides = (f"<div class='muted'>with {titles_html(lunch['sides'], ', ')}</div>"
              if lunch["sides"] else "")
     when = ("Prep today" if lunch["prep_day"] == today
             else f"Prepped {lunch['prep_day']:%A}")
@@ -402,8 +439,8 @@ def _lunch_card(lunch: dict | None, today: datetime.date) -> str:
 
 
 def _tomorrow_card(titles: list[str], thaw: str) -> str:
-    main = escape(titles[0]) if titles else "Nothing planned"
-    side = f"<div class='muted'>with {escape(' and '.join(titles[1:]))}</div>" if len(titles) > 1 else ""
+    main = title_html(titles[0]) if titles else "Nothing planned"
+    side = f"<div class='muted'>with {titles_html(titles[1:])}</div>" if len(titles) > 1 else ""
     hint = f"<div class='thaw'>{escape(thaw)}</div>" if thaw else ""
     return (f"<article class='card tomorrow'><div class='eyebrow'>Tomorrow</div>"
             f"<div class='ltitle'>{main}</div>{side}{hint}</article>")
@@ -476,7 +513,7 @@ def ingredient_groups(dishes: list[dict], today: datetime.date) -> str:
         scope = f"{today.isoformat()}:{dsh['rid']}"
         rows = "".join(_ing_row(i, scope) for i in dsh["ingredients"]) or "<div class='muted'>No ingredients listed</div>"
         wide = " wide" if n == 0 and len(dsh["ingredients"]) > 8 else ""
-        out.append(f"<section class='card dishlist{wide}'><h2>{escape(dsh['title'])}</h2>"
+        out.append(f"<section class='card dishlist{wide}'><h2>{title_html(dsh['title'])}</h2>"
                    f"<div class='ings'>{rows}</div></section>")
     return "".join(out)
 
@@ -530,7 +567,7 @@ def steps_page(dish: dict | None, dishes: list[dict], asset_ver: str, back: str)
         q = "&from=home" if back.endswith("/home") else ""
         others = "".join(
             f"<a class='btn ghost dishsw{' on' if d['rid'] == dish['rid'] else ''}' "
-            f"href='{BASE}/kitchen/steps?r={int(d['rid'])}{q}'>{escape(d['title'])}</a>"
+            f"href='{BASE}/kitchen/steps?r={int(d['rid'])}{q}'>{title_html(d['title'])}</a>"
             for d in dishes if d.get("rid"))
     nexts = [f"Next: {s['title']}" for s in steps[1:]] + ["Done cooking"]
     serv = f" · serves {fmt_num(float(dish['servings']))}" if dish["servings"] else ""
@@ -538,7 +575,7 @@ def steps_page(dish: dict | None, dishes: list[dict], asset_ver: str, back: str)
     return (head("Steps", asset_ver, kiosk=True)
             + f"<body data-page='steps' data-home='{escape(back)}' class='kiosk sub'><div class='shell steps-shell'>"
             f"<header class='subhdr'>{_back(back)}<div class='subtitle'>"
-            f"<div class='eyebrow rust'>{escape(dish['title'])}{escape(serv)}</div>"
+            f"<div class='eyebrow rust'>{title_html(dish['title'])}{escape(serv)}</div>"
             f"<div class='dishsws'>{others}</div></div>"
             f"<div id='timerbar' class='timerbar' aria-live='polite'></div>"
             f"<a class='btn ghost' href='{escape(ing_href)}'>All ingredients</a></header>"
@@ -566,21 +603,24 @@ APPS = [  # household only; hrefs from guides/shared-nav.js
 ]
 
 
-def household_fragment(d: dict) -> str:
+HH_CHORE_CAP = 8      # the phone list: late first, then due today; the rest behind "All chores"
+
+
+def household_fragment(d: dict, all_chores: bool = False) -> str:
     today = d["today"]
     dishes = d.get("dinner") or []
     # dinner + its ingredients
     if dishes:
         main = dishes[0]
         photo = (f"<img src='{escape(main['image'])}' alt=''>" if main.get("image") else "")
-        sides = f" with {' and '.join(x['title'] for x in dishes[1:])}" if len(dishes) > 1 else ""
+        sides = f"with {titles_html(x['title'] for x in dishes[1:])}" if len(dishes) > 1 else ""
         meta = " · ".join(m for m in (fmt_minutes(main["total_min"]),
                                       f"serves {fmt_num(float(main['servings']))}" if main["servings"] else "") if m)
         n_ing = sum(len(x["ingredients"]) for x in dishes)
         dinner = (f"<article class='card hh-dinner'>{'<div class=hh-photo>' + photo + '</div>' if photo else ''}"
                   "<div class='pad'><div class='eyebrow rust'>Dinner tonight</div>"
-                  f"<h2 class='dish'>{escape(main['title'])}</h2>"
-                  f"<div class='muted'>{escape(sides.strip())}{' · ' if sides and meta else ''}{escape(meta)}</div>"
+                  f"<h2 class='dish'>{title_html(main['title'])}</h2>"
+                  f"<div class='muted'>{sides}{' · ' if sides and meta else ''}{escape(meta)}</div>"
                   f"<details class='hh-ings'><summary class='btn primary'>Ingredients ({n_ing})</summary>"
                   f"{ingredient_groups(dishes, today)}</details>"
                   f"<a class='btn ghost' href='{BASE}/kitchen/steps?from=home'>Steps</a></div></article>")
@@ -598,11 +638,18 @@ def household_fragment(d: dict) -> str:
         counts = chore_counts(cols, today)
         due = sorted(((dt, t, c["cat"]) for c in cols for dt, t in c["soon"] if dt and dt <= today),
                      key=lambda x: (x[0], (x[1].get("title") or "").lower()))
-        rows = "".join(_chore_row(t, dt, today, cat) for dt, t, cat in due) or "<div class='muted'>Nothing due today.</div>"
+        shown = due[:HH_CHORE_CAP]
+        rows = "".join(_chore_row(t, dt, today, cat) for dt, t, cat in shown) or "<div class='muted'>Nothing due today.</div>"
+        more = (f"<div class='muted small hh-more'>{len(due) - len(shown)} more late or due today</div>"
+                if len(due) > len(shown) else "")
+        if all_chores:
+            board = (f"<div class='hh-all' id='all-chores'>{chores_columns_html(cols, today)}</div>"
+                     f"<a class='hh-link' href='{BASE}/home'>Hide all chores</a>")
+        else:
+            board = (f"<a class='hh-link' href='{BASE}/home?chores=all#all-chores'>"
+                     f"All chores ({counts['total']})</a>")
         chores = (f"<section class='card hh-chores'><div class='chores-h'><h2>Chores</h2>{chores_head(counts)}</div>"
-                  f"<div class='hh-due'>{rows}</div>"
-                  f"<details class='hh-all'><summary>All chores ({counts['total']})</summary>"
-                  f"{chores_columns_html(cols, today)}</details></section>")
+                  f"<div class='hh-due'>{rows}</div>{more}{board}</section>")
     # calendar: this week
     cal = d.get("cal")
     if cal is None:
@@ -625,7 +672,7 @@ def household_fragment(d: dict) -> str:
             f"<section class='hh-apps'><h2>Apps</h2><div class='apps'>{apps}</div></section></div>")
 
 
-def household_page(d: dict, asset_ver: str) -> str:
+def household_page(d: dict, asset_ver: str, all_chores: bool = False) -> str:
     now = d["now"]
     wx = d.get("wx")
     wxs = (f"{wx_icon(wx['code'], wx['night'], 28, wx['desc'])}<span><b>{wx['temp']}°</b> {escape(wx['desc'])}"
@@ -634,5 +681,6 @@ def household_page(d: dict, asset_ver: str) -> str:
             + "<body data-page='home' class='household'>"
             "<header class='hh-top'><div class='brand'>Mack House</div>"
             f"<div class='hh-when'><span>{now:%a, %b %-d}</span><span class='hh-wx'>{wxs}</span></div></header>"
-            f"<main class='hh-main' id='board' data-fragment='{BASE}/home?fragment=1'>{household_fragment(d)}</main>"
+            f"<main class='hh-main' id='board' data-fragment='{BASE}/home?fragment=1{'&amp;chores=all' if all_chores else ''}'>"
+            f"{household_fragment(d, all_chores)}</main>"
             "</body></html>")

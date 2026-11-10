@@ -204,7 +204,8 @@ body.household{min-height:100vh}
 .hh-chores,.hh-cal{padding:14px 16px;display:flex;flex-direction:column;gap:4px}
 .hh-chores .chores-h{margin-bottom:4px}
 .hh-chores .chores-h h2{font-size:18px}
-.hh-all summary{min-height:44px;display:flex;align-items:center;color:var(--tan);cursor:pointer;font-weight:500}
+.hh-link{min-height:44px;display:flex;align-items:center;color:var(--tan);font-weight:500;text-decoration:none}
+.hh-more{padding:4px 0 0}
 .hh-all .cols{grid-template-columns:minmax(0,1fr);gap:10px;margin-top:6px}
 .hh-all .col-list{overflow:visible}
 .hh-cal .calrow{display:flex;gap:10px;font-size:15px;min-height:28px;align-items:baseline}
