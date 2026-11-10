@@ -6,13 +6,15 @@ tier: internal
 status: live
 storage: yes
 secrets: []
-updated: 2026-11-08
+updated: 2026-11-09
 tags: [homelab/service, tier/internal, status/live, books]
 ---
 
 # Calibre (calibre.kmkdp.com)
 
-Internal Calibre Content Server on **kdk-dkr-01**: serves an ebook library over
+Internal Calibre Content Server on **kdk-dkr-01**, for the **reMarkable only**
+(phones and browsers read from the [Audiobookshelf](audiobookshelf.md) `ebooks`
+library): serves an ebook library over
 **OPDS** so the reMarkable's KOReader pulls books when it comes online (pull
 model, replacing the old push-only `book-sync` path). Deliberately **no
 Authelia** — OPDS clients can't do SSO, so the LAN/Tailscale is the gate (same

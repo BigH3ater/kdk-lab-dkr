@@ -76,6 +76,7 @@ terminal you will paste from: see [The Prowlarr key in download URLs](#the-prowl
 4. **Verify**: the file is now under
    `/mnt/media/books/ebook/<Author>/<Title>/`, and within 15 minutes Calibre has
    it (`ssh kdkadmin@10.1.20.20 'sudo docker logs calibre-import 2>&1 | grep "<title words>"'`).
+   Audiobookshelf's `ebooks` library picks it up within the hour.
 
 ## B. Add the record first
 
