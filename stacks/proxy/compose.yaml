@@ -36,6 +36,12 @@ services:
       - "--accesslog.format=json"
       - "--accesslog.fields.headers.defaultmode=drop"
       - "--accesslog.fields.headers.names.User-Agent=keep"
+      # Drop the query string from RequestPath (path itself is kept). Seerr and
+      # Libreseerr call the *arr/LazyLibrarian APIs with `?apikey=<key>`, which
+      # put API keys in docker logs and Loki (finding 2026-11-11). Traefik v3.7
+      # can only keep/drop ALL query parameters (no per-name redaction), and
+      # no Loki rule or dashboard reads query values, so drop them all.
+      - "--accesslog.fields.queryparameters.defaultmode=drop"
     environment:
       CF_DNS_API_TOKEN: "${CLOUDFLARE_DNS_API_TOKEN}"
     ports:

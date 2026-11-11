@@ -3,7 +3,7 @@
 # (allowlisted invitee paths, no auth; entrypoints websecure,tunnel) and
 # wizarr-admin (everything else behind Authelia; websecure only). Traefik logs
 # RouterName as "<entrypoint>-<router>@docker", so the rules match the router
-# suffix. RequestPath includes the query string; label regexes are anchored.
+# suffix. RequestPath has no query string (Traefik drops it); label regexes are anchored.
 #
 # Runbook: docs/runbooks/security-alerts.md#wizarr
 groups:

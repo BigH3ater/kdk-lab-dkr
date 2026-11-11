@@ -1,8 +1,9 @@
 # Jellyfin on kdk-dkr-dmz-01 (source: vault 10.Homelab/Security/
 # jellyfin-posture-2026-10.md section 7.2). Write-path rules read the DMZ
 # Traefik access log for jellyfin.kmkdp.com; login and ffmpeg rules read the
-# Jellyfin text log. RequestPath includes the query string and label regexes
-# are fully anchored, so exact-path patterns end in `(\\?.*)?`. Requests from
+# Jellyfin text log. RequestPath no longer carries the query string (Traefik
+# drops it); label regexes are fully anchored and the `(\\?.*)?` suffixes are kept
+# as harmless leftovers. Requests from
 # the tunnel carry entryPointName="tunnel" (fallback:
 # ClientAddr=~"10\\.211\\.2\\.2:.*").
 #

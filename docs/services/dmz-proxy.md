@@ -70,6 +70,8 @@ sudo docker run --rm --network proxy-dmz curlimages/curl:8.17.0 -sk -o /dev/null
 
 No dashboard. Public hostnames probed by [[kdk-mon-01]]; alerts → Pushover.
 
+Access log: JSON to stdout → Alloy → Loki (`{host="kdk-dkr-dmz-01", container="traefik"} | json`). **Policy:** query strings are dropped (`--accesslog.fields.queryparameters.defaultmode=drop`), so `RequestPath` is the path only: Jellyfin `api_key=` and ABS `token=` never reach the log. Do not re-enable query parameters.
+
 ## Architecture
 
 Docker provider on the `proxy-dmz` network; `web:80` redirects to `websecure:443`. cloudflared runs as uid `65532` (read-only rootfs, no caps, metrics on `127.0.0.1:20241`) and dials out to Cloudflare, forwarding to this Traefik's `tunnel` entrypoint.
