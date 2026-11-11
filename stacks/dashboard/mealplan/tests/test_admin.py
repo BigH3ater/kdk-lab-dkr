@@ -630,16 +630,77 @@ def test_syslog_search_rate_limited(adm, monkeypatch):
     monkeypatch.setattr(admin, "loki_range", lambda *a, **k: calls.append(1) or [])
     monkeypatch.setattr(app, "SYSLOG_LIMIT", devices.RateLimiter(2, 600))
     for _ in range(2):
-        assert "No matching lines." in aget(adm, query_string={"q": "x"}).get_data(as_text=True)
+        assert "No matching lines in the last 1 hour." in aget(adm, query_string={"q": "x"}).get_data(as_text=True)
     assert "Too many searches" in aget(adm, query_string={"q": "x"}).get_data(as_text=True)
     assert len(calls) == 2
 
 
-def test_syslog_search_empty_and_overlong_make_no_call(adm, monkeypatch):
+def test_syslog_search_overlong_makes_no_call(adm, monkeypatch):
     monkeypatch.setattr(admin, "loki_range", lambda *a, **k: (_ for _ in ()).throw(AssertionError("called")))
-    assert "Type something" in aget(adm, query_string={"q": "  "}).get_data(as_text=True)
     assert "limited to 200" in aget(adm, query_string={"q": "x" * 300}).get_data(as_text=True)
     assert "control characters" in aget(adm, query_string={"q": "a\nb"}).get_data(as_text=True)
+
+
+def test_syslog_empty_search_lists_newest_lines(adm, monkeypatch):
+    seen = {}
+
+    def fake(loki, q, seconds, limit, timeout=10, now=None):
+        seen.update(q=q, limit=limit)
+        return [(ns(NOW), {"host": "kdk-dkr-01"}, "newest line")]
+    monkeypatch.setattr(admin, "loki_range", fake)
+    body = aget(adm, query_string={"q": "  "}).get_data(as_text=True)
+    assert seen == {"q": '{job="syslog"}', "limit": 200}                  # no line filter, same cap
+    assert "newest line" in body and "No search text: the newest lines." in body
+    assert "Type something" not in body
+
+
+def test_syslog_query_that_is_a_host_name_filters_by_host(adm, monkeypatch):
+    seen = {}
+    monkeypatch.setattr(admin, "loki_range", lambda loki, q, *a, **k: seen.update(q=q) or [])
+    body = aget(adm, query_string={"q": "kdk-dkr-02"}).get_data(as_text=True)
+    assert seen["q"] == '{job="syslog", host="kdk-dkr-02"}'
+    assert "is a host: showing that host" in body and "<option value='kdk-dkr-02' selected>" in body
+    # a partial name is still a text search; an explicit host keeps the text as a line filter
+    aget(adm, query_string={"q": "kdk-dkr"})
+    assert seen["q"] == '{job="syslog"} |~ "(?i)kdk-dkr"'
+    aget(adm, query_string={"q": "kdk-dkr-02", "host": "kdk-log-01"})
+    assert seen["q"] == '{job="syslog", host="kdk-log-01"} |~ "(?i)kdk-dkr-02"'
+
+
+def test_syslog_zero_results_offer_24h(adm, monkeypatch):
+    monkeypatch.setattr(admin, "loki_range", lambda *a, **k: [])
+    body = aget(adm, query_string={"q": "disk <full>", "range": "6h"}).get_data(as_text=True)
+    assert "No matching lines in the last 6 hours." in body
+    assert "href='/?q=disk+%3Cfull%3E&amp;host=&amp;range=24h'" in body
+    body = aget(adm, query_string={"q": "x", "range": "24h"}).get_data(as_text=True)
+    assert "No matching lines in the last 24 hours." in body and "Search the last 24 hours" not in body
+
+
+def test_syslog_errors_are_told_apart(adm, monkeypatch):
+    import requests
+
+    def raiser(exc):
+        def f(*a, **k):
+            raise exc
+        return f
+    monkeypatch.setattr(admin, "loki_range", raiser(requests.ReadTimeout()))
+    assert "Loki did not answer in time." in aget(adm, query_string={"q": "x"}).get_data(as_text=True)
+    monkeypatch.setattr(admin, "loki_range", raiser(admin.UpstreamError(
+        400, "parse error at line 1, col 5: <syntax error> " + "x" * 600)))
+    body = aget(adm, query_string={"q": "x"}).get_data(as_text=True)
+    assert "Loki returned an error (400): parse error at line 1, col 5: &lt;syntax error&gt;" in body
+    assert "<syntax error>" not in body and "x" * 201 not in body                   # escaped, truncated
+    monkeypatch.setattr(admin, "loki_range", raiser(ValueError("boom")))
+    assert "Loki search failed (ValueError)" in aget(adm, query_string={"q": "x"}).get_data(as_text=True)
+
+
+def test_get_json_carries_the_error_body(monkeypatch):
+    class R:
+        status_code, text = 400, "  too many outstanding requests  "
+    monkeypatch.setattr(admin.requests, "get", lambda *a, **k: R())
+    with pytest.raises(admin.UpstreamError) as e:
+        admin._get_json("http://loki")
+    assert e.value.status == 400 and e.value.body == "too many outstanding requests"
 
 
 def test_search_input_value_is_escaped(adm, monkeypatch):

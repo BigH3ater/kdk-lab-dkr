@@ -36,9 +36,19 @@ DAY = 86400
 
 
 # ---- small helpers ---------------------------------------------------------------
+class UpstreamError(RuntimeError):
+    """An HTTP error status from a source, with the start of its response body
+    (Loki puts the reason, e.g. a parse error or a limit, in the body)."""
+
+    def __init__(self, status: int, body: str):
+        self.status, self.body = status, (body or "").strip()[:500]
+        super().__init__(f"HTTP {status}")
+
+
 def _get_json(url: str, timeout: float = 6, **kw):
     r = requests.get(url, timeout=timeout, headers={"User-Agent": UA, **kw.pop("headers", {})}, **kw)
-    r.raise_for_status()
+    if r.status_code >= 400:
+        raise UpstreamError(r.status_code, r.text)
     return r.json()
 
 
@@ -734,7 +744,12 @@ def _syslog_html(form: dict, hosts: list[str], result: dict | None, tz, explore:
     elif result.get("error"):
         body = f"<div class='ad-empty bad'>{escape(result['error'])}</div>"
     elif not result["rows"]:
-        body = "<div class='ad-empty'>No matching lines.</div>"
+        span = RANGE_LABEL.get(rng, "").replace("Last ", "last ")
+        wider = ""
+        if rng != "24h":
+            qs = urllib.parse.urlencode({"q": q, "host": host, "range": "24h"})
+            wider = f" <a href='/?{escape(qs)}'>Search the last 24 hours</a>"
+        body = f"<div class='ad-empty'>No matching lines in the {escape(span)}.{wider}</div>"
     else:
         lines = []
         for r in result["rows"]:
@@ -745,6 +760,8 @@ def _syslog_html(form: dict, hosts: list[str], result: dict | None, tz, explore:
         cap = (f"<div class='ad-note'>First {len(result['rows'])} lines (newest first, capped at 200).</div>"
                if len(result["rows"]) >= 200 else "")
         body = "<div class='ad-logs'>" + "".join(lines) + "</div>" + cap
+    if result and result.get("note") and not result.get("error"):
+        body = f"<div class='ad-note'>{escape(result['note'])}</div>" + body
     return ("<section class='card ad-card ad-syslog'><form class='ad-search' method='get' action='/'>"
             f"<h2>Syslog search</h2><span class='muted'>Loki · {len(hosts)} hosts</span>"
             "<label class='sr' for='q'>Search syslog</label>"

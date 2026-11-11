@@ -2682,7 +2682,9 @@ ADMIN_FEEDS = {
     "komodo": Feed("admin-komodo", 300, lambda: admin.fetch_komodo(KOMODO_URL, KOMODO_API_KEY, KOMODO_API_SECRET)),
     # anonymous GitHub API = 60 requests/h per IP: 15 min cache, 5 min retry
     "github": Feed("admin-github", 900, lambda: admin.fetch_github(admin.GITHUB_REPO), retry=300),
-    "advisories": Feed("admin-advisories", 900, lambda: admin.fetch_advisories(LOKI_URL)),
+    # hourly: the 8-day limit-1 query leaves cancelled Loki sub-queries behind
+    # (most of its warnings and a ~4 s stall on the next query); 15 min was too often
+    "advisories": Feed("admin-advisories", 3600, lambda: admin.fetch_advisories(LOKI_URL)),
     "ups": Feed("admin-ups", 60, lambda: admin.fetch_ups(HA_URL, HA_TOKEN, UPS_PREFIX)),
     "charts": Feed("admin-charts", 300, lambda: admin.fetch_charts(PROM_URL, HA_URL, HA_TOKEN, CHART_DEFS)),
     "signins": Feed("admin-signins", 300, lambda: admin.fetch_signins(LOKI_URL)),
@@ -2733,21 +2735,35 @@ def _syslog_search(user: str) -> tuple[dict, dict | None]:
     form["q"] = q
     if host and (not admin.HOST_RE.match(host) or host not in _syslog_hosts()):
         return form, {"error": "Unknown host.", "rows": []}
-    if not q:
-        return form, {"error": "Type something to search for.", "rows": []}
+    note = ""
+    if not host and q and q in _syslog_hosts():
+        # the whole query is a host name: filter by host, not by line text
+        host, q = q, ""
+        form.update(host=host, q="")
+        note = f"“{host}” is a host: showing that host's newest lines, not lines containing it."
+    elif not q:
+        note = "No search text: the newest lines."
     if not SYSLOG_LIMIT.hit(user, time.time()):
         log.warning("admin: syslog search rate-limited user=%s", user)
         return form, {"error": "Too many searches: wait a few minutes.", "rows": []}
     t0 = time.monotonic()
     try:
         rows = admin.search_syslog(LOKI_URL, q, host, rng)
+    except (requests.Timeout, TimeoutError) as e:
+        log.warning("admin: syslog search timed out: %s", type(e).__name__)
+        return form, {"error": "Loki did not answer in time. Try a shorter range or open Grafana Explore.", "rows": []}
+    except admin.UpstreamError as e:
+        log.warning("admin: syslog search failed: Loki HTTP %s", e.status)
+        msg = " ".join(e.body.split())[:200] or "no details"
+        return form, {"error": f"Loki returned an error ({e.status}): {msg}", "rows": []}
     except Exception as e:
         log.warning("admin: syslog search failed: %s", type(e).__name__)
-        return form, {"error": "Loki did not answer in time. Try a shorter range or open Grafana Explore.", "rows": []}
+        return form, {"error": f"Loki search failed ({type(e).__name__}). Try again or open Grafana Explore.",
+                      "rows": []}
     # the query text is the admin's own and may be anything: its length only in the log
     log.info("admin: syslog search user=%s host=%s range=%s len=%d lines=%d ms=%.0f",
              user, host or "all", rng, len(q), len(rows), (time.monotonic() - t0) * 1000)
-    return form, {"rows": rows}
+    return form, {"rows": rows, "note": note}
 
 
 def admin_page(user: str) -> Response:
