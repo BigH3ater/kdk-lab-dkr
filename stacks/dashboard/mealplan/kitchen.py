@@ -414,10 +414,24 @@ def _clock(iso: str | None) -> str:
         return ""
 
 
-def forecast_view(full: dict | None, now: datetime.datetime, wmo: dict) -> dict | None:
+FORECAST_MAX_AGE = datetime.timedelta(hours=1)   # older than this -> labelled "last updated"
+
+
+def _as_of(updated: datetime.datetime | None, now: datetime.datetime) -> str:
+    """'5:20 PM' (same day) or 'Sun 5:20 PM'; '' when never updated."""
+    if updated is None:
+        return ""
+    return updated.strftime("%-I:%M %p" if updated.date() == now.date() else "%a %-I:%M %p")
+
+
+def forecast_view(full: dict | None, now: datetime.datetime, wmo: dict,
+                  updated: datetime.datetime | None = None) -> dict | None:
     """The weekly forecast from the cached Open-Meteo grid: today and tomorrow
     hour by hour (midnight to midnight, past hours flagged), and a daily
-    summary for every day. None when the cache is empty or malformed."""
+    summary for every day from today on (an old cache can hold past days).
+    `updated` is the feed's last successful fetch: when it is older than
+    FORECAST_MAX_AGE, or the hourly grid is empty, `stale` is set and the page
+    says when the data is from. None when the cache is empty or malformed."""
     if not full:
         return None
     try:
@@ -427,8 +441,12 @@ def forecast_view(full: dict | None, now: datetime.datetime, wmo: dict) -> dict 
         days = []
         for i, ds in enumerate(d["time"]):
             dt = datetime.date.fromisoformat(ds)
-            code = int(d["weather_code"][i])
-            days.append({"date": dt, "today": dt == today, "code": code, "desc": wmo.get(code, ""),
+            if dt < today:
+                continue
+            raw = _num(d["weather_code"], i)       # one null code must not blank the page
+            code = raw if raw is not None else 3
+            days.append({"date": dt, "today": dt == today, "code": code,
+                         "desc": wmo.get(code, "") if raw is not None else "",
                          "hi": _num(d["temperature_2m_max"], i), "lo": _num(d["temperature_2m_min"], i),
                          "pop": _num(d.get("precipitation_probability_max"), i),
                          "rain": _num(d.get("precipitation_sum"), i, 2),
@@ -446,7 +464,9 @@ def forecast_view(full: dict | None, now: datetime.datetime, wmo: dict) -> dict 
                 "temp": _num(hr["temperature_2m"], i), "pop": _num(hr["precipitation_probability"], i) or 0,
                 "night": t.hour < 7 or t.hour >= 18, "past": t < top, "now": t == top})
         hourly = [{"date": dt, "hours": by_day[dt]} for dt in sorted(by_day)]
-        return {"days": days, "hourly": hourly}
+        old = updated is not None and now - updated > FORECAST_MAX_AGE
+        return {"days": days, "hourly": hourly, "stale": old or not hourly,
+                "as_of": _as_of(updated, now)}
     except (KeyError, IndexError, TypeError, ValueError):
         return None
 
@@ -764,6 +784,10 @@ def forecast_page(fc: dict | None, now: datetime.datetime, asset_ver: str, back:
             f"<span class='muted'>{escape(x['desc'])}</span></div>"
             f"<div class='ffacts'>{_day_facts(x)}</div></article>" for x in rest)
         body = "".join(secs) + (f"<section class='fweek'>{cards}</section>" if cards else "")
+        if fc.get("stale"):
+            note = (f"Forecast last updated {escape(fc['as_of'])}" if fc.get("as_of")
+                    else "Forecast unavailable")
+            body = f"<div class='card fstale' role='status'>{note}</div>" + body
     return (head("Forecast", asset_ver, kiosk=True)
             + f"<body data-page='weather' data-home='{escape(back)}' class='kiosk sub'><div class='shell'>"
             f"<header class='subhdr'>{_back(back)}<div class='subtitle'>"

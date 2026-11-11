@@ -50,4 +50,5 @@ def _fresh_caches():
     import app
     app._gcache.update(ts=0.0, day=None, entries=None, plan=None, lines=[])
     app._RECIPE_CACHE.clear()
+    app._RATING_CACHE.clear()
     yield

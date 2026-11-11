@@ -803,3 +803,18 @@ def test_feed_retry_override():
     f.tried = time.time() - 301
     assert f.due()
     assert app.Feed("u", 900, lambda: 1).retry == 60
+
+
+# ---- service-group packing (review 2026-11-11) ------------------------------------
+def test_every_tile_group_has_a_span_class():
+    """home.css defines .ad-n1..12; a bigger group falls back to the .ad-group
+    default span (blank space, never overlap). Keep groups within 12."""
+    import re
+    css = open(os.path.join(os.path.dirname(app.__file__), "static", "home.css")).read()
+    have = {int(n) for n in re.findall(r"\.ad-n(\d+)\{--rd:", css)}
+    for name, items in admin.TILES:
+        assert 1 <= len(items) <= 12 and len(items) in have, name
+    group = css.split("\n.ad-group{", 1)[1].split("}", 1)[0]
+    rd = int(re.search(r"--rd:(\d+)", group).group(1))
+    rt = int(re.search(r"--rt:(\d+)", group).group(1))
+    assert rd >= (60 + 13 * 34) // 2 and rt >= (60 + 13 * 44) // 2     # covers a 13th item

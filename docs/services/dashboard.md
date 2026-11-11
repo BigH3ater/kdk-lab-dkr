@@ -69,7 +69,10 @@ service URLs resolve to the DMZ (`192.168.191.20`) and are reachable (internal�
 open).
 
 The meal-plan sidecar logs into Tandoor with a dedicated account (session auth — REST tokens
-are disabled) and reads `/api/meal-plan/`; ratings post back as CookLog entries. Per-user
+are disabled) and reads `/api/meal-plan/` (`page_size=100`, one page); ratings post back as
+CookLog entries. The week grid's stars come from the latest CookLog per recipe, cached 10 min
+per recipe (env `RATING_TTL_S`) and fetched in parallel; a render waits at most one upstream
+timeout (20 s) in total, and a post to `/rate` drops that recipe's entry. Per-user
 ratings remain available by opening the recipe page (each meal deep-links there).
 
 The **Tasks** board (`/meal/tasks`; until 2026-11-10 a Homepage iframe, now a standalone page with the sidebar) reads every Vikunja project with the
@@ -115,7 +118,7 @@ refresh. `home.kmkdp.com/` redirects to `/meal/home` (Homepage retired 2026-11-1
 | `/meal/kitchen/steps` | One large step at a time with step tabs and Previous/Next; "This step uses" from the ingredients Tandoor attaches to each step; the step photo; a timer button for every minute/hour value the step text names (chime on the page). `?r=<recipe id>` picks the side dish |
 | `/meal/kitchen/pantry` | Pantry check (the **Pantry check** button on the board, and on the household page's dinner card). At the top, a large **Add to list** box for a manual grocery item, with "Added tonight" and the Manual list's current items below it. **Used this week**: the pantry and stock foods this plan week's recipes call for, grouped by store and aisle, each with the recipes it is for. **All pantry staples** (collapsed): the rest of the planner `pantry:` list and the stock-store foods. Each row has a large **Running low** button (or "On the list" when an open entry already exists) and a **Checked** tick that only marks it reviewed tonight (browser `localStorage`, keyed by date); **Mark all checked** ticks a whole section. Built from the groceries snapshot, so a view makes no extra upstream call |
 | `/meal/kitchen/chores` | All chores, grouped by project with counts, same rows and tick-off as the board; Back and the 5-minute idle return. Kitchen host: `/chores` |
-| `/meal/kitchen/weather` | Weekly forecast from the weather cache: today and tomorrow hour by hour (midnight to midnight, past hours dimmed, today highlighted), then daily cards for the other five days (icon, high/low, rain chance and amount, wind, sunrise/sunset); Back and the idle return. Opened from the board's weather card and the household header weather. Kitchen host: `/weather` |
+| `/meal/kitchen/weather` | Weekly forecast from the weather cache: today and tomorrow hour by hour (midnight to midnight, past hours dimmed, today highlighted), then daily cards for the other five days (icon, high/low, rain chance and amount, wind, sunrise/sunset); Back and the idle return. Days before today are dropped; when the cache's last successful fetch is over 1 h old or has no hourly data, a "Forecast last updated <time>" note (or "Forecast unavailable") heads the page, and a null daily weather code shows a plain cloud instead of blanking the page. Opened from the board's weather card and the household header weather. Kitchen host: `/weather` |
 | `/meal/kitchen/step-photo/<file id>` | Step photo proxy (see below) |
 | `/meal/home` | Household page, phone-first (390 px, 16 px gutter) and two columns at laptop width: weather, dinner card with its ingredient checklist and a Steps link, lunch prep, tomorrow, chores (at most 8: late first, then due today; **All chores (N)** opens every chore grouped by project at `?chores=all`, in the board's row style), header weather links to the forecast, this week's calendar, a compact **Add to list** box at the top (outside the 2-minute refresh, so typing survives it), a **Pantry check** link, and the household app grid (Recipes, Groceries, Tasks, Watch, Listen & read, Photos, Request TV, Request books, Workouts, Budget, Home control, Search, Guides; links from `guides/shared-nav.js`). Recipe titles on all kitchen and household views show without import clutter (" Recipe", "(VIDEO)", "(Quick & Easy)" and similar), with the original in the title attribute; Tandoor is not changed |
 | `/meal/kitchen?fragment=1`, `/meal/home?fragment=1` | The swappable page body for the 2-minute refresh |
@@ -183,7 +186,9 @@ it only sends those items back to their store lists. If `/state` is not writable
 shows the toggle disabled with a short note, and normal routing keeps working.
 
 **Outside the dashboard.** The page's tabs, counts, the pantry view's Manual list and the
-Target search links all use `_split_groceries`; `/mealplan.json` is the meal plan only.
+Target search links all use `_split_groceries`; `/mealplan.json` is the meal plan only
+(since #472 it returns the fixed Sun→Sat plan week, not a rolling 7 days; no
+consumer depended on the old window).
 Two readers go to Tandoor directly and do **not** know the registry: the grocery-planner's
 weekly run (`build_store_lists`, Tue 18:03) counts an open forced item under its store in
 the approval task's "New Pi N items, Target N items", and `scripts/newpi-order.py` (a
@@ -451,6 +456,9 @@ sidecar builds `{job="syslog"[, host="<host>"]} |~ "(?i)<text>"`:
   more than 200 characters are refused. The text can never reach a label matcher
   or a pipeline stage (tests cover `"} or {job=~".+` and friends);
 - the host must be one of the Loki `host` values (and `^[a-z0-9][a-z0-9.-]*$`);
+- with **All hosts**, a text exactly equal to a host name becomes a host filter
+  (that host's newest lines, with a note); to search the literal text, pick a
+  host in the select first;
 - the range is one of the three values;
 - Loki `query_range`, newest first, **200 lines max**, 10 s timeout; 30 searches
   per 10 minutes per user. The log line records user, host, range, the text
