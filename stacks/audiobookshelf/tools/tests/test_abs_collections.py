@@ -64,12 +64,12 @@ def raw(id_, title, author, isbn=None, **extra):
 
 EBOOK_ITEMS = [
     raw("e-stick", "Make It Stick", "Peter C. Brown"),
-    raw("e-apsd", "A Philosophy of Software Design", "John. Ousterhout"),
+    raw("e-apsd", "A Philosophy of Software Design, 2nd Edition", "John. Ousterhout"),
     raw("e-pytest", "Python Testing with pytest, Second Edition: Simple, Rapid, Effective, and Scalable",
         "Okken, Brian, Dvorak, Katharine", "9781680509441"),
     raw("e-ddia1", "Designing Data-Intensive Applications", "Martin Kleppmann"),
     raw("e-ddia2", "Designing Data-Intensive Applications 2nd Edition", "Martin Kleppmann", "9781098119065"),
-    raw("e-net", "Computer Networking: A Top-Down Approach", "Keith W. Ross"),
+    raw("e-net", "Computer Networking: A Top-Down Approach, 8th Edition", "Keith W. Ross"),
     raw("e-sre", "Site Reliability Engineering: How Google Runs Production Systems", "Betsy Beyer"),
     raw("e-srw", "The Site Reliability Workbook: Practical Ways to Implement Sre", "Betsy Beyer"),
     raw("e-staff", "The Staff Engineer's Path", "Tanya Reilly", "9781098118679"),
@@ -139,6 +139,41 @@ def test_parse_audio(lists):
 
 def test_reference_shelf_ignored(lists):
     assert all(e.title != "Peak" for e in lists["table"])
+
+
+@pytest.mark.parametrize("heading", ["## Round 1: one book per section", "## Then, in this order",
+                                     "## Audio queue (commute, alongside the list)"])
+def test_empty_section_is_an_error(heading):
+    """Review 2026-11-11 #3: an empty table would plan removing every book."""
+    start = READING_LIST.index(heading) + len(heading)
+    end = READING_LIST.index("\n## ", start)
+    with pytest.raises(ValueError, match="no rows"):
+        ac.parse_reading_list(READING_LIST[:start] + "\n\n(table moved)\n" + READING_LIST[end:])
+
+
+def test_subsection_and_second_table_are_not_read():
+    extra = ("\n### Later, maybe\n\n| # | Book | Edition | Section | Status |\n|---|---|---|---|---|\n"
+             "| 99 | Peak (Ericsson) | 2016 | x | ABS epub |\n")
+    note = READING_LIST.replace("\n\n## Then, in this order", extra + "\n## Then, in this order")
+    assert [e.num for e in ac.parse_reading_list(note)["round1"]] == list(range(1, 11))
+    second = ("\nNotes between tables.\n\n| # | Book | Edition | Section | Status |\n|---|---|---|---|---|\n"
+              "| 98 | Peak (Ericsson) | 2016 | x | ABS epub |\n")
+    note = READING_LIST.replace("\n\n## Then, in this order", second + "\n## Then, in this order")
+    assert [e.num for e in ac.parse_reading_list(note)["round1"]] == list(range(1, 11))
+
+
+def test_main_refuses_an_empty_round1(tmp_path, monkeypatch):
+    start = READING_LIST.index("| # |")
+    end = READING_LIST.index("\n## Then")
+    note = tmp_path / "Reading List.md"
+    note.write_text(READING_LIST[:start] + READING_LIST[end:], encoding="utf-8")
+    fake = FakeAbs({EB: list(EBOOK_ITEMS), AU: list(AUDIO_ITEMS)})
+    run(fake, ac.parse_reading_list(READING_LIST))
+    fake.writes.clear()
+    monkeypatch.setattr(ac, "AbsClient", lambda base, token: fake)
+    monkeypatch.setenv("ABS_TOKEN", "secret-token-value")
+    assert ac.main(["--list", str(note), "--apply", "--accept-doubts"]) == 3
+    assert fake.writes == [] and books(fake, "Round 1") == ROUND1_IDS
 
 
 def test_missing_heading_is_an_error():
@@ -225,6 +260,42 @@ def test_explicit_other_edition_is_not_a_match():
     assert m.item is None and m.how == "edition-mismatch"
 
 
+def test_item_with_no_edition_is_not_a_named_edition():
+    """Review 2026-11-11 #2: the row names the 2nd edition and ABS has a stray copy with no
+    edition in its title (really the 1st): not matched, reported as needing the owner."""
+    stray = items([raw("x1", "Fundamentals of Software Architecture", "Mark Richards")])
+    e = ac.Entry(13, "Fundamentals of Software Architecture", ["richards", "ford"],
+                 edition="2nd ed., 2025", status="ABS epub")
+    m = ac.match(e, stray)
+    assert m.item is None and m.how == "edition-unknown" and "needs owner" in m.doubts[0]
+    # the named edition next to the stray: the named edition wins
+    both = items([raw("x1", "Fundamentals of Software Architecture", "Mark Richards"),
+                  raw("x2", "Fundamentals of Software Architecture, 2nd Edition", "Mark Richards")])
+    assert ac.match(e, both).item.id == "x2"
+    # an exact ISBN in the row still wins
+    isbn = items([raw("x1", "Fundamentals of Software Architecture", "Mark Richards", "9781098175511")])
+    e.isbns = ["9781098175511"]
+    assert ac.match(e, isbn).item.id == "x1"
+
+
+def test_stray_no_edition_item_never_joins_a_collection():
+    note = READING_LIST.replace("| Architecture | missing | Part I |", "| Architecture | ABS epub | Part I |")
+    fake = FakeAbs({EB: list(EBOOK_ITEMS), AU: list(AUDIO_ITEMS)})   # e-fsa: no edition text
+    run(fake, ac.parse_reading_list(note))
+    assert "e-fsa" not in books(fake, "Reading order")
+
+
+def test_doubtful_match_blocks_apply():
+    fake = FakeAbs({EB: list(EBOOK_ITEMS), AU: list(AUDIO_ITEMS)})
+    plans = ac.build_plans(ac.parse_reading_list(READING_LIST),
+                           {lib: fake.library_items(lib) for lib in (EB, AU)}, fake.collections())
+    assert [m.entry.num for m in ac.doubtful(plans)] == [12]      # 100 Go: prefix match
+    with pytest.raises(ValueError, match="doubtful"):
+        ac.apply(fake, plans)
+    assert fake.writes == []
+    assert ac.apply(fake, plans, accept_doubts=True) == 3
+
+
 def test_isbn_wins_over_title():
     eb = items([raw("x1", "Some Other Title", "A. Writer", "9780544456259"),
                 raw("x2", "Peak", "K. Anders Ericsson")])
@@ -280,7 +351,7 @@ class FakeAbs:
 def run(fake, lists):
     libs = {lib: fake.library_items(lib) for lib in (EB, AU)}
     plans = ac.build_plans(lists, libs, fake.collections())
-    return plans, ac.apply(fake, plans)
+    return plans, ac.apply(fake, plans, accept_doubts=True)       # row 12 is a known prefix match
 
 
 def books(fake, name):
@@ -393,10 +464,12 @@ def test_main_dry_run_makes_no_writes(tmp_path, monkeypatch, capsys):
     out = capsys.readouterr().out
     assert fake.writes == [] and "Dry run" in out and "not in ABS yet" in out
     assert "secret-token-value" not in out
-    assert ac.main(["--list", str(note), "--apply"]) == 0
+    assert ac.main(["--list", str(note), "--apply"]) == 3          # row 12 is a DOUBT
+    assert fake.writes == []
+    assert ac.main(["--list", str(note), "--apply", "--accept-doubts"]) == 0
     assert len(fake.writes) == 3
     fake.writes.clear()
-    assert ac.main(["--list", str(note), "--apply"]) == 0
+    assert ac.main(["--list", str(note), "--apply", "--accept-doubts"]) == 0
     assert fake.writes == []
 
 

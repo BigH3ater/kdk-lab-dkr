@@ -79,11 +79,15 @@ ssh kdkadmin@192.168.191.20 'sudo docker ps --filter name=abs-opds --filter name
 curl -s https://kosync.kmkdp.com/healthcheck                  # OK (BookBridge, through the helper)
 curl -s -o /dev/null -w '%{http_code}\n' https://opds.kmkdp.com/opds   # 401 (needs Basic auth)
 ssh kdkadmin@192.168.191.20 'sudo docker exec kosync-helper python -I -c "import urllib.request;print(urllib.request.urlopen(\"http://127.0.0.1:8080/health\").read().decode())"'
-#   {"pdfs": 23, "epubs": <n>, "epub_autolink": true, "map_loaded": true, "status": "ok"}
+#   {"pdfs": 23, "epubs": <n>, "epub_autolink": true, "map_loaded": true, "bookbridge_login": "ok", "status": "ok"}
 ```
 
 The PDF count matches the library: 23 items whose primary ebook is a PDF (2026-11-10).
 `epub_autolink: false` means the helper has no BookBridge password (auto-link off).
+`bookbridge_login` is the last BookBridge web login: `never` (no EPUB link attempted since the
+start), `ok`, or `refused` (wrong password or rate limit: the password in
+`kosync-helper-bookbridge-login` and kdkadmin's BookBridge password differ). It is shown only
+with auto-link on and does not change `status`.
 
 ## KOReader setup (tablet)
 
@@ -188,7 +192,11 @@ BookBridge. How it works, after a `jmack` PUT that BookBridge accepted:
    ABS), the same request as doing it by hand, then checks that the new book carries the hash:
    `epub_mapping_created`.
 
-One attempt per hash at a time. A failure waits 60 s, doubling to 6 h. A refused login pauses
+One attempt per hash at a time, and one BookBridge login at a time: concurrent attempts share
+the session. A hash BookBridge links to another book is not treated as done
+(`epub_mapping_other_item`, looked at again after the next refresh). A failure waits 60 s,
+doubling to 6 h; a refusal, a conflict or the login pause waits for the next refresh without
+counting as a failure. A refused login pauses
 every hash for 15 minutes, so the helper never reaches BookBridge's 5-failures-a-minute login
 limit. If the search page carries no token the helper tries the old `GET /add-book` page once
 (the page it used up to 7.12.0; from v7.13.0 that route is a 302 to the search tab and carries
@@ -198,6 +206,9 @@ Why `kdkadmin`: BookBridge links books per account, and the KOSync login `jmack`
 `KOSYNC_USER`) belongs to the primary admin. A link made by any other account is invisible to the
 tablet. BookBridge 7.12.0 has no API token for links (`ADMIN_API_TOKEN` only manages reader
 accounts), and a reader account has no ABS key to hash the `_abs` ebook with.
+The helper therefore holds the BookBridge primary-admin login, so a helper compromise is a
+BookBridge admin compromise; the only limit is the helper's fixed allowlist of six BookBridge
+routes.
 
 ### One-time setup (before the merge)
 
@@ -270,8 +281,9 @@ looking for an audiobook partner. It has nothing to do with tablet sync: ignore 
   `passthrough`, `auth_refused`, `pdf_map_refreshed`, `epub_map_refreshed`,
   `pdf_map_refresh_failed` and the `_timeout` / `_failed` variants. EPUB auto-link:
   `epub_autolink_enabled` / `_disabled` (start), `epub_mapping_created`, `epub_mapping_exists`,
-  `epub_mapping_conflict`, `epub_mapping_refused`, `epub_mapping_failed`,
-  `epub_mapping_hash_mismatch`, `bookbridge_login_failed`.
+  `epub_mapping_conflict`, `epub_mapping_other_item`, `epub_mapping_refused`, `epub_mapping_failed`
+  (an unexpected error carries `reason=internal` and `error=<exception class name>`, never its
+  text), `epub_mapping_hash_mismatch`, `bookbridge_login_failed`.
 - Healthchecks: abs-opds (`/opds` answers 401), helper (`/health`), BookBridge (`:5758/healthcheck`).
 
 ## Architecture

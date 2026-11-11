@@ -18,6 +18,7 @@ package = false
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-faulthandler_timeout = 60   # a hung test dumps every thread and fails, not the 5-min CI timeout
+faulthandler_timeout = 60          # a test running over 60 s dumps every thread ...
+faulthandler_exit_on_timeout = true  # ... and exits pytest, so CI fails fast instead of at its 5-min timeout
 pythonpath = ["."]
 filterwarnings = ["ignore:Using `httpx` with `starlette.testclient` is deprecated"]

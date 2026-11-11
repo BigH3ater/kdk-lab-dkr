@@ -45,7 +45,13 @@ def test_epub_map_holds_primary_epubs_and_pdf_map_is_unchanged(link_client, eboo
 
 def test_health_reports_epubs_and_autolink(link_client):
     assert link_client.get("/health").json() == {"pdfs": 1, "epubs": 1, "epub_autolink": True,
-                                                  "map_loaded": True, "status": "ok"}
+                                                  "map_loaded": True, "bookbridge_login": "never",
+                                                  "status": "ok"}
+
+
+def test_health_shows_the_last_login(link_client, ebooks):
+    epub_put(link_client, epub_hash(ebooks))
+    assert link_client.get("/health").json()["bookbridge_login"] == "ok"
 
 
 # ---------------- creating the link ----------------
@@ -80,16 +86,42 @@ def test_uppercase_hash_is_the_same_document(link_client, web, ebooks):
 
 def test_already_mapped_hash_is_skipped(link_client, web, ebooks, caplog):
     caplog.set_level(logging.INFO, logger="kosync_helper")
-    web.books.append({"abs_id": "ebook-0123456789abcdef", "kosync_doc_id": epub_hash(ebooks)})
+    web.books.append({"abs_id": EPUB_ITEM, "kosync_doc_id": epub_hash(ebooks)})
     epub_put(link_client, epub_hash(ebooks))
     assert web.matches == []
     assert "epub_mapping_exists" in [e["event"] for e in events(caplog)]
 
 
-def test_hash_linked_as_a_kosync_document_is_skipped(link_client, web, ebooks):
-    web.documents.append({"document_hash": epub_hash(ebooks), "linked_abs_id": "some-book"})
+def test_hash_linked_as_a_kosync_document_is_skipped(link_client, web, ebooks, caplog):
+    caplog.set_level(logging.INFO, logger="kosync_helper")
+    web.documents.append({"document_hash": epub_hash(ebooks), "linked_abs_id": EPUB_ITEM})
     epub_put(link_client, epub_hash(ebooks))
     assert web.matches == []
+    assert "epub_mapping_exists" in [e["event"] for e in events(caplog)]
+
+
+@pytest.mark.parametrize("where", ["book", "document"])
+def test_hash_linked_to_another_item_is_reported_and_looked_at_again(link_client, web, ebooks, caplog, where):
+    """Review 2026-11-11 #7: a hash BookBridge links to ANOTHER book is not "mapped"
+    (no 24 h done state: progress would silently go to that other book)."""
+    caplog.set_level(logging.INFO, logger="kosync_helper")
+    doc = epub_hash(ebooks)
+    if where == "book":
+        web.books.append({"abs_id": "ebook-0123456789abcdef", "kosync_doc_id": doc})
+    else:
+        web.documents.append({"document_hash": doc, "linked_abs_id": "some-book"})
+    epub_put(link_client, doc)
+    assert web.matches == []
+    evs = [e["event"] for e in events(caplog)]
+    assert "epub_mapping_other_item" in evs and "epub_mapping_exists" not in evs
+    linker = link_client.app.state.helper.linker
+    assert doc not in linker._done and linker._state[doc].failures == 0
+    n = len(web.calls)
+    epub_put(link_client, doc)                        # waits for the next refresh
+    assert len(web.calls) == n
+    link_client.now[0] += 3601
+    epub_put(link_client, doc)                        # looked at again, not 24 h later
+    assert len(web.calls) > n
 
 
 def test_item_with_a_book_under_another_hash_is_left_alone(link_client, web, ebooks, caplog):
@@ -187,6 +219,39 @@ def test_refused_item_waits_for_the_next_refresh(link_client, fakes, web, ebooks
     assert len(web.matches) == 1
 
 
+def test_explicit_waits_do_not_lengthen_the_backoff(link_client, fakes, web, ebooks):
+    """Review 2026-11-11 #6: refusals (and conflicts, pauses) wait for a refresh but are
+    not failures: the first real failure after them still waits 60 s, not 4 min."""
+    _, abs_ = fakes
+    doc = epub_hash(ebooks)
+    abs_.overrides[EPUB_ITEM] = {"libraryId": "00000000-0000-4000-8000-000000000000"}
+    epub_put(link_client, doc)                        # refused
+    link_client.now[0] += 3601
+    epub_put(link_client, doc)                        # refused again
+    assert web.matches == []
+    abs_.overrides.clear()
+    web.match_status = 500
+    link_client.now[0] += 3601
+    epub_put(link_client, doc)                        # the first real failure: 60 s
+    assert len(web.matches) == 1
+    web.match_status = None
+    link_client.now[0] += 61
+    epub_put(link_client, doc)
+    assert len(web.matches) == 2 and web.books[0]["abs_id"] == EPUB_ITEM
+
+
+def test_conflict_and_login_pause_are_not_failures(link_client, web, ebooks):
+    doc = epub_hash(ebooks)
+    linker = link_client.app.state.helper.linker
+    web.books.append({"abs_id": EPUB_ITEM, "kosync_doc_id": "f" * 32})
+    epub_put(link_client, doc)
+    assert linker._state[doc].failures == 0
+    linker._login_pause_until = link_client.now[0] + 10_000
+    link_client.now[0] += 3601
+    epub_put(link_client, doc)
+    assert linker._state[doc].failures == 0
+
+
 # ---------------- BookBridge failures ----------------
 
 def test_bookbridge_failure_backs_off_and_retries(link_client, web, ebooks, caplog):
@@ -218,6 +283,38 @@ def test_bookbridge_unreachable_does_not_crash(link_client, web, ebooks):
     web.fail = httpx.ReadTimeout("slow")
     link_client.now[0] += 61
     assert epub_put(link_client, epub_hash(ebooks)).status_code == 200
+
+
+@pytest.mark.parametrize("how", ["unreachable", "status", "not_json"])
+def test_abs_errors_on_the_item_check_are_abs_error(link_client, fakes, web, ebooks, caplog, how):
+    """Review 2026-11-11 #12: transport errors and a non-JSON body from GET /api/items/:id
+    are logged as abs_error, not as an internal error."""
+    caplog.set_level(logging.INFO, logger="kosync_helper")
+    _, abs_ = fakes
+    if how == "unreachable":
+        abs_.fail = httpx.ConnectError("refused")
+    elif how == "status":
+        abs_.item_status = 500
+    else:
+        abs_.item_text = "<html>proxy error</html>"
+    epub_put(link_client, epub_hash(ebooks))
+    assert web.matches == []
+    failed = [e for e in events(caplog) if e["event"] == "epub_mapping_failed"]
+    assert failed[0]["reason"] == "abs_error"
+
+
+def test_unexpected_error_logs_the_class_name_only(link_client, web, ebooks, caplog, monkeypatch):
+    caplog.set_level(logging.INFO, logger="kosync_helper")
+    linker = link_client.app.state.helper.linker
+
+    async def boom(doc, entry):
+        raise RuntimeError("http://abs/api/items?token=sekrit-value")
+
+    monkeypatch.setattr(linker, "_verify", boom)
+    epub_put(link_client, epub_hash(ebooks))
+    failed = [e for e in events(caplog) if e["event"] == "epub_mapping_failed"]
+    assert failed[0]["reason"] == "internal" and failed[0]["error"] == "RuntimeError"
+    assert "sekrit-value" not in "\n".join(JsonFormatter().format(r) for r in caplog.records)
 
 
 def test_hash_mismatch_is_reported_not_retried_soon(link_client, web, ebooks, caplog):
@@ -263,6 +360,7 @@ def test_wrong_password_is_a_refused_login(link_settings, fakes, web, ebooks):
     with TestClient(app) as c:
         c.portal.call(app.state.helper.refresh)
         epub_put(c, epub_hash(ebooks))
+        assert c.get("/health").json()["bookbridge_login"] == "refused"   # without reading logs
     assert web.logins == 1 and web.matches == []
 
 
@@ -309,6 +407,43 @@ def test_expired_session_signs_in_again(link_client, web, ebooks):
     web.drop_session_once = True
     epub_put(link_client, epub_hash(ebooks))
     assert web.logins == 2 and len(web.matches) == 1
+
+
+def test_concurrent_attempts_sign_in_once(web):
+    """Review 2026-11-11 #1: two attempts that both find no session share one login
+    (the second waits for the first), so neither clears the other's session."""
+    import asyncio
+
+    from kosync_helper.bookbridge_web import BookBridgeWeb
+
+    async def slow(request):
+        await asyncio.sleep(0.01)                      # let the other caller run meanwhile
+        return web.handler(request)
+
+    async def run():
+        bw = BookBridgeWeb("http://bookbridge:5758", WEB_USER, WEB_PASSWORD, 5.0, httpx.MockTransport(slow))
+        try:
+            await asyncio.gather(bw.ensure_session(), bw.ensure_session())
+            return bw.signed_in
+        finally:
+            await bw.aclose()
+
+    assert asyncio.run(run()) is True
+    assert web.logins == 1
+    assert [p for p in web_paths(web) if p == ("GET", "/suggestions")] == [("GET", "/suggestions")]
+
+
+def test_failed_login_keeps_the_working_session(link_client, web):
+    """A login builds its cookies and token aside and only replaces the session on success."""
+    from kosync_helper.bookbridge_web import BookBridgeWebError
+
+    w = link_client.app.state.helper.linker.web
+    link_client.portal.call(w.login)
+    cookies, token = dict(w._cookies), w._csrf
+    web.no_csrf = True
+    with pytest.raises(BookBridgeWebError):
+        link_client.portal.call(w.login)
+    assert w.signed_in and w._cookies == cookies and w._csrf == token
 
 
 def test_only_the_allowed_routes_can_be_sent(link_client):

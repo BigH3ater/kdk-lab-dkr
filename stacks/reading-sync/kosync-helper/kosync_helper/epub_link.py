@@ -15,7 +15,9 @@ Never an audiobook, never a PDF (PDFs are the helper's own path), never a direct
 
 One attempt per hash at a time (a lock), and a failure waits before the next try
 (60 s doubling to 6 h; a refused login pauses every hash for 15 min so the helper can
-never run into BookBridge's 5-per-minute login limit). Logs carry the item id only.
+never run into BookBridge's 5-per-minute login limit). An explicit wait (the login pause,
+a conflict, a refusal, a hash linked to another book: "until the next refresh") is not a
+failure and never lengthens the backoff of the next real one. Logs carry the item id only.
 """
 from __future__ import annotations
 
@@ -105,9 +107,12 @@ class EpubLinker:
             task.cancel()
         await asyncio.gather(*list(self._tasks), return_exceptions=True)
 
-    def _fail(self, doc: str, wait: float | None = None) -> None:
+    def _fail(self, doc: str, wait: float | None = None, count: bool = True) -> None:
+        """Back off. count=False: an explicit wait, not a failure (the backoff of the
+        next real failure stays where it was)."""
         st = self._state.setdefault(doc, _State())
-        st.failures += 1
+        if count:
+            st.failures += 1
         delay = wait if wait is not None else min(BACKOFF_FIRST * 2 ** (st.failures - 1), BACKOFF_MAX)
         st.next_try = self.clock() + delay
 
@@ -130,11 +135,12 @@ class EpubLinker:
                     # Let BookBridge finish its own discovery for this PUT first.
                     await asyncio.sleep(delay)
                 return await self._link_locked(doc)
-            except Exception:  # never take the helper down; back off and try later
+            except Exception as e:  # never take the helper down; back off and try later
                 entry = self.library.lookup_epub(doc)
                 self._fail(doc)
+                # the class name only: exception text could carry a URL, a path or a body
                 self.event("epub_mapping_failed", logging.WARNING, item=entry.item_id if entry else None,
-                           reason="internal")
+                           reason="internal", error=type(e).__name__)
                 return "failed"
 
     async def _link_locked(self, doc: str) -> str:
@@ -144,7 +150,7 @@ class EpubLinker:
         if self._done.get(doc, 0) > self.clock():
             return "mapped"
         if self._login_pause_until > self.clock():
-            self._fail(doc, self._login_pause_until - self.clock())
+            self._fail(doc, self._login_pause_until - self.clock(), count=False)
             return "paused"
         try:
             status = await self._with_session(lambda: self.web.mapping_status(doc, entry.item_id))
@@ -152,15 +158,21 @@ class EpubLinker:
                 self._succeed(doc)
                 self.event("epub_mapping_exists", item=entry.item_id)
                 return "mapped"
+            if status == "other_item":
+                # The hash is linked to another book: progress goes there. The owner's to
+                # sort out; look again after the next refresh, never a 24 h "done".
+                self._fail(doc, self.s.refresh_seconds, count=False)
+                self.event("epub_mapping_other_item", logging.WARNING, item=entry.item_id)
+                return "other_item"
             if status == "conflict":
                 # A book for this item with another hash: the owner's to sort out.
-                self._fail(doc, self.s.refresh_seconds)
+                self._fail(doc, self.s.refresh_seconds, count=False)
                 self.event("epub_mapping_conflict", logging.WARNING, item=entry.item_id)
                 return "conflict"
             try:
                 await self._verify(doc, entry)
             except Refused as r:
-                self._fail(doc, self.s.refresh_seconds)
+                self._fail(doc, self.s.refresh_seconds, count=False)
                 self.event("epub_mapping_refused", logging.WARNING, item=entry.item_id, reason=r.reason)
                 return "refused"
             await self._with_session(lambda: self.web.create_ebook_only(entry.item_id, "epub"))
@@ -185,7 +197,10 @@ class EpubLinker:
         return "hash_mismatch"
 
     async def _with_session(self, call):
-        """Sign in when needed; on a lost session or a refused CSRF token sign in once more."""
+        """Sign in when needed; on a lost session or a refused CSRF token sign in once more.
+
+        The failed call already forgot its session, so ensure_session() signs in again
+        unless a concurrent attempt has just done so (then its session is reused)."""
         await self.web.ensure_session()
         try:
             return await call()
@@ -194,7 +209,7 @@ class EpubLinker:
         except BookBridgeWebError as e:
             if e.reason != "csrf_refused":
                 raise
-        await self.web.login()
+        await self.web.ensure_session()
         return await call()
 
     async def _verify(self, doc: str, entry: lib.EpubEntry) -> None:

@@ -42,6 +42,18 @@ def test_missing_file_is_skipped(tmp_path):
     assert lib.rebuild([(A, str(tmp_path / "gone.pdf"))]) == 0
 
 
+def test_file_vanishing_mid_rebuild_skips_only_that_entry(tmp_path, monkeypatch):
+    """Review 2026-11-11 #5: a file removed between the path check and its stat skips
+    that entry; the rest of the map is still built."""
+    import kosync_helper.library as mod
+
+    make_pdf(str(tmp_path / "a.pdf"), 3)
+    monkeypatch.setattr(mod, "safe_path", lambda root, p: p)   # the check passed, then the file went
+    lib = PdfLibrary(str(tmp_path))
+    assert lib.rebuild([(B, str(tmp_path / "gone.pdf")), (A, str(tmp_path / "a.pdf"))]) == 1
+    assert lib.lookup(partial_md5(str(tmp_path / "a.pdf"))).item_id == A
+
+
 def test_unparseable_pdf_has_unknown_pages(tmp_path):
     p = tmp_path / "broken.pdf"
     p.write_bytes(b"%PDF-1.4 garbage" * 200)
@@ -82,3 +94,40 @@ def test_settings_reject_bad_values(bad):
     base = dict(abs_url="http://a", abs_api_key="k", abs_library_id=A, bookbridge_url="http://b", kosync_user="j")
     with pytest.raises(ValueError):
         Settings(**{**base, **bad})
+
+
+def _item_gets(abs_):
+    return [c.url.path.rsplit("/", 1)[1] for c in abs_.calls if "/api/items/" in c.url.path]
+
+
+def test_item_details_are_cached_by_updated_at(client, fakes):
+    """Review 2026-11-11 #4: the hourly refresh re-reads an item only when ABS reports
+    it changed (updatedAt in the minified list) or it is new."""
+    from conftest import EPUB_ITEM
+
+    _, abs_ = fakes
+    helper = client.app.state.helper
+    n = len(_item_gets(abs_))
+    assert n == 2                                      # the first refresh reads both
+    client.portal.call(helper.refresh)
+    assert len(_item_gets(abs_)) == n                  # nothing changed: no per-item GET
+    abs_.updated[EPUB_ITEM] = 2
+    client.portal.call(helper.refresh)
+    assert _item_gets(abs_)[n:] == [EPUB_ITEM]
+    assert len(helper.library) == 1 and helper.library.epub_count == 1
+
+
+def test_failed_item_fetch_keeps_the_last_good_map(client, fakes):
+    from conftest import PDF_ITEM
+
+    _, abs_ = fakes
+    helper = client.app.state.helper
+    abs_.updated[PDF_ITEM] = 2
+    abs_.item_status = 500
+    client.portal.call(helper.refresh)
+    assert helper.last_refresh_error and len(helper.library) == 1 and helper.library.epub_count == 1
+    abs_.item_status = None
+    n = len(_item_gets(abs_))
+    client.portal.call(helper.refresh)
+    assert not helper.last_refresh_error and _item_gets(abs_)[n:] == [PDF_ITEM]
+    assert len(helper.library) == 1

@@ -70,6 +70,9 @@ class FakeAbs:
     patches: list = field(default_factory=list)
     calls: list = field(default_factory=list)
     fail: Exception | None = None
+    updated: dict = field(default_factory=dict)  # item_id -> updatedAt in the minified list (default 1)
+    item_status: int | None = None               # force a GET /api/items/:id answer
+    item_text: str | None = None                 # GET /api/items/:id answers 200 with this (not JSON)
 
     def handler(self, request: httpx.Request) -> httpx.Response:
         self.calls.append(request)
@@ -81,8 +84,13 @@ class FakeAbs:
         path = path[len("/audiobookshelf"):]
         if path == f"/api/libraries/{LIB_ID}/items":
             return httpx.Response(200, json={"results": [
-                {"id": i, "media": {"ebookFormat": fmt}} for i, fmt, _ in self.items]})
+                {"id": i, "updatedAt": self.updated.get(i, 1), "media": {"ebookFormat": fmt}}
+                for i, fmt, _ in self.items]})
         if path.startswith("/api/items/"):
+            if self.item_status:
+                return httpx.Response(self.item_status, json={"error": "nope"})
+            if self.item_text is not None:
+                return httpx.Response(200, text=self.item_text)
             item_id = path.rsplit("/", 1)[1]
             for i, fmt, p in self.items:
                 if i == item_id:

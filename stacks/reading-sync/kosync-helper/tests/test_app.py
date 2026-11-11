@@ -264,3 +264,9 @@ def test_health_degraded_when_map_never_loads(settings, fakes):
         assert c.get("/health").status_code == 503
         # PDFs fall back to BookBridge while the map is empty
         assert c.get("/syncs/progress/" + "b" * 32, headers=AUTH).status_code == 200
+
+
+def test_a_hung_test_fails_the_run(pytestconfig):
+    """Review 2026-11-11 #9: past faulthandler_timeout pytest exits (CI fails fast)."""
+    assert float(pytestconfig.getini("faulthandler_timeout")) == 60
+    assert pytestconfig.getini("faulthandler_exit_on_timeout") is True
