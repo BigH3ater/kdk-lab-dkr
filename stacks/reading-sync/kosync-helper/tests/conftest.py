@@ -155,7 +155,12 @@ CSRF = "csrf-token-0123456789abcdefghij"
 
 @dataclass
 class FakeBookBridgeWeb:
-    """The five BookBridge web UI routes the helper uses (session cookie + CSRF)."""
+    """The BookBridge web UI routes the helper uses (session cookie + CSRF).
+
+    Behaves like v7.13.0 by default: /suggestions (any tab) carries the token and
+    GET /add-book is a 302 to /suggestions?tab=search. legacy_add_book=True is the
+    7.12.0 shape the fallback covers (/add-book answers 200 with the token) with
+    /suggestions forced to carry no token."""
     books: list = field(default_factory=list)       # {"abs_id", "kosync_doc_id"}
     documents: list = field(default_factory=list)   # {"document_hash", "linked_abs_id"}
     calls: list = field(default_factory=list)
@@ -163,6 +168,7 @@ class FakeBookBridgeWeb:
     login_status: int | None = None   # force a login answer (401/429)
     match_status: int | None = None   # force a /match answer
     no_csrf: bool = False
+    legacy_add_book: bool = False
     drop_session_once: bool = False
     fail: Exception | None = None
     sessions: set = field(default_factory=set)
@@ -199,8 +205,14 @@ class FakeBookBridgeWeb:
             if path.startswith("/api/"):
                 return httpx.Response(401, json={"error": "authentication required"})
             return httpx.Response(302, headers={"location": f"/login?next={path}"})
+        script = "" if self.no_csrf else f'<script>(function(){{\n  var t = "{CSRF}";\n}})();</script>'
+        if (method, path) == ("GET", "/suggestions"):
+            body = "" if self.legacy_add_book else script
+            return httpx.Response(200, text=f"<html><body>Discover{body}</body></html>",
+                                  headers={"content-type": "text/html; charset=utf-8"})
         if (method, path) == ("GET", "/add-book"):
-            script = "" if self.no_csrf else f'<script>(function(){{\n  var t = "{CSRF}";\n}})();</script>'
+            if not self.legacy_add_book:
+                return httpx.Response(302, headers={"location": "/suggestions?tab=search"})
             return httpx.Response(200, text=f"<html><body>Add Book{script}</body></html>",
                                   headers={"content-type": "text/html; charset=utf-8"})
         if (method, path) == ("GET", "/api/me/books"):

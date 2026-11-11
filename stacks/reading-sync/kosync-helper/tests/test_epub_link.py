@@ -275,6 +275,24 @@ def test_missing_csrf_token_never_posts(link_client, web, ebooks, caplog):
     assert ev[0]["reason"] == "csrf_missing"
 
 
+def test_csrf_token_comes_from_the_search_tab(link_client, web, ebooks):
+    """BookBridge v7.13.0: the token is read from /suggestions?tab=search; the old
+    /add-book page (now a 302) is never fetched."""
+    epub_put(link_client, epub_hash(ebooks))
+    assert len(web.matches) == 1
+    pages = [c for c in web.calls if c.method == "GET" and c.url.path in ("/suggestions", "/add-book")]
+    assert [(c.url.path, c.url.params.get("tab")) for c in pages] == [("/suggestions", "search")]
+
+
+def test_csrf_token_falls_back_to_add_book(link_client, web, ebooks):
+    """A BookBridge whose search page carries no token: the 7.12.0 Add Book page."""
+    web.legacy_add_book = True
+    epub_put(link_client, epub_hash(ebooks))
+    assert len(web.matches) == 1
+    assert [p for p in web_paths(web) if p[0] == "GET" and p[1] in ("/suggestions", "/add-book")] == [
+        ("GET", "/suggestions"), ("GET", "/add-book")]
+
+
 def test_refused_csrf_token_signs_in_again_once(link_client, web, ebooks):
     import conftest
 
@@ -293,7 +311,7 @@ def test_expired_session_signs_in_again(link_client, web, ebooks):
     assert web.logins == 2 and len(web.matches) == 1
 
 
-def test_only_the_five_routes_can_be_sent(link_client):
+def test_only_the_allowed_routes_can_be_sent(link_client):
     from kosync_helper.bookbridge_web import BookBridgeWebError
 
     web_client = link_client.app.state.helper.linker.web
