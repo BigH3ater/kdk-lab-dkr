@@ -12,13 +12,16 @@ from test_kitchen_pairing import ADMIN, kit, kget, pair  # noqa: F401
 
 # Any case and any attributes, so a <SCRIPT type=...> tag cannot slip past the
 # hash check (CodeQL "bad HTML filtering regexp").
-INLINE = re.compile(r"<script\b[^>]*>(.*?)</script\s*>", re.S | re.I)
+INLINE = re.compile(r"<script\b([^>]*)>(.*?)</script\s*>", re.S | re.I)
+EXTERNAL = re.compile(r"\bsrc\s*=", re.I)
 
 
 def _allowed(csp, html):
     script_src = next(d for d in csp.split(";") if d.strip().startswith("script-src"))
     assert "'unsafe-inline'" not in script_src and "'unsafe-eval'" not in script_src
-    for js in INLINE.findall(html):
+    for attrs, js in INLINE.findall(html):
+        if EXTERNAL.search(attrs):
+            continue                      # <script src=...> is covered by 'self', not a hash
         h = "'sha256-" + base64.b64encode(hashlib.sha256(js.encode()).digest()).decode() + "'"
         assert h in script_src, "inline script not covered by the CSP hash list"
 
