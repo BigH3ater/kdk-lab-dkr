@@ -73,7 +73,7 @@
 
   // ---- idle return: sub-views go back to the board after 5 idle minutes --------
   var timersRunning = 0;
-  if (page === "ingredients" || page === "steps" || page === "pantry") {
+  if (page === "ingredients" || page === "steps" || page === "pantry" || page === "chores" || page === "weather") {
     var home = body.dataset.home || "/meal/kitchen", last = Date.now();
     ["pointerdown", "keydown", "touchstart", "scroll"].forEach(function (ev) {
       document.addEventListener(ev, function () { last = Date.now(); }, {passive: true, capture: true});
@@ -83,43 +83,48 @@
     }, 15000);
   }
 
+  // ---- forecast: start today's hour row at the current hour ----------------------
+  if (page === "weather") {
+    var nowCell = document.querySelector(".fh.now");
+    if (nowCell && nowCell.parentElement) {
+      nowCell.parentElement.scrollLeft = Math.max(0, nowCell.offsetLeft - nowCell.parentElement.offsetLeft - 8);
+    }
+  }
+
   // ---- fragment refresh (every 2 min, no page flash) ---------------------------
   var board = document.getElementById("board");
   var busy = false;
   async function refresh() {
     if (!board || !board.dataset.fragment || busy) { return; }
     busy = true;
-    var keep = {}, open = {};
-    board.querySelectorAll(".col").forEach(function (c) {
-      var l = c.querySelector(".col-list"); if (l) { keep[c.dataset.cat] = l.scrollTop; }
-      var d = c.querySelector("details"); if (d && d.open) { open[c.dataset.cat] = true; }
-    });
+    var list = board.querySelector(".clist-wrap"), keep = list ? list.scrollTop : 0, own = board.scrollTop;
     var ingOpen = !!board.querySelector("details.hh-ings[open]");
     try {
       var r = await fetch(board.dataset.fragment, {credentials: "same-origin", cache: "no-store"});
       if (!r.ok || (r.headers.get("content-type") || "").indexOf("text/html") !== 0) { throw new Error(r.status); }
       var html = await r.text();
-      if (html.indexOf("board-in") < 0 && html.indexOf("hh-grid") < 0) { throw new Error("not a fragment"); }
+      if (html.indexOf("board-in") < 0 && html.indexOf("hh-grid") < 0 && html.indexOf("chores-in") < 0) {
+        throw new Error("not a fragment");
+      }
       board.innerHTML = html;
-      board.querySelectorAll(".col").forEach(function (c) {
-        var l = c.querySelector(".col-list"); if (l && keep[c.dataset.cat]) { l.scrollTop = keep[c.dataset.cat]; }
-        var d = c.querySelector("details"); if (d && open[c.dataset.cat]) { d.open = true; }
-      });
+      list = board.querySelector(".clist-wrap"); if (list && keep) { list.scrollTop = keep; }
+      if (own) { board.scrollTop = own; }               // the All chores view scrolls itself
       if (ingOpen) { var g = board.querySelector("details.hh-ings"); if (g) { g.open = true; } }
       syncNight(); restoreChecks(); markMore();
     } catch (e) { /* keep the old board; try again next cycle (a login redirect lands here too) */ }
     busy = false;
   }
-  // ---- chore columns: fade the bottom while there is more to scroll -----------
+  // ---- chore list: fade the bottom while there is more to scroll --------------
+  var SCROLLERS = ".clist-wrap, .chores-scroll";
   function markMore() {
-    document.querySelectorAll(".col-list").forEach(function (l) {
+    document.querySelectorAll(SCROLLERS).forEach(function (l) {
       l.classList.toggle("more", l.scrollTop + l.clientHeight < l.scrollHeight - 2);
     });
   }
   document.addEventListener("scroll", function (e) {
-    if (e.target && e.target.classList && e.target.classList.contains("col-list")) { markMore(); }
+    if (e.target && e.target.matches && e.target.matches(SCROLLERS)) { markMore(); }
   }, {passive: true, capture: true});
-  document.addEventListener("toggle", markMore, true);       // a "+N later" fold opened
+  document.addEventListener("toggle", markMore, true);       // a details fold opened
   window.addEventListener("resize", markMore);
   markMore();
   if (document.fonts && document.fonts.ready) { document.fonts.ready.then(markMore); }

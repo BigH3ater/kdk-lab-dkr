@@ -298,7 +298,10 @@ def thaw_hint(rows: list[dict], tomorrow: datetime.date, today: datetime.date) -
 # ---- weather -------------------------------------------------------------------
 _ICON = {
     "sun": '<circle cx="12" cy="12" r="4.5"/><path d="M12 2v2.5M12 19.5V22M4.2 4.2l1.8 1.8M18 18l1.8 1.8M2 12h2.5M19.5 12H22M4.2 19.8 6 18M18 6l1.8-1.8"/>',
-    "moon": '<path d="M20 15.5A8 8 0 1 1 8.5 4a6.5 6.5 0 0 0 11.5 11.5z"/>',
+    # a FILLED crescent plus a small star: the outline-only arc read as a
+    # loading spinner at 52 px
+    "moon": ('<path fill="currentColor" d="M19 15.2A7.6 7.6 0 1 1 9.2 4.6a6 6 0 0 0 9.8 10.6z"/>'
+             '<path d="M17.5 3.2v3M16 4.7h3"/>'),
     "partly": '<path d="M8 3.5v1.5M3.5 8H5M4.8 4.8l1 1M12.2 4.8l-1 1"/><path d="M5.6 10.3A3.5 3.5 0 0 1 11.6 7"/><path d="M7 20h10a4 4 0 0 0 .4-8 5.5 5.5 0 0 0-10.6 1.6A3.2 3.2 0 0 0 7 20z"/>',
     "cloud": '<path d="M6.5 19h11a4.5 4.5 0 0 0 .5-9 6 6 0 0 0-11.6 1.8A3.6 3.6 0 0 0 6.5 19z"/>',
     "fog": '<path d="M4 9h16M3 13h18M5 17h14"/>',
@@ -358,6 +361,61 @@ def wx_view(full: dict | None, now: datetime.datetime, wmo: dict, hours: int = 6
         return None
 
 
+def _num(seq, i, nd=None):
+    """seq[i] rounded (None when missing): Open-Meteo leaves gaps as null."""
+    try:
+        v = seq[i]
+    except (IndexError, TypeError):
+        return None
+    if v is None:
+        return None
+    return round(float(v), nd) if nd else round(float(v))
+
+
+def _clock(iso: str | None) -> str:
+    try:
+        return datetime.datetime.fromisoformat(iso).strftime("%-I:%M %p")
+    except (TypeError, ValueError):
+        return ""
+
+
+def forecast_view(full: dict | None, now: datetime.datetime, wmo: dict) -> dict | None:
+    """The weekly forecast from the cached Open-Meteo grid: today and tomorrow
+    hour by hour (midnight to midnight, past hours flagged), and a daily
+    summary for every day. None when the cache is empty or malformed."""
+    if not full:
+        return None
+    try:
+        d, hr = full["daily"], full.get("hourly") or {}
+        today = now.date()
+        top = now.replace(minute=0, second=0, microsecond=0, tzinfo=None)
+        days = []
+        for i, ds in enumerate(d["time"]):
+            dt = datetime.date.fromisoformat(ds)
+            code = int(d["weather_code"][i])
+            days.append({"date": dt, "today": dt == today, "code": code, "desc": wmo.get(code, ""),
+                         "hi": _num(d["temperature_2m_max"], i), "lo": _num(d["temperature_2m_min"], i),
+                         "pop": _num(d.get("precipitation_probability_max"), i),
+                         "rain": _num(d.get("precipitation_sum"), i, 2),
+                         "wind": _num(d.get("wind_speed_10m_max"), i),
+                         "sunrise": _clock((d.get("sunrise") or [None] * (i + 1))[i]),
+                         "sunset": _clock((d.get("sunset") or [None] * (i + 1))[i])})
+        by_day: dict = {}
+        for i, ts in enumerate(hr.get("time") or []):
+            t = datetime.datetime.fromisoformat(ts)
+            if t.date() not in (today, today + datetime.timedelta(days=1)):
+                continue
+            code = int(hr["weather_code"][i]) if hr["weather_code"][i] is not None else 0
+            by_day.setdefault(t.date(), []).append({
+                "t": t.strftime("%-I %p"), "hour": t.hour, "code": code, "desc": wmo.get(code, ""),
+                "temp": _num(hr["temperature_2m"], i), "pop": _num(hr["precipitation_probability"], i) or 0,
+                "night": t.hour < 7 or t.hour >= 18, "past": t < top, "now": t == top})
+        hourly = [{"date": dt, "hours": by_day[dt]} for dt in sorted(by_day)]
+        return {"days": days, "hourly": hourly}
+    except (KeyError, IndexError, TypeError, ValueError):
+        return None
+
+
 # ---- chores --------------------------------------------------------------------
 def _due_label(due: datetime.date | None, today: datetime.date) -> tuple[str, bool]:
     if due is None:
@@ -382,35 +440,56 @@ def chore_counts(columns: list[dict], today: datetime.date) -> dict:
     return {"due": due, "late": late, "total": total}
 
 
-def _chore_row(t: dict, due, today: datetime.date, project: str = "") -> str:
+def _chore_row(t: dict, due, today: datetime.date, project: str = "", nxt: str = "") -> str:
+    """One chore: tick box, title, then a small line with the project tag and
+    the due text ("late", "today", "Nov 23"). The whole row is the button."""
     lbl, late = _due_label(due, today)
     proj = f"<span class='proj'>{escape(project)}</span>" if project else ""
+    back = f"<input type='hidden' name='next' value='{escape(nxt)}'>" if nxt else ""
     return (f"<form class='chore{' late' if late else ''}' method='post' action='{base()}/tasks/complete'>"
-            f"<input type='hidden' name='task_id' value='{int(t['id'])}'>"
+            f"<input type='hidden' name='task_id' value='{int(t['id'])}'>{back}"
             f"<button type='submit' class='tick-row' aria-label='Done: {escape(t.get('title') or '')}'>"
             "<span class='box' aria-hidden='true'></span>"
-            f"<span class='ct'>{escape(t.get('title') or '')}{proj}</span>"
-            f"<span class='due'>{escape(lbl)}</span></button></form>")
+            f"<span class='ct'>{escape(t.get('title') or '')}</span>"
+            f"<span class='cmeta'>{proj}<span class='due'>{escape(lbl)}</span></span></button></form>")
 
 
-def chores_columns_html(columns: list[dict], today: datetime.date) -> str:
+def chore_list(columns: list[dict], today: datetime.date) -> list[tuple]:
+    """Every open chore as one list [(due, task, project)]: late first (oldest
+    first), then due today, then upcoming by due date, undated last."""
+    rows = [(d, t, c["cat"]) for c in columns for d, t in list(c["soon"]) + list(c["later"])]
+
+    def key(r):
+        d, t, _cat = r
+        bucket = 3 if d is None else (0 if d < today else 1 if d == today else 2)
+        return (bucket, d or datetime.date.max, (t.get("title") or "").lower(), int(t.get("id") or 0))
+    return sorted(rows, key=key)
+
+
+def chore_list_html(columns: list[dict], today: datetime.date) -> str:
+    """The board's chores: one ordered list, flowing into columns (CSS)."""
+    items = chore_list(columns, today)
+    if not items:
+        return "<div class='empty'>No open chores.</div>"
+    rows = "".join(_chore_row(t, d, today, cat) for d, t, cat in items)
+    return f"<div class='clist-wrap'><div class='clist'>{rows}</div></div>"
+
+
+def chore_groups_html(columns: list[dict], today: datetime.date, nxt: str = "") -> str:
+    """The All chores view: one section per project (board order) with its
+    counts, rows in the same order as the board list."""
     if not columns:
         return "<div class='empty'>No open chores.</div>"
-    cols = []
+    out = []
     for c in columns:
-        rows = "".join(_chore_row(t, d, today) for d, t in c["soon"])
-        if not c["soon"]:
-            rows = "<div class='none'>Nothing due in 2 weeks</div>"
-        if c["later"]:
-            rows += (f"<details class='later'><summary>+{len(c['later'])} later</summary>"
-                     + "".join(_chore_row(t, d, today) for d, t in c["later"]) + "</details>")
-        n = len(c["soon"]) + len(c["later"])
+        items = chore_list([c], today)
         late = f" · <span class='late-n'>{c['late']} late</span>" if c["late"] else ""
-        cols.append(f"<div class='col' data-cat='{escape(c['cat'])}'>"
-                    f"<div class='col-h'><span class='col-name'>{escape(c['cat'])}</span>"
-                    f"<span class='col-n'>{n}{late}</span></div>"
-                    f"<div class='col-list'>{rows}</div></div>")
-    return f"<div class='cols' style='--ncols:{len(cols)}'>{''.join(cols)}</div>"
+        rows = ("".join(_chore_row(t, d, today, "", nxt) for d, t, _cat in items)
+                or "<div class='none'>Nothing open</div>")
+        out.append(f"<section class='cgroup' data-cat='{escape(c['cat'])}'>"
+                   f"<h2>{escape(c['cat'])} <span class='muted cg-n'>{len(items)}{late}</span></h2>"
+                   f"<div class='cg-list'>{rows}</div></section>")
+    return f"<div class='cgroups'>{''.join(out)}</div>"
 
 
 def chores_head(counts: dict | None) -> str:
@@ -438,7 +517,7 @@ def cal_line(events: list[dict] | None, day: datetime.date) -> str:
     hits = homecal.on_day(events, day)
     if not hits:
         return "<span class='muted'>Nothing scheduled</span>"
-    return " · ".join(escape(homecal.label(e)) for e in hits)
+    return " · ".join(escape(homecal.label(e, day)) for e in hits)
 
 
 # ---- page shell ----------------------------------------------------------------
@@ -525,10 +604,11 @@ def board_fragment(d: dict) -> str:
         hours = "".join(f"<div class='hr'><div class='muted small'>{escape(h['t'])}</div>"
                         f"<div class='hv'>{h['temp']}°</div><div class='pop'>{h['pop']}%</div></div>"
                         for h in wx["hours"])
-        wx_html = (f"<div class='card wx'><div class='wx-now'>{wx_icon(wx['code'], wx['night'], 52, wx['desc'])}"
+        wx_html = (f"<a class='card wx wx-link' href='{kpath('/weather')}' aria-label='7-day forecast'><div class='wx-now'>{wx_icon(wx['code'], wx['night'], 52, wx['desc'])}"
                    f"<div><div class='big'>{wx['temp']}°</div>"
-                   f"<div class='muted'>{escape(wx['desc'])} · H {wx['hi']}° L {wx['lo']}°</div></div></div>"
-                   f"<div class='hours'>{hours}</div></div>")
+                   f"<div class='muted'>{escape(wx['desc'])}</div>"
+                   f"<div class='muted hilo'>H {wx['hi']}° L {wx['lo']}°</div></div></div>"
+                   f"<div class='hours'>{hours}</div></a>")
     else:
         wx_html = "<div class='card wx'><div class='muted'>Weather unavailable right now</div></div>"
     cal = d.get("cal")
@@ -539,9 +619,11 @@ def board_fragment(d: dict) -> str:
              f"<div class='muted date'>{now:%A, %B %-d}</div></div>")
     cols = d.get("chores")
     counts = chore_counts(cols, today) if cols is not None else None
+    all_link = (f"<a class='all-link' href='{kpath('/chores')}'>All chores ({counts['total']})</a>"
+                if counts else "")
     chores = ("<section class='card chores'><div class='chores-h'><h2>Chores</h2>"
-              f"{chores_head(counts)}{vacuum_html(d.get('vacuum'), today)}</div>"
-              + (chores_columns_html(cols, today) if cols is not None
+              f"{chores_head(counts)}{all_link}{vacuum_html(d.get('vacuum'), today)}</div>"
+              + (chore_list_html(cols, today) if cols is not None
                  else "<div class='empty'>Couldn't reach the task list right now.</div>")
               + "</section>")
     night_ev = homecal.first_event(cal, tomorrow) if cal else ""
@@ -565,6 +647,90 @@ def kitchen_page(d: dict, asset_ver: str) -> str:
             f"<div class='night' id='night' role='button' tabindex='0' aria-label='Show the board'>"
             f"<div class='night-clock' data-clock>{fmt_clock(d['now'])}</div>{ev}</div>"
             "</body></html>")
+
+
+# ---- all chores view -------------------------------------------------------------
+def chores_fragment(d: dict) -> str:
+    """The All chores view's swappable body (a tick re-renders it)."""
+    today, cols = d["today"], d.get("chores")
+    if cols is None:
+        return "<div class='chores-in'><div class='empty'>Couldn't reach the task list right now.</div></div>"
+    counts = chore_counts(cols, today)
+    late = f" · <span class='late-n'>{counts['late']} late</span>" if counts["late"] else ""
+    return (f"<div class='chores-in'><div class='muted chores-sum'>{counts['total']} open · "
+            f"{counts['due']} due today{late}</div>{chore_groups_html(cols, today, 'chores')}</div>")
+
+
+def chores_page(d: dict, asset_ver: str, back: str) -> str:
+    return (head("All chores", asset_ver, kiosk=True)
+            + f"<body data-page='chores' data-home='{escape(back)}' class='kiosk sub'><div class='shell'>"
+            f"<header class='subhdr'>{_back(back)}<div class='subtitle'>"
+            "<div class='eyebrow'>By project</div><h1>All chores</h1></div></header>"
+            f"<div class='chores-scroll' id='board' data-fragment='{kpath('/chores')}?fragment=1'>"
+            f"{chores_fragment(d)}</div></div></body></html>")
+
+
+# ---- weekly forecast view --------------------------------------------------------
+def _day_facts(day: dict) -> str:
+    """"65° 37° · 20% rain, 0.02 in · wind 12 mph · Sunrise 6:49 AM · Sunset
+    4:48 PM": one unbreakable span per fact, so a narrow card wraps between
+    facts (the CSS hides the dots there and stacks them)."""
+    bits = []
+    if day["hi"] is not None:
+        bits.append(f"<span class='fhl'><span class='fhi'>{day['hi']}°</span> "
+                    f"<span class='flo'>{day['lo']}°</span></span>")
+    rain = f"{day['pop'] or 0}% rain"
+    if day["rain"]:
+        rain += f", {day['rain']:.2f} in"
+    bits.append(f"<span>{escape(rain)}</span>")
+    if day["wind"] is not None:
+        bits.append(f"<span>wind {day['wind']} mph</span>")
+    if day["sunrise"]:
+        bits.append(f"<span class='sun'>Sunrise {escape(day['sunrise'])}</span>")
+    if day["sunset"]:
+        bits.append(f"<span class='sun'>Sunset {escape(day['sunset'])}</span>")
+    return "<span class='fsep' aria-hidden='true'>·</span>".join(bits)
+
+
+def _hour_cell(h: dict) -> str:
+    cls = "fh" + (" past" if h["past"] else "") + (" now" if h["now"] else "")
+    temp = f"{h['temp']}°" if h["temp"] is not None else "–"
+    return (f"<div class='{cls}'><div class='fh-t'>{'Now' if h['now'] else escape(h['t'])}</div>"
+            f"{wx_icon(h['code'], h['night'], 30, h['desc'])}"
+            f"<div class='fh-v'>{temp}</div><div class='pop'>{h['pop']}%</div></div>")
+
+
+def forecast_page(fc: dict | None, now: datetime.datetime, asset_ver: str, back: str) -> str:
+    """Today and tomorrow hour by hour (24 cells each, scrolling sideways),
+    then the daily summary for the rest of the week."""
+    if fc is None:
+        body = "<div class='card empty'>Weather unavailable right now.</div>"
+    else:
+        days = {x["date"]: x for x in fc["days"]}
+        secs = []
+        for n, blk in enumerate(fc["hourly"][:2]):
+            day = days.get(blk["date"])
+            name = "Today" if n == 0 and blk["date"] == now.date() else f"{blk['date']:%A}"
+            facts = _day_facts(day) if day else ""
+            icon = wx_icon(day["code"], False, 30, day["desc"]) if day else ""
+            secs.append(f"<section class='card fday{' today' if day and day['today'] else ''}'>"
+                        f"<div class='fday-h'>{icon}<h2>{escape(name)} <span class='muted'>"
+                        f"{blk['date']:%a, %b %-d}</span></h2><div class='ffacts'>{facts}</div></div>"
+                        f"<div class='fhours'>{''.join(_hour_cell(h) for h in blk['hours'])}</div></section>")
+        shown = {b["date"] for b in fc["hourly"][:2]}
+        rest = [x for x in fc["days"] if x["date"] not in shown][:5]
+        cards = "".join(
+            f"<article class='card fcard'><div class='fcard-d'><b>{x['date']:%a}</b> "
+            f"<span class='muted'>{x['date']:%b %-d}</span></div>"
+            f"<div class='fcard-c'>{wx_icon(x['code'], False, 40, x['desc'])}"
+            f"<span class='muted'>{escape(x['desc'])}</span></div>"
+            f"<div class='ffacts'>{_day_facts(x)}</div></article>" for x in rest)
+        body = "".join(secs) + (f"<section class='fweek'>{cards}</section>" if cards else "")
+    return (head("Forecast", asset_ver, kiosk=True)
+            + f"<body data-page='weather' data-home='{escape(back)}' class='kiosk sub'><div class='shell'>"
+            f"<header class='subhdr'>{_back(back)}<div class='subtitle'>"
+            "<div class='eyebrow tan'>Tiffin · 7 days</div><h1>Forecast</h1></div></header>"
+            f"<div class='fc-scroll'>{body}</div></div></body></html>")
 
 
 # ---- ingredients view ------------------------------------------------------------
@@ -831,7 +997,7 @@ def household_fragment(d: dict, all_chores: bool = False) -> str:
         more = (f"<div class='muted small hh-more'>{len(due) - len(shown)} more late or due today</div>"
                 if len(due) > len(shown) else "")
         if all_chores:
-            board = (f"<div class='hh-all' id='all-chores'>{chores_columns_html(cols, today)}</div>"
+            board = (f"<div class='hh-all' id='all-chores'>{chore_groups_html(cols, today)}</div>"
                      f"<a class='hh-link' href='{base()}/home'>Hide all chores</a>")
         else:
             board = (f"<a class='hh-link' href='{base()}/home?chores=all#all-chores'>"
@@ -846,10 +1012,13 @@ def household_fragment(d: dict, all_chores: bool = False) -> str:
         rows = []
         for i in range(7):
             day = today + datetime.timedelta(days=i)
-            for k, e in enumerate(homecal.on_day(cal, day)):
+            # an event that started earlier shows today ("until Fri"), and on
+            # later days only where it starts, not on every day of the week
+            hits = [e for e in homecal.on_day(cal, day) if i == 0 or e["start"] == day]
+            for k, e in enumerate(hits):
                 lbl = ("Today" if i == 0 else day.strftime("%a")) if k == 0 else ""
                 rows.append(f"<div class='calrow'><span class='calday'>{lbl}</span>"
-                            f"<span class='calev'>{escape(homecal.label(e))}</span></div>")
+                            f"<span class='calev'>{escape(homecal.label(e, day))}</span></div>")
         week = "".join(rows) or "<div class='muted'>Nothing scheduled this week.</div>"
     calendar = f"<section class='card hh-cal'><h2>This week</h2>{week}</section>"
     apps = "".join(
@@ -865,13 +1034,15 @@ def household_page(d: dict, asset_ver: str, all_chores: bool = False) -> str:
     wx = d.get("wx")
     wxs = (f"{wx_icon(wx['code'], wx['night'], 28, wx['desc'])}<span><b>{wx['temp']}°</b> {escape(wx['desc'])}"
            f"<span class='muted'> · H {wx['hi']}° L {wx['lo']}°</span></span>") if wx else ""
+    wx_link = (f"<a class='hh-wx' href='{kpath('/weather')}?from=home' aria-label='7-day forecast'>{wxs}</a>"
+               if wx else "")
     # admin.kmkdp.com link: only for ADMIN_USERS (app.py sets admin_url; never on the kitchen host)
     admin = (f"<a class='hh-admin' href='{escape(d['admin_url'])}'>Admin</a>"
              if d.get("admin_url") and not on_kitchen_host() else "")
     return (head("Mack House", asset_ver, kiosk=False)
             + "<body data-page='home' class='household'>"
             f"<header class='hh-top'><div class='brand'>Mack House</div>{admin}"
-            f"<div class='hh-when'><span>{now:%a, %b %-d}</span><span class='hh-wx'>{wxs}</span></div></header>"
+            f"<div class='hh-when'><span>{now:%a, %b %-d}</span>{wx_link}</div></header>"
             f"<div class='hh-add'>{add_box('home', compact=True, flash=d.get('flash'), manual_ok=d.get('manual_ok', True))}</div>"
             f"<main class='hh-main' id='board' data-fragment='{base()}/home?fragment=1{'&amp;chores=all' if all_chores else ''}'>"
             f"{household_fragment(d, all_chores)}</main>"

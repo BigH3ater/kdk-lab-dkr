@@ -27,7 +27,8 @@ same app for the lab admin page only: GET / and /static/*, ADMIN_USERS only
 (403 otherwise), everything else 404 there (admin.py).
 
 kitchen.kmkdp.com (internal Traefik, NO forwardauth) reaches this same app for
-paired kitchen devices only: /, /ingredients, /steps, /pantry, /step-photo/<id>,
+paired kitchen devices only: /, /ingredients, /steps, /pantry, /chores, /weather,
+/step-photo/<id>,
 /manifest.webmanifest, /static/*, POST /tasks/complete, /groceries/add,
 /groceries/reorder, and /pair. Everything else is a 404 there, Remote-* headers
 are ignored, and every other request needs the signed device cookie (devices.py).
@@ -890,6 +891,8 @@ def tasks_complete():
         except Exception:
             log.exception("task board refresh after tick failed")
         return Response(status=204 if ok else 502)
+    if request.form.get("next") == "chores":        # the All chores view (no-JS tick)
+        return redirect(kitchen.kpath("/chores"), code=303)
     if kitchen.on_kitchen_host():
         return redirect(kitchen.kpath(), code=303)
     # relative to /meal/tasks/complete -> ../tasks == /meal/tasks (survives the
@@ -901,8 +904,10 @@ def tasks_complete():
 # ---- Weather: Tiffin, IA 7-day strip (Open-Meteo, keyless) ------------------
 WX_URL = ("https://api.open-meteo.com/v1/forecast?latitude=41.706&longitude=-91.663"
           "&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max"
+          ",precipitation_sum,wind_speed_10m_max,sunrise,sunset"
           "&hourly=temperature_2m,precipitation_probability,weather_code"
-          "&temperature_unit=fahrenheit&timezone=America%2FChicago&forecast_days=7")
+          "&temperature_unit=fahrenheit&wind_speed_unit=mph&precipitation_unit=inch"
+          "&timezone=America%2FChicago&forecast_days=7")      # 7 days = 168 hourly rows
 
 
 def _wx_fetch() -> dict:
@@ -1313,14 +1318,16 @@ text-transform:uppercase;color:var(--ash);margin:10px 0 3px}
 .gi a.srch{color:var(--ember);text-decoration:none;font-size:12px;font-family:'JetBrains Mono',monospace;white-space:nowrap}
 .gi a.srch:hover{text-decoration:underline}
 .gi.busy{opacity:.4}
-.addbox{display:flex;gap:8px;margin:8px 0 2px}
-.addbox input{flex:1 1 auto;background:var(--ink);border:1px solid var(--ink-hairline);
+.addbox{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0 2px}
+.addbox input{flex:1 1 auto;min-width:0;background:var(--ink);border:1px solid var(--ink-hairline);
 border-radius:7px;color:var(--paper);padding:9px;font:15px 'Space Grotesk',sans-serif}
 .addbox button{background:var(--ember);border:none;color:var(--ink);border-radius:7px;padding:0 14px;font-weight:600;cursor:pointer}
 .addbox .mtog{display:flex;align-items:center;gap:6px;min-height:44px;min-width:44px;padding:0 4px;
 color:var(--ash);font:500 12px 'JetBrains Mono',monospace;cursor:pointer;white-space:nowrap}
 .addbox .mtog input{width:22px;height:22px;margin:0;accent-color:var(--ember);flex:0 0 auto}
 .addbox .mtog.off{opacity:.5;cursor:not-allowed}
+/* phone: the item box and Add share the first row, the toggle gets its own */
+@media(max-width:480px){.addbox .mtog{order:3;flex-basis:100%}}
 .addflash{color:var(--ok);font-size:14px;padding:6px 2px}
 .addflash.err{color:var(--danger)}
 .addnote{color:var(--ash);font-size:12px;padding:2px 2px 4px}
@@ -2207,6 +2214,23 @@ def kitchen_board():
     return _html(kitchen.kitchen_page(d, ASSET_VER))
 
 
+@app.get("/kitchen/chores")
+def kitchen_chores():
+    d = _home_data()
+    if request.args.get("fragment") == "1":
+        return _html(kitchen.chores_fragment(d))
+    return _html(kitchen.chores_page(d, ASSET_VER, kitchen.kpath()))
+
+
+@app.get("/kitchen/weather")
+def kitchen_weather():
+    """The weekly forecast, from the 15-min WX_FEED cache (no upstream call
+    here once the warmer has filled it)."""
+    now = _now()
+    fc = kitchen.forecast_view(WX_FEED.get(), now, WMO)
+    return _html(kitchen.forecast_page(fc, now, ASSET_VER, _back_href()))
+
+
 @app.get("/kitchen/ingredients")
 def kitchen_ingredients():
     d = _home_data()
@@ -2474,7 +2498,8 @@ def _current_device(p) -> dict | None:
 
 
 _KITCHEN_GET = {"/": "kitchen_board", "/ingredients": "kitchen_ingredients",
-                "/steps": "kitchen_steps", "/pantry": "kitchen_pantry"}
+                "/steps": "kitchen_steps", "/pantry": "kitchen_pantry", "/chores": "kitchen_chores",
+                "/weather": "kitchen_weather"}
 _KITCHEN_POST = {"/tasks/complete", "/groceries/add", "/groceries/reorder"}
 _STEP_PHOTO = re.compile(r"^/step-photo/(\d{1,9})$")
 
@@ -2680,7 +2705,9 @@ ADMIN_FEEDS = {
     "komodo": Feed("admin-komodo", 300, lambda: admin.fetch_komodo(KOMODO_URL, KOMODO_API_KEY, KOMODO_API_SECRET)),
     # anonymous GitHub API = 60 requests/h per IP: 15 min cache, 5 min retry
     "github": Feed("admin-github", 900, lambda: admin.fetch_github(admin.GITHUB_REPO), retry=300),
-    "advisories": Feed("admin-advisories", 900, lambda: admin.fetch_advisories(LOKI_URL)),
+    # hourly: the 8-day limit-1 query leaves cancelled Loki sub-queries behind
+    # (most of its warnings and a ~4 s stall on the next query); 15 min was too often
+    "advisories": Feed("admin-advisories", 3600, lambda: admin.fetch_advisories(LOKI_URL)),
     "ups": Feed("admin-ups", 60, lambda: admin.fetch_ups(HA_URL, HA_TOKEN, UPS_PREFIX)),
     "charts": Feed("admin-charts", 300, lambda: admin.fetch_charts(PROM_URL, HA_URL, HA_TOKEN, CHART_DEFS)),
     "signins": Feed("admin-signins", 300, lambda: admin.fetch_signins(LOKI_URL)),
@@ -2731,21 +2758,35 @@ def _syslog_search(user: str) -> tuple[dict, dict | None]:
     form["q"] = q
     if host and (not admin.HOST_RE.match(host) or host not in _syslog_hosts()):
         return form, {"error": "Unknown host.", "rows": []}
-    if not q:
-        return form, {"error": "Type something to search for.", "rows": []}
+    note = ""
+    if not host and q and q in _syslog_hosts():
+        # the whole query is a host name: filter by host, not by line text
+        host, q = q, ""
+        form.update(host=host, q="")
+        note = f"“{host}” is a host: showing that host's newest lines, not lines containing it."
+    elif not q:
+        note = "No search text: the newest lines."
     if not SYSLOG_LIMIT.hit(user, time.time()):
         log.warning("admin: syslog search rate-limited user=%s", user)
         return form, {"error": "Too many searches: wait a few minutes.", "rows": []}
     t0 = time.monotonic()
     try:
         rows = admin.search_syslog(LOKI_URL, q, host, rng)
+    except (requests.Timeout, TimeoutError) as e:
+        log.warning("admin: syslog search timed out: %s", type(e).__name__)
+        return form, {"error": "Loki did not answer in time. Try a shorter range or open Grafana Explore.", "rows": []}
+    except admin.UpstreamError as e:
+        log.warning("admin: syslog search failed: Loki HTTP %s", e.status)
+        msg = " ".join(e.body.split())[:200] or "no details"
+        return form, {"error": f"Loki returned an error ({e.status}): {msg}", "rows": []}
     except Exception as e:
         log.warning("admin: syslog search failed: %s", type(e).__name__)
-        return form, {"error": "Loki did not answer in time. Try a shorter range or open Grafana Explore.", "rows": []}
+        return form, {"error": f"Loki search failed ({type(e).__name__}). Try again or open Grafana Explore.",
+                      "rows": []}
     # the query text is the admin's own and may be anything: its length only in the log
     log.info("admin: syslog search user=%s host=%s range=%s len=%d lines=%d ms=%.0f",
              user, host or "all", rng, len(q), len(rows), (time.monotonic() - t0) * 1000)
-    return form, {"rows": rows}
+    return form, {"rows": rows, "note": note}
 
 
 def admin_page(user: str) -> Response:

@@ -109,12 +109,14 @@ refresh. `home.kmkdp.com/` redirects to `/meal/home` (Homepage retired 2026-11-1
 
 | Route | What it is |
 |---|---|
-| `/meal/kitchen` | Kitchen board for the landscape iPad (sized to the viewport with `100dvh`: ~1180×760 in a Safari tab, ~1180×820 as a Home Screen app; also stacks for portrait and phone): clock + date, weather now/high/low + 6-hour strip, calendar line for today and tomorrow; large dinner card (main + side, photo, total time, servings, ingredient and on-hand count); lunch card (this plan week's prep lunches); tomorrow card (dinner + thaw hint); chore columns (every open task, scrolling per column, tick-off) with the vacuum line. Breakfast and snacks are not shown, and nothing personal (no budget, no workouts) |
+| `/meal/kitchen` | Kitchen board for the landscape iPad (sized to the viewport with `100dvh`: ~1180×760 in a Safari tab, ~1180×820 as a Home Screen app; also stacks for portrait and phone): clock + date, weather now/high/low + hourly strip (5 hours at 1180 wide; the whole card opens the forecast), calendar line for today and tomorrow (time first; multi-day events show every day they run, "(until Fri)" after the first); large dinner card (main + side, photo, total time, servings, ingredient and on-hand count); lunch card (this plan week's prep lunches); tomorrow card (dinner + thaw hint); chores as one list (late oldest first, then today, then upcoming) flowing down 3 columns (2 portrait, 1 phone), scrolling inside the card, tick-off, with **All chores (N)** and the vacuum line. Breakfast and snacks are not shown, and nothing personal (no budget, no workouts) |
 | `/meal/kitchen/ingredients` | Full-screen checklist for tonight's dinner, scaled to the planned servings, grouped by dish (main, then sides); "on hand" marks pantry/stock foods (planner `pantry:` list, stock stores, or Tandoor's on-hand flag). Ticks live in the browser (`localStorage`, keyed by date) for the evening |
 | `/meal/kitchen/steps` | One large step at a time with step tabs and Previous/Next; "This step uses" from the ingredients Tandoor attaches to each step; the step photo; a timer button for every minute/hour value the step text names (chime on the page). `?r=<recipe id>` picks the side dish |
 | `/meal/kitchen/pantry` | Pantry check (the **Pantry check** button on the board, and on the household page's dinner card). At the top, a large **Add to list** box for a manual grocery item, with "Added tonight" and the Manual list's current items below it. **Used this week**: the pantry and stock foods this plan week's recipes call for, grouped by store and aisle, each with the recipes it is for. **All pantry staples** (collapsed): the rest of the planner `pantry:` list and the stock-store foods. Each row has a large **Running low** button (or "On the list" when an open entry already exists) and a **Checked** tick that only marks it reviewed tonight (browser `localStorage`, keyed by date); **Mark all checked** ticks a whole section. Built from the groceries snapshot, so a view makes no extra upstream call |
+| `/meal/kitchen/chores` | All chores, grouped by project with counts, same rows and tick-off as the board; Back and the 5-minute idle return. Kitchen host: `/chores` |
+| `/meal/kitchen/weather` | Weekly forecast from the weather cache: today and tomorrow hour by hour (midnight to midnight, past hours dimmed, today highlighted), then daily cards for the other five days (icon, high/low, rain chance and amount, wind, sunrise/sunset); Back and the idle return. Opened from the board's weather card and the household header weather. Kitchen host: `/weather` |
 | `/meal/kitchen/step-photo/<file id>` | Step photo proxy (see below) |
-| `/meal/home` | Household page, phone-first (390 px, 16 px gutter) and two columns at laptop width: weather, dinner card with its ingredient checklist and a Steps link, lunch prep, tomorrow, chores (at most 8: late first, then due today; **All chores (N)** opens the full board at `?chores=all`), this week's calendar, a compact **Add to list** box at the top (outside the 2-minute refresh, so typing survives it), a **Pantry check** link, and the household app grid (Recipes, Groceries, Tasks, Watch, Listen & read, Photos, Request TV, Request books, Workouts, Budget, Home control, Search, Guides; links from `guides/shared-nav.js`). Recipe titles on all kitchen and household views show without import clutter (" Recipe", "(VIDEO)", "(Quick & Easy)" and similar), with the original in the title attribute; Tandoor is not changed |
+| `/meal/home` | Household page, phone-first (390 px, 16 px gutter) and two columns at laptop width: weather, dinner card with its ingredient checklist and a Steps link, lunch prep, tomorrow, chores (at most 8: late first, then due today; **All chores (N)** opens every chore grouped by project at `?chores=all`, in the board's row style), header weather links to the forecast, this week's calendar, a compact **Add to list** box at the top (outside the 2-minute refresh, so typing survives it), a **Pantry check** link, and the household app grid (Recipes, Groceries, Tasks, Watch, Listen & read, Photos, Request TV, Request books, Workouts, Budget, Home control, Search, Guides; links from `guides/shared-nav.js`). Recipe titles on all kitchen and household views show without import clutter (" Recipe", "(VIDEO)", "(Quick & Easy)" and similar), with the original in the title attribute; Tandoor is not changed |
 | `/meal/kitchen?fragment=1`, `/meal/home?fragment=1` | The swappable page body for the 2-minute refresh |
 | `/meal/manifest.webmanifest`, `/meal/static/*` | Home Screen manifest (`display: standalone`, start `/meal/kitchen`), `home.css` (the Bernese tokens), `home.js`, the self-hosted Inter and Space Grotesk fonts (OFL, `static/fonts/`), bear icons |
 
@@ -422,7 +424,7 @@ last good value when it had one. The browser never talks to any of them.
 | Backups | Loki: the backup-* one-shots' `event name=backup-… action=die code=N` lines from docker-event-watch (the Grafana "Backups" dashboard's source), last 26 h, latest exit per container | 5 min |
 | Deploys failed | Komodo `POST /read` `ListUpdates` (updates of the last 24 h; failed = a finished `*Deploy*` update with `success: false`). Shows **"not configured"** until `KOMODO_API_KEY`/`KOMODO_API_SECRET` exist (hand step below) | 5 min |
 | Draft PRs | GitHub `GET /repos/BigH3ater/kdk-lab-dkr/pulls?state=open` (public, **no token**; anonymous limit 60/h, so 15 min cache and a 5 min retry) | 15 min |
-| Updates | open Renovate PRs (same GitHub call) + `vulnerable=` from advisory-watch's weekly `summary=1` line in Loki (`{job="advisory-watch"}`, last 8 days); "to review" = its `unknown=` | 15 min |
+| Updates | open Renovate PRs (same GitHub call) + `vulnerable=` from advisory-watch's weekly `summary=1` line in Loki (`{job="advisory-watch"}`, last 8 days); "to review" = its `unknown=`. The value counts all three; the sub-line wraps between parts instead of an ellipsis | 15 min (advisories 1 h) |
 | UPS | Home Assistant NUT sensors `sensor.computer_room_eaton_5px_*` (status flags, load, charge; runtime when HA has a runtime sensor), with the existing dashboard HA token. Prometheus has **no NUT exporter**, so HA is the source | 60 s |
 | Recent sign-ins | Loki `{container="authelia"} |~ "Unsuccessful|getting details for user|requires 2FA"`, last 24 h | 5 min |
 | Sparklines (24 h, 15 min steps) | Prometheus `query_range`: lab-wide CPU busy and memory used, the fullest root disk, the `tankz3` pool on kdk-nas-01, NIC in+out on all lab hosts; UPS load from HA history (averaged per 15 min) | 5 min |
@@ -458,11 +460,25 @@ sidecar builds `{job="syslog"[, host="<host>"]} |~ "(?i)<text>"`:
 "Open in Grafana Explore" opens the same query (Loki datasource `loki-dkr01`)
 for the full set.
 
+An empty search lists the newest lines (same 200-line cap). A query that is
+exactly one of the host names is applied as the host filter, not as line text,
+and the results say so. Errors read differently: a timeout ("Loki did not answer
+in time"), a Loki HTTP error (its own message, escaped and cut to 200
+characters) and anything else. No match says "No matching lines in the last N"
+with a link to rerun over 24 h. The advisories feed refreshes hourly: its 8-day
+`limit=1` query leaves cancelled Loki sub-queries behind.
+
 **Service tiles.** Eight groups (Media ops, Books, Home automation, Identity,
-Deploy, Infrastructure, Monitoring, Household data), hrefs from
-`config/services.yaml` (a test keeps them in sync). A green or red dot means a
-blackbox probe exists for that host name (or, for the IP tiles, an ICMP probe
-of that IP); no dot means no probe.
+Deploy, Infrastructure, Monitoring, Household data), lifted from the retired
+Homepage service list plus the two reading-sync paths (a test checks no former
+Homepage link is lost). Books has **Reading catalogue** (`https://opds.kmkdp.com/opds`) and
+**Reading sync** (`https://kosync.kmkdp.com/healthcheck`): both hosts answer 404
+at `/`. Each tile names its own probe in `admin.TILES`: the exact blackbox
+`instance` from `stacks/monitoring/prometheus/prometheus.yml` (Home Assistant
+by `https://homeassistant.kmkdp.com`, not the IP probe), or a scrape target as
+`job@instance` (Loki: `loki@10.1.20.21:3100`). A test checks every tile probe
+is a target in that file. Green or red = that probe's state; no dot = no probe
+(GitHub, and Calibre while it is retired) or no series yet.
 
 **Network.** The sidecar needs Prometheus and Alertmanager on kdk-mon-01, which
 the dkr-01 DOCKER-USER policy blocks: `allow_ctr dashboard-mealplan 10.1.20.30

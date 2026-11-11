@@ -205,7 +205,8 @@ def test_tiles_with_live_sources():
     assert "https://sso.kmkdp.com" in t["Services down"]["sub"] and t["Services down"]["state"] == "bad"
     assert t["Backups"]["value"] == "OK" and "3 steps" in t["Backups"]["sub"]
     assert t["Draft PRs"]["value"] == "2" and t["Draft PRs"]["state"] == "warn"
-    assert t["Updates"]["value"] == "5" and t["Updates"]["sub"] == "2 Renovate · 3 advisories · 2 to review"
+    # the 2 "to review" count too (2 + 3 + 2)
+    assert t["Updates"]["value"] == "7" and t["Updates"]["sub"] == "2 Renovate · 3 advisories · 2 to review"
     assert t["UPS"]["value"] == "Online" and t["UPS"]["sub"] == "load 36% · charge 100%"
 
 
@@ -383,7 +384,25 @@ def test_spark_points_and_values():
 def test_charts_render_and_one_missing_series(adm):
     body = aget(adm).get_data(as_text=True)
     assert body.count("<polyline points=") == 5
-    assert "240 Mb/s" in body and "56%" in body and "no data" in body
+    # the UPS series failed (None): its source is named, like the other cards
+    assert "240 Mb/s" in body and "56%" in body and "Home Assistant unreachable" in body
+    assert "no data" not in body
+
+
+def test_charts_unreachable_vs_empty_vs_loading():
+    defs = app.CHART_DEFS
+    # the whole feed failed (Prometheus and HA both down)
+    html = admin._charts_html(defs, None, "failed")
+    assert html.count("Prometheus unreachable") == 5 and html.count("Home Assistant unreachable") == 1
+    assert "no data" not in html and "class='ad-nodata bad'" in html
+    # a source answered with an empty series: "no data", not "unreachable"
+    html = admin._charts_html(defs, dict(CHART_SERIES, cpu=[], ups=[]), "ok")
+    assert html.count("no data") == 2 and "unreachable" not in html
+    # one series failed inside an otherwise good fetch
+    html = admin._charts_html(defs, dict(CHART_SERIES, nas=None, ups=[(NOW, 30.0)]), "ok")
+    assert html.count("Prometheus unreachable") == 1 and "Home Assistant" not in html.split("UPS load")[1]
+    html = admin._charts_html(defs, None, "loading")
+    assert html.count(">loading<") == 6
 
 
 def test_fetch_charts_isolates_failures(monkeypatch):
@@ -420,14 +439,68 @@ def test_service_groups_and_dots(adm):
     assert [g for g, _ in admin.TILES] == ["Media ops", "Books", "Home automation", "Identity", "Deploy",
                                            "Infrastructure", "Monitoring", "Household data"]
     st = admin.probe_status(PROBES)
-    assert admin.tile_dot("https://radarr.kmkdp.com/", st) == "up"
-    assert admin.tile_dot("https://sso.kmkdp.com/", st) == "down"
-    assert admin.tile_dot("https://10.1.1.100:8006/", st) == "up"         # ICMP probe of that host
-    assert admin.tile_dot("https://homeassistant.kmkdp.com/", st) is None  # no probe for that name
-    assert admin.tile_dot("https://grafana.kmkdp.com/explore", st) is None
+    assert admin.tile_dot("https://radarr.kmkdp.com/ping", st) == "up"
+    assert admin.tile_dot("https://sso.kmkdp.com", st) == "down"
+    assert admin.tile_dot("10.1.1.100", st) == "up"                       # ICMP probe of that host
+    assert admin.tile_dot("http://10.1.30.21:8123", st) == "up"
+    assert admin.tile_dot("https://homeassistant.kmkdp.com", st) is None   # no series (yet)
+    assert admin.tile_dot(None, st) is None                               # tile without a probe
+    # scrape targets are keyed job@instance: the snmp exporter being down for
+    # 10.1.3.1 does not paint the UniFi console's ICMP probe
+    assert st["node-external@10.1.20.20:9100"] is True and st["snmp@10.1.3.1"] is False
+    assert "10.1.3.1" not in st
     body = aget(adm).get_data(as_text=True)
     assert body.count("class='dot up'") >= 3 and "class='dot down'" in body
     assert "https://wizarr.kmkdp.com/admin" in body and "https://github.com/BigH3ater/kdk-lab-dkr" in body
+
+
+def _tile(label):
+    return next(t for _g, items in admin.TILES for t in items if t[0] == label)
+
+
+def test_each_tile_maps_to_its_own_probe():
+    # Home Assistant by its hostname, not the IP probe; Grafana and the Loki
+    # Explore link share a host but not a probe
+    assert _tile("Home Assistant")[3] == "https://homeassistant.kmkdp.com"
+    assert _tile("Grafana")[3] == "https://grafana.kmkdp.com/api/health"
+    assert _tile("Loki (Grafana Explore)")[3] == "loki@10.1.20.21:3100"
+    st = admin.probe_status({"probe": [("https://grafana.kmkdp.com/api/health", "blackbox-service", 0.0)],
+                             "up": [("10.1.20.21:3100", "loki", 1.0)]})
+    assert admin.tile_dot(_tile("Grafana")[3], st) == "down"
+    assert admin.tile_dot(_tile("Loki (Grafana Explore)")[3], st) == "up"
+    # the only tiles without a dot: GitHub (external) and Calibre (being retired)
+    assert sorted(t[0] for _g, items in admin.TILES for t in items if t[3] is None) == [
+        "Calibre (reMarkable)", "GitHub repo"]
+
+
+def test_new_reading_tiles_link_working_paths():
+    books = dict((t[0], t) for t in dict(admin.TILES)["Books"])
+    assert books["Reading catalogue"][1] == "https://opds.kmkdp.com/opds"
+    assert books["Reading sync"][1] == "https://kosync.kmkdp.com/healthcheck"
+
+
+def test_every_tile_probe_is_a_prometheus_target():
+    """Each tile's probe is a blackbox target (or, as job@host:port, a scrape
+    target) in the mon-01 Prometheus config, so a typo never leaves a blank dot."""
+    import os
+    import yaml
+    path = os.path.join(os.path.dirname(app.__file__), "..", "..", "monitoring", "prometheus", "prometheus.yml")
+    cfg = yaml.safe_load(open(path))
+    keys = set()
+    for job in cfg["scrape_configs"]:
+        for sc in job.get("static_configs", []):
+            for t in sc["targets"]:
+                keys.add(t if job["job_name"].startswith("blackbox-") else f"{job['job_name']}@{t}")
+    for _g, items in admin.TILES:
+        for label, _href, _host, probe in items:
+            assert probe is None or probe in keys, (label, probe)
+
+
+def test_updates_sub_line_wraps_between_parts():
+    html = admin._stats_html([admin._tile("Updates", "7", "1 Renovate · 3 advisories · 3 to review", "warn")])
+    assert ("<span>1 Renovate ·</span> <span>3 advisories ·</span> <span>3 to review</span>") in html
+    t = tiles({"advisories": ({"vulnerable": 0, "unknown": 4}, "ok")})["Updates"]
+    assert t["value"] == "6" and t["state"] == "warn"                     # 2 Renovate + 4 to review
 
 
 # Every link the retired Homepage service directory had (config/services.yaml,
@@ -459,7 +532,7 @@ def _shared_nav_hrefs() -> set[str]:
 
 def test_no_homepage_link_lost():
     import kitchen
-    have = {href for _g, items in admin.TILES for _n, href, _h in items}
+    have = {href for _g, items in admin.TILES for _n, href, _h, _p in items}
     have |= {href for _n, href in kitchen.APPS}
     nav = _shared_nav_hrefs()
     assert "https://search.kmkdp.com/" in nav and len(nav) > 10
@@ -605,16 +678,77 @@ def test_syslog_search_rate_limited(adm, monkeypatch):
     monkeypatch.setattr(admin, "loki_range", lambda *a, **k: calls.append(1) or [])
     monkeypatch.setattr(app, "SYSLOG_LIMIT", devices.RateLimiter(2, 600))
     for _ in range(2):
-        assert "No matching lines." in aget(adm, query_string={"q": "x"}).get_data(as_text=True)
+        assert "No matching lines in the last 1 hour." in aget(adm, query_string={"q": "x"}).get_data(as_text=True)
     assert "Too many searches" in aget(adm, query_string={"q": "x"}).get_data(as_text=True)
     assert len(calls) == 2
 
 
-def test_syslog_search_empty_and_overlong_make_no_call(adm, monkeypatch):
+def test_syslog_search_overlong_makes_no_call(adm, monkeypatch):
     monkeypatch.setattr(admin, "loki_range", lambda *a, **k: (_ for _ in ()).throw(AssertionError("called")))
-    assert "Type something" in aget(adm, query_string={"q": "  "}).get_data(as_text=True)
     assert "limited to 200" in aget(adm, query_string={"q": "x" * 300}).get_data(as_text=True)
     assert "control characters" in aget(adm, query_string={"q": "a\nb"}).get_data(as_text=True)
+
+
+def test_syslog_empty_search_lists_newest_lines(adm, monkeypatch):
+    seen = {}
+
+    def fake(loki, q, seconds, limit, timeout=10, now=None):
+        seen.update(q=q, limit=limit)
+        return [(ns(NOW), {"host": "kdk-dkr-01"}, "newest line")]
+    monkeypatch.setattr(admin, "loki_range", fake)
+    body = aget(adm, query_string={"q": "  "}).get_data(as_text=True)
+    assert seen == {"q": '{job="syslog"}', "limit": 200}                  # no line filter, same cap
+    assert "newest line" in body and "No search text: the newest lines." in body
+    assert "Type something" not in body
+
+
+def test_syslog_query_that_is_a_host_name_filters_by_host(adm, monkeypatch):
+    seen = {}
+    monkeypatch.setattr(admin, "loki_range", lambda loki, q, *a, **k: seen.update(q=q) or [])
+    body = aget(adm, query_string={"q": "kdk-dkr-02"}).get_data(as_text=True)
+    assert seen["q"] == '{job="syslog", host="kdk-dkr-02"}'
+    assert "is a host: showing that host" in body and "<option value='kdk-dkr-02' selected>" in body
+    # a partial name is still a text search; an explicit host keeps the text as a line filter
+    aget(adm, query_string={"q": "kdk-dkr"})
+    assert seen["q"] == '{job="syslog"} |~ "(?i)kdk-dkr"'
+    aget(adm, query_string={"q": "kdk-dkr-02", "host": "kdk-log-01"})
+    assert seen["q"] == '{job="syslog", host="kdk-log-01"} |~ "(?i)kdk-dkr-02"'
+
+
+def test_syslog_zero_results_offer_24h(adm, monkeypatch):
+    monkeypatch.setattr(admin, "loki_range", lambda *a, **k: [])
+    body = aget(adm, query_string={"q": "disk <full>", "range": "6h"}).get_data(as_text=True)
+    assert "No matching lines in the last 6 hours." in body
+    assert "href='/?q=disk+%3Cfull%3E&amp;host=&amp;range=24h'" in body
+    body = aget(adm, query_string={"q": "x", "range": "24h"}).get_data(as_text=True)
+    assert "No matching lines in the last 24 hours." in body and "Search the last 24 hours" not in body
+
+
+def test_syslog_errors_are_told_apart(adm, monkeypatch):
+    import requests
+
+    def raiser(exc):
+        def f(*a, **k):
+            raise exc
+        return f
+    monkeypatch.setattr(admin, "loki_range", raiser(requests.ReadTimeout()))
+    assert "Loki did not answer in time." in aget(adm, query_string={"q": "x"}).get_data(as_text=True)
+    monkeypatch.setattr(admin, "loki_range", raiser(admin.UpstreamError(
+        400, "parse error at line 1, col 5: <syntax error> " + "x" * 600)))
+    body = aget(adm, query_string={"q": "x"}).get_data(as_text=True)
+    assert "Loki returned an error (400): parse error at line 1, col 5: &lt;syntax error&gt;" in body
+    assert "<syntax error>" not in body and "x" * 201 not in body                   # escaped, truncated
+    monkeypatch.setattr(admin, "loki_range", raiser(ValueError("boom")))
+    assert "Loki search failed (ValueError)" in aget(adm, query_string={"q": "x"}).get_data(as_text=True)
+
+
+def test_get_json_carries_the_error_body(monkeypatch):
+    class R:
+        status_code, text = 400, "  too many outstanding requests  "
+    monkeypatch.setattr(admin.requests, "get", lambda *a, **k: R())
+    with pytest.raises(admin.UpstreamError) as e:
+        admin._get_json("http://loki")
+    assert e.value.status == 400 and e.value.body == "too many outstanding requests"
 
 
 def test_search_input_value_is_escaped(adm, monkeypatch):

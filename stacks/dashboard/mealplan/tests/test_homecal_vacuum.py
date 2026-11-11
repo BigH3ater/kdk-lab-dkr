@@ -19,7 +19,7 @@ def events():
 
 
 def _titles(events, day):
-    return [homecal.label(e) for e in homecal.on_day(events, day)]
+    return [homecal.label(e, day) for e in homecal.on_day(events, day)]
 
 
 def test_weekly_all_day_series_expands_with_exdate(events):
@@ -29,31 +29,103 @@ def test_weekly_all_day_series_expands_with_exdate(events):
 
 
 def test_timed_series_and_moved_occurrence(events):
-    assert _titles(events, MON) == ["Piano lesson, 4 PM", "Late call, 8 PM"]
-    assert _titles(events, MON + datetime.timedelta(days=7)) == ["Piano lesson (moved), 6 PM"]
+    assert _titles(events, MON) == ["4 PM Piano lesson", "8 PM Late call"]
+    assert _titles(events, MON + datetime.timedelta(days=7)) == ["6 PM Piano lesson (moved)"]
 
 
 def test_multi_day_all_day_event_shows_each_day(events):
-    for d in (11, 12, 13):
-        assert "Trip" in _titles(events, datetime.date(2026, 11, d))
-    assert "Trip" not in _titles(events, datetime.date(2026, 11, 14))     # DTEND is exclusive
+    assert "Trip" in _titles(events, datetime.date(2026, 11, 11))          # first day: plain title
+    assert "Trip (until Fri)" in _titles(events, datetime.date(2026, 11, 12))
+    assert "Trip (last day)" in _titles(events, datetime.date(2026, 11, 13))
+    assert not any("Trip" in t for t in _titles(events, datetime.date(2026, 11, 14)))  # DTEND is exclusive
+
+
+# A timed on-call week (live: "Jacob On Call", Nov 5 08:00 -> Nov 13 08:00), a
+# timed event across midnight, and one ending exactly at midnight.
+SPANS = b"""BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//test//EN
+BEGIN:VEVENT
+UID:oncall@test
+DTSTART;TZID=America/Chicago:20261105T080000
+DTEND;TZID=America/Chicago:20261113T080000
+SUMMARY:Jacob On Call
+END:VEVENT
+BEGIN:VEVENT
+UID:night@test
+DTSTART;TZID=America/Chicago:20261110T220000
+DTEND;TZID=America/Chicago:20261111T013000
+SUMMARY:Night shift
+END:VEVENT
+BEGIN:VEVENT
+UID:midnight@test
+DTSTART;TZID=America/Chicago:20261110T200000
+DTEND;TZID=America/Chicago:20261111T000000
+SUMMARY:Movie
+END:VEVENT
+BEGIN:VEVENT
+UID:class@test
+DTSTART;TZID=America/Chicago:20261110T180000
+DTEND;TZID=America/Chicago:20261110T190000
+SUMMARY:Manners Class
+END:VEVENT
+BEGIN:VEVENT
+UID:long@test
+DTSTART;VALUE=DATE:20261109
+DTEND;VALUE=DATE:20261201
+SUMMARY:Holiday lights up
+END:VEVENT
+END:VCALENDAR
+"""
+
+
+@pytest.fixture(scope="module")
+def spans():
+    return homecal.expand(SPANS, MON, 21, TZ)
+
+
+def test_multi_day_timed_event_shows_every_day_it_runs(spans):
+    # it began before the window (Nov 5) and still shows on each day until it ends
+    for d in (9, 10, 11, 12, 13):
+        assert any(t.startswith("Jacob On Call") for t in _titles(spans, datetime.date(2026, 11, d))), d
+    assert "Jacob On Call (until Fri)" in _titles(spans, datetime.date(2026, 11, 10))
+    assert "Jacob On Call (until 8 AM)" in _titles(spans, datetime.date(2026, 11, 13))
+    assert not any("Jacob" in t for t in _titles(spans, datetime.date(2026, 11, 14)))
+
+
+def test_timed_event_across_midnight_shows_on_both_days(spans):
+    assert "10 PM Night shift" in _titles(spans, datetime.date(2026, 11, 10))
+    assert "Night shift (until 1:30 AM)" in _titles(spans, datetime.date(2026, 11, 11))
+    # ending at exactly midnight does not spill into the next day
+    assert "8 PM Movie" in _titles(spans, datetime.date(2026, 11, 10))
+    assert not any("Movie" in t for t in _titles(spans, datetime.date(2026, 11, 11)))
+
+
+def test_days_own_events_come_before_carried_over_ones(spans):
+    assert _titles(spans, datetime.date(2026, 11, 10)) == [
+        "6 PM Manners Class", "8 PM Movie", "10 PM Night shift",
+        "Holiday lights up (until Nov 30)", "Jacob On Call (until Fri)"]
+    # the night view picks the day's own first timed event, not a carried one
+    assert homecal.first_event(spans, datetime.date(2026, 11, 10)) == "6 PM Manners Class"
+    assert homecal.first_event(spans, datetime.date(2026, 11, 12)) == "Holiday lights up (until Nov 30)"
+    assert homecal.label(spans[0]) == "8 AM Jacob On Call"                  # no day: plain label
 
 
 def test_utc_event_lands_on_its_chicago_day(events):
     # 2026-11-10 02:00Z = Mon Nov 9, 8 PM in Chicago
-    assert "Late call, 8 PM" in _titles(events, MON)
+    assert "8 PM Late call" in _titles(events, MON)
     assert all("Late call" not in t for t in _titles(events, MON + datetime.timedelta(days=1)))
 
 
 def test_all_day_first_then_by_time(events):
-    tue = _titles(events, datetime.date(2026, 11, 12))     # Thursday: trash (all-day) + trip
-    assert tue[0] in ("Trash and recycling", "Trip")
-    assert _titles(events, datetime.date(2026, 11, 10)) == ["Vet <Bear>, 9:30 AM"]
+    thu = _titles(events, datetime.date(2026, 11, 12))     # Thursday: trash (all-day) + trip (day 2)
+    assert thu == ["Trash and recycling", "Trip (until Fri)"]
+    assert _titles(events, datetime.date(2026, 11, 10)) == ["9:30 AM Vet <Bear>"]
 
 
 def test_first_event_for_the_night_view(events):
-    assert homecal.first_event(events, datetime.date(2026, 11, 10)) == "Vet <Bear>, 9:30 AM"
-    assert homecal.first_event(events, datetime.date(2026, 11, 12)) in ("Trash and recycling", "Trip")
+    assert homecal.first_event(events, datetime.date(2026, 11, 10)) == "9:30 AM Vet <Bear>"
+    assert homecal.first_event(events, datetime.date(2026, 11, 12)) == "Trash and recycling"
     assert homecal.first_event(events, datetime.date(2026, 11, 15)) == ""          # a Sunday, nothing on
 
 
