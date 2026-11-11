@@ -4,9 +4,9 @@ host: kdk-dkr-01
 stack: grocery-planner
 tier: apps
 status: new
-storage: no
+storage: yes
 secrets: [dashboard-tandoor-rw, vikunja-api-rw]
-updated: 2026-11-05
+updated: 2026-11-11
 tags: [homelab/stack, tier/apps, status/new, tandoor, grocery]
 ---
 
@@ -31,7 +31,8 @@ plan page lives in the dashboard mealplan sidecar at `home.kmkdp.com/meal/grocer
 | Image | `kdk/grocery-planner` built locally (`auto_pull=false`, `run_build=true`); python 3.12-slim + requests + pyyaml, uid 1000, read-only rootfs, no caps, 256 MB, one-shot |
 | Output | stdout JSON lines, also pushed straight to Loki by the job (`{job="grocery-planner", container="grocery-planner"|"grocery-planner-poll"}`; a one-shot exits before Alloy can scrape it); the page `home.kmkdp.com/meal/groceries`; a Vikunja approval task |
 | Secrets | `dashboard-tandoor-rw` (the sidecar's Tandoor account), `vikunja-api-rw` (approval task) — op-injected into `.env.op` and **appended** to the `.env` Komodo writes from the stack `environment` (`GROCERY_MODE`/`GROCERY_POLL`/`GROCERY_SUFFIX`); overwriting `.env` drops those |
-| Blast radius | writes Tandoor meal-plan + shopping-list entries and one Vikunja task; never orders or pays |
+| Storage | `/opt/kdk-lab/dashboard/pantry/freezer.json` (+ `.bak`): the freezer inventory, shared read-write with the dashboard sidecar (Pantry tab); seed `stacks/grocery-planner/freezer-seed.json` |
+| Blast radius | writes Tandoor meal-plan + shopping-list entries and one Vikunja task, and decrements the freezer counts it reserves; never orders or pays |
 
 ## How a week flows
 
@@ -75,11 +76,23 @@ plan page lives in the dashboard mealplan sidecar at `home.kmkdp.com/meal/grocer
    with an add box. Ticks write `checked` back to Tandoor.
    The **Pantry** tab lists the on-hand pantry and stock-store foods ("used this
    week" first) with a "reorder" button that adds one recipe-less entry; the
-   **Thaw** tab lists the week's freezer-stock meats with a move-to-the-fridge time.
+   **Thaw** tab lists the week's freezer-stock meats with a move-to-the-fridge time
+   and what the build reserved from the freezer. The Pantry tab's **Freezer**
+   section holds the freezer counts the build plans from.
 4. **Saturday** — New Pi delivers; Sunday is prep + the fresh-fish dinner (salmon
    keeps 1–2 days; tuna weeks have no timing constraint).
 
 ## Design decisions
+
+- **Freezer inventory (2026-11-11):** one JSON file the owner keeps on the
+  Pantry tab (Freezer section: −/+/set, fill-in and set-portions markers, add a
+  cut, "Order arrived" for the `standing_orders`, undo via `.bak`). The build
+  never plans a dinner/lunch the freezer is short for, lets fish parity yield to
+  the fish in stock, prefers the most-stocked cut, and decrements what it
+  reserved (`freezer_reserved`). Recipe foods map to cuts by `freezer.map` in
+  `config.yaml`. The job's mount is read-write because the build writes the
+  decrement; the rootfs stays read-only. No file = the plan as before. Runbook:
+  [Freezer inventory](../runbooks/grocery-planner.md#freezer-inventory-pantry-tab-freezer-section).
 
 - **Page route:** the page is added to the **dashboard mealplan sidecar** as
   `/groceries` (served at `home.kmkdp.com/meal/groceries`), not a new container.

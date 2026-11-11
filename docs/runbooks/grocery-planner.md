@@ -340,7 +340,7 @@ from the meal plan so they come out of the freezer in time.
   Rows are sorted by that time; a late one shows red.
 - **Lead times** live in `config.yaml` → `thaw:` (`default: 24h`,
   `ground beef: 24h`, `chops: 24h`, `chicken breast: 24h`, `roast: 48h`,
-  `salmon: 12h`). The longest key that is part of the food name wins; values are
+  `salmon: 12h`, `tuna: 12h`). The longest key that is part of the food name wins; values are
   hours (`24h`) or days (`2d`). The time counts back from the meal (breakfast
   08:00, lunch 12:00, dinner 18:00): chili on Wednesday → ground beef by Tue 6 PM.
 - **Tick** a row when it is in the fridge (tap again to undo). Ticks are local to
@@ -349,6 +349,9 @@ from the meal plan so they come out of the freezer in time.
   starts clean each Sunday.
 - **Meals tab** opens with one line, "Thaw today: 1 lb ground beef (Wed Beef
   Chili)", for open rows due today or overdue.
+- **Reserved from the freezer** (under the rows): what the Tuesday build took
+  off the freezer counts for this plan week and the next (cut, amount, day,
+  recipe), from `freezer.json` `reservations`.
 - **Change a lead time**: edit `thaw:` in `stacks/grocery-planner/config.yaml`,
   merge, redeploy the `dashboard` stack (the file is read at container start).
 
@@ -374,6 +377,62 @@ REPO=$(git rev-parse --show-toplevel)
 python3 -m pip install pytest==8.4.2 flask==3.0.3 requests==2.32.3 waitress==3.0.1 pyyaml==6.0.3
 cd "$REPO/stacks/dashboard/mealplan" && python3 -I -m pytest -q tests/test_pantry_tab.py tests/test_thaw_tab.py
 cd "$REPO/stacks/grocery-planner" && python3 -m pytest -q tests/test_poll_pass.py tests/test_shoplist.py
+```
+
+## Freezer inventory (Pantry tab, Freezer section)
+
+What is in the chest freezer, so the plan never picks a dinner the freezer can't
+cover. One file on kdk-dkr-01: `/opt/kdk-lab/dashboard/pantry/freezer.json`
+(mounted at `/pantry` in `dashboard-mealplan` and in the grocery-planner job;
+schema in `stacks/grocery-planner/grocery/freezer.py`, version 1). Units per cut:
+**portions** (steaks, patties, fish), **lb** (ground beef, roasts, stew meat,
+fajita strips, brats), **packages** (O'Connell chicken, pork chops, bacon until
+you set portions per package).
+
+- **Correct a count.** Pantry tab → Freezer: `−` / `+` (one portion, package or
+  lb) or type a number and **set**. A **fill in** row (count unknown: tuna,
+  salmon in the seed) is ignored by the planner until you set it. A **set
+  portions** row (O'Connell packs) takes portions per package; until then a
+  recipe's chicken counts by the 1.1 lb package. **add** adds a cut (name, unit,
+  count, package size); map it in `config.yaml` → `freezer.map` (food-name
+  substring → cut id) so recipes use it.
+- **Order arrived: O'Connell / Amana** adds that standing order
+  (`config.yaml` → `standing_orders`) to the counts. **undo last change** swaps
+  `freezer.json` with `freezer.json.bak` (every write keeps one `.bak`; press
+  again to redo). Each change logs `freezer change by <user>: …` in the sidecar.
+- **What the build does** (Tuesday): skips a dinner/lunch the freezer is short
+  for (if nothing in the slot fits it plans one anyway and logs
+  `freezer_short_pick`); fish parity yields to the fish in stock
+  (`freezer_fish`); prefers the cut with the most dinners' worth left; after
+  writing the plan it decrements what it reserved (`freezer_reserved`, also on
+  the Thaw tab) — once per week. Freezer-aisle foods with no `freezer.map` key
+  log `freezer_unmapped` and count as available. Missing or unreadable file:
+  `freezer_inventory_missing`, plan as before.
+
+**Install the seed (once, after the PR merges and the dashboard redeploys).**
+Copies `stacks/grocery-planner/freezer-seed.json` (the 2026-11-11 Amana +
+O'Connell paperwork) only if no inventory exists yet; never overwrites one.
+
+**kdk-dkr-01 as kdkadmin, from the laptop**
+
+```sh
+HOST=10.1.20.20
+DIR=/opt/kdk-lab/dashboard/pantry
+SEED=/opt/kdk-lab/stacks/dashboard/stacks/grocery-planner/freezer-seed.json
+ssh kdkadmin@$HOST "sudo -n install -d -o 1000 -g 1000 -m 755 $DIR && { sudo -n test -e $DIR/freezer.json || sudo -n install -o 1000 -g 1000 -m 644 $SEED $DIR/freezer.json; } && sudo -n ls -l $DIR"
+# expect freezer.json, 1000 1000, -rw-r--r--
+```
+
+Then correct the counts on the Pantry tab (the seed is delivered counts; use
+since delivery is unknown) and fill in tuna and salmon.
+
+Check what the last build reserved (read-only):
+
+**kdk-dkr-01 as kdkadmin, from the laptop**
+
+```sh
+HOST=10.1.20.20
+ssh kdkadmin@$HOST "sudo -n docker logs grocery-planner 2>&1 | grep -E 'freezer_(reserved|short|fish|unmapped|inventory_missing)'"
 ```
 
 ## Preview a week before its run
@@ -594,6 +653,14 @@ public rating, and demote dishes the household rates low (Phase 2).
   still in `docker logs grocery-planner<suffix>`.
 
 ## Rollback
+
+Freezer inventory only: delete the `/opt/kdk-lab/dashboard/pantry` volume line
+from `stacks/grocery-planner/compose.yaml` (the build then logs
+`freezer_inventory_missing` and plans as before) and, to drop the Pantry-tab
+section, the same line from `stacks/dashboard/compose.yaml`. The host file can
+stay.
+
+Whole service:
 
 1. Remove the three `grocery-*` stacks and procedures from
    `komodo/resources.toml` in a PR; merge; let Komodo pick up the removal. The

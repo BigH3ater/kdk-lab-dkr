@@ -16,6 +16,8 @@ COPY app.py /app/app.py
 COPY newpi.py /app/newpi.py
 # Pantry + Thaw tabs; reads cleanup.yaml + the planner config.yaml, both bind-mounted.
 COPY stock.py /app/stock.py
+# Freezer inventory (Pantry tab Freezer section); /pantry/freezer.json is a bind mount.
+COPY freezer.py /app/freezer.py
 # Kitchen board + household page (/meal/kitchen, /meal/home): rendering,
 # calendar, vacuum line, and the static css/js/fonts/icons served at /meal/static.
 COPY kitchen.py homecal.py vacuum.py /app/

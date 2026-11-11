@@ -137,6 +137,12 @@ services:
       # Losing it only means re-pairing the kitchen screen. Also manual-forced.json:
       # the grocery add box's "Manual list instead" entry ids (pruned on read).
       - /opt/kdk-lab/dashboard/kitchen-state:/state
+      # Freezer inventory (freezer.json + .bak; the Pantry tab's Freezer section
+      # edits it, atomic tmp + rename). A DIRECTORY mount (a rename cannot land
+      # on a single-file bind mount). Shared read-write with the grocery-planner
+      # job, which plans from it and decrements what a week reserves. The dir is
+      # uid 1000 (dashboard pre_deploy install -d); the seed is a hand step.
+      - /opt/kdk-lab/dashboard/pantry:/pantry
     networks: [default, proxy]
     labels:
       traefik.enable: "true"
