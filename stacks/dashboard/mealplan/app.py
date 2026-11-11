@@ -424,19 +424,37 @@ def _lunch_people() -> int:
         return 2
 
 
+def _skip_days() -> set[str]:
+    """The planner config's `skip_days` (holidays / travel) as ISO dates,
+    parsed like the generator's skip_offsets (bad entries ignored)."""
+    out = set()
+    try:
+        for v in stock.planner_cfg().get("skip_days") or []:
+            try:
+                out.add((v if isinstance(v, datetime.date)
+                         else datetime.date.fromisoformat(str(v))).isoformat())
+            except ValueError:
+                continue
+    except Exception:
+        pass
+    return out
+
+
 def prep_days_fed(prep_day: datetime.date, rows: list[dict], taken: set[str],
-                  people: int = 2) -> list[datetime.date]:
+                  people: int = 2, skip: set[str] | None = None) -> list[datetime.date]:
     """The days a prep day's batches feed: servings of its `lunch` rows /
     `people`, the days right after the prep day that are not in `taken` (a
-    planner leftover lunch), never past its plan week. Rows without servings
-    keep the old rule (the rest of the week)."""
+    planner leftover lunch) nor in `skip` (config skip_days: no lunch that
+    day, so no serving is used), never past its plan week. Rows without
+    servings keep the old rule (the rest of the week)."""
     servings = sum(float(e.get("servings") or 0) for e in rows if _gp_role(e) == "lunch")
     ws = _plan_week_start(prep_day)
     last = ws + datetime.timedelta(days=6)
     n = int(servings // people) if servings else 7
+    skip = _skip_days() if skip is None else skip
     out, d = [], prep_day + datetime.timedelta(days=1)
     while d <= last and len(out) < n:
-        if d.isoformat() not in taken:
+        if d.isoformat() not in taken and d.isoformat() not in skip:
             out.append(d)
         d += datetime.timedelta(days=1)
     return out
@@ -459,10 +477,11 @@ def with_lunch_prep(plan: list[dict], start: datetime.date, prep: list[dict] | N
             seen.add(key)
             by_day.setdefault(e["date"], []).append(e)
     people = _lunch_people()
+    skip = _skip_days()
     window = {(start + datetime.timedelta(days=i)).isoformat() for i in range(days)}
     out = list(plan)
     for pday, es in sorted(by_day.items()):
-        for d in prep_days_fed(datetime.date.fromisoformat(pday), es, taken, people):
+        for d in prep_days_fed(datetime.date.fromisoformat(pday), es, taken, people, skip):
             if d.isoformat() in window:
                 for e in es:
                     out.append(dict(e, date=d.isoformat(), meal_type=LUNCH_PREP_LABEL,
@@ -1449,6 +1468,14 @@ background:var(--ground);color:var(--text);font:inherit;font-size:15px}
 """
 
 GROCERIES_JS = """
+// Freezer "Order arrived" / undo: one submit per tap (a double tap would post twice).
+document.addEventListener('submit', function (e) {
+  var f = e.target;
+  if (!f.matches('form.fzonce')) return;
+  if (f.dataset.sent) { e.preventDefault(); return; }
+  f.dataset.sent = '1';
+  setTimeout(function () { f.querySelectorAll('button').forEach(function (b) { b.disabled = true; }); }, 0);
+});
 document.addEventListener('submit', async function (e) {
   var f = e.target;
   if (!f.matches('.gi form.tickform')) return;
@@ -1650,13 +1677,16 @@ def _render_freezer(data: dict | None, orders: dict | None = None) -> str:
     for c in data.get("cuts") or []:
         parts.append(_freezer_row(c))
     bar = "".join(
-        "<form method='post' action='groceries/freezer'><input type='hidden' name='action' value='arrived'>"
+        "<form class='fzonce' method='post' action='groceries/freezer'><input type='hidden' name='action' value='arrived'>"
         f"<input type='hidden' name='order' value='{escape(k)}'>"
-        f"<button type='submit'>Order arrived: {escape(o.get('label') or k)}</button></form>"
+        f"<button type='submit' title='adds the order once; a second tap within 12 hours is refused'>"
+        f"Order arrived: {escape(o.get('label') or k)}</button></form>"
         for k, o in (orders or {}).items())
-    bar += ("<form method='post' action='groceries/freezer'><input type='hidden' name='action' value='undo'>"
-            "<button type='submit' title='swap back to the version before the last change'>undo last change</button></form>")
+    bar += ("<form class='fzonce' method='post' action='groceries/freezer'><input type='hidden' name='action' value='undo'>"
+            "<button type='submit' title='swap back to the version before your last tap'>undo my last tap</button></form>")
     parts.append(f"<div class='fzbar'>{bar}</div>")
+    parts.append("<div class='addnote'>Undo reverts only your own last tap (press again to redo it). "
+                 "It never undoes the weekly build's reservation: after a build, fix a count with −/+/set.</div>")
     parts.append("<form class='fzadd' method='post' action='groceries/freezer'>"
                  "<input type='hidden' name='action' value='add'>"
                  "<input name='name' maxlength='60' placeholder='Add a cut…' aria-label='cut name'>"
@@ -1664,6 +1694,9 @@ def _render_freezer(data: dict | None, orders: dict | None = None) -> str:
                  "<option value='lb'>lb</option><option value='package'>packages</option></select>"
                  "<input name='count' inputmode='decimal' placeholder='count' aria-label='count'>"
                  "<input name='package' maxlength='40' placeholder='pkg (12 oz)' aria-label='package size'>"
+                 "<input name='package_lb' inputmode='decimal' placeholder='lb each' "
+                 "aria-label='pounds per portion or package (needed unless the unit is lb)' "
+                 "title='weight of one portion or package; needed unless the unit is lb'>"
                  "<button type='submit'>add</button></form>")
     upd = data.get("updated") or ""
     if upd:
@@ -2278,7 +2311,7 @@ def groceries_freezer():
     """The Pantry tab's Freezer section: −/+/set a count, set portions per
     package, add a cut, add a standing order on arrival, undo the last change.
     home.kmkdp.com only (Authelia; not a kitchen.kmkdp.com route). Every change
-    is logged with the Authelia user and keeps a .bak."""
+    is logged with the Authelia user and keeps a .bak (undo = the last tap only)."""
     who = remote_user() or "unknown"
     action = (request.form.get("action") or "").strip()
     try:

@@ -137,3 +137,24 @@ def test_fetch_plan_with_prep_fetches_the_weeks_earlier_days(repo_cfg, monkeypat
     calls.clear()
     app.fetch_plan_with_prep(SUN, SUN + datetime.timedelta(days=6))
     assert calls == [(SUN, SUN + datetime.timedelta(days=6))]    # Sunday: one fetch
+
+
+def test_skip_days_get_no_prep_copy_and_use_no_serving(repo_cfg, monkeypatch):
+    # Review 2026-11-11 #3: a skip day (holiday/travel) gets no "Lunch prep"
+    # copy and uses none of the batch, as in the planner (skip_offsets): with
+    # Monday skipped the Sunday batch of 4 feeds Tue + Wed, Thursday is the
+    # Wednesday dinner's leftovers, the Thursday batch feeds Fri + Sat.
+    import stock
+    monkeypatch.setitem(stock._config, "skip_days", ["2026-11-16", "not-a-date"])
+    sun = datetime.date(2026, 11, 15)
+    week = [W47[0], W47[3], W47[4]]
+    out = app.with_lunch_prep(week, sun, days=7)
+    got = {(sun + datetime.timedelta(days=i)).isoformat(): _lunch_titles(
+        out, (sun + datetime.timedelta(days=i)).isoformat()) for i in range(7)}
+    assert got == {"2026-11-15": [], "2026-11-16": [],
+                   "2026-11-17": ["Greek Chicken Bowls"], "2026-11-18": ["Greek Chicken Bowls"],
+                   "2026-11-19": [],
+                   "2026-11-20": ["Ground Beef and Potatoes"],
+                   "2026-11-21": ["Ground Beef and Potatoes"]}
+    assert app.prep_days_fed(sun, [W47[0]], set(), 2, {"2026-11-16"}) == [
+        datetime.date(2026, 11, 17), datetime.date(2026, 11, 18)]
