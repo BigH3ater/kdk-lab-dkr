@@ -133,9 +133,17 @@ class Stock:
     two dinners never count the same steaks; run.reserve applies the final
     plan to a fresh read of the file."""
 
-    def __init__(self, data):
+    def __init__(self, data, mapping=None):
+        """With `mapping` (config freezer.map), cuts no map key points at are
+        ignored (self.unknown): a row the owner keeps in the file for another
+        reason (snack sticks, an old tuna/salmon row) never limits a plan."""
         self.data = copy.deepcopy(data)
         self.cuts = {c["id"]: c for c in self.data.get("cuts") or [] if c.get("id")}
+        self.unknown = []
+        if mapping is not None:
+            mapped = {str(v) for v in mapping.values()}
+            self.unknown = sorted(k for k in self.cuts if k not in mapped)
+            self.cuts = {k: v for k, v in self.cuts.items() if k in mapped}
         self.short = []          # [{slot, recipe, need, have}] recipes SKIPPED: the stock was short
         self.short_slots = []    # [{slot, day, checked, counts}] dinners/preps left unplanned
         self.fallbacks = []      # [{slot, planned, recipe}] a slot filled with another protein

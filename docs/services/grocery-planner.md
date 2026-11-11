@@ -114,9 +114,11 @@ plan page lives in the dashboard mealplan sidecar at `home.kmkdp.com/meal/grocer
   another protein in stock (`freezer.fallback`: steak → ground beef → poultry →
   fish, `freezer_fallback`), and if nothing fits the dinner is left unplanned
   (`freezer_short_slot`, one more night off); the build never fails over it.
-  It lets fish parity yield to the fish in stock, prefers the most-stocked cut,
-  and decrements what it reserved (`freezer_reserved`). Tuna steaks are freezer
-  stock too (`NewPiFreezer`). Recipe foods map to cuts by `freezer.map` in
+  It prefers the most-stocked cut,
+  and decrements what it reserved (`freezer_reserved`). Fish is not counted
+  (tuna and salmon are bought from New Pi as needed); a file row no
+  `freezer.map` key points at is ignored (`freezer_unknown_cut`). O'Connell
+  packages hold 2 breasts / 2 chops. Recipe foods map to cuts by `freezer.map` in
   `config.yaml`. The job's mount is read-write because the build writes the
   decrement; the rootfs stays read-only. No file = the plan as before. Runbook:
   [Freezer inventory](../runbooks/grocery-planner.md#freezer-inventory-pantry-tab-freezer-section).

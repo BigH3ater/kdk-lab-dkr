@@ -328,7 +328,11 @@ def load_stock(cfg, env=None):
         jlog(event="freezer_inventory_missing", path=p, reason=err,
              note="planning without the freezer inventory (as before)")
         return None
-    return F.Stock(data)
+    st = F.Stock(data, (cfg.get("freezer") or {}).get("map") or {})
+    if st.unknown:
+        jlog(event="freezer_unknown_cut", path=p, cuts=st.unknown,
+             note="in freezer.json but no freezer.map key points at it: ignored by the planner")
+    return st
 
 
 def unmapped_freezer_foods(entries, details, cfg):

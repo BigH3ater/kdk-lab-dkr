@@ -48,22 +48,19 @@ rules:
   - {match: pork chop,          category: "OConnell/monthly: Freezer", pack_lb: 1.0, each_lb: 0.5}
   - {match: pork loin chop,     category: "OConnell/monthly: Freezer", pack_lb: 1.0, each_lb: 0.5}
   - {match: salmon,             category: "NewPi/weekly: Meat & Seafood"}
-  # Tuna at New Pi is frozen, salmon is fresh (tuna is NOT a Costco bulk item).
-  # 2026-11-11: tuna steaks are kept in the chest freezer and counted on the
-  # Pantry tab (freezer.json tuna-steaks), so tuna is freezer stock like the
-  # Amana beef: on hand, never on a weekly list, listed on the Thaw tab
-  # ("tuna", "ahi tuna steaks", "tuna (yellowfin tuna) steaks"). Buy it by hand
-  # at New Pi when the count runs low. The 1-2 day fresh-fish timing rule
-  # applies to salmon only.
-  - {match: tuna,               category: "NewPiFreezer/stock: Freezer"}
-  - {match: frozen tuna,        category: "NewPiFreezer/stock: Freezer"}
-  - {match: ahi,                category: "NewPiFreezer/stock: Freezer"}
+  # Tuna at New Pi is frozen, salmon is fresh -- both ordered weekly from New Pi
+  # as needed (tuna is NOT a Costco bulk item, and neither is freezer stock:
+  # owner 2026-11-11). The 1-2 day fresh-fish timing rule applies to salmon
+  # only; tuna weeks have no timing constraint.
+  - {match: tuna,               category: "NewPi/weekly: Meat & Seafood"}
+  - {match: frozen tuna,        category: "NewPi/weekly: Meat & Seafood"}
+  - {match: ahi,                category: "NewPi/weekly: Meat & Seafood"}
   # Fish sold as "steaks" must beat the beef `steak` rule below (longest match).
-  - {match: tuna steak,         category: "NewPiFreezer/stock: Freezer"}
-  - {match: ahi tuna steak,     category: "NewPiFreezer/stock: Freezer"}
+  - {match: tuna steak,         category: "NewPi/weekly: Meat & Seafood"}
+  - {match: ahi tuna steak,     category: "NewPi/weekly: Meat & Seafood"}
   # "tuna (yellowfin tuna) steaks": "tuna steak" is not a substring of it, so
-  # "steak" (Amana beef) won before this rule.
-  - {match: yellowfin tuna,     category: "NewPiFreezer/stock: Freezer"}
+  # "steak" (Amana beef) won before this rule (2026-11-11).
+  - {match: yellowfin tuna,     category: "NewPi/weekly: Meat & Seafood"}
   - {match: salmon steak,       category: "NewPi/weekly: Meat & Seafood"}
   - {match: swordfish steak,    category: "NewPi/weekly: Meat & Seafood"}
   # Beef (ground + steak) is Amana eighth-share FREEZER STOCK, on hand -- the

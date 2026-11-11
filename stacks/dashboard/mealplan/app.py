@@ -1603,7 +1603,7 @@ def _pantry_row(food: str, recipes: list[str], on_list: bool) -> str:
     return f"<div class='gi pantry'><span class='lbl'>{escape(food)}{src}</span>{act}</div>"
 
 
-_STORE_LABEL = {"NewPi": "New Pi", "OConnell": "O'Connell", "NewPiFreezer": "New Pi (freezer)"}
+_STORE_LABEL = {"NewPi": "New Pi", "OConnell": "O'Connell"}
 
 
 def _fz_form(action: str, cut: str, inner: str) -> str:
