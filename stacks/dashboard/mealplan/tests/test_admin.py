@@ -455,6 +455,35 @@ def test_service_groups_and_dots(adm):
     assert "https://wizarr.kmkdp.com/admin" in body and "https://github.com/BigH3ater/kdk-lab-dkr" in body
 
 
+def test_service_groups_pack_instead_of_stretching_rows(adm):
+    """2026-11-11 screenshot: the groups sat in rows as tall as the tallest card,
+    leaving an empty band under Books / Home automation / Identity. The grid now
+    packs: 2 px rows, dense flow, each card spanning (60 + items x 34|44 px) / 2."""
+    css = open(os.path.join(os.path.dirname(app.__file__), "static", "home.css")).read()
+
+    def rule(block, sel):
+        return block.split(sel + "{", 1)[1].split("}", 1)[0]
+
+    grid = rule(css, ".ad-groups")
+    for decl in ("grid-template-columns:repeat(4,minmax(0,1fr))", "grid-auto-rows:2px",
+                 "grid-auto-flow:row dense", "row-gap:0", "align-items:start", "--svc:34px"):
+        assert decl in grid, decl
+    assert "grid-row:span var(--rd)" in rule(css, ".ad-group")
+    # card height is fixed by construction: 22 px heading line, rows exactly --svc tall
+    assert "line-height:22px" in rule(css, ".ad-group h3") and "white-space:nowrap" in rule(css, ".ad-group h3")
+    assert "height:var(--svc)" in rule(css, ".ad-svc")
+    touch = css.split("@media (max-width:1180px),(pointer:coarse){", 1)[1].split("\n}", 1)[0]
+    assert ".ad-groups{--svc:44px}" in touch and ".ad-group{grid-row:span var(--rt)}" in touch
+    phone = css.rsplit("@media (max-width:760px){", 1)[1].split("\n}", 1)[0]   # the admin block is last
+    assert ".ad-groups{grid-auto-rows:auto;row-gap:12px}" in phone and ".ad-group{grid-row:auto}" in phone
+    body = aget(adm).get_data(as_text=True)
+    assert "style=" not in body                        # the admin CSP allows no inline styles
+    for name, items in admin.TILES:
+        n = len(items)
+        assert f"<div class='card ad-group ad-n{n}'><h3>{name}</h3>" in body
+        assert f".ad-n{n}{{--rd:{30 + 17 * n};--rt:{30 + 22 * n}}}" in css   # every group size has a span
+
+
 def _tile(label):
     return next(t for _g, items in admin.TILES for t in items if t[0] == label)
 
