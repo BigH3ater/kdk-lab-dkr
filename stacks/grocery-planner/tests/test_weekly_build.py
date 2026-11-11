@@ -47,7 +47,7 @@ def test_build_pass(cfg, monkeypatch):
     monkeypatch.setattr(R, "_week_notes", lambda *a: [])
     monkeypatch.setattr(R, "ensure_setup", lambda *a: [])
     monkeypatch.setattr(R, "build_pool", lambda *a: make_pool())
-    monkeypatch.setattr(R, "_fixed_pool", lambda t: [])
+    monkeypatch.setattr(R, "_fixed_pool", lambda t, cfg=None: [])
     monkeypatch.setattr(R, "load_stock", lambda c: None)
     monkeypatch.setattr(R, "_create_weekly_task", lambda *a: None)
     monkeypatch.setattr(R, "jlog", lambda **kw: logs.append(kw))

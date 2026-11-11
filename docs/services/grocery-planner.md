@@ -31,7 +31,7 @@ plan page lives in the dashboard mealplan sidecar at `home.kmkdp.com/meal/grocer
 | Image | `kdk/grocery-planner` built locally (`auto_pull=false`, `run_build=true`); python 3.12-slim + requests + pyyaml, uid 1000, read-only rootfs, no caps, 256 MB, one-shot |
 | Output | stdout JSON lines, also pushed straight to Loki by the job (`{job="grocery-planner", container="grocery-planner"|"grocery-planner-poll"}`; a one-shot exits before Alloy can scrape it); the page `home.kmkdp.com/meal/groceries`; a Vikunja approval task |
 | Secrets | `dashboard-tandoor-rw` (the sidecar's Tandoor account), `vikunja-api-rw` (approval task) — op-injected into `.env.op` and **appended** to the `.env` Komodo writes from the stack `environment` (`GROCERY_MODE`/`GROCERY_POLL`/`GROCERY_SUFFIX`); overwriting `.env` drops those |
-| Storage | `/opt/kdk-lab/dashboard/pantry/freezer.json` (+ `.bak`): the freezer inventory, shared read-write with the dashboard sidecar (Pantry tab); seed `stacks/grocery-planner/freezer-seed.json` |
+| Storage | `/opt/kdk-lab/dashboard/pantry/freezer.json` (+ `.bak` = the owner's last Pantry tap, `.prebuild` = before the last reservation, `.freezer.lock`): the freezer inventory, shared read-write with the dashboard sidecar (Pantry tab); seed `stacks/grocery-planner/freezer-seed.json` |
 | Blast radius | writes Tandoor meal-plan + shopping-list entries and one Vikunja task, and decrements the freezer counts it reserves; never orders or pays |
 
 ## How a week flows
@@ -109,14 +109,18 @@ plan page lives in the dashboard mealplan sidecar at `home.kmkdp.com/meal/grocer
 
 - **Freezer inventory (2026-11-11):** one JSON file the owner keeps on the
   Pantry tab (Freezer section: −/+/set, fill-in and set-portions markers, add a
-  cut, "Order arrived" for the `standing_orders`, undo via `.bak`). The build
+  cut (lb each required unless the unit is lb), "Order arrived" for the
+  `standing_orders` (once per order per 12 h), undo = the owner's last tap only,
+  never the build's reservation). Both writers share an flock. The build
   never plans a dinner/lunch the freezer is short for: a short slot takes
   another protein in stock (`freezer.fallback`: steak → ground beef → poultry →
   fish, `freezer_fallback`), and if nothing fits the dinner is left unplanned
   (`freezer_short_slot`, one more night off); the build never fails over it.
-  It lets fish parity yield to the fish in stock, prefers the most-stocked cut,
-  and decrements what it reserved (`freezer_reserved`). Tuna steaks are freezer
-  stock too (`NewPiFreezer`). Recipe foods map to cuts by `freezer.map` in
+  It prefers the most-stocked cut,
+  and decrements what it reserved (`freezer_reserved`). Fish is not counted
+  (tuna and salmon are bought from New Pi as needed); a file row no
+  `freezer.map` key points at is ignored (`freezer_unknown_cut`). O'Connell
+  packages hold 2 breasts / 2 chops. Recipe foods map to cuts by `freezer.map` in
   `config.yaml`. The job's mount is read-write because the build writes the
   decrement; the rootfs stays read-only. No file = the plan as before. Runbook:
   [Freezer inventory](../runbooks/grocery-planner.md#freezer-inventory-pantry-tab-freezer-section).

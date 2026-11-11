@@ -22,14 +22,18 @@ Pure helpers + small file IO; no Tandoor calls.
 """
 from __future__ import annotations
 
+import contextlib
 import copy
 import datetime
+import fcntl
 import json
 import math
 import os
+import tempfile
 
 SCHEMA_VERSION = 1
 DEFAULT_FILE = "/pantry/freezer.json"
+LOCK_NAME = ".freezer.lock"      # shared with the dashboard (stacks/dashboard/mealplan/freezer.py)
 
 _TO_LB = {"lb": 1.0, "lbs": 1.0, "pound": 1.0, "pounds": 1.0, "oz": 1 / 16,
           "ounce": 1 / 16, "ounces": 1 / 16, "g": 1 / 453.6, "gram": 1 / 453.6,
@@ -57,31 +61,68 @@ def load(p):
         return None, f"unreadable: {type(e).__name__}"
     if not isinstance(data, dict) or not isinstance(data.get("cuts"), list):
         return None, "bad shape (no cuts list)"
-    if int(data.get("version") or 0) != SCHEMA_VERSION:
+    try:
+        version = int(data.get("version") or 0)
+    except (TypeError, ValueError):
+        version = None
+    if version != SCHEMA_VERSION:
         return None, f"unknown version {data.get('version')!r}"
     return data, None
 
 
+@contextlib.contextmanager
+def file_lock(p):
+    """Exclusive flock on <dir>/.freezer.lock for a load-modify-save. The
+    dashboard takes the same lock, so a Pantry tap and the weekly reservation
+    never interleave. Opened read-only when the other uid created it (flock
+    works on any fd); no lock at all only when the directory refuses both."""
+    lp = os.path.join(os.path.dirname(p) or ".", LOCK_NAME)
+    fd = None
+    for flags in (os.O_RDWR | os.O_CREAT, os.O_RDONLY):
+        try:
+            fd = os.open(lp, flags, 0o666)
+            break
+        except OSError:
+            continue
+    try:
+        if fd is not None:
+            fcntl.flock(fd, fcntl.LOCK_EX)
+        yield
+    finally:
+        if fd is not None:
+            fcntl.flock(fd, fcntl.LOCK_UN)
+            os.close(fd)
+
+
 def save(p, data, who="grocery-planner"):
-    """Atomic write: the current file goes to <p>.bak, the new one lands via
-    tmp + rename. Both by rename, so a file owned by another uid in the
-    (uid-1000) directory never blocks the write."""
+    """Atomic write (tmp + rename, so a file owned by another uid in the
+    (uid-1000) directory never blocks it). The planner never touches
+    <p>.bak: that is the owner's last Pantry tap, which the dashboard's undo
+    restores. The file as it was before the weekly reservation is kept in
+    <p>.prebuild for a by-hand recovery."""
     data = dict(data, version=SCHEMA_VERSION, updated_by=who,
                 updated=datetime.datetime.now().astimezone().isoformat(timespec="seconds"))
+    data.pop("restored_by", None)    # set by the dashboard's undo; a new write is not a restore
     d = os.path.dirname(p) or "."
     if os.path.exists(p):
         with open(p, "rb") as fh:
             old = fh.read()
-        _write(p + ".bak", old, d)
+        _write(p + ".prebuild", old, d)
     _write(p, (json.dumps(data, indent=1, ensure_ascii=False) + "\n").encode(), d)
 
 
 def _write(p, raw, d):
-    tmp = os.path.join(d, f".{os.path.basename(p)}.{os.getpid()}.tmp")
-    with open(tmp, "wb") as fh:
-        fh.write(raw)
-    os.chmod(tmp, 0o644)
-    os.replace(tmp, p)
+    """tmp (a unique mkstemp name in the same dir) + rename."""
+    fd, tmp = tempfile.mkstemp(dir=d, prefix=f".{os.path.basename(p)}.", suffix=".tmp")
+    try:
+        with os.fdopen(fd, "wb") as fh:
+            fh.write(raw)
+        os.chmod(tmp, 0o644)
+        os.replace(tmp, p)
+    except BaseException:
+        with contextlib.suppress(OSError):
+            os.unlink(tmp)
+        raise
 
 
 # ---- mapping ---------------------------------------------------------------
@@ -133,19 +174,30 @@ class Stock:
     two dinners never count the same steaks; run.reserve applies the final
     plan to a fresh read of the file."""
 
-    def __init__(self, data):
+    def __init__(self, data, mapping=None):
+        """With `mapping` (config freezer.map), cuts no map key points at are
+        ignored (self.unknown): a row the owner keeps in the file for another
+        reason (snack sticks, an old tuna/salmon row) never limits a plan."""
         self.data = copy.deepcopy(data)
         self.cuts = {c["id"]: c for c in self.data.get("cuts") or [] if c.get("id")}
+        self.unknown = []
+        if mapping is not None:
+            mapped = {str(v) for v in mapping.values()}
+            self.unknown = sorted(k for k in self.cuts if k not in mapped)
+            self.cuts = {k: v for k, v in self.cuts.items() if k in mapped}
         self.short = []          # [{slot, recipe, need, have}] recipes SKIPPED: the stock was short
         self.short_slots = []    # [{slot, day, checked, counts}] dinners/preps left unplanned
         self.fallbacks = []      # [{slot, planned, recipe}] a slot filled with another protein
         self.fish = None         # the fish variant the generator settled on
+        self.unconvertible = []  # [{cut, food, unit}] lines no rule converts (freezer_unconvertible)
 
     def known(self, cut_id):
         c = self.cuts.get(cut_id)
         return c is not None and not c.get("fill_in")
 
     def remaining(self, cut_id):
+        """The cut's count; raises ValueError on a non-numeric count (the run
+        then plans without the inventory: run.generate)."""
         return float((self.cuts.get(cut_id) or {}).get("count") or 0)
 
     def need(self, lines, servings):
@@ -161,6 +213,10 @@ class Stock:
             v = _convert(amt, ln["unit"], c, servings)
             if v is not None:
                 out[ln["cut"]] = out.get(ln["cut"], 0.0) + v
+            else:
+                u = {"cut": ln["cut"], "food": ln.get("food"), "unit": ln["unit"]}
+                if u not in self.unconvertible:
+                    self.unconvertible.append(u)
         return {k: _round(v, self.cuts[k].get("unit")) for k, v in out.items()}
 
     def need_for(self, item, servings):
@@ -191,6 +247,10 @@ class Stock:
 
 
 def _convert(amt, unit, cut, servings):
+    """`amt` `unit` of a recipe line in the cut's own unit, or None when no
+    rule converts it (a package/portion cut with no package_lb for a weight,
+    no portions_per_package for a count, a cup/tbsp line): never a guess. The
+    caller counts None as available and logs freezer_unconvertible."""
     lb = amt * _TO_LB[unit] if unit in _TO_LB else None
     n = amt if unit in _COUNT else None
     kind = cut.get("unit") or "portion"
@@ -205,13 +265,13 @@ def _convert(amt, unit, cut, servings):
             return lb / plb
         if n is not None and ppp:
             return n / ppp
-        return 1.0                                  # portions unknown: one package
+        return None
     # portion
     if n is not None:
         return n
     if lb is not None and plb:
         return lb / plb
-    return float(servings)                          # one portion per person
+    return None
 
 
 def _round(v, unit):
@@ -315,18 +375,20 @@ def apply_reservations(p, week, items, who="grocery-planner"):
     """Re-read the file (the owner may have tapped since the plan was built),
     decrement each reserved cut (floor 0), append the reservations, keep the
     last 8 weeks of them. Idempotent per week: a week already reserved is not
-    taken twice. Returns 'applied' | 'already' | the load error."""
-    data, err = load(p)
-    if data is None:
-        return err
-    if any(r.get("week") == week for r in data.get("reservations") or []):
-        return "already"
-    st = Stock(data)
-    for it in items:
-        if it["cut"] in st.cuts:
-            st.take({it["cut"]: it["amount"]})
-    weeks = sorted({r.get("week") for r in st.data.get("reservations") or []} | {week})[-8:]
-    st.data["reservations"] = [r for r in st.data.get("reservations") or []
-                               if r.get("week") in weeks] + list(items)
-    save(p, st.data, who)
-    return "applied"
+    taken twice (checked inside the lock). Returns 'applied' | 'already' |
+    the load error."""
+    with file_lock(p):
+        data, err = load(p)
+        if data is None:
+            return err
+        if any(r.get("week") == week for r in data.get("reservations") or []):
+            return "already"
+        st = Stock(data)
+        for it in items:
+            if it["cut"] in st.cuts:
+                st.take({it["cut"]: it["amount"]})
+        weeks = sorted({r.get("week") for r in st.data.get("reservations") or []} | {week})[-8:]
+        st.data["reservations"] = [r for r in st.data.get("reservations") or []
+                                   if r.get("week") in weeks] + list(items)
+        save(p, st.data, who)
+        return "applied"

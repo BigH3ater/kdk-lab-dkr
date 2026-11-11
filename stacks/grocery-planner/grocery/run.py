@@ -319,16 +319,45 @@ def stray_onhand_foods(plan_entries, recipe_detail_by_id, is_stray):
 
 def load_stock(cfg, env=None):
     """The freezer inventory as a generator Stock, or None (logged
-    freezer_inventory_missing) so the build plans exactly as before."""
+    freezer_inventory_missing) so the build plans exactly as before. Never
+    raises: the inventory never fails the build."""
     p = F.path(env)
     if not (cfg.get("freezer") or {}).get("enabled", True):
         return None
-    data, err = F.load(p)
-    if data is None:
-        jlog(event="freezer_inventory_missing", path=p, reason=err,
+    try:
+        data, err = F.load(p)
+        if data is None:
+            jlog(event="freezer_inventory_missing", path=p, reason=err,
+                 note="planning without the freezer inventory (as before)")
+            return None
+        st = F.Stock(data, (cfg.get("freezer") or {}).get("map") or {})
+        for k in st.cuts:
+            st.remaining(k)                # a non-numeric count fails here, not mid-plan
+    except Exception as ex:  # noqa: BLE001
+        jlog(event="freezer_inventory_missing", path=p, reason=f"{type(ex).__name__}: {ex}",
              note="planning without the freezer inventory (as before)")
         return None
-    return F.Stock(data)
+    if st.unknown:
+        jlog(event="freezer_unknown_cut", path=p, cuts=st.unknown,
+             note="in freezer.json but no freezer.map key points at it: ignored by the planner")
+    return st
+
+
+def generate(pool, start, cfg, stock, report):
+    """G.generate_week with the stock; any failure that is not a PlanError
+    (a bad count, an odd cut) is logged freezer_inventory_missing and the week
+    is planned again without the inventory. Returns (entries, stock)."""
+    if stock is None:
+        return G.generate_week(pool, start, cfg, stock=None, report=report), None
+    try:
+        return G.generate_week(pool, start, cfg, stock=stock, report=report), stock
+    except G.PlanError:
+        raise
+    except Exception as ex:  # noqa: BLE001 -- the inventory never fails the build
+        jlog(event="freezer_inventory_missing", path=F.path(), reason=f"{type(ex).__name__}: {ex}",
+             note="the inventory broke the plan: planned without it (as before)")
+        report.clear()
+        return G.generate_week(pool, start, cfg, stock=None, report=report), None
 
 
 def unmapped_freezer_foods(entries, details, cfg):
@@ -518,12 +547,12 @@ def run_weekly(cfg, poll=False):
     recipes = [t.get(f"/api/recipe/{r['id']}/")
                for r in t.get_all("/api/recipe/", keyword=_kw_id(t, season))]
     pool = build_pool(recipes, season, cfg)
-    pool += _fixed_pool(t)                 # season-independent staples + snacks
+    pool += _fixed_pool(t, cfg)            # season-independent staples + snacks
     stock = load_stock(cfg)                # None: plan as before (file missing/unreadable)
     report = {}
     try:
         _require_fixed(cfg, pool)          # loud fail if a fixed recipe isn't seeded
-        entries = G.generate_week(pool, start, cfg, stock=stock, report=report)
+        entries, stock = generate(pool, start, cfg, stock, report)
     except G.PlanError as e:
         jlog(event="plan_error", week=wk, error=str(e))
         log.error("plan error: %s", e)
@@ -573,6 +602,10 @@ def run_weekly(cfg, poll=False):
             jlog(event="freezer_short_slot", level="warn", week=wk, slot=s["slot"],
                  day=s["day"], cuts_checked=s["checked"], counts=s["counts"],
                  note="nothing in the freezer fits this slot: left unplanned")
+        if stock.unconvertible:
+            jlog(event="freezer_unconvertible", level="warn", week=wk, lines=stock.unconvertible,
+                 note="recipe amount the cut's unit can't express (set package_lb / "
+                      "portions_per_package): counted as available, nothing reserved")
         try:
             for e in entries:
                 if e.recipe_id not in by_id:
@@ -585,9 +618,11 @@ def run_weekly(cfg, poll=False):
         jlog(event="no_dinner", week=wk, freezer_short=report.get("no_dinner") or [],
              skip_days=report.get("skip_days") or [],
              note="nights with no dinner besides the off_nights")
-    if report.get("lunch_gaps"):
-        jlog(event="lunch_gap", level="warn", week=wk, days=report["lunch_gaps"],
-             note="no lunch-friendly dinner for the night before: added to a prep batch")
+    if report.get("lunch_gaps") or report.get("lunch_unfed"):
+        jlog(event="lunch_gap", level="warn", week=wk, days=report.get("lunch_gaps") or [],
+             unfed=report.get("lunch_unfed") or [],
+             note="no lunch-friendly dinner for the night before: added to the latest "
+                  "prep before it; `unfed` days have no prep before them (no lunch planned)")
     stats = {}
     lists, unrouted, skipped = S.build_store_lists(t.shopping_list_entries(), cfg, "weekly",
                                                    stats=stats)
@@ -616,9 +651,12 @@ def _kw_id(t, name):
     return (t.keywords().get(name) or {}).get("id")
 
 
-def _fixed_pool(t):
+def _fixed_pool(t, cfg=None):
     """Fetch the fixed breakfast/snack feeder recipes (season-independent) and
-    return them as pool items by name, so the generator can place them."""
+    return them as pool items by name, so the generator can place them. Burger
+    night carries its freezer_lines (the patties), so the generator's freezer
+    check can skip it when the patties are short."""
+    fmap = ((cfg or {}).get("freezer") or {}).get("map") or {}
     out, seen = [], set()
     for kw in ("breakfast", "snack", "burger-night", "rice-side"):
         kid = _kw_id(t, kw)
@@ -628,10 +666,17 @@ def _fixed_pool(t):
             if r["id"] in seen:
                 continue
             seen.add(r["id"])
-            out.append({"id": r["id"], "name": r["name"],
-                        "kind": {"breakfast": "staple", "snack": "snack"}.get(kw, "burger"),
-                        "season": None, "variant": None, "working_time": None,
-                        "ingredient_count": None, "servings": r.get("servings", 7)})
+            kind = {"breakfast": "staple", "snack": "snack"}.get(kw, "burger")
+            item = {"id": r["id"], "name": r["name"], "kind": kind,
+                    "season": None, "variant": None, "working_time": None,
+                    "ingredient_count": None, "servings": r.get("servings", 7)}
+            if kw == "burger-night" and fmap:
+                try:
+                    item["freezer_lines"] = F.recipe_lines(t.get(f"/api/recipe/{r['id']}/"), fmap)
+                except Exception as ex:  # noqa: BLE001 -- no lines: planned as before
+                    jlog(event="freezer_burger_lines_error", level="warn", recipe=r["name"],
+                         error=f"{type(ex).__name__}: {ex}")
+            out.append(item)
     return out
 
 
@@ -773,12 +818,12 @@ def preview(cfg, week_of=None):
         print(f"NOTE: {wk} is already planned in Tandoor; the real run will skip it.")
     recipes = [t.get(f"/api/recipe/{r['id']}/")
                for r in t.get_all("/api/recipe/", keyword=_kw_id(t, season))]
-    pool = build_pool(recipes, season, cfg) + _fixed_pool(t)
+    pool = build_pool(recipes, season, cfg) + _fixed_pool(t, cfg)
     stock = load_stock(cfg)                # read-only here: nothing is reserved
     report = {}
     try:
         _require_fixed(cfg, pool)
-        entries = G.generate_week(pool, start, cfg, stock=stock, report=report)
+        entries, stock = generate(pool, start, cfg, stock, report)
     except G.PlanError as e:
         print(f"PLAN ERROR {wk}: {e}")
         return 1
@@ -793,6 +838,10 @@ def preview(cfg, week_of=None):
         for s in stock.short_slots:
             print(f"NOTE: freezer_short_slot: {s['slot']} ({s['day'] or 'any night'}) left "
                   f"unplanned; cuts checked {s['counts']}")
+        if stock.unconvertible:
+            print("NOTE: freezer_unconvertible (counted as available): "
+                  + ", ".join(f"{u['food']} [{u['unit'] or 'count'}] -> {u['cut']}"
+                              for u in stock.unconvertible))
     no_dinner = (report.get("off_nights") or []) + \
         [f"{d} (skip day)" for d in report.get("skip_days") or []
          if d not in (report.get("off_nights") or [])] + \
@@ -802,6 +851,9 @@ def preview(cfg, week_of=None):
     if report.get("lunch_gaps"):
         print("NOTE: lunch days no leftover covers (added to a prep): "
               + ", ".join(report["lunch_gaps"]))
+    if report.get("lunch_unfed"):
+        print("NOTE: lunch days with no prep before them (no lunch planned): "
+              + ", ".join(report["lunch_unfed"]))
     for e in sorted(entries, key=lambda e: (e.date, e.meal_type)):
         print(f"  {e.date:%a %d}  {e.meal_type:<9} {e.recipe_name[:55]} x{e.servings}"
               f"{'  (leftovers, no shopping)' if e.role == 'leftover' else ''}")

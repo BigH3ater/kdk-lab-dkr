@@ -18,12 +18,10 @@
   {"id": "fajita-strips", "name": "Fajita strips", "unit": "lb", "count": 2, "package": "1 lb", "package_lb": 1, "source": "Amana"},
   {"id": "brats", "name": "All-beef brats", "unit": "lb", "count": 1, "package": "1 lb (5 ct)", "package_lb": 1, "source": "Amana"},
   {"id": "brats-cheddar", "name": "All-beef cheddar brats", "unit": "lb", "count": 1, "package": "1 lb (5 ct)", "package_lb": 1, "source": "Amana"},
-  {"id": "chicken-breast", "name": "Chicken breast (boneless, skinless)", "unit": "package", "count": 16, "package": "~1.1 lb", "package_lb": 1.1, "portions_per_package": null, "source": "OConnell"},
-  {"id": "pork-chops", "name": "Pork chops (boneless)", "unit": "package", "count": 4, "package": "~1 lb", "package_lb": 1.0, "portions_per_package": null, "source": "OConnell"},
+  {"id": "chicken-breast", "name": "Chicken breast (boneless, skinless)", "unit": "package", "count": 16, "package": "~1.1 lb", "package_lb": 1.1, "portions_per_package": 2, "source": "OConnell"},
+  {"id": "pork-chops", "name": "Pork chops (boneless)", "unit": "package", "count": 4, "package": "~1 lb", "package_lb": 1.0, "portions_per_package": 2, "source": "OConnell"},
   {"id": "bacon", "name": "Bacon", "unit": "package", "count": 5, "package": "1 package", "source": "OConnell"},
-  {"id": "snack-sticks", "name": "Beef + cheddar snack sticks", "unit": "package", "count": 4, "package": "1 package", "source": "OConnell"},
-  {"id": "tuna-steaks", "name": "Tuna steaks", "unit": "portion", "count": 0, "package": "", "fill_in": true, "source": "NewPi"},
-  {"id": "salmon", "name": "Salmon (Costco frozen)", "unit": "portion", "count": 0, "package": "", "fill_in": true, "source": "Costco"}
+  {"id": "snack-sticks", "name": "Beef + cheddar snack sticks", "unit": "package", "count": 4, "package": "1 package", "source": "OConnell"}
  ],
  "reservations": []
 }

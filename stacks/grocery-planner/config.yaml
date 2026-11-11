@@ -389,7 +389,7 @@ seasons:
 # food.supermarket_category. Ambiguous foods fall back to the freshness rule;
 # per-food overrides live in recipes/foods.yaml.
 stores:
-  order: [NewPi, Target, Costco, Amana, OConnell, NewPiFreezer, Penzeys]
+  order: [NewPi, Target, Costco, Amana, OConnell, Penzeys]
   # Which stores each run touches.
   weekly_stores: [NewPi, Target]
   # Costco-routed foods (Nurri shakes, frozen-salmon fallback) are on no run's
@@ -401,10 +401,7 @@ stores:
   # (owner 2026-11-01), delivered frozen by the farm van on the Iowa City route
   # (3rd Monday monthly) or FedEx. `grocery.run --freezer` sizes the orders.
   # Penzeys = spices (owner 2026-11-01): pantry stock, restocked online.
-  # NewPiFreezer = fish bought frozen (tuna steaks) and kept in the chest freezer,
-  # counted on the Pantry tab (freezer.json `tuna-steaks`), so it is on hand,
-  # never on a weekly list, and listed on the Thaw tab (2026-11-11).
-  stock_stores: [Amana, OConnell, Penzeys, NewPiFreezer]
+  stock_stores: [Amana, OConnell, Penzeys]
   # Default by shelf life when a food has no explicit override.
   default_fresh: NewPi         # ambiguous perishable -> New Pi
   default_shelf_stable: Target # ambiguous shelf-stable -> Target
@@ -415,7 +412,6 @@ stores:
     Costco:  ["Freezer", "Pantry Bulk", "Snacks Bulk", Other]
     Amana:   ["Freezer Beef", Other]
     OConnell: ["Freezer", Other]
-    NewPiFreezer: ["Freezer", Other]
     Penzeys: [Spices, Other]
 
 # Thaw lead times (groceries page, Thaw tab): how long before a meal a
@@ -432,7 +428,6 @@ thaw:
   chicken breast: 24h
   roast: 48h
   salmon: 12h
-  tuna: 12h
 
 # Freezer inventory (owner design 2026-11-11). Counts live in ONE JSON file on
 # kdk-dkr-01, /opt/kdk-lab/dashboard/pantry/freezer.json (mounted at /pantry in
@@ -447,7 +442,10 @@ thaw:
 # freezer_fallback. Nothing fits -> that dinner is left unplanned (one more
 # night off) and logged as freezer_short_slot with the cuts checked and their
 # counts. A lunch prep with nothing in stock is left unplanned the same way.
-# The build never fails over the freezer. (b) fish parity yields to the fish in stock; (c)
+# The build never fails over the freezer. A cut in freezer.json that no `map`
+# key points at (e.g. an old tuna/salmon row, snack sticks) is ignored by the
+# planner and logged once per build as freezer_unknown_cut. (b) fish parity
+# yields to a fish in stock (only if a fish cut is ever mapped again); (c)
 # prefers the cut with the most stock; (d) after writing the plan, decrements
 # what it reserved (freezer_reserved event; the Thaw tab lists them). File
 # missing/unreadable -> planned exactly as before (freezer_inventory_missing).
@@ -482,11 +480,8 @@ freezer:
     skirt steak: fajita-strips
     brat: brats
     cheddar brat: brats-cheddar
-    tuna: tuna-steaks                    # bare "tuna" (Seared Ahi Tuna, Tuna Steak)
-    tuna steak: tuna-steaks
-    yellowfin tuna: tuna-steaks
-    ahi tuna: tuna-steaks
-    salmon: salmon
+    # No fish (owner 2026-11-11): tuna and salmon are bought fresh from New Pi
+    # as needed, so fish dinners are never limited by the freezer.
     chicken breast: chicken-breast
     pork chop: pork-chops
     bacon: bacon
@@ -511,15 +506,16 @@ freezer:
 skip_days: []
 
 # Standing orders: what an order adds to the freezer when it arrives (the
-# "Order arrived" button on the Pantry tab's Freezer section adds these counts;
-# "undo last change" restores the .bak). Amounts in each cut's unit. No prices.
+# "Order arrived" button on the Pantry tab's Freezer section adds these counts,
+# once per order per 12 h; "undo my last tap" restores the .bak, which the
+# planner never touches). Amounts in each cut's unit. No prices.
 standing_orders:
   oconnell:
     label: "O'Connell"
     cadence: "monthly, ships the 3rd"
     items:
-      chicken-breast: 16      # packages, ~1.1 lb each
-      pork-chops: 4           # packages, ~1 lb each
+      chicken-breast: 16      # packages, ~1.1 lb = 2 breasts each (portions_per_package: 2)
+      pork-chops: 4           # packages, ~1 lb = 2 chops each (portions_per_package: 2)
       bacon: 5                # packages
       snack-sticks: 4         # beef + cheddar snack sticks (not a meal protein)
   amana:

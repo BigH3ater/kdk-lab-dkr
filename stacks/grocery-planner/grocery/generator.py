@@ -255,7 +255,8 @@ def generate_week(pool: list[dict], week_start: datetime.date, config: dict,
     # leftovers (roast week), a prep batch (servings_each / people days, the days
     # right after its prep day), or a `lunch-friendly` dinner cooked the night
     # before at leftovers.servings. A day none of these can cover goes to the
-    # latest prep before it (+people servings) and is reported as a gap.
+    # latest prep before it (+people servings) and is reported as a gap; with
+    # no prep before it the day is left unfed (report lunch_unfed).
     lcfg = config["lunches"]
     people = int(lcfg.get("people", 2))
     lunch_days = [d for d in (_offset(week_start, _DOW[n]) for n in
@@ -473,16 +474,21 @@ def generate_week(pool: list[dict], week_start: datetime.date, config: dict,
     gaps = []
     if roast_week and roast_lunch_day in covered and mains_by_day.get(rd) is None:
         need_lo = sorted(need_lo + [roast_lunch_day])   # no roast cooked: no Thursday leftovers
+    unfed = []
     for d in need_lo:
         if d - 1 in lo_by_night:
             continue
         before = [i for i, p in enumerate(prep_offsets) if p < d]
-        i = before[-1] if before else 0
-        if prep_offsets:
-            extra[i] += people
+        if not before:
+            # No prep before this day (e.g. the Sunday prep is a skip day): a
+            # later batch is not cooked yet, so the day stays unfed (logged).
+            unfed.append(_dayname(week_start, d))
+            continue
+        extra[before[-1]] += people
         gaps.append(_dayname(week_start, d))
     if report is not None:
         report["lunch_gaps"] = gaps
+        report["lunch_unfed"] = unfed
         report["off_nights"] = [_dayname(week_start, d) for d in sorted(off)]
         report["skip_days"] = [_dayname(week_start, d) for d in sorted(skip)]
         report["no_dinner"] = [_dayname(week_start, d) for d in no_dinner if d not in skip]
