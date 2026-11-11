@@ -31,6 +31,34 @@ loki.source.docker "containers" {
   host       = "tcp://socket-proxy:2375"
   targets    = discovery.relabel.docker.output
   labels     = { job = "docker" }
+  forward_to = [loki.process.drop_noise.receiver]
+}
+
+// Drop Loki's own routine info chatter before it is shipped (review
+// 2026-11-10, vault 10.Homelab/Followups/loki-alertmanager-review-2026-11-10).
+// Loki (kdk-log-01) logs every ruler evaluation at level=info three or four
+// times, quoting the rule's LogQL, and six rules contain "error"/"fail"/
+// "panic", so word-regex panels scored ~28k "error-looking" Loki lines a day
+// that were all info. Plus ~21k/h table_manager "get or create table" ticks.
+// Dropped, only when the line STARTS with level=info and only for:
+//   - table_manager.go  msg="get or create table"   (per-query index lookup)
+//   - compat.go         msg="evaluating rule"       (ruler, quotes the rule)
+//   - evaluator_local.go msg="request timings"      (ruler)
+//   - engine.go / metrics.go with component=ruler   (ruler query + stats)
+// Kept: every warn/error line, startup, compaction, retention, flush, table
+// upload/sync, and the per-query metrics.go stats for real (querier /
+// frontend) queries. Chosen over Loki `log_level: warn`, which would also hide
+// those. Measured 2026-11-11 over 24 h: ~876k of ~1.0M Loki lines dropped,
+// 0 of them non-info. Inert on every other host (no container "loki" there).
+// Dropped lines count in loki_process_dropped_lines_total{drop_counter_reason=
+// "loki_self_info_noise"}. Post-deploy check: docs/services/observability.md
+// Troubleshooting, the row on missing Loki info lines.
+loki.process "drop_noise" {
+  stage.match {
+    selector            = `{container="loki"} |~ "^level=info ts=\\S+ caller=(?:table_manager\\.go:\\d+ .*msg=\"get or create table\"|compat\\.go:\\d+ .*msg=\"evaluating rule\"|evaluator_local\\.go:\\d+ msg=\"request timings\"|(?:engine|metrics)\\.go:\\d+ component=ruler )"`
+    action              = "drop"
+    drop_counter_reason = "loki_self_info_noise"
+  }
   forward_to = [loki.write.default.receiver]
 }
 
