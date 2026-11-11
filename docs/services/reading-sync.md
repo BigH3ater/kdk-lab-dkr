@@ -242,7 +242,7 @@ looking for an audiobook partner. It has nothing to do with tablet sync: ignore 
 | Login fails right after a wrong password | BookBridge refuses a login for a minute after five failures per tablet address | wait a minute, then log in with the 1Password value |
 | An EPUB never syncs | the copy came from Calibre (different hash); or the auto-link did not run (`epub_autolink: false` in `/health`) or was refused | re-download from the OPDS catalogue; `sudo docker logs kosync-helper` for `epub_mapping_*` / `bookbridge_login_failed`; link it by hand (EPUB auto-link, fallback). Resolving the BookBridge suggestion does not create the link |
 | `bookbridge_login_failed` in the helper log | kdkadmin's BookBridge password and `kosync-helper-bookbridge-login` differ | set them equal (EPUB auto-link, setup steps 2 and 3), redeploy |
-| EPUB lands minutes behind | BookBridge waits `KOSYNC_PUT_DEBOUNCE_SECONDS` (300 s) after the last page turn | expected |
+| EPUB lands about 30 s behind | BookBridge waits `KOSYNC_PUT_DEBOUNCE_SECONDS` (30 s) after the last page turn, then syncs to ABS | expected; if it is minutes, check the UI value (Settings → KOReader: wait after the last page turn) is 30, not the default 300 |
 | A PDF does nothing in ABS | the PDF is a supplementary file (the item's primary ebook is an EPUB), or it was added less than an hour ago, or the ABS key expired | read the same format on both sides; wait for the hourly refresh or restart the helper; `sudo docker logs kosync-helper` for `pdf_map_refresh_failed` / `pdf_put_failed` |
 | Helper unhealthy (`/health` 503) | the hourly map refresh has failed for too long (ABS down, key expired or revoked) | `sudo docker logs --tail 50 kosync-helper`; renew the key (Secret Rotation) |
 | Tablet jumps to the last page of a PDF | ABS holds a page beyond the end (another reader wrote it); the helper clamps to the last page | correct the page in the ABS web reader |
@@ -289,6 +289,7 @@ looking for an audiobook partner. It has nothing to do with tablet sync: ignore 
 | Secret references | `stacks/reading-sync/.env.tpl` (rendered by the Komodo `pre_deploy`) |
 | Helper code + tests | `stacks/reading-sync/kosync-helper/` (`uv run pytest`) |
 | BookBridge settings after the first boot | the BookBridge UI. Env values only seed its settings DB once; `BOOKBRIDGE_SECRET_KEY` is env-only |
+| KOReader → ABS delay | `KOSYNC_PUT_DEBOUNCE_SECONDS` = 30 s (UI: Settings → KOReader: wait after the last page turn; default 300) |
 
 ## Secret Rotation
 

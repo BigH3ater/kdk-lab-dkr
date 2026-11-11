@@ -167,6 +167,8 @@ services:
       # The helper (10.211.40.10) and DMZ Traefik (10.211.2.3, the hop the helper
       # appends) are the proxies: the login failure limit then counts per tablet.
       KOSYNC_TRUSTED_PROXIES: "10.211.40.10/32,10.211.2.3/32"
+      # Seed only; live value set in the UI (Settings, KOReader wait) 2026-11-11.
+      KOSYNC_PUT_DEBOUNCE_SECONDS: "30"
       # No audiobook <-> ebook sync (owner decision): never auto-map an EPUB to an
       # audiobook; an unknown EPUB becomes an ebook-only link.
       KOSYNC_AUTO_MAP_ON_AGREEMENT: "false"
