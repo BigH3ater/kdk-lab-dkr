@@ -57,7 +57,7 @@
     {
       "description": "Patch + digest updates for stacks on kdk-dkr-dmz-01: separate group, merged first (dmz-proxy -> identity -> rest).",
       "matchFileNames": [
-        "stacks/{dmz-proxy,identity,jellyfin,wizarr,dmz-apps,immich,tandoor,audiobookshelf}/**"
+        "stacks/{dmz-proxy,identity,jellyfin,wizarr,dmz-apps,immich,tandoor,audiobookshelf,reading-sync}/**"
       ],
       "matchUpdateTypes": [
         "patch",
@@ -210,6 +210,31 @@
       "groupName": "github actions",
       "groupSlug": "github-actions",
       "dependencyDashboardApproval": false
+    },
+    {
+      "description": "BookBridge (stacks/reading-sync): weekly upstream releases from one main author; a minor can change the KOSync or ABS-ebook behaviour the kosync-helper relies on, and settings only seed the DB on first boot. Minors and majors wait for a Dependency Dashboard tick and a read of the release notes; patches and digests ride the dmz patch group.",
+      "matchDatasources": [
+        "docker"
+      ],
+      "matchPackageNames": [
+        "ghcr.io/cporcellijr/bookbridge"
+      ],
+      "matchUpdateTypes": [
+        "minor",
+        "major"
+      ],
+      "dependencyDashboardApproval": true
+    },
+    {
+      "description": "kosync-helper Python deps (stacks/reading-sync/kosync-helper uv.lock): one grouped PR; the helper's pytest suite gates it in the reading-sync workflow.",
+      "matchFileNames": [
+        "stacks/reading-sync/kosync-helper/**"
+      ],
+      "matchManagers": [
+        "pep621"
+      ],
+      "groupName": "kosync-helper python deps",
+      "groupSlug": "kosync-helper-python"
     },
     {
       "description": "wger server + PowerSync (stacks/wger): a wger minor has carried breaking API changes twice in 2026 and can need a new vendored powersync/sync_rules.yaml, so minors and majors wait for a Dependency Dashboard tick; patches and digests stay in the internal group.",

@@ -1,0 +1,38 @@
+# reading-sync kosync-helper (docs/services/reading-sync.md): pytest for the KOReader
+# partial MD5, the PDF page <-> ABS mapping, the BookBridge pass-through, auth, input
+# validation and timeouts in stacks/reading-sync/kosync-helper.
+name: reading-sync
+
+on:
+  pull_request:
+    paths:
+      - "stacks/reading-sync/kosync-helper/**"
+      - ".github/workflows/reading-sync.yml"
+  push:
+    branches: [main]
+    paths:
+      - "stacks/reading-sync/kosync-helper/**"
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    defaults:
+      run:
+        working-directory: stacks/reading-sync/kosync-helper
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+      - name: Install uv
+        run: python -m pip install uv==0.13.7
+      - name: Tests
+        env:
+          UV_PYTHON_DOWNLOADS: never
+        run: uv run --frozen pytest -q

@@ -412,6 +412,28 @@ run_directory = "stacks/audiobookshelf"
 pre_deploy.command = "sh -c 'chown -R 1000:1000 /opt/kdk-lab/audiobookshelf/config /opt/kdk-lab/audiobookshelf/metadata'"
 webhook_enabled = true
 
+# Reading sync next to ABS (docs/services/reading-sync.md): abs-opds (OPDS catalogue,
+# opds.kmkdp.com), kosync-helper (KOReader Progress sync, kosync.kmkdp.com; PDFs ->
+# ABS, the rest -> BookBridge) and BookBridge (EPUB <-> ABS CFI, not routed). Both
+# routers are websecure only: LAN + tailnet, never the tunnel. pre_deploy runs as
+# root on the host: it creates BookBridge's data dir for uid 1000 (the compose runs
+# it as 1000:1000 on a read_only rootfs), then renders .env from 1Password.
+[[stack]]
+tags = ["kdk-lab"]
+name = "reading-sync"
+deploy = true
+after = ["dmz-proxy", "audiobookshelf"]
+[stack.config]
+compose_cmd_wrapper = "/usr/local/sbin/kdk-compose-config-redact [[COMPOSE_COMMAND]]"   # redact env values from the stored Compose Config log (komodo#1636)
+compose_cmd_wrapper_include = ["config"]
+server = "kdk-dkr-dmz-01"
+repo = "BigH3ater/kdk-lab-dkr"
+run_directory = "stacks/reading-sync"
+auto_pull = false   # kosync-helper is built locally (kdk/kosync-helper) -> skip compose pull
+run_build = true    # docker compose build (stacks/reading-sync/kosync-helper) before up
+pre_deploy.command = "sh -c 'install -d -m 750 -o 1000 -g 1000 /opt/kdk-lab/reading-sync /opt/kdk-lab/reading-sync/bookbridge && . /etc/komodo/op.env && op inject -f -i .env.tpl -o .env'"
+webhook_enabled = true
+
 # Wizarr on the DMZ: Jellyfin invite manager, internet-facing via the Cloudflare
 # tunnel (owner adds wizarr.kmkdp.com in the CF dashboard). Path-scoped public
 # exposure -- invitee paths open, admin behind Authelia -- is all in the Traefik
