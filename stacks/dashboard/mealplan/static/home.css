@@ -155,7 +155,8 @@ a.hh-wx{min-height:44px}
 .fday-h{display:flex;align-items:center;gap:6px 12px;flex-wrap:wrap}
 .fday-h h2{font-size:clamp(18px,2.6vh,21px)}
 .fday-h h2 .muted{font-size:15px;font-weight:500}
-.ffacts{font-size:15px;color:var(--muted);display:flex;flex-wrap:wrap;gap:2px 0}
+.ffacts{font-size:15px;color:var(--muted);display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 0}
+.fsep{padding:0 7px}
 .fday-h .ffacts{margin-left:auto}
 .ffacts>span{white-space:nowrap}
 .fhi{color:var(--text);font-weight:600}
@@ -176,7 +177,8 @@ a.hh-wx{min-height:44px}
 .fcard-c{display:flex;align-items:center;gap:8px;min-width:0}
 .fcard-c .wxi{color:var(--tan);flex:0 0 auto}
 .fcard-c .muted{font-size:14px;min-width:0}
-.fcard .ffacts{flex-direction:column;font-size:14px}
+.fcard .ffacts{flex-direction:column;align-items:flex-start;font-size:14px}
+.fcard .fhl{font-size:17px}
 .fcard .fsep{display:none}
 
 /* night view */

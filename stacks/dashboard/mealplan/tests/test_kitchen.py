@@ -703,7 +703,7 @@ def test_forecast_page_route_and_layout(home):
     # the other five days: daily summary only
     assert html.count("<article class='card fcard'>") == 5
     week = html.split("class='fweek'")[1]
-    assert "0.43 in" in week and "wind 21 mph" in week and "Sunrise 6:49 AM · Sunset 4:48 PM" in week
+    assert "0.43 in" in week and "wind 21 mph" in week and "Sunrise 6:49 AM</span><span class='fsep' aria-hidden='true'>·</span><span class='sun'>Sunset 4:48 PM" in week
     assert not re.search(r"class='fh( |')", week)
     # from the household page, Back goes home
     assert "data-home='/meal/home'" in home.get("/kitchen/weather?from=home").get_data(as_text=True)

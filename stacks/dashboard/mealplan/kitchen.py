@@ -672,10 +672,13 @@ def chores_page(d: dict, asset_ver: str, back: str) -> str:
 
 # ---- weekly forecast view --------------------------------------------------------
 def _day_facts(day: dict) -> str:
-    """"H 65° L 37° · 20% rain, 0.02 in · wind 12 mph · ↑ 6:49 AM ↓ 4:48 PM"."""
+    """"65° 37° · 20% rain, 0.02 in · wind 12 mph · Sunrise 6:49 AM · Sunset
+    4:48 PM": one unbreakable span per fact, so a narrow card wraps between
+    facts (the CSS hides the dots there and stacks them)."""
     bits = []
     if day["hi"] is not None:
-        bits.append(f"<span class='fhi'>{day['hi']}°</span> <span class='flo'>{day['lo']}°</span>")
+        bits.append(f"<span class='fhl'><span class='fhi'>{day['hi']}°</span> "
+                    f"<span class='flo'>{day['lo']}°</span></span>")
     rain = f"{day['pop'] or 0}% rain"
     if day["rain"]:
         rain += f", {day['rain']:.2f} in"
@@ -683,8 +686,10 @@ def _day_facts(day: dict) -> str:
     if day["wind"] is not None:
         bits.append(f"<span>wind {day['wind']} mph</span>")
     if day["sunrise"]:
-        bits.append(f"<span class='sun'>Sunrise {escape(day['sunrise'])} · Sunset {escape(day['sunset'])}</span>")
-    return "<span class='fsep'> · </span>".join(bits)
+        bits.append(f"<span class='sun'>Sunrise {escape(day['sunrise'])}</span>")
+    if day["sunset"]:
+        bits.append(f"<span class='sun'>Sunset {escape(day['sunset'])}</span>")
+    return "<span class='fsep' aria-hidden='true'>·</span>".join(bits)
 
 
 def _hour_cell(h: dict) -> str:
