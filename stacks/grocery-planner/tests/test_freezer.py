@@ -49,6 +49,22 @@ def test_tuna_thaws_like_salmon(cfg):
     assert cfg["thaw"]["tuna"] == cfg["thaw"]["salmon"] == "12h"
 
 
+def test_tuna_is_freezer_stock_not_a_stray_and_on_the_thaw_tab(cfg):
+    # W48 preview: "NOT LISTED: on hand in Tandoor but no pantry/stock rule: tuna".
+    from grocery import cleanup as CL
+    from grocery import seed as SD
+    _, foods_cfg, _, _ = SD.load_configs()
+    maps = CL.Maps(CL.load_cleanup())
+    for name in ("tuna", "ahi tuna steaks", "tuna (yellowfin tuna) steaks"):
+        assert not CL.is_stray_onhand(name, maps, foods_cfg, cfg["stores"]), name
+        cat = SD.route_food(name, foods_cfg, cfg["stores"])
+        assert cat == "NewPiFreezer/stock: Freezer", name           # not Amana beef
+        assert F.is_freezer_cat(cat, cfg["stores"]), name          # the Thaw tab's test
+        assert F.cut_for(name, cfg["freezer"]["map"]) == "tuna-steaks", name
+    # salmon is still bought fresh (not freezer stock)
+    assert CL.is_stray_onhand("salmon fillets", maps, foods_cfg, cfg["stores"])
+
+
 def test_cut_for_longest_match(cfg):
     m = cfg["freezer"]["map"]
     assert F.cut_for("filet mignon steaks", m) == "filet-mignon"
@@ -61,6 +77,15 @@ def test_cut_for_longest_match(cfg):
     assert F.cut_for("boneless pork chops", m) == "pork-chops"
     assert F.cut_for("All-beef cheddar brats", m) == "brats-cheddar"
     assert F.cut_for("broccoli", m) is None
+    # steak cuts in stock (live Tandoor food names, 2026-11-11)
+    assert F.cut_for("top sirloin steak", m) == "sirloin-steak"
+    assert F.cut_for("sirloin tip steak", m) == "sirloin-tip-steak"
+    assert F.cut_for("boneless ribeye steaks", m) == "ribeye"
+    assert F.cut_for("New York strip steaks", m) == "ny-strip"
+    assert F.cut_for("flank steak", m) == "fajita-strips"
+    assert F.cut_for("flank steak or skirt steak", m) == "fajita-strips"
+    assert F.cut_for("skirt steak", m) == "fajita-strips"
+    assert F.cut_for("tuna", m) == "tuna-steaks"
 
 
 # ---- conversion ----------------------------------------------------------------
@@ -134,12 +159,97 @@ def test_never_picks_a_short_steak_and_prefers_most_stock(cfg):
     assert "filet-mignon" in _dinners(G.generate_week(pool, SUNDAY, cfg, stock=st))
 
 
-def test_short_everywhere_still_plans_and_notes_it(cfg):
+def _kinds(pool, entries):
+    by_id = {r["id"]: r for r in pool}
+    return [by_id[e.recipe_id]["kind"] for e in entries if e.role == "dinner-main"]
+
+
+def test_short_steak_falls_back_to_ground_beef_never_beyond_the_freezer(cfg):
+    # W48 2026-11-22: filet at 0 and the only in-season steak was the filet ->
+    # it was planned anyway ("planned beyond the freezer"). Now: never planned,
+    # the steak slot takes the next protein on the ladder that has stock.
     pool = _freezer_pool()
-    st = _stock(**{"filet-mignon": 0, "ribeye": 0})
-    s = G.plan_summary(G.generate_week(pool, SUNDAY, cfg, stock=st))
-    assert s["dinners"] == cfg["proteins"]["dinners_per_week"] == 5
-    assert [x["slot"] for x in st.short] == ["steak"]
+    for wk in range(6):
+        st = _stock(**{"filet-mignon": 0, "ribeye": 0})
+        d = SUNDAY + datetime.timedelta(weeks=wk)
+        entries = G.generate_week(pool, d, cfg, stock=st)
+        names = _dinners(entries)
+        assert "filet-mignon" not in names and "ribeye" not in names
+        assert G.plan_summary(entries)["dinners"] == 5          # the slot was filled
+        assert st.fallbacks == [{"slot": "steak", "planned": "ground_beef",
+                                 "recipe": st.fallbacks[0]["recipe"]}]
+        assert _kinds(pool, entries).count("ground_beef") == \
+            cfg["proteins"]["ground_beef"] - (1 if G.parity_for_week(d) == "A" else 0) + 1
+        assert {x["recipe"] for x in st.short} == {"filet-mignon", "ribeye"}
+        assert not st.short_slots
+
+
+def test_fallback_keeps_the_asian_beef_rule(cfg):
+    pool = _freezer_pool()
+    for r in pool:                      # only Asian-style beef left besides one
+        if r["kind"] == "ground_beef":
+            r["beef_style"] = "asian"
+    for wk in range(4):
+        st = _stock(**{"filet-mignon": 0, "ribeye": 0})
+        d = SUNDAY + datetime.timedelta(weeks=wk)
+        entries = G.generate_week(pool, d, cfg, stock=st)
+        by_id = {r["id"]: r for r in pool}
+        asian = [e for e in entries if e.role == "dinner-main"
+                 and by_id[e.recipe_id].get("beef_style") == "asian"]
+        assert len(asian) <= cfg["beef"]["max_asian_per_week"]
+        if st.fallbacks:                # the steak went to the next rung, not a 2nd Asian beef
+            assert st.fallbacks[0]["planned"] in ("ground_beef", "chicken")
+
+
+def test_nothing_fits_leaves_the_dinner_unplanned_and_logs_the_slot(cfg):
+    pool = _freezer_pool()
+    st = _stock(**{"filet-mignon": 0, "ribeye": 0, "ground-beef": 0, "chicken-breast": 0,
+                   "salmon": 0, "tuna-steaks": 0, "pork-chops": 0, "chuck-roast": 0})
+    entries = G.generate_week(pool, SUNDAY, cfg, stock=st, report=(rep := {}))   # never raises
+    assert G.plan_summary(entries)["dinners"] == 0
+    assert {"fish", "chicken", "steak"} <= {s["slot"] for s in st.short_slots}
+    # each unplanned slot names the night it left empty: the five cooked nights
+    assert sorted(s["day"] for s in st.short_slots) == sorted(rep["no_dinner"])
+    steak = next(s for s in st.short_slots if s["slot"] == "steak")
+    # the steak slot checked its own cuts and every rung of the ladder
+    assert {"filet-mignon", "ribeye", "ground-beef", "chicken-breast"} <= set(steak["checked"])
+    assert steak["counts"]["ribeye"] == 0
+    assert len(rep["no_dinner"]) == 5
+    assert not [e for e in entries if e.role in ("side", "rice")]
+    # no recipe in the plan needs more than the freezer has
+    tot = F.Stock(st.data)
+    for e in entries:
+        if e.role != "leftover":
+            r = next(p for p in pool if p["id"] == e.recipe_id)
+            assert not tot.need_for(r, e.servings)
+
+
+def test_one_hole_one_night_off(cfg):
+    # steak short and the ladder empty too (beef, chicken and fish at 0 while
+    # this week's picks already used the last of them) -> one extra night off.
+    pool = [r for r in _freezer_pool() if r["kind"] != "steak" or r["name"] == "filet-mignon"]
+    for r in pool:
+        if r["kind"] in ("ground_beef", "chicken", "fish"):
+            r["freezer_lines"] = []     # covered (unmapped) for their own slots...
+    st = _stock(**{"filet-mignon": 0})
+    fb = {k: [] for k in G.FALLBACK_DEFAULT}            # ...but no fallback allowed
+    c = {**cfg, "freezer": {**cfg["freezer"], "fallback": fb}}
+    entries = G.generate_week(pool, SUNDAY, c, stock=st, report=(rep := {}))
+    assert G.plan_summary(entries)["dinners"] == 4
+    assert len(rep["no_dinner"]) == 1
+    assert [s["slot"] for s in st.short_slots] == ["steak"]
+    assert st.short_slots[0]["checked"] == ["filet-mignon"]
+    assert st.short_slots[0]["counts"] == {"filet-mignon": 0}
+
+
+def test_short_fish_falls_back_to_chicken_on_sunday(cfg):
+    pool = _freezer_pool()
+    st = _stock(salmon=0, **{"tuna-steaks": 0})
+    entries = G.generate_week(pool, SUNDAY, cfg, stock=st)
+    sun = [e for e in entries if e.role == "dinner-main" and e.date == SUNDAY]
+    assert len(sun) == 1
+    assert st.fallbacks[0]["slot"] == "fish" and st.fallbacks[0]["planned"] == "chicken"
+    assert "fish" not in _kinds(pool, entries)
 
 
 def _sunday(parity):

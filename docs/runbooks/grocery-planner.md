@@ -342,13 +342,15 @@ ssh kdkadmin@$HOST "sudo -n docker logs --since $SINCE dashboard-mealplan 2>&1 |
 
 ## Thaw tab (freezer to fridge)
 
-Beef (Amana), chicken breast and pork chops (O'Connell) and the Costco frozen
-salmon are freezer stock: on hand, never on a list. The **Thaw** tab lists them
+Beef (Amana), chicken breast and pork chops (O'Connell), tuna steaks (New Pi
+frozen, `NewPiFreezer`) and the Costco frozen salmon are freezer stock: on hand,
+never on a list. The **Thaw** tab lists them
 from the meal plan so they come out of the freezer in time.
 
 - **Rows.** For each planned meal from today through a week out, every ingredient
   that routes to a freezer aisle of a stock or bulk store (Amana "Freezer Beef",
-  O'Connell "Freezer", Costco "Freezer"; Penzeys is stock but not frozen) gives
+  O'Connell "Freezer", NewPiFreezer "Freezer", Costco "Freezer"; Penzeys is
+  stock but not frozen) gives
   one row: meal date · recipe · food · amount (buy unit, else the recipe amount
   scaled to the plan's servings) and **move to the fridge by** a day and time.
   Rows are sorted by that time; a late one shows red.
@@ -414,14 +416,34 @@ you set portions per package).
   (`config.yaml` → `standing_orders`) to the counts. **undo last change** swaps
   `freezer.json` with `freezer.json.bak` (every write keeps one `.bak`; press
   again to redo). Each change logs `freezer change by <user>: …` in the sidecar.
-- **What the build does** (Tuesday): skips a dinner/lunch the freezer is short
-  for (if nothing in the slot fits it plans one anyway and logs
-  `freezer_short_pick`); fish parity yields to the fish in stock
-  (`freezer_fish`); prefers the cut with the most dinners' worth left; after
-  writing the plan it decrements what it reserved (`freezer_reserved`, also on
-  the Thaw tab) — once per week. Freezer-aisle foods with no `freezer.map` key
-  log `freezer_unmapped` and count as available. Missing or unreadable file:
-  `freezer_inventory_missing`, plan as before.
+- **What the build does** (Tuesday): never plans a dinner or lunch the freezer
+  is short for (the skipped recipes are logged as `freezer_short_pick`); fish
+  parity yields to the fish in stock (`freezer_fish`); prefers the cut with the
+  most dinners' worth left; after writing the plan it decrements what it
+  reserved (`freezer_reserved`, also on the Thaw tab) — once per week.
+  Freezer-aisle foods with no `freezer.map` key log `freezer_unmapped` and count
+  as available. Missing or unreadable file: `freezer_inventory_missing`, plan
+  as before.
+- **When a cut is short** (2026-11-11; W48 planned a filet with 0 filets): the
+  slot is tried with another protein that has stock, in `config.yaml` →
+  `freezer.fallback` order — steak → ground beef → poultry → fish; fish →
+  poultry → ground beef → steak; ground beef → steak → poultry → fish; pork
+  (flex) → poultry first; roast → ground beef first. The week's rules still
+  hold (no repeat, at most `beef.max_asian_per_week` Asian-style beef, tri-tip
+  and short ribs only on their scheduled weeks). Logged as `freezer_fallback`
+  (slot, protein planned, recipe). If nothing fits, that dinner is left
+  unplanned — one more night off — and logged as `freezer_short_slot` with the
+  slot, the night, the cuts checked and their counts; a lunch prep with nothing
+  in stock is left out the same way. The build never fails over the freezer.
+  The fix is a count (Pantry tab) or a recipe: on 2026-11-11 the only
+  non-scheduled fall steak recipe is the filet, so a steak week without filets
+  falls back to ground beef until a ribeye / strip / sirloin recipe is added.
+- **Fish counts.** Tuna steaks are freezer stock (`NewPiFreezer`, bought frozen
+  at New Pi by hand): on hand, on the Thaw tab, never on a list, counted as
+  `tuna-steaks`. The cut has no package size, so a recipe's ounces count as one
+  portion per person; set the count (or the package size) to what is really
+  there. Salmon is still bought fresh, but its `salmon` count of 0 also stops a
+  salmon dinner: mark it **fill in** if salmon should not be counted.
 
 **Install the seed (once, after the PR merges and the dashboard redeploys).**
 Copies `stacks/grocery-planner/freezer-seed.json` (the 2026-11-11 Amana +
@@ -446,8 +468,23 @@ Check what the last build reserved (read-only):
 
 ```sh
 HOST=10.1.20.20
-ssh kdkadmin@$HOST "sudo -n docker logs grocery-planner 2>&1 | grep -E 'freezer_(reserved|short|fish|unmapped|inventory_missing)'"
+ssh kdkadmin@$HOST "sudo -n docker logs grocery-planner 2>&1 | grep -E 'freezer_(reserved|short|fallback|fish|unmapped|inventory_missing)|no_dinner'"
 ```
+
+## Skip days (holidays, travel)
+
+`config.yaml` → `skip_days`: a list of ISO dates (`["2026-11-26"]`), seeded
+empty; the owner fills it. On a skip day the build plans **no dinner, no lunch
+prep and no leftovers**. The week's dinner mix is picked as usual and the dinner
+that lands on that day is dropped (a roast night on a skip day moves to the next
+free night). The lunch count shrinks with it (2 people × the lunch days left): a
+skipped prep day has no batch, no dinner is cooked at 4 for a skipped lunch day,
+and a lunch day nothing else covers is added to the prep before it
+(`lunch_gap`). Breakfast staples and snacks stay. Dates outside the planned week
+are ignored, so old dates can stay. The `no_dinner` log line lists the skipped
+and freezer-short nights; `--preview` shows them under "no dinner". Edit,
+merge, and the next Tuesday build reads it (the job reads `config.yaml` at
+start).
 
 ## Weekly volume and never_buy (2026-11-11)
 
