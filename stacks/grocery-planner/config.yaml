@@ -506,8 +506,9 @@ freezer:
 skip_days: []
 
 # Standing orders: what an order adds to the freezer when it arrives (the
-# "Order arrived" button on the Pantry tab's Freezer section adds these counts;
-# "undo last change" restores the .bak). Amounts in each cut's unit. No prices.
+# "Order arrived" button on the Pantry tab's Freezer section adds these counts,
+# once per order per 12 h; "undo my last tap" restores the .bak, which the
+# planner never touches). Amounts in each cut's unit. No prices.
 standing_orders:
   oconnell:
     label: "O'Connell"

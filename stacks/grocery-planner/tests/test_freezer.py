@@ -122,7 +122,7 @@ def test_need_units():
     # chicken by the 1.1 lb package, rounded up (a thawed pack is used whole)
     assert st.need([_line("chicken-breast", 1.5, "lb", base=4)], 2) == {"chicken-breast": 1}
     assert st.need([_line("chicken-breast", 2, "lb")], 2) == {"chicken-breast": 2}
-    # portions per package unknown: a count of breasts = one package
+    # 2 breasts = one package of 2
     assert st.need([_line("chicken-breast", 2, "")], 2) == {"chicken-breast": 1}
     # 2 per package: breasts / chops divide by 2, rounded up to whole packages
     assert st.need([_line("chicken-breast", 3, "breasts")], 2) == {"chicken-breast": 2}
@@ -130,6 +130,111 @@ def test_need_units():
     assert st.need([_line("pork-chops", 1, "chop")], 2) == {"pork-chops": 1}
     # fill_in (count unknown) and cuts not in the file count as available
     assert st.need([_line("tuna-steaks", 2), _line("nope", 1)], 2) == {}
+    assert st.unconvertible == []
+
+
+def test_unconvertible_is_none_and_listed_never_a_guess():
+    # Review 2026-11-11 #8: no package_lb / portions_per_package -> no guess
+    data = _seed()
+    data["cuts"] += [{"id": "pkg-nolb", "unit": "package", "count": 3},
+                     {"id": "por-nolb", "unit": "portion", "count": 3},
+                     {"id": "lb-cut", "unit": "lb", "count": 3}]
+    st = F.Stock(data)
+    assert F._convert(1, "lb", {"unit": "package"}, 2) is None        # was 1 package
+    assert F._convert(2, "", {"unit": "package"}, 2) is None          # was 1 package
+    assert F._convert(1, "lb", {"unit": "portion"}, 2) is None        # was 2 (servings)
+    assert F._convert(1, "cup", {"unit": "lb"}, 2) is None
+    assert st.need([_line("pkg-nolb", 1, "lb"), _line("por-nolb", 1, "lb"),
+                    _line("lb-cut", 1, "cup"), _line("ground-beef", 1, "lb")], 2) == {"ground-beef": 1}
+    assert [(u["cut"], u["unit"]) for u in st.unconvertible] == [
+        ("pkg-nolb", "lb"), ("por-nolb", "lb"), ("lb-cut", "cup")]
+    st.need([_line("pkg-nolb", 1, "lb")], 2)
+    assert len(st.unconvertible) == 3                                 # listed once
+
+
+def test_run_logs_freezer_unconvertible(cfg, monkeypatch):
+    data = _seed()
+    data["cuts"] = [c for c in data["cuts"] if c["id"] != "chicken-breast"] + [
+        {"id": "chicken-breast", "unit": "package", "count": 9}]   # no package_lb, no ppp
+    st = F.Stock(data)
+    pool = _freezer_pool()
+    logs = []
+    monkeypatch.setattr(R, "jlog", lambda **kw: logs.append(kw))
+    entries, got = R.generate(pool, SUNDAY, cfg, st, {})
+    assert got is st and entries
+    assert any(u["cut"] == "chicken-breast" for u in st.unconvertible)
+
+
+# ---- review 2026-11-11 #4: the inventory never fails the build ----------------
+def test_non_numeric_version_or_count_never_fails_the_build(cfg, tmp_path, capsys):
+    p = tmp_path / "freezer.json"
+    data = _seed()
+    data["version"] = "one"
+    p.write_text(json.dumps(data))
+    assert F.load(str(p)) == (None, "unknown version 'one'")
+    assert R.load_stock(cfg, {"FREEZER_FILE": str(p)}) is None
+    data["version"] = 1
+    next(c for c in data["cuts"] if c["id"] == "ground-beef")["count"] = "lots"
+    p.write_text(json.dumps(data))
+    assert R.load_stock(cfg, {"FREEZER_FILE": str(p)}) is None
+    out = capsys.readouterr().out
+    assert out.count('"event": "freezer_inventory_missing"') == 2 and "ValueError" in out
+
+
+def test_stock_failure_mid_plan_plans_without_it(cfg, monkeypatch):
+    data = _seed()
+    st = F.Stock(data)
+    st.cuts["ground-beef"]["count"] = "lots"          # bad after load (e.g. a mutated file)
+    logs = []
+    monkeypatch.setattr(R, "jlog", lambda **kw: logs.append(kw))
+    rep = {}
+    entries, got = R.generate(_freezer_pool(), SUNDAY, cfg, st, rep)
+    assert got is None and G.plan_summary(entries)["dinners"] == 5
+    assert [e["event"] for e in logs] == ["freezer_inventory_missing"]
+    assert "lunch_gaps" in rep
+
+
+# ---- review 2026-11-11 #1: burger night is checked against the patties ---------
+class _BurgerT:
+    def _kw(self):
+        return {"burger-night": {"id": 7}}
+
+    def keywords(self):
+        return self._kw()
+
+    def get_all(self, path, keyword=None):
+        return [{"id": 77, "name": "Burger night", "servings": 2}] if keyword == 7 else []
+
+    def get(self, path):
+        assert path == "/api/recipe/77/"
+        return {"id": 77, "name": "Burger night", "servings": 2, "steps": [{"ingredients": [
+            {"food": {"name": "ground beef patties"}, "amount": 2, "unit": {"name": "patty"}},
+            {"food": {"name": "buns"}, "amount": 2, "unit": None}]}]}
+
+
+def _burger_week():
+    s = SUNDAY
+    while int(G.week_key(s).split("W")[1]) % 5:
+        s += datetime.timedelta(weeks=1)
+    return s
+
+
+def test_fixed_pool_gives_burger_night_its_patty_lines(cfg):
+    pool = R._fixed_pool(_BurgerT(), cfg)
+    assert pool[0]["kind"] == "burger"
+    assert [ln["cut"] for ln in pool[0]["freezer_lines"]] == ["burger-patties"]
+
+
+def test_zero_patties_skips_burger_night(cfg):
+    sun = _burger_week()
+    pool = _freezer_pool() + R._fixed_pool(_BurgerT(), cfg)
+    got = G.generate_week(pool, sun, cfg, stock=(st := _stock(**{"burger-patties": 0})))
+    assert 77 not in [e.recipe_id for e in got]
+    assert [s["slot"] for s in st.short] == ["burger_night"]
+    assert st.short[0]["need"] == {"burger-patties": 2}
+    # with patties it is planned and takes them
+    got = G.generate_week(pool, sun, cfg, stock=(st := _stock(**{"burger-patties": 20})))
+    assert 77 in [e.recipe_id for e in got] and st.remaining("burger-patties") == 18
 
 
 # ---- generator rules ------------------------------------------------------------
@@ -344,6 +449,7 @@ DETAILS = {
 def test_reserve_decrements_backs_up_and_is_idempotent(cfg, tmp_path, monkeypatch, capsys):
     p = tmp_path / "freezer.json"
     p.write_text(open(SEED).read())
+    (tmp_path / "freezer.json.bak").write_text("owner-snapshot")
     env = {"FREEZER_FILE": str(p)}
     items = R.reserve_freezer(cfg, "2026-W48", _entries(), DETAILS, env=env)
     assert [(i["cut"], i["amount"], i["recipe"]) for i in items] == [
@@ -353,7 +459,11 @@ def test_reserve_decrements_backs_up_and_is_idempotent(cfg, tmp_path, monkeypatc
     assert by["filet-mignon"]["count"] == 0 and by["ground-beef"]["count"] == 29.5
     assert by["chuck-roast"]["count"] == 12.25
     assert len(data["reservations"]) == 2 and data["updated_by"] == "grocery-planner"
-    assert json.loads((tmp_path / "freezer.json.bak").read_text())["reservations"] == []
+    # review 2026-11-11 #6: the owner's .bak (last Pantry tap) is untouched; the
+    # pre-reservation file goes to .prebuild for a by-hand recovery
+    assert (tmp_path / "freezer.json.bak").read_text() == "owner-snapshot"
+    assert json.loads((tmp_path / "freezer.json.prebuild").read_text())["reservations"] == []
+    assert not [f for f in os.listdir(tmp_path) if f.endswith(".tmp")]
     out = capsys.readouterr().out
     assert '"event": "freezer_reserved"' in out and '"status": "applied"' in out
     assert '"event": "freezer_unmapped"' in out and "tri-tip" in out
@@ -382,3 +492,38 @@ def test_build_pool_carries_freezer_lines(cfg):
     pool = R.build_pool([rec], "spring", cfg)
     assert pool[0]["freezer_lines"] == [{"cut": "filet-mignon", "food": "filet mignon steaks",
                                          "amount": 2.0, "unit": "", "base": 2.0}]
+
+
+# ---- review 2026-11-11 #5: one lock + unique tmp names across both writers ------
+def test_apply_reservations_waits_for_the_lock_and_rechecks_its_week(tmp_path):
+    import fcntl
+    import threading
+    p = tmp_path / "freezer.json"
+    p.write_text(open(SEED).read())
+    lock = open(tmp_path / F.LOCK_NAME, "a+")
+    fcntl.flock(lock, fcntl.LOCK_EX)                 # the dashboard mid-change
+    res = {}
+    th = threading.Thread(target=lambda: res.update(
+        s=F.apply_reservations(str(p), "2026-W48", [{"week": "2026-W48", "cut": "ribeye",
+                                                      "amount": 2, "unit": "portion"}])))
+    th.start()
+    th.join(0.3)
+    assert th.is_alive()                             # blocked on the lock
+    # meanwhile the other writer reserved the same week (e.g. a second run)
+    d = json.loads(p.read_text())
+    d["reservations"] = [{"week": "2026-W48", "cut": "ribeye", "amount": 2}]
+    p.write_text(json.dumps(d))
+    fcntl.flock(lock, fcntl.LOCK_UN)
+    lock.close()
+    th.join(5)
+    assert res["s"] == "already"                     # re-checked inside the lock
+    assert {c["id"]: c for c in json.loads(p.read_text())["cuts"]}["ribeye"]["count"] == 6
+
+
+def test_write_uses_a_unique_tmp_name(tmp_path, monkeypatch):
+    seen = []
+    real = os.replace
+    monkeypatch.setattr(os, "replace", lambda a, b: (seen.append(os.path.basename(a)), real(a, b)))
+    F._write(str(tmp_path / "freezer.json"), b"{}", str(tmp_path))
+    F._write(str(tmp_path / "freezer.json"), b"{}", str(tmp_path))
+    assert len(set(seen)) == 2 and all(f".{os.getpid()}.tmp" not in n for n in seen)

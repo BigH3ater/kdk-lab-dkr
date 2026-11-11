@@ -413,11 +413,19 @@ def test_skip_day_drops_dinner_prep_and_leftovers_and_shrinks_lunches(cfg):
 
 def test_skip_sunday_no_fish_no_sunday_prep(cfg):
     pool = make_pool()
-    got = G.generate_week(pool, SUNDAY, _with_skip(cfg, SUNDAY))
+    got = G.generate_week(pool, SUNDAY, _with_skip(cfg, SUNDAY), report=(rep := {}))
     assert not [e for e in got if e.date == SUNDAY and e.meal_type in ("dinner", "lunch")]
     assert G.plan_summary(got)["dinners"] == 4
     assert [e.date.weekday() for e in got if e.role == "lunch"] == [3]   # Thursday batch
-    assert _lunch_servings(got) == 12                                   # Sunday was no lunch day
+    # Review 2026-11-11 #2: Monday has no prep before it (Sunday skipped) and no
+    # leftover dinner (Sunday night skipped); Thursday's lunch is eaten before
+    # Thursday's prep is cooked and the pool has only two lunch-friendly dinners
+    # (Mon + Tue nights). Both stay unfed: the Thursday batch is NOT inflated for
+    # days before it is cooked (it was 8 servings, 4 of them for nobody).
+    thu = [e for e in got if e.role == "lunch"][0]
+    assert thu.servings == cfg["lunches"]["servings_each"]
+    assert rep["lunch_unfed"] == ["monday", "thursday"] and rep["lunch_gaps"] == []
+    assert _lunch_servings(got) == 8                    # Tue + Wed leftovers, Fri + Sat batch
     assert G.plan_summary(got)["breakfast"] == 1                        # weekly staples stay
 
 

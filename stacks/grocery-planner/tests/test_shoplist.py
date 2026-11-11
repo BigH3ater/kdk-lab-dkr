@@ -122,6 +122,17 @@ def test_never_buy_match():
     assert not S.is_never_buy("brussels sprouts", [])
 
 
+def test_never_buy_matches_whole_words_only():
+    # Review 2026-11-11 #10: "peas" must not hit "peanut", "bass" not "basil"
+    assert not S.is_never_buy("peanut butter", ["peas"])
+    assert not S.is_never_buy("peanuts", ["peas"])
+    assert not S.is_never_buy("fresh basil", ["bass"])
+    assert S.is_never_buy("frozen peas", ["peas"]) and S.is_never_buy("snap pea", ["peas"])
+    assert S.is_never_buy("sea bass fillets", ["bass"])
+    assert S.is_never_buy("frozen peas", ["pea"])           # trailing s optional either way
+    assert not S.is_never_buy("cabbageworm", ["cabbage"])
+
+
 def test_never_buy_lines_are_on_no_list_and_counted(cfg):
     assert cfg["never_buy"] == ["brussels sprouts", "cabbage", "red cabbage"]
     entries = [

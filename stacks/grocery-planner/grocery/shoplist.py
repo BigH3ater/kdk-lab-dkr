@@ -48,6 +48,7 @@ class StoreList:
 
 
 import math
+import re
 
 
 def is_excluded(name, excludes):
@@ -60,12 +61,15 @@ def is_excluded(name, excludes):
 def is_never_buy(name, terms):
     """True if the food name holds a config `never_buy` term (owner 2026-11-11:
     brussels sprouts, cabbage, red cabbage). Case-insensitive substring of the
-    canonical food name; a term's trailing "s" is optional ("brussels sprouts"
-    also hits the food "brussels sprout")."""
+    canonical food name, on word boundaries; a trailing "s" is optional either
+    way ("brussels sprouts" also hits "brussels sprout", "pea" hits "peas")
+    but a term never matches inside another word ("peas" is not "peanut")."""
     low = (name or "").lower()
     for t in terms or []:
         t = str(t).lower().strip()
-        if t and (t in low or (t.endswith("s") and t[:-1] in low)):
+        if t.endswith("s"):
+            t = t[:-1]
+        if t and re.search(r"\b" + re.escape(t) + r"s?\b", low):
             return True
     return False
 
