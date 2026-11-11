@@ -243,7 +243,8 @@ def test_upstream_timeouts_are_configured(client):
 
 def test_health(client):
     r = client.get("/health")
-    assert r.status_code == 200 and r.json() == {"pdfs": 1, "map_loaded": True, "status": "ok"}
+    assert r.status_code == 200 and r.json() == {"pdfs": 1, "epubs": 1, "epub_autolink": False,
+                                                 "map_loaded": True, "status": "ok"}
 
 
 def test_health_degraded_when_map_never_loads(settings, fakes):

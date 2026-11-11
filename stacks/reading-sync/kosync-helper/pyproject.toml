@@ -1,6 +1,6 @@
 [project]
 name = "kosync-helper"
-version = "0.1.0"
+version = "0.2.0"
 description = "kdk-lab reading-sync: KOReader kosync front for BookBridge with PDF page sync to Audiobookshelf"
 requires-python = "==3.12.*"
 dependencies = [

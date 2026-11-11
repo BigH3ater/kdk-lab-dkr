@@ -9,7 +9,13 @@ are checked with BookBridge GET /users/auth (its per-address failure limit appli
 and a success is cached for AUTH_CACHE_SECONDS. Only KOSYNC_USER (jmack) may use the
 PDF path, because the ABS key acts as that user.
 
-Logs carry the event type, item id and status only: never keys, users or hashes.
+EPUB documents (hash found in the EPUB map) still go to BookBridge. When BookBridge has
+accepted a KOSYNC_USER PUT for one it has no link for, the helper creates the ebook-only
+link through BookBridge's own Add Book submit (epub_link.py). Off while
+BOOKBRIDGE_WEB_USER / BOOKBRIDGE_WEB_PASSWORD are empty.
+
+Logs carry the event type, item id, status and a fixed reason word only: never keys,
+passwords, users or hashes.
 """
 from __future__ import annotations
 
@@ -28,6 +34,8 @@ from fastapi.responses import JSONResponse, Response
 from . import progress as prog
 from .abs_client import AbsClient, AbsError
 from .config import Settings
+from .bookbridge_web import BookBridgeWeb
+from .epub_link import EpubLinker
 from .library import PdfLibrary
 
 log = logging.getLogger("kosync_helper")
@@ -42,7 +50,7 @@ ABS_DEVICE_ID = "audiobookshelf"
 
 
 class JsonFormatter(logging.Formatter):
-    FIELDS = ("event", "item", "status", "route", "count")
+    FIELDS = ("event", "item", "status", "route", "count", "reason")
 
     def format(self, record: logging.LogRecord) -> str:
         out = {"ts": int(record.created), "level": record.levelname.lower()}
@@ -82,12 +90,13 @@ def kosync_error(status: int, message: str) -> JSONResponse:
 
 class Helper:
     def __init__(self, settings: Settings, abs_client: AbsClient, bb_client: httpx.AsyncClient,
-                 library: PdfLibrary, clock=time.time):
+                 library: PdfLibrary, clock=time.time, linker: EpubLinker | None = None):
         self.s = settings
         self.abs = abs_client
         self.bb = bb_client
         self.library = library
         self.clock = clock
+        self.linker = linker
         self._auth_ok: dict[tuple[str, str], float] = {}
         # doc hash -> (page, device, device_id) of this helper's last PDF write
         self._last_push: OrderedDict[str, tuple[int, str, str]] = OrderedDict()
@@ -98,11 +107,12 @@ class Helper:
     # ---------------- PDF map ----------------
     async def refresh(self) -> None:
         try:
-            items = await self.abs.list_pdf_items(self.s.abs_library_id)
+            items = await self.abs.list_ebook_items(self.s.abs_library_id)
             count = await asyncio.to_thread(self.library.rebuild, items)
             self.last_refresh_ok = self.clock()
             self.last_refresh_error = False
             event("pdf_map_refreshed", count=count)
+            event("epub_map_refreshed", count=self.library.epub_count)
         except Exception:  # keep the loop alive; the map keeps its last good state
             self.last_refresh_error = True
             event("pdf_map_refresh_failed", logging.WARNING)
@@ -114,7 +124,8 @@ class Helper:
 
     def health(self) -> tuple[int, dict]:
         now = self.clock()
-        body = {"pdfs": len(self.library), "map_loaded": self.last_refresh_ok is not None}
+        body = {"pdfs": len(self.library), "epubs": self.library.epub_count,
+                "epub_autolink": self.linker is not None, "map_loaded": self.last_refresh_ok is not None}
         stale_after = 2 * self.s.refresh_seconds + 300
         if self.last_refresh_ok is None:
             ok = now - self.started < 300 or not self.last_refresh_error
@@ -243,11 +254,21 @@ class Helper:
 
 def create_app(settings: Settings, abs_transport: httpx.AsyncBaseTransport | None = None,
                bb_transport: httpx.AsyncBaseTransport | None = None, start_refresh: bool = True,
-               clock=time.time) -> FastAPI:
+               clock=time.time, bb_web_transport: httpx.AsyncBaseTransport | None = None) -> FastAPI:
     abs_client = AbsClient(settings.abs_url, settings.abs_api_key, settings.upstream_timeout, abs_transport)
     bb_client = httpx.AsyncClient(base_url=settings.bookbridge_url, timeout=httpx.Timeout(settings.upstream_timeout),
                                   follow_redirects=False, transport=bb_transport)
-    helper = Helper(settings, abs_client, bb_client, PdfLibrary(settings.ebooks_root), clock=clock)
+    library = PdfLibrary(settings.ebooks_root)
+    bb_web = None
+    linker = None
+    if settings.epub_autolink_enabled:
+        # The Add Book submit downloads the ABS ebook to hash it: allow it more time.
+        bb_web = BookBridgeWeb(settings.bookbridge_web_url, settings.bookbridge_web_user,
+                               settings.bookbridge_web_password, max(settings.upstream_timeout, 30.0),
+                               bb_web_transport)
+        linker = EpubLinker(settings, abs_client, bb_web, library, event, clock)
+    helper = Helper(settings, abs_client, bb_client, library, clock=clock, linker=linker)
+    event("epub_autolink_enabled" if linker else "epub_autolink_disabled")
 
     @contextlib.asynccontextmanager
     async def lifespan(app: FastAPI):
@@ -259,8 +280,12 @@ def create_app(settings: Settings, abs_transport: httpx.AsyncBaseTransport | Non
                 task.cancel()
                 with contextlib.suppress(asyncio.CancelledError):
                     await task
+            if linker:
+                await linker.cancel()
             await abs_client.aclose()
             await bb_client.aclose()
+            if bb_web:
+                await bb_web.aclose()
 
     app = FastAPI(lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None)
     app.state.helper = helper
@@ -311,7 +336,13 @@ def create_app(settings: Settings, abs_transport: httpx.AsyncBaseTransport | Non
             return kosync_error(400, "Invalid document")
         entry = helper.library.lookup(doc)
         if entry is None or not helper.is_pdf_user(request):
-            return await helper.forward(request, "put_progress", "/syncs/progress", body)
+            response = await helper.forward(request, "put_progress", "/syncs/progress", body)
+            # BookBridge accepted the device's login and the PUT: an EPUB of ours it
+            # may not have linked yet. The check and the link run in the background.
+            if (entry is None and response.status_code == 200 and helper.linker is not None
+                    and helper.is_pdf_user(request)):
+                helper.linker.schedule(doc)
+            return response
         denied = await helper.authenticate(request)
         if denied is not None:
             return denied

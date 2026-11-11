@@ -1,4 +1,8 @@
-"""KOReader hash -> ABS PDF item map.
+"""KOReader hash -> ABS ebook item map (primary PDFs and primary EPUBs).
+
+PDFs are served by the helper itself (page sync). EPUBs stay BookBridge's; the EPUB map
+only tells the helper which ABS item a tablet hash is, so it can create the missing
+BookBridge ebook-only link (epub_link.py).
 
 The helper mounts the ebook library read-only at the SAME container path ABS uses
 (/mnt/media/books/ebook -> /ebooks:ro), so the path ABS reports for an item's ebook
@@ -22,6 +26,14 @@ log = logging.getLogger("kosync_helper")
 class PdfEntry:
     item_id: str
     pages: int | None
+
+
+@dataclass(frozen=True)
+class EpubEntry:
+    item_id: str
+    abs_path: str   # the path ABS reports for the item's primary ebook
+    real_path: str  # the same file, resolved inside the mount
+    size: int
 
 
 def safe_path(root: str, path: str) -> str | None:
@@ -56,20 +68,36 @@ class PdfLibrary:
     def __init__(self, root: str):
         self.root = root
         self._by_hash: dict[str, PdfEntry] = {}
+        self._epub_by_hash: dict[str, EpubEntry] = {}
         # (real path, size, mtime_ns) -> (hash, pages): unchanged files are not re-read
         self._file_cache: dict[tuple[str, int, int], tuple[str, int | None]] = {}
 
     def __len__(self) -> int:
+        """The PDF count (the EPUB count is epub_count)."""
         return len(self._by_hash)
 
+    @property
+    def epub_count(self) -> int:
+        return len(self._epub_by_hash)
+
     def lookup(self, doc_hash: str) -> PdfEntry | None:
+        """PDFs only: the helper answers these itself."""
         return self._by_hash.get(doc_hash.lower())
 
-    def rebuild(self, items: list[tuple[str, str]]) -> int:
-        """Replace the map from (item_id, abs_path) pairs. Returns the PDF count."""
+    def lookup_epub(self, doc_hash: str) -> EpubEntry | None:
+        return self._epub_by_hash.get(doc_hash.lower())
+
+    def rebuild(self, items: list[tuple]) -> int:
+        """Replace the maps from (item_id, abs_path[, format]) tuples; the format
+        defaults to pdf. Returns the PDF count."""
         by_hash: dict[str, PdfEntry] = {}
+        epubs: dict[str, EpubEntry] = {}
         cache: dict[tuple[str, int, int], tuple[str, int | None]] = {}
-        for item_id, abs_path in items:
+        for item in items:
+            item_id, abs_path = item[0], item[1]
+            fmt = item[2] if len(item) > 2 else "pdf"
+            if fmt not in ("pdf", "epub"):
+                continue
             real = safe_path(self.root, abs_path)
             if real is None:
                 log.warning("pdf_map_skip", extra={"event": "pdf_map_skip", "item": item_id})
@@ -80,13 +108,19 @@ class PdfLibrary:
             if cached is None:
                 try:
                     with open(real, "rb") as f:
-                        cached = (partial_md5_fileobj(f), count_pages(f))
+                        cached = (partial_md5_fileobj(f), count_pages(f) if fmt == "pdf" else None)
                 except OSError:
                     log.warning("pdf_map_skip", extra={"event": "pdf_map_skip", "item": item_id})
                     continue
             cache[key] = cached
             doc_hash, pages = cached
-            by_hash[doc_hash] = PdfEntry(item_id=item_id, pages=pages)
+            if fmt == "pdf":
+                by_hash[doc_hash] = PdfEntry(item_id=item_id, pages=pages)
+            else:
+                epubs[doc_hash] = EpubEntry(item_id=item_id, abs_path=abs_path, real_path=real, size=st.st_size)
+        for doc_hash in by_hash:  # a hash on both sides stays a PDF and is never auto-linked
+            epubs.pop(doc_hash, None)
         self._by_hash = by_hash
+        self._epub_by_hash = epubs
         self._file_cache = cache
         return len(by_hash)
