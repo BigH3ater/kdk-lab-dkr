@@ -1,7 +1,7 @@
 """Robot vacuum line for the kitchen board, from Home Assistant (read-only).
 
 One GET /api/states with the dashboard's long-lived HA token (env
-HOMEPAGE_VAR_HA_TOKEN, already injected for the Homepage widgets), filtered to
+HOMEPAGE_VAR_HA_TOKEN; the name is left from the retired Homepage widgets), filtered to
 the roborock entities below. The room sensors are a family
 (sensor.rr_room_<room>_cleaned), so one list read is cheaper and simpler than
 one GET per entity. Cached 60 s by the caller.

@@ -208,8 +208,8 @@ ssh kdkadmin@10.1.20.20 'curl -s "http://127.0.0.1:8405/;csv" | awk -F, '"'"'$1=
   ```
 - **HAProxy** exposes its own stats; optionally scrape `dee-lb` for per-backend
   up/down. A backend marked down in HAProxy = that DEE slot is gone.
-- **Homepage**: DEE has no tile today (it is infra, not a UI). Optional: add a
-  `siteMonitor` ping tile for each wrapper health URL.
+- **Admin page** (admin.kmkdp.com): DEE has no tile (it is infra, not a UI); its
+  wrapper health URLs are already blackbox-probed (`prometheus.yml`).
 
 ## Teardown (if cloned only to drain the backlog)
 

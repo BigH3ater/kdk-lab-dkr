@@ -2,15 +2,15 @@
 """dashboard-mealplan: render the Tandoor weekly meal plan for the family home
 dashboard, and let household members submit a star rating from the dashboard.
 
-Why a sidecar (not a Homepage widget calling Tandoor directly): Tandoor has DRF
+Why a sidecar (not the browser calling Tandoor directly): Tandoor has DRF
 **token auth disabled** -- only Session + OAuth2. So we log in with a dedicated
 Tandoor account (username/password, op-injected) to get a session + CSRF cookie, then
 call the JSON API. The account must be a member of the "Mack House" space or the plan
 comes back empty (every Tandoor object is space-scoped).
 
 Served (behind Traefik, StripPrefix /meal):
-  GET  /            -> HTML week grid (embedded as an iframe on the dashboard)
-  GET  /mealplan.json -> compact JSON (for a Homepage customapi widget, optional)
+  GET  /            -> HTML week grid (the sidebar's "This Week" page)
+  GET  /mealplan.json -> compact JSON (optional; nothing in the lab reads it now)
   POST /rate        -> create a CookLog rating, then redirect back to /
   GET  /healthz     -> "ok"
   GET  /kitchen, /kitchen/ingredients, /kitchen/steps, /kitchen/pantry,
@@ -506,12 +506,12 @@ color:var(--ember);padding:10px 12px 0}
 .empty{color:var(--ash);font-size:13px;padding:24px;text-align:center;font-family:'Space Grotesk',sans-serif}
 """
 
-# The shared Kodiak sidebar, same source the guides and Homepage use. Served
-# same-origin from /guides (behind Authelia -- no CDN). shared-nav.js hides the
-# nav inside an iframe, so the dashboard-embedded /meal grid, tasks and weather
-# pages stay bare; the standalone /meal/groceries page gets the full sidebar.
-NAV_HEAD = ('<link rel="stylesheet" href="/guides/shared-nav.css?v=nav20261107">'
-            '<script defer src="/guides/shared-nav.js?v=nav20261107"></script>')
+# The shared Kodiak sidebar, same source the guides use. Served same-origin from
+# /guides (behind Authelia -- no CDN). The week grid, tasks, weather and
+# groceries pages all get it (shared-nav.js still skips drawing it inside a
+# frame). The household and kitchen pages have their own header instead.
+NAV_HEAD = ('<link rel="stylesheet" href="/guides/shared-nav.css?v=nav20261110">'
+            '<script defer src="/guides/shared-nav.js?v=nav20261110"></script>')
 
 
 def last_ratings(recipe_ids: set[int]) -> dict[int, int]:
@@ -798,7 +798,7 @@ display:flex;gap:6px;align-items:baseline;flex:0 0 auto}
 .task.busy{opacity:.45}
 """
 
-# Tick a task without reloading the iframe: a plain form POST + 303 reload snapped
+# Tick a task without reloading the page: a plain form POST + 303 reload snapped
 # the horizontally scrolled category row (and the page) back to the start. POST in
 # the background, then swap in the re-rendered board (recurring chores come back
 # with a new due date, so it has to be re-rendered, not just removed) and restore

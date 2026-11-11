@@ -468,8 +468,9 @@ run_directory = "stacks/backup-dmz"
 destroy_before_deploy = true   # one locked down+up (stage execs run in parallel)
 pre_deploy.command = "sh -c '. /etc/komodo/op.env && op inject -f -i .env.tpl -o .env'"
 
-# Mack family home dashboard on kdk-dkr-01 (LAN/Tailscale only): Homepage +
-# family how-to guides (/guides) + Vikunja tasks + the Tandoor meal-plan sidecar.
+# Mack family home dashboard on kdk-dkr-01 (LAN/Tailscale only): the mealplan
+# sidecar (household page at home.kmkdp.com/, kitchen board, admin page) +
+# family how-to guides (/guides) + Vikunja tasks. (Homepage was retired 2026-11-10.)
 # (The /workout/ log sidecar and the host-managed Workout guide were retired
 # 2026-11-06 when wger won the exercise-tracking pilot.)
 # run_build = true because the mealplan sidecar is a local Dockerfile build.
@@ -1269,8 +1270,8 @@ executions = [
 # stacks/planner-service/ tree, this Komodo stack + daily procedure, and the
 # kdk/planner-service advisory-watch catalog entry were deleted; host data under
 # /opt/kdk-lab/planner is archived by hand. The Proton ICS URL
-# (op://kdk-cluster/proton-calendar-ics/url) STAYS -- the Homepage dashboard
-# calendar widget still reads it.
+# (op://kdk-cluster/proton-calendar-ics/url) STAYS -- the dashboard mealplan
+# sidecar (household calendar, mealplan/homecal.py) still reads it.
 
 # book-sync REMOVED 2026-09-21 (user directive): ebook delivery to the reMarkable
 # is now Calibre OPDS *pull* only (calibre.kmkdp.com/opds → KOReader). The push

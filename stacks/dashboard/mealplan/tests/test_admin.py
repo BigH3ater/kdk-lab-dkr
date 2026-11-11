@@ -4,6 +4,7 @@ Authelia sign-in parsing, charts, LogQL escaping (with injection attempts),
 the syslog search path and the household Admin link. Fixtures only, no network."""
 import datetime
 import json
+import os
 import time
 from zoneinfo import ZoneInfo
 
@@ -502,23 +503,70 @@ def test_updates_sub_line_wraps_between_parts():
     assert t["value"] == "6" and t["state"] == "warn"                     # 2 Renovate + 4 to review
 
 
-def test_tile_hrefs_match_services_yaml():
-    import os
+# Every link the retired Homepage service directory had (config/services.yaml,
+# removed 2026-11-10). Each must still be reachable from the admin tiles, the
+# household app grid or the shared sidebar, so retiring Homepage loses no link.
+HOMEPAGE_HREFS = [
+    "https://recipes.kmkdp.com/mealplan", "https://jellyfin.kmkdp.com/",
+    "https://audiobookshelf.kmkdp.com/", "https://jellystat.kmkdp.com/",
+    "https://radarr.kmkdp.com/", "https://sonarr.kmkdp.com/", "https://bazarr.kmkdp.com/",
+    "https://prowlarr.kmkdp.com/", "https://sabnzbd.kmkdp.com/", "https://tdarr.kmkdp.com/",
+    "https://trailarr.kmkdp.com/", "https://seerr.kmkdp.com/", "https://libreseerr.kmkdp.com/",
+    "https://lazylibrarian.kmkdp.com/", "https://calibre.kmkdp.com/",
+    "https://wizarr.kmkdp.com/admin", "https://immich.kmkdp.com/", "https://recipes.kmkdp.com/",
+    "https://homeassistant.kmkdp.com/", "https://scrypted.kmkdp.com/",
+    "https://zigbee.kmkdp.com/", "https://nodered.kmkdp.com/", "https://budget.kmkdp.com/",
+    "https://tasks.kmkdp.com/", "https://wger.kmkdp.com/", "https://search.kmkdp.com/",
+    "https://sso.kmkdp.com/", "https://users.kmkdp.com/", "https://komodo.kmkdp.com/",
+    "https://10.1.1.100:8006/", "https://10.1.1.102:8007/", "https://10.1.3.5/",
+    "https://10.1.3.1/", "http://10.1.1.120/", "https://grafana.kmkdp.com/",
+    "http://10.1.20.30:9090/", "https://alertmanager.kmkdp.com/", "https://docs.kmkdp.com/",
+]
+
+
+def _shared_nav_hrefs() -> set[str]:
+    import re
+    path = os.path.join(os.path.dirname(app.__file__), "..", "guides", "shared-nav.js")
+    return set(re.findall(r'\["[^"]+",\s*"([^"]+)"\]', open(path).read()))
+
+
+def test_no_homepage_link_lost():
+    import kitchen
+    have = {href for _g, items in admin.TILES for _n, href, _h, _p in items}
+    have |= {href for _n, href in kitchen.APPS}
+    nav = _shared_nav_hrefs()
+    assert "https://search.kmkdp.com/" in nav and len(nav) > 10
+    have |= nav
+    missing = [h for h in HOMEPAGE_HREFS if h not in have]
+    assert not missing, missing
+
+
+def test_shared_nav_home_is_household_page():
+    path = os.path.join(os.path.dirname(app.__file__), "..", "guides", "shared-nav.js")
+    js = open(path).read()
+    assert '["Home",              "https://home.kmkdp.com/meal/home"]' in js
+    assert 'var HOME = "https://home.kmkdp.com/meal/home";' in js
+    assert '"https://home.kmkdp.com/"' not in js
+
+
+def test_root_redirects_to_household_page():
+    # home.kmkdp.com/ is a Traefik redirect (the sidecar's own / is the week grid):
+    # the catch-all router must outrank the old Homepage router name/priority and
+    # keep forwardauth, and Homepage itself must be gone from the stack.
     import yaml
-    path = os.path.join(os.path.dirname(app.__file__), "..", "config", "services.yaml")
-    hrefs = set()
-    for group in yaml.safe_load(open(path)):
-        for items in group.values():
-            for item in items:
-                for v in item.values():
-                    if isinstance(v, dict) and v.get("href"):
-                        hrefs.add(v["href"])
-    # the reading-sync paths are admin-only links (no Homepage tile)
-    extra = {"https://github.com/BigH3ater/kdk-lab-dkr", "https://grafana.kmkdp.com/explore",
-             "https://opds.kmkdp.com/opds", "https://kosync.kmkdp.com/healthcheck"}
-    for _g, items in admin.TILES:
-        for _n, href, _h, _p in items:
-            assert href in hrefs or href in extra, href
+    path = os.path.join(os.path.dirname(app.__file__), "..", "compose.yaml")
+    stack = yaml.safe_load(open(path))
+    assert "homepage" not in stack["services"]
+    labels = stack["services"]["mealplan"]["labels"]
+    assert labels["traefik.http.routers.home-root.rule"] == "Host(`home.kmkdp.com`)"
+    assert int(labels["traefik.http.routers.home-root.priority"]) == 2
+    assert labels["traefik.http.routers.home-root.middlewares"] == "forwardauth@file,home-to-household"
+    assert labels["traefik.http.middlewares.home-to-household.redirectregex.replacement"] == \
+        "https://home.kmkdp.com/meal/home"
+    assert int(labels["traefik.http.routers.mealplan.priority"]) > 2
+    assert not any(k.startswith("traefik.http.routers.dashboard.") for k in labels)
+    for svc in stack["services"].values():
+        assert "./config:/app/config" not in (svc.get("volumes") or [])
 
 
 # ---- LogQL escaping ---------------------------------------------------------------------------
