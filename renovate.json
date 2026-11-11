@@ -293,6 +293,19 @@
         "requires-python"
       ],
       "enabled": false
+    },
+    {
+      "description": "The CI python-version in reading-sync.yml has to match kosync-helper's requires-python (==3.12.*) and its Dockerfile FROM; uv cannot run the suite on any other minor. Renovate bumped it alone on 2026-11-11 (#477, 3.12 -> 3.13, test job red), the github-actions twin of the pep621 rule above. Bump all three by hand together.",
+      "matchManagers": [
+        "github-actions"
+      ],
+      "matchFileNames": [
+        ".github/workflows/reading-sync.yml"
+      ],
+      "matchDepNames": [
+        "python"
+      ],
+      "enabled": false
     }
   ]
 }
