@@ -44,8 +44,16 @@ services:
       CONFIG_PORT: "9348"
       CONFIG_DEFAULT_USERNAME: "${IDRAC_USERNAME}"
       CONFIG_DEFAULT_PASSWORD: "${IDRAC_PASSWORD}"
-      CONFIG_METRICS_SENSORS: "true"   # fan RPM + temperatures -- the ask
-      CONFIG_METRICS_POWER: "true"
+      # v3 renamed the metric switches to *_ENABLED and every group defaults
+      # to off, so the old names alone would leave the container "Up" with
+      # no fan/temperature/power series (internal/config/env.go at v3.0.0).
+      # Both spellings are set so this works on 2.6.3 and on 3.0.0 (each
+      # version only reads its own names via os.Getenv). Drop the two v2
+      # lines once Renovate #484 (3.0.0) is deployed and verified.
+      CONFIG_METRICS_SENSORS_ENABLED: "true"   # v3: fan RPM + temperatures -- the ask
+      CONFIG_METRICS_POWER_ENABLED: "true"     # v3
+      CONFIG_METRICS_SENSORS: "true"           # v2 name, remove after #484
+      CONFIG_METRICS_POWER: "true"             # v2 name, remove after #484
       # Only those two groups. system/storage/memory are collected by the
       # in-cluster idrac-exporter already, and every extra group is another
       # Redfish walk on a BMC that idrac-fan-control shares over IPMI

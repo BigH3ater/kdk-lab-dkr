@@ -155,7 +155,7 @@ ssh kdkadmin@10.1.20.21 'sudo docker logs loki 2>&1 | grep -i -E "rule|ruler" | 
 | Direction | Thing | What breaks without it |
 |---|---|---|
 | Needs | [[kdk-log-01]] (VM 320 on kdk-hyp-01) | no log ingestion or search |
-| Needs | idrac-exporter (BMC Redfish) | thermal alerting is blind |
+| Needs | idrac-exporter (BMC Redfish; only the `sensors` + `power` groups, set as `CONFIG_METRICS_SENSORS_ENABLED` / `CONFIG_METRICS_POWER_ENABLED` from v3.0.0, the v2 names `CONFIG_METRICS_SENSORS` / `CONFIG_METRICS_POWER` kept until 3.0.0 is verified; every group defaults to off) | thermal alerting is blind |
 | Needed by | operator | the only alerting + log-search path for the lab |
 
 ## Observability
