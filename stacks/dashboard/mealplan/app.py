@@ -46,7 +46,7 @@ load-bearing bits to confirm on first deploy -- they are called out inline below
 """
 from __future__ import annotations
 import os, re, json, datetime, logging, threading, time
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, wait as _futures_wait
 from zoneinfo import ZoneInfo
 import requests
 import urllib3
@@ -356,7 +356,8 @@ def fetch_plan(mon: datetime.date, sun: datetime.date) -> list[dict]:
     """Return normalized entries: {date, meal_type, title, recipe_id, url, image}.
     Tandoor meal-plan entry fields (confirm on deploy): `from_date` (date/datetime),
     nested `recipe` {id, name}, `meal_type` {name} or `meal_type_name`, `title`."""
-    r = _api_get(f"/api/meal-plan/?from_date={mon.isoformat()}&to_date={sun.isoformat()}")
+    r = _api_get(f"/api/meal-plan/?from_date={mon.isoformat()}&to_date={sun.isoformat()}"
+                 "&page_size=100")
     r.raise_for_status()
     data = r.json()
     rows = data.get("results", data) if isinstance(data, dict) else data
@@ -564,18 +565,57 @@ NAV_HEAD = ('<link rel="stylesheet" href="/guides/shared-nav.css?v=nav20261110">
             '<script defer src="/guides/shared-nav.js?v=nav20261110"></script>')
 
 
+# Latest CookLog rating per recipe, cached: ratings change only through /rate
+# (which drops that recipe's entry) or a rating made in Tandoor itself (picked
+# up within the TTL). Value is (fetched_at, rating or None for "no rating").
+_RATING_CACHE: dict[int, tuple[float, int | None]] = {}
+_RATING_TTL = int(os.environ.get("RATING_TTL_S", "600"))
+_RATING_WORKERS = 8
+_RATING_DEADLINE = 20          # total wait for a render: one upstream timeout
+
+
+def _fetch_rating(rid: int) -> None:
+    r = _api_get(f"/api/cook-log/?recipe={rid}&page_size=1&ordering=-created_at")
+    r.raise_for_status()
+    results = r.json().get("results") or []
+    val = int(results[0]["rating"]) if results and results[0].get("rating") else None
+    _RATING_CACHE[rid] = (time.time(), val)
+
+
+def invalidate_rating(rid: int) -> None:
+    _RATING_CACHE.pop(rid, None)
+
+
 def last_ratings(recipe_ids: set[int]) -> dict[int, int]:
     """Latest CookLog rating per recipe (any household member; the dashboard
-    account sees the space's logs). Best-effort - failures mean empty stars."""
+    account sees the space's logs). Best-effort - failures mean empty stars.
+    Misses are fetched in parallel (same pattern as _prefetch_recipes) and the
+    render waits at most _RATING_DEADLINE seconds in total; a straggler still
+    fills the cache for the next render."""
+    now = time.time()
+    todo = sorted({r for r in recipe_ids if r and not (
+        r in _RATING_CACHE and now - _RATING_CACHE[r][0] < _RATING_TTL)})
+    if todo:
+        stats = getattr(_tl, "stats", None)
+
+        def one(rid):
+            _tl.stats = stats
+            try:
+                _fetch_rating(rid)
+            except Exception:
+                log.warning("rating %s fetch failed", rid)
+
+        pool = ThreadPoolExecutor(max_workers=min(_RATING_WORKERS, len(todo)))
+        try:
+            futs = [pool.submit(one, rid) for rid in todo]
+            _futures_wait(futs, timeout=_RATING_DEADLINE)
+        finally:
+            pool.shutdown(wait=False, cancel_futures=True)
     out: dict[int, int] = {}
     for rid in recipe_ids:
-        try:
-            r = _api_get(f"/api/cook-log/?recipe={rid}&page_size=1&ordering=-created_at")
-            results = r.json().get("results") or []
-            if results and results[0].get("rating"):
-                out[rid] = int(results[0]["rating"])
-        except Exception:
-            pass
+        hit = _RATING_CACHE.get(rid)
+        if hit and hit[1]:
+            out[rid] = hit[1]
     return out
 
 
@@ -688,6 +728,7 @@ def rate():
         stars = int(request.form["rating"])
         who = rater_from_headers()
         post_rating(rid, stars, who)
+        invalidate_rating(rid)             # next render shows the new stars
     except Exception:
         log.exception("rating failed")
     return redirect("./", code=303)
@@ -2459,7 +2500,9 @@ def kitchen_weather():
     """The weekly forecast, from the 15-min WX_FEED cache (no upstream call
     here once the warmer has filled it)."""
     now = _now()
-    fc = kitchen.forecast_view(WX_FEED.get(), now, WMO)
+    full = WX_FEED.get()
+    updated = datetime.datetime.fromtimestamp(WX_FEED.ts, TZ) if WX_FEED.ts else None
+    fc = kitchen.forecast_view(full, now, WMO, updated)
     return _html(kitchen.forecast_page(fc, now, ASSET_VER, _back_href()))
 
 
