@@ -7,7 +7,7 @@
 # docs/services/tandoor.md and docs/services/audiobookshelf.md#publishing).
 # ABS admin-path edge canaries live in edge.yml (EdgeAbsAdminPath*).
 # "From the internet" = entryPointName="tunnel" (fallback
-# ClientAddr=~"10\\.211\\.2\\.2:.*"). RequestPath includes the query string.
+# ClientAddr=~"10\\.211\\.2\\.2:.*"). RequestPath has no query string (Traefik drops it).
 #
 # Runbook: docs/runbooks/security-alerts.md#mobile-apps
 groups:

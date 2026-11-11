@@ -103,6 +103,11 @@ services:
       - "--accesslog.fields.headers.names.Cf-Region=keep"
       - "--accesslog.fields.headers.names.Cf-Iplatitude=keep"
       - "--accesslog.fields.headers.names.Cf-Iplongitude=keep"
+      # Drop the query string from RequestPath (path itself is kept): Jellyfin
+      # clients send `?api_key=`/`ApiKey=` and ABS `?token=` on media URLs, so
+      # query strings carry credentials into Loki. Traefik v3.7 can only
+      # keep/drop ALL query parameters; no Loki rule reads query values.
+      - "--accesslog.fields.queryparameters.defaultmode=drop"
     environment:
       CF_DNS_API_TOKEN: "${CLOUDFLARE_DNS_API_TOKEN}"
     ports:
