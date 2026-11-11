@@ -10,7 +10,9 @@ from test_admin import adm, aget  # noqa: F401  (admin feeds wired to fixtures)
 from test_kitchen import home  # noqa: F401  (the fixture-wired sidecar)
 from test_kitchen_pairing import ADMIN, kit, kget, pair  # noqa: F401
 
-INLINE = re.compile(r"<script>(.*?)</script>", re.S)
+# Any case and any attributes, so a <SCRIPT type=...> tag cannot slip past the
+# hash check (CodeQL "bad HTML filtering regexp").
+INLINE = re.compile(r"<script\b[^>]*>(.*?)</script\s*>", re.S | re.I)
 
 
 def _allowed(csp, html):
