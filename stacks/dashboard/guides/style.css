@@ -35,7 +35,7 @@ footer { margin-top:40px; color:var(--muted); font-size:14px;
   border-top:1px solid var(--line); padding-top:14px; }
 
 /* The Kodiak sidebar styling lives in shared-nav.css (loaded alongside this file
-   and injected by shared-nav.js) so the guides, Homepage and /meal pages share
+   and injected by shared-nav.js) so the guides and the /meal pages share
    one definition. On desktop the sidebar is a fixed 224px-wide gutter; this body
    keeps its 16px horizontal gutter, and shared-nav.css adds the left offset via
    body.has-kodiak-nav. */

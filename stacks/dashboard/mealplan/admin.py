@@ -486,7 +486,7 @@ def spark_points(pts: list[tuple[float, float]], w: int = 120, h: int = 36, pad:
     return " ".join(out)
 
 
-# ---- service tiles (hrefs from stacks/dashboard/config/services.yaml) -------------
+# ---- service tiles (lifted from the retired Homepage services.yaml) ---------------
 GITHUB_REPO = "BigH3ater/kdk-lab-dkr"
 TILES = [
     ("Media ops", [

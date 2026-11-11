@@ -1,27 +1,27 @@
-/* Kodiak shared navigation -- the ONE sidebar used by Homepage, the guides and
-   the /meal sidecar pages, so navigation looks and behaves the same everywhere.
-   Single source of truth for the link set, order, labels, active state and the
+/* Kodiak shared navigation -- the ONE sidebar used by the guides and the /meal
+   sidecar pages, so navigation looks and behaves the same everywhere. Single
+   source of truth for the link set, order, labels, active state and the
    collapsed/mobile behaviour. Styling lives in shared-nav.css.
 
-   - Homepage loads it through config/custom.js (a tiny loader); custom.css pulls
-     in shared-nav.css with @import.
    - Each guide page loads shared-nav.css + shared-nav.js directly.
-   - The Flask /meal pages inject both in their <head>.
+   - The Flask /meal pages (week grid, groceries, tasks, weather) inject both in
+     their <head>. The household page (/meal/home) and the kitchen board draw
+     their own header and app grid and do not load the sidebar.
 
-   The /meal grid, tasks and weather pages are embedded as iframes on the
-   dashboard, so the nav MUST NOT be drawn a second time inside the frame: we bail
-   out when we are not the top window. The standalone /meal/groceries page (used in
-   the store on a phone) is not framed, so it gets the full nav. */
+   "Home" and the brand link go to the household page (home.kmkdp.com/ itself
+   redirects there since Homepage was retired 2026-11-10). If a page is ever
+   framed, the nav is not drawn a second time inside the frame: we bail out when
+   we are not the top window. */
 (function () {
-  // Never render inside an iframe (the dashboard embeds /meal pages). Reading
-  // window.top can throw across origins; same-origin here, but stay defensive.
+  // Never render inside an iframe. Reading window.top can throw across origins;
+  // stay defensive.
   try { if (window.self !== window.top) return; } catch (e) { return; }
 
   // Same link set + order on every surface (the family launcher). home.* and
   // homeassistant.* stay same-tab (Kodiak-themed, OIDC via Authelia); the rest
   // open in a new tab.
   var LINKS = [
-    ["Home",              "https://home.kmkdp.com/"],
+    ["Home",              "https://home.kmkdp.com/meal/home"],
     ["This Week",         "https://home.kmkdp.com/meal/"],
     ["Groceries",         "https://home.kmkdp.com/meal/groceries"],
     ["Meal Plan",         "https://recipes.kmkdp.com/mealplan"],
@@ -37,9 +37,10 @@
     ["Photos",            "https://immich.kmkdp.com/"],
     ["Request TV/Movies", "https://seerr.kmkdp.com/"],
     ["Request Books",     "https://libreseerr.kmkdp.com/"],
+    ["Search",            "https://search.kmkdp.com/"],
     ["Guides",            "https://home.kmkdp.com/guides/"]
   ];
-  var HOME = "https://home.kmkdp.com/";
+  var HOME = "https://home.kmkdp.com/meal/home";
   var BEAR = '<svg viewBox="19 31 82 64" width="26" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M60 40 C53 33 45 31 38 32 C28 33 19 43 19 56 C19 71 28 85 42 91 C50 95 56 93 60 90 C64 93 70 95 78 91 C92 85 101 71 101 56 C101 43 92 33 82 32 C75 31 67 33 60 40 Z M47 56 C40 54 33 58 32 66 C31 73 36 77 42 75 C38 72 39 65 46 62 C50 60 50 57 47 56 Z M73 56 C80 54 87 58 88 66 C89 73 84 77 78 75 C82 72 81 65 74 62 C70 60 70 57 73 56 Z M58.5 90 C58.5 82 58.5 70 58.5 60 C58.5 57 61.5 57 61.5 60 C61.5 70 61.5 82 61.5 90 C61.5 92 58.5 92 58.5 90 Z"/></svg>';
 
   function esc(s) {

@@ -5,15 +5,19 @@ stack: dashboard
 tier: internal
 status: live
 storage: yes
-secrets: [vikunja-app, jellyfin-api-ro, seerr-api-ro, audiobookshelf-api-ro, vikunja-api-ro, vikunja-api-rw, dashboard-tandoor-rw, homepage-ha-token, proton-calendar-ics, dashboard-kitchen-device-key]
+secrets: [vikunja-app, vikunja-api-rw, dashboard-tandoor-rw, homepage-ha-token, proton-calendar-ics, dashboard-kitchen-device-key]
 updated: 2026-11-10
 tags: [homelab/stack, tier/internal, status/live]
 ---
 
 # Home dashboard
 
-Family-facing launcher for the Mack household: service tiles + health, plain-language
-how-to guides, a checkable task app, the weekly meal plan, and a household calendar.
+Family-facing home for the Mack household: the household page (tonight's dinner,
+chores, calendar, weather, the app grid), the kitchen board, plain-language how-to
+guides, a checkable task app and the weekly meal plan, all native pages from the
+`mealplan` sidecar plus nginx and Vikunja. `home.kmkdp.com/` redirects to the
+household page (`/meal/home`). Homepage (gethomepage.dev) was retired on 2026-11-10
+(see [Retired: Homepage](#retired-homepage-2026-11-10)).
 **LAN / Tailscale only** (no Cloudflare tunnel); **Authelia ForwardAuth** on all
 home.kmkdp.com routers (two_factor, group `dashboard-users` = jmack + rach) —
 the Remote-User header drives rating/task attribution. The kitchen screen uses
@@ -27,19 +31,20 @@ paired-device cookie (see [Kitchen host and device pairing](#kitchen-host-and-de
 | Field | Value |
 |---|---|
 | Purpose | One home screen for watch/listen/read/request/cook/tasks/calendar |
-| Status | 🟢 Live (P1); meal-plan sidecar = P2, calendar = P3 |
+| Status | 🟢 Live; Homepage retired 2026-11-10 (the sidecar serves every page) |
 | Host | [[kdk-dkr-01]] |
-| Endpoints | `home.kmkdp.com` (+ `/guides`, `/meal`, kitchen board `/meal/kitchen`, pantry check `/meal/kitchen/pantry`, household page `/meal/home`, device admin `/meal/kitchen/devices`), `kitchen.kmkdp.com` (paired kitchen screen, no Authelia), `admin.kmkdp.com` (lab admin page, jmack only), `tasks.kmkdp.com` |
-| Images | `ghcr.io/gethomepage/homepage:v2.7.0`, `nginx:1.31.8-alpine`, `vikunja/vikunja:2.7.1`, `kdk/dashboard-mealplan` (built) |
+| Endpoints | `home.kmkdp.com` (`/` → 302 to `/meal/home`; + `/guides`, `/meal`, kitchen board `/meal/kitchen`, pantry check `/meal/kitchen/pantry`, household page `/meal/home`, device admin `/meal/kitchen/devices`), `kitchen.kmkdp.com` (paired kitchen screen, no Authelia), `admin.kmkdp.com` (lab admin page, jmack only), `tasks.kmkdp.com` |
+| Images | `nginx:1.31.8-alpine`, `vikunja/vikunja:2.7.1`, `kdk/dashboard-mealplan` (built) |
 | Deploy | Komodo stack `dashboard` (git-linked, `op inject` pre_deploy) |
 | Storage | `/opt/kdk-lab/dashboard/vikunja` (SQLite + files), `/opt/kdk-lab/dashboard/kitchen-state` (kitchen device registry, add-box forced-manual ids) |
-| Blast radius | Cosmetic — a launcher; the underlying services are unaffected |
+| Blast radius | The family home page and kitchen screen; the underlying services are unaffected |
 
 ## Verify
 
 ```bash
-ssh kdkadmin@10.1.20.20 "sudo docker ps --filter name=homepage --filter name=vikunja --filter name=dashboard-guides --filter name=dashboard-mealplan --format '{{.Names}} {{.Status}}'"
-curl -s -o /dev/null -w '%{http_code}\n' https://home.kmkdp.com/            # 200
+ssh kdkadmin@10.1.20.20 "sudo docker ps --filter name=vikunja --filter name=dashboard-guides --filter name=dashboard-mealplan --format '{{.Names}} {{.Status}}'"
+# / redirects to the household page (signed-in browser: lands on /meal/home; without a session Authelia answers first)
+curl -s -o /dev/null -w '%{http_code}\n' https://home.kmkdp.com/            # 302 (Authelia or the household redirect)
 curl -s -o /dev/null -w '%{http_code}\n' https://home.kmkdp.com/guides/     # 200
 curl -s -o /dev/null -w '%{http_code}\n' https://tasks.kmkdp.com/           # 200
 curl -s https://home.kmkdp.com/meal/mealplan.json | head -c 200            # JSON (P2)
@@ -53,18 +58,21 @@ curl -s https://kitchen.kmkdp.com/manifest.webmanifest | head -c 200            
 
 ## Architecture
 
-Homepage (`:3000`) serves `home.kmkdp.com` on the internal `proxy` net. `guides` (nginx `:80`)
-and `mealplan` (`:8080`) are routed at `/guides` and `/meal` via Traefik `StripPrefix` with
-higher router priority than the Homepage catch-all. Vikunja (`:3456`, Authelia OIDC, SQLite) is at
-`tasks.kmkdp.com`. All `*.kmkdp.com` service URLs the widgets/monitors point at resolve to the
-DMZ (`192.168.191.20`) and are reachable (internal→DMZ:443 is open); Calibre is internal at
-`10.1.20.20:8081`.
+`guides` (nginx `:80`) and `mealplan` (`:8080`) are routed at `/guides` and `/meal` of
+`home.kmkdp.com` via Traefik `StripPrefix` (router priority 10). Everything else on the host,
+`/` included, hits the `home-root` router (priority 2, same forwardauth), whose
+`home-to-household` redirectregex middleware answers a 302 to
+`https://home.kmkdp.com/meal/home`; the target is under `/meal`, so it never loops. The redirect
+lives in Traefik, not the sidecar, because the sidecar's own `/` (after the strip) is the week
+grid. Vikunja (`:3456`, Authelia OIDC, SQLite) is at `tasks.kmkdp.com`. The `*.kmkdp.com`
+service URLs resolve to the DMZ (`192.168.191.20`) and are reachable (internal→DMZ:443 is
+open); Calibre is internal at `10.1.20.20:8081`.
 
 The meal-plan sidecar logs into Tandoor with a dedicated account (session auth — REST tokens
 are disabled) and reads `/api/meal-plan/`; ratings post back as CookLog entries. Per-user
 ratings remain available by opening the recipe page (each meal deep-links there).
 
-The **Tasks** strip (`/meal/tasks`, a 175px Homepage iframe) reads every Vikunja project with the
+The **Tasks** board (`/meal/tasks`; until 2026-11-10 a Homepage iframe, now a standalone page with the sidebar) reads every Vikunja project with the
 jmack token, following `x-pagination-total-pages` (Vikunja caps a page at 50 rows), and shows
 **every open task**, one column per project. Each column lists the overdue, undated and
 due-within-14-days tasks (it scrolls inside the card) under a header with the count and the
@@ -83,14 +91,13 @@ truth. See the [approval-tasks runbook](../runbooks/approval-tasks.md).
 
 | Path / setting | What it is |
 |---|---|
-| `stacks/dashboard/config/*.yaml` | Homepage services/bookmarks/widgets/settings (git-tracked) |
 | `stacks/dashboard/guides/*.html` | Family how-to pages (served under `/guides`; each sets `<base href="/guides/">` so relative links survive the StripPrefix) |
-| `stacks/dashboard/guides/shared-nav.{css,js}` | The one Kodiak sidebar shared by Homepage, guides and `/meal` (same links/order/labels, active-link state, mobile top-bar overlay); `shared-nav.js` hides it inside an iframe so the embedded `/meal` panels stay bare |
+| `stacks/dashboard/guides/shared-nav.{css,js}` | The one Kodiak sidebar shared by the guides and the `/meal` pages (week grid, groceries, tasks, weather): same links/order/labels, active-link state, mobile top-bar overlay. **Home** and the brand link go to `/meal/home`. The household and kitchen pages have their own header and do not load it |
 | `stacks/dashboard/mealplan/{kitchen,homecal,vacuum}.py`, `mealplan/static/` | Kitchen board + household page: rendering, ICS calendar expansion, the HA vacuum line, and the shared stylesheet/script/fonts/icons (see below) |
 | `stacks/dashboard/mealplan/app.py` | Tandoor session read + rating write-back; groceries snapshot cache (env `GROCERY_TTL_S`, `GROCERY_REFRESH_S`, `RECIPE_TTL_S`); the meal page repeats the planner's Sunday prep lunches as "Lunch prep" on Mon–Sat of that plan week (Tandoor filters meal plans on `to_date` only, so a Sun→Sat entry would drop out of some windows) |
 | `stacks/dashboard/mealplan/admin.py` | admin.kmkdp.com: status sources (Alertmanager, Prometheus, Loki, HA, GitHub, Komodo), sign-in parsing, LogQL escaping for the syslog search, sparklines and the page (see [Admin page](#admin-page-adminkmkdpcom)) |
 | `stacks/dashboard/mealplan/devices.py` | kitchen.kmkdp.com pairing: device token signing/verifying, the registry, pair codes, rate limit, the pair and devices pages |
-| `stacks/dashboard/.env.tpl` | op refs (Vikunja JWT, widget API keys, Tandoor creds, ICS URL, `KITCHEN_DEVICE_KEY`; `KOMODO_API_KEY`/`SECRET` once minted) |
+| `stacks/dashboard/.env.tpl` | op refs (Vikunja JWT, Vikunja rw token, HA token, Tandoor creds, ICS URL, `KITCHEN_DEVICE_KEY`; `KOMODO_API_KEY`/`SECRET` once minted). `HOMEPAGE_VAR_HA_TOKEN` and `HOMEPAGE_VAR_ICS_URL` keep their Homepage-era names because the sidecar reads them; renaming them (sidecar + template, and the `homepage-ha-token` item) is a follow-up |
 
 ## Kitchen board and household page
 
@@ -98,7 +105,7 @@ Two native pages served by the mealplan sidecar, behind the same Authelia
 ForwardAuth (`dashboard-users`) as the rest of `home.kmkdp.com`. No iframes:
 everything is rendered server-side with escaped values; `static/home.js` only adds
 the clock, ticks, checklists, timers, wake lock, idle return, night view and the
-refresh. Homepage at `/` is unchanged (it is retired in a later PR).
+refresh. `home.kmkdp.com/` redirects to `/meal/home` (Homepage retired 2026-11-10).
 
 | Route | What it is |
 |---|---|
@@ -107,7 +114,7 @@ refresh. Homepage at `/` is unchanged (it is retired in a later PR).
 | `/meal/kitchen/steps` | One large step at a time with step tabs and Previous/Next; "This step uses" from the ingredients Tandoor attaches to each step; the step photo; a timer button for every minute/hour value the step text names (chime on the page). `?r=<recipe id>` picks the side dish |
 | `/meal/kitchen/pantry` | Pantry check (the **Pantry check** button on the board, and on the household page's dinner card). At the top, a large **Add to list** box for a manual grocery item, with "Added tonight" and the Manual list's current items below it. **Used this week**: the pantry and stock foods this plan week's recipes call for, grouped by store and aisle, each with the recipes it is for. **All pantry staples** (collapsed): the rest of the planner `pantry:` list and the stock-store foods. Each row has a large **Running low** button (or "On the list" when an open entry already exists) and a **Checked** tick that only marks it reviewed tonight (browser `localStorage`, keyed by date); **Mark all checked** ticks a whole section. Built from the groceries snapshot, so a view makes no extra upstream call |
 | `/meal/kitchen/step-photo/<file id>` | Step photo proxy (see below) |
-| `/meal/home` | Household page, phone-first (390 px, 16 px gutter) and two columns at laptop width: weather, dinner card with its ingredient checklist and a Steps link, lunch prep, tomorrow, chores (at most 8: late first, then due today; **All chores (N)** opens the full board at `?chores=all`), this week's calendar, a compact **Add to list** box at the top (outside the 2-minute refresh, so typing survives it), a **Pantry check** link, and the household app grid (Recipes, Groceries, Tasks, Watch, Listen & read, Photos, Request TV, Request books, Workouts, Budget, Home control, Guides; links from `guides/shared-nav.js`). Recipe titles on all kitchen and household views show without import clutter (" Recipe", "(VIDEO)", "(Quick & Easy)" and similar), with the original in the title attribute; Tandoor is not changed |
+| `/meal/home` | Household page, phone-first (390 px, 16 px gutter) and two columns at laptop width: weather, dinner card with its ingredient checklist and a Steps link, lunch prep, tomorrow, chores (at most 8: late first, then due today; **All chores (N)** opens the full board at `?chores=all`), this week's calendar, a compact **Add to list** box at the top (outside the 2-minute refresh, so typing survives it), a **Pantry check** link, and the household app grid (Recipes, Groceries, Tasks, Watch, Listen & read, Photos, Request TV, Request books, Workouts, Budget, Home control, Search, Guides; links from `guides/shared-nav.js`). Recipe titles on all kitchen and household views show without import clutter (" Recipe", "(VIDEO)", "(Quick & Easy)" and similar), with the original in the title attribute; Tandoor is not changed |
 | `/meal/kitchen?fragment=1`, `/meal/home?fragment=1` | The swappable page body for the 2-minute refresh |
 | `/meal/manifest.webmanifest`, `/meal/static/*` | Home Screen manifest (`display: standalone`, start `/meal/kitchen`), `home.css` (the Bernese tokens), `home.js`, the self-hosted Inter and Space Grotesk fonts (OFL, `static/fonts/`), bear icons |
 
@@ -372,7 +379,7 @@ Vikunja logs in through Authelia OIDC only (`two_factor`), so Kitchen is a direc
 The lab admin page for jmack: live status, firing alerts, recent sign-ins, a
 syslog search, six sparklines and the admin service tiles that are not on the
 household page. It is a native page from the `mealplan` sidecar (`admin.py`),
-not Homepage, and it is **read-only**: it has no forms that write and no POST
+not the retired Homepage, and it is **read-only**: it has no forms that write and no POST
 route, and it runs no JavaScript.
 
 **Routing and access.** A third router on the `mealplan` sidecar, on the
@@ -557,17 +564,73 @@ published). Since 2026-11-07 wger has a **Workouts** tile in the Home group and 
 **Workouts** sidebar link; the sidebar's two HA workout links became one **Treadmill**
 link (`/treadmill-workouts`), removed 2026-11-08 with the treadmill HA integration. Removal and host clean-up: [workout-tracking-update runbook](../runbooks/workout-tracking-update.md#retirement-of-the-in-house-tracker-2026-11-06).
 
-Since 2026-11 the Home group also has a **Search** tile for [[searxng]]
-(`search.kmkdp.com`); its siteMonitor polls `/healthz`, which Authelia bypasses.
+## Retired: Homepage (2026-11-10)
+
+The last step of the 2026-11-10 redesign: once the kitchen board, the household page and
+the admin page were live, the Homepage service (`ghcr.io/gethomepage/homepage`), its
+`dashboard` router and `stacks/dashboard/config/` were removed. What took over:
+
+| Homepage part | Now |
+|---|---|
+| `home.kmkdp.com/` | Traefik `home-root` router → 302 to `/meal/home` (the household page) |
+| This Week / Weather / Tasks iframes | The household page's native cards; `/meal/`, `/meal/weather`, `/meal/tasks` still work standalone with the sidebar |
+| Household calendar widget | The household page's calendar (`homecal.py`, same ICS secret) |
+| Service directory (family tiles) | The household page's app grid and the sidebar (both gained **Search**, which only had a Homepage tile) |
+| Service directory (admin tiles) | admin.kmkdp.com tiles (`admin.py` `TILES`) |
+| Jellyfin stat widget | Dropped; its key `HOMEPAGE_VAR_JELLYFIN_KEY` left `.env.tpl` |
+| Vikunja widget key | `HOMEPAGE_VAR_VIKUNJA_KEY` left `.env.tpl`; the `vikunja-api-ro` item stays (Home Assistant and Node-RED still use it) |
+
+Also removed: the advisory-watch catalog entry for the image, the compose-baseline
+known-gap line, and the "homepage widgets" note on the DMZ :443 exception in
+`hosts/kdk-dkr-01/kdk-docker-user.conf` (comment only; the rule stays for its other users).
+Left on purpose: the `HOMEPAGE_VAR_HA_TOKEN` / `HOMEPAGE_VAR_ICS_URL` names (see
+Configuration) and the Authelia `/healthz` bypasses for `docs.kmkdp.com` (the blackbox
+probe still uses it) and `search.kmkdp.com` (only the Homepage siteMonitor used it; dropping
+it is a follow-up, as it restarts Authelia).
+
+### Owner hand steps (1Password, after the deploy is validated)
+
+- Archive `kdk-cluster/jellyfin-api-ro` and revoke its key in Jellyfin (Dashboard → API
+  Keys, App `homepage-ro`). Nothing else reads it.
+- If `kdk-cluster/seerr-api-ro` or `kdk-cluster/audiobookshelf-api-ro` exist (the P1b
+  widget keys were never wired), archive them and revoke the keys in Seerr / Audiobookshelf.
+- Keep `vikunja-api-ro` (Home Assistant, Node-RED), `homepage-ha-token` and
+  `proton-calendar-ics` (the sidecar reads both).
+
+### Post-merge host cleanup (after the deploy is validated)
+
+Run only once `https://home.kmkdp.com/` lands on the household page in a signed-in browser
+and `/meal/*`, `/guides/` and `kitchen.kmkdp.com` work. A compose deploy does not remove a
+service that left the file, so the old `homepage` container keeps running until removed; its
+`dashboard` router (priority 1) loses to `home-root` (priority 2) in the meantime. The
+Komodo clone keeps the `config/` files Homepage wrote itself (untracked, so the git pull
+leaves them): `docker.yaml`, `kubernetes.yaml`, `proxmox.yaml` and `logs/` (seen
+2026-11-10).
+
+```bash
+# laptop -> kdk-dkr-01
+ssh kdkadmin@10.1.20.20 'sudo -n docker rm -f homepage'
+ssh kdkadmin@10.1.20.20 'sudo -n docker image rm ghcr.io/gethomepage/homepage:v2.7.0'
+# expect only the Homepage strays listed above (no tracked files are left after the pull)
+ssh kdkadmin@10.1.20.20 'sudo -n git -C /opt/kdk-lab/stacks/dashboard status --porcelain --ignored -- stacks/dashboard/config'
+ssh kdkadmin@10.1.20.20 'sudo -n rm -rf /opt/kdk-lab/stacks/dashboard/stacks/dashboard/config'
+# check: no homepage container, the household redirect still answers
+ssh kdkadmin@10.1.20.20 "sudo -n docker ps -a --filter name=homepage --format '{{.Names}}'"   # (empty)
+```
+
+**Rollback:** `git revert` the merge commit and redeploy `dashboard`: Homepage comes back
+from git (`config/` returns with the revert; its widgets read `HOMEPAGE_VAR_*` again, and
+the `jellyfin-api-ro` item must still exist for `op inject`, so archive it only after this
+PR has settled).
 
 ## Secret Rotation
 
-Widget API keys are read-only — rotate in each app, update the matching `*-api-ro` op item,
-redeploy. `dashboard-kitchen-device-key` rotation revokes every paired kitchen screen (see
+`homepage-ha-token` (HA long-lived token, read-only use) and `proton-calendar-ics` rotate
+in HA / Proton, then `op item edit` and redeploy. `dashboard-kitchen-device-key` rotation revokes every paired kitchen screen (see
 [the signing key](#hand-step-the-signing-key-before-the-pr-merges)). The `dashboard-tandoor-rw` account password rotates in Tandoor + op. Vikunja JWT
 rotation logs everyone out (harmless; they re-login).
 
 ## User Guide
 
-The dashboard *is* the user guide: `home.kmkdp.com` → **How-To Guides** (`/guides/`) covers
+The dashboard *is* the user guide: `home.kmkdp.com` → **Guides** (`/guides/`) covers
 recipes, watching, requests, audiobooks, books, photos, and budget in plain language.

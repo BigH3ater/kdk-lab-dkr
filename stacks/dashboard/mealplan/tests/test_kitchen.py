@@ -289,7 +289,7 @@ def test_household_page(home):
     html = home.get("/home").get_data(as_text=True)
     assert "<iframe" not in html and "manifest.webmanifest" not in html
     for name in ("Recipes", "Groceries", "Tasks", "Watch", "Listen &amp; read", "Photos",
-                 "Request TV", "Request books", "Workouts", "Budget", "Home control", "Guides"):
+                 "Request TV", "Request books", "Workouts", "Budget", "Home control", "Search", "Guides"):
         assert f">{name}</a>" in html
     assert "href='/meal/groceries'" in html and "href='https://wger.kmkdp.com/'" in html
     # due/late first (with project), then everything behind the fold
