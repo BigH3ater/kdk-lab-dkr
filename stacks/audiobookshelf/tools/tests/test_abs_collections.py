@@ -21,39 +21,39 @@ Intro text | with a pipe that is not a table row.
 
 | # | Book | Edition | Section | Status | Read | Takeaway |
 |---|---|---|---|---|---|---|
-| 1 | Make It Stick (Brown, Roediger, McDaniel) | 2014 | Studying | calibre 29 | whole (8 ch.) |  |
-| 2 | A Philosophy of Software Design (Ousterhout) | 2nd ed., 2021 | Code craft and testing | calibre 38 | whole |  |
-| 3 | Python Testing with pytest (Okken) | 2nd ed., 2022 | Languages | calibre 47 | Part I |  |
-| 4 | Designing Data-Intensive Applications (Kleppmann & Riccomini) | 2nd ed., 2026 | Architecture | calibre 64 | ch. 1-5 |  |
+| 1 | Make It Stick (Brown, Roediger, McDaniel) | 2014 | Studying | ABS epub | whole (8 ch.) |  |
+| 2 | A Philosophy of Software Design (Ousterhout) | 2nd ed., 2021 | Code craft and testing | ABS epub | whole |  |
+| 3 | Python Testing with pytest (Okken) | 2nd ed., 2022 | Languages | ABS epub | Part I |  |
+| 4 | Designing Data-Intensive Applications (Kleppmann & Riccomini) | 2nd ed., 2026 | Architecture | ABS epub | ch. 1-5 |  |
 | 5 | Escaping the Build Trap (Perri) | 2018 | Product | NEW | whole (short) |  |
-| 6 | Computer Networking: A Top-Down Approach (Kurose & Ross) | 8th ed., 2021 | Networking | calibre 40 | ch. 4-5 |  |
+| 6 | Computer Networking: A Top-Down Approach (Kurose & Ross) | 8th ed., 2021 | Networking | ABS epub | ch. 4-5 |  |
 | 7 | Don't Make Me Think, Revisited (Krug) | 3rd ed., 2014 (still current) | Web | NEW | whole |  |
-| 8 | Site Reliability Engineering (Beyer et al.) | 2016 | Reliability | calibre 12 | ch. 1 |  |
-| 9 | The Staff Engineer's Path (Reilly) | 2022 | Leadership | calibre 77 | whole |  |
+| 8 | Site Reliability Engineering (Beyer et al.) | 2016 | Reliability | ABS epub | ch. 1 |  |
+| 9 | The Staff Engineer's Path (Reilly) | 2022 | Leadership | ABS epub | whole |  |
 | 10 | Co-Intelligence (Mollick) | 2024 | AI | missing | whole (short) |  |
 
 ## Then, in this order
 
 | # | Book | Edition | Section | Status | Read | Takeaway |
 |---|---|---|---|---|---|---|
-| 11 | TCP/IP Illustrated, Vol. 1 (Fall & Stevens) | 2nd ed., 2011 | Networking | calibre 62 | ch. 1 |  |
-| 12 | 100 Go Mistakes and How to Avoid Them (Harsanyi) | 2022 | Languages | calibre 68 | ch. 2-3 |  |
+| 11 | TCP/IP Illustrated, Vol. 1 (Fall & Stevens) | 2nd ed., 2011 | Networking | ABS epub | ch. 1 |  |
+| 12 | 100 Go Mistakes and How to Avoid Them (Harsanyi) | 2022 | Languages | ABS epub | ch. 2-3 |  |
 | 13 | Fundamentals of Software Architecture (Richards & Ford) | 2nd ed., 2025 | Architecture | missing | Part I |  |
-| 14 | The Pragmatic Programmer (Thomas & Hunt) | 20th anniv. ed., 2019 | Code craft | calibre 39 | ch. 1-2 |  |
-| 15 | Fluent Python (Ramalho) | 2nd ed., 2022 | Languages | calibre 53 | ch. 1-3 |  |
+| 14 | The Pragmatic Programmer (Thomas & Hunt) | 20th anniv. ed., 2019 | Code craft | ABS epub | ch. 1-2 |  |
+| 15 | Fluent Python (Ramalho) | 2nd ed., 2022 | Languages | ABS epub | ch. 1-3 |  |
 | 16 | Staff Engineer: Leadership Beyond the Management Track (Larson) | 2021 | Leadership | missing | Part I |  |
 
 ## Audio queue (commute, alongside the list)
 
 1. *Accelerate* (Forsgren, Humble, Kim): the delivery-performance evidence (missing; Libby).
 2. *The Phoenix Project* (Kim, Behr, Spafford): novel (audiobook already in the library).
-3. *Turn the Ship Around!* (Marquet): intent-based leadership (calibre 78).
+3. *Turn the Ship Around!* (Marquet): intent-based leadership (ABS epub; no audio yet).
 
 ## Reference shelf (not scheduled)
 
 | Book | Edition | Status |
 |---|---|---|
-| Peak | 2016, Ericsson & Pool | calibre |
+| Peak | 2016, Ericsson & Pool | ABS epub |
 """
 
 
@@ -106,11 +106,27 @@ def test_parse_tables(lists):
     assert [e.num for e in table] == list(range(1, 17))
     e = table[0]
     assert (e.title, e.authors, e.edition, e.status) == (
-        "Make It Stick", ["brown", "roediger", "mcdaniel"], "2014", "calibre 29")
+        "Make It Stick", ["brown", "roediger", "mcdaniel"], "2014", "ABS epub")
     assert table[3].authors == ["kleppmann", "riccomini"]
     assert table[7].authors == ["beyer"]                       # "et al." dropped
     assert table[15].title == "Staff Engineer: Leadership Beyond the Management Track"
     assert [e.num for e in lists["round1"]] == list(range(1, 11))
+
+
+def test_round1_is_every_row_of_its_table_whatever_the_heading_says():
+    longer = READING_LIST.replace("## Round 1: one book per section",
+                                  "## Round 1: one book per section, plus a Python on-ramp")
+    extra = ("| 11 | Python Crash Course (Matthes) | 3rd ed., 2023 | Languages | NEW | ch. 1-11 |  |\n"
+             "| 12 | Test-Driven Development: By Example (Beck) | 2002 | Code craft | missing | Parts I-II |  |\n")
+    longer = longer.replace("\n\n## Then, in this order", "\n" + extra + "\n## Then, in this order")
+    lists = ac.parse_reading_list(longer.replace("| 11 | TCP", "| 13 | TCP"))
+    assert [e.num for e in lists["round1"]] == list(range(1, 13))
+    assert lists["round1"][10].title == "Python Crash Course"
+
+
+def test_round1_heading_needs_the_colon():
+    with pytest.raises(ValueError, match="Round 1"):
+        ac.parse_reading_list(READING_LIST.replace("## Round 1: one", "## Round 10 one"))
 
 
 def test_parse_audio(lists):
@@ -170,9 +186,11 @@ def test_matches(lists):
 def test_non_matches_are_reported_not_guessed(lists):
     eb = items(EBOOK_ITEMS)
     n = by_num(lists)
-    for num in (5, 7, 10, 16):                                 # NEW / missing books
+    for num, how in ((5, "list-says-new"), (7, "list-says-new"),
+                     (10, "list-says-missing"), (16, "list-says-missing")):
         m = ac.match(n[num], eb)
-        assert m.item is None and m.how == "none"
+        assert m.item is None and m.how == how
+    assert ac.match(ac.Entry(1, "Not In ABS", ["nobody"], status="ABS epub"), eb).how == "none"
 
 
 def test_prefix_needs_author_and_is_doubtful(lists):
@@ -184,9 +202,10 @@ def test_prefix_needs_author_and_is_doubtful(lists):
     assert ac.match(other, eb).item is None
 
 
-def test_status_missing_but_found_is_doubtful(lists):
+def test_status_missing_is_never_matched_even_if_abs_has_the_title(lists):
+    # a stray older edition in ABS must not join the collections while the list says missing
     m = ac.match(by_num(lists)[13], items(EBOOK_ITEMS))
-    assert m.item.id == "e-fsa" and any("missing" in d for d in m.doubts)
+    assert m.item is None and m.how == "list-says-missing"
 
 
 def test_ambiguous_is_skipped():
@@ -274,7 +293,7 @@ def cid_of(fake, name):
 
 
 ROUND1_IDS = ["e-stick", "e-apsd", "e-pytest", "e-ddia2", "e-net", "e-sre", "e-staff"]
-ORDER_IDS = ROUND1_IDS + ["e-tcp", "e-100go", "e-fsa", "e-prag", "e-fluent"]
+ORDER_IDS = ROUND1_IDS + ["e-tcp", "e-100go", "e-prag", "e-fluent"]           # e-fsa: list says missing
 
 
 def test_create_then_idempotent(lists):
@@ -328,6 +347,9 @@ def test_new_book_arrives_joins_in_list_order(lists):
     run(fake, lists)
     fake.libraries[EB].append(raw("e-trap", "Escaping the Build Trap", "Melissa Perri"))
     fake.writes.clear()
+    run(fake, lists)                                  # list still says NEW: not added yet
+    assert "e-trap" not in books(fake, "Round 1")
+    lists = ac.parse_reading_list(READING_LIST.replace("| Product | NEW |", "| Product | ABS epub |"))
     run(fake, lists)
     want = ["e-stick", "e-apsd", "e-pytest", "e-ddia2", "e-trap", "e-net", "e-sre", "e-staff"]
     assert books(fake, "Round 1") == want

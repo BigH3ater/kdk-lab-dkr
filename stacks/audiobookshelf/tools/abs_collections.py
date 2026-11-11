@@ -14,13 +14,14 @@ Standard library only (python3 works too). Docs: docs/services/audiobookshelf.md
 "Reading-order collections".
 
 Reads the Reading List note:
-  * the tables under "## Round 1: one book per section" and "## Then, in this order"
-    (rows "| 1 | Make It Stick (Brown, Roediger, McDaniel) | 2014 | Studying | ... |");
+  * the tables under the "## Round 1..." heading (any heading text after "Round 1") and
+    "## Then, in this order" (rows "| 1 | Make It Stick (Brown, Roediger, McDaniel) | 2014 |
+    Studying | ABS epub | ... |"; the 5th cell is the status: "ABS <format>", "missing", "NEW");
   * the numbered list under "## Audio queue (commute, alongside the list)"
     ("1. *Accelerate* (Forsgren, Humble, Kim): ...", the italic part is the title).
 
 Maintains three collections (COLLECTIONS below):
-  Round 1        rows 1-10            ebooks library
+  Round 1        every Round 1 row    ebooks library
   Reading order  every table row      ebooks library
   Audio queue    the audio list       audiobooks library
 
@@ -29,8 +30,10 @@ Matching (match()): an exact ISBN found in the row wins; otherwise the normalise
 must be equal, or the ABS title must be a whole-word prefix of the list title AND an
 author surname must agree. Several candidates are narrowed by author, then by edition.
 Anything still ambiguous, or with an explicitly different edition, is NOT matched: it is
-reported and skipped ("never guess"). Matches the list itself calls missing/NEW, or that
-rest on a title prefix, are printed as doubtful for a human to check.
+reported and skipped ("never guess"). A row whose status is "missing" or "NEW" is skipped
+too, even when ABS has a book of that title (e.g. a stray older edition): the list's status
+column is the owner's word on what is in the library. Matches that rest on a title prefix
+are printed as doubtful for a human to check.
 
 Apply (plan() → apply()): a missing collection is created with the matched books in list
 order; an existing one gets batch/remove for books that left the list, batch/add for new
@@ -65,14 +68,13 @@ DEFAULT_BASE_URL = "https://audiobookshelf.kmkdp.com/audiobookshelf/api"
 EBOOKS_LIBRARY = "edfded58-4a7d-43b1-84a2-271a2798719c"
 AUDIOBOOKS_LIBRARY = "da91339b-cfd5-43ca-8104-fde4271bf011"
 
-ROUND1_HEADING = "## Round 1: one book per section"
+ROUND1_HEADING = "## Round 1"            # prefix: the heading text after it may change
 THEN_HEADING = "## Then, in this order"
 AUDIO_HEADING = "## Audio queue (commute, alongside the list)"
 
 ROUND1_NAME = "Round 1"
 ORDER_NAME = "Reading order"
 AUDIO_NAME = "Audio queue"
-ROUND1_ROWS = range(1, 11)
 
 DESCRIPTION = "Kept in step with the Reading List by stacks/audiobookshelf/tools/abs_collections.py."
 
@@ -83,7 +85,7 @@ COLLECTIONS = [
     (AUDIO_NAME, AUDIOBOOKS_LIBRARY, "audio"),
 ]
 
-# Acquisition states in the list's Status column that mean "not in the library yet".
+# Statuses in the list's Status column that mean "not in the library": never matched.
 NOT_OWNED = {"missing", "new"}
 
 
@@ -129,10 +131,15 @@ def _split_book(cell: str) -> tuple[str, list[str]]:
     return m.group(1).strip(), _surnames(m.group(2))
 
 
-def _section(text: str, heading: str) -> list[str]:
+def _section(text: str, heading: str, prefix: bool = False) -> list[str]:
     lines = text.splitlines()
+
+    def hit(ln: str) -> bool:
+        ln = ln.strip()
+        return ln == heading or (prefix and ln.startswith(heading + ":"))
+
     try:
-        start = next(i for i, ln in enumerate(lines) if ln.strip() == heading)
+        start = next(i for i, ln in enumerate(lines) if hit(ln))
     except StopIteration:
         raise ValueError(f"heading not found in the Reading List: {heading!r}") from None
     out = []
@@ -179,11 +186,11 @@ def parse_audio(lines: list[str]) -> list[Entry]:
 
 
 def parse_reading_list(text: str) -> dict[str, list[Entry]]:
-    round1 = parse_table(_section(text, ROUND1_HEADING))
+    round1 = parse_table(_section(text, ROUND1_HEADING, prefix=True))
     then = parse_table(_section(text, THEN_HEADING))
     table = round1 + then
     return {
-        "round1": [e for e in table if e.num in ROUND1_ROWS],
+        "round1": round1,
         "table": table,
         "audio": parse_audio(_section(text, AUDIO_HEADING)),
     }
@@ -255,6 +262,8 @@ def _author_ok(entry: Entry, item: Item) -> bool:
 
 
 def match(entry: Entry, items: list[Item]) -> Match:
+    if entry.status.strip().lower() in NOT_OWNED:
+        return Match(entry, None, "list-says-" + entry.status.strip().lower())
     if entry.isbns:
         hits = [it for it in items if it.isbn and it.isbn in entry.isbns]
         if len(hits) == 1:
@@ -300,8 +309,6 @@ def match(entry: Entry, items: list[Item]) -> Match:
         doubts.append(f"prefix match on {item.title!r}")
     if entry.authors and not _author_ok(entry, item):
         doubts.append(f"author differs ({item.author!r})")
-    if entry.status.strip().lower() in NOT_OWNED:
-        doubts.append(f"list status says {entry.status.strip()!r}")
     return Match(entry, item, how, doubts)
 
 
@@ -443,6 +450,8 @@ def report(plans: list[Plan], out=None) -> None:
                 line = f"  {e.num:>3}. {e.title!r} -> {m.item.title!r} [{m.how}] {m.item.id}"
             elif m.how == "none":
                 line = f"  {e.num:>3}. {e.title!r} -> not in ABS yet"
+            elif m.how.startswith("list-says-"):
+                line = f"  {e.num:>3}. {e.title!r} -> skipped, list status {e.status.strip()!r}"
             else:
                 line = f"  {e.num:>3}. {e.title!r} -> SKIPPED ({m.how})"
             if m.doubts:
