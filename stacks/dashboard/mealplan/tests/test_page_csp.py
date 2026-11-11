@@ -3,25 +3,46 @@ inline <script> those pages send must be allowed by a hash in the policy (no
 'unsafe-inline' for scripts), and the admin page keeps its own stricter CSP."""
 import base64
 import hashlib
-import re
-
 import app
 from test_admin import adm, aget  # noqa: F401  (admin feeds wired to fixtures)
 from test_kitchen import home  # noqa: F401  (the fixture-wired sidecar)
 from test_kitchen_pairing import ADMIN, kit, kget, pair  # noqa: F401
 
-# Any case and any attributes, so a <SCRIPT type=...> tag cannot slip past the
-# hash check (CodeQL "bad HTML filtering regexp").
-INLINE = re.compile(r"<script\b([^>]*)>(.*?)</script\s*>", re.S | re.I)
-EXTERNAL = re.compile(r"\bsrc\s*=", re.I)
+from html.parser import HTMLParser
+
+
+class _InlineScripts(HTMLParser):
+    """Collect the bodies of inline <script> elements (any case, any attributes);
+    <script src=...> is external and covered by 'self', so it is skipped."""
+
+    def __init__(self):
+        super().__init__(convert_charrefs=False)
+        self.bodies, self._open = [], None
+
+    def handle_starttag(self, tag, attrs):
+        if tag.lower() == "script" and not any(k.lower() == "src" for k, _ in attrs):
+            self._open = []
+
+    def handle_endtag(self, tag):
+        if tag.lower() == "script" and self._open is not None:
+            self.bodies.append("".join(self._open))
+            self._open = None
+
+    def handle_data(self, data):
+        if self._open is not None:
+            self._open.append(data)
+
+
+def inline_scripts(html):
+    p = _InlineScripts()
+    p.feed(html)
+    return p.bodies
 
 
 def _allowed(csp, html):
     script_src = next(d for d in csp.split(";") if d.strip().startswith("script-src"))
     assert "'unsafe-inline'" not in script_src and "'unsafe-eval'" not in script_src
-    for attrs, js in INLINE.findall(html):
-        if EXTERNAL.search(attrs):
-            continue                      # <script src=...> is covered by 'self', not a hash
+    for js in inline_scripts(html):
         h = "'sha256-" + base64.b64encode(hashlib.sha256(js.encode()).digest()).decode() + "'"
         assert h in script_src, "inline script not covered by the CSP hash list"
 
