@@ -241,7 +241,11 @@ def test_kitchen_board_renders_from_fixtures(home):
     # chores: every task except Approvals, counts, escaped titles, tick forms
     assert "Clean fridge &lt;now&gt;" in html and "Approve groceries" not in html
     assert "1 due today" in html and "1 late" in html
-    assert "+1 later" in html
+    # one ordered list, not per-project columns: late, today, upcoming
+    lst = html.split("class='clist'")[1]
+    assert lst.index("Clean fridge") < lst.index("Clean stove top") < lst.index("Dog baths") < lst.index("Furnace filter")
+    assert "class='col'" not in html and "later</summary>" not in html
+    assert "href='/meal/kitchen/chores'>All chores (4)</a>" in html
     assert html.count("action='/meal/tasks/complete'") == 4
     # vacuum line
     assert "2 of 3 rooms cleaned today · next run tomorrow 8:30 AM" in html
@@ -577,3 +581,74 @@ def test_kitchen_css_sizes_to_the_viewport():
     for sel, decl in side.items():
         assert not re.search(r"(^|;)\s*(max-|min-)?height\s*:\s*\d+px", decl), (sel, decl)
     assert "clamp(" in rules[".step-body p"] and "clamp(" in rules[".dish"]
+
+
+# ---- chores: one ordered list on the board, the All chores view ---------------------------
+def test_chore_list_order_late_today_upcoming_undated():
+    today = NOW.date()
+    t = lambda i, title: {"id": i, "title": title}                      # noqa: E731
+    cols = [{"cat": "A", "soon": [(today, t(1, "b today")), (None, t(2, "undated")),
+                                  (today - datetime.timedelta(days=1), t(3, "late 1d"))],
+             "later": [(today + datetime.timedelta(days=30), t(4, "next month"))], "late": 1},
+            {"cat": "B", "soon": [(today - datetime.timedelta(days=9), t(5, "late 9d")),
+                                  (today, t(6, "a today")), (today + datetime.timedelta(days=2), t(7, "wed"))],
+             "later": [], "late": 1}]
+    got = [(x[1]["title"], x[2]) for x in kitchen.chore_list(cols, today)]
+    assert got == [("late 9d", "B"), ("late 1d", "A"), ("a today", "B"), ("b today", "A"),
+                   ("wed", "B"), ("next month", "A"), ("undated", "A")]
+
+
+def test_chore_row_has_project_tag_and_due_text(home):
+    html = home.get("/kitchen").get_data(as_text=True)
+    row = html.split("class='clist'")[1].split("</form>")[0]
+    assert "<span class='ct'>Clean fridge &lt;now&gt;</span>" in row
+    assert "<span class='cmeta'><span class='proj'>Cleaning</span><span class='due'>late</span></span>" in row
+    assert "<now>" not in html
+
+
+def test_all_chores_view_groups_by_project(home):
+    r = home.get("/kitchen/chores")
+    html = r.get_data(as_text=True)
+    assert r.status_code == 200 and r.headers["Cache-Control"] == "no-store"
+    assert "data-page='chores'" in html and "data-home='/meal/kitchen'" in html and ">Back</a>" in html
+    assert "data-fragment='/meal/kitchen/chores?fragment=1'" in html
+    groups = re.findall(r"<section class='cgroup' data-cat='([^']+)'><h2>[^<]*<span class='muted cg-n'>(\d+)", html)
+    assert groups == [("Cleaning", "3"), ("Dogs", "1")]                   # Approvals skipped
+    assert "4 open · 1 due today" in html and "Clean fridge &lt;now&gt;" in html and "<now>" not in html
+    # same rows and tick, and a no-JS tick comes back here
+    assert html.count("name='next' value='chores'") == 4 and html.count("class='tick-row'") == 4
+    frag = home.get("/kitchen/chores?fragment=1").get_data(as_text=True)
+    assert frag.startswith("<div class='chores-in'>") and "<html" not in frag
+
+
+def test_all_chores_view_when_vikunja_is_down(home, monkeypatch):
+    monkeypatch.setattr(app.TASKS_FEED, "get", lambda *a, **k: None)
+    html = home.get("/kitchen/chores").get_data(as_text=True)
+    assert "Couldn't reach the task list right now." in html
+
+
+def test_plain_tick_from_the_chores_view_returns_there(home, monkeypatch):
+    monkeypatch.setattr(app, "_vik", lambda *a, **k: {"id": 1, "done": False})
+    monkeypatch.setitem(app.VIKUNJA_TOKENS, "jmack", "tok")
+    r = home.post("/tasks/complete", data={"task_id": "1", "next": "chores"}, headers={"Remote-User": "jmack"})
+    assert r.status_code == 303 and r.headers["Location"].endswith("/meal/kitchen/chores")
+
+
+def test_household_keeps_capped_list_in_the_same_row_style(home):
+    html = home.get("/home").get_data(as_text=True)
+    due = html.split("class='hh-due'")[1].split("class='hh-link'")[0]
+    assert due.count("class='tick-row'") == 2 and "<span class='proj'>Cleaning</span>" in due
+    full = home.get("/home?chores=all").get_data(as_text=True)
+    assert "class='cgroups'" in full and "class='col'" not in full
+
+
+def test_no_mid_word_hyphenation_on_kitchen_pages():
+    import os
+    css = open(os.path.join(os.path.dirname(app.__file__), "static", "home.css")).read()
+    assert "hyphens:auto" not in css
+    assert ".kiosk,.household{-webkit-hyphens:none;hyphens:none;word-break:normal}" in css
+    ct = css.split("\n.ct{", 1)[1].split("}", 1)[0]
+    assert "overflow-wrap:anywhere" in ct and "hyphens:none" in ct
+    # 3 columns on the iPad landscape, 2 portrait, 1 phone; 44 px+ tick target
+    assert ".clist{column-count:3" in css and "column-count:2" in css and "column-count:1" in css
+    assert "grid-template-columns:44px" in css.split(".tick-row{", 1)[1].split("}", 1)[0]

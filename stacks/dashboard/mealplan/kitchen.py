@@ -382,35 +382,56 @@ def chore_counts(columns: list[dict], today: datetime.date) -> dict:
     return {"due": due, "late": late, "total": total}
 
 
-def _chore_row(t: dict, due, today: datetime.date, project: str = "") -> str:
+def _chore_row(t: dict, due, today: datetime.date, project: str = "", nxt: str = "") -> str:
+    """One chore: tick box, title, then a small line with the project tag and
+    the due text ("late", "today", "Nov 23"). The whole row is the button."""
     lbl, late = _due_label(due, today)
     proj = f"<span class='proj'>{escape(project)}</span>" if project else ""
+    back = f"<input type='hidden' name='next' value='{escape(nxt)}'>" if nxt else ""
     return (f"<form class='chore{' late' if late else ''}' method='post' action='{base()}/tasks/complete'>"
-            f"<input type='hidden' name='task_id' value='{int(t['id'])}'>"
+            f"<input type='hidden' name='task_id' value='{int(t['id'])}'>{back}"
             f"<button type='submit' class='tick-row' aria-label='Done: {escape(t.get('title') or '')}'>"
             "<span class='box' aria-hidden='true'></span>"
-            f"<span class='ct'>{escape(t.get('title') or '')}{proj}</span>"
-            f"<span class='due'>{escape(lbl)}</span></button></form>")
+            f"<span class='ct'>{escape(t.get('title') or '')}</span>"
+            f"<span class='cmeta'>{proj}<span class='due'>{escape(lbl)}</span></span></button></form>")
 
 
-def chores_columns_html(columns: list[dict], today: datetime.date) -> str:
+def chore_list(columns: list[dict], today: datetime.date) -> list[tuple]:
+    """Every open chore as one list [(due, task, project)]: late first (oldest
+    first), then due today, then upcoming by due date, undated last."""
+    rows = [(d, t, c["cat"]) for c in columns for d, t in list(c["soon"]) + list(c["later"])]
+
+    def key(r):
+        d, t, _cat = r
+        bucket = 3 if d is None else (0 if d < today else 1 if d == today else 2)
+        return (bucket, d or datetime.date.max, (t.get("title") or "").lower(), int(t.get("id") or 0))
+    return sorted(rows, key=key)
+
+
+def chore_list_html(columns: list[dict], today: datetime.date) -> str:
+    """The board's chores: one ordered list, flowing into columns (CSS)."""
+    items = chore_list(columns, today)
+    if not items:
+        return "<div class='empty'>No open chores.</div>"
+    rows = "".join(_chore_row(t, d, today, cat) for d, t, cat in items)
+    return f"<div class='clist-wrap'><div class='clist'>{rows}</div></div>"
+
+
+def chore_groups_html(columns: list[dict], today: datetime.date, nxt: str = "") -> str:
+    """The All chores view: one section per project (board order) with its
+    counts, rows in the same order as the board list."""
     if not columns:
         return "<div class='empty'>No open chores.</div>"
-    cols = []
+    out = []
     for c in columns:
-        rows = "".join(_chore_row(t, d, today) for d, t in c["soon"])
-        if not c["soon"]:
-            rows = "<div class='none'>Nothing due in 2 weeks</div>"
-        if c["later"]:
-            rows += (f"<details class='later'><summary>+{len(c['later'])} later</summary>"
-                     + "".join(_chore_row(t, d, today) for d, t in c["later"]) + "</details>")
-        n = len(c["soon"]) + len(c["later"])
+        items = chore_list([c], today)
         late = f" · <span class='late-n'>{c['late']} late</span>" if c["late"] else ""
-        cols.append(f"<div class='col' data-cat='{escape(c['cat'])}'>"
-                    f"<div class='col-h'><span class='col-name'>{escape(c['cat'])}</span>"
-                    f"<span class='col-n'>{n}{late}</span></div>"
-                    f"<div class='col-list'>{rows}</div></div>")
-    return f"<div class='cols' style='--ncols:{len(cols)}'>{''.join(cols)}</div>"
+        rows = ("".join(_chore_row(t, d, today, "", nxt) for d, t, _cat in items)
+                or "<div class='none'>Nothing open</div>")
+        out.append(f"<section class='cgroup' data-cat='{escape(c['cat'])}'>"
+                   f"<h2>{escape(c['cat'])} <span class='muted cg-n'>{len(items)}{late}</span></h2>"
+                   f"<div class='cg-list'>{rows}</div></section>")
+    return f"<div class='cgroups'>{''.join(out)}</div>"
 
 
 def chores_head(counts: dict | None) -> str:
@@ -540,9 +561,11 @@ def board_fragment(d: dict) -> str:
              f"<div class='muted date'>{now:%A, %B %-d}</div></div>")
     cols = d.get("chores")
     counts = chore_counts(cols, today) if cols is not None else None
+    all_link = (f"<a class='all-link' href='{kpath('/chores')}'>All chores ({counts['total']})</a>"
+                if counts else "")
     chores = ("<section class='card chores'><div class='chores-h'><h2>Chores</h2>"
-              f"{chores_head(counts)}{vacuum_html(d.get('vacuum'), today)}</div>"
-              + (chores_columns_html(cols, today) if cols is not None
+              f"{chores_head(counts)}{all_link}{vacuum_html(d.get('vacuum'), today)}</div>"
+              + (chore_list_html(cols, today) if cols is not None
                  else "<div class='empty'>Couldn't reach the task list right now.</div>")
               + "</section>")
     night_ev = homecal.first_event(cal, tomorrow) if cal else ""
@@ -566,6 +589,27 @@ def kitchen_page(d: dict, asset_ver: str) -> str:
             f"<div class='night' id='night' role='button' tabindex='0' aria-label='Show the board'>"
             f"<div class='night-clock' data-clock>{fmt_clock(d['now'])}</div>{ev}</div>"
             "</body></html>")
+
+
+# ---- all chores view -------------------------------------------------------------
+def chores_fragment(d: dict) -> str:
+    """The All chores view's swappable body (a tick re-renders it)."""
+    today, cols = d["today"], d.get("chores")
+    if cols is None:
+        return "<div class='chores-in'><div class='empty'>Couldn't reach the task list right now.</div></div>"
+    counts = chore_counts(cols, today)
+    late = f" · <span class='late-n'>{counts['late']} late</span>" if counts["late"] else ""
+    return (f"<div class='chores-in'><div class='muted chores-sum'>{counts['total']} open · "
+            f"{counts['due']} due today{late}</div>{chore_groups_html(cols, today, 'chores')}</div>")
+
+
+def chores_page(d: dict, asset_ver: str, back: str) -> str:
+    return (head("All chores", asset_ver, kiosk=True)
+            + f"<body data-page='chores' data-home='{escape(back)}' class='kiosk sub'><div class='shell'>"
+            f"<header class='subhdr'>{_back(back)}<div class='subtitle'>"
+            "<div class='eyebrow'>By project</div><h1>All chores</h1></div></header>"
+            f"<div class='chores-scroll' id='board' data-fragment='{kpath('/chores')}?fragment=1'>"
+            f"{chores_fragment(d)}</div></div></body></html>")
 
 
 # ---- ingredients view ------------------------------------------------------------
@@ -831,7 +875,7 @@ def household_fragment(d: dict, all_chores: bool = False) -> str:
         more = (f"<div class='muted small hh-more'>{len(due) - len(shown)} more late or due today</div>"
                 if len(due) > len(shown) else "")
         if all_chores:
-            board = (f"<div class='hh-all' id='all-chores'>{chores_columns_html(cols, today)}</div>"
+            board = (f"<div class='hh-all' id='all-chores'>{chore_groups_html(cols, today)}</div>"
                      f"<a class='hh-link' href='{base()}/home'>Hide all chores</a>")
         else:
             board = (f"<a class='hh-link' href='{base()}/home?chores=all#all-chores'>"

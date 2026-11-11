@@ -27,7 +27,7 @@ same app for the lab admin page only: GET / and /static/*, ADMIN_USERS only
 (403 otherwise), everything else 404 there (admin.py).
 
 kitchen.kmkdp.com (internal Traefik, NO forwardauth) reaches this same app for
-paired kitchen devices only: /, /ingredients, /steps, /pantry, /step-photo/<id>,
+paired kitchen devices only: /, /ingredients, /steps, /pantry, /chores, /step-photo/<id>,
 /manifest.webmanifest, /static/*, POST /tasks/complete, /groceries/add,
 /groceries/reorder, and /pair. Everything else is a 404 there, Remote-* headers
 are ignored, and every other request needs the signed device cookie (devices.py).
@@ -890,6 +890,8 @@ def tasks_complete():
         except Exception:
             log.exception("task board refresh after tick failed")
         return Response(status=204 if ok else 502)
+    if request.form.get("next") == "chores":        # the All chores view (no-JS tick)
+        return redirect(kitchen.kpath("/chores"), code=303)
     if kitchen.on_kitchen_host():
         return redirect(kitchen.kpath(), code=303)
     # relative to /meal/tasks/complete -> ../tasks == /meal/tasks (survives the
@@ -2209,6 +2211,14 @@ def kitchen_board():
     return _html(kitchen.kitchen_page(d, ASSET_VER))
 
 
+@app.get("/kitchen/chores")
+def kitchen_chores():
+    d = _home_data()
+    if request.args.get("fragment") == "1":
+        return _html(kitchen.chores_fragment(d))
+    return _html(kitchen.chores_page(d, ASSET_VER, kitchen.kpath()))
+
+
 @app.get("/kitchen/ingredients")
 def kitchen_ingredients():
     d = _home_data()
@@ -2476,7 +2486,7 @@ def _current_device(p) -> dict | None:
 
 
 _KITCHEN_GET = {"/": "kitchen_board", "/ingredients": "kitchen_ingredients",
-                "/steps": "kitchen_steps", "/pantry": "kitchen_pantry"}
+                "/steps": "kitchen_steps", "/pantry": "kitchen_pantry", "/chores": "kitchen_chores"}
 _KITCHEN_POST = {"/tasks/complete", "/groceries/add", "/groceries/reorder"}
 _STEP_PHOTO = re.compile(r"^/step-photo/(\d{1,9})$")
 
