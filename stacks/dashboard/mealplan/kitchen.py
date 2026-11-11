@@ -438,7 +438,7 @@ def cal_line(events: list[dict] | None, day: datetime.date) -> str:
     hits = homecal.on_day(events, day)
     if not hits:
         return "<span class='muted'>Nothing scheduled</span>"
-    return " · ".join(escape(homecal.label(e)) for e in hits)
+    return " · ".join(escape(homecal.label(e, day)) for e in hits)
 
 
 # ---- page shell ----------------------------------------------------------------
@@ -527,7 +527,8 @@ def board_fragment(d: dict) -> str:
                         for h in wx["hours"])
         wx_html = (f"<div class='card wx'><div class='wx-now'>{wx_icon(wx['code'], wx['night'], 52, wx['desc'])}"
                    f"<div><div class='big'>{wx['temp']}°</div>"
-                   f"<div class='muted'>{escape(wx['desc'])} · H {wx['hi']}° L {wx['lo']}°</div></div></div>"
+                   f"<div class='muted'>{escape(wx['desc'])}</div>"
+                   f"<div class='muted hilo'>H {wx['hi']}° L {wx['lo']}°</div></div></div>"
                    f"<div class='hours'>{hours}</div></div>")
     else:
         wx_html = "<div class='card wx'><div class='muted'>Weather unavailable right now</div></div>"
@@ -845,10 +846,13 @@ def household_fragment(d: dict, all_chores: bool = False) -> str:
         rows = []
         for i in range(7):
             day = today + datetime.timedelta(days=i)
-            for k, e in enumerate(homecal.on_day(cal, day)):
+            # an event that started earlier shows today ("until Fri"), and on
+            # later days only where it starts, not on every day of the week
+            hits = [e for e in homecal.on_day(cal, day) if i == 0 or e["start"] == day]
+            for k, e in enumerate(hits):
                 lbl = ("Today" if i == 0 else day.strftime("%a")) if k == 0 else ""
                 rows.append(f"<div class='calrow'><span class='calday'>{lbl}</span>"
-                            f"<span class='calev'>{escape(homecal.label(e))}</span></div>")
+                            f"<span class='calev'>{escape(homecal.label(e, day))}</span></div>")
         week = "".join(rows) or "<div class='muted'>Nothing scheduled this week.</div>"
     calendar = f"<section class='card hh-cal'><h2>This week</h2>{week}</section>"
     apps = "".join(

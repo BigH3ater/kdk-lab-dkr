@@ -92,6 +92,16 @@ def test_toggle_renders_off_by_default_on_every_add_box(fake):  # noqa: F811
     assert "min-height:44px;min-width:44px" in app.GROCERIES_CSS.split(".addbox .mtog{", 1)[1].split("}", 1)[0]
 
 
+def test_groceries_add_box_wraps_on_a_phone():
+    # 390 px: input + toggle + Add overflowed the page by 16 px; the box wraps,
+    # the input may shrink, and the toggle takes its own row under 480 px
+    css = app.GROCERIES_CSS
+    assert "flex-wrap:wrap" in css.split(".addbox{", 1)[1].split("}", 1)[0]
+    assert "min-width:0" in css.split(".addbox input{", 1)[1].split("}", 1)[0]
+    phone = css.split("@media(max-width:480px){", 1)[1].split("}}", 1)[0]
+    assert ".addbox .mtog{order:3;flex-basis:100%" in phone
+
+
 def test_forced_manual_keeps_a_known_food_off_the_store_list(fake, _forced_registry):  # noqa: F811
     c = app.app.test_client()
     j = _add(c, "milk", manual="1").get_json()

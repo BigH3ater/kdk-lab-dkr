@@ -1313,14 +1313,16 @@ text-transform:uppercase;color:var(--ash);margin:10px 0 3px}
 .gi a.srch{color:var(--ember);text-decoration:none;font-size:12px;font-family:'JetBrains Mono',monospace;white-space:nowrap}
 .gi a.srch:hover{text-decoration:underline}
 .gi.busy{opacity:.4}
-.addbox{display:flex;gap:8px;margin:8px 0 2px}
-.addbox input{flex:1 1 auto;background:var(--ink);border:1px solid var(--ink-hairline);
+.addbox{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0 2px}
+.addbox input{flex:1 1 auto;min-width:0;background:var(--ink);border:1px solid var(--ink-hairline);
 border-radius:7px;color:var(--paper);padding:9px;font:15px 'Space Grotesk',sans-serif}
 .addbox button{background:var(--ember);border:none;color:var(--ink);border-radius:7px;padding:0 14px;font-weight:600;cursor:pointer}
 .addbox .mtog{display:flex;align-items:center;gap:6px;min-height:44px;min-width:44px;padding:0 4px;
 color:var(--ash);font:500 12px 'JetBrains Mono',monospace;cursor:pointer;white-space:nowrap}
 .addbox .mtog input{width:22px;height:22px;margin:0;accent-color:var(--ember);flex:0 0 auto}
 .addbox .mtog.off{opacity:.5;cursor:not-allowed}
+/* phone: the item box and Add share the first row, the toggle gets its own */
+@media(max-width:480px){.addbox .mtog{order:3;flex-basis:100%}}
 .addflash{color:var(--ok);font-size:14px;padding:6px 2px}
 .addflash.err{color:var(--danger)}
 .addnote{color:var(--ash);font-size:12px;padding:2px 2px 4px}

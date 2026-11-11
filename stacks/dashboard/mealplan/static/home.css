@@ -57,7 +57,7 @@ body.kiosk{--gap:clamp(10px,1.9vh,16px)}
 /* fixed: the hourly shift never makes the page scrollable */
 body.kiosk .shell{position:fixed;inset:0}
 .board-in{height:100%;display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:auto auto minmax(0,1fr);gap:var(--gap)}
-.hdr{display:grid;grid-template-columns:clamp(196px,20vw,236px) minmax(0,1fr) minmax(0,clamp(240px,27vw,320px));gap:var(--gap);min-height:0}
+.hdr{display:grid;grid-template-columns:clamp(220px,25.5vw,300px) minmax(0,1fr) minmax(0,clamp(240px,27vw,320px));gap:var(--gap);min-height:0}
 .hdr .card{padding:clamp(10px,1.7vh,14px) 20px;display:flex;flex-direction:column;justify-content:center;gap:clamp(2px,.7vh,6px);min-width:0}
 .kiosk .big{font-size:clamp(34px,5.4vh,44px)}
 .clock .date{font-size:clamp(15px,2.2vh,18px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -67,7 +67,7 @@ body.kiosk .shell{position:fixed;inset:0}
 .wx-now .muted{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .wxi{color:var(--tan);flex:0 0 auto}
 .kiosk .wx-now .wxi{width:clamp(40px,6.3vh,52px);height:clamp(40px,6.3vh,52px)}
-.hours{display:flex;flex:1 1 auto;justify-content:space-between;gap:4px;min-width:0}
+.hours{display:flex;flex:1 1 auto;justify-content:space-between;gap:10px;min-width:0}
 .hr{display:flex;flex-direction:column;align-items:center;gap:2px;flex:1 1 0;min-width:0;white-space:nowrap}
 .hv{font-size:clamp(16px,2.2vh,18px);font-weight:600}
 .pop{font-size:13px;color:var(--tan)}
@@ -379,7 +379,9 @@ body.admin{--mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;min-height:100
 .ad-stat{background:var(--surface);border:1px solid var(--hairline);border-radius:14px;padding:12px 14px;display:flex;flex-direction:column;gap:2px;min-width:0}
 .ad-lbl{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
 .ad-val{font-family:var(--head);font-size:26px;font-weight:600;line-height:1.2}
-.ad-sub{font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ad-sub{font-size:12px;color:var(--muted);min-width:0}
+/* parts wrap between each other; only a single over-long part (a down URL) is cut */
+.ad-sub>span{display:inline-block;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;vertical-align:top}
 .ad-stat.bad .ad-val{color:var(--late)}
 .ad-stat.warn .ad-val{color:var(--tan)}
 .ad-stat.off .ad-val{color:var(--muted)}
@@ -419,6 +421,7 @@ body.admin{--mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;min-height:100
 .ad-chart svg{display:block;width:100%;height:36px}
 .ad-chart polyline{fill:none;stroke:var(--rust);stroke-width:2;vector-effect:non-scaling-stroke}
 .ad-nodata{height:36px;display:flex;align-items:center;font-size:12px;color:var(--muted)}
+.ad-nodata.bad{color:var(--late)}
 .ad-groups{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;align-items:start}
 .ad-group{padding:12px 12px 8px;display:flex;flex-direction:column}
 .ad-group h3{font-size:15px;padding:0 6px 4px}

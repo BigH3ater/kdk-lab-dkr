@@ -100,6 +100,10 @@ scrape_configs:
           - "10.1.20.21"        # kdk-log-01
           - "10.1.20.22"        # kdk-dkr-04
           - "192.168.191.20"    # kdk-dkr-dmz-01
+          # admin.kmkdp.com tiles that link a raw IP (self-signed UI certs, so
+          # ICMP like the Proxmox/TrueNAS tiles, not an HTTPS cert probe)
+          - "10.1.1.102"        # Proxmox Backup Server
+          - "10.1.3.1"          # UniFi console
     relabel_configs:
       - source_labels: [__address__]
         target_label: __param_target
@@ -138,6 +142,11 @@ scrape_configs:
           - "https://api-slave.kmkdp.com:555/healthz"
           # Vikunja — source of truth for household + vacuum-maintenance chores.
           - "https://tasks.kmkdp.com"
+          # The same apps by the hostname the household and admin pages link
+          # (Pi Traefik), so a broken route shows too, not only a dead app.
+          - "https://homeassistant.kmkdp.com"
+          - "https://zigbee.kmkdp.com"
+          - "https://scrypted.kmkdp.com"
         labels: {tier: smart-home}
     relabel_configs:
       - source_labels: [__address__]
@@ -172,6 +181,22 @@ scrape_configs:
           - "https://bazarr.kmkdp.com"
           - "https://sabnzbd.kmkdp.com"
           - "https://tdarr.kmkdp.com"
+          # admin.kmkdp.com tiles (added 2026-11-10 so every tile has a dot).
+          # Anonymous health paths where the app has one, else / (ForwardAuth
+          # 302 -> 401 = UP). opds/kosync answer 404 at /, so probe their paths.
+          - "https://trailarr.kmkdp.com"
+          - "https://jellystat.kmkdp.com"
+          - "https://lazylibrarian.kmkdp.com"
+          - "https://audiobookshelf.kmkdp.com/healthcheck"
+          - "https://wizarr.kmkdp.com"
+          - "https://opds.kmkdp.com/opds"            # 401 without Basic auth = UP
+          - "https://kosync.kmkdp.com/healthcheck"
+          - "https://grafana.kmkdp.com/api/health"
+          - "http://10.1.20.30:9090/-/healthy"       # Prometheus on its published port
+          - "https://alertmanager.kmkdp.com"
+          - "https://recipes.kmkdp.com"
+          - "https://wger.kmkdp.com"
+          - "https://budget.kmkdp.com"
     relabel_configs:
       - source_labels: [__address__]
         target_label: __param_target

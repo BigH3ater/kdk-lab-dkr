@@ -10,6 +10,7 @@ from zoneinfo import ZoneInfo
 import pytest
 
 import app
+import homecal
 import kitchen
 
 TZ = ZoneInfo("America/Chicago")
@@ -235,8 +236,8 @@ def test_kitchen_board_renders_from_fixtures(home):
     # header: clock, weather, calendar today/tomorrow
     assert "5:20 PM" in html and "Monday, November 9" in html
     assert "H 51° L 31°" in html and html.count("class='hr'") == 6
-    assert "Vet &lt;Bear&gt;, 9:30 AM" in html
-    assert "Late call, 8 PM" in html                                     # UTC event shown in Chicago time
+    assert "9:30 AM Vet &lt;Bear&gt;" in html
+    assert "8 PM Late call" in html                                     # UTC event shown in Chicago time
     # chores: every task except Approvals, counts, escaped titles, tick forms
     assert "Clean fridge &lt;now&gt;" in html and "Approve groceries" not in html
     assert "1 due today" in html and "1 late" in html
@@ -248,8 +249,42 @@ def test_kitchen_board_renders_from_fixtures(home):
     # kiosk bits
     assert "manifest.webmanifest" in html and "apple-mobile-web-app-capable" in html
     assert "black-translucent" in html and "icon-180.png" in html
-    assert "data-night-event='Vet &lt;Bear&gt;, 9:30 AM'" in html
+    assert "data-night-event='9:30 AM Vet &lt;Bear&gt;'" in html
     assert "/meal/static/home.css?v=" in html
+
+
+ONCALL_ICS = b"""BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//test//EN
+BEGIN:VEVENT
+UID:oncall@test
+DTSTART;TZID=America/Chicago:20261105T080000
+DTEND;TZID=America/Chicago:20261113T080000
+SUMMARY:Jacob On Call
+END:VEVENT
+BEGIN:VEVENT
+UID:class@test
+DTSTART;TZID=America/Chicago:20261109T180000
+DTEND;TZID=America/Chicago:20261109T190000
+SUMMARY:Manners Class
+END:VEVENT
+END:VCALENDAR
+"""
+
+
+def test_multi_day_timed_event_shows_while_it_runs(home):
+    # live 2026-11-10: "Jacob On Call" (Nov 5 -> 13) was missing from the board
+    # and the household week because only its start day counted
+    app.CAL_FEED.set(homecal.expand(ONCALL_ICS, NOW.date(), 9, TZ))
+    board = home.get("/kitchen").get_data(as_text=True)
+    rows = board.split("class='card cal'")[1].split("</div></div>")[0]
+    today, tue = rows.split("class='calrow'")[1:3]
+    # today: the day's own event (time first) before the carried-over one
+    assert "6 PM Manners Class · Jacob On Call (until Fri)" in today
+    assert "Jacob On Call (until Fri)" in tue and "Nothing scheduled" not in tue
+    week = home.get("/home").get_data(as_text=True).split("class='card hh-cal'")[1].split("</section>")[0]
+    # once on Today, not repeated on every later day of the week
+    assert week.count("Jacob On Call") == 1 and "Jacob On Call (until Fri)" in week
 
 
 def test_board_fragment_is_swappable(home):
@@ -390,7 +425,7 @@ def test_night_view_shows_tomorrows_first_event(home, monkeypatch):
     html = home.get("/kitchen").get_data(as_text=True)
     assert "class='kiosk is-night'" in html
     night = html.split("id='night'")[1]
-    assert "Vet &lt;Bear&gt;, 9:30 AM" in night
+    assert "9:30 AM Vet &lt;Bear&gt;" in night
 
 
 # ---- feeds ------------------------------------------------------------------------------

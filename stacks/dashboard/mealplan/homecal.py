@@ -44,7 +44,8 @@ def _as_local(v, tz: ZoneInfo):
 def expand(ics: bytes, start: datetime.date, days: int, tz: ZoneInfo) -> list[dict]:
     """Every event occurrence touching [start, start+days), recurring series
     expanded: [{title, start: date, end: date (exclusive), at: datetime|None,
-    all_day}], sorted by start then time. A broken series is skipped, not fatal."""
+    until: datetime|None (a timed event's end), all_day}], sorted by start
+    then time. A broken series is skipped, not fatal."""
     cal = icalendar.Calendar.from_ical(ics)
     end = start + datetime.timedelta(days=days)
     out = []
@@ -66,7 +67,9 @@ def expand(ics: bytes, start: datetime.date, days: int, tz: ZoneInfo) -> list[di
             last = (at1 - datetime.timedelta(seconds=1)).date() if at1 and at1 > at else d0
             d1 = last + datetime.timedelta(days=1)
         title = str(ev.get("SUMMARY") or "").strip() or "(no title)"
-        out.append({"title": title, "start": d0, "end": d1, "at": at, "all_day": at is None})
+        until = at1 if at is not None and at1 is not None and at1 > at else None
+        out.append({"title": title, "start": d0, "end": d1, "at": at, "until": until,
+                    "all_day": at is None})
     out.sort(key=lambda e: (e["start"], _ts(e), e["title"]))
     return out
 
@@ -77,10 +80,13 @@ def _ts(e: dict) -> float:
 
 
 def on_day(events: list[dict], day: datetime.date) -> list[dict]:
-    """Events that fall on `day`: all-day and multi-day events while they run,
-    timed events on their start day; all-day first, then by time."""
-    hits = [e for e in events if e["start"] <= day < e["end"] and (e["all_day"] or e["start"] == day)]
-    return sorted(hits, key=lambda e: (_ts(e), e["title"]))
+    """Events running on `day`: every event whose span covers it (all-day,
+    multi-day, and timed events that cross midnight or last several days).
+    The day's own events come first (all-day, then timed by start time), then
+    the ones carried over from an earlier day, so a long-running event never
+    pushes today's times off a one-line summary."""
+    hits = [e for e in events if e["start"] <= day < e["end"]]
+    return sorted(hits, key=lambda e: (e["start"] < day, _ts(e), e["title"]))
 
 
 def fmt_time(at: datetime.datetime | None) -> str:
@@ -89,16 +95,34 @@ def fmt_time(at: datetime.datetime | None) -> str:
     return at.strftime("%-I:%M %p").replace(":00 ", " ")
 
 
-def label(e: dict) -> str:
-    """"Vet, 9:30 AM" or "Trash day" (all-day)."""
+def _until(e: dict, day: datetime.date) -> str:
+    """"until Fri" for an event carried over from an earlier day; "until 8 AM"
+    on the last day of a timed one, "last day" on the last day of an all-day one."""
+    last = e["end"] - datetime.timedelta(days=1)
+    if last <= day:
+        return f"until {fmt_time(e['until'])}" if e.get("until") else "last day"
+    if (last - day).days < 7:
+        return f"until {last:%a}"
+    return f"until {last:%b} {last.day}"
+
+
+def label(e: dict, day: datetime.date | None = None) -> str:
+    """"9:30 AM Vet" (time first, so a cut-off line loses the end of the title,
+    not the time), "Trash day" (all-day), or "Jacob On Call (until Fri)" on the
+    days after an event's first day."""
+    if day is not None and day > e["start"]:
+        return f"{e['title']} ({_until(e, day)})"
     t = fmt_time(e["at"])
-    return f"{e['title']}, {t}" if t else e["title"]
+    return f"{t} {e['title']}" if t else e["title"]
 
 
 def first_event(events: list[dict], day: datetime.date) -> str:
-    """The night view line: the first event of `day`, or ""."""
+    """The night view line: the first event that starts on `day` (timed before
+    all-day), else one still running from an earlier day, or ""."""
     hits = on_day(events, day)
     if not hits:
         return ""
-    timed = [e for e in hits if not e["all_day"]]
-    return label(timed[0] if timed else hits[0])
+    starting = [e for e in hits if e["start"] == day]
+    timed = [e for e in starting if not e["all_day"]]
+    pick = timed[0] if timed else (starting[0] if starting else hits[0])
+    return label(pick, day)
