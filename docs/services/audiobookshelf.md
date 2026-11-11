@@ -152,13 +152,13 @@ curl -s -X POST https://audiobookshelf.kmkdp.com/api/libraries \
 
 | Collection | Library | From the note |
 |---|---|---|
-| Round 1 | `ebooks` | table rows 1–10 |
+| Round 1 | `ebooks` | every row of the table under the `## Round 1: …` heading |
 | Reading order | `ebooks` | every row of both tables |
 | Audio queue | `audiobooks` | the numbered *Audio queue* list |
 
 Plappa 2.0 shows these collections for ebooks and audiobooks, so the phone follows the list.
 
-- **Matching:** exact ISBN if the row has one, otherwise the normalised title (no subtitle, edition words, punctuation or case), with the author and then the edition as tie-breaks. A title that is not in ABS, is ambiguous, or names another edition is printed and skipped, never guessed. `DOUBT:` marks a match to check by eye (a title-prefix match, or a book the list still calls missing/NEW).
+- **Matching:** exact ISBN if the row has one, otherwise the normalised title (no subtitle, edition words, punctuation or case), with the author and then the edition as tie-breaks. A title that is not in ABS, is ambiguous, or names another edition is printed and skipped, never guessed. A row whose Status is `missing` or `NEW` is skipped even when ABS has that title, so a stray older edition (e.g. the 1st-edition *Fundamentals of Software Architecture*) stays out; set the row to `ABS <format>` once the right file is in the library. `DOUBT:` marks a title-prefix match to check by eye.
 - **Writes:** creates a missing collection, then sets its books and order exactly to the list: books that left the list are removed, new arrivals join in list order. Finished books stay unless they left the list. A second `--apply` makes 0 writes.
 - **Run it on demand**, from the laptop, after editing the list or after new books arrive. Dry run is the default; read the match lines before `--apply`. The token is read from the environment and never printed:
 
