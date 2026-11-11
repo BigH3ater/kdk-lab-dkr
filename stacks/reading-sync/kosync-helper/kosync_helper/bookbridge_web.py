@@ -1,13 +1,21 @@
 """The BookBridge web UI calls the helper makes to create an EPUB ebook-only link.
 
-BookBridge 7.12.0 has no API token for mappings (ADMIN_API_TOKEN only manages reader
-accounts), so the helper signs in like a browser. Checked in the 7.12.0 source
-(src/web_server.py):
+BookBridge (7.12.0, 7.13.0) has no API token for mappings (ADMIN_API_TOKEN only manages
+reader accounts), so the helper signs in like a browser. Checked in the 7.12.0 and v7.13.0
+source (src/web_server.py):
 
   POST /login              form username, password. 302 on success, 401 bad login,
                            429 after 5 failures per (username, address) in 60 s.
-  GET  /add-book           any signed-in HTML page; the after_request hook injects the
-                           per-session CSRF token (`var t = "<token>"`).
+  GET  /suggestions?tab=search
+                           any signed-in HTML page that answers 200; the after_request hook
+                           (inject_csrf_script) injects the per-session CSRF token
+                           (`var t = "<token>"`). This is the Discover > Search tab, the old
+                           Add Book page.
+                           The route exists in 7.12.0 as well.
+  GET  /add-book           fallback only, used when the page above has no token (the page
+                           the helper read up to 7.12.0). From v7.13.0 it is a 302 to
+                           /suggestions?tab=search (_legacy_search_redirect), and the hook
+                           only injects into 200 text/html responses.
   GET  /api/me/books       the signed-in user's books: abs_id, kosync_doc_id.
   GET  /api/me/kosync-documents   the user's device hashes: document_hash, linked_abs_id.
   POST /match              the Add Book submit with no audiobook: audiobook_id empty,
@@ -18,7 +26,7 @@ accounts), so the helper signs in like a browser. Checked in the 7.12.0 source
                            hash of the ABS file. 302 to / on success.
 
 State-changing requests carry the token as X-CSRF-Token and the csrf_token form field.
-Only the five (method, path) pairs above can be sent; anything else raises.
+Only the six (method, path) pairs above can be sent; anything else raises.
 Nothing here logs: the caller logs the event with the item id only.
 """
 from __future__ import annotations
@@ -33,6 +41,7 @@ from .config import UUID_RE
 CSRF_RE = re.compile(r'var t = "([A-Za-z0-9_\-]{16,128})";')
 ALLOWED = {
     ("POST", "/login"),
+    ("GET", "/suggestions"),
     ("GET", "/add-book"),
     ("GET", "/api/me/books"),
     ("GET", "/api/me/kosync-documents"),
@@ -126,11 +135,18 @@ class BookBridgeWeb:
         if r.status_code != 302 or _location_path(r).startswith("/login") or not self._cookies:
             self.forget_session()
             raise BookBridgeWebError("login_refused", r.status_code)
-        r = await self._send("GET", "/add-book", headers={"accept": "text/html"})
-        m = CSRF_RE.search(r.text) if r.status_code == 200 else None
+        m = None
+        status = None
+        # Newest page first; the old Add Book page only for BookBridge before 7.13.
+        for path, params in (("/suggestions", {"tab": "search"}), ("/add-book", None)):
+            r = await self._send("GET", path, params=params, headers={"accept": "text/html"})
+            status = r.status_code
+            m = CSRF_RE.search(r.text) if r.status_code == 200 else None
+            if m:
+                break
         if not m:
             self.forget_session()
-            raise BookBridgeWebError("csrf_missing", r.status_code)
+            raise BookBridgeWebError("csrf_missing", status)
         self._csrf = m.group(1)
 
     async def ensure_session(self) -> None:

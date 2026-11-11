@@ -6,7 +6,7 @@ tier: dmz
 status: planned
 storage: yes
 secrets: [abs-opds-abs-api-key, abs-opds-jmack, kosync-helper-abs-api-key, bookbridge-abs-api-key, bookbridge-secret-key, bookbridge-kosync-jmack, kosync-helper-bookbridge-login]
-updated: 2026-11-10
+updated: 2026-11-11
 tags: [homelab/stack, tier/dmz, status/planned, books]
 ---
 
@@ -176,7 +176,9 @@ BookBridge. How it works, after a `jmack` PUT that BookBridge accepted:
 1. The hash is in the helper's EPUB map (a primary EPUB of the `ebooks` library). PDFs and
    unknown hashes never get here.
 2. The helper signs in to the BookBridge web UI as `kdkadmin` (`http://bookbridge:5757`, the
-   internal network) and reads `/api/me/books` and `/api/me/kosync-documents`. A hash that is
+   internal network), reads the session's CSRF token from the Discover search page
+   (`GET /suggestions?tab=search`; BookBridge injects it into every signed-in page that answers
+   200), and reads `/api/me/books` and `/api/me/kosync-documents`. A hash that is
    already linked is left alone. An ABS item that already has a book with another hash is left
    alone too (`epub_mapping_conflict`).
 3. It checks the item in ABS (in the `ebooks` library, a book with no audio files, primary ebook
@@ -188,7 +190,9 @@ BookBridge. How it works, after a `jmack` PUT that BookBridge accepted:
 
 One attempt per hash at a time. A failure waits 60 s, doubling to 6 h. A refused login pauses
 every hash for 15 minutes, so the helper never reaches BookBridge's 5-failures-a-minute login
-limit. The helper never writes BookBridge's database and never touches an audiobook.
+limit. If the search page carries no token the helper tries the old `GET /add-book` page once
+(the page it used up to 7.12.0; from v7.13.0 that route is a 302 to the search tab and carries
+none), then gives up with `csrf_missing` and never posts. The helper never writes BookBridge's database and never touches an audiobook.
 
 Why `kdkadmin`: BookBridge links books per account, and the KOSync login `jmack` (the global
 `KOSYNC_USER`) belongs to the primary admin. A link made by any other account is invisible to the
