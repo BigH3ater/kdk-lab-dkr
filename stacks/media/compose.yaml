@@ -226,7 +226,7 @@ services:
     # auth stays off (default-on applies to new installs only). Server and
     # node tags MUST move together. Rollback = pin both back to 2.86.01 and,
     # if needed, restore /opt/kdk-lab/media/tdarr/pre-v3-backup-2026-10-25.
-    image: ghcr.io/haveagitgat/tdarr:3.06.00@sha256:0880fd036a4ac6ef8a2fef2a7b8ddedf5d0898c9ee1a495580356dc922f54d62
+    image: ghcr.io/haveagitgat/tdarr:3.07.00@sha256:ce61af20247825024b790d879ad305411c7e07092e88b4cdf5c686e8dafcf8c0
     environment:
       <<: *env
       serverIP: 0.0.0.0
