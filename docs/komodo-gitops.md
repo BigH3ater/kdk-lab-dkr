@@ -394,9 +394,9 @@ config view in issues/PRs). Tracked in [[backlog]].
 - Source: `linked_repo` → Repo `kdk-lab-dkr` (`BigH3ater/kdk-lab-dkr` @ `main`),
   `resource_path = ["komodo/resources.toml"]`
 - `managed = true`, `delete = false` (enable `delete` only after tag ingestion), `match_tags = ["kdk-lab"]`
-- Declares: 6 servers, 1 repo, 64 stacks, 19 tagged procedures (orchestration
+- Declares: 7 servers, 1 repo, 71 stacks, 22 tagged procedures (orchestration
   `nightly-backups`, `publish-docs`, `gitops-sync`, `docs-to-vault`,
-  `obsidian-to-koreader`, `prune-images`, plus per-job wrappers such as
+  `prune-images`, plus per-job wrappers such as
   `tdarr-verify`, `tdarr-remediate`, `arr-upgrade-search`, …), and 2 actions
   (`gitops-reconcile`, `deploy-changed`). The 2 built-in procedures stay
   untagged/unmanaged.

@@ -14,16 +14,12 @@ Stack definitions live in `stacks/` in the repo; Komodo deploys them from git. O
 | [Media stack](media.md) | kdk-dkr-01 | per-app | media |
 | [LazyLibrarian](lazylibrarian.md) | kdk-dkr-01 | https://lazylibrarian.kmkdp.com | media |
 | [Apps](apps.md) | kdk-dkr-01 | various | apps |
-| [Calibre](calibre.md) | kdk-dkr-01 | https://calibre.kmkdp.com | calibre |
-| [Obsidian to reMarkable](obsidian-to-koreader.md) | kdk-dkr-01 | — (SSH to tablet) | obsidian-to-koreader |
 | [Trailarr](trailarr.md) | kdk-dkr-01 | https://trailarr.kmkdp.com | trailarr |
 | [Home dashboard](dashboard.md) | kdk-dkr-01 | https://home.kmkdp.com | dashboard |
 | [Actual Budget](actual.md) | kdk-dkr-01 | https://budget.kmkdp.com (LAN + tailnet) | actual |
 | [wger](wger.md) | kdk-dkr-01 | https://wger.kmkdp.com (LAN + tailnet; pilot) | wger |
 | [SearXNG](searxng.md) | kdk-dkr-01 | https://search.kmkdp.com (LAN + tailnet) | searxng |
 | [Jellystat](jellystat.md) | kdk-dkr-01 | https://jellystat.kmkdp.com | jellystat |
-| [Kroki](kroki.md) | kdk-dkr-01 | — (internal `kroki_default` network) | kroki |
-| [readwise-koreader](readwise-koreader.md) | kdk-dkr-01 | — (one-shot every 3 h, SSH to tablet) | readwise-koreader |
 | [net-exporters](net-exporters.md) | kdk-dkr-01 | — (scraped by kdk-mon-01) | net-exporters |
 | [grocery-planner](grocery-planner.md) | kdk-dkr-01 | home.kmkdp.com/meal/groceries (one-shots: weekly/poll) | grocery-planner |
 | [Traefik DMZ + tunnel](dmz-proxy.md) | kdk-dkr-dmz-01 | — | dmz-proxy |

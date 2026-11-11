@@ -54,7 +54,7 @@ services:
       - /opt/kdk-lab/audiobookshelf/config:/config
       - /opt/kdk-lab/audiobookshelf/metadata:/metadata
       - /mnt/media/books/audiobook:/audiobooks:ro   # LazyLibrarian-managed, read-only
-      - /mnt/media/books/ebook:/ebooks:ro   # LazyLibrarian-managed, read-only; also calibre-import's source
+      - /mnt/media/books/ebook:/ebooks:ro   # LazyLibrarian-managed, read-only
       - /mnt/appdata/audiobookshelf/podcasts:/podcasts   # rw NFS (media NFS is ro); ABS writes here
     healthcheck:
       # /healthcheck answers 200 at container root even with ROUTER_BASE_PATH set

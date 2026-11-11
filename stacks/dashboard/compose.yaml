@@ -4,7 +4,7 @@
 # app (own auth) at tasks.kmkdp.com; the mealplan sidecar (P2) renders the Tandoor
 # weekly plan front-and-center with a star-rating write-back.
 #
-# Auth = NONE. LAN/Tailscale is the gate (same posture as the internal calibre server);
+# Auth = NONE. LAN/Tailscale is the gate;
 # tiles open services that carry their own login. Do NOT expose this on the DMZ/tunnel.
 #
 # Networks: default (auto /24 from kdk-dkr-01's 10.208.0.0/16 pool -- pools are set

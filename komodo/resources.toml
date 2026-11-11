@@ -1273,7 +1273,7 @@ executions = [
 # calendar widget still reads it.
 
 # book-sync REMOVED 2026-09-21 (user directive): ebook delivery to the reMarkable
-# is now Calibre OPDS *pull* only (calibre.kmkdp.com/opds → KOReader). The push
+# is now OPDS *pull* only (Calibre then, ABS via abs-opds since 2026-11). The push
 # path into xochitl's native "Kodiak Library" is retired; container/image/host
 # data (/opt/kdk-lab/book-sync) and the stacks/book-sync/ tree were deleted.
 
@@ -1308,48 +1308,14 @@ executions = [
   { execution.type = "DeployStack", execution.params.stack = "koreader-highlights", enabled = true },
 ]
 
-# Readwise Reader articles -> EPUB files in KOReader (books/Readwise). Revived from git
-# (retired 2026-10-29); Phase 1 of the remarkable-readwise-app design. Local build like the
-# other KOReader one-shots (auto_pull = false, run_build = true, destroy_before_deploy so the
-# one-shot re-runs). pre_deploy renders BOTH op secrets (readwise-token-ro plus the tablet
-# password) into .env via op inject,
-# matching koreader-highlights/obsidian-to-koreader (its compose uses env_file [.env]).
-# NOTE: a resources.toml change must land via the gitops sync BEFORE the first hand deploy of
-# this stack, or Komodo has no `readwise-koreader` stack to deploy.
-[[stack]]
-tags = ["kdk-lab"]
-name = "readwise-koreader"
-deploy = false   # run by the readwise-koreader Procedure
-[stack.config]
-compose_cmd_wrapper = "/usr/local/sbin/kdk-compose-config-redact [[COMPOSE_COMMAND]]"   # redact env values from the stored Compose Config log (komodo#1636)
-compose_cmd_wrapper_include = ["config"]
-server = "kdk-dkr-01"
-repo = "BigH3ater/kdk-lab-dkr"
-run_directory = "stacks/readwise-koreader"
-auto_pull = false   # image is built locally (no registry) -> skip compose pull
-run_build = true    # run docker compose build before up
-destroy_before_deploy = true   # one locked down+up so the one-shot re-runs
-pre_deploy.command = "sh -c '. /etc/komodo/op.env && op inject -f -i .env.tpl -o .env'"
-
-[[procedure]]
-tags = ["kdk-lab"]
-name = "readwise-koreader"
-[procedure.config]
-schedule_format = "Cron"
-# :10 every 3rd hour -- Readwise Reader LIST is rate-limited (20 req/min); no need to
-# poll often, and off the gitops-sync :00/:15/:30/:45 slots + the other tablet jobs
-# (koreader-highlights :05, obsidian-to-koreader :48).
-schedule = "0 10 */3 * * *"
-schedule_timezone = "America/Chicago"
-[[procedure.config.stage]]
-name = "sync"
-enabled = true
-executions = [
-  { execution.type = "DeployStack", execution.params.stack = "readwise-koreader", enabled = true },
-]
+# readwise-koreader REMOVED 2026-11 (owner decision, reading-sync rollout step 4):
+# Readwise Reader articles -> EPUB on the tablet had no new deliveries since 10-31.
+# The stacks/readwise-koreader/ tree, this stack + 3-hourly procedure and its
+# advisory-watch entry were deleted; the container, image and host state are removed
+# by hand. The readwise-token-ro item stays (manual use).
 
 # docs.kmkdp.com source (repo docs/) -> vault 10-Homelab/Reference (mirror). Runs every
-# 6h at :42, before obsidian-to-koreader (:48) so rendered PDFs include the latest docs.
+# 6h at :42.
 [[stack]]
 tags = ["kdk-lab"]
 name = "docs-to-vault"
@@ -1376,65 +1342,11 @@ executions = [
   { execution.type = "DeployStack", execution.params.stack = "docs-to-vault", enabled = true },
 ]
 
-# Kroki: internal diagram renderer (core + mermaid companion), always-on. It CREATES the
-# `kroki_default` docker network that obsidian-to-koreader joins as external, so it must be
-# deployed BEFORE obsidian-to-koreader on first bring-up (and this resources.toml change must
-# land via the gitops sync before either hand-deploy, or Komodo has no `kroki` stack yet).
-# Images are pulled (auto_pull default); no secrets, so no pre_deploy. See docs/services/kroki.md.
-[[stack]]
-tags = ["kdk-lab"]
-name = "kroki"
-[stack.config]
-compose_cmd_wrapper = "/usr/local/sbin/kdk-compose-config-redact [[COMPOSE_COMMAND]]"   # redact env values from the stored Compose Config log (komodo#1636)
-compose_cmd_wrapper_include = ["config"]
-server = "kdk-dkr-01"
-repo = "BigH3ater/kdk-lab-dkr"
-run_directory = "stacks/kroki"
-
-# Obsidian vault -> PDFs -> tablet (/home/root/books/kodiak-codex) for KOReader. ONE image,
-# TWO services: (1) a long-running WATCHER that polls _remarkable/queue/ and delivers a
-# "Send to reMarkable" request within seconds; (2) the scheduled one-shot below (this stack's
-# DeployStack), which drains the queue as a fallback if the watcher is down and then
-# reconciles the whole tree -- SYNC_FOLDERS (default 20.Work) per-note + every other
-# top-level section combined. A /state lock stops the two processing the same request twice.
-# Requests arrive via Obsidian Sync (no network/token). PDFs mirror the vault folder tree.
-# Mermaid blocks render to SVG via the kroki stack above over kroki_default -- so deploy
-# kroki FIRST. destroy_before_deploy recreates both services each scheduled run (watcher gap
-# is seconds; the one-shot is the fallback). RM_DEST was renamed from books/Homelab; the
-# first run migrates the old folder once (mv, keeping .sdr, never deleting).
-[[stack]]
-tags = ["kdk-lab"]
-name = "obsidian-to-koreader"
-deploy = false   # the one-shot is run by the obsidian-to-koreader Procedure; the watcher stays up
-[stack.config]
-compose_cmd_wrapper = "/usr/local/sbin/kdk-compose-config-redact [[COMPOSE_COMMAND]]"   # redact env values from the stored Compose Config log (komodo#1636)
-compose_cmd_wrapper_include = ["config"]
-server = "kdk-dkr-01"
-repo = "BigH3ater/kdk-lab-dkr"
-run_directory = "stacks/obsidian-to-koreader"
-auto_pull = false
-run_build = true
-destroy_before_deploy = true
-# As root on the host: create the vault request queue (_remarkable/{queue,done}) owned
-# 1000:1000 so the uid-1000 sync agent can write the plugin's queue files there and manage
-# the renderer's done/ files (idempotent; also fixes a pre-existing root:root dir). Chown
-# the state dir so the now-unprivileged container can write its state/build. Then op-inject
-# the tablet password.
-pre_deploy.command = "sh -c 'install -d -o 1000 -g 1000 /opt/kdk-lab/obsidian/vault/_remarkable /opt/kdk-lab/obsidian/vault/_remarkable/queue /opt/kdk-lab/obsidian/vault/_remarkable/done && chown -R 1000:1000 /opt/kdk-lab/obsidian-to-koreader && . /etc/komodo/op.env && op inject -f -i .env.tpl -o .env'"
-
-[[procedure]]
-tags = ["kdk-lab"]
-name = "obsidian-to-koreader"
-[procedure.config]
-schedule_format = "Cron"
-schedule = "0 48 */6 * * *"   # after docs-to-vault (:42)
-schedule_timezone = "America/Chicago"
-[[procedure.config.stage]]
-name = "sync"
-enabled = true
-executions = [
-  { execution.type = "DeployStack", execution.params.stack = "obsidian-to-koreader", enabled = true },
-]
+# kroki + obsidian-to-koreader REMOVED 2026-11 (owner decision, reading-sync rollout
+# step 4): vault notes -> PDFs on the tablet (watcher + 6-hourly one-shot, the "Send to
+# reMarkable" plugin queue) and Kroki, its only Mermaid renderer, are retired; no vault
+# PDF was ever opened. Stacks, procedure, plugin source and advisory-watch entries were
+# deleted; containers, images, the kroki_default network and host state are removed by hand.
 
 # ---- observability: Loki logs + per-host agents ----
 # Loki moved kdk-dkr-01 -> kdk-log-01 (2026-10, security plan B1). The old
@@ -1638,11 +1550,11 @@ run_directory = "stacks/obsidian-headless"
 pre_deploy.command = "sh -c '. /etc/komodo/op.env && op inject -f -i .env.tpl -o .env'"
 webhook_enabled = true
 
-# Internal Calibre Content Server (Tailscale-only) on kdk-dkr-01. `server` serves the
-# ebook library over OPDS on :8081; `import` folds LazyLibrarian's ebook downloads
-# (/mnt/media/books/ebook) into the Calibre library every 15m. The reMarkable's
-# KOReader pulls over the tailnet (http://10.1.20.20:8081/opds) when online -- a pull
-# model that doesn't need the tablet awake, unlike book-sync. Locally built (no registry).
+# calibre REMOVED 2026-11 (owner decision, reading-sync rollout step 4): Audiobookshelf
+# is the only book library and serves KOReader over OPDS (abs-opds, see
+# docs/services/reading-sync.md). The stacks/calibre/ tree, this stack, the
+# calibre-import workflow and the advisory-watch entry were deleted; the containers,
+# image and /opt/kdk-lab/calibre library are archived/removed by hand.
 # Trailarr on kdk-dkr-01: trailers for new Radarr/Sonarr titles -> Jellyfin
 # local trailers (<title>/trailers/). See stacks/trailarr.
 [[stack]]
@@ -1655,20 +1567,6 @@ compose_cmd_wrapper_include = ["config"]
 server = "kdk-dkr-01"
 repo = "BigH3ater/kdk-lab-dkr"
 run_directory = "stacks/trailarr"
-webhook_enabled = true
-
-[[stack]]
-tags = ["kdk-lab"]
-name = "calibre"
-deploy = true
-[stack.config]
-compose_cmd_wrapper = "/usr/local/sbin/kdk-compose-config-redact [[COMPOSE_COMMAND]]"   # redact env values from the stored Compose Config log (komodo#1636)
-compose_cmd_wrapper_include = ["config"]
-server = "kdk-dkr-01"
-repo = "BigH3ater/kdk-lab-dkr"
-run_directory = "stacks/calibre"
-auto_pull = false   # image is built locally (no registry) -> skip compose pull
-run_build = true    # run docker compose build before up
 webhook_enabled = true
 
 # Network exporters on kdk-dkr-01: unpoller (UniFi), adguard-exporter, snmp-exporter.

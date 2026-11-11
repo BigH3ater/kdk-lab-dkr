@@ -106,8 +106,9 @@ No dashboard. `ntp` (123/udp) and `proton-bridge` (25) are host-port; alerting â
 
 AdGuard sync is unattended; the others are headless integrations.
 
-**rmfakecloud retired 2026-10-31.** Tablet content now moves over SSH (`obsidian-to-koreader`,
-`readwise-koreader`, `koreader-highlights`), so the self-hosted reMarkable cloud and
+**rmfakecloud retired 2026-10-31.** Tablet content now moves over SSH (`koreader-highlights`) and
+OPDS ([Reading sync](reading-sync.md); the `obsidian-to-koreader` and `readwise-koreader` feeds
+were retired 2026-11), so the self-hosted reMarkable cloud and
 the `readwise-to-remarkable` native-reader highlights job were removed. Its data is archived on
 kdk-dkr-01 at `/opt/kdk-lab/apps/rmfakecloud.retired-20261031`, and the reMarkable cloud domains are
 blackholed to `0.0.0.0` by `dns-reconcile`, so the tablet stays cloud-free.

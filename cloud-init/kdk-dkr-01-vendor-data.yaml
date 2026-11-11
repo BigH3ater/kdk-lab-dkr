@@ -213,8 +213,7 @@ write_files:
       allow_dst 10.1.1.130 tcp 8484
       allow_dst 10.1.1.131 tcp 8484
 
-      # reMarkable tablet over SSH: koreader-highlights, obsidian-to-koreader,
-      # readwise-koreader.
+      # reMarkable tablet over SSH: koreader-highlights.
       allow_dst 10.1.30.245 tcp 22
 
       # Dashboard mealplan sidecar -> Home Assistant API on the Pi: the kitchen

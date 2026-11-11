@@ -9,15 +9,19 @@ does not do it on its own: a file you already have, a book LazyLibrarian has no
 record of, or a book no metadata source knows. Written from the 2026-11-08
 session (vault: `4. Learning/Reviews/Books Review 2026-11-08.md`).
 
-**Related:** [LazyLibrarian](../services/lazylibrarian.md) · [Calibre](../services/calibre.md) · [Rotate a secret](rotate-a-secret.md)
+**Related:** [LazyLibrarian](../services/lazylibrarian.md) · [Audiobookshelf](../services/audiobookshelf.md) · [Reading sync](../services/reading-sync.md) · [Rotate a secret](rotate-a-secret.md)
+
+Every path ends with the file under `/mnt/media/books/ebook`. Audiobookshelf's
+`ebooks` library scans that folder hourly at minute 15 and lists the book, and
+the tablet then finds it in the OPDS catalogue ([Reading sync](../services/reading-sync.md)).
 
 Try the paths **in order**. Each one is cheaper than the next.
 
 | Path | When | Ends in |
 |---|---|---|
-| [A. Staging import](#a-staging-import) | you have the file, and LazyLibrarian has (or can find) the record | LazyLibrarian renames it into the library, Calibre imports it |
+| [A. Staging import](#a-staging-import) | you have the file, and LazyLibrarian has (or can find) the record | LazyLibrarian renames it into the library; Audiobookshelf lists it |
 | [B. Add the record](#b-add-the-record-first) | LazyLibrarian has no record and `findBook` finds nothing | a record, then path A |
-| [C. Library tree by hand](#c-library-tree-by-hand) | no metadata source has the book at all | Calibre imports it; LazyLibrarian does not track it |
+| [C. Library tree by hand](#c-library-tree-by-hand) | no metadata source has the book at all | Audiobookshelf lists it; LazyLibrarian does not track it |
 
 ## Setup (laptop)
 
@@ -74,9 +78,10 @@ terminal you will paste from: see [The Prowlarr key in download URLs](#the-prowl
    2026-11-08; it is now [pinned](../services/lazylibrarian.md#pinned-settings)).
 
 4. **Verify**: the file is now under
-   `/mnt/media/books/ebook/<Author>/<Title>/`, and within 15 minutes Calibre has
-   it (`ssh kdkadmin@10.1.20.20 'sudo docker logs calibre-import 2>&1 | grep "<title words>"'`).
-   Audiobookshelf's `ebooks` library picks it up within the hour.
+   `/mnt/media/books/ebook/<Author>/<Title>/`
+   (`ssh kdkadmin@10.1.20.20 'ls "/mnt/media/books/ebook/<Author>/<Title>/"'`).
+   Audiobookshelf's `ebooks` library lists it after the next scan (hourly at
+   minute 15; or ABS → the `ebooks` library → **Scan** to see it now).
 
 ## B. Add the record first
 
@@ -123,8 +128,8 @@ terminal you will paste from: see [The Prowlarr key in download URLs](#the-prowl
 
 ## C. Library tree by hand
 
-For a book no source knows (no record can exist). Calibre reads the library
-tree directly; LazyLibrarian will not track the book.
+For a book no source knows (no record can exist). Audiobookshelf reads the
+library tree directly; LazyLibrarian will not track the book.
 
 ```bash
 ssh kdkadmin@10.1.20.20
@@ -134,11 +139,10 @@ mv /mnt/media/staging/ebook/some-title/some-title.epub \
 ```
 
 The layout `Author/Title/Title - Author.ext` matches what LazyLibrarian writes.
-`mv` within `/mnt/media` is a rename, not a copy. Within 15 minutes
-`calibre-import` adds it (`sudo docker logs calibre-import 2>&1 | grep "Some Title"`).
-Calibre still de-duplicates by title and author: a file whose embedded title
-equals a book already in Calibre (a 2nd edition titled like the 1st) is skipped,
-so give it a distinct title first.
+`mv` within `/mnt/media` is a rename, not a copy. Audiobookshelf lists it after
+its next `ebooks` scan (hourly at minute 15). ABS makes one item per folder, so a
+2nd edition needs its own `Title` folder (`Some Title 2e`), not a second file
+beside the 1st.
 
 ## Matcher misses
 

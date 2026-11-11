@@ -57,8 +57,7 @@ Homepage (`:3000`) serves `home.kmkdp.com` on the internal `proxy` net. `guides`
 and `mealplan` (`:8080`) are routed at `/guides` and `/meal` via Traefik `StripPrefix` with
 higher router priority than the Homepage catch-all. Vikunja (`:3456`, Authelia OIDC, SQLite) is at
 `tasks.kmkdp.com`. All `*.kmkdp.com` service URLs the widgets/monitors point at resolve to the
-DMZ (`192.168.191.20`) and are reachable (internal→DMZ:443 is open); Calibre is internal at
-`10.1.20.20:8081`.
+DMZ (`192.168.191.20`) and are reachable (internal→DMZ:443 is open).
 
 The meal-plan sidecar logs into Tandoor with a dedicated account (session auth — REST tokens
 are disabled) and reads `/api/meal-plan/`; ratings post back as CookLog entries. Per-user
