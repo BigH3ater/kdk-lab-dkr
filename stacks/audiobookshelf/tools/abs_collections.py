@@ -14,8 +14,10 @@ Standard library only (python3 works too). Docs: docs/services/audiobookshelf.md
 "Reading-order collections".
 
 Reads the Reading List note:
-  * the tables under the "## Round 1..." heading (any heading text after "Round 1") and
-    "## Then, in this order" (rows "| 1 | Make It Stick (Brown, Roediger, McDaniel) | 2014 |
+  * the first table under the "## Round 1..." heading (any heading text after "Round 1")
+    and under "## Then, in this order"; a section ends at the next heading of any level
+    ("## " or "### "), and an empty table is an error, so a broken note never empties a
+    collection (rows "| 1 | Make It Stick (Brown, Roediger, McDaniel) | 2014 |
     Studying | ABS epub | ... |"; the 5th cell is the status: "ABS <format>", "missing", "NEW");
   * the numbered list under "## Audio queue (commute, alongside the list)"
     ("1. *Accelerate* (Forsgren, Humble, Kim): ...", the italic part is the title).
@@ -28,12 +30,15 @@ Maintains three collections (COLLECTIONS below):
 Matching (match()): an exact ISBN found in the row wins; otherwise the normalised title
 (subtitle after ":" dropped, parentheticals, edition words, punctuation and case removed)
 must be equal, or the ABS title must be a whole-word prefix of the list title AND an
-author surname must agree. Several candidates are narrowed by author, then by edition.
-Anything still ambiguous, or with an explicitly different edition, is NOT matched: it is
-reported and skipped ("never guess"). A row whose status is "missing" or "NEW" is skipped
+author surname must agree. Several candidates are narrowed by author, then by edition:
+when the row names an edition, only an ABS title with that same edition matches (an ABS
+title with no edition text is "edition-unknown", needs the owner: put the ISBN in the row,
+an exact ISBN wins). Anything still ambiguous, or with another edition, is NOT matched: it
+is reported and skipped ("never guess"). A row whose status is "missing" or "NEW" is skipped
 too, even when ABS has a book of that title (e.g. a stray older edition): the list's status
 column is the owner's word on what is in the library. Matches that rest on a title prefix
-are printed as doubtful for a human to check.
+(or whose author differs) are printed as DOUBT, and --apply writes nothing while there is
+one, unless --accept-doubts says the owner checked them in the dry run.
 
 Apply (plan() → apply()): a missing collection is created with the matched books in list
 order; an existing one gets batch/remove for books that left the list, batch/add for new
@@ -131,6 +136,9 @@ def _split_book(cell: str) -> tuple[str, list[str]]:
     return m.group(1).strip(), _surnames(m.group(2))
 
 
+HEADING_RE = re.compile(r"^#{1,6}\s")
+
+
 def _section(text: str, heading: str, prefix: bool = False) -> list[str]:
     lines = text.splitlines()
 
@@ -144,17 +152,23 @@ def _section(text: str, heading: str, prefix: bool = False) -> list[str]:
         raise ValueError(f"heading not found in the Reading List: {heading!r}") from None
     out = []
     for ln in lines[start + 1:]:
-        if ln.startswith("## "):
+        if HEADING_RE.match(ln):                  # "## " or a "### " subsection
             break
         out.append(ln)
     return out
 
 
+
 def parse_table(lines: list[str]) -> list[Entry]:
+    """Rows of the FIRST table in `lines` (a later table is never read)."""
     entries = []
+    in_table = False
     for ln in lines:
         if not ln.lstrip().startswith("|"):
+            if in_table:
+                break
             continue
+        in_table = True
         cells = [c.strip() for c in ln.strip().strip("|").split("|")]
         if not cells or not cells[0].isdigit() or len(cells) < 2:
             continue                                    # header and --- separator rows
@@ -186,13 +200,18 @@ def parse_audio(lines: list[str]) -> list[Entry]:
 
 
 def parse_reading_list(text: str) -> dict[str, list[Entry]]:
+    """Raises ValueError when a heading is missing or its table/list has no rows: an
+    empty section would plan the removal of every book from its collection."""
     round1 = parse_table(_section(text, ROUND1_HEADING, prefix=True))
     then = parse_table(_section(text, THEN_HEADING))
-    table = round1 + then
+    audio = parse_audio(_section(text, AUDIO_HEADING))
+    for heading, rows in ((ROUND1_HEADING, round1), (THEN_HEADING, then), (AUDIO_HEADING, audio)):
+        if not rows:
+            raise ValueError(f"no rows under {heading!r} in the Reading List: refusing to plan")
     return {
         "round1": round1,
-        "table": table,
-        "audio": parse_audio(_section(text, AUDIO_HEADING)),
+        "table": round1 + then,
+        "audio": audio,
     }
 
 
@@ -253,6 +272,7 @@ class Match:
     entry: Entry
     item: Item | None
     how: str                     # isbn | title | prefix+author | none | ambiguous | edition-mismatch
+                                 # | edition-unknown
     doubts: list[str] = field(default_factory=list)
 
 
@@ -289,16 +309,16 @@ def match(entry: Entry, items: list[Item]) -> Match:
 
     want_ed = edition_number(entry.edition) or edition_number(entry.title)
     if want_ed:
-        # an explicitly different edition is never a match
-        cands_ed = [it for it in cands if edition_number(it.title) in (None, want_ed)]
+        # The row names an edition: only that edition matches. An ABS title with no
+        # edition text could be any edition (a stray 1st edition), so it needs the owner.
+        cands_ed = [it for it in cands if edition_number(it.title) == want_ed]
         if not cands_ed:
-            return Match(entry, None, "edition-mismatch",
-                         [f"ABS has {', '.join(repr(c.title) for c in cands)}"])
+            titles = ", ".join(repr(c.title) for c in cands)
+            if any(edition_number(c.title) is None for c in cands):
+                return Match(entry, None, "edition-unknown",
+                             [f"needs owner: ABS has {titles} with no edition; put the ISBN in the row"])
+            return Match(entry, None, "edition-mismatch", [f"ABS has {titles}"])
         cands = cands_ed
-        if len(cands) > 1:
-            exact = [it for it in cands if edition_number(it.title) == want_ed]
-            if len(exact) == 1:
-                cands = exact
 
     if len(cands) > 1:
         return Match(entry, None, "ambiguous", [", ".join(repr(c.title) for c in cands)])
@@ -427,7 +447,19 @@ class AbsClient:
         return self.get("/collections").get("collections", [])
 
 
-def apply(client, plans: list[Plan]) -> int:
+def doubtful(plans: list[Plan]) -> list[Match]:
+    """Matched rows with a doubt (a title-prefix match, a differing author)."""
+    return [m for p in plans for m in p.matches if m.item and m.doubts]
+
+
+def apply(client, plans: list[Plan], accept_doubts: bool = False) -> int:
+    """Write every plan. Refuses (ValueError, nothing written) while a match is
+    doubtful, unless the owner accepted the doubts after reading the dry run."""
+    doubts = doubtful(plans)
+    if doubts and not accept_doubts:
+        rows = ", ".join(f"{m.entry.num}. {m.entry.title!r}" for m in doubts)
+        raise ValueError(f"doubtful matches ({rows}): check the dry run, then re-run with "
+                         "--accept-doubts; nothing written")
     for p in plans:
         for op in p.ops:
             client.send(op)
@@ -470,6 +502,8 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--list", type=Path, default=DEFAULT_LIST, help="Reading List note")
     ap.add_argument("--base-url", default=os.environ.get("ABS_URL", DEFAULT_BASE_URL))
     ap.add_argument("--apply", action="store_true", help="write the plan (default: dry run)")
+    ap.add_argument("--accept-doubts", action="store_true",
+                    help="with --apply: write even though some matches are DOUBT (checked by hand)")
     args = ap.parse_args(argv)
 
     token = os.environ.get("ABS_TOKEN", "").strip()
@@ -478,7 +512,11 @@ def main(argv: list[str] | None = None) -> int:
               file=sys.stderr)
         return 2
 
-    lists = parse_reading_list(args.list.read_text(encoding="utf-8"))
+    try:
+        lists = parse_reading_list(args.list.read_text(encoding="utf-8"))
+    except ValueError as e:
+        print(f"Refusing to plan: {e}", file=sys.stderr)
+        return 3
     client = AbsClient(args.base_url, token)
     libs = {lib for _, lib, _ in COLLECTIONS}
     items_by_lib = {lib: client.library_items(lib) for lib in libs}
@@ -488,7 +526,11 @@ def main(argv: list[str] | None = None) -> int:
     if not args.apply:
         print("Dry run: nothing written. Re-run with --apply to write.")
         return 0
-    n = apply(client, plans)
+    try:
+        n = apply(client, plans, accept_doubts=args.accept_doubts)
+    except ValueError as e:
+        print(f"Refusing to apply: {e}", file=sys.stderr)
+        return 3
     print(f"Applied {n} writes.")
     return 0
 

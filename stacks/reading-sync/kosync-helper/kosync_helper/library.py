@@ -102,16 +102,16 @@ class PdfLibrary:
             if real is None:
                 log.warning("pdf_map_skip", extra={"event": "pdf_map_skip", "item": item_id})
                 continue
-            st = os.stat(real)
-            key = (real, st.st_size, st.st_mtime_ns)
-            cached = self._file_cache.get(key)
-            if cached is None:
-                try:
+            try:  # a file removed mid-rebuild skips its entry, never the whole rebuild
+                st = os.stat(real)
+                key = (real, st.st_size, st.st_mtime_ns)
+                cached = self._file_cache.get(key)
+                if cached is None:
                     with open(real, "rb") as f:
                         cached = (partial_md5_fileobj(f), count_pages(f) if fmt == "pdf" else None)
-                except OSError:
-                    log.warning("pdf_map_skip", extra={"event": "pdf_map_skip", "item": item_id})
-                    continue
+            except OSError:
+                log.warning("pdf_map_skip", extra={"event": "pdf_map_skip", "item": item_id})
+                continue
             cache[key] = cached
             doc_hash, pages = cached
             if fmt == "pdf":

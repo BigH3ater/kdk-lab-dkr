@@ -158,14 +158,15 @@ curl -s -X POST https://audiobookshelf.kmkdp.com/api/libraries \
 
 Plappa 2.0 shows these collections for ebooks and audiobooks, so the phone follows the list.
 
-- **Matching:** exact ISBN if the row has one, otherwise the normalised title (no subtitle, edition words, punctuation or case), with the author and then the edition as tie-breaks. A title that is not in ABS, is ambiguous, or names another edition is printed and skipped, never guessed. A row whose Status is `missing` or `NEW` is skipped even when ABS has that title, so a stray older edition (e.g. the 1st-edition *Fundamentals of Software Architecture*) stays out; set the row to `ABS <format>` once the right file is in the library. `DOUBT:` marks a title-prefix match to check by eye.
+- **Matching:** exact ISBN if the row has one, otherwise the normalised title (no subtitle, edition words, punctuation or case), with the author and then the edition as tie-breaks. A row that names an edition matches only an ABS title with that edition: an ABS title with no edition text is skipped as `edition-unknown` (needs owner; put the ISBN in the row, an exact ISBN wins). A title that is not in ABS, is ambiguous, or names another edition is printed and skipped, never guessed. A heading with an empty table (or list) stops the run before anything is planned, and a section ends at the next `## ` or `### ` heading (first table only). A row whose Status is `missing` or `NEW` is skipped even when ABS has that title, so a stray older edition (e.g. the 1st-edition *Fundamentals of Software Architecture*) stays out; set the row to `ABS <format>` once the right file is in the library. `DOUBT:` marks a title-prefix match (or a differing author) to check by eye; `--apply` writes nothing while there is one, until `--apply --accept-doubts` after you have checked the dry run.
 - **Writes:** creates a missing collection, then sets its books and order exactly to the list: books that left the list are removed, new arrivals join in list order. Finished books stay unless they left the list. A second `--apply` makes 0 writes.
 - **Run it on demand**, from the laptop, after editing the list or after new books arrive. Dry run is the default; read the match lines before `--apply`. The token is read from the environment and never printed:
 
 ```bash
 export ABS_TOKEN="$(op read op://kdk-ops/audiobookshelf-api-root/credential)"
 uv run stacks/audiobookshelf/tools/abs_collections.py           # dry run: matches + planned writes
-uv run stacks/audiobookshelf/tools/abs_collections.py --apply   # write them
+uv run stacks/audiobookshelf/tools/abs_collections.py --apply   # write them (refused while a DOUBT is listed)
+uv run stacks/audiobookshelf/tools/abs_collections.py --apply --accept-doubts   # after checking every DOUBT line
 unset ABS_TOKEN
 ```
 

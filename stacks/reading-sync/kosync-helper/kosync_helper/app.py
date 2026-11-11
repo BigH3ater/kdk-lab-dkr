@@ -50,7 +50,7 @@ ABS_DEVICE_ID = "audiobookshelf"
 
 
 class JsonFormatter(logging.Formatter):
-    FIELDS = ("event", "item", "status", "route", "count", "reason")
+    FIELDS = ("event", "item", "status", "route", "count", "reason", "error")
 
     def format(self, record: logging.LogRecord) -> str:
         out = {"ts": int(record.created), "level": record.levelname.lower()}
@@ -126,6 +126,9 @@ class Helper:
         now = self.clock()
         body = {"pdfs": len(self.library), "epubs": self.library.epub_count,
                 "epub_autolink": self.linker is not None, "map_loaded": self.last_refresh_ok is not None}
+        if self.linker is not None:
+            # last BookBridge web login: never | ok | refused (a wrong password shows here)
+            body["bookbridge_login"] = self.linker.web.last_login
         stale_after = 2 * self.s.refresh_seconds + 300
         if self.last_refresh_ok is None:
             ok = now - self.started < 300 or not self.last_refresh_error
