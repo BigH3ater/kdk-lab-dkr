@@ -418,20 +418,48 @@ as needed, so a fish dinner is never limited by a count.
   `freezer.map` key points at (snack sticks, an old tuna or salmon row) is
   ignored by the planner and logged once per build as `freezer_unknown_cut`;
   it can stay in the file. **add** adds a cut (name, unit,
-  count, package size); map it in `config.yaml` → `freezer.map` (food-name
-  substring → cut id) so recipes use it.
+  count, package size, **lb each**); map it in `config.yaml` → `freezer.map`
+  (food-name substring → cut id) so recipes use it. **lb each** (the weight of
+  one portion or package) is required unless the unit is `lb`: recipes measure
+  meat by weight, and without it the planner cannot convert "1.5 lb" into
+  packages.
 - **Order arrived: O'Connell / Amana** adds that standing order
-  (`config.yaml` → `standing_orders`) to the counts. **undo last change** swaps
-  `freezer.json` with `freezer.json.bak` (every write keeps one `.bak`; press
-  again to redo). Each change logs `freezer change by <user>: …` in the sidecar.
+  (`config.yaml` → `standing_orders`) to the counts **once**: the file records
+  each arrival (`arrivals`: order + time) and a second tap for the same order
+  within 12 hours is refused (`freezer change refused (arrived)` in the sidecar
+  log; nothing changes). The button disables after the first tap. A real second
+  delivery the same day: add it with `+` / **set**.
+- **undo my last tap** swaps `freezer.json` with `freezer.json.bak`: it reverts
+  **your own last Pantry tap** (press again to redo). Every Pantry write keeps
+  one `.bak`; the weekly build never touches it. Right after a build (the
+  newest version is the build's reservation, `updated_by: grocery-planner`)
+  undo is refused, so it can never put reserved meat back; fix a count with
+  `−` / `+` / **set** instead. The build keeps the file as it was before its
+  reservation in `freezer.json.prebuild` (by-hand recovery only). Each change
+  logs `freezer change by <user>: …` (or `freezer change refused …`) in the
+  sidecar.
+- **One writer at a time.** The Pantry tab and the build take the same lock
+  (`/pantry/.freezer.lock`, flock) around read-change-write, and each write
+  lands via a unique temp file + rename, so a tap during the Tuesday build is
+  applied on top of the reservation, never lost.
 - **What the build does** (Tuesday): never plans a dinner or lunch the freezer
   is short for (the skipped recipes are logged as `freezer_short_pick`); fish
   parity yields to the fish in stock (`freezer_fish`); prefers the cut with the
   most dinners' worth left; after writing the plan it decrements what it
   reserved (`freezer_reserved`, also on the Thaw tab) — once per week.
   Freezer-aisle foods with no `freezer.map` key log `freezer_unmapped` and count
-  as available. Missing or unreadable file: `freezer_inventory_missing`, plan
-  as before.
+  as available. Missing, unreadable or malformed file (a non-numeric version or
+  count, anything that breaks the plan): `freezer_inventory_missing` with the
+  reason, and the week is planned as before without the inventory.
+  Burger night is checked against `burger-patties` like any dinner (no patties:
+  `freezer_short_pick` slot `burger_night`, a chicken dinner instead).
+- **Unconvertible amounts** (`freezer_unconvertible`, warn): a recipe line the
+  cut's unit cannot express — a weight for a portion/package cut with no
+  `package_lb`, a count for a package cut with no `portions_per_package`, cups
+  or tbsp for an lb cut. The planner never guesses: the line counts as
+  available and nothing is reserved for it. Fix: set the cut's `package_lb` /
+  portions (Pantry tab **set portions**, or by hand in the file) or fix the
+  recipe's unit.
 - **When a cut is short** (2026-11-11; W48 planned a filet with 0 filets): the
   slot is tried with another protein that has stock, in `config.yaml` →
   `freezer.fallback` order — steak → ground beef → poultry → fish; fish →
@@ -488,7 +516,11 @@ that lands on that day is dropped (a roast night on a skip day moves to the next
 free night). The lunch count shrinks with it (2 people × the lunch days left): a
 skipped prep day has no batch, no dinner is cooked at 4 for a skipped lunch day,
 and a lunch day nothing else covers is added to the prep before it
-(`lunch_gap`). Breakfast staples and snacks stay. Dates outside the planned week
+(`lunch_gap`). A lunch day with **no prep before it** (Sunday skipped, so
+Monday; or a Thursday lunch, eaten before Thursday's prep is cooked) is never
+fed by a later batch: it stays unfed and is listed in the `lunch_gap` line's
+`unfed` field (and `--preview` prints it). The kitchen page's "Lunch prep"
+copies skip the skip days too. Breakfast staples and snacks stay. Dates outside the planned week
 are ignored, so old dates can stay. The `no_dinner` log line lists the skipped
 and freezer-short nights; `--preview` shows them under "no dinner". Edit,
 merge, and the next Tuesday build reads it (the job reads `config.yaml` at
@@ -749,7 +781,8 @@ public rating, and demote dishes the household rates low (Phase 2).
   `--apply`, it re-reads it), or a Costco/stock store (not a weekly list).
 - **`lunch_gap` warning.** A lunch day had no lunch-friendly dinner the night
   before (none left in the season, or burger night took the chicken slot); the
-  day was added to the prep batch before it. Tag another chicken dinner
+  day was added to the prep batch before it (`days`), or, with no prep before
+  it, left without a planned lunch (`unfed`). Tag another chicken dinner
   `lunch-friendly` in Tandoor (or add it to `lunches.leftovers.recipes`).
 - **Week already planned.** A re-run logs `skip: week already planned` — the week
   key marker (`gp:<ISO week>`) is already on the meal-plan entries. Delete those
