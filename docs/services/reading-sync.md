@@ -37,7 +37,7 @@ flowchart LR
 | Purpose | OPDS catalogue of the ABS `ebooks` library for KOReader, and KOReader Progress sync to ABS for EPUB and PDF |
 | Host | kdk-dkr-dmz-01 (192.168.191.20), Komodo stack `reading-sync` |
 | URLs | `https://opds.kmkdp.com/opds` (catalogue), `https://kosync.kmkdp.com` (sync server). Both LAN + tailnet |
-| Services | `abs-opds` (ghcr.io/vito0912/abs-opds 2.0.7), `kosync-helper` (local build, `stacks/reading-sync/kosync-helper`), `bookbridge` (ghcr.io/cporcellijr/bookbridge 7.12.0) |
+| Services | `abs-opds` (ghcr.io/vito0912/abs-opds 2.0.7), `kosync-helper` (local build, `stacks/reading-sync/kosync-helper`), `bookbridge` (ghcr.io/cporcellijr/bookbridge v7.13.0; upstream tags carry a `v` prefix from 7.13.0) |
 | Identity | One reader: `jmack`. Three ABS API keys, all for `jmack`, each with an expiry (one per service, so each can be revoked alone) |
 | Storage | BookBridge DB + `secret.key` in `/opt/kdk-lab/reading-sync/bookbridge` (local disk). Ebooks read-only from `/mnt/media/books/ebook` |
 | Blast radius | Down: no new downloads on the tablet and no position sync. Books already on the tablet still open. ABS and the phone are unaffected |

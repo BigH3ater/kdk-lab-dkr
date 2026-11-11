@@ -6,7 +6,7 @@ tier: infra
 status: live
 storage: yes
 secrets: [cloudflare-dns-acme-hosts]
-updated: 2026-11-04
+updated: 2026-11-11
 tags: [homelab/stack, tier/infra, status/live]
 ---
 
@@ -14,7 +14,7 @@ tags: [homelab/stack, tier/infra, status/live]
 
 Terminates TLS and host-routes every internal `*.kmkdp.com` service on kdk-dkr-01, gating most behind Authelia ForwardAuth.
 
-This is one of **three** Traefiks, all `traefik:v3.7.17`: this one (internal apps), the DMZ one with the Cloudflare tunnel entrypoint and `strip-cf` ([[dmz-proxy]]), and the file-provider-only one on the Home Assistant Pi ([[kdk-dkr-02]], `stacks/home-assistant`).
+This is one of **three** Traefiks: this one (internal apps, `traefik:v3.7.17`), the DMZ one (`traefik:v3.7.18` since 2026-11-11) with the Cloudflare tunnel entrypoint and `strip-cf` ([[dmz-proxy]]), and the file-provider-only one on the Home Assistant Pi ([[kdk-dkr-02]], `stacks/home-assistant`, `traefik:v3.7.17`).
 
 **Related:** [[kdk-dkr-01]] · [[identity]] · [[dmz-proxy]]
 

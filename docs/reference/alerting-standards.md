@@ -197,7 +197,7 @@ docker run --rm -v "$PWD/stacks/monitoring/prometheus:/p:ro" prom/prometheus:v3.
 **Laptop, repo root**
 
 ```sh
-docker run --rm -v "$PWD/stacks/monitoring/alertmanager:/a:ro" --entrypoint amtool prom/alertmanager:v0.34.2 check-config /a/alertmanager.yml   # no-sudo-ok (laptop)
+docker run --rm -v "$PWD/stacks/monitoring/alertmanager:/a:ro" --entrypoint amtool prom/alertmanager:v0.35.0 check-config /a/alertmanager.yml   # no-sudo-ok (laptop)
 ```
 
 (The secret files — `pushover-*`, `proton-bridge-smtp-password` — are installed

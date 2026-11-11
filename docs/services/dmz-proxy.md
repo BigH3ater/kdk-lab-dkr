@@ -6,7 +6,7 @@ tier: dmz
 status: live
 storage: yes
 secrets: [cloudflare-dns-acme-hosts, cloudflare-tunnel-credentials]
-updated: 2026-10-28
+updated: 2026-11-11
 tags: [homelab/stack, tier/dmz, status/live]
 ---
 
@@ -23,7 +23,7 @@ DMZ ingress: Traefik terminates TLS and host-routes the public services, and clo
 | Purpose | Reverse proxy + tunnel for DMZ/public services |
 | Status | 🟢 Live — 443 serves; tunnel connected |
 | Host | [[kdk-dkr-dmz-01]] (192.168.191.20), published ports `80`/`443`; tunnel entrypoint `8443` on `proxy-dmz` only |
-| Images | `traefik:v3.7.17`, `cloudflare/cloudflared:2026.10.7`, `ghcr.io/tecnativa/docker-socket-proxy:v0.5.0` (digest-pinned; Renovate proposes updates) |
+| Images | `traefik:v3.7.18`, `cloudflare/cloudflared:2026.10.7`, `ghcr.io/tecnativa/docker-socket-proxy:v0.5.0` (digest-pinned; Renovate proposes updates) |
 | Fixed IPs (`proxy-dmz` 10.211.2.0/24) | cloudflared `10.211.2.2`, traefik `10.211.2.3`; dynamic range `10.211.2.128/25` |
 | Deploy | Komodo stack `dmz-proxy` (git-linked, `op inject` pre_deploy) |
 | Cert | `kmkdp.com` + `*.kmkdp.com`, ACME DNS-01 via Cloudflare |
