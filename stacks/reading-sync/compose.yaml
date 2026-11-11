@@ -130,7 +130,7 @@ services:
 
   bookbridge:
     <<: *hardened
-    image: ghcr.io/cporcellijr/bookbridge:7.12.0@sha256:401785216914a2f1bbbf6383620cbd6fd85369389d258eaaa6433567335ed356
+    image: ghcr.io/cporcellijr/bookbridge:v7.13.0@sha256:302018ffdecc16cd90c4fe42e31927a0456f487e122db46972412892e22a4c66
     container_name: bookbridge
     # The image has no USER (runs as root) but needs none of root's rights: it
     # writes only DATA_DIR. /opt/kdk-lab/reading-sync/bookbridge is chowned 1000:1000
