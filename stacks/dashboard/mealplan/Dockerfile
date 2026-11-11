@@ -2,14 +2,10 @@ FROM python:3.12.16-slim@sha256:5e2bdb1b0d542d5039cffb8181c65930093949194a65c365
 # Tiny read-mostly sidecar: logs into Tandoor with the dashboard account (session auth,
 # since REST tokens are disabled), reads /api/meal-plan/, renders the week, and writes
 # back CookLog star ratings. requests handles the cookie/CSRF session; waitress serves it.
-RUN pip install --no-cache-dir flask==3.0.3 requests==2.32.3 waitress==3.0.1 pyyaml==6.0.3
-# Kitchen board calendar: parse the household ICS feed and expand recurring
-# events. Transitive deps pinned too (recurring-ical-events wants dateutil < 3).
-RUN pip install --no-cache-dir icalendar==7.3.0 recurring-ical-events==3.8.2 \
-    x-wr-timezone==2.0.1 python-dateutil==2.9.0.post0 tzdata==2026.5 \
-    typing-extensions==4.16.0 click==8.5.0
-# Kitchen device pairing: the QR code for the pairing link (pure Python, no deps).
-RUN pip install --no-cache-dir segno==1.6.6
+# Pins live in requirements.txt so Renovate (pip_requirements) tracks them.
+COPY requirements.txt /tmp/requirements.txt
+RUN pip install --no-cache-dir -r /tmp/requirements.txt && rm /tmp/requirements.txt \
+    && install -d -o 1000 -g 1000 /data /state /pantry
 WORKDIR /app
 COPY app.py /app/app.py
 # New Pi product-link lookup; reads foods.yaml bind-mounted at /app/foods.yaml.
@@ -28,6 +24,12 @@ COPY forced.py /app/
 # admin.kmkdp.com: status sources, LogQL escaping and the admin page HTML.
 COPY admin.py /app/
 COPY static /app/static
-ENV PYTHONUNBUFFERED=1
+# PYTHONDONTWRITEBYTECODE: the rootfs is read-only (compose read_only), so no
+# __pycache__ writes are attempted.
+ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1
+# Non-root, same uid as the grocery-planner job that shares /pantry. The empty
+# /data, /state and /pantry above are uid 1000 so a NEW named volume starts
+# writable; existing host dirs are chowned by the Komodo pre_deploy.
+USER 1000:1000
 EXPOSE 8080
 CMD ["python", "/app/app.py"]

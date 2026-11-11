@@ -34,15 +34,18 @@ paired-device cookie (see [Kitchen host and device pairing](#kitchen-host-and-de
 | Status | 🟢 Live; Homepage retired 2026-11-10 (the sidecar serves every page) |
 | Host | [[kdk-dkr-01]] |
 | Endpoints | `home.kmkdp.com` (`/` → 302 to `/meal/home`; + `/guides`, `/meal`, kitchen board `/meal/kitchen`, pantry check `/meal/kitchen/pantry`, household page `/meal/home`, device admin `/meal/kitchen/devices`), `kitchen.kmkdp.com` (paired kitchen screen, no Authelia), `admin.kmkdp.com` (lab admin page, jmack only), `tasks.kmkdp.com` |
-| Images | `nginx:1.31.8-alpine`, `vikunja/vikunja:2.7.1`, `kdk/dashboard-mealplan` (built) |
+| Images | `nginx:1.31.8-alpine`, `vikunja/vikunja:2.8.0`, `kdk/dashboard-mealplan` (built; Python pins in `mealplan/requirements.txt`, Renovate group `dashboard-mealplan python deps`) |
 | Deploy | Komodo stack `dashboard` (git-linked, `op inject` pre_deploy) |
-| Storage | `/opt/kdk-lab/dashboard/vikunja` (SQLite + files), `/opt/kdk-lab/dashboard/kitchen-state` (kitchen device registry, add-box forced-manual ids), `/opt/kdk-lab/dashboard/pantry` (freezer inventory `freezer.json`, shared with grocery-planner; see the grocery-planner runbook) |
+| Storage | All uid 1000, chowned by the Komodo `pre_deploy` on every deploy: `/opt/kdk-lab/dashboard/vikunja` (`db/` SQLite + `files/`), `/opt/kdk-lab/dashboard/kitchen-state` (mode 700; kitchen device registry `devices.json`, add-box `manual-forced.json`), `/opt/kdk-lab/dashboard/pantry` (freezer inventory `freezer.json` + `.bak`, shared with grocery-planner; see the grocery-planner runbook), named volume `dashboard_mealplan-data` (`/data/thaw.json`, Thaw ticks) |
+| Hardening | Compose baseline on all three services (2026-11-11): `read_only` rootfs, `cap_drop: [ALL]`, `no-new-privileges`, mem/pids limits, healthchecks. mealplan and vikunja run as `1000:1000`; guides (nginx) keeps `CHOWN`/`SETUID`/`SETGID` for its master→worker drop, tmpfs `/var/cache/nginx` + `/run`. Healthchecks: mealplan `/healthz`, guides `/index.html`, vikunja `vikunja healthcheck` (DB ping; scratch image has no HTTP client). CSP on the household, groceries and kitchen pages (below) |
 | Blast radius | The family home page and kitchen screen; the underlying services are unaffected |
 
 ## Verify
 
 ```bash
 ssh kdkadmin@10.1.20.20 "sudo docker ps --filter name=vikunja --filter name=dashboard-guides --filter name=dashboard-mealplan --format '{{.Names}} {{.Status}}'"
+# hardening: true / [ALL] / 1000:1000 (guides: empty user) for each
+ssh kdkadmin@10.1.20.20 "sudo docker inspect -f '{{.Name}} ro={{.HostConfig.ReadonlyRootfs}} drop={{.HostConfig.CapDrop}} user={{.Config.User}} health={{.State.Health.Status}}' vikunja dashboard-guides dashboard-mealplan"
 # / redirects to the household page (signed-in browser: lands on /meal/home; without a session Authelia answers first)
 curl -s -o /dev/null -w '%{http_code}\n' https://home.kmkdp.com/            # 302 (Authelia or the household redirect)
 curl -s -o /dev/null -w '%{http_code}\n' https://home.kmkdp.com/guides/     # 200
@@ -207,10 +210,7 @@ its opening words.
 **Tests** (fixtures only, no network), from `stacks/dashboard/mealplan`:
 
 ```bash
-uv run --no-project --with flask==3.0.3 --with requests==2.32.3 --with waitress==3.0.1 \
-  --with pyyaml==6.0.3 --with icalendar==7.3.0 --with recurring-ical-events==3.8.2 \
-  --with x-wr-timezone==2.0.1 --with python-dateutil==2.9.0.post0 --with tzdata==2026.5 \
-  --with segno==1.6.6 --with pytest python -m pytest -q tests
+uv run --no-project --with-requirements requirements.txt --with pytest python -m pytest -q tests
 ```
 
 ### Runbook: the kitchen iPad as a Home Screen app
@@ -403,6 +403,17 @@ Responses on the admin host carry `Cache-Control: no-store`, a strict CSP
 (`default-src 'none'`; styles, images and fonts from self only; no scripts),
 `X-Frame-Options: DENY`, `nosniff` and `Referrer-Policy: same-origin`. The page
 reloads itself every 60 s with a meta refresh, except on a search result.
+
+The household (`/meal/home`), groceries (`/meal/groceries*`) and kitchen
+(`/meal/kitchen*`, everything on `kitchen.kmkdp.com`) responses carry
+`PAGE_CSP` (app.py): scripts from self plus the two static inline scripts by
+sha256 hash (groceries tabs, the pair-page code copy; never `'unsafe-inline'`),
+inline styles allowed, images from self/`data:`/any `https:` (Tandoor recipe
+photos), forms to self and `sso.kmkdp.com` (an expired session redirects there),
+`frame-ancestors 'none'`. A new inline `<script>` on these pages is blocked until
+its hash is added to `PAGE_CSP`; `tests/test_page_csp.py` fails first. The week,
+tasks and weather pages (`/meal/`, `/meal/tasks`, `/meal/weather`) have no CSP yet
+(inline tasks script, Google Fonts `@import`).
 
 The household page (`/meal/home`) shows an **Admin** link in its header only to
 `ADMIN_USERS`.

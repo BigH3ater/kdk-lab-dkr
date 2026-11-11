@@ -237,6 +237,17 @@
       "groupSlug": "kosync-helper-python"
     },
     {
+      "description": "dashboard-mealplan Python deps (stacks/dashboard/mealplan/requirements.txt): one grouped PR; run the mealplan pytest suite (command in docs/services/dashboard.md) before merging, then check /healthz and the kitchen page after the Komodo redeploy.",
+      "matchFileNames": [
+        "stacks/dashboard/mealplan/**"
+      ],
+      "matchManagers": [
+        "pip_requirements"
+      ],
+      "groupName": "dashboard-mealplan python deps",
+      "groupSlug": "dashboard-mealplan-python"
+    },
+    {
       "description": "wger server + PowerSync (stacks/wger): a wger minor has carried breaking API changes twice in 2026 and can need a new vendored powersync/sync_rules.yaml, so minors and majors wait for a Dependency Dashboard tick; patches and digests stay in the internal group.",
       "matchDatasources": [
         "docker"
