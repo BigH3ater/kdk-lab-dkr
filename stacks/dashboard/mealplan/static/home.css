@@ -480,10 +480,19 @@ a.ad-stat:hover{border-color:var(--muted);color:var(--text)}
 .ad-chart polyline{fill:none;stroke:var(--rust);stroke-width:2;vector-effect:non-scaling-stroke}
 .ad-nodata{height:36px;display:flex;align-items:center;font-size:12px;color:var(--muted)}
 .ad-nodata.bad{color:var(--late)}
-.ad-groups{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;align-items:start}
-.ad-group{padding:12px 12px 8px;display:flex;flex-direction:column}
-.ad-group h3{font-size:15px;padding:0 6px 4px}
-.ad-svc{display:flex;align-items:center;gap:10px;min-height:34px;padding:0 6px;border-radius:8px;color:var(--text);text-decoration:none}
+/* service groups pack like masonry instead of rows stretched to the tallest card:
+   2 px grid rows, no row gap, dense flow, and each card spans its own height plus
+   the 12 px gap. Card height is fixed by construction: 48 px chrome (12+8 padding,
+   2 border, 22+4 heading) + items x --svc (34 px, 44 px touch). The span comes from
+   the ad-n<items> class admin.py sets: (60 + items x svc) / 2 = --rd desktop, --rt
+   touch. Classes, not style attributes: the admin CSP has no unsafe-inline. */
+.ad-groups{--svc:34px;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));grid-auto-rows:2px;grid-auto-flow:row dense;column-gap:12px;row-gap:0;align-items:start}
+.ad-group{grid-row:span var(--rd);padding:12px 12px 8px;display:flex;flex-direction:column;min-width:0}
+.ad-n1{--rd:47;--rt:52}.ad-n2{--rd:64;--rt:74}.ad-n3{--rd:81;--rt:96}.ad-n4{--rd:98;--rt:118}
+.ad-n5{--rd:115;--rt:140}.ad-n6{--rd:132;--rt:162}.ad-n7{--rd:149;--rt:184}.ad-n8{--rd:166;--rt:206}
+.ad-n9{--rd:183;--rt:228}.ad-n10{--rd:200;--rt:250}.ad-n11{--rd:217;--rt:272}.ad-n12{--rd:234;--rt:294}
+.ad-group h3{font-size:15px;line-height:22px;padding:0 6px 4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ad-svc{display:flex;align-items:center;gap:10px;height:var(--svc);padding:0 6px;border-radius:8px;color:var(--text);text-decoration:none}
 .ad-svc:hover{background:var(--raised);color:var(--text)}
 .ad-svc-n{flex:1 1 auto;min-width:0;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ad-host{flex:0 0 auto;font:11px var(--mono);color:var(--muted)}
@@ -501,6 +510,8 @@ a.ad-stat:hover{border-color:var(--muted);color:var(--text)}
   .ad-explore{padding-right:8px}
   .ad-alert{min-height:48px}
   .ad-svc{min-height:44px}
+  .ad-groups{--svc:44px}
+  .ad-group{grid-row:span var(--rt)}
   .ad-search input,.ad-search select,.ad-btn{min-height:44px}
 }
 @media (max-width:760px){
@@ -508,6 +519,8 @@ a.ad-stat:hover{border-color:var(--muted);color:var(--text)}
   .ad-main{padding:14px 16px 20px}
   .ad-stats{grid-template-columns:repeat(2,minmax(0,1fr))}
   .ad-two,.ad-groups{grid-template-columns:minmax(0,1fr)}
+  .ad-groups{grid-auto-rows:auto;row-gap:12px}
+  .ad-group{grid-row:auto}
   .ad-charts{grid-template-columns:repeat(2,minmax(0,1fr))}
   .ad-log{grid-template-columns:minmax(0,1fr);gap:0}
   .ad-search .ad-btn{flex:1 1 100%}

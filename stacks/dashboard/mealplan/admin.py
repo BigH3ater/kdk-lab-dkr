@@ -814,7 +814,9 @@ def _groups_html(status: dict[str, bool]) -> str:
                         if dot else "<span class='dot none' aria-hidden='true'></span>")
             rows.append(f"<a class='ad-svc' href='{escape(href)}' target='_blank' rel='noopener'>{dot_html}"
                         f"<span class='ad-svc-n'>{escape(label)}</span><span class='ad-host'>{escape(host)}</span></a>")
-        out.append(f"<div class='card ad-group'><h3>{escape(name)}</h3>{''.join(rows)}</div>")
+        # ad-n<items> sets the card's row span in the packing grid (home.css);
+        # a class, not a style attribute, because the admin CSP has no unsafe-inline
+        out.append(f"<div class='card ad-group ad-n{len(items)}'><h3>{escape(name)}</h3>{''.join(rows)}</div>")
     return "<section class='ad-groups'>" + "".join(out) + "</section>"
 
 
