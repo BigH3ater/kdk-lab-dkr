@@ -306,6 +306,13 @@
         "python"
       ],
       "enabled": false
+    },
+    {
+      "description": "idrac_exporter 3.0.0 panics on any whole-number env setting (interface conversion uint64/uint in internal/config/env.go, seen 2026-11-11 on kdk-mon-01). Hold below 3 until upstream fixes env parsing or we move settings to a config file.",
+      "matchPackageNames": [
+        "ghcr.io/mrlhansen/idrac_exporter"
+      ],
+      "allowedVersions": "<3"
     }
   ]
 }
