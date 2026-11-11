@@ -38,31 +38,57 @@ def test_seed_loads_and_every_map_and_order_cut_exists(cfg):
     assert by["filet-mignon"]["count"] == 2 and by["ribeye"]["count"] == 6
     assert by["ground-beef"] == {**by["ground-beef"], "unit": "lb", "count": 30}
     assert by["chuck-roast"]["count"] == 12.25
-    assert by["tuna-steaks"]["fill_in"] and by["tuna-steaks"]["count"] == 0
-    assert by["chicken-breast"]["unit"] == "package" and by["chicken-breast"]["portions_per_package"] is None
+    # owner 2026-11-11: tuna and salmon are bought fresh, not freezer stock
+    assert "tuna-steaks" not in by and "salmon" not in by
+    # owner 2026-11-11: an O'Connell package = 2 breasts / 2 chops
+    assert by["chicken-breast"]["unit"] == "package" and by["chicken-breast"]["portions_per_package"] == 2
+    assert by["pork-chops"]["unit"] == "package" and by["pork-chops"]["portions_per_package"] == 2
     # the Amana standing order is the seeded Amana stock
     amana = cfg["standing_orders"]["amana"]["items"]
     assert all(by[k]["count"] == v for k, v in amana.items())
 
 
-def test_tuna_thaws_like_salmon(cfg):
-    assert cfg["thaw"]["tuna"] == cfg["thaw"]["salmon"] == "12h"
-
-
-def test_tuna_is_freezer_stock_not_a_stray_and_on_the_thaw_tab(cfg):
-    # W48 preview: "NOT LISTED: on hand in Tandoor but no pantry/stock rule: tuna".
-    from grocery import cleanup as CL
+def test_fish_is_fresh_not_freezer_stock(cfg):
+    # Owner 2026-11-11: tuna and salmon are bought from New Pi as needed.
     from grocery import seed as SD
     _, foods_cfg, _, _ = SD.load_configs()
-    maps = CL.Maps(CL.load_cleanup())
-    for name in ("tuna", "ahi tuna steaks", "tuna (yellowfin tuna) steaks"):
-        assert not CL.is_stray_onhand(name, maps, foods_cfg, cfg["stores"]), name
+    assert "tuna" not in cfg["thaw"]
+    for name in ("tuna", "ahi tuna steaks", "tuna (yellowfin tuna) steaks", "salmon fillets"):
         cat = SD.route_food(name, foods_cfg, cfg["stores"])
-        assert cat == "NewPiFreezer/stock: Freezer", name           # not Amana beef
-        assert F.is_freezer_cat(cat, cfg["stores"]), name          # the Thaw tab's test
-        assert F.cut_for(name, cfg["freezer"]["map"]) == "tuna-steaks", name
-    # salmon is still bought fresh (not freezer stock)
-    assert CL.is_stray_onhand("salmon fillets", maps, foods_cfg, cfg["stores"])
+        assert cat == "NewPi/weekly: Meat & Seafood", name          # not Amana beef
+        assert not F.is_freezer_cat(cat, cfg["stores"]), name
+        assert F.cut_for(name, cfg["freezer"]["map"]) is None, name
+    assert not {"tuna-steaks", "salmon"} & set(cfg["freezer"]["map"].values())
+
+
+def test_cuts_no_recipe_maps_to_are_ignored(cfg):
+    # The owner's live file still lists tuna-steaks / salmon at 0: they must not
+    # stop a fish dinner, and the build logs them once (freezer_unknown_cut).
+    data = _seed()
+    data["cuts"] += [{"id": "tuna-steaks", "unit": "portion", "count": 1},
+                     {"id": "salmon", "unit": "portion", "count": 0}]
+    st = F.Stock(data, cfg["freezer"]["map"])
+    assert {"tuna-steaks", "salmon", "snack-sticks"} <= set(st.unknown)
+    assert not st.known("salmon") and st.need([_line("salmon", 2)], 2) == {}
+    pool = _freezer_pool()
+    for r in pool:
+        if r["kind"] == "fish":
+            r["freezer_lines"] = [_line("salmon" if r["variant"] == "salmon" else "tuna-steaks", 2)]
+    entries = G.generate_week(pool, SUNDAY, cfg, stock=st)
+    assert "fish" in _kinds(pool, entries) and not st.fallbacks and not st.short
+
+
+def test_load_stock_logs_unknown_cuts_once(cfg, tmp_path, monkeypatch):
+    data = _seed()
+    data["cuts"].append({"id": "salmon", "unit": "portion", "count": 0})
+    p = tmp_path / "freezer.json"
+    p.write_text(json.dumps(data))
+    logged = []
+    monkeypatch.setattr(R, "jlog", lambda **kw: logged.append(kw))
+    st = R.load_stock(cfg, env={"FREEZER_FILE": str(p)})
+    assert "salmon" not in st.cuts
+    ev = [e for e in logged if e["event"] == "freezer_unknown_cut"]
+    assert len(ev) == 1 and "salmon" in ev[0]["cuts"]
 
 
 def test_cut_for_longest_match(cfg):
@@ -71,8 +97,6 @@ def test_cut_for_longest_match(cfg):
     assert F.cut_for("beef chuck roast", m) == "chuck-roast"
     assert F.cut_for("ground beef", m) == "ground-beef"
     assert F.cut_for("ground beef patties", m) == "burger-patties"
-    assert F.cut_for("tuna (yellowfin tuna) steaks", m) == "tuna-steaks"
-    assert F.cut_for("ahi tuna steaks", m) == "tuna-steaks"
     assert F.cut_for("chicken breast", m) == "chicken-breast"
     assert F.cut_for("boneless pork chops", m) == "pork-chops"
     assert F.cut_for("All-beef cheddar brats", m) == "brats-cheddar"
@@ -85,7 +109,6 @@ def test_cut_for_longest_match(cfg):
     assert F.cut_for("flank steak", m) == "fajita-strips"
     assert F.cut_for("flank steak or skirt steak", m) == "fajita-strips"
     assert F.cut_for("skirt steak", m) == "fajita-strips"
-    assert F.cut_for("tuna", m) == "tuna-steaks"
 
 
 # ---- conversion ----------------------------------------------------------------
@@ -101,13 +124,22 @@ def test_need_units():
     assert st.need([_line("chicken-breast", 2, "lb")], 2) == {"chicken-breast": 2}
     # portions per package unknown: a count of breasts = one package
     assert st.need([_line("chicken-breast", 2, "")], 2) == {"chicken-breast": 1}
+    # 2 per package: breasts / chops divide by 2, rounded up to whole packages
+    assert st.need([_line("chicken-breast", 3, "breasts")], 2) == {"chicken-breast": 2}
+    assert st.need([_line("pork-chops", 4, "", base=4)], 2) == {"pork-chops": 1}
+    assert st.need([_line("pork-chops", 1, "chop")], 2) == {"pork-chops": 1}
     # fill_in (count unknown) and cuts not in the file count as available
     assert st.need([_line("tuna-steaks", 2), _line("nope", 1)], 2) == {}
 
 
 # ---- generator rules ------------------------------------------------------------
 def _stock(**counts):
+    """A Stock from the seed with these counts; a cut the seed lacks (the fish
+    cuts, gone since 2026-11-11) is added as portions, so the fish-stock rules
+    are still exercised."""
     data = _seed()
+    have = {c["id"] for c in data["cuts"]}
+    data["cuts"] += [{"id": k, "unit": "portion", "count": 0} for k in counts if k not in have]
     for c in data["cuts"]:
         if c["id"] in counts:
             c["count"] = counts[c["id"]]

@@ -342,21 +342,20 @@ ssh kdkadmin@$HOST "sudo -n docker logs --since $SINCE dashboard-mealplan 2>&1 |
 
 ## Thaw tab (freezer to fridge)
 
-Beef (Amana), chicken breast and pork chops (O'Connell), tuna steaks (New Pi
-frozen, `NewPiFreezer`) and the Costco frozen salmon are freezer stock: on hand,
-never on a list. The **Thaw** tab lists them
+Beef (Amana), chicken breast and pork chops (O'Connell) and the Costco frozen
+salmon are freezer stock: on hand, never on a list. Tuna and fresh salmon are
+not: they are bought from New Pi as needed (owner 2026-11-11). The **Thaw** tab lists them
 from the meal plan so they come out of the freezer in time.
 
 - **Rows.** For each planned meal from today through a week out, every ingredient
   that routes to a freezer aisle of a stock or bulk store (Amana "Freezer Beef",
-  O'Connell "Freezer", NewPiFreezer "Freezer", Costco "Freezer"; Penzeys is
-  stock but not frozen) gives
+  O'Connell "Freezer", Costco "Freezer"; Penzeys is stock but not frozen) gives
   one row: meal date · recipe · food · amount (buy unit, else the recipe amount
   scaled to the plan's servings) and **move to the fridge by** a day and time.
   Rows are sorted by that time; a late one shows red.
 - **Lead times** live in `config.yaml` → `thaw:` (`default: 24h`,
   `ground beef: 24h`, `chops: 24h`, `chicken breast: 24h`, `roast: 48h`,
-  `salmon: 12h`, `tuna: 12h`). The longest key that is part of the food name wins; values are
+  `salmon: 12h` for the Costco frozen fallback). The longest key that is part of the food name wins; values are
   hours (`24h`) or days (`2d`). The time counts back from the meal (breakfast
   08:00, lunch 12:00, dinner 18:00): chili on Wednesday → ground beef by Tue 6 PM.
 - **Tick** a row when it is in the fridge (tap again to undo). Ticks are local to
@@ -401,15 +400,24 @@ What is in the chest freezer, so the plan never picks a dinner the freezer can't
 cover. One file on kdk-dkr-01: `/opt/kdk-lab/dashboard/pantry/freezer.json`
 (mounted at `/pantry` in `dashboard-mealplan` and in the grocery-planner job;
 schema in `stacks/grocery-planner/grocery/freezer.py`, version 1). Units per cut:
-**portions** (steaks, patties, fish), **lb** (ground beef, roasts, stew meat,
-fajita strips, brats), **packages** (O'Connell chicken, pork chops, bacon until
-you set portions per package).
+**portions** (steaks, patties), **lb** (ground beef, roasts, stew meat,
+fajita strips, brats), **packages** (O'Connell chicken, pork chops, bacon).
+Fish is not in the freezer file: tuna and salmon are bought fresh from New Pi
+as needed, so a fish dinner is never limited by a count.
+
+- **O'Connell packages hold 2** (owner 2026-11-11): chicken breast ~1.1 lb =
+  2 breasts, pork chops ~1 lb = 2 chops (`portions_per_package: 2` in the seed
+  and the live file). Count them in **packages**; a recipe that lists breasts
+  or chops is divided by 2 and rounded up to whole packages (3 breasts = 2
+  packages), a recipe in lb by the package weight.
 
 - **Correct a count.** Pantry tab → Freezer: `−` / `+` (one portion, package or
-  lb) or type a number and **set**. A **fill in** row (count unknown: tuna,
-  salmon in the seed) is ignored by the planner until you set it. A **set
-  portions** row (O'Connell packs) takes portions per package; until then a
-  recipe's chicken counts by the 1.1 lb package. **add** adds a cut (name, unit,
+  lb) or type a number and **set**. A **fill in** row (count unknown) is
+  ignored by the planner until you set it. A **set portions** row takes
+  portions per package (the O'Connell packs are set to 2). A row no
+  `freezer.map` key points at (snack sticks, an old tuna or salmon row) is
+  ignored by the planner and logged once per build as `freezer_unknown_cut`;
+  it can stay in the file. **add** adds a cut (name, unit,
   count, package size); map it in `config.yaml` → `freezer.map` (food-name
   substring → cut id) so recipes use it.
 - **Order arrived: O'Connell / Amana** adds that standing order
@@ -438,12 +446,12 @@ you set portions per package).
   The fix is a count (Pantry tab) or a recipe: on 2026-11-11 the only
   non-scheduled fall steak recipe is the filet, so a steak week without filets
   falls back to ground beef until a ribeye / strip / sirloin recipe is added.
-- **Fish counts.** Tuna steaks are freezer stock (`NewPiFreezer`, bought frozen
-  at New Pi by hand): on hand, on the Thaw tab, never on a list, counted as
-  `tuna-steaks`. The cut has no package size, so a recipe's ounces count as one
-  portion per person; set the count (or the package size) to what is really
-  there. Salmon is still bought fresh, but its `salmon` count of 0 also stops a
-  salmon dinner: mark it **fill in** if salmon should not be counted.
+- **Fish is not counted.** Tuna and salmon are bought from New Pi as needed
+  (owner 2026-11-11): no fish cut in the seed or in `freezer.map`, tuna foods
+  route to New Pi weekly Meat & Seafood like salmon, and the fish slot plans
+  the parity fish freely. If Tandoor still has `tuna` marked on hand, the
+  preview lists it under "NOT LISTED: on hand"; untick it in Tandoor (or
+  `grocery.cleanup --apply`) so it reaches the New Pi list.
 
 **Install the seed (once, after the PR merges and the dashboard redeploys).**
 Copies `stacks/grocery-planner/freezer-seed.json` (the 2026-11-11 Amana +
@@ -460,7 +468,7 @@ ssh kdkadmin@$HOST "sudo -n install -d -o 1000 -g 1000 -m 755 $DIR && { sudo -n 
 ```
 
 Then correct the counts on the Pantry tab (the seed is delivered counts; use
-since delivery is unknown) and fill in tuna and salmon.
+since delivery is unknown).
 
 Check what the last build reserved (read-only):
 
@@ -468,7 +476,7 @@ Check what the last build reserved (read-only):
 
 ```sh
 HOST=10.1.20.20
-ssh kdkadmin@$HOST "sudo -n docker logs grocery-planner 2>&1 | grep -E 'freezer_(reserved|short|fallback|fish|unmapped|inventory_missing)|no_dinner'"
+ssh kdkadmin@$HOST "sudo -n docker logs grocery-planner 2>&1 | grep -E 'freezer_(reserved|short|fallback|fish|unmapped|unknown_cut|inventory_missing)|no_dinner'"
 ```
 
 ## Skip days (holidays, travel)

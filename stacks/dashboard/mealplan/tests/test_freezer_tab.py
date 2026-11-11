@@ -24,19 +24,32 @@ def fz(tmp_path, monkeypatch):
     return p
 
 
+def _with_unknowns(p):
+    """The seed plus a fill-in cut and a package cut without portions (the seed
+    has neither since 2026-11-11: no fish rows, O'Connell packs set to 2)."""
+    data = json.loads(p.read_text())
+    data["cuts"] += [{"id": "tuna-steaks", "name": "Tuna steaks", "unit": "portion", "count": 0,
+                      "package": "", "fill_in": True, "source": "NewPi"},
+                     {"id": "bacon-x", "name": "Bacon X", "unit": "package", "count": 3,
+                      "package": "", "portions_per_package": None, "source": "OConnell"}]
+    p.write_text(json.dumps(data))
+
+
 def _cuts(p):
     return {c["id"]: c for c in json.loads(p.read_text())["cuts"]}
 
 
 def test_seed_renders_with_markers(fz, repo_cfg):
+    _with_unknowns(fz)
     html = app._render_freezer(freezer.load(), repo_cfg["config"]["standing_orders"])
     assert "Filet mignon" in html and "2 portions" in html and "30 lb" in html
     rows = {k: v for k, v in ((r[r.index("name='cut' value='") + 18:].split("'", 1)[0], r)
                               for r in html.split("<div class='gi fz")[1:])}
     assert rows["tuna-steaks"].startswith(" fillin") and "fill in" in rows["tuna-steaks"]
     assert "<span class='cnt'>?</span>" in rows["tuna-steaks"]
-    chick = rows["chicken-breast"]
-    assert "set portions" in chick and "16 pkg" in chick and "name='n'" in chick
+    chick = rows["chicken-breast"]                       # owner 2026-11-11: 2 per package
+    assert "set portions" not in chick and "16 pkg" in chick and "2 per package" in chick
+    assert "set portions" in rows["bacon-x"] and "name='n'" in rows["bacon-x"]
     assert "fillin" not in rows["ribeye"] and "mark" not in rows["ribeye"]
     assert "Order arrived: O&#39;Connell" in html and "Order arrived: Amana" in html
     assert "undo last change" in html and "style=" not in html
@@ -49,6 +62,7 @@ def test_missing_file_says_so_without_buttons(tmp_path, monkeypatch):
 
 
 def test_adjust_set_clears_fill_in_and_keeps_bak(fz):
+    _with_unknowns(fz)
     freezer.change("adjust", {"cut": "filet-mignon", "delta": "-1"}, "jmack")
     assert _cuts(fz)["filet-mignon"]["count"] == 1
     bak = json.loads((fz.parent / "freezer.json.bak").read_text())
@@ -64,8 +78,8 @@ def test_adjust_set_clears_fill_in_and_keeps_bak(fz):
 
 
 def test_portions_add_arrived_undo(fz, repo_cfg):
-    freezer.change("portions", {"cut": "chicken-breast", "n": "2"}, "jmack")
-    assert _cuts(fz)["chicken-breast"]["portions_per_package"] == 2
+    freezer.change("portions", {"cut": "chicken-breast", "n": "3"}, "jmack")
+    assert _cuts(fz)["chicken-breast"]["portions_per_package"] == 3
     freezer.change("add", {"name": "Short ribs", "unit": "lb", "count": "8", "package": "4 lb"}, "jmack")
     assert _cuts(fz)["short-ribs"] == {"id": "short-ribs", "name": "Short ribs", "unit": "lb",
                                        "count": 8, "package": "4 lb", "source": "manual"}
