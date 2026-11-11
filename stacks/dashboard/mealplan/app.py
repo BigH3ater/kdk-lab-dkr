@@ -2785,6 +2785,27 @@ ADMIN_CSP = ("default-src 'none'; style-src 'self'; img-src 'self'; font-src 'se
              "form-action 'self'; base-uri 'none'; frame-ancestors 'none'")
 
 
+def _script_hash(js: str) -> str:
+    import base64
+    import hashlib
+    return "'sha256-" + base64.b64encode(hashlib.sha256(js.encode()).digest()).decode() + "'"
+
+
+# Household, groceries and kitchen pages (home.kmkdp.com/meal/{home,groceries,
+# kitchen*} and everything on kitchen.kmkdp.com). Scripts: same origin (home.js)
+# plus the two static inline scripts by hash (groceries tabs, the pair-page code
+# copy), never 'unsafe-inline'. Styles keep 'unsafe-inline' (inline <style>
+# blocks). Images: Tandoor recipe photos are absolute https URLs. Form posts may
+# be redirected to Authelia (sso.kmkdp.com) when the session has expired.
+PAGE_CSP = ("default-src 'self'; "
+            f"script-src 'self' {_script_hash(GROCERIES_JS)} "
+            f"{_script_hash(devices._PAIR_JS.removeprefix('<script>').removesuffix('</script>'))}; "
+            "style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self'; "
+            "connect-src 'self'; object-src 'none'; base-uri 'self'; "
+            "form-action 'self' https://sso.kmkdp.com; frame-ancestors 'none'")
+_CSP_PATHS = ("/home", "/groceries", "/kitchen")
+
+
 @app.after_request
 def _kitchen_headers(resp: Response) -> Response:
     admin_host = not kitchen.on_kitchen_host() and _is_admin_request()
@@ -2792,6 +2813,8 @@ def _kitchen_headers(resp: Response) -> Response:
         resp.headers["Content-Security-Policy"] = ADMIN_CSP
         if not request.path.startswith("/static/"):
             resp.headers["Cache-Control"] = "no-store"
+    elif kitchen.on_kitchen_host() or request.path.startswith(_CSP_PATHS):
+        resp.headers.setdefault("Content-Security-Policy", PAGE_CSP)
     if kitchen.on_kitchen_host() or admin_host:
         resp.headers.setdefault("X-Frame-Options", "DENY")
         resp.headers.setdefault("X-Content-Type-Options", "nosniff")

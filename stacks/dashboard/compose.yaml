@@ -15,12 +15,40 @@
 # are reachable (internal->DMZ:443 is open).
 name: dashboard
 
+# Compose hardening baseline (docs/reference/compose-baseline.md), hardened
+# 2026-11-11. Each service adds only what it needs on top.
+x-hardened: &hardened
+  security_opt: ["no-new-privileges:true"]
+  cap_drop: [ALL]
+  read_only: true
+  tmpfs: [/tmp]
+  restart: unless-stopped
+  pids_limit: 128
+  mem_limit: 256m
+  logging:
+    driver: json-file
+    options: { max-size: "10m", max-file: "3" }
+
 services:
   # ---- Guides: static family how-to pages (home.kmkdp.com/guides/...) ------
   guides:
+    <<: *hardened
     image: nginx:1.31.8-alpine@sha256:713fc2ebfd92e8217db451477182ee91944b123d2b1ee9fd5a8c6e91ca6c3a11
     container_name: dashboard-guides
-    restart: unless-stopped
+    # master runs as root and drops workers to `nginx` (same set as wger-nginx).
+    cap_add:
+      - CHOWN     # chown of the client/proxy temp dirs under /var/cache/nginx at start
+      - SETUID    # drop worker processes to the nginx user
+      - SETGID    # same, group
+    # Writes: temp dirs (/var/cache/nginx) and the pid file (/run). Nothing else.
+    tmpfs: [/tmp, /var/cache/nginx, /run]
+    mem_limit: 128m
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/index.html"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
     volumes:
       - ./guides:/usr/share/nginx/html:ro
       # Cache policy so family guide edits show up without a hard refresh
@@ -46,18 +74,31 @@ services:
       # the volumes note). DASHBOARD_GUIDES_SHA = sha256(guides.nginx.conf) from
       # the Komodo pre_deploy.
       kdk.config-sha: "${DASHBOARD_GUIDES_SHA:-unset}"
-    logging:
-      driver: json-file
-      options: { max-size: "10m", max-file: "3" }
 
   # ---- Vikunja: checkable household tasks (tasks.kmkdp.com), own auth ------
   # Single unified image (frontend+api), SQLite backend (file-based -> no db sidecar),
   # LAN-only. Recurring household items lifted from the iOS Reminders screenshots live
   # here. JWT secret is op-injected so sessions survive restarts.
   vikunja:
+    <<: *hardened
     image: vikunja/vikunja:2.8.0@sha256:35d937baf3b5d5803bed6b9e11d007448b7b536df9e4346dc35551e1072636c3
     container_name: vikunja
-    restart: unless-stopped
+    # The image (FROM scratch) runs as 1000; pinned so a base change cannot make
+    # it root. The two bind dirs are chowned 1000 by the Komodo pre_deploy.
+    user: "1000:1000"
+    # Writes: /db (SQLite), /app/vikunja/files (attachments), /tmp (uploads in
+    # flight). Config is read-only.
+    mem_limit: 512m
+    pids_limit: 256           # Go runtime threads count as pids
+    healthcheck:
+      # Scratch image: no shell, wget or curl. The binary's own `healthcheck`
+      # subcommand loads the config and pings the SQLite DB (same check as the
+      # HTTP /health route).
+      test: ["CMD", "/app/vikunja/vikunja", "healthcheck"]
+      interval: 60s
+      timeout: 15s
+      retries: 3
+      start_period: 30s
     env_file: [.env]                # VIKUNJA_SERVICE_JWTSECRET (op-injected)
     environment:
       VIKUNJA_SERVICE_PUBLICURL: "https://tasks.kmkdp.com/"
@@ -83,15 +124,13 @@ services:
       # Recreate vikunja on a vikunja-config.yml change (single-file bind mount;
       # see the volumes note). DASHBOARD_VIKUNJA_SHA from the Komodo pre_deploy.
       kdk.config-sha: "${DASHBOARD_VIKUNJA_SHA:-unset}"
-    logging:
-      driver: json-file
-      options: { max-size: "10m", max-file: "3" }
 
   # ---- mealplan sidecar (P2): Tandoor weekly plan + star-rating write-back -
   # Reached by the family browser at home.kmkdp.com/meal/ (home.kmkdp.com/ redirects
   # to /meal/home, the household page). Logs in to Tandoor with the dedicated dashboard account (session auth; REST tokens are off)
   # and reads /api/meal-plan/. Ratings POST back as CookLog entries (see mealplan/app.py).
   mealplan:
+    <<: *hardened
     # provenance off: with the containerd image store, BuildKit's provenance
     # attestation gives every (even fully cached) build a new image ID, so each
     # gitops-sync deploy recreated these containers. Off = stable ID, no restart.
@@ -103,7 +142,20 @@ services:
     # the 10 s grace and was SIGKILLed (137 -> false "container down" page).
     init: true
     container_name: dashboard-mealplan
-    restart: unless-stopped
+    # Non-root (Dockerfile USER too): uid 1000 = the grocery-planner job that
+    # shares /pantry. The Komodo pre_deploy chowns /pantry, /state and the
+    # mealplan-data volume to 1000 (files written while it ran as root).
+    user: "1000:1000"
+    # Writes (all volumes, nothing on the rootfs): /data/thaw.json (Thaw ticks),
+    # /state/devices.json + /state/manual-forced.json (kitchen pairing, add box),
+    # /pantry/freezer.json + .bak (Pantry tab). /tmp: waitress request buffers.
+    mem_limit: 384m           # in-memory groceries/recipe/feed caches
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request as u; u.urlopen('http://127.0.0.1:8080/healthz', timeout=4)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
     env_file: [.env]                # TANDOOR_USER/TANDOOR_PASS, KITCHEN_DEVICE_KEY (op-injected); KOMODO_API_KEY/SECRET once minted
     environment:
       TANDOOR_URL: "https://recipes.kmkdp.com"
@@ -141,7 +193,7 @@ services:
       # edits it, atomic tmp + rename). A DIRECTORY mount (a rename cannot land
       # on a single-file bind mount). Shared read-write with the grocery-planner
       # job, which plans from it and decrements what a week reserves. The dir is
-      # uid 1000 (dashboard pre_deploy install -d); the seed is a hand step.
+      # uid 1000 (dashboard pre_deploy install -d + chown); the seed is a hand step.
       - /opt/kdk-lab/dashboard/pantry:/pantry
     networks: [default, proxy]
     labels:
@@ -188,9 +240,6 @@ services:
       traefik.http.routers.dashboard-admin.rule: "Host(`admin.kmkdp.com`)"
       traefik.http.routers.dashboard-admin.service: "mealplan"
       traefik.http.routers.dashboard-admin.middlewares: "forwardauth@file"
-    logging:
-      driver: json-file
-      options: { max-size: "10m", max-file: "3" }
 
 volumes:
   mealplan-data: {}           # Thaw-tab tick state (dashboard-mealplan /data)
