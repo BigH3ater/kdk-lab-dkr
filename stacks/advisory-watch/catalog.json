@@ -81,6 +81,10 @@
       "confirm": true,
       "note": "wraps the closed-source Obsidian headless sync; only the wrapper repo is watchable"
     },
+    "ghcr.io/cporcellijr/bookbridge": {
+      "github": "cporcellijr/bookbridge",
+      "note": "stacks/reading-sync; Python app (not on PyPI), so GHSA only; image runs as root upstream, we run it as 1000:1000"
+    },
     "ghcr.io/ferretdb/ferretdb": {
       "github": "FerretDB/FerretDB",
       "osv": {
@@ -198,6 +202,10 @@
       "github": "unpoller/unpoller",
       "note": "no OSV mapping: release tags are not the Go module's major version"
     },
+    "ghcr.io/vito0912/abs-opds": {
+      "github": "Vito0912/abs-opds",
+      "note": "stacks/reading-sync; Node app (not on npm), so GHSA only; node base OS packages come from trivy-scan"
+    },
     "ghcr.io/wizarrrr/wizarr": {
       "github": "wizarrrr/wizarr"
     },
@@ -271,6 +279,11 @@
     "kdk/koreader-highlights": {
       "local": true,
       "base": "python"
+    },
+    "kdk/kosync-helper": {
+      "local": true,
+      "base": "python",
+      "note": "built from stacks/reading-sync/kosync-helper/Dockerfile (python:3.12-slim + fastapi, uvicorn, httpx, pypdf from uv.lock)"
     },
     "kdk/obsidian-to-koreader": {
       "local": true,

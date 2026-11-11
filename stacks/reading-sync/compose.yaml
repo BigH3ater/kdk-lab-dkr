@@ -1,0 +1,195 @@
+# reading-sync on the DMZ node (kdk-dkr-dmz-01), next to Audiobookshelf (ABS):
+# KOReader on the reMarkable reads from ABS and keeps its place in sync with the
+# phone (Plappa, the ABS web reader). docs/services/reading-sync.md.
+#
+#   abs-opds       OPDS catalogue of the ABS `ebooks` library at opds.kmkdp.com.
+#                  USE_PROXY=true: downloads stream through this service with the
+#                  ABS key in a Bearer header, so feed links never carry the key.
+#                  The files are byte-identical to the library, so KOReader's
+#                  Binary matching finds the same hash BookBridge and the helper use.
+#   kosync-helper  Our KOReader Progress sync server at kosync.kmkdp.com. PDF
+#                  documents: page <-> ABS ebookLocation, finished at the last page.
+#                  Everything else (EPUB, login, register): passed to BookBridge.
+#   bookbridge     EPUB position <-> ABS CFI (ebook-only links). No router: only
+#                  the helper talks to its KOSync port, over the internal
+#                  `reading-sync` network. Admin UI: SSH tunnel only (doc page).
+#
+# Both routers are on the DMZ Traefik `websecure` entrypoint ONLY (LAN + tailnet).
+# Never add `tunnel` and never add a Cloudflare public hostname for them.
+# dns-reconcile points opds/kosync.kmkdp.com at 192.168.191.20 from the Host labels.
+#
+# Secrets: .env is rendered from .env.tpl by the Komodo pre_deploy (op inject); the
+# services take only their own values through ${VAR} interpolation below, so no
+# container sees another's keys. All three ABS keys act as the ABS user `jmack`.
+name: reading-sync
+
+x-hardened: &hardened
+  security_opt: ["no-new-privileges:true"]
+  cap_drop: [ALL]
+  read_only: true
+  tmpfs: [/tmp]
+  restart: unless-stopped
+  pids_limit: 128
+  mem_limit: 256m
+  logging:
+    driver: json-file
+    options: { max-size: "10m", max-file: "3" }
+
+services:
+  abs-opds:
+    <<: *hardened
+    image: ghcr.io/vito0912/abs-opds:2.0.7@sha256:bc98fb149797798fe620acb021008b9451932bbe5783b7092f60fca7b2c90dba
+    container_name: abs-opds
+    # The image already runs as `node` (uid 1000); pinned here so a base change
+    # cannot silently make it root.
+    user: "1000:1000"
+    init: true                 # node is PID 1 otherwise: SIGTERM, zombie reaping
+    environment:
+      TZ: America/Chicago
+      # ABS is hard-built for the /audiobookshelf base path; the bare path works too
+      # (the feed calls keep the prefix, the download/cover proxies use the origin).
+      ABS_URL: "http://audiobookshelf/audiobookshelf"
+      USE_PROXY: "true"
+      SHOW_AUDIOBOOKS: "false"
+      OPDS_PAGE_SIZE: "50"
+      # name:ABS_API_TOKEN:password, one user (jmack). Never commas or colons in
+      # the password (the image splits on both): the 1Password item is letters+digits.
+      OPDS_USERS: "${OPDS_USERS}"
+    healthcheck:
+      # No unauthenticated feed route: 401 from /opds means the server is up.
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3010/opds').then(r=>process.exit(r.status===401?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    networks: [proxy-dmz]
+    labels:
+      traefik.enable: "true"
+      traefik.docker.network: "proxy-dmz"
+      traefik.http.routers.abs-opds.rule: "Host(`opds.kmkdp.com`)"
+      traefik.http.routers.abs-opds.entrypoints: "websecure"   # LAN + tailnet ONLY, never tunnel
+      traefik.http.routers.abs-opds.middlewares: "reading-sync-headers"
+      traefik.http.services.abs-opds.loadbalancer.server.port: "3010"
+      # Shared by both routers in this stack (defined once, here).
+      traefik.http.middlewares.reading-sync-headers.headers.frameDeny: "true"
+      traefik.http.middlewares.reading-sync-headers.headers.contentTypeNosniff: "true"
+      traefik.http.middlewares.reading-sync-headers.headers.referrerPolicy: "no-referrer"
+      traefik.http.middlewares.reading-sync-headers.headers.customResponseHeaders.Server: ""
+
+  kosync-helper:
+    <<: *hardened
+    # Local build (Komodo run_build, auto_pull off). Bump the tag with the code.
+    # provenance off: stable image ID, so a cached rebuild does not recreate it.
+    build:
+      context: ./kosync-helper
+      provenance: false
+    image: kdk/kosync-helper:0.1.0
+    container_name: kosync-helper
+    user: "65532:65532"
+    init: true
+    environment:
+      TZ: America/Chicago
+      ABS_URL: "http://audiobookshelf/audiobookshelf"
+      ABS_API_KEY: "${KOSYNC_HELPER_ABS_API_KEY}"
+      ABS_LIBRARY_ID: "edfded58-4a7d-43b1-84a2-271a2798719c"   # the ABS `ebooks` library
+      BOOKBRIDGE_KOSYNC_URL: "http://bookbridge:5758"
+      KOSYNC_USER: "jmack"          # only this sync login may write ABS PDF progress
+      EBOOKS_ROOT: "/ebooks"
+      PDF_MAP_REFRESH_SECONDS: "3600"
+    volumes:
+      # Same container path ABS uses, so the ebookFile path ABS reports opens as-is.
+      - /mnt/media/books/ebook:/ebooks:ro
+    healthcheck:
+      test: ["CMD", "python", "-I", "-c", "import sys,urllib.request; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8080/health', timeout=4).status == 200 else 1)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    depends_on:
+      bookbridge: { condition: service_started }
+    networks:
+      proxy-dmz: {}             # Traefik in, ABS out
+      reading-sync:
+        ipv4_address: 10.211.40.10   # BookBridge KOSYNC_TRUSTED_PROXIES names this /32
+    labels:
+      traefik.enable: "true"
+      traefik.docker.network: "proxy-dmz"
+      traefik.http.routers.kosync.rule: "Host(`kosync.kmkdp.com`)"
+      traefik.http.routers.kosync.entrypoints: "websecure"     # LAN + tailnet ONLY, never tunnel
+      traefik.http.routers.kosync.middlewares: "reading-sync-headers"
+      traefik.http.services.kosync.loadbalancer.server.port: "8080"
+
+  bookbridge:
+    <<: *hardened
+    image: ghcr.io/cporcellijr/bookbridge:7.12.0@sha256:401785216914a2f1bbbf6383620cbd6fd85369389d258eaaa6433567335ed356
+    container_name: bookbridge
+    # The image has no USER (runs as root) but needs none of root's rights: it
+    # writes only DATA_DIR. /opt/kdk-lab/reading-sync/bookbridge is chowned 1000:1000
+    # by the Komodo pre_deploy. HOME=/tmp for the uid without a passwd entry.
+    # If a deploy shows a write error outside /data or /tmp, see the doc page
+    # (Troubleshooting) before dropping read_only.
+    user: "1000:1000"
+    init: true                 # start.sh (bash) is PID 1 and loops; tini reaps
+    mem_limit: 1g              # python + the ebook parsers; Whisper is never used (ebook-only)
+    pids_limit: 256
+    environment:
+      TZ: America/Chicago
+      HOME: /tmp
+      DATA_DIR: /data
+      BOOKS_DIR: /books
+      LOG_LEVEL: INFO
+      # Env values only SEED the settings DB on first boot; later changes are made
+      # in the BookBridge UI (doc page). BOOKBRIDGE_SECRET_KEY is env-only.
+      BOOKBRIDGE_SECRET_KEY: "${BOOKBRIDGE_SECRET_KEY}"
+      ABS_ENABLED: "true"
+      ABS_SERVER: "http://audiobookshelf/audiobookshelf"
+      ABS_KEY: "${BOOKBRIDGE_ABS_API_KEY}"
+      ABS_LIBRARY_ID: "edfded58-4a7d-43b1-84a2-271a2798719c"
+      ABS_ONLY_SEARCH_IN_ABS_LIBRARY_ID: "true"
+      SYNC_ABS_EBOOK: "true"
+      ABS_EBOOK_LOCATOR_FORMAT: "cfi"
+      KOSYNC_ENABLED: "true"
+      KOSYNC_PORT: "5758"        # split-port: KOSync routes only; the helper's upstream
+      KOSYNC_HASH_METHOD: "content"
+      # The one sync login (typed into KOReader). KOReader sends md5(password);
+      # BookBridge accepts either form.
+      KOSYNC_USER: "jmack"
+      KOSYNC_KEY: "${BOOKBRIDGE_KOSYNC_PASSWORD}"
+      # The helper (10.211.40.10) and DMZ Traefik (10.211.2.3, the hop the helper
+      # appends) are the proxies: the login failure limit then counts per tablet.
+      KOSYNC_TRUSTED_PROXIES: "10.211.40.10/32,10.211.2.3/32"
+      # No audiobook <-> ebook sync (owner decision): never auto-map an EPUB to an
+      # audiobook; an unknown EPUB becomes an ebook-only link.
+      KOSYNC_AUTO_MAP_ON_AGREEMENT: "false"
+      AUTO_CREATE_EBOOK_MAPPING: "true"
+      # Bridge Sync plugin features: not installed on the tablet (reManager rule).
+      KOREADER_ANNOTATION_SYNC: "false"
+      KOREADER_STATUS_SYNC_ENABLED: "false"
+      READEST_ENABLED: "false"
+    volumes:
+      - /opt/kdk-lab/reading-sync/bookbridge:/data          # DB, secret.key, caches
+      - /mnt/media/books/ebook:/books:ro                     # finds an EPUB by its KOReader hash
+    healthcheck:
+      # The KOSync port is the part we use; the image's own check hits the UI.
+      test: ["CMD", "curl", "-fsS", "-o", "/dev/null", "http://127.0.0.1:5758/healthcheck"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 90s
+    # proxy-dmz only to reach ABS (http://audiobookshelf). No Traefik labels, so the
+    # DMZ Traefik never routes it (exposedbydefault=false).
+    networks:
+      proxy-dmz: {}
+      reading-sync: {}
+
+networks:
+  proxy-dmz:
+    external: true
+  # helper <-> BookBridge. internal: no route out. Pinned so KOSYNC_TRUSTED_PROXIES
+  # can name the helper (docs/reference/docker-ipam.md: 10.211.0.0/16 is dmz-01's).
+  reading-sync:
+    name: reading-sync
+    internal: true
+    ipam:
+      config:
+        - subnet: 10.211.40.0/24

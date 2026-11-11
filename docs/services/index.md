@@ -30,6 +30,7 @@ Stack definitions live in `stacks/` in the repo; Komodo deploys them from git. O
 | [Identity](identity.md) | kdk-dkr-dmz-01 | https://sso.kmkdp.com | identity |
 | [Jellyfin](jellyfin.md) | kdk-dkr-dmz-01 | https://jellyfin.kmkdp.com (LAN + tailnet) | jellyfin |
 | [Audiobookshelf](audiobookshelf.md) | kdk-dkr-dmz-01 | https://audiobookshelf.kmkdp.com | audiobookshelf |
+| [Reading sync](reading-sync.md) | kdk-dkr-dmz-01 | https://opds.kmkdp.com/opds, https://kosync.kmkdp.com (LAN + tailnet) | reading-sync |
 | [Immich](immich.md) | kdk-dkr-dmz-01 | https://immich.kmkdp.com | immich |
 | [Tandoor](tandoor.md) | kdk-dkr-dmz-01 | https://recipes.kmkdp.com | tandoor |
 | [Seerr + Libreseerr](seerr.md) | kdk-dkr-dmz-01 | https://seerr.kmkdp.com, https://libreseerr.kmkdp.com | dmz-apps |
