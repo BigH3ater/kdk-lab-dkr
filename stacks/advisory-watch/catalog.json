@@ -97,9 +97,6 @@
       "nvd_cpe": "cpe:2.3:a:postgresql:postgresql",
       "tag_is_version": false
     },
-    "ghcr.io/gethomepage/homepage": {
-      "github": "gethomepage/homepage"
-    },
     "ghcr.io/google/cadvisor": {
       "github": "google/cadvisor",
       "osv": {

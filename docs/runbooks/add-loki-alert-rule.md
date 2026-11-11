@@ -161,9 +161,9 @@ page. See [Alerting standards](../reference/alerting-standards.md).
 
 | Match | Receiver | Grouping / repeat |
 |---|---|---|
-| `severity="critical"` | `email-ops` (Pushover + e-mail) | `alertname, host`, 1 h |
+| `severity="critical"` | `critical-ops` (Pushover + e-mail) | `alertname, host`, 1 h |
 | `severity="info"` | `email-info` (e-mail only, digest) | `alertname`, 6 h / 24 h |
-| `source="loki"` (the rest → warning) | `pushover` (priority 1 firing, 0 resolved) | `alertname, host`, 4 h |
+| `source="loki"` (the rest → warning) | `pushover` (priority 1 firing, 0 resolved) | `alertname, host`, 12 h |
 
 An `alertmanager.yml` change reaches the container through the
 `monitoring-ext` `post_deploy` reload (`POST /-/reload`); a rejected config

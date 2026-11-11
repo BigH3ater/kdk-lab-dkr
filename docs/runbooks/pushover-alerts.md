@@ -22,8 +22,8 @@ how to test). The summary below is the operational view.
 | **Pushover** | **every page-worthy** alert (critical + warning), firing and resolved | SaaS, shares no failure domain with the lab; the channel that must always work |
 | **Email** | **`severity=critical`** (additionally) and the **`severity=info` digest** | critical: a durable second record of what matters most; info: app-notification/provenance alerts (owner decision 2026-10-30). Through the in-lab Proton bridge (`10.1.20.20:25`) |
 
-A critical alert is delivered to **both** Pushover and email (the `email-ops`
-receiver carries both configs), so email going down never loses a page. Info
+A critical alert is delivered to **both** Pushover and email (the `critical-ops`
+receiver, named `email-ops` until 2026-11-11, carries both configs), so email going down never loses a page. Info
 alerts are email-only and batched into a ~6 h digest (the `email-info`
 receiver), so they never page and never flood.
 

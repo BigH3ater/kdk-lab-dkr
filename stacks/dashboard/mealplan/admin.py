@@ -36,9 +36,19 @@ DAY = 86400
 
 
 # ---- small helpers ---------------------------------------------------------------
+class UpstreamError(RuntimeError):
+    """An HTTP error status from a source, with the start of its response body
+    (Loki puts the reason, e.g. a parse error or a limit, in the body)."""
+
+    def __init__(self, status: int, body: str):
+        self.status, self.body = status, (body or "").strip()[:500]
+        super().__init__(f"HTTP {status}")
+
+
 def _get_json(url: str, timeout: float = 6, **kw):
     r = requests.get(url, timeout=timeout, headers={"User-Agent": UA, **kw.pop("headers", {})}, **kw)
-    r.raise_for_status()
+    if r.status_code >= 400:
+        raise UpstreamError(r.status_code, r.text)
     return r.json()
 
 
@@ -225,18 +235,18 @@ def services_down(probes: dict) -> list[str]:
     return down
 
 
-def probe_host(instance: str) -> str:
-    if "://" in instance:
-        return (urllib.parse.urlsplit(instance).hostname or "").lower()
-    return instance.split(":")[0].lower()
-
-
 def probe_status(probes: dict | None) -> dict[str, bool]:
-    """{hostname or IP: all probes up}."""
+    """{key: up}. A blackbox probe's key is its instance (the probed URL or IP,
+    as in stacks/monitoring/prometheus/prometheus.yml); a scrape target's is
+    "job@instance" ("loki@10.1.20.21:3100"), so an exporter scraping a device
+    (snmp@10.1.3.1) never colours that device's ICMP probe. Several series for
+    one key are ANDed."""
     st: dict[str, bool] = {}
-    for inst, _job, v in (probes or {}).get("probe", []):
-        h = probe_host(inst)
-        st[h] = st.get(h, True) and v == 1
+    p = probes or {}
+    rows = [(inst, v) for inst, _job, v in p.get("probe", [])]
+    rows += [(f"{job}@{inst}", v) for inst, job, v in p.get("up", [])]
+    for key, v in rows:
+        st[key] = st.get(key, True) and v == 1
     return st
 
 
@@ -486,74 +496,83 @@ def spark_points(pts: list[tuple[float, float]], w: int = 120, h: int = 36, pad:
     return " ".join(out)
 
 
-# ---- service tiles (hrefs from stacks/dashboard/config/services.yaml) -------------
+# ---- service tiles (lifted from the retired Homepage services.yaml) ---------------
+# (label, href, host, probe): `probe` is the exact Prometheus `instance` that
+# gives the tile its dot -- a blackbox target from
+# stacks/monitoring/prometheus/prometheus.yml, or a scrape target (Loki) -- or
+# None for no dot. Explicit, so a tile never borrows another service's probe on
+# a shared host (Grafana vs the Loki Explore link) and an IP-probed app can still
+# be linked by name.
 GITHUB_REPO = "BigH3ater/kdk-lab-dkr"
 TILES = [
     ("Media ops", [
-        ("Radarr", "https://radarr.kmkdp.com/", "dkr-01"),
-        ("Sonarr", "https://sonarr.kmkdp.com/", "dkr-01"),
-        ("Prowlarr", "https://prowlarr.kmkdp.com/", "dkr-01"),
-        ("SABnzbd", "https://sabnzbd.kmkdp.com/", "dkr-01"),
-        ("Bazarr", "https://bazarr.kmkdp.com/", "dkr-01"),
-        ("Tdarr", "https://tdarr.kmkdp.com/", "dkr-01"),
-        ("Trailarr", "https://trailarr.kmkdp.com/", "dkr-01"),
-        ("Jellystat", "https://jellystat.kmkdp.com/", "dmz-01"),
+        ("Radarr", "https://radarr.kmkdp.com/", "dkr-01", "https://radarr.kmkdp.com/ping"),
+        ("Sonarr", "https://sonarr.kmkdp.com/", "dkr-01", "https://sonarr.kmkdp.com/ping"),
+        ("Prowlarr", "https://prowlarr.kmkdp.com/", "dkr-01", "https://prowlarr.kmkdp.com/ping"),
+        ("SABnzbd", "https://sabnzbd.kmkdp.com/", "dkr-01", "https://sabnzbd.kmkdp.com"),
+        ("Bazarr", "https://bazarr.kmkdp.com/", "dkr-01", "https://bazarr.kmkdp.com"),
+        ("Tdarr", "https://tdarr.kmkdp.com/", "dkr-01", "https://tdarr.kmkdp.com"),
+        ("Trailarr", "https://trailarr.kmkdp.com/", "dkr-01", "https://trailarr.kmkdp.com"),
+        ("Jellystat", "https://jellystat.kmkdp.com/", "dmz-01", "https://jellystat.kmkdp.com"),
     ]),
     ("Books", [
-        ("LazyLibrarian", "https://lazylibrarian.kmkdp.com/", "dkr-01"),
-        ("Audiobookshelf admin", "https://audiobookshelf.kmkdp.com/", "dmz-01"),
-        ("Wizarr invites", "https://wizarr.kmkdp.com/admin", "dmz-01"),
+        ("LazyLibrarian", "https://lazylibrarian.kmkdp.com/", "dkr-01", "https://lazylibrarian.kmkdp.com"),
+        ("Audiobookshelf admin", "https://audiobookshelf.kmkdp.com/", "dmz-01",
+         "https://audiobookshelf.kmkdp.com/healthcheck"),
+        ("Wizarr invites", "https://wizarr.kmkdp.com/admin", "dmz-01", "https://wizarr.kmkdp.com"),
+        # both hosts answer 404 at /, so the tiles link the working paths
+        ("Reading catalogue", "https://opds.kmkdp.com/opds", "dmz-01", "https://opds.kmkdp.com/opds"),
+        ("Reading sync", "https://kosync.kmkdp.com/healthcheck", "dmz-01",
+         "https://kosync.kmkdp.com/healthcheck"),
     ]),
     ("Home automation", [
-        ("Home Assistant", "https://homeassistant.kmkdp.com/", "dkr-02"),
-        ("Node-RED", "https://nodered.kmkdp.com/", "dkr-02"),
-        ("Zigbee2MQTT", "https://zigbee.kmkdp.com/", "dkr-02"),
-        ("Scrypted", "https://scrypted.kmkdp.com/", "dkr-03"),
+        ("Home Assistant", "https://homeassistant.kmkdp.com/", "dkr-02", "https://homeassistant.kmkdp.com"),
+        ("Node-RED", "https://nodered.kmkdp.com/", "dkr-02", "https://nodered.kmkdp.com"),
+        ("Zigbee2MQTT", "https://zigbee.kmkdp.com/", "dkr-02", "https://zigbee.kmkdp.com"),
+        ("Scrypted", "https://scrypted.kmkdp.com/", "dkr-03", "https://scrypted.kmkdp.com"),
     ]),
     ("Identity", [
-        ("Authelia", "https://sso.kmkdp.com/", "dmz-01"),
-        ("LLDAP users", "https://users.kmkdp.com/", "dmz-01"),
+        ("Authelia", "https://sso.kmkdp.com/", "dmz-01", "https://sso.kmkdp.com"),
+        ("LLDAP users", "https://users.kmkdp.com/", "dmz-01", "https://users.kmkdp.com"),
     ]),
     ("Deploy", [
-        ("Komodo", "https://komodo.kmkdp.com/", "dkr-01"),
-        ("GitHub repo", f"https://github.com/{GITHUB_REPO}", "github"),
-        ("Docs", "https://docs.kmkdp.com/", "dkr-01"),
+        ("Komodo", "https://komodo.kmkdp.com/", "dkr-01", "https://komodo.kmkdp.com"),
+        ("GitHub repo", f"https://github.com/{GITHUB_REPO}", "github", None),
+        ("Docs", "https://docs.kmkdp.com/", "dkr-01", "https://docs.kmkdp.com/healthz"),
     ]),
     ("Infrastructure", [
-        ("Proxmox", "https://10.1.1.100:8006/", "10.1.1.100"),
-        ("Backup server", "https://10.1.1.102:8007/", "10.1.1.102"),
-        ("TrueNAS", "https://10.1.3.5/", "10.1.3.5"),
-        ("UniFi", "https://10.1.3.1/", "10.1.3.1"),
-        ("AdGuard DNS", "http://10.1.1.120/", "10.1.1.120"),
+        ("Proxmox", "https://10.1.1.100:8006/", "10.1.1.100", "10.1.1.100"),
+        ("Backup server", "https://10.1.1.102:8007/", "10.1.1.102", "10.1.1.102"),
+        ("TrueNAS", "https://10.1.3.5/", "10.1.3.5", "10.1.3.5"),
+        ("UniFi", "https://10.1.3.1/", "10.1.3.1", "10.1.3.1"),
+        ("AdGuard DNS", "http://10.1.1.120/", "10.1.1.120", "10.1.1.120"),
     ]),
     ("Monitoring", [
-        ("Grafana", "https://grafana.kmkdp.com/", "mon-01"),
-        ("Prometheus", "http://10.1.20.30:9090/", "mon-01"),
-        ("Alertmanager", "https://alertmanager.kmkdp.com/", "mon-01"),
-        ("Loki (Grafana Explore)", "https://grafana.kmkdp.com/explore", "log-01"),
+        ("Grafana", "https://grafana.kmkdp.com/", "mon-01", "https://grafana.kmkdp.com/api/health"),
+        ("Prometheus", "http://10.1.20.30:9090/", "mon-01", "http://10.1.20.30:9090/-/healthy"),
+        ("Alertmanager", "https://alertmanager.kmkdp.com/", "mon-01", "https://alertmanager.kmkdp.com"),
+        ("Loki (Grafana Explore)", "https://grafana.kmkdp.com/explore", "log-01", "loki@10.1.20.21:3100"),
     ]),
     ("Household data", [
-        ("Tandoor admin", "https://recipes.kmkdp.com/", "dmz-01"),
-        ("Vikunja admin", "https://tasks.kmkdp.com/", "dkr-01"),
-        ("wger admin", "https://wger.kmkdp.com/", "dkr-01"),
-        ("Actual Budget", "https://budget.kmkdp.com/", "dkr-01"),
+        ("Tandoor admin", "https://recipes.kmkdp.com/", "dmz-01", "https://recipes.kmkdp.com"),
+        ("Vikunja admin", "https://tasks.kmkdp.com/", "dkr-01", "https://tasks.kmkdp.com"),
+        ("wger admin", "https://wger.kmkdp.com/", "dkr-01", "https://wger.kmkdp.com"),
+        ("Actual Budget", "https://budget.kmkdp.com/", "dkr-01", "https://budget.kmkdp.com"),
     ]),
 ]
 
 
-def tile_dot(href: str, status: dict[str, bool]) -> str | None:
-    """'up' / 'down' from the blackbox probe for that host, or None (no probe).
-    The Loki and Grafana Explore tiles share grafana's host but have no probe of
-    their own, so only an exact host match counts."""
-    h = (urllib.parse.urlsplit(href).hostname or "").lower()
-    if h in status:
-        return "up" if status[h] else "down"
+def tile_dot(probe: str | None, status: dict[str, bool]) -> str | None:
+    """'up' / 'down' from the tile's own probe instance, or None (no probe, or
+    Prometheus has no series for it yet)."""
+    if probe and probe in status:
+        return "up" if status[probe] else "down"
     return None
 
 
 # ---- status strip --------------------------------------------------------------------
-def _tile(label, value, sub, state="ok"):
-    return {"label": label, "value": value, "sub": sub, "state": state}
+def _tile(label, value, sub, state="ok", href=""):
+    return {"label": label, "value": value, "sub": sub, "state": state, "href": href}
 
 
 def _missing(label, feed_state: str, what: str):
@@ -562,8 +581,9 @@ def _missing(label, feed_state: str, what: str):
     return _tile(label, "?", f"{what} unreachable", "bad")
 
 
-def status_tiles(src: dict, now: float, tz) -> list[dict]:
-    """src: {name: (value, state)} where state is 'ok', 'loading' or 'failed'."""
+def status_tiles(src: dict, now: float, tz, komodo_ui: str = "") -> list[dict]:
+    """src: {name: (value, state)} where state is 'ok', 'loading' or 'failed'.
+    komodo_ui: the Komodo web UI; a failed deploy links there."""
     tiles = []
     alerts, st = src["alerts"]
     if alerts is None:
@@ -600,7 +620,8 @@ def status_tiles(src: dict, now: float, tz) -> list[dict]:
     else:
         tiles.append(_tile("Deploys failed", str(kom["failed"]),
                            f"of {kom['deploys']}{'+' if kom.get('more') else ''} in 24 h",
-                           "bad" if kom["failed"] else "ok"))
+                           "bad" if kom["failed"] else "ok",
+                           f"{komodo_ui}/" if kom["failed"] and komodo_ui else ""))
     gh, st = src["github"]
     if gh is None:
         tiles.append(_missing("Draft PRs", st, "GitHub"))
@@ -613,12 +634,13 @@ def status_tiles(src: dict, now: float, tz) -> list[dict]:
     else:
         reno = gh["renovate"] if gh else None
         vul = adv["vulnerable"] if adv else None
-        n = (reno or 0) + (vul or 0)
+        unk = adv["unknown"] if adv else 0
+        n = (reno or 0) + (vul or 0) + unk          # "to review" needs a look too, so it counts
         parts = [f"{reno} Renovate" if reno is not None else "Renovate ?",
                  f"{vul} advisories" if vul is not None else "advisories ?"]
-        if adv and adv["unknown"]:
-            parts.append(f"{adv['unknown']} to review")
-        tiles.append(_tile("Updates", str(n), " · ".join(parts), "warn" if vul else "ok"))
+        if unk:
+            parts.append(f"{unk} to review")
+        tiles.append(_tile("Updates", str(n), " · ".join(parts), "warn" if vul or unk else "ok"))
     ups, st = src["ups"]
     if ups is None:
         tiles.append(_missing("UPS", st, "Home Assistant"))
@@ -651,11 +673,25 @@ def head(asset_ver: str, refresh: bool) -> str:
             f"<link rel='stylesheet' href='/static/home.css?v={escape(asset_ver)}'></head>")
 
 
+def _sub_html(sub: str) -> str:
+    """The sub-line split at " · " into unbreakable parts: a narrow tile wraps
+    between parts instead of hiding the last numbers behind an ellipsis."""
+    parts = sub.split(" · ")
+    return " ".join(f"<span>{escape(p)}{' ·' if i < len(parts) - 1 else ''}</span>"
+                    for i, p in enumerate(parts))
+
+
 def _stats_html(tiles: list[dict]) -> str:
-    return "".join(
-        f"<div class='ad-stat {escape(t['state'])}'><div class='ad-lbl'>{escape(t['label'])}</div>"
-        f"<div class='ad-val'>{escape(t['value'])}</div><div class='ad-sub' title='{escape(t['sub'])}'>{escape(t['sub'])}</div></div>"
-        for t in tiles)
+    out = []
+    for t in tiles:
+        inner = (f"<div class='ad-lbl'>{escape(t['label'])}</div><div class='ad-val'>{escape(t['value'])}</div>"
+                 f"<div class='ad-sub' title='{escape(t['sub'])}'>{_sub_html(t['sub'])}</div>")
+        if t.get("href"):
+            out.append(f"<a class='ad-stat {escape(t['state'])}' href='{escape(t['href'])}' target='_blank' "
+                       f"rel='noopener'>{inner}</a>")
+        else:
+            out.append(f"<div class='ad-stat {escape(t['state'])}'>{inner}</div>")
+    return "".join(out)
 
 
 def _alerts_html(alerts, state: str, am_ui: str, now: float) -> str:
@@ -672,7 +708,7 @@ def _alerts_html(alerts, state: str, am_ui: str, now: float) -> str:
                         f"<span class='ad-name' title='{escape(a['summary'])}'>{escape(a['name'])}"
                         f"<span class='ad-inst'>{escape(a['instance'])}</span></span>"
                         f"<span class='muted'>{escape(age)}</span>"
-                        f"<a href='{escape(am_filter_link(am_ui, a))}' target='_blank' rel='noopener'>Silence</a></div>")
+                        f"<a class='ad-act' href='{escape(am_filter_link(am_ui, a))}' target='_blank' rel='noopener'>Silence</a></div>")
         more = f"<div class='ad-empty'>{len(alerts) - 12} more in Alertmanager</div>" if len(alerts) > 12 else ""
         body = "".join(rows) + more
     return ("<div class='card ad-card'><div class='ad-h'><h2>Firing alerts</h2>"
@@ -688,9 +724,11 @@ def _signins_html(si, state: str, tz) -> str:
         body = "<div class='ad-empty'>No sign-in attempts in 24 h.</div>"
     else:
         rows = []
+        today = datetime.datetime.now(tz).date()
         for r in si["rows"][:10]:
             t = datetime.datetime.fromtimestamp(r["ts"], tz)
-            rows.append(f"<div class='ad-row ad-login'><span class='muted'>{t:%H:%M}</span>"
+            when = f"{t:%H:%M}" if t.date() == today else f"{t:%a %H:%M}"
+            rows.append(f"<div class='ad-row ad-login'><span class='muted'>{when}</span>"
                         f"<span>{escape(r['user'] or '–')}</span><span class='muted ad-ell'>{escape(r['app'])}</span>"
                         f"<span class='res {'ok' if r['ok'] else 'bad'}'>{escape(r['result'])}</span></div>")
         body = "".join(rows)
@@ -714,7 +752,12 @@ def _syslog_html(form: dict, hosts: list[str], result: dict | None, tz, explore:
     elif result.get("error"):
         body = f"<div class='ad-empty bad'>{escape(result['error'])}</div>"
     elif not result["rows"]:
-        body = "<div class='ad-empty'>No matching lines.</div>"
+        span = RANGE_LABEL.get(rng, "").replace("Last ", "last ")
+        wider = ""
+        if rng != "24h":
+            qs = urllib.parse.urlencode({"q": q, "host": host, "range": "24h"})
+            wider = f" <a href='/?{escape(qs)}'>Search the last 24 hours</a>"
+        body = f"<div class='ad-empty'>No matching lines in the {escape(span)}.{wider}</div>"
     else:
         lines = []
         for r in result["rows"]:
@@ -725,6 +768,8 @@ def _syslog_html(form: dict, hosts: list[str], result: dict | None, tz, explore:
         cap = (f"<div class='ad-note'>First {len(result['rows'])} lines (newest first, capped at 200).</div>"
                if len(result["rows"]) >= 200 else "")
         body = "<div class='ad-logs'>" + "".join(lines) + "</div>" + cap
+    if result and result.get("note") and not result.get("error"):
+        body = f"<div class='ad-note'>{escape(result['note'])}</div>" + body
     return ("<section class='card ad-card ad-syslog'><form class='ad-search' method='get' action='/'>"
             f"<h2>Syslog search</h2><span class='muted'>Loki · {len(hosts)} hosts</span>"
             "<label class='sr' for='q'>Search syslog</label>"
@@ -744,8 +789,16 @@ def _charts_html(defs: list[dict], series, state: str) -> str:
             svg = (f"<svg aria-hidden='true' viewBox='0 0 120 36' preserveAspectRatio='none'>"
                    f"<polyline points='{spark_points(pts)}'/></svg>")
         else:
-            msg = "loading" if series is None and state == "loading" else "no data"
-            svg = f"<div class='ad-nodata'>{msg}</div>"
+            # None = the fetch failed (the whole feed, or this one source);
+            # [] = the source answered with an empty series
+            src = "Home Assistant" if c.get("ha") else "Prometheus"
+            if series is None and state == "loading":
+                msg = "loading"
+            elif pts is None and (series is None or c["key"] in series):
+                msg = f"{src} unreachable"
+            else:
+                msg = "no data"
+            svg = f"<div class='ad-nodata{' bad' if msg.endswith('unreachable') else ''}'>{msg}</div>"
         out.append(f"<a class='card ad-chart' href='{escape(c['href'])}' target='_blank' rel='noopener' title='{escape(c['title'])}'>"
                    f"<div class='ad-ch'><span class='muted'>{escape(c['label'])}</span><b>{escape(val)}</b></div>{svg}</a>")
     return "<section class='ad-charts'>" + "".join(out) + "</section>"
@@ -755,8 +808,8 @@ def _groups_html(status: dict[str, bool]) -> str:
     out = []
     for name, items in TILES:
         rows = []
-        for label, href, host in items:
-            dot = tile_dot(href, status)
+        for label, href, host, probe in items:
+            dot = tile_dot(probe, status)
             dot_html = (f"<span class='dot {dot}' role='img' aria-label='{'up' if dot == 'up' else 'down'}'></span>"
                         if dot else "<span class='dot none' aria-hidden='true'></span>")
             rows.append(f"<a class='ad-svc' href='{escape(href)}' target='_blank' rel='noopener'>{dot_html}"
@@ -771,7 +824,7 @@ def page(d: dict, asset_ver: str) -> str:
     tz, now = d["tz"], d["now"]
     searching = d.get("syslog") is not None
     return (head(asset_ver, refresh=not searching)
-            + "<body class='admin'><header class='ad-top'><div class='brand'>Mack House</div>"
+            + "<body class='admin'><header class='ad-top'><h1 class='brand'>Mack House</h1>"
             f"<span class='ad-badge'>Admin</span><span class='muted ad-hostname'>{escape(d['admin_host'])}</span>"
             f"<a class='ad-home' href='{escape(d['home_url'])}'>Household home</a>"
             f"<span class='muted'>{escape(d['user'])}</span></header><main class='ad-main'>"

@@ -6,7 +6,7 @@
 # Reached at https://search.kmkdp.com through the internal Traefik (stacks/proxy),
 # entrypoint websecure only, behind Authelia forward-auth (two_factor, group
 # dashboard-users, the same gate as home.kmkdp.com). SearXNG has no login of its own.
-# Authelia bypasses exactly two paths: /healthz (Homepage siteMonitor) and
+# Authelia bypasses exactly two paths: /healthz (was for the retired Homepage siteMonitor) and
 # /opensearch.xml (so a browser can add the engine).
 #
 # Upstream: searxng/searxng container/docker-compose.yml + container/entrypoint.sh at

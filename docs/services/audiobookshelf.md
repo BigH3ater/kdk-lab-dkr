@@ -6,7 +6,7 @@ tier: dmz
 status: live
 storage: yes
 secrets: []
-updated: 2026-11-09
+updated: 2026-11-10
 tags: [homelab/stack, tier/dmz, status/live]
 ---
 
@@ -145,6 +145,31 @@ curl -s -X POST https://audiobookshelf.kmkdp.com/api/libraries \
        "settings":{"coverAspectRatio":0,"autoScanCronExpression":"15 * * * *",
          "metadataPrecedence":["folderStructure","audioMetatags","nfoFile","txtFiles","opfFile","absMetadata"]}}'
 ```
+
+## Reading-order collections
+
+`stacks/audiobookshelf/tools/abs_collections.py` keeps three ABS collections in step with the vault note `4. Learning/Content/Reading List.md`:
+
+| Collection | Library | From the note |
+|---|---|---|
+| Round 1 | `ebooks` | table rows 1–10 |
+| Reading order | `ebooks` | every row of both tables |
+| Audio queue | `audiobooks` | the numbered *Audio queue* list |
+
+Plappa 2.0 shows these collections for ebooks and audiobooks, so the phone follows the list.
+
+- **Matching:** exact ISBN if the row has one, otherwise the normalised title (no subtitle, edition words, punctuation or case), with the author and then the edition as tie-breaks. A title that is not in ABS, is ambiguous, or names another edition is printed and skipped, never guessed. `DOUBT:` marks a match to check by eye (a title-prefix match, or a book the list still calls missing/NEW).
+- **Writes:** creates a missing collection, then sets its books and order exactly to the list: books that left the list are removed, new arrivals join in list order. Finished books stay unless they left the list. A second `--apply` makes 0 writes.
+- **Run it on demand**, from the laptop, after editing the list or after new books arrive. Dry run is the default; read the match lines before `--apply`. The token is read from the environment and never printed:
+
+```bash
+export ABS_TOKEN="$(op read op://kdk-ops/audiobookshelf-api-root/credential)"
+uv run stacks/audiobookshelf/tools/abs_collections.py           # dry run: matches + planned writes
+uv run stacks/audiobookshelf/tools/abs_collections.py --apply   # write them
+unset ABS_TOKEN
+```
+
+`--list PATH` points at another copy of the note. Tests: `uvx pytest -q stacks/audiobookshelf/tools/tests` (fake ABS API, also in CI). The API it uses: `GET /libraries/<id>/items`, `GET /collections`, `POST /collections`, `POST /collections/<id>/batch/remove`, `POST /collections/<id>/batch/add`, `PATCH /collections/<id>` with `books` (reorders existing members only, so it runs after the removes and adds). To undo, delete the collection in the ABS UI; the books are untouched.
 
 ## Secret Rotation
 

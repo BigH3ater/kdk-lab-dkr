@@ -66,10 +66,14 @@ groups:
 
       # The weekly rule/DNS sha changed since the last run: custom-firewall or
       # rate-limit rules, or the DNS record set, were edited.
+      # Window = exactly one weekly cycle (7d): the changed=true line ages out
+      # as the next Monday run lands, so a clean next run clears the alert and
+      # a changed one re-fires with its own diff. [8d] (until 2026-11-11)
+      # overlapped the next run by a day, so a clean run could not clear it.
       - alert: CloudflareRuleDrift
         expr: |
           sum by (diff) (count_over_time({container="cloudflare-watch-weekly"}
-            | json | check="rule_drift" | changed="true" [8d])) > 0
+            | json | check="rule_drift" | changed="true" [7d])) > 0
         for: 0m
         labels:
           severity: warning
@@ -77,7 +81,7 @@ groups:
           scope: cloudflare-watch
         annotations:
           summary: "Cloudflare rules or DNS for kmkdp.com changed since last week: {{ $labels.diff }}"
-          description: "The weekly cloudflare-watch rule_drift sha changed: a custom firewall / rate-limit rule or a DNS record was edited. Review Security WAF and DNS in the dashboard; if intended, the next weekly run makes it the baseline."
+          description: "The weekly cloudflare-watch rule_drift sha changed: a custom firewall / rate-limit rule or a DNS record was edited. Review Security WAF and DNS in the dashboard; if intended, the next weekly run makes it the baseline and clears this alert."
           runbook: docs/runbooks/security-alerts.md#cloudflare-watch
 
       # The hourly watch stopped reporting (procedure disabled, job failing

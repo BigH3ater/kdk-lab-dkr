@@ -2,15 +2,15 @@
 """dashboard-mealplan: render the Tandoor weekly meal plan for the family home
 dashboard, and let household members submit a star rating from the dashboard.
 
-Why a sidecar (not a Homepage widget calling Tandoor directly): Tandoor has DRF
+Why a sidecar (not the browser calling Tandoor directly): Tandoor has DRF
 **token auth disabled** -- only Session + OAuth2. So we log in with a dedicated
 Tandoor account (username/password, op-injected) to get a session + CSRF cookie, then
 call the JSON API. The account must be a member of the "Mack House" space or the plan
 comes back empty (every Tandoor object is space-scoped).
 
 Served (behind Traefik, StripPrefix /meal):
-  GET  /            -> HTML week grid (embedded as an iframe on the dashboard)
-  GET  /mealplan.json -> compact JSON (for a Homepage customapi widget, optional)
+  GET  /            -> HTML week grid (the sidebar's "This Week" page)
+  GET  /mealplan.json -> compact JSON (optional; nothing in the lab reads it now)
   POST /rate        -> create a CookLog rating, then redirect back to /
   GET  /healthz     -> "ok"
   GET  /kitchen, /kitchen/ingredients, /kitchen/steps, /kitchen/pantry,
@@ -27,7 +27,8 @@ same app for the lab admin page only: GET / and /static/*, ADMIN_USERS only
 (403 otherwise), everything else 404 there (admin.py).
 
 kitchen.kmkdp.com (internal Traefik, NO forwardauth) reaches this same app for
-paired kitchen devices only: /, /ingredients, /steps, /pantry, /step-photo/<id>,
+paired kitchen devices only: /, /ingredients, /steps, /pantry, /chores, /weather,
+/step-photo/<id>,
 /manifest.webmanifest, /static/*, POST /tasks/complete, /groceries/add,
 /groceries/reorder, and /pair. Everything else is a 404 there, Remote-* headers
 are ignored, and every other request needs the signed device cookie (devices.py).
@@ -505,12 +506,12 @@ color:var(--ember);padding:10px 12px 0}
 .empty{color:var(--ash);font-size:13px;padding:24px;text-align:center;font-family:'Space Grotesk',sans-serif}
 """
 
-# The shared Kodiak sidebar, same source the guides and Homepage use. Served
-# same-origin from /guides (behind Authelia -- no CDN). shared-nav.js hides the
-# nav inside an iframe, so the dashboard-embedded /meal grid, tasks and weather
-# pages stay bare; the standalone /meal/groceries page gets the full sidebar.
-NAV_HEAD = ('<link rel="stylesheet" href="/guides/shared-nav.css?v=nav20261107">'
-            '<script defer src="/guides/shared-nav.js?v=nav20261107"></script>')
+# The shared Kodiak sidebar, same source the guides use. Served same-origin from
+# /guides (behind Authelia -- no CDN). The week grid, tasks, weather and
+# groceries pages all get it (shared-nav.js still skips drawing it inside a
+# frame). The household and kitchen pages have their own header instead.
+NAV_HEAD = ('<link rel="stylesheet" href="/guides/shared-nav.css?v=nav20261110">'
+            '<script defer src="/guides/shared-nav.js?v=nav20261110"></script>')
 
 
 def last_ratings(recipe_ids: set[int]) -> dict[int, int]:
@@ -797,7 +798,7 @@ display:flex;gap:6px;align-items:baseline;flex:0 0 auto}
 .task.busy{opacity:.45}
 """
 
-# Tick a task without reloading the iframe: a plain form POST + 303 reload snapped
+# Tick a task without reloading the page: a plain form POST + 303 reload snapped
 # the horizontally scrolled category row (and the page) back to the start. POST in
 # the background, then swap in the re-rendered board (recurring chores come back
 # with a new due date, so it has to be re-rendered, not just removed) and restore
@@ -890,6 +891,8 @@ def tasks_complete():
         except Exception:
             log.exception("task board refresh after tick failed")
         return Response(status=204 if ok else 502)
+    if request.form.get("next") == "chores":        # the All chores view (no-JS tick)
+        return redirect(kitchen.kpath("/chores"), code=303)
     if kitchen.on_kitchen_host():
         return redirect(kitchen.kpath(), code=303)
     # relative to /meal/tasks/complete -> ../tasks == /meal/tasks (survives the
@@ -901,8 +904,10 @@ def tasks_complete():
 # ---- Weather: Tiffin, IA 7-day strip (Open-Meteo, keyless) ------------------
 WX_URL = ("https://api.open-meteo.com/v1/forecast?latitude=41.706&longitude=-91.663"
           "&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max"
+          ",precipitation_sum,wind_speed_10m_max,sunrise,sunset"
           "&hourly=temperature_2m,precipitation_probability,weather_code"
-          "&temperature_unit=fahrenheit&timezone=America%2FChicago&forecast_days=7")
+          "&temperature_unit=fahrenheit&wind_speed_unit=mph&precipitation_unit=inch"
+          "&timezone=America%2FChicago&forecast_days=7")      # 7 days = 168 hourly rows
 
 
 def _wx_fetch() -> dict:
@@ -1273,67 +1278,84 @@ def _grocery_row(item, title: str, link: str = "", name_html: str = "") -> str:
             f"<span class='lbl'>{name}{qty}{src}</span>{link}</div>")
 
 
-GROCERIES_CSS = PAGE_CSS + """
-.gwrap{padding:10px;max-width:760px;margin:0 auto}
-.store{margin-bottom:18px}
-.tabs{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 12px;position:sticky;top:0;z-index:2;
-background:var(--ink-surface);padding:8px 0}
-.tabs button{font:500 13px 'JetBrains Mono',monospace;letter-spacing:.08em;text-transform:uppercase;
-background:var(--ink);color:var(--ash);border:1px solid var(--ink-hairline);border-radius:999px;
-padding:7px 14px;cursor:pointer;min-height:36px}
-.tabs button[aria-selected=true]{color:var(--ink);background:var(--ember);border-color:var(--ember)}
-.tabs .n{margin-left:6px;opacity:.8}
-.tabs .upd{margin-left:auto;align-self:center;font:400 11px 'JetBrains Mono',monospace;
-color:var(--ash);text-decoration:none}
-.js .tab{display:none}
-.js .tab.on{display:block}
-.gi .lbl .qty{color:var(--ember);margin-left:8px;font-family:'JetBrains Mono',monospace;font-size:13px}
-.gi .lbl .qty .raw{color:var(--ash);opacity:.7;font-size:12px}
-.gi .lbl .src{display:block;color:var(--ash);font-size:11px;margin-top:1px}
-.gi .lbl a.np{color:var(--paper);text-decoration:none;font-weight:600}
-.gi .lbl a.np:hover{color:var(--ember);text-decoration:underline;text-decoration-thickness:2px}
-.gi .lbl a.np .ext{font-size:11px;color:var(--ember);margin-left:3px;vertical-align:super}
-.gi .lbl .nolink{color:var(--ash);font-size:11px;margin-left:4px;opacity:.6;vertical-align:super}
-.meals{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px}
-.mcard{background:var(--ink);border:1px solid var(--ink-hairline);border-radius:9px;overflow:hidden;color:var(--paper);text-decoration:none}
-.mcard img,.mcard .noimg{display:block;width:100%;aspect-ratio:4/3;object-fit:cover;background:var(--ink-hairline)}
-.mcard .mi{padding:6px 8px;font-weight:600;font-size:13px}
-.mcard .mi .mt{display:block;font-weight:400}
-.mcard:hover{border-color:var(--ember)}
-.store h2{font-family:'JetBrains Mono',monospace;font-size:13px;letter-spacing:.14em;
-text-transform:uppercase;color:var(--ember);margin:0 0 6px;border-bottom:1px solid var(--ink-hairline);padding-bottom:5px}
-.aisle{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.12em;
-text-transform:uppercase;color:var(--ash);margin:10px 0 3px}
-.gi{display:flex;align-items:center;gap:10px;padding:9px 6px;border-bottom:1px solid var(--ink-hairline);min-height:40px}
+# The groceries page sits on the shared home.css (Bernese tokens, fonts, focus
+# ring, .card, .btn, .sr, the "Manual list instead" .mtog). These rules are
+# scoped to body.groceries; the class names avoid home.css's own .tabs/.tab
+# (the steps view), .addbox (the household add card) and .meals (the board).
+GROCERIES_CSS = """
+body.groceries{min-height:100vh;-webkit-hyphens:none;hyphens:none}
+.gr-top{flex-wrap:wrap;row-gap:0}
+.gr-top h1{font-size:22px}
+.gr-top .brand{color:var(--text);text-decoration:none}
+.gr-top .gr-links{margin-left:auto;display:flex;align-items:center;gap:4px 14px;flex-wrap:wrap;justify-content:flex-end}
+.gr-top a.gr-home,.gr-top a.upd{display:inline-flex;align-items:center;min-height:44px;padding:0 4px;font-size:14px;text-decoration:none}
+.gr-top a.upd{color:var(--muted)}
+.gr-top a.upd:hover{color:var(--text)}
+.gwrap{padding:0 16px 24px;max-width:760px;margin:0 auto}
+.gtabs{display:flex;gap:8px;position:sticky;top:0;z-index:2;background:var(--ground);padding:12px 0;
+overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:none}
+.gtabs::-webkit-scrollbar{display:none}
+.gtabs button{flex:0 0 auto;min-height:44px;min-width:44px;padding:0 16px;border-radius:999px;border:1px solid var(--hairline);
+background:var(--surface);color:var(--text);font:600 15px var(--body);cursor:pointer;white-space:nowrap}
+.gtabs button:hover{border-color:var(--muted)}
+.gtabs button[aria-selected=true]{border-color:var(--rust);background:var(--raised)}
+.gtabs .n{margin-left:8px;color:var(--muted);font-weight:500}
+.js .gtab{display:none}
+.js .gtab.on{display:block}
+.store{background:var(--surface);border:1px solid var(--hairline);border-radius:18px;padding:14px 16px;margin-bottom:16px}
+.store h2{font-size:20px;margin:0 0 6px;overflow-wrap:anywhere}
+.aisle{font-family:var(--head);font-size:13px;letter-spacing:.14em;text-transform:uppercase;font-weight:600;
+color:var(--muted);margin:14px 0 2px}
+.gi{display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid var(--hairline);min-height:52px;min-width:0}
 .gi:last-child{border-bottom:none}
-.gi form{display:flex;margin:0}
-.gi button.tick{width:26px;height:26px;border:2px solid var(--ash);border-radius:7px;background:none;cursor:pointer;flex:0 0 auto}
-.gi button.tick:hover{border-color:var(--ok);background:var(--ink)}
-.gi .lbl{font-size:15px;flex:1 1 auto}
-.gi a.srch{color:var(--ember);text-decoration:none;font-size:12px;font-family:'JetBrains Mono',monospace;white-space:nowrap}
+.gi form{display:flex;margin:0;flex:0 0 auto}
+.gi .lbl{font-size:16px;flex:1 1 auto;min-width:0;overflow-wrap:anywhere}
+.gi .lbl .qty{color:var(--tan);margin-left:8px;font-size:14px;font-weight:600}
+.gi .lbl .qty .raw{color:var(--muted);font-weight:400;font-size:13px}
+.gi .lbl .src{display:block;color:var(--muted);font-size:13px;margin-top:1px}
+.gi .lbl a.np{color:var(--text);text-decoration:none;font-weight:600;display:inline-flex;align-items:center;min-height:44px}
+.gi .lbl a.np:hover{color:var(--tan);text-decoration:underline;text-decoration-thickness:2px}
+.gi .lbl a.np .ext{font-size:12px;color:var(--tan);margin-left:3px;align-self:flex-start;margin-top:10px}
+.gi .lbl .nolink{color:var(--muted);font-size:12px;margin-left:4px;vertical-align:super}
+/* tick: a 44 px hit area around a 26 px box */
+.gi button.tick{position:relative;width:44px;height:44px;flex:0 0 44px;border:0;border-radius:12px;background:none;padding:0;
+cursor:pointer;color:var(--ok);font-size:16px}
+.gi button.tick::before{content:'';position:absolute;inset:9px;border:2px solid var(--box);border-radius:7px}
+.gi button.tick:hover::before{border-color:var(--ok)}
+.gi a.srch{display:inline-flex;align-items:center;min-height:44px;padding:0 6px;color:var(--tan);text-decoration:none;font-size:14px;white-space:nowrap}
 .gi a.srch:hover{text-decoration:underline}
 .gi.busy{opacity:.4}
-.addbox{display:flex;gap:8px;margin:8px 0 2px}
-.addbox input{flex:1 1 auto;background:var(--ink);border:1px solid var(--ink-hairline);
-border-radius:7px;color:var(--paper);padding:9px;font:15px 'Space Grotesk',sans-serif}
-.addbox button{background:var(--ember);border:none;color:var(--ink);border-radius:7px;padding:0 14px;font-weight:600;cursor:pointer}
-.addbox .mtog{display:flex;align-items:center;gap:6px;min-height:44px;min-width:44px;padding:0 4px;
-color:var(--ash);font:500 12px 'JetBrains Mono',monospace;cursor:pointer;white-space:nowrap}
-.addbox .mtog input{width:22px;height:22px;margin:0;accent-color:var(--ember);flex:0 0 auto}
-.addbox .mtog.off{opacity:.5;cursor:not-allowed}
-.addflash{color:var(--ok);font-size:14px;padding:6px 2px}
-.addflash.err{color:var(--danger)}
-.addnote{color:var(--ash);font-size:12px;padding:2px 2px 4px}
-.empty2{color:var(--ash);font-size:13px;padding:14px 6px}
-.gi form.reorderform button.reorder{background:none;border:1px solid var(--ember);color:var(--ember);
-border-radius:7px;padding:5px 10px;font:500 12px 'JetBrains Mono',monospace;cursor:pointer;min-height:32px}
-.gi form.reorderform button.reorder:hover{background:var(--ember);color:var(--ink)}
-.gi .onlist{color:var(--ok);font:500 12px 'JetBrains Mono',monospace;white-space:nowrap}
-.gi .by{color:var(--ember);font:500 12px 'JetBrains Mono',monospace;text-align:right}
-.gi.thaw.late .by{color:var(--danger)}
-.gi.thaw.done{opacity:.45}
-.gi.thaw.done button.tick{border-color:var(--ok);color:var(--ok);font-size:14px}
-.thawtoday{color:var(--ember);font-weight:600;padding:2px 0 10px}
+.gadd{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0 2px}
+.gadd input[name=item]{flex:1 1 160px;min-width:0;min-height:48px;padding:0 14px;border-radius:12px;border:1px solid var(--hairline);
+background:var(--ground);color:var(--text);font:inherit;font-size:17px}
+.gadd input[name=item]::placeholder{color:var(--muted)}
+.gadd input[name=item]:focus{border-color:var(--tan)}
+.gadd button{min-height:48px;min-width:64px;padding:0 18px;border:0;border-radius:12px;background:var(--rust);color:var(--ground);
+font-size:16px;font-weight:600;cursor:pointer}
+.gadd button:hover{background:#DB7C46}
+/* phone: the item box and Add share the first row, the toggle gets its own */
+@media(max-width:480px){.gadd .mtog{order:3;flex-basis:100%}}
+.addflash{color:var(--ok);font-size:15px;padding:6px 2px}
+.addflash.err{color:var(--late)}
+.addnote{color:var(--muted);font-size:13px;padding:2px 2px 4px}
+.empty2{color:var(--muted);font-size:15px;padding:14px 0}
+.gi form.reorderform button.reorder{min-height:44px;padding:0 14px;border-radius:12px;border:2px solid var(--rust);background:none;
+color:var(--text);font-size:14px;font-weight:600;cursor:pointer}
+.gi form.reorderform button.reorder:hover{background:var(--raised)}
+.gi .onlist{min-height:44px;padding:0 6px;font-size:14px}
+.gi.thaw{color:var(--text);font-size:inherit;font-weight:inherit}
+.gi .by{color:var(--tan);font-size:14px;font-weight:600;text-align:right;flex:0 1 auto}
+.gi.thaw.late .by{color:var(--late)}
+.gi.thaw.done{opacity:.55}
+.gi.thaw.done button.tick::before{border-color:var(--ok)}
+.thawtoday{color:var(--tan);font-weight:600;padding:2px 0 12px}
+.gmeals{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.mcard{background:var(--raised);border:1px solid var(--hairline);border-radius:14px;overflow:hidden;color:var(--text);text-decoration:none;min-width:0}
+.mcard img,.mcard .gnoimg{display:block;width:100%;aspect-ratio:4/3;object-fit:cover;background:var(--hairline)}
+.mcard .mi{padding:8px 10px;font-weight:600;font-size:14px;overflow-wrap:anywhere}
+.mcard .mi .mt{display:block;font-weight:500;font-size:12px;color:var(--muted);letter-spacing:.06em;text-transform:uppercase}
+.mcard:hover{border-color:var(--muted);color:var(--text)}
+@media(max-width:480px){.gi .by{max-width:40%}}
 """
 
 GROCERIES_JS = """
@@ -1348,8 +1370,8 @@ document.addEventListener('submit', async function (e) {
     var r = await fetch(f.action, {method: 'POST', body: new FormData(f)});
     if (!r.ok) throw new Error(r.status);
     row.style.display = 'none';   // ticked -> drop from the in-store view
-    var tab = row.closest('.tab');
-    var n = tab && document.querySelector('.tabs [data-tab="' + tab.id + '"] .n');
+    var tab = row.closest('.gtab');
+    var n = tab && document.querySelector('.gtabs [data-tab="' + tab.id + '"] .n');
     if (n) { n.textContent = Math.max(0, (parseInt(n.textContent, 10) || 1) - 1); }
   } catch (err) { location.reload(); }
 });
@@ -1358,15 +1380,15 @@ document.addEventListener('submit', async function (e) {
 // Without JS every section shows (the .js class is never set).
 document.documentElement.classList.add('js');
 function showTab(id) {
-  var tabs = document.querySelectorAll('.tab');
+  var tabs = document.querySelectorAll('.gtab');
   if (!document.getElementById(id)) { id = tabs.length ? tabs[0].id : ''; }
   tabs.forEach(function (t) { t.classList.toggle('on', t.id === id); });
-  document.querySelectorAll('.tabs button').forEach(function (b) {
+  document.querySelectorAll('.gtabs button').forEach(function (b) {
     b.setAttribute('aria-selected', b.dataset.tab === id ? 'true' : 'false');
   });
 }
 document.addEventListener('click', function (e) {
-  var b = e.target.closest('.tabs button');
+  var b = e.target.closest('.gtabs button');
   if (!b) return;
   history.replaceState(null, '', '#' + b.dataset.tab);
   showTab(b.dataset.tab);
@@ -1401,14 +1423,14 @@ def _render_meal_cards(plan: list[dict] | None, today: datetime.date, thaw_line:
     for e in plan:
         d = datetime.date.fromisoformat(e["date"]).strftime("%a %-d")
         img = (f"<img src='{escape(e['image'])}' alt='' loading='lazy'>" if e.get("image")
-               else "<div class='noimg'></div>")
+               else "<div class='gnoimg'></div>")
         label = (f"<div class='mi'><span class='mt'>{escape(d)} · {escape(e['meal_type'])}</span>"
                  f"{escape(e['title'])}</div>")
         if e["url"]:
             cards.append(f"<a class='mcard' href='{escape(e['url'])}' target='_blank' rel='noopener'>{img}{label}</a>")
         else:
             cards.append(f"<div class='mcard'>{img}{label}</div>")
-    return f"{head}<div class='store'><h2>Planned meals</h2><div class='meals'>{''.join(cards)}</div></div>"
+    return f"{head}<div class='store'><h2>Planned meals</h2><div class='gmeals'>{''.join(cards)}</div></div>"
 
 
 # ---- Pantry + Thaw tabs ------------------------------------------------------
@@ -1755,6 +1777,13 @@ def _ago(sec: float) -> str:
     return f"{sec}s ago" if sec < 90 else f"{sec // 60} min ago"
 
 
+def _groceries_top(upd: str) -> str:
+    """The household-style header: the page title, the way home and the
+    "updated · refresh" link (left out on the error page)."""
+    return ("<header class='hh-top gr-top'><h1>Groceries</h1><div class='gr-links'>"
+            f"{upd}<a class='gr-home' href='{kitchen.BASE}/home'>Household home</a></div></header>")
+
+
 def _render_groceries(force: bool = False, flash: dict | None = None):
     t0 = time.monotonic()
     today = datetime.datetime.now(TZ).date()
@@ -1764,9 +1793,10 @@ def _render_groceries(force: bool = False, flash: dict | None = None):
         stores, manual = _split_groceries(entries)
     except Exception:
         log.exception("groceries fetch failed")
-        return ("<!doctype html><body style='background:#2b2825;color:#8d8377;"
-                "font-family:sans-serif;padding:20px'>Couldn't load the grocery "
-                "list right now.</body>")
+        return (kitchen.head("Groceries", ASSET_VER, kiosk=False, js=False)
+                + f"<body class='groceries'>{_groceries_top('')}<main class='gwrap'>"
+                "<div class='store'><div class='empty2'>Couldn't load the grocery list right now.</div>"
+                "</div></main></body></html>")
     np = {a: _combine(v) for a, v in (stores.get("NewPi") or {}).items()}
     tg = {a: _combine(v) for a, v in (stores.get("Target") or {}).items()}
     n_np = sum(len(v) for v in np.values())
@@ -1783,11 +1813,11 @@ def _render_groceries(force: bool = False, flash: dict | None = None):
         for tid, label, n in tabs)
     upd = (f"<a class='upd' href='groceries?refresh=1' title='re-read the list from Tandoor'>"
            f"updated {_ago(time.time() - snap['ts'])} · refresh</a>")
-    parts = ["<div class='gwrap'>",
-             f"<nav class='tabs' aria-label='Shopping lists'>{bar}{upd}</nav>"]
+    parts = [_groceries_top(upd), "<main class='gwrap'>",
+             f"<nav class='gtabs' aria-label='Shopping lists'>{bar}</nav>"]
     # New Pi -- in-store tap-to-tick checklist; each name links to the New Pi
     # product (opens in a new tab) when foods.yaml carries a newpi_url for it.
-    parts.append("<section class='tab store' id='newpi'><h2>New Pi — tap a name to order</h2>")
+    parts.append("<section class='gtab store' id='newpi'><h2>New Pi — tap a name to order</h2>")
     if not np:
         parts.append("<div class='empty2'>Nothing to pick up at New Pi.</div>")
     for aisle, items in np.items():
@@ -1797,7 +1827,7 @@ def _render_groceries(force: bool = False, flash: dict | None = None):
             parts.append(_grocery_row(item, "got it", name_html=name_html))
     parts.append("</section>")
     # Target -- list with per-item target.com search links for the Drive Up cart
-    parts.append("<section class='tab store' id='target'><h2>Target — Drive Up cart</h2>")
+    parts.append("<section class='gtab store' id='target'><h2>Target — Drive Up cart</h2>")
     if not tg:
         parts.append("<div class='empty2'>Nothing to add at Target.</div>")
     for aisle, items in tg.items():
@@ -1809,9 +1839,10 @@ def _render_groceries(force: bool = False, flash: dict | None = None):
                 f"<a class='srch' href='{escape(link)}' target='_blank' rel='noopener'>search ↗</a>"))
     parts.append("</section>")
     # Manual -- ad-hoc items not tied to a recipe, with an add box
-    parts.append("<section class='tab store' id='manual'><h2>Manual list</h2>"
-                 "<form class='addbox' method='post' action='groceries/add'>"
-                 "<input name='item' placeholder='Add an item…' maxlength='80' autocomplete='off'>"
+    parts.append("<section class='gtab store' id='manual'><h2>Manual list</h2>"
+                 "<form class='gadd' method='post' action='groceries/add'>"
+                 "<label class='sr' for='g-item'>Add an item</label>"
+                 "<input id='g-item' name='item' placeholder='Add an item…' maxlength='80' autocomplete='off'>"
                  f"{kitchen.manual_toggle(FORCED.writable(), 'g-manual')}"
                  "<button type='submit'>Add</button></form>")
     if not FORCED.writable():
@@ -1829,18 +1860,17 @@ def _render_groceries(force: bool = False, flash: dict | None = None):
             "<button class='tick' type='submit' title='got it'></button></form>"
             f"<span class='lbl'>{escape(_item_label(e))}</span></div>")
     parts.append("</section>")
-    parts.append(f"<section class='tab store' id='pantry'>{_render_pantry(entries, lines, today)}</section>")
+    parts.append(f"<section class='gtab store' id='pantry'>{_render_pantry(entries, lines, today)}</section>")
     thaw_html = (_render_thaw(thaw, today) if plan is not None else
                  "<h2>Thaw — freezer to fridge</h2><div class='empty2'>Couldn't load the meal plan.</div>")
-    parts.append(f"<section class='tab store' id='thaw'>{thaw_html}</section>")
-    parts.append(f"<section class='tab' id='meals'>"
+    parts.append(f"<section class='gtab store' id='thaw'>{thaw_html}</section>")
+    parts.append(f"<section class='gtab' id='meals'>"
                  f"{_render_meal_cards(plan, today, _thaw_today_line(thaw, today))}</section>")
-    parts.append("</div>")
+    parts.append("</main>")
     body = "".join(parts)
-    html = (f"<!doctype html><html><head><meta charset='utf-8'>"
-            f"<meta name='viewport' content='width=device-width,initial-scale=1'>"
-            f"{NAV_HEAD}<style>{GROCERIES_CSS}</style><script>{GROCERIES_JS}</script></head>"
-            f"<body>{body}</body></html>")
+    html = (kitchen.head("Groceries", ASSET_VER, kiosk=False, js=False).replace(
+                "</head>", f"<style>{GROCERIES_CSS}</style><script>{GROCERIES_JS}</script></head>", 1)
+            + f"<body class='groceries'>{body}</body></html>")
     log.info("groceries render ms=%d source=%s age_s=%d entries=%d bytes=%d",
              (time.monotonic() - t0) * 1000, source, time.time() - snap["ts"],
              len(entries), len(html))
@@ -1849,9 +1879,7 @@ def _render_groceries(force: bool = False, flash: dict | None = None):
 
 @app.get("/groceries")
 def groceries():
-    return Response(_render_groceries(force=request.args.get("refresh") == "1",
-                                      flash=_added_flash()),
-                    mimetype="text/html")
+    return _html(_render_groceries(force=request.args.get("refresh") == "1", flash=_added_flash()))
 
 
 @app.post("/groceries/tick")
@@ -2207,6 +2235,23 @@ def kitchen_board():
     return _html(kitchen.kitchen_page(d, ASSET_VER))
 
 
+@app.get("/kitchen/chores")
+def kitchen_chores():
+    d = _home_data()
+    if request.args.get("fragment") == "1":
+        return _html(kitchen.chores_fragment(d))
+    return _html(kitchen.chores_page(d, ASSET_VER, kitchen.kpath()))
+
+
+@app.get("/kitchen/weather")
+def kitchen_weather():
+    """The weekly forecast, from the 15-min WX_FEED cache (no upstream call
+    here once the warmer has filled it)."""
+    now = _now()
+    fc = kitchen.forecast_view(WX_FEED.get(), now, WMO)
+    return _html(kitchen.forecast_page(fc, now, ASSET_VER, _back_href()))
+
+
 @app.get("/kitchen/ingredients")
 def kitchen_ingredients():
     d = _home_data()
@@ -2474,7 +2519,8 @@ def _current_device(p) -> dict | None:
 
 
 _KITCHEN_GET = {"/": "kitchen_board", "/ingredients": "kitchen_ingredients",
-                "/steps": "kitchen_steps", "/pantry": "kitchen_pantry"}
+                "/steps": "kitchen_steps", "/pantry": "kitchen_pantry", "/chores": "kitchen_chores",
+                "/weather": "kitchen_weather"}
 _KITCHEN_POST = {"/tasks/complete", "/groceries/add", "/groceries/reorder"}
 _STEP_PHOTO = re.compile(r"^/step-photo/(\d{1,9})$")
 
@@ -2680,7 +2726,9 @@ ADMIN_FEEDS = {
     "komodo": Feed("admin-komodo", 300, lambda: admin.fetch_komodo(KOMODO_URL, KOMODO_API_KEY, KOMODO_API_SECRET)),
     # anonymous GitHub API = 60 requests/h per IP: 15 min cache, 5 min retry
     "github": Feed("admin-github", 900, lambda: admin.fetch_github(admin.GITHUB_REPO), retry=300),
-    "advisories": Feed("admin-advisories", 900, lambda: admin.fetch_advisories(LOKI_URL)),
+    # hourly: the 8-day limit-1 query leaves cancelled Loki sub-queries behind
+    # (most of its warnings and a ~4 s stall on the next query); 15 min was too often
+    "advisories": Feed("admin-advisories", 3600, lambda: admin.fetch_advisories(LOKI_URL)),
     "ups": Feed("admin-ups", 60, lambda: admin.fetch_ups(HA_URL, HA_TOKEN, UPS_PREFIX)),
     "charts": Feed("admin-charts", 300, lambda: admin.fetch_charts(PROM_URL, HA_URL, HA_TOKEN, CHART_DEFS)),
     "signins": Feed("admin-signins", 300, lambda: admin.fetch_signins(LOKI_URL)),
@@ -2731,21 +2779,35 @@ def _syslog_search(user: str) -> tuple[dict, dict | None]:
     form["q"] = q
     if host and (not admin.HOST_RE.match(host) or host not in _syslog_hosts()):
         return form, {"error": "Unknown host.", "rows": []}
-    if not q:
-        return form, {"error": "Type something to search for.", "rows": []}
+    note = ""
+    if not host and q and q in _syslog_hosts():
+        # the whole query is a host name: filter by host, not by line text
+        host, q = q, ""
+        form.update(host=host, q="")
+        note = f"“{host}” is a host: showing that host's newest lines, not lines containing it."
+    elif not q:
+        note = "No search text: the newest lines."
     if not SYSLOG_LIMIT.hit(user, time.time()):
         log.warning("admin: syslog search rate-limited user=%s", user)
         return form, {"error": "Too many searches: wait a few minutes.", "rows": []}
     t0 = time.monotonic()
     try:
         rows = admin.search_syslog(LOKI_URL, q, host, rng)
+    except (requests.Timeout, TimeoutError) as e:
+        log.warning("admin: syslog search timed out: %s", type(e).__name__)
+        return form, {"error": "Loki did not answer in time. Try a shorter range or open Grafana Explore.", "rows": []}
+    except admin.UpstreamError as e:
+        log.warning("admin: syslog search failed: Loki HTTP %s", e.status)
+        msg = " ".join(e.body.split())[:200] or "no details"
+        return form, {"error": f"Loki returned an error ({e.status}): {msg}", "rows": []}
     except Exception as e:
         log.warning("admin: syslog search failed: %s", type(e).__name__)
-        return form, {"error": "Loki did not answer in time. Try a shorter range or open Grafana Explore.", "rows": []}
+        return form, {"error": f"Loki search failed ({type(e).__name__}). Try again or open Grafana Explore.",
+                      "rows": []}
     # the query text is the admin's own and may be anything: its length only in the log
     log.info("admin: syslog search user=%s host=%s range=%s len=%d lines=%d ms=%.0f",
              user, host or "all", rng, len(q), len(rows), (time.monotonic() - t0) * 1000)
-    return form, {"rows": rows}
+    return form, {"rows": rows, "note": note}
 
 
 def admin_page(user: str) -> Response:
@@ -2754,7 +2816,7 @@ def admin_page(user: str) -> Response:
     form, result = _syslog_search(user)
     ok = result is not None and not result.get("error")
     expr = admin.syslog_logql(form["q"] if ok else "", form["host"] if ok else "")
-    d = {"tiles": admin.status_tiles(st, now, TZ), "alerts": st["alerts"], "signins": st["signins"],
+    d = {"tiles": admin.status_tiles(st, now, TZ, KOMODO_URL), "alerts": st["alerts"], "signins": st["signins"],
          "charts": st["charts"], "chart_defs": CHART_DEFS, "probes": st["probes"],
          "form": form, "syslog": result, "hosts": _syslog_hosts(), "user": user,
          "home_url": f"{HOME_ORIGIN}{kitchen.BASE}/home", "am_ui": AM_UI,

@@ -1,7 +1,7 @@
 ---
 title: Komodo GitOps (Resource Sync)
 tags: [homelab/process, komodo, gitops]
-updated: 2026-10-30
+updated: 2026-11-11
 ---
 
 # Komodo GitOps — Resource Sync
@@ -226,7 +226,7 @@ the bind mount keeps pointing at the old one, and even an in-place reload
 (`POST /-/reload`, `SIGHUP`) re-reads the stale content. Mount the **whole
 directory** (`./dir:/etc/app:ro`) so the reload sees the new file, or carry a
 content-SHA label (above) so the edit forces a recreate. Alertmanager hit this
-on 2026-10-30: the `email-ops` receiver stayed dead through the post_deploy
+on 2026-10-30: the `email-ops` receiver (now `critical-ops`) stayed dead through the post_deploy
 reload until the container was recreated by hand — fixed by moving it to a
 directory mount (`stacks/monitoring/compose.yaml`), as Prometheus already does.
 

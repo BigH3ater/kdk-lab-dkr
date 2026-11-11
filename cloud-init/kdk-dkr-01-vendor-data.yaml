@@ -176,7 +176,7 @@ write_files:
 
       # DMZ Traefik (public anyway): jellystat -> jellyfin, internal Traefik
       # forward-auth -> sso.kmkdp.com, OIDC discovery for actual/vikunja/komodo,
-      # homepage widgets, arr -> jellyfin notifications.
+      # arr -> jellyfin notifications.
       allow_dst 192.168.191.20 tcp 443
 
       # Komodo Core (stacks/komodo) -> Periphery on every other host.
@@ -228,6 +228,12 @@ write_files:
       # container. Loki on kdk-log-01 (:3100) is already open to every container by
       # the Alloy allow_dst line above, so it needs no line here.
       allow_ctr dashboard-mealplan 10.1.20.30 tcp 9090,9093
+
+      # Traefik -> Alertmanager UI on kdk-mon-01: alertmanager.kmkdp.com
+      # (stacks/proxy/dynamic/alertmanager.yml, Authelia two_factor internal-users)
+      # proxies to 10.1.20.30:9093. Without this the route hangs until the browser
+      # gives up (Traefik 499). Only Traefik, only 9093.
+      allow_ctr traefik 10.1.20.30 tcp 9093
   - path: /etc/ssh/sshd_config.d/98-kdk-admin.conf
     content: |
       # kdk-lab SSH baseline, every host. Install: /etc/ssh/sshd_config.d/98-kdk-admin.conf

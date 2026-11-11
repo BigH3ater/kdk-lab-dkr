@@ -15,7 +15,7 @@ Stack definitions live in `stacks/` in the repo; Komodo deploys them from git. O
 | [LazyLibrarian](lazylibrarian.md) | kdk-dkr-01 | https://lazylibrarian.kmkdp.com | media |
 | [Apps](apps.md) | kdk-dkr-01 | various | apps |
 | [Trailarr](trailarr.md) | kdk-dkr-01 | https://trailarr.kmkdp.com | trailarr |
-| [Home dashboard](dashboard.md) | kdk-dkr-01 | https://home.kmkdp.com | dashboard |
+| [Home dashboard](dashboard.md) | kdk-dkr-01 | https://home.kmkdp.com (household page; kitchen.kmkdp.com, admin.kmkdp.com) | dashboard |
 | [Actual Budget](actual.md) | kdk-dkr-01 | https://budget.kmkdp.com (LAN + tailnet) | actual |
 | [wger](wger.md) | kdk-dkr-01 | https://wger.kmkdp.com (LAN + tailnet; pilot) | wger |
 | [SearXNG](searxng.md) | kdk-dkr-01 | https://search.kmkdp.com (LAN + tailnet) | searxng |

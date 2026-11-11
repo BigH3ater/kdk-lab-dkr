@@ -1,11 +1,13 @@
 # Mack family home dashboard on kdk-dkr-01 (LAN + Tailscale ONLY -- no public tunnel).
-# Homepage (gethomepage.dev) is the launcher/status board; a small nginx serves the
-# family "how-to" guides at home.kmkdp.com/guides/...; Vikunja is the checkable-tasks
-# app (own auth) at tasks.kmkdp.com; the mealplan sidecar (P2) renders the Tandoor
-# weekly plan front-and-center with a star-rating write-back.
+# The mealplan sidecar is the dashboard: home.kmkdp.com/ redirects to its household
+# page (/meal/home), it also serves the kitchen board (kitchen.kmkdp.com) and the lab
+# admin page (admin.kmkdp.com). A small nginx serves the family "how-to" guides at
+# home.kmkdp.com/guides/...; Vikunja is the checkable-tasks app (own auth) at
+# tasks.kmkdp.com. Homepage (gethomepage.dev) was retired 2026-11-10.
 #
-# Auth = NONE. LAN/Tailscale is the gate;
-# tiles open services that carry their own login. Do NOT expose this on the DMZ/tunnel.
+# Auth = Authelia ForwardAuth (two_factor, group dashboard-users) on every
+# home.kmkdp.com router; kitchen.kmkdp.com uses a signed device cookie instead and
+# admin.kmkdp.com is user:jmack. Do NOT expose this on the DMZ/tunnel.
 #
 # Networks: default (auto /24 from kdk-dkr-01's 10.208.0.0/16 pool -- pools are set
 # host-wide since the 2026-09-19 IPAM fix, so auto is safe; no pin needed) + proxy
@@ -14,30 +16,6 @@
 name: dashboard
 
 services:
-  # ---- Homepage: the dashboard itself (home.kmkdp.com) ---------------------
-  homepage:
-    image: ghcr.io/gethomepage/homepage:v2.7.0@sha256:19c5c09184458a41b7b5915e71463a39f36cd33540f41bdbed008791b8182d5f
-    container_name: homepage
-    restart: unless-stopped
-    env_file: [.env]                 # HOMEPAGE_VAR_* (op-injected) + HOMEPAGE_ALLOWED_HOSTS
-    environment:
-      HOMEPAGE_ALLOWED_HOSTS: home.kmkdp.com
-      TZ: America/Chicago
-    volumes:
-      - ./config:/app/config
-    networks: [default, proxy]
-    labels:
-      traefik.enable: "true"
-      traefik.http.routers.dashboard.rule: "Host(`home.kmkdp.com`)"
-      traefik.http.routers.dashboard.priority: "1"
-      # Authelia SSO (two_factor; access rule for home.kmkdp.com already exists,
-      # group dashboard-users = jmack + rach). Remote-User flows to the sidecar.
-      traefik.http.routers.dashboard.middlewares: "forwardauth@file"
-      traefik.http.services.dashboard.loadbalancer.server.port: "3000"
-    logging:
-      driver: json-file
-      options: { max-size: "10m", max-file: "3" }
-
   # ---- Guides: static family how-to pages (home.kmkdp.com/guides/...) ------
   guides:
     image: nginx:1.31.8-alpine@sha256:713fc2ebfd92e8217db451477182ee91944b123d2b1ee9fd5a8c6e91ca6c3a11
@@ -55,7 +33,7 @@ services:
     networks: [default, proxy]
     labels:
       traefik.enable: "true"
-      # More specific than the Homepage router -> wins for /guides/*. StripPrefix so
+      # More specific than the root redirect router -> wins for /guides/*. StripPrefix so
       # nginx sees /index.html etc. Guide pages use relative links + <base href="/guides/">
       # so assets/links resolve back under /guides/ after the strip -- even if the browser
       # lands on /guides without the trailing slash (StripPrefix does not add one).
@@ -110,9 +88,8 @@ services:
       options: { max-size: "10m", max-file: "3" }
 
   # ---- mealplan sidecar (P2): Tandoor weekly plan + star-rating write-back -
-  # Reached by the family browser at home.kmkdp.com/meal/ (iframe, front-and-center)
-  # and by Homepage's customapi over the default net at http://mealplan:8080. Logs in
-  # to Tandoor with the dedicated dashboard account (session auth; REST tokens are off)
+  # Reached by the family browser at home.kmkdp.com/meal/ (home.kmkdp.com/ redirects
+  # to /meal/home, the household page). Logs in to Tandoor with the dedicated dashboard account (session auth; REST tokens are off)
   # and reads /api/meal-plan/. Ratings POST back as CookLog entries (see mealplan/app.py).
   mealplan:
     # provenance off: with the containerd image store, BuildKit's provenance
@@ -168,6 +145,20 @@ services:
       traefik.http.routers.mealplan.middlewares: "forwardauth@file,mealplan-strip"
       traefik.http.middlewares.mealplan-strip.stripprefix.prefixes: "/meal"
       traefik.http.services.mealplan.loadbalancer.server.port: "8080"
+      # home.kmkdp.com catch-all (replaces the retired Homepage router): every
+      # path that the /meal and /guides routers (priority 10) do not take, "/"
+      # included, gets a 302 to the household page. Same forwardauth as the rest
+      # of the host. The target is under /meal, so the redirect never loops;
+      # temporary (302), so browsers do not cache it. Own router name and
+      # priority 2 (Homepage's was "dashboard", priority 1): if the old homepage
+      # container is still running after the deploy (compose leaves orphans), its
+      # labels neither clash with this router nor win over it.
+      traefik.http.routers.home-root.rule: "Host(`home.kmkdp.com`)"
+      traefik.http.routers.home-root.priority: "2"
+      traefik.http.routers.home-root.service: "mealplan"
+      traefik.http.routers.home-root.middlewares: "forwardauth@file,home-to-household"
+      traefik.http.middlewares.home-to-household.redirectregex.regex: "^https?://[^/]+/.*"
+      traefik.http.middlewares.home-to-household.redirectregex.replacement: "https://home.kmkdp.com/meal/home"
       # kitchen.kmkdp.com: the paired kitchen screen. Internal Traefik only (LAN +
       # Tailscale; never the tunnel or the DMZ). NO forwardauth on purpose: the
       # sidecar wants its signed device cookie (pairing issued from

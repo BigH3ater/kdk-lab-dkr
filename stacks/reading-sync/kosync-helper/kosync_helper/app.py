@@ -15,7 +15,6 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
-import hashlib
 import json
 import logging
 import re
@@ -89,7 +88,7 @@ class Helper:
         self.bb = bb_client
         self.library = library
         self.clock = clock
-        self._auth_ok: dict[str, float] = {}
+        self._auth_ok: dict[tuple[str, str], float] = {}
         # doc hash -> (page, device, device_id) of this helper's last PDF write
         self._last_push: OrderedDict[str, tuple[int, str, str]] = OrderedDict()
         self.started = clock()
@@ -125,8 +124,12 @@ class Helper:
         return (200 if ok else 503), body
 
     # ---------------- auth ----------------
-    def _cache_key(self, user: str, key: str) -> str:
-        return hashlib.sha256(f"{user.lower()}\x00{key}".encode()).hexdigest()
+    def _cache_key(self, user: str, key: str) -> tuple[str, str]:
+        # In-memory only, entries expire after auth_cache_seconds. The kosync
+        # key is already KOReader's digest of the password, so it is kept as
+        # given rather than re-hashed (a fast hash of a credential is what
+        # CodeQL py/weak-sensitive-data-hashing flags).
+        return (user.lower(), key)
 
     async def authenticate(self, request: Request) -> Response | None:
         """None when the device may use the PDF path, else the response to send."""

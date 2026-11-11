@@ -146,11 +146,11 @@ Set in `alertmanager.yml`; routing keys on labels, never on rule names:
 
 | Match | Receiver | Transport |
 |---|---|---|
-| `severity="critical"` | `email-ops` | Pushover (high) **+** email, 1 h repeat |
+| `severity="critical"` | `critical-ops` | Pushover (high) **+** email, 1 h repeat |
 | `severity="info", notify="phone"` | `pushover-quiet` (then `continue`) | quiet Pushover (priority -1), 15 s/1 m grouping — then falls through to the info digest |
 | `severity="info"` | `email-info` | email only, grouped into a ~6 h digest, 24 h repeat |
-| `source="loki"` (the rest → `warning`) | `pushover` | Pushover, per-host grouping |
-| everything else | `pushover` (default) | Pushover |
+| `source="loki"` (the rest → `warning`) | `pushover` | Pushover, per-host grouping, 12 h repeat |
+| everything else | `pushover` (default) | Pushover, 4 h repeat |
 
 The `notify="phone"` route is listed **before** the generic `severity="info"`
 route and sets `continue: true`, so a security-adjacent info alert pings the

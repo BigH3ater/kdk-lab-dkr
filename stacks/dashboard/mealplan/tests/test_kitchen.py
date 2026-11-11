@@ -10,6 +10,7 @@ from zoneinfo import ZoneInfo
 import pytest
 
 import app
+import homecal
 import kitchen
 
 TZ = ZoneInfo("America/Chicago")
@@ -235,12 +236,16 @@ def test_kitchen_board_renders_from_fixtures(home):
     # header: clock, weather, calendar today/tomorrow
     assert "5:20 PM" in html and "Monday, November 9" in html
     assert "H 51° L 31°" in html and html.count("class='hr'") == 6
-    assert "Vet &lt;Bear&gt;, 9:30 AM" in html
-    assert "Late call, 8 PM" in html                                     # UTC event shown in Chicago time
+    assert "9:30 AM Vet &lt;Bear&gt;" in html
+    assert "8 PM Late call" in html                                     # UTC event shown in Chicago time
     # chores: every task except Approvals, counts, escaped titles, tick forms
     assert "Clean fridge &lt;now&gt;" in html and "Approve groceries" not in html
     assert "1 due today" in html and "1 late" in html
-    assert "+1 later" in html
+    # one ordered list, not per-project columns: late, today, upcoming
+    lst = html.split("class='clist'")[1]
+    assert lst.index("Clean fridge") < lst.index("Clean stove top") < lst.index("Dog baths") < lst.index("Furnace filter")
+    assert "class='col'" not in html and "later</summary>" not in html
+    assert "href='/meal/kitchen/chores'>All chores (4)</a>" in html
     assert html.count("action='/meal/tasks/complete'") == 4
     # vacuum line
     assert "2 of 3 rooms cleaned today · next run tomorrow 8:30 AM" in html
@@ -248,8 +253,42 @@ def test_kitchen_board_renders_from_fixtures(home):
     # kiosk bits
     assert "manifest.webmanifest" in html and "apple-mobile-web-app-capable" in html
     assert "black-translucent" in html and "icon-180.png" in html
-    assert "data-night-event='Vet &lt;Bear&gt;, 9:30 AM'" in html
+    assert "data-night-event='9:30 AM Vet &lt;Bear&gt;'" in html
     assert "/meal/static/home.css?v=" in html
+
+
+ONCALL_ICS = b"""BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//test//EN
+BEGIN:VEVENT
+UID:oncall@test
+DTSTART;TZID=America/Chicago:20261105T080000
+DTEND;TZID=America/Chicago:20261113T080000
+SUMMARY:Jacob On Call
+END:VEVENT
+BEGIN:VEVENT
+UID:class@test
+DTSTART;TZID=America/Chicago:20261109T180000
+DTEND;TZID=America/Chicago:20261109T190000
+SUMMARY:Manners Class
+END:VEVENT
+END:VCALENDAR
+"""
+
+
+def test_multi_day_timed_event_shows_while_it_runs(home):
+    # live 2026-11-10: "Jacob On Call" (Nov 5 -> 13) was missing from the board
+    # and the household week because only its start day counted
+    app.CAL_FEED.set(homecal.expand(ONCALL_ICS, NOW.date(), 9, TZ))
+    board = home.get("/kitchen").get_data(as_text=True)
+    rows = board.split("class='card cal'")[1].split("</div></div>")[0]
+    today, tue = rows.split("class='calrow'")[1:3]
+    # today: the day's own event (time first) before the carried-over one
+    assert "6 PM Manners Class · Jacob On Call (until Fri)" in today
+    assert "Jacob On Call (until Fri)" in tue and "Nothing scheduled" not in tue
+    week = home.get("/home").get_data(as_text=True).split("class='card hh-cal'")[1].split("</section>")[0]
+    # once on Today, not repeated on every later day of the week
+    assert week.count("Jacob On Call") == 1 and "Jacob On Call (until Fri)" in week
 
 
 def test_board_fragment_is_swappable(home):
@@ -289,7 +328,7 @@ def test_household_page(home):
     html = home.get("/home").get_data(as_text=True)
     assert "<iframe" not in html and "manifest.webmanifest" not in html
     for name in ("Recipes", "Groceries", "Tasks", "Watch", "Listen &amp; read", "Photos",
-                 "Request TV", "Request books", "Workouts", "Budget", "Home control", "Guides"):
+                 "Request TV", "Request books", "Workouts", "Budget", "Home control", "Search", "Guides"):
         assert f">{name}</a>" in html
     assert "href='/meal/groceries'" in html and "href='https://wger.kmkdp.com/'" in html
     # due/late first (with project), then everything behind the fold
@@ -390,7 +429,7 @@ def test_night_view_shows_tomorrows_first_event(home, monkeypatch):
     html = home.get("/kitchen").get_data(as_text=True)
     assert "class='kiosk is-night'" in html
     night = html.split("id='night'")[1]
-    assert "Vet &lt;Bear&gt;, 9:30 AM" in night
+    assert "9:30 AM Vet &lt;Bear&gt;" in night
 
 
 # ---- feeds ------------------------------------------------------------------------------
@@ -511,7 +550,7 @@ def test_unnamed_steps_get_an_excerpt_tab_not_step_n(home):
     # step 1 has no name: its opening words, not a second "Step 1" next to the number
     assert tabs[0] == "<span class='tn'>1</span> Start the rice first"
     assert tabs[1] == "<span class='tn'>2</span> Make the sauce"
-    assert "Step 1 of 4</div>" in html and "Step 1 of 4 · Step 1" not in html
+    assert "Step 1 of 4</h2>" in html and "Step 1 of 4 · Step 1" not in html
     assert "Step 2 of 4 · Make the sauce" in html
     assert kitchen.tab_label("Pour in the broth. Simmer 2 minutes.", 4) == "Pour in the broth"
     assert kitchen.tab_label("", 4) == "Step 4"
@@ -542,3 +581,151 @@ def test_kitchen_css_sizes_to_the_viewport():
     for sel, decl in side.items():
         assert not re.search(r"(^|;)\s*(max-|min-)?height\s*:\s*\d+px", decl), (sel, decl)
     assert "clamp(" in rules[".step-body p"] and "clamp(" in rules[".dish"]
+
+
+# ---- chores: one ordered list on the board, the All chores view ---------------------------
+def test_chore_list_order_late_today_upcoming_undated():
+    today = NOW.date()
+    t = lambda i, title: {"id": i, "title": title}                      # noqa: E731
+    cols = [{"cat": "A", "soon": [(today, t(1, "b today")), (None, t(2, "undated")),
+                                  (today - datetime.timedelta(days=1), t(3, "late 1d"))],
+             "later": [(today + datetime.timedelta(days=30), t(4, "next month"))], "late": 1},
+            {"cat": "B", "soon": [(today - datetime.timedelta(days=9), t(5, "late 9d")),
+                                  (today, t(6, "a today")), (today + datetime.timedelta(days=2), t(7, "wed"))],
+             "later": [], "late": 1}]
+    got = [(x[1]["title"], x[2]) for x in kitchen.chore_list(cols, today)]
+    assert got == [("late 9d", "B"), ("late 1d", "A"), ("a today", "B"), ("b today", "A"),
+                   ("wed", "B"), ("next month", "A"), ("undated", "A")]
+
+
+def test_chore_row_has_project_tag_and_due_text(home):
+    html = home.get("/kitchen").get_data(as_text=True)
+    row = html.split("class='clist'")[1].split("</form>")[0]
+    assert "<span class='ct'>Clean fridge &lt;now&gt;</span>" in row
+    assert "<span class='cmeta'><span class='proj'>Cleaning</span><span class='due'>late</span></span>" in row
+    assert "<now>" not in html
+
+
+def test_all_chores_view_groups_by_project(home):
+    r = home.get("/kitchen/chores")
+    html = r.get_data(as_text=True)
+    assert r.status_code == 200 and r.headers["Cache-Control"] == "no-store"
+    assert "data-page='chores'" in html and "data-home='/meal/kitchen'" in html and ">Back</a>" in html
+    assert "data-fragment='/meal/kitchen/chores?fragment=1'" in html
+    groups = re.findall(r"<section class='cgroup' data-cat='([^']+)'><h2>[^<]*<span class='muted cg-n'>(\d+)", html)
+    assert groups == [("Cleaning", "3"), ("Dogs", "1")]                   # Approvals skipped
+    assert "4 open · 1 due today" in html and "Clean fridge &lt;now&gt;" in html and "<now>" not in html
+    # same rows and tick, and a no-JS tick comes back here
+    assert html.count("name='next' value='chores'") == 4 and html.count("class='tick-row'") == 4
+    frag = home.get("/kitchen/chores?fragment=1").get_data(as_text=True)
+    assert frag.startswith("<div class='chores-in'>") and "<html" not in frag
+
+
+def test_all_chores_view_when_vikunja_is_down(home, monkeypatch):
+    monkeypatch.setattr(app.TASKS_FEED, "get", lambda *a, **k: None)
+    html = home.get("/kitchen/chores").get_data(as_text=True)
+    assert "Couldn't reach the task list right now." in html
+
+
+def test_plain_tick_from_the_chores_view_returns_there(home, monkeypatch):
+    monkeypatch.setattr(app, "_vik", lambda *a, **k: {"id": 1, "done": False})
+    monkeypatch.setitem(app.VIKUNJA_TOKENS, "jmack", "tok")
+    r = home.post("/tasks/complete", data={"task_id": "1", "next": "chores"}, headers={"Remote-User": "jmack"})
+    assert r.status_code == 303 and r.headers["Location"].endswith("/meal/kitchen/chores")
+
+
+def test_household_keeps_capped_list_in_the_same_row_style(home):
+    html = home.get("/home").get_data(as_text=True)
+    due = html.split("class='hh-due'")[1].split("class='hh-link'")[0]
+    assert due.count("class='tick-row'") == 2 and "<span class='proj'>Cleaning</span>" in due
+    full = home.get("/home?chores=all").get_data(as_text=True)
+    assert "class='cgroups'" in full and "class='col'" not in full
+
+
+def test_no_mid_word_hyphenation_on_kitchen_pages():
+    import os
+    css = open(os.path.join(os.path.dirname(app.__file__), "static", "home.css")).read()
+    assert "hyphens:auto" not in css
+    assert ".kiosk,.household{-webkit-hyphens:none;hyphens:none;word-break:normal}" in css
+    ct = css.split("\n.ct{", 1)[1].split("}", 1)[0]
+    assert "overflow-wrap:anywhere" in ct and "hyphens:none" in ct
+    # 3 columns on the iPad landscape, 2 portrait, 1 phone; 44 px+ tick target
+    assert ".clist{column-count:3" in css and "column-count:2" in css and "column-count:1" in css
+    assert "grid-template-columns:44px" in css.split(".tick-row{", 1)[1].split("}", 1)[0]
+
+
+# ---- weekly forecast view ---------------------------------------------------------------------
+def _wx_week():
+    """7 days of daily rows (with the forecast-only fields) and 7 x 24 hours."""
+    days = [(NOW.date() + datetime.timedelta(days=i)).isoformat() for i in range(7)]
+    hours = [f"{d}T{h:02d}:00" for d in days for h in range(24)]
+    n = len(hours)
+    return {"daily": {"time": days, "weather_code": [0, 3, 61, 71, 95, 2, 1],
+                      "temperature_2m_max": [51.2, 48, 50, 33, 60, 55, 52],
+                      "temperature_2m_min": [31, 30, 35, 20, 44, 40, 38],
+                      "precipitation_probability_max": [0, 10, 80, 60, 90, None, 5],
+                      "precipitation_sum": [0, 0.004, 0.43, 0.2, 1.1, None, 0],
+                      "wind_speed_10m_max": [8.4, 12, 20.6, 15, 30, 9, 7],
+                      "sunrise": [f"{d}T06:49" for d in days], "sunset": [f"{d}T16:48" for d in days]},
+            "hourly": {"time": hours, "temperature_2m": [30 + (i % 10) for i in range(n)],
+                       "precipitation_probability": [i % 100 for i in range(n)],
+                       "weather_code": [0] * n}}
+
+
+def test_forecast_view_hours_and_days():
+    fc = kitchen.forecast_view(_wx_week(), NOW, app.WMO)
+    today, tomorrow = fc["hourly"]
+    assert [b["date"] for b in fc["hourly"]] == [NOW.date(), NOW.date() + datetime.timedelta(days=1)]
+    assert len(today["hours"]) == 24 and len(tomorrow["hours"]) == 24          # midnight to midnight
+    assert [h["past"] for h in today["hours"]] == [True] * 17 + [False] * 7    # it is 5:20 PM
+    assert [h["t"] for h in today["hours"] if h["now"]] == ["5 PM"]
+    assert not any(h["past"] or h["now"] for h in tomorrow["hours"])
+    d = fc["days"]
+    assert len(d) == 7 and d[0]["today"] and not d[1]["today"]
+    assert (d[2]["hi"], d[2]["lo"], d[2]["pop"], d[2]["rain"], d[2]["wind"]) == (50, 35, 80, 0.43, 21)
+    assert d[0]["sunrise"] == "6:49 AM" and d[0]["sunset"] == "4:48 PM"
+    assert d[5]["pop"] is None and d[5]["rain"] is None                        # Open-Meteo nulls
+    assert kitchen.forecast_view(None, NOW, app.WMO) is None
+    assert kitchen.forecast_view({"daily": {}}, NOW, app.WMO) is None
+
+
+def test_forecast_page_route_and_layout(home):
+    app.WX_FEED.set(_wx_week())
+    r = home.get("/kitchen/weather")
+    html = r.get_data(as_text=True)
+    assert r.status_code == 200 and r.headers["Cache-Control"] == "no-store"
+    assert "data-page='weather'" in html and "data-home='/meal/kitchen'" in html and ">Back</a>" in html
+    # today + tomorrow: 24 hourly cells each, past hours dimmed, today highlighted
+    assert len(re.findall(r"<div class='fh( past| now)?'>", html)) == 48 and html.count("<div class='fh past'>") == 17
+    assert "<div class='fh now'><div class='fh-t'>Now</div>" in html
+    assert "<section class='card fday today'>" in html and ">Today <span class='muted'>Mon, Nov 9</span>" in html
+    assert ">Tuesday <span class='muted'>Tue, Nov 10</span>" in html
+    # the other five days: daily summary only
+    assert html.count("<article class='card fcard'>") == 5
+    week = html.split("class='fweek'")[1]
+    assert "0.43 in" in week and "wind 21 mph" in week and "Sunrise 6:49 AM</span><span class='fsep' aria-hidden='true'>·</span><span class='sun'>Sunset 4:48 PM" in week
+    assert not re.search(r"class='fh( |')", week)
+    # from the household page, Back goes home
+    assert "data-home='/meal/home'" in home.get("/kitchen/weather?from=home").get_data(as_text=True)
+
+
+def test_forecast_page_escapes_and_handles_no_data(home, monkeypatch):
+    app.WX_FEED.set(_wx_week())
+    monkeypatch.setitem(app.WMO, 61, "<b>Rain</b>")
+    html = home.get("/kitchen/weather").get_data(as_text=True)
+    assert "<b>Rain</b>" not in html and "&lt;b&gt;Rain&lt;/b&gt;" in html
+    monkeypatch.setattr(app.WX_FEED, "get", lambda *a, **k: None)
+    assert "Weather unavailable right now." in home.get("/kitchen/weather").get_data(as_text=True)
+
+
+def test_weather_widgets_link_to_the_forecast(home):
+    board = home.get("/kitchen").get_data(as_text=True)
+    assert "<a class='card wx wx-link' href='/meal/kitchen/weather' aria-label='7-day forecast'>" in board
+    hh = home.get("/home").get_data(as_text=True)
+    assert "<a class='hh-wx' href='/meal/kitchen/weather?from=home' aria-label='7-day forecast'>" in hh
+
+
+def test_moon_icon_is_a_filled_crescent():
+    svg = kitchen.wx_icon(0, True, 52, "Clear")
+    assert 'fill="currentColor"' in svg and "M19 15.2" in svg
+    assert 'fill="currentColor"' not in kitchen.wx_icon(0, False, 52, "Clear")    # the sun stays outlined

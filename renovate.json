@@ -272,6 +272,16 @@
         "major"
       ],
       "enabled": true
+    },
+    {
+      "description": "requires-python follows the Docker base image; Renovate bumped it alone on 2026-11-07 (grocery-planner =3.13 on a python:3.12 image) and the Tue build failed. Bump both by hand together.",
+      "matchManagers": [
+        "pep621"
+      ],
+      "matchDepTypes": [
+        "requires-python"
+      ],
+      "enabled": false
     }
   ]
 }

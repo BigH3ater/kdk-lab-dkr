@@ -346,7 +346,7 @@ def test_host_normalisation(kit):
 def test_paths_outside_the_allowlist_are_404(kit):
     pair(kit)
     for path in ("/kitchen", "/kitchen/pantry", "/meal/kitchen", "/home", "/groceries", "/tasks",
-                 "/weather", "/mealplan.json", "/healthz", "/kitchen/devices", "/kitchen/step-photo/16",
+                 "/kitchen/weather", "/mealplan.json", "/healthz", "/kitchen/devices", "/kitchen/step-photo/16",
                  "/step-photo/abc", "/ingredients/x", "/nope"):
         assert kget(kit, path).status_code == 404, path
     for path in ("/rate", "/groceries/tick", "/groceries/thaw-tick", "/", "/kitchen/devices/revoke-all"):
@@ -467,3 +467,39 @@ def test_code_normalisation():
     assert devices.normalize_code(devices.group_code(code).lower()) == code
     assert devices.normalize_code("short") == ""
     assert devices.clean_name("") == "Kitchen iPad" and len(devices.clean_name("x" * 99)) == devices.NAME_MAX
+
+
+# ---- the All chores view on the kitchen host ----------------------------------------------
+def test_kitchen_chores_view_is_allowlisted_and_needs_the_cookie(kit, vik):
+    assert kget(kit, "/chores").status_code == 401                       # unpaired: the pair screen
+    assert kget(kit, "/chores?fragment=1").status_code == 401
+    pair(kit)
+    html = kget(kit, "/").get_data(as_text=True)
+    assert "href='/chores'>All chores (" in html
+    r = kget(kit, "/chores")
+    page = r.get_data(as_text=True)
+    assert r.status_code == 200 and "data-home='/'" in page and "data-page='chores'" in page
+    assert "data-fragment='/chores?fragment=1'" in page and "action='/tasks/complete'" in page
+    assert "/meal/" not in page and r.headers["X-Frame-Options"] == "DENY"
+    assert kget(kit, "/chores?fragment=1").get_data(as_text=True).startswith("<div class='chores-in'>")
+    # same CSRF rules for its ticks: Origin required, X-Kitchen on ajax
+    assert kpost(kit, "/tasks/complete", origin=None, data={"task_id": "5", "next": "chores"}).status_code == 403
+    assert kpost(kit, "/tasks/complete", data={"task_id": "5", "ajax": "1", "next": "chores"}).status_code == 403
+    r = kpost(kit, "/tasks/complete", data={"task_id": "5", "next": "chores"})
+    assert r.status_code == 303 and r.headers["Location"] == "/chores"
+    # only GET: no other method or neighbour path
+    assert kpost(kit, "/chores", headers={"X-Kitchen": "1"}).status_code == 404
+    assert kget(kit, "/kitchen/chores").status_code == 404
+    assert kget(kit, "/chores/x").status_code == 404
+
+
+def test_kitchen_weather_view_is_allowlisted_get_only(kit):
+    assert kget(kit, "/weather").status_code == 401                       # unpaired: the pair screen
+    pair(kit)
+    assert "href='/weather' aria-label='7-day forecast'" in kget(kit, "/").get_data(as_text=True)
+    r = kget(kit, "/weather")
+    page = r.get_data(as_text=True)
+    assert r.status_code == 200 and "data-page='weather'" in page and "data-home='/'" in page
+    assert "/meal/" not in page and r.headers["X-Frame-Options"] == "DENY"
+    assert kpost(kit, "/weather", headers={"X-Kitchen": "1"}).status_code == 404
+    assert kget(kit, "/weather/x").status_code == 404
