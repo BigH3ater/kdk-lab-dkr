@@ -177,20 +177,25 @@ scoring:
     Delish: 1.0
     "NYT Cooking": 1.0
 
-# Per-week dinner shape (owner, §5c(4) revision 3). The generator enforces these
-# counts over the 7 dinners and fails closed (logs + picks the next candidate)
-# if the selected pool can't satisfy them.
-# Weekly dinner mix (owner 2026-11: fewer chicken, more ground beef, then a flex
-# dinner added to stretch the Amana beef):
-#   non-roast week: Sunday fish + 2 chicken + 2 ground beef + 1 flex + 1 steak = 7
-#   roast week:     Sunday fish + 2 chicken + 1 ground beef + 1 flex + 1 steak + roast = 7
-# The roast REPLACES a ground-beef dinner (see `roast`); the flex dinner
-# alternates pork chop / chicken breast by week (see `flex`).
+# Per-week dinner shape (owner, §5c(4) revision 3; volume cut 2026-11-11). The
+# generator enforces these counts and fails closed (PlanError) if the selected
+# pool can't satisfy them.
+# Owner 2026-11-11: FIVE cooked dinners a week, Sunday..Thursday; Friday and
+# Saturday are leftovers / eat out and are planned as nothing (`off_nights`).
+# The 7-dinner mix lost one chicken and one ground-beef dinner:
+#   non-roast week (parity B): Sunday fish + 1 chicken + 1 ground beef + 1 flex (chicken) + 1 steak = 5
+#   roast week     (parity A): Sunday fish + 1 chicken + 1 flex (pork) + 1 steak + Wednesday roast = 5
+# The roast REPLACES the ground-beef dinner (see `roast`); the flex dinner
+# alternates pork chop / chicken breast by week (see `flex`). Ground beef is
+# still eaten every week: a dinner on B weeks, the beef stir-fry lunch prep on
+# A weeks (lunches.beef_stir_fry). The chicken dinners are the ones that can be
+# cooked at 4 servings for the next day's lunch (`lunches.leftovers`).
 proteins:
-  dinners_per_week: 7
+  dinners_per_week: 5          # must equal 7 - len(off_nights) and the mix below
+  off_nights: [friday, saturday]   # leftovers / eat out: no dinner planned
   fish: 1
-  poultry: 2
-  ground_beef: 2               # non-roast count; a roast week replaces one (-> 1)
+  poultry: 1
+  ground_beef: 1               # non-roast count; a roast week replaces it (-> 0)
   steak: 1
   legume_only_mains: 0         # owner 2026-10-31: no legume-ONLY mains (no meat/fish);
                                # beans/lentils/chickpeas AS AN INGREDIENT are fine
@@ -204,7 +209,8 @@ proteins:
 # picks the week's distinct beef dishes with no repeat within the week and at
 # most one Asian-style dish (e.g. beef & broccoli). `beef-style` keyword values:
 # Flex dinner: one dinner that alternates pork chop / chicken breast by week, to
-# stretch the Amana ground beef (ground-beef dinners now average ~1.5/wk). parity
+# stretch the Amana ground beef (5-dinner week, 2026-11-11: ground-beef dinners
+# average 0.5/wk plus the fortnightly beef stir-fry lunch). parity
 # A -> rotation[0], parity B -> rotation[1]. A chicken flex must be a chicken
 # dish not already used that week. Pork chops are fresh/weekly from New Pi.
 # With the freezer inventory (`freezer`, below) the flex takes the other kind
@@ -224,8 +230,8 @@ beef:
 
 # Slow-cooker roast dinner on a busy weeknight, every other week (owner, from an
 # Amana eighth share = 8 roasts ~3.5 lb each, ~16 weeks of fortnightly roasts).
-# On a roast week the roast REPLACES one chicken dinner (3 chicken + roast that
-# week). Roasts are Amana freezer stock (food_onhand) so they never hit the
+# On a roast week the roast REPLACES the ground-beef dinner (the generator; the
+# old "replaces a chicken" wording was stale). Roasts are Amana freezer stock (food_onhand) so they never hit the
 # weekly list; only the recipe's pantry bits (ranch/au jus packets, pepperoncini,
 # butter) are ordered. The 3.5 lb roast feeds more than one dinner for two, so
 # the leftovers are planned as Thursday lunch (no extra beef ordered).
@@ -295,15 +301,47 @@ rice:
   serving_foods: [cooked rice, steamed rice, hot rice]
 
 lunches:
-  # Owner 2026-11-01: lunches on weekends too -> 6 lunch days x 2 people = 12
-  # servings = 3 prep batches x 4 servings (was 2 x 4 for Mon-Thu).
-  recipes_per_week: 3
+  # Owner 2026-11-11: TWO prep batches of 4 (was 3), plus leftovers.
+  # Lunch demand: 2 people x 7 days = 14 servings, minus Sunday (the prep day;
+  # lunch at home from what is around, as before) = 6 lunch days x 2 = 12.
+  #   Sunday prep (cooked during Sunday dinner)  4 servings -> Mon + Tue
+  #   Thursday prep (cooked during Thursday dinner) 4       -> Fri + Sat
+  #   Wednesday + Thursday lunch: leftovers, 2 servings each
+  #     non-roast week: two `lunch-friendly` dinners (Tue + Wed night) cooked at 4
+  #     roast week:     one lunch-friendly dinner (Tue night) + the Wednesday
+  #                     roast's Thursday leftover lunch (roast.leftovers)
+  #   4 + 4 + 2 + 2 = 12 = the week's demand, never more. A day the leftovers
+  #   can't cover (no lunch-friendly recipe left, burger week took the chicken)
+  #   is added to the latest prep before it (+2 servings), logged as a gap.
+  recipes_per_week: 2
   servings_each: 4
-  prep_day: sunday
-  # A ground-beef stir fry as one of the 3 batches every other week, to eat up
+  people: 2                    # servings per lunch day
+  prep_days: [sunday, thursday]   # batch 1 on Sunday, batch 2 mid-week
+  prep_day: sunday             # the first prep day (kept for older readers)
+  days: [monday, tuesday, wednesday, thursday, friday, saturday]   # lunch days to cover
+  # Bulk dinner -> next day's lunch: a dinner whose recipe carries `keyword` is
+  # planned at `servings` (instead of 2) and the next day's Lunch is a leftover
+  # entry of it (posted WITHOUT addshopping: the doubled dinner already ordered
+  # it). Only chicken-slot dinners (poultry + a chicken flex) are filled from
+  # these, and a lunch-prep recipe that carries the keyword can be drawn as that
+  # dinner. The weekly build tags `recipes` with the keyword in Tandoor if they
+  # lack it (run.ensure_setup, idempotent); tag more by hand in Tandoor.
+  leftovers:
+    enabled: true
+    keyword: lunch-friendly
+    servings: 4
+    recipes:                   # owner 2026-11-11: chicken stir fry, sheet pan, orzo
+      - "Chicken and Broccoli Stir Fry Recipe"    # fall
+      - "Healthy Chicken Stir Fry"                # winter
+      - "Chicken and Green Bean Stir-fry"         # summer
+      - "Fall Chicken Sheet Pan Dinner"           # fall (a lunch prep too)
+      - "Sheet Pan Lemon Chicken"                 # spring
+      - "Mediterranean Chicken and Orzo"          # fall + spring (a lunch prep too)
+  # A ground-beef stir fry as one of the 2 batches every other week, to eat up
   # the Amana share's ground beef (the share holds more ground than the dinners
-  # use). Parity A = the roast weeks, which have only one ground-beef dinner, so
-  # every week ends up with two ground-beef meals. Never the week's beef dinner.
+  # use). Parity A = the roast weeks, which have no ground-beef dinner, so every
+  # week has one ground-beef meal. Never the week's beef dinner. It is the
+  # Thursday batch (the Sunday batch is the lunch-prep pick).
   beef_stir_fry:
     enabled: true
     parity: A
@@ -330,9 +368,13 @@ burger_night:
   every_n_weeks: 5
   recipe: "Burger night"
 
+# Owner 2026-11-11: ONE snack entry a week ("Snacks to buy"). The "Snack prep"
+# entry is off; set prep_enabled: true to plan it again (the recipe stays in
+# Tandoor and recipes/fixed.yaml).
 snacks:
   buy_recipe: "Snacks to buy"
   prep_recipe: "Snack prep"
+  prep_enabled: false
   per_person_per_day: [2, 3]   # sized to ~35/week for two
 
 # Season by date (owner: by date). Months are 1-12.
@@ -478,6 +520,21 @@ exclude_ingredients:
   - radish
   - beet
   - arugula
+
+# Foods the household never buys (owner 2026-11-11). A shopping line whose
+# food name CONTAINS one of these (case-insensitive substring; a trailing "s" is
+# optional, so "brussels sprouts" also hits "brussels sprout") never reaches a
+# store list: grocery/shoplist.py drops it and counts it as `skipped_never_buy`
+# on the `planned` log event; the groceries page hides it; the kitchen page
+# shows it struck through with a "skip" mark. Only recipe lines: a food added by
+# hand on the page (add box) is still listed. A recipe whose TITLE holds one is
+# left out of the plan (e.g. Roasted Cabbage Steaks), and the side rule does not
+# count it as the main's vegetable. `python -m grocery.cleanup --optional-review`
+# lists these lines for removal from the recipes.
+never_buy:
+  - brussels sprouts
+  - cabbage
+  - red cabbage
 
 # Approvals (Vikunja + HA). The job contract is docs/runbooks/approval-tasks.md.
 # Foods that must NEVER reach a store list, even if a recipe pulls one in. Dog

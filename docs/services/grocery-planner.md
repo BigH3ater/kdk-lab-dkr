@@ -37,27 +37,39 @@ plan page lives in the dashboard mealplan sidecar at `home.kmkdp.com/meal/grocer
 ## How a week flows
 
 1. **Tuesday 18:03** — `grocery-weekly` picks the season by date (Spring Mar–May,
-   Summer Jun–Aug, Fall Sep–Nov, Winter Dec–Feb) and generates the 7 dinners for
-   the plan week (Sun→Sat) after the Saturday delivery: Sunday fish + **2 chicken
-   breast + 2 ground beef + 1 flex + 1 steak** (fish variant salmon/tuna by
-   ISO-week parity). The **flex** dinner alternates pork chop / chicken breast by
-   week; ground-beef dishes vary (no repeat, ≤1 Asian-style); feta rides on the
-   weekend eggs. **Every other week (parity A) a Wednesday slow-cooker roast
-   replaces one ground-beef dinner** (`roast_night`, owner decision), with its
-   own veg side and its leftovers planned as **Thursday lunch** (no extra beef).
+   Summer Jun–Aug, Fall Sep–Nov, Winter Dec–Feb) and generates **5 dinners**
+   (owner 2026-11-11; Sunday to Thursday, `proteins.off_nights` Friday + Saturday
+   are leftovers / eat out and get no entry) for the plan week (Sun→Sat) after
+   the Saturday delivery: Sunday fish + **1 chicken breast + 1 ground beef + 1
+   flex + 1 steak** (fish variant salmon/tuna by ISO-week parity). The **flex**
+   dinner alternates pork chop / chicken breast by week; ground-beef dishes vary
+   (no repeat, ≤1 Asian-style); feta rides on the weekend eggs. **Every other
+   week (parity A) a Wednesday slow-cooker roast replaces the ground-beef
+   dinner** (`roast_night`, owner decision), with its leftovers planned as
+   **Thursday lunch** (no extra beef).
    It also plans a rotating veg side per dinner (no repeats) **unless the main
    already holds a vegetable** (`sides.vegetables`, matched on the main's Tandoor
-   ingredient foods), a **brown-rice microwave-packet side** next to every main
-   served over rice (`rice`: the `serve-with-rice` keyword, else a "cooked rice"
-   ingredient or a step naming rice; `no-rice-side` opts a recipe out), **3 lunch
-   preps at 4 servings** on Sunday (6 lunch days x 2), the weekly staples as
-   Breakfast and the snack feeders as the **Snack** meal type. Before planning,
+   ingredient foods; a `never_buy` vegetable does not count), a **brown-rice
+   microwave-packet side** next to every main served over rice (`rice`: the
+   `serve-with-rice` keyword, else a "cooked rice" ingredient or a step naming
+   rice; `no-rice-side` opts a recipe out), **2 lunch preps at 4 servings**: one
+   on **Sunday** (note "lunch (Sunday prep, during dinner)", feeds Mon + Tue), one
+   on **Thursday** (feeds Fri + Sat). Wednesday and Thursday lunch are
+   **leftovers**: a dinner whose recipe carries the `lunch-friendly` keyword
+   (chicken stir fry, chicken sheet pan, chicken orzo) is planned at 4 servings
+   the night before and the next day's Lunch is a leftover entry of it (no
+   addshopping); on a roast week the roast covers Thursday. 6 lunch days x 2 =
+   12 = 4 + 4 + 2 + 2; a day nothing covers goes to the prep before it
+   (`lunch_gap`). One snack entry ("Snacks to buy"; `snacks.prep_enabled` brings
+   "Snack prep" back), the weekly staples as
+   Breakfast, the snack as the **Snack** meal type. Before planning,
    the build creates anything missing that it needs (Snack meal type, the rice
-   keywords, the "Brown Rice (microwave packet)" recipe from
-   `recipes/fixed.yaml`; a no-op once done). It writes the meal-plan entries
+   keywords, the `lunch-friendly` keyword on `lunches.leftovers.recipes`, the
+   "Brown Rice (microwave packet)" recipe from `recipes/fixed.yaml`; a no-op
+   once done). It writes the meal-plan entries
    (idempotent per week key `gp:<ISO week>`); materializes the shopping list via
-   the native meal-plan add-to-shopping (2 servings; lunches 4; on-hand + pet
-   foods dropped); splits it by the store prefix of each food's supermarket
+   the native meal-plan add-to-shopping (2 servings; bulk dinners, roast and
+   lunches 4; on-hand, pet and `never_buy` foods dropped); splits it by the store prefix of each food's supermarket
    category; and creates **one** combined Vikunja approval task
    (`APPROVALS-CHOICES: all / newpi / target`), **due Wednesday 20:00, reminder
    Wednesday noon** — New Pi needs 2–3 days' lead for the Saturday delivery, so
@@ -83,6 +95,17 @@ plan page lives in the dashboard mealplan sidecar at `home.kmkdp.com/meal/grocer
    keeps 1–2 days; tuna weeks have no timing constraint).
 
 ## Design decisions
+
+- **Weekly volume + never_buy (owner 2026-11-11):** 5 dinners, 2 lunch preps,
+  bulk dinners for the other lunches, one snack entry (see the flow above and
+  the lunch arithmetic in `config.yaml` `lunches:`). `never_buy` (brussels
+  sprouts, cabbage, red cabbage; substring of the food name) keeps recipe lines
+  off every store list (`skipped_never_buy` on the `planned` event, hidden on
+  the groceries page) and the kitchen page shows them struck through with a
+  "skip" mark. `python -m grocery.cleanup --optional-review` lists optional /
+  garnish / to-taste / never_buy lines in the planner's recipes; `--apply`
+  deletes the clear-cut ones with a JSON backup per recipe. Runbook:
+  [Weekly volume and never_buy](../runbooks/grocery-planner.md#weekly-volume-and-never_buy-2026-11-11).
 
 - **Freezer inventory (2026-11-11):** one JSON file the owner keeps on the
   Pantry tab (Freezer section: −/+/set, fill-in and set-portions markers, add a

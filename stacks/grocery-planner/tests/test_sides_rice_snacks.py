@@ -110,7 +110,7 @@ def test_main_with_veg_gets_no_side(cfg):
             p["veg_foods"] = ["broccoli"]
     entries = G.generate_week(pool, SUNDAY, cfg)
     kind = {p["id"]: p for p in pool}
-    for d in range(7):
+    for d in range(5):                              # Sun..Thu (Fri + Sat: no dinner)
         date = SUNDAY + datetime.timedelta(days=d)
         main = [e for e in entries if e.date == date and e.role == "dinner-main"][0]
         sides = [e for e in entries if e.date == date and e.role == "side"]
@@ -118,7 +118,7 @@ def test_main_with_veg_gets_no_side(cfg):
     s = G.plan_summary(entries)
     chicken_mains = sum(1 for e in entries if e.role == "dinner-main"
                         and kind[e.recipe_id]["kind"] == "chicken")
-    assert chicken_mains >= 2 and s["sides"] == 7 - chicken_mains
+    assert chicken_mains >= 2 and s["sides"] == 5 - chicken_mains
 
 
 def test_skip_rule_can_be_switched_off(cfg):
@@ -126,7 +126,7 @@ def test_skip_rule_can_be_switched_off(cfg):
     pool = make_pool()
     for p in pool:
         p["veg_foods"] = ["broccoli"] if p["kind"] != "side" else []
-    assert G.plan_summary(G.generate_week(pool, SUNDAY, cfg))["sides"] == 7
+    assert G.plan_summary(G.generate_week(pool, SUNDAY, cfg))["sides"] == 5
 
 
 # ---- 2. rice side -----------------------------------------------------------
@@ -171,10 +171,14 @@ def test_rice_side_planned_for_rice_mains(cfg):
     dinner_rice = [e for e in rice if e.meal_type == "dinner"]
     rice_mains = [e for e in entries if e.role == "dinner-main" and by_id[e.recipe_id].get("rice")]
     assert {e.date for e in dinner_rice} == {e.date for e in rice_mains}
-    assert all(e.recipe_id == 900 and e.servings == 2 for e in dinner_rice)   # 1 packet
+    main_on = {e.date: e for e in rice_mains}
+    assert all(e.recipe_id == 900 for e in dinner_rice)
+    # 1 packet per 2 servings: a bulk dinner (4, for the next day's lunch) gets 2
+    assert all(e.servings == main_on[e.date].servings for e in dinner_rice)
+    assert sorted(e.servings for e in dinner_rice).count(4) == 2              # Tue + Wed bulk
     assert all(e.note.endswith("] side") for e in rice)                       # note vocabulary kept
     lunch_rice = [e for e in rice if e.meal_type == "lunch"]
-    assert len(lunch_rice) == 3 and all(e.servings == 4 for e in lunch_rice)  # 2 packets per batch
+    assert len(lunch_rice) == 2 and all(e.servings == 4 for e in lunch_rice)  # 2 packets per batch
     assert G.plan_summary(entries)["rice"] == len(rice)
 
 
@@ -205,14 +209,25 @@ W46_NOTES = (["[gp:2026-W46] dinner", "[gp:2026-W46] side"] * 7
 def test_w46_shortfall_reported(cfg):
     """W46 was written 2026-11-01 13:13 CT (Vikunja task 90) by the build that
     still had recipes_per_week: 2; the 3-batch rule merged that night (#311) and
-    every later build skipped the planned week. The skip now names the gap."""
-    assert G.missing_counts(W46_NOTES, cfg) == {"lunch": (2, 3)}
+    every later build skipped the planned week. The skip names a gap when the
+    config asks for more than a planned week has."""
+    import copy
+    c = copy.deepcopy(cfg)
+    c["lunches"]["recipes_per_week"] = 3
+    assert G.missing_counts(W46_NOTES, c) == {"lunch": (2, 3)}
     full = W46_NOTES + ["[gp:2026-W46] lunch"]
-    assert G.missing_counts(full, cfg) == {}
+    assert G.missing_counts(full, c) == {}
+    # 2026-11-11 rules (5 dinners, 2 preps): a week built under the old rules is
+    # not short; a new week's labelled notes count by their first word.
+    assert G.missing_counts(W46_NOTES, cfg) == {}
+    new = (["[gp:2026-W47] dinner"] * 5 + ["[gp:2026-W47] lunch (Sunday prep, during dinner)",
+                                           "[gp:2026-W47] lunch (Thursday prep, during dinner)"])
+    assert G.missing_counts(new, cfg) == {}
+    assert G.missing_counts(new[:-1], cfg) == {"lunch": (1, 2)}
 
 
 @pytest.mark.parametrize("offset_weeks", [0, 1])     # both parities (A has the beef lunch)
-def test_three_lunch_batches_of_four(cfg, offset_weeks):
+def test_two_lunch_batches_of_four(cfg, offset_weeks):
     pool = make_pool()
     # The beef lunch also carries the lunch-prep keyword: it must not be planned twice.
     pool.append({"id": 500, "name": "Ground Beef and Broccoli Stir Fry", "kind": "lunch",
@@ -220,16 +235,19 @@ def test_three_lunch_batches_of_four(cfg, offset_weeks):
                  "tags": ["beef-lunch"]})
     start = SUNDAY + datetime.timedelta(weeks=offset_weeks)
     lunches = [e for e in G.generate_week(pool, start, cfg) if e.role == "lunch"]
-    assert len(lunches) == cfg["lunches"]["recipes_per_week"] == 3
-    assert len({e.recipe_id for e in lunches}) == 3
-    assert sum(e.servings for e in lunches) == 12          # 6 lunch days x 2 people
+    assert len(lunches) == cfg["lunches"]["recipes_per_week"] == 2
+    assert len({e.recipe_id for e in lunches}) == 2
+    leftovers = [e for e in G.generate_week(pool, start, cfg) if e.role == "leftover"]
+    # 6 lunch days x 2 people = 12 = two batches of 4 + two leftover lunches of 2
+    assert sum(e.servings for e in lunches) + sum(e.servings for e in leftovers) == 12
 
 
 # ---- 4. Snack meal type -----------------------------------------------------
 def test_snacks_filed_as_snack(cfg):
     entries = G.generate_week(make_pool(), SUNDAY, cfg)
     snacks = [e for e in entries if e.role == "snack"]
-    assert len(snacks) == 2 and {e.meal_type for e in snacks} == {"snack"}
+    assert len(snacks) == 1 and {e.meal_type for e in snacks} == {"snack"}
+    assert snacks[0].recipe_name == "Snacks to buy"
     assert [e.meal_type for e in entries if e.role == "breakfast"] == ["breakfast"]
     assert cfg["tandoor"]["meal_types"]["snack"] == "Snack"
 
@@ -279,13 +297,15 @@ class FakeTandoor:
 
     def patch(self, path, body):
         self.patches.append((path, body))
+        if path.startswith("/api/recipe/") and "keywords" in body:
+            self.recipes[int(path.rstrip("/").split("/")[-1])]["keywords"] = body["keywords"]
 
 
 def test_ensure_setup_creates_once(cfg):
     t = FakeTandoor()
     created = R.ensure_setup(t, cfg)
-    assert created == ["meal-type:Snack", "keyword:serve-with-rice", "keyword:no-rice-side",
-                       f"recipe:{RICE_NAME}"]
+    assert created == ["meal-type:Snack", "keyword:lunch-friendly", "keyword:serve-with-rice",
+                       "keyword:no-rice-side", f"recipe:{RICE_NAME}"]
     rice = [b for p, b in t.posts if p == "/api/recipe/"][0]
     assert rice["name"] == RICE_NAME and rice["servings"] == 2
     assert rice["steps"][0]["instruction"].startswith("Microwave the packet per its directions")
@@ -297,3 +317,35 @@ def test_ensure_setup_creates_once(cfg):
     n_posts = len(t.posts)
     assert R.ensure_setup(t, cfg) == []                 # idempotent: second run is a no-op
     assert len(t.posts) == n_posts
+
+
+# ---- 5. lunch-friendly keyword (owner 2026-11-11) ----------------------------
+def test_ensure_setup_tags_the_bulk_dinners_once(cfg):
+    names = cfg["lunches"]["leftovers"]["recipes"]
+    recs = [{"id": 164, "name": names[0], "keywords": [{"id": 1, "name": "fall"}]},
+            {"id": 50, "name": names[3], "keywords": []},
+            {"id": 61, "name": "Beef Chili Recipe", "keywords": []}]
+    t = FakeTandoor(meal_types=("Dinner", "Lunch", "Breakfast", "Snack"), recipes=recs)
+    out = R.ensure_lunch_friendly(t, cfg)
+    assert out == ["keyword:lunch-friendly", "tag:lunch-friendly:164", "tag:lunch-friendly:50"]
+    assert [k["name"] for k in t.recipes[164]["keywords"]] == ["fall", "lunch-friendly"]
+    assert t.recipes[61]["keywords"] == []                      # not on the list
+    assert R.ensure_lunch_friendly(t, cfg) == []                # idempotent
+
+
+def test_build_pool_marks_lunch_friendly_and_skips_never_buy(cfg):
+    recs = [
+        _recipe(1, "Chicken and Broccoli Stir Fry Recipe", ["chicken breast", "broccoli"],
+                keywords=("fall", "poultry")),                  # on the config list
+        _recipe(2, "Some Chicken", ["chicken breast"], keywords=("fall", "poultry",
+                                                                 "lunch-friendly")),
+        _recipe(3, "Plain Chicken", ["chicken breast"], keywords=("fall", "poultry")),
+        _recipe(4, "Roasted Cabbage Steaks", ["cabbage"], keywords=("fall", "veg-side")),
+        _recipe(5, "Sprout Sheet Pan", ["chicken breast", "brussels sprouts"],
+                keywords=("fall", "poultry")),
+    ]
+    pool = {p["id"]: p for p in R.build_pool(recs, "fall", cfg)}
+    assert pool[1]["lunch_friendly"] and pool[2]["lunch_friendly"]
+    assert not pool[3]["lunch_friendly"]
+    assert 4 not in pool                                        # never_buy in the title
+    assert pool[5]["veg_foods"] == []                           # sprouts are never bought

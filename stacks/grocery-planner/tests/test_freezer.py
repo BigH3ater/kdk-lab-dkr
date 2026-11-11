@@ -138,7 +138,7 @@ def test_short_everywhere_still_plans_and_notes_it(cfg):
     pool = _freezer_pool()
     st = _stock(**{"filet-mignon": 0, "ribeye": 0})
     s = G.plan_summary(G.generate_week(pool, SUNDAY, cfg, stock=st))
-    assert s["dinners"] == 7
+    assert s["dinners"] == cfg["proteins"]["dinners_per_week"] == 5
     assert [x["slot"] for x in st.short] == ["steak"]
 
 
@@ -175,7 +175,7 @@ def test_flex_switches_kind_when_pork_runs_out(cfg):
     kinds = lambda es: [by_id[e.recipe_id]["kind"] for e in es if e.role == "dinner-main"]
     assert "pork" in kinds(G.generate_week(pool, d, cfg, stock=_stock(**{"pork-chops": 4})))
     out = kinds(G.generate_week(pool, d, cfg, stock=_stock(**{"pork-chops": 0})))
-    assert "pork" not in out and out.count("chicken") >= 3
+    assert "pork" not in out and out.count("chicken") >= 2   # 1 chicken + the chicken flex
 
 
 # ---- reservation write ------------------------------------------------------------

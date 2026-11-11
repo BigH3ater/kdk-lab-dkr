@@ -146,7 +146,7 @@ def _word_re(words):
     return re.compile(rf"\b(?:{alts})(?:e?s)?\b") if alts else None
 
 
-def veg_foods(recipe, vegetables):
+def veg_foods(recipe, vegetables, never_buy=None):
     """The recipe's vegetable foods (config sides.vegetables, whole-word match on
     the Tandoor food name; optional garnish lines ignored). Tandoor holds no
     vegetable flag: its food categories here are store aisles ("NewPi/weekly:
@@ -154,7 +154,10 @@ def veg_foods(recipe, vegetables):
     rx = _word_re(vegetables or [])
     if not rx:
         return []
-    return sorted({n for n in _food_names(recipe) if rx.search(n)})
+    # A never_buy vegetable is never bought, so it does not make the main a
+    # vegetable dish (Fall Chicken Sheet Pan's brussels sprouts).
+    return sorted({n for n in _food_names(recipe) if rx.search(n)
+                   and not S.is_never_buy(n, never_buy)})
 
 
 # "rice" as the grain, not rice vinegar / rice wine / cauliflower rice etc.
@@ -197,8 +200,14 @@ def build_pool(recipes, season, cfg=None):
     """Turn Tandoor recipe detail dicts into generator pool items for a season.
     Variant comes from keywords (salmon/tuna, greek/asian). kind from keywords.
     With `cfg`, each item also carries `veg_foods` (no veg side when non-empty)
-    and `rice` (gets the rice side)."""
+    and `rice` (gets the rice side), and `lunch_friendly` (lunches.leftovers
+    keyword or name list). A recipe whose title holds a never_buy food (Roasted
+    Cabbage Steaks) is left out."""
     cfg = cfg or {}
+    never = cfg.get("never_buy") or []
+    lo_cfg = (cfg.get("lunches") or {}).get("leftovers") or {}
+    lo_kw = str(lo_cfg.get("keyword", "lunch-friendly")).lower()
+    lo_names = {str(n).lower() for n in lo_cfg.get("recipes") or []}
     fmap = (cfg.get("freezer") or {}).get("map") or {}
     vegetables = (cfg.get("sides") or {}).get("vegetables") or []
     rice_cfg = cfg.get("rice") or {}
@@ -208,6 +217,8 @@ def build_pool(recipes, season, cfg=None):
         # `pork`, so a case-sensitive match found no pork recipes (2026-11-01).
         names = {(k.get("name") or "").lower() for k in (r.get("keywords") or [])}
         if season not in names:
+            continue
+        if S.is_never_buy(r.get("name", ""), never):
             continue
         if "veg-side" in names:
             kind = "side"
@@ -247,7 +258,9 @@ def build_pool(recipes, season, cfg=None):
             "ingredient_count": None, "slot": "",
             "servings": r.get("servings", 2),
             "tags": sorted(names & {"beef-lunch", "short-ribs", "tri-tip"}),
-            "veg_foods": [] if kind == "side" else veg_foods(r, vegetables),
+            "veg_foods": [] if kind == "side" else veg_foods(r, vegetables, never),
+            "lunch_friendly": (kind in ("chicken", "lunch")
+                               and (lo_kw in names or r["name"].lower() in lo_names)),
             "rice": kind != "side" and wants_rice(r, rice_cfg),
             "freezer_lines": F.recipe_lines(r, fmap),
         })
@@ -411,6 +424,7 @@ def ensure_setup(t, cfg):
         if name not in have:
             t.post("/api/meal-type/", {"name": name, "order": i})
             created.append(f"meal-type:{name}")
+    created += ensure_lunch_friendly(t, cfg)
     rc = cfg.get("rice") or {}
     if not rc.get("enabled"):
         return created
@@ -428,6 +442,41 @@ def ensure_setup(t, cfg):
         SD.seed_fixed(t, {"recipes": only}, cfg, foods_cfg,
                       t.supermarket_categories(), t.keywords())
         created.append(f"recipe:{name}")
+    return created
+
+
+def lunch_friendly_patches(recipes, names, keyword):
+    """[(recipe_id, keywords body)] for the named recipes (exact name, any case)
+    that lack `keyword`; the body MERGES it into the recipe's keywords (as the
+    seed does), so a re-run is a no-op. `keyword` is {id, name}."""
+    want = {str(n).lower() for n in names or []}
+    out = []
+    for r in recipes:
+        if (r.get("name") or "").lower() not in want:
+            continue
+        kws = [{"id": k["id"], "name": k["name"]} for k in r.get("keywords") or []]
+        if any(k["name"].lower() == keyword["name"].lower() for k in kws):
+            continue
+        out.append((r["id"], kws + [{"id": keyword["id"], "name": keyword["name"]}]))
+    return out
+
+
+def ensure_lunch_friendly(t, cfg):
+    """Owner 2026-11-11: the bulk dinners (lunches.leftovers.recipes) carry the
+    `lunch-friendly` keyword. Creates the keyword and tags the named recipes that
+    lack it; idempotent (nothing to do once tagged). Returns what it changed."""
+    lo = (cfg.get("lunches") or {}).get("leftovers") or {}
+    if not lo.get("enabled") or not lo.get("recipes"):
+        return []
+    name = lo.get("keyword", "lunch-friendly")
+    created = []
+    kw = t.keywords().get(name)
+    if not kw:
+        kw = t.ensure_keyword(name)
+        created.append(f"keyword:{name}")
+    for rid, body in lunch_friendly_patches(t.get_all("/api/recipe/"), lo["recipes"], kw):
+        t.patch(f"/api/recipe/{rid}/", {"keywords": body})
+        created.append(f"tag:{name}:{rid}")
     return created
 
 
@@ -471,9 +520,10 @@ def run_weekly(cfg, poll=False):
     pool = build_pool(recipes, season, cfg)
     pool += _fixed_pool(t)                 # season-independent staples + snacks
     stock = load_stock(cfg)                # None: plan as before (file missing/unreadable)
+    report = {}
     try:
         _require_fixed(cfg, pool)          # loud fail if a fixed recipe isn't seeded
-        entries = G.generate_week(pool, start, cfg, stock=stock)
+        entries = G.generate_week(pool, start, cfg, stock=stock, report=report)
     except G.PlanError as e:
         jlog(event="plan_error", week=wk, error=str(e))
         log.error("plan error: %s", e)
@@ -488,8 +538,9 @@ def run_weekly(cfg, poll=False):
         # already excludes on-hand/ignored foods. recipe + meal_type are nested
         # objects keyed by id (RecipeOverview / MealType); Tandoor 2.7 also
         # requires `name` on both (400 "This field is required." without it).
-        # The Thursday roast-leftover lunch is planned WITHOUT addshopping, so no
-        # extra beef/pantry is ordered for it (the roast is already on hand).
+        # Leftover lunches (the Thursday roast, the day after a lunch-friendly
+        # dinner) are planned WITHOUT addshopping: the dinner was shopped at 4
+        # servings for them, so nothing extra is ordered.
         mtype = mt[cfg["tandoor"]["meal_types"][e.meal_type]]
         body = {"from_date": e.date.isoformat(), "to_date": e.date.isoformat(),
                 "recipe": {"id": e.recipe_id, "name": e.recipe_name}, "servings": e.servings,
@@ -523,7 +574,12 @@ def run_weekly(cfg, poll=False):
             log.warning("recipe detail fetch for the freezer failed: %s", ex)
         reserve_freezer(cfg, wk, entries, by_id)
 
-    lists, unrouted, skipped = S.build_store_lists(t.shopping_list_entries(), cfg, "weekly")
+    if report.get("lunch_gaps"):
+        jlog(event="lunch_gap", level="warn", week=wk, days=report["lunch_gaps"],
+             note="no lunch-friendly dinner for the night before: added to a prep batch")
+    stats = {}
+    lists, unrouted, skipped = S.build_store_lists(t.shopping_list_entries(), cfg, "weekly",
+                                                   stats=stats)
     try:
         for e in entries:
             if e.recipe_id not in by_id:
@@ -538,6 +594,7 @@ def run_weekly(cfg, poll=False):
     jlog(event="planned", week=wk, season=season, meal_plan_entries=len(mp_ids),
          stores={k: v.count() for k, v in lists.items()},
          unrouted=len(unrouted), skipped_onhand=skipped,
+         skipped_never_buy=stats.get("skipped_never_buy", 0),
          **{"summary": G.plan_summary(entries)})
 
     _create_weekly_task(cfg, wk, start, lists)
@@ -569,10 +626,9 @@ def _fixed_pool(t):
 
 def _require_fixed(cfg, pool):
     """Raise loudly if any required fixed recipe (Weekly staples, Snacks to buy,
-    Snack prep) is missing -- they must be seeded, never skipped silently."""
+    Snack prep when snacks.prep_enabled) is missing -- they must be seeded, never skipped silently."""
     names = {r.get("name") for r in pool}
-    needed = [cfg["breakfast"]["staples_recipe"],
-              cfg["snacks"]["buy_recipe"], cfg["snacks"]["prep_recipe"]]
+    needed = [cfg["breakfast"]["staples_recipe"]] + [cfg["snacks"][k] for k in G.snack_keys(cfg)]
     missing = [n for n in needed if n not in names]
     if missing:
         raise G.PlanError("fixed recipes not seeded: " + ", ".join(missing)
@@ -708,9 +764,10 @@ def preview(cfg, week_of=None):
                for r in t.get_all("/api/recipe/", keyword=_kw_id(t, season))]
     pool = build_pool(recipes, season, cfg) + _fixed_pool(t)
     stock = load_stock(cfg)                # read-only here: nothing is reserved
+    report = {}
     try:
         _require_fixed(cfg, pool)
-        entries = G.generate_week(pool, start, cfg, stock=stock)
+        entries = G.generate_week(pool, start, cfg, stock=stock, report=report)
     except G.PlanError as e:
         print(f"PLAN ERROR {wk}: {e}")
         return 1
@@ -719,10 +776,15 @@ def preview(cfg, week_of=None):
     elif stock.short:
         print("NOTE: planned beyond the freezer for: "
               + ", ".join(f"{s['recipe']} {s['need']}" for s in stock.short))
-    print(f"== {wk} ({season}) {start:%a %b %-d} - {end:%a %b %-d}: {len(entries)} meal-plan entries")
+    print(f"== {wk} ({season}) {start:%a %b %-d} - {end:%a %b %-d}: {len(entries)} meal-plan entries"
+          f"; no dinner: {', '.join(report.get('off_nights') or []) or '-'}")
+    if report.get("lunch_gaps"):
+        print("NOTE: lunch days no leftover covers (added to a prep): "
+              + ", ".join(report["lunch_gaps"]))
     for e in sorted(entries, key=lambda e: (e.date, e.meal_type)):
-        print(f"  {e.date:%a %d}  {e.meal_type:<9} {e.recipe_name[:55]}"
+        print(f"  {e.date:%a %d}  {e.meal_type:<9} {e.recipe_name[:55]} x{e.servings}"
               f"{'  (leftovers, no shopping)' if e.role == 'leftover' else ''}")
+    never, skipped_never = cfg.get("never_buy") or [], set()
     _, foods_cfg, _, _ = SD.load_configs()
     is_stray = _stray_checker(cfg)
     food_cache, lines, stray = {}, {}, {}
@@ -745,6 +807,9 @@ def preview(cfg, week_of=None):
                     continue
                 if S.is_excluded(full["name"], cfg.get("exclude") or []):
                     continue
+                if S.is_never_buy(full["name"], never):
+                    skipped_never.add(full["name"])
+                    continue
                 cat = (full.get("supermarket_category") or {}).get("name") or \
                     SD.route_food(full["name"], foods_cfg, cfg["stores"])
                 store, _cad, aisle = S.parse_category(cat)
@@ -762,6 +827,8 @@ def preview(cfg, week_of=None):
             d = lines[k]
             qty = " + ".join(f"{v:g} {u}".strip() for u, v in d["amt"].items() if v)
             print(f"  [{k[1]}] {d['name']}  {qty}")
+    if skipped_never:
+        print("\n-- NOT LISTED: never_buy: " + ", ".join(sorted(skipped_never, key=str.lower)))
     if stray:
         print("\n-- NOT LISTED: on hand in Tandoor but no pantry/stock rule "
               "(untick on hand, or grocery.cleanup --apply)")

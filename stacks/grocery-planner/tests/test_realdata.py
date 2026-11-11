@@ -53,24 +53,29 @@ def test_real_candidates_build_a_week_both_parities(cfg, season):
     for start in (d1, d2):
         entries = G.generate_week(pool, start, cfg)          # must NOT raise PlanError
         s = G.plan_summary(entries)
-        assert s["dinners"] == 7 and s["sides"] == 7 and s["lunches"] == cfg["lunches"]["recipes_per_week"]
-        assert s["breakfast"] == 1 and s["snacks"] == 2      # fixed feeders placed
+        assert s["dinners"] == cfg["proteins"]["dinners_per_week"] == 5
+        assert s["dinners"] + s["sides"] <= 10               # a veg main skips its side
+        assert s["lunches"] == cfg["lunches"]["recipes_per_week"] == 2
+        assert s["breakfast"] == 1 and s["snacks"] == 1      # one snack entry (owner 2026-11-11)
         mains = [kind.get(e.recipe_id) for e in entries if e.role == "dinner-main"]
         parity = G.parity_for_week(start)
         roast_week = cfg["roast"]["enabled"] and parity == cfg["roast"]["parity"]
         rot = cfg["flex"]["rotation"]
         flex_kind = rot[(0 if parity == "A" else 1) % len(rot)]
-        # mix: fish 1, steak 1, flex 1 (pork or extra chicken), ground beef 2
-        # (1 on a roast week), roast 0/1.
+        # mix: fish 1, steak 1, flex 1 (pork or extra chicken), ground beef 1
+        # (0 on a roast week), roast 0/1.
         assert mains.count("fish") == 1
         assert mains.count("steak") == 1
         assert mains.count("roast") == (1 if roast_week else 0)
-        assert mains.count("ground_beef") == (1 if roast_week else 2)
+        assert mains.count("ground_beef") == (0 if roast_week else 1)
         assert mains.count("pork") == (1 if flex_kind == "pork" else 0)
         bn = cfg["burger_night"]
         burger_week = bn["enabled"] and int(G.week_key(start).split("W")[1]) % bn["every_n_weeks"] == 0
         assert mains.count("burger") == (1 if burger_week else 0)
-        assert mains.count("chicken") == 2 + (0 if flex_kind == "pork" else 1) - (1 if burger_week else 0)
+        assert mains.count("chicken") == 1 + (0 if flex_kind == "pork" else 1) - (1 if burger_week else 0)
+        # leftover lunches: the roast's Thursday + one per lunch-friendly dinner;
+        # the candidate YAML carries no lunch-friendly flag, so here the
+        # non-roast days fall back to the preps (lunch_gap)
         assert s["leftovers"] == (1 if roast_week else 0)
 
 
