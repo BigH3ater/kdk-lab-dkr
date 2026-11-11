@@ -241,9 +241,12 @@ def _api_get(path: str) -> requests.Response:
 
 
 def _week_bounds(today: datetime.date) -> tuple[datetime.date, datetime.date]:
-    # Rolling week AHEAD, not calendar week: on Sunday evening the family cares
-    # about tomorrow's dinner, not the week that just ended.
-    return today, today + datetime.timedelta(days=6)
+    # The plan week holding today (planner cadence: Sunday -> Saturday), not a
+    # rolling 7 days: owner decision 2026-11-11, so the grid matches the week
+    # the planner built and past days stay visible (what we ate). Next week
+    # shows as a second row once the planner builds it (Tue 18:03).
+    start = _plan_week_start(today)
+    return start, start + datetime.timedelta(days=6)
 
 
 def _parse_date(v: str) -> datetime.date | None:
@@ -526,9 +529,11 @@ PAGE_CSS = """
 --ink-hairline:#423d38;--ok:#6f8f5c;--danger:#e0705a}
 body{margin:0;font:14px/1.45 'Space Grotesk',sans-serif;background:var(--ink-surface);color:var(--paper)}
 .week{display:grid;grid-template-columns:repeat(7,1fr);gap:8px;padding:10px}
-@media(max-width:560px){.week{grid-template-columns:repeat(7,minmax(130px,1fr));overflow-x:auto}}
 .day{background:var(--ink);border:1px solid var(--ink-hairline);border-radius:9px;padding:8px;min-height:120px}
-.day.today{border-color:var(--ember);border-width:2px}
+.day.today{border-color:var(--ember);border-width:2px;background:#33261d}
+.day.past{opacity:.5}
+.day.past img{filter:grayscale(.7)}
+.day.past:hover,.day.past:focus-within{opacity:.85}
 .dow{font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:500;letter-spacing:.22em;
 text-transform:uppercase;color:var(--ash)}
 .day.today .dow{color:var(--ember)}
@@ -546,6 +551,9 @@ text-transform:uppercase;color:var(--ash)}
 .ahead{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.14em;text-transform:uppercase;
 color:var(--ember);padding:10px 12px 0}
 .empty{color:var(--ash);font-size:13px;padding:24px;text-align:center;font-family:'Space Grotesk',sans-serif}
+/* phone: one column, thumbnail photos (after .meal img so it wins) */
+@media(max-width:560px){.week{grid-template-columns:1fr}.day{min-height:0}
+.meal img{width:96px;float:right;margin:0 0 4px 8px}.meal{overflow:hidden}}
 """
 
 # The shared Kodiak sidebar, same source the guides use. Served same-origin from
@@ -571,19 +579,20 @@ def last_ratings(recipe_ids: set[int]) -> dict[int, int]:
     return out
 
 
-def render_week(plan: list[dict], today: datetime.date, mon: datetime.date, rater: str,
-                note: str = "") -> str:
-    rated = last_ratings({e["recipe_id"] for e in plan if e.get("recipe_id")})
+def _week_grid(plan: list[dict], today: datetime.date, start: datetime.date, rater: str,
+               rated: dict[int, int]) -> str:
+    """One Sun->Sat row: days before `today` get class "past" (dimmed, still
+    rateable: that is when a meal gets rated), today gets "today"."""
     by_day: dict[str, list[dict]] = {}
     for e in plan:
         if e["date"]:
             by_day.setdefault(e["date"], []).append(e)
     cells = []
     for i in range(7):
-        d = mon + datetime.timedelta(days=i)
+        d = start + datetime.timedelta(days=i)
         iso = d.isoformat()
-        is_today = " today" if d == today else ""
-        parts = [f'<div class="day{is_today}"><div class="dow">{d.strftime("%a %-d")}</div>']
+        state = " today" if d == today else (" past" if d < today else "")
+        parts = [f'<div class="day{state}"><div class="dow">{d.strftime("%a %-d")}</div>']
         for e in by_day.get(iso, []):
             mt = f'<div class="mt">{escape(e["meal_type"])}</div>' if e["meal_type"] else ""
             if e["url"]:
@@ -608,10 +617,25 @@ def render_week(plan: list[dict], today: datetime.date, mon: datetime.date, rate
             parts.append(f'<div class="meal">{mt}{name}{rate}</div>')
         parts.append("</div>")
         cells.append("".join(parts))
-    body = f'<div class="week">{"".join(cells)}</div>'
+    return f'<div class="week">{"".join(cells)}</div>'
+
+
+def render_week(plan: list[dict], today: datetime.date, mon: datetime.date, rater: str,
+                note: str = "", next_plan: list[dict] | None = None) -> str:
+    """The plan week starting `mon`, plus a "Next week" row when `next_plan`
+    (entries of the following plan week) is non-empty."""
+    nxt = [e for e in next_plan or [] if e.get("date")]
+    rated = last_ratings({e["recipe_id"] for e in list(plan) + nxt if e.get("recipe_id")})
+    body = _week_grid(plan, today, mon, rater, rated)
+    if nxt:
+        n0 = mon + datetime.timedelta(days=7)
+        n6 = n0 + datetime.timedelta(days=6)
+        body = (f'<div class="ahead">This week</div>{body}'
+                f'<div class="ahead">Next week · {n0:%b %-d} – {n6:%b %-d}</div>'
+                + _week_grid(nxt, today, n0, rater, rated))
     if note:
         body = f'<div class="ahead">{escape(note)}</div>' + body
-    if not plan:
+    if not plan and not nxt:
         body = '<div class="empty">No meals planned for this week yet.<br>Open the recipe book to plan some!</div>'
     return f"<!doctype html><html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'>{NAV_HEAD}<style>{PAGE_CSS}</style></head><body>{body}</body></html>"
 
@@ -636,20 +660,11 @@ def mealplan_json():
 @app.get("/")
 def index():
     today = datetime.datetime.now(TZ).date()
-    mon, sun = _week_bounds(today)
+    start, end = _week_bounds(today)
     try:
-        plan = fetch_plan_with_prep(mon, sun)   # + Mon-Sat "Lunch prep" copies
-        note = ""
-        if not plan:
-            # The planner fills NEXT week (Sun-Sat) on Tuesday, so the rolling
-            # 7 days can be empty while next week is ready: show that week.
-            ahead = [e for e in fetch_plan(sun, sun + datetime.timedelta(days=13)) if e["date"]]
-            if ahead:
-                first = min(datetime.date.fromisoformat(e["date"]) for e in ahead)
-                mon = first
-                last = first + datetime.timedelta(days=6)
-                plan = [e for e in ahead if e["date"] <= last.isoformat()]
-                note = f"Next planned week: {first:%a %b %-d} – {last:%a %b %-d}"
+        # One fetch for this plan week and next; the lunch-prep copies follow
+        # each plan week's own Sunday prep day.
+        both = fetch_plan_with_prep(start, end + datetime.timedelta(days=7))
     except Exception:
         log.exception("meal plan fetch failed")
         return Response(
@@ -657,7 +672,13 @@ def index():
             f"Couldn't load the meal plan right now. Try again shortly.</body>",
             mimetype="text/html",
         )
-    return Response(render_week(plan, today, mon, rater_from_headers(), note), mimetype="text/html")
+    last = end.isoformat()
+    plan = [e for e in both if e["date"] and e["date"] <= last]
+    nxt = [e for e in both if e["date"] and e["date"] > last]
+    # Next week's row appears only once the planner has built it (Tue 18:03):
+    # lunch-prep copies alone come from a real Sunday entry, so they count too.
+    return Response(render_week(plan, today, start, rater_from_headers(), next_plan=nxt),
+                    mimetype="text/html")
 
 
 @app.post("/rate")
