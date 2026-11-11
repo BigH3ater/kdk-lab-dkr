@@ -207,8 +207,9 @@ proteins:
 # stretch the Amana ground beef (ground-beef dinners now average ~1.5/wk). parity
 # A -> rotation[0], parity B -> rotation[1]. A chicken flex must be a chicken
 # dish not already used that week. Pork chops are fresh/weekly from New Pi.
-# Phase 2 idea (not built): once a freezer inventory exists, make the flex
-# "ground beef when stock is high, pork or chicken when it's low".
+# With the freezer inventory (`freezer`, below) the flex takes the other kind
+# when the freezer cannot cover this week's (e.g. pork chops run out). A
+# ground-beef flex when beef stock is high is still a later idea.
 flex:
   enabled: true
   rotation: [pork, chicken]
@@ -385,6 +386,84 @@ thaw:
   chicken breast: 24h
   roast: 48h
   salmon: 12h
+  tuna: 12h
+
+# Freezer inventory (owner design 2026-11-11). Counts live in ONE JSON file on
+# kdk-dkr-01, /opt/kdk-lab/dashboard/pantry/freezer.json (mounted at /pantry in
+# the dashboard sidecar, which edits it on the groceries Pantry tab, and in this
+# job). The weekly build: (a) never picks a dinner/lunch the freezer is short
+# for (unless no recipe for that slot fits: then planned anyway + a
+# freezer_short_pick warning); (b) fish parity yields to the fish in stock; (c)
+# prefers the cut with the most stock; (d) after writing the plan, decrements
+# what it reserved (freezer_reserved event; the Thaw tab lists them). File
+# missing/unreadable -> planned exactly as before (freezer_inventory_missing).
+# `map`: Tandoor food-name substring -> cut id in freezer.json; the LONGEST key
+# that is part of the food name wins. A freezer-aisle food with no key logs
+# freezer_unmapped and counts as available. Units per cut are in the file:
+# portion (steaks, fillets, patties), lb (ground beef, roasts, stew meat, fajita
+# strips, brats), package (O'Connell packs until portions_per_package is set).
+freezer:
+  enabled: true
+  map:
+    filet mignon: filet-mignon
+    ribeye: ribeye
+    rib eye: ribeye
+    new york strip: ny-strip
+    strip steak: ny-strip
+    sirloin tip steak: sirloin-tip-steak
+    sirloin steak: sirloin-steak
+    top sirloin: sirloin-steak
+    sirloin tip roast: sirloin-tip-roast
+    chuck roast: chuck-roast
+    arm roast: arm-roast
+    rump roast: rump-roast
+    ground beef: ground-beef
+    ground beef patt: burger-patties     # "ground beef patties" (Burger night)
+    stew meat: stew-meat
+    fajita strips: fajita-strips
+    brat: brats
+    cheddar brat: brats-cheddar
+    tuna steak: tuna-steaks
+    yellowfin tuna: tuna-steaks
+    ahi tuna: tuna-steaks
+    salmon: salmon
+    chicken breast: chicken-breast
+    pork chop: pork-chops
+    bacon: bacon
+
+# Standing orders: what an order adds to the freezer when it arrives (the
+# "Order arrived" button on the Pantry tab's Freezer section adds these counts;
+# "undo last change" restores the .bak). Amounts in each cut's unit. No prices.
+standing_orders:
+  oconnell:
+    label: "O'Connell"
+    cadence: "monthly, ships the 3rd"
+    items:
+      chicken-breast: 16      # packages, ~1.1 lb each
+      pork-chops: 4           # packages, ~1 lb each
+      bacon: 5                # packages
+      snack-sticks: 4         # beef + cheddar snack sticks (not a meal protein)
+  amana:
+    label: "Amana"
+    cadence: "beef share, as ordered"
+    # The two lists the owner pasted 2026-11-11 (large box + the smaller second
+    # delivery), summed. Trim to the next order's list when it changes.
+    items:
+      ribeye: 6               # 12 oz x4 + 10 oz x2
+      ny-strip: 6             # 10 oz
+      filet-mignon: 2         # 8 oz
+      sirloin-steak: 4        # 10 oz
+      sirloin-tip-steak: 4    # 10 oz
+      arm-roast: 8.75         # lb: 3.5 x2 + 1.75
+      rump-roast: 10.5        # lb: 3.5 x2 + 1.75 x2
+      sirloin-tip-roast: 7    # lb: 3.5 x2
+      chuck-roast: 12.25      # lb: 3.5 x2 + 1.75 x3
+      ground-beef: 30         # lb
+      burger-patties: 20      # 5 packs of 4 x 1/3 lb
+      brats: 1                # lb (5 ct)
+      brats-cheddar: 1        # lb (5 ct)
+      fajita-strips: 2        # lb
+      stew-meat: 2            # lb
 
 # Owner review gate. When on, the seed imports ONLY recipes the owner approved
 # (approved: true on a candidate, or owner_pick: true), and the generator draws

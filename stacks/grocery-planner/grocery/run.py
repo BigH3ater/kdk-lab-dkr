@@ -30,6 +30,7 @@ import sys
 
 import yaml
 
+from . import freezer as F
 from . import generator as G
 from . import shoplist as S
 
@@ -198,6 +199,7 @@ def build_pool(recipes, season, cfg=None):
     With `cfg`, each item also carries `veg_foods` (no veg side when non-empty)
     and `rice` (gets the rice side)."""
     cfg = cfg or {}
+    fmap = (cfg.get("freezer") or {}).get("map") or {}
     vegetables = (cfg.get("sides") or {}).get("vegetables") or []
     rice_cfg = cfg.get("rice") or {}
     pool = []
@@ -247,6 +249,7 @@ def build_pool(recipes, season, cfg=None):
             "tags": sorted(names & {"beef-lunch", "short-ribs", "tri-tip"}),
             "veg_foods": [] if kind == "side" else veg_foods(r, vegetables),
             "rice": kind != "side" and wants_rice(r, rice_cfg),
+            "freezer_lines": F.recipe_lines(r, fmap),
         })
     return pool
 
@@ -299,6 +302,68 @@ def stray_onhand_foods(plan_entries, recipe_detail_by_id, is_stray):
                     if r.get("name") not in names:
                         names.append(r.get("name"))
     return out
+
+
+def load_stock(cfg, env=None):
+    """The freezer inventory as a generator Stock, or None (logged
+    freezer_inventory_missing) so the build plans exactly as before."""
+    p = F.path(env)
+    if not (cfg.get("freezer") or {}).get("enabled", True):
+        return None
+    data, err = F.load(p)
+    if data is None:
+        jlog(event="freezer_inventory_missing", path=p, reason=err,
+             note="planning without the freezer inventory (as before)")
+        return None
+    return F.Stock(data)
+
+
+def unmapped_freezer_foods(entries, details, cfg):
+    """{food: [recipes]} for this week's freezer-stock foods (a stock/bulk
+    store's freezer aisle) that `freezer.map` does not map to a cut: they count
+    as available and nothing is reserved for them."""
+    from . import seed as SD
+    _, foods_cfg, _, _ = SD.load_configs()
+    fmap = (cfg.get("freezer") or {}).get("map") or {}
+    out = {}
+    for e in entries:
+        r = details.get(e.recipe_id) or {}
+        for name in _food_names(r):
+            if F.cut_for(name, fmap):
+                continue
+            if F.is_freezer_cat(SD.route_food(name, foods_cfg, cfg["stores"]), cfg["stores"]):
+                names = out.setdefault(name, [])
+                if r.get("name") not in names:
+                    names.append(r.get("name"))
+    return out
+
+
+def reserve_freezer(cfg, wk, entries, details, env=None):
+    """After the plan is written: decrement what it takes from freezer.json and
+    log freezer_reserved. Never fails the build."""
+    p = F.path(env)
+    try:
+        data, err = F.load(p)
+        if data is None:
+            return None
+        fmap = (cfg.get("freezer") or {}).get("map") or {}
+        items, short = F.reservations(entries, details, data, fmap, wk)
+        unmapped = unmapped_freezer_foods(entries, details, cfg)
+        if unmapped:
+            jlog(event="freezer_unmapped", week=wk, foods=unmapped,
+                 note="freezer food with no freezer.map entry: counted as available, not reserved")
+        if short:
+            jlog(event="freezer_short", level="warn", week=wk, items=short,
+                 note="planned beyond the count on the Pantry tab: check the freezer")
+        status = F.apply_reservations(p, wk, items)
+        jlog(event="freezer_reserved", week=wk, status=status,
+             items=[{k: it[k] for k in ("cut", "amount", "unit", "recipe", "date")}
+                    for it in items])
+        return items
+    except Exception as ex:  # noqa: BLE001 -- the inventory never fails the build
+        jlog(event="freezer_reserve_error", level="warn", week=wk,
+             error=f"{type(ex).__name__}: {ex}")
+        return None
 
 
 def _stray_checker(cfg):
@@ -405,9 +470,10 @@ def run_weekly(cfg, poll=False):
                for r in t.get_all("/api/recipe/", keyword=_kw_id(t, season))]
     pool = build_pool(recipes, season, cfg)
     pool += _fixed_pool(t)                 # season-independent staples + snacks
+    stock = load_stock(cfg)                # None: plan as before (file missing/unreadable)
     try:
         _require_fixed(cfg, pool)          # loud fail if a fixed recipe isn't seeded
-        entries = G.generate_week(pool, start, cfg)
+        entries = G.generate_week(pool, start, cfg, stock=stock)
     except G.PlanError as e:
         jlog(event="plan_error", week=wk, error=str(e))
         log.error("plan error: %s", e)
@@ -440,9 +506,25 @@ def run_weekly(cfg, poll=False):
          share_with=list((cfg["tandoor"].get("share_with") or {}).keys()),
          note="meal-plan 'shared' field absent in Tandoor 2.7 API; owner step")
 
+    by_id = {r["id"]: r for r in recipes}
+    if stock is not None:
+        parity_fish = cfg["proteins"]["fish_parity"][G.parity_for_week(start)]
+        if stock.fish and stock.fish != parity_fish:
+            jlog(event="freezer_fish", week=wk, parity=parity_fish, planned=stock.fish,
+                 note="fish parity yielded to the fish in the freezer")
+        if stock.short:
+            jlog(event="freezer_short_pick", level="warn", week=wk, picks=stock.short,
+                 note="no recipe the freezer covers for this slot; planned anyway")
+        try:
+            for e in entries:
+                if e.recipe_id not in by_id:
+                    by_id[e.recipe_id] = t.get(f"/api/recipe/{e.recipe_id}/")
+        except Exception as ex:  # noqa: BLE001
+            log.warning("recipe detail fetch for the freezer failed: %s", ex)
+        reserve_freezer(cfg, wk, entries, by_id)
+
     lists, unrouted, skipped = S.build_store_lists(t.shopping_list_entries(), cfg, "weekly")
     try:
-        by_id = {r["id"]: r for r in recipes}
         for e in entries:
             if e.recipe_id not in by_id:
                 by_id[e.recipe_id] = t.get(f"/api/recipe/{e.recipe_id}/")
@@ -625,12 +707,18 @@ def preview(cfg, week_of=None):
     recipes = [t.get(f"/api/recipe/{r['id']}/")
                for r in t.get_all("/api/recipe/", keyword=_kw_id(t, season))]
     pool = build_pool(recipes, season, cfg) + _fixed_pool(t)
+    stock = load_stock(cfg)                # read-only here: nothing is reserved
     try:
         _require_fixed(cfg, pool)
-        entries = G.generate_week(pool, start, cfg)
+        entries = G.generate_week(pool, start, cfg, stock=stock)
     except G.PlanError as e:
         print(f"PLAN ERROR {wk}: {e}")
         return 1
+    if stock is None:
+        print("NOTE: no freezer inventory; planned without it.")
+    elif stock.short:
+        print("NOTE: planned beyond the freezer for: "
+              + ", ".join(f"{s['recipe']} {s['need']}" for s in stock.short))
     print(f"== {wk} ({season}) {start:%a %b %-d} - {end:%a %b %-d}: {len(entries)} meal-plan entries")
     for e in sorted(entries, key=lambda e: (e.date, e.meal_type)):
         print(f"  {e.date:%a %d}  {e.meal_type:<9} {e.recipe_name[:55]}"

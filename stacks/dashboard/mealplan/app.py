@@ -17,6 +17,7 @@ Served (behind Traefik, StripPrefix /meal):
        /kitchen/step-photo/<id>
                     -> the kitchen board (iPad) and its sub-views (kitchen.py)
   POST /groceries/add, /groceries/reorder (ajax=1, next=pantry|home)
+  POST /groceries/freezer -> the Pantry tab's Freezer section (home.kmkdp.com only)
                     -> the only grocery writes the kitchen pages make
   GET  /home        -> the household page (phone/laptop)
   GET  /kitchen/devices, POST /kitchen/devices/{pair,revoke,revoke-all}
@@ -55,6 +56,7 @@ from markupsafe import escape  # HTML-escape any value rendered into a page (Cod
 from waitress import serve
 import newpi  # New Pi product-link lookup (reads the mounted foods.yaml)
 import stock  # pantry list + freezer/thaw rules (mounted cleanup.yaml + planner config)
+import freezer  # freezer inventory (/pantry/freezer.json, shared with the grocery planner)
 import homecal  # household ICS calendar (kitchen board + household page)
 import kitchen  # kitchen board + household page rendering
 import vacuum  # robot vacuum line from Home Assistant
@@ -1356,6 +1358,18 @@ color:var(--text);font-size:14px;font-weight:600;cursor:pointer}
 .mcard .mi .mt{display:block;font-weight:500;font-size:12px;color:var(--muted);letter-spacing:.06em;text-transform:uppercase}
 .mcard:hover{border-color:var(--muted);color:var(--text)}
 @media(max-width:480px){.gi .by{max-width:40%}}
+.gi.fz .cnt{color:var(--tan);font-weight:600;font-size:15px;white-space:nowrap}
+.gi.fz.fillin{border-left:4px solid var(--rust);padding-left:8px}
+.gi.fz .mark{display:inline-block;margin-left:8px;padding:1px 8px;border-radius:999px;background:var(--rust);
+color:var(--ground);font-size:12px;font-weight:600}
+.gi form.fzform button,.fzbar button{min-height:44px;min-width:44px;padding:0 10px;border-radius:12px;border:2px solid var(--hairline);
+background:none;color:var(--text);font-size:16px;font-weight:600;cursor:pointer}
+.gi form.fzform button:hover,.fzbar button:hover{border-color:var(--rust)}
+.gi form.fzform input,.fzadd input,.fzadd select{width:64px;min-height:44px;padding:0 8px;border-radius:12px;border:1px solid var(--hairline);
+background:var(--ground);color:var(--text);font:inherit;font-size:15px}
+.fzbar,.fzadd{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0 4px}
+.fzadd input[name=name]{flex:1 1 140px;width:auto}
+.fzadd select{width:auto}
 """
 
 GROCERIES_JS = """
@@ -1515,10 +1529,79 @@ def _pantry_row(food: str, recipes: list[str], on_list: bool) -> str:
 _STORE_LABEL = {"NewPi": "New Pi", "OConnell": "O'Connell"}
 
 
-def _render_pantry(entries, lines, today, foods_cfg=None, config=None, cleanup=None) -> str:
+def _fz_form(action: str, cut: str, inner: str) -> str:
+    return ("<form class='fzform' method='post' action='groceries/freezer'>"
+            f"<input type='hidden' name='action' value='{action}'>"
+            f"<input type='hidden' name='cut' value='{escape(cut)}'>{inner}</form>")
+
+
+def _freezer_row(c: dict) -> str:
+    cid = str(c.get("id") or "")
+    marks = ""
+    fill = bool(c.get("fill_in"))
+    if fill:
+        marks += "<span class='mark'>fill in</span>"
+    portions = c.get("unit") == "package" and "portions_per_package" in c and not c.get("portions_per_package")
+    if portions:
+        marks += "<span class='mark'>set portions</span>"
+    pkg = c.get("package") or ""
+    ppp = c.get("portions_per_package")
+    src = " · ".join(x for x in (pkg, f"{ppp} per package" if ppp else "",
+                                 _STORE_LABEL.get(c.get("source"), c.get("source") or "")) if x)
+    cnt = "?" if fill else freezer.fmt_count(c)
+    acts = (_fz_form("adjust", cid, "<input type='hidden' name='delta' value='-1'>"
+                     f"<button type='submit' title='one less'>−</button>")
+            + _fz_form("adjust", cid, "<input type='hidden' name='delta' value='1'>"
+                       f"<button type='submit' title='one more'>+</button>")
+            + _fz_form("set", cid, "<input name='count' inputmode='decimal' aria-label='set count' "
+                       "placeholder='set'><button type='submit'>set</button>"))
+    if portions:
+        acts += _fz_form("portions", cid, "<input name='n' inputmode='numeric' aria-label='portions per package' "
+                         "placeholder='per pkg'><button type='submit'>portions</button>")
+    return (f"<div class='gi fz{' fillin' if fill or portions else ''}'><span class='lbl'>"
+            f"{escape(c.get('name') or cid)}{marks}<span class='src'>{escape(src)}</span></span>"
+            f"<span class='cnt'>{escape(cnt)}</span>{acts}</div>")
+
+
+def _render_freezer(data: dict | None, orders: dict | None = None) -> str:
+    """The Pantry tab's Freezer section: each cut with its count, −/+/set,
+    the fill-in and set-portions markers, add a cut, order arrived, undo."""
+    parts = ["<div class='aisle'>Freezer</div>"]
+    if data is None:
+        return "".join(parts) + ("<div class='empty2'>No freezer inventory yet (the planner plans "
+                                 "without it). Install the seed: see the grocery-planner runbook.</div>")
+    for c in data.get("cuts") or []:
+        parts.append(_freezer_row(c))
+    bar = "".join(
+        "<form method='post' action='groceries/freezer'><input type='hidden' name='action' value='arrived'>"
+        f"<input type='hidden' name='order' value='{escape(k)}'>"
+        f"<button type='submit'>Order arrived: {escape(o.get('label') or k)}</button></form>"
+        for k, o in (orders or {}).items())
+    bar += ("<form method='post' action='groceries/freezer'><input type='hidden' name='action' value='undo'>"
+            "<button type='submit' title='swap back to the version before the last change'>undo last change</button></form>")
+    parts.append(f"<div class='fzbar'>{bar}</div>")
+    parts.append("<form class='fzadd' method='post' action='groceries/freezer'>"
+                 "<input type='hidden' name='action' value='add'>"
+                 "<input name='name' maxlength='60' placeholder='Add a cut…' aria-label='cut name'>"
+                 "<select name='unit' aria-label='unit'><option value='portion'>portions</option>"
+                 "<option value='lb'>lb</option><option value='package'>packages</option></select>"
+                 "<input name='count' inputmode='decimal' placeholder='count' aria-label='count'>"
+                 "<input name='package' maxlength='40' placeholder='pkg (12 oz)' aria-label='package size'>"
+                 "<button type='submit'>add</button></form>")
+    upd = data.get("updated") or ""
+    if upd:
+        parts.append(f"<div class='addnote'>updated {escape(upd[:16].replace('T', ' '))}"
+                     f" by {escape(str(data.get('updated_by') or ''))}</div>")
+    return "".join(parts)
+
+
+def _render_pantry(entries, lines, today, foods_cfg=None, config=None, cleanup=None,
+                   fz: dict | None = None) -> str:
     on = _open_reorders(entries)
     used = _used_this_week(lines, stock.plan_week_start(today, config), foods_cfg, config, cleanup)
+    orders = (stock.planner_cfg() if config is None else config).get("standing_orders") or {}
     parts = ["<h2>Pantry — reorder what is running low</h2>",
+             _render_freezer(fz, orders),
              "<div class='aisle'>Used this week</div>"]
     if not used:
         parts.append("<div class='empty2'>No pantry or stock foods in this week's recipes.</div>")
@@ -1603,10 +1686,39 @@ def _thaw_today_line(rows: list[dict], today: datetime.date) -> str:
     return "Thaw today: " + ", ".join(bits)
 
 
-def _render_thaw(rows: list[dict], today: datetime.date) -> str:
+def _plan_week_keys(today: datetime.date) -> set[str]:
+    """ISO week keys (the planner's gp:<wk>) of this plan week and the next."""
+    out = set()
+    for w in (0, 1):
+        mon = stock.plan_week_start(today) + datetime.timedelta(days=1, weeks=w)
+        iso = mon.isocalendar()
+        out.add(f"{iso[0]}-W{iso[1]:02d}")
+    return out
+
+
+def _render_reserved(rows: list[dict]) -> str:
+    """What the weekly build took off the freezer counts for these weeks."""
+    if not rows:
+        return ""
+    parts = ["<div class='aisle'>Reserved from the freezer</div>"]
+    for r in rows:
+        try:
+            d = datetime.date.fromisoformat(r.get("date") or "")
+            when = f"{d:%a %-d} · "
+        except ValueError:
+            when = ""
+        amt = freezer.fmt_count({"count": r.get("amount"), "unit": r.get("unit")})
+        parts.append(f"<div class='gi thaw'><span class='lbl'>{escape(str(r.get('cut') or ''))}"
+                     f"<span class='qty'>{escape(amt)}</span>"
+                     f"<span class='src'>{escape(when + str(r.get('recipe') or ''))}</span></span></div>")
+    return "".join(parts)
+
+
+def _render_thaw(rows: list[dict], today: datetime.date, reserved: list[dict] | None = None) -> str:
     parts = ["<h2>Thaw — freezer to fridge</h2>"]
     if not rows:
-        return "".join(parts) + "<div class='empty2'>No freezer stock in the next week's meals.</div>"
+        return ("".join(parts) + "<div class='empty2'>No freezer stock in the next week's meals.</div>"
+                + _render_reserved(reserved or []))
     for r in rows:
         late = " late" if not r["done"] and r["move_by"].date() < today else ""
         cls = " done" if r["done"] else late
@@ -1622,7 +1734,7 @@ def _render_thaw(rows: list[dict], today: datetime.date) -> str:
             f"<span class='lbl'>{escape(r['food'])}{qty}"
             f"<span class='src'>{escape(meta)}</span></span>"
             f"<span class='by'>move to the fridge by {escape(_fmt_when(r['move_by']))}</span></div>")
-    return "".join(parts)
+    return "".join(parts) + _render_reserved(reserved or [])
 
 
 
@@ -1860,8 +1972,10 @@ def _render_groceries(force: bool = False, flash: dict | None = None):
             "<button class='tick' type='submit' title='got it'></button></form>"
             f"<span class='lbl'>{escape(_item_label(e))}</span></div>")
     parts.append("</section>")
-    parts.append(f"<section class='gtab store' id='pantry'>{_render_pantry(entries, lines, today)}</section>")
-    thaw_html = (_render_thaw(thaw, today) if plan is not None else
+    fz = freezer.load()
+    parts.append(f"<section class='gtab store' id='pantry'>{_render_pantry(entries, lines, today, fz=fz)}</section>")
+    reserved = freezer.reserved(fz, _plan_week_keys(today))
+    thaw_html = (_render_thaw(thaw, today, reserved) if plan is not None else
                  "<h2>Thaw — freezer to fridge</h2><div class='empty2'>Couldn't load the meal plan.</div>")
     parts.append(f"<section class='gtab store' id='thaw'>{thaw_html}</section>")
     parts.append(f"<section class='gtab' id='meals'>"
@@ -2080,6 +2194,25 @@ def groceries_reorder():
         code = {"added": 200, "on_list": 200, "refused": 422}.get(status, 502)
         return _json({"status": status}, code)
     return redirect(_back_to("../groceries#pantry"), code=303)
+
+
+@app.post("/groceries/freezer")
+def groceries_freezer():
+    """The Pantry tab's Freezer section: −/+/set a count, set portions per
+    package, add a cut, add a standing order on arrival, undo the last change.
+    home.kmkdp.com only (Authelia; not a kitchen.kmkdp.com route). Every change
+    is logged with the Authelia user and keeps a .bak."""
+    who = remote_user() or "unknown"
+    action = (request.form.get("action") or "").strip()
+    try:
+        orders = stock.planner_cfg().get("standing_orders") or {}
+        text = freezer.change(action, request.form.to_dict(), who, orders)
+        log.info("freezer change by %s: %s", who, text)
+    except freezer.FreezerError as e:
+        log.info("freezer change refused (%s) by %s: %s", action, who, e)
+    except Exception:
+        log.exception("freezer change failed")
+    return redirect("../groceries#pantry", code=303)
 
 
 @app.post("/groceries/thaw-tick")

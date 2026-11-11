@@ -36,7 +36,7 @@ paired-device cookie (see [Kitchen host and device pairing](#kitchen-host-and-de
 | Endpoints | `home.kmkdp.com` (`/` → 302 to `/meal/home`; + `/guides`, `/meal`, kitchen board `/meal/kitchen`, pantry check `/meal/kitchen/pantry`, household page `/meal/home`, device admin `/meal/kitchen/devices`), `kitchen.kmkdp.com` (paired kitchen screen, no Authelia), `admin.kmkdp.com` (lab admin page, jmack only), `tasks.kmkdp.com` |
 | Images | `nginx:1.31.8-alpine`, `vikunja/vikunja:2.7.1`, `kdk/dashboard-mealplan` (built) |
 | Deploy | Komodo stack `dashboard` (git-linked, `op inject` pre_deploy) |
-| Storage | `/opt/kdk-lab/dashboard/vikunja` (SQLite + files), `/opt/kdk-lab/dashboard/kitchen-state` (kitchen device registry, add-box forced-manual ids) |
+| Storage | `/opt/kdk-lab/dashboard/vikunja` (SQLite + files), `/opt/kdk-lab/dashboard/kitchen-state` (kitchen device registry, add-box forced-manual ids), `/opt/kdk-lab/dashboard/pantry` (freezer inventory `freezer.json`, shared with grocery-planner; see the grocery-planner runbook) |
 | Blast radius | The family home page and kitchen screen; the underlying services are unaffected |
 
 ## Verify

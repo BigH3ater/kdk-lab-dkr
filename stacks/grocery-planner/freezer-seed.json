@@ -1,0 +1,29 @@
+{
+ "version": 1,
+ "updated": "2026-11-11T12:00:00-06:00",
+ "updated_by": "seed (Amana order paperwork + O'Connell monthly order, 2026-11-11)",
+ "cuts": [
+  {"id": "ribeye", "name": "Ribeye steak", "unit": "portion", "count": 6, "package": "12 oz ×4, 10 oz ×2", "package_lb": 0.71, "source": "Amana"},
+  {"id": "ny-strip", "name": "New York strip steak", "unit": "portion", "count": 6, "package": "10 oz", "package_lb": 0.625, "source": "Amana"},
+  {"id": "filet-mignon", "name": "Filet mignon", "unit": "portion", "count": 2, "package": "8 oz", "package_lb": 0.5, "source": "Amana"},
+  {"id": "sirloin-steak", "name": "Sirloin steak", "unit": "portion", "count": 4, "package": "10 oz", "package_lb": 0.625, "source": "Amana"},
+  {"id": "sirloin-tip-steak", "name": "Sirloin tip steak", "unit": "portion", "count": 4, "package": "10 oz", "package_lb": 0.625, "source": "Amana"},
+  {"id": "burger-patties", "name": "Ground beef patties", "unit": "portion", "count": 20, "package": "packs of 4 × 1/3 lb", "package_lb": 0.333, "source": "Amana"},
+  {"id": "ground-beef", "name": "Ground beef 80/20", "unit": "lb", "count": 30, "package": "1 lb", "package_lb": 1, "source": "Amana"},
+  {"id": "chuck-roast", "name": "Chuck roast", "unit": "lb", "count": 12.25, "package": "3½ lb ×2, 1¾ lb ×3", "package_lb": 3.5, "source": "Amana"},
+  {"id": "arm-roast", "name": "Arm roast", "unit": "lb", "count": 8.75, "package": "3½ lb ×2, 1¾ lb ×1", "package_lb": 3.5, "source": "Amana"},
+  {"id": "rump-roast", "name": "Rump roast", "unit": "lb", "count": 10.5, "package": "3½ lb ×2, 1¾ lb ×2", "package_lb": 3.5, "source": "Amana"},
+  {"id": "sirloin-tip-roast", "name": "Sirloin tip roast", "unit": "lb", "count": 7, "package": "3½ lb", "package_lb": 3.5, "source": "Amana"},
+  {"id": "stew-meat", "name": "Stew meat", "unit": "lb", "count": 2, "package": "1 lb", "package_lb": 1, "source": "Amana"},
+  {"id": "fajita-strips", "name": "Fajita strips", "unit": "lb", "count": 2, "package": "1 lb", "package_lb": 1, "source": "Amana"},
+  {"id": "brats", "name": "All-beef brats", "unit": "lb", "count": 1, "package": "1 lb (5 ct)", "package_lb": 1, "source": "Amana"},
+  {"id": "brats-cheddar", "name": "All-beef cheddar brats", "unit": "lb", "count": 1, "package": "1 lb (5 ct)", "package_lb": 1, "source": "Amana"},
+  {"id": "chicken-breast", "name": "Chicken breast (boneless, skinless)", "unit": "package", "count": 16, "package": "~1.1 lb", "package_lb": 1.1, "portions_per_package": null, "source": "OConnell"},
+  {"id": "pork-chops", "name": "Pork chops (boneless)", "unit": "package", "count": 4, "package": "~1 lb", "package_lb": 1.0, "portions_per_package": null, "source": "OConnell"},
+  {"id": "bacon", "name": "Bacon", "unit": "package", "count": 5, "package": "1 package", "source": "OConnell"},
+  {"id": "snack-sticks", "name": "Beef + cheddar snack sticks", "unit": "package", "count": 4, "package": "1 package", "source": "OConnell"},
+  {"id": "tuna-steaks", "name": "Tuna steaks", "unit": "portion", "count": 0, "package": "", "fill_in": true, "source": "NewPi"},
+  {"id": "salmon", "name": "Salmon (Costco frozen)", "unit": "portion", "count": 0, "package": "", "fill_in": true, "source": "Costco"}
+ ],
+ "reservations": []
+}

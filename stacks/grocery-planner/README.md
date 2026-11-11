@@ -17,6 +17,8 @@ Tandoor-driven, human-submitted (no store ordering API). Full design:
   1 fish + 4 chicken breast + 1 ground beef + 1 steak, fish Sunday, salmon/tuna
   + Greek/Asian beef by ISO-week parity, rotating veg sides (none when the main has a vegetable),
   a brown-rice packet side for rice dishes, 3 lunch preps, snacks as Snack, caps),
+  plans only what the freezer inventory covers (`grocery/freezer.py`, the
+  Pantry tab's `freezer.json`; reserved cuts are decremented),
   writes the meal-plan entries (idempotent per week key), builds the New Pi +
   Target list minus on-hand items, and raises one combined Vikunja approval task.
 - **Page:** the dashboard mealplan sidecar serves `home.kmkdp.com/meal/groceries`
@@ -26,7 +28,8 @@ Tandoor-driven, human-submitted (no store ordering API). Full design:
 ## Layout
 
 ```
-config.yaml              rules + scoring + store routing + caps (edit this, not code)
+config.yaml              rules + scoring + store routing + caps + freezer map/standing orders (edit this, not code)
+freezer-seed.json        first freezer inventory (hand step copies it to the host once)
 recipes/candidates/*.yaml real rated recipe candidates per season
 recipes/foods.yaml       food -> store/aisle routing for the seed
 grocery/                 scoring, generator, shoplist (pure); tandoor, vikunja, seed, run

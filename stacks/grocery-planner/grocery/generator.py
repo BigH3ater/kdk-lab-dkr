@@ -20,7 +20,11 @@ selected recipes:
     staples once a week, snack feeders once a week as the Snack meal type;
   * simplicity caps (working_time, ingredient count) as a fail-closed filter;
   * deterministic per week key, so a double run yields the same plan (the run
-    job additionally refuses to re-POST a week that is already planned).
+    job additionally refuses to re-POST a week that is already planned);
+  * with a freezer inventory (`stock`, grocery/freezer.py): no dinner or lunch
+    the freezer cannot cover (unless nothing else fits: then it is noted in
+    stock.short), the most-stocked cut first where a slot has a choice, and fish
+    parity yields to the fish that is in stock. stock=None = the plan as before.
 
 The pool is a list of plain dicts so tests need no Tandoor. Each recipe:
   {id, name, slot, kind, season, working_time, ingredient_count, variant?,
@@ -35,6 +39,8 @@ from __future__ import annotations
 import datetime
 import random
 from dataclasses import dataclass
+
+from . import freezer as F
 
 
 SEASON_DEFAULT = {3: "spring", 4: "spring", 5: "spring",
@@ -98,7 +104,8 @@ def _eligible(rec: dict, caps: dict, kind: str) -> bool:
     return True
 
 
-def _pick(pool, kind, season, caps, rng, used_ids, n=1, variant=None):
+def _pick(pool, kind, season, caps, rng, used_ids, n=1, variant=None,
+          stock=None, servings=2):
     cands = [r for r in pool
              if r.get("kind") == kind
              and r.get("season") == season
@@ -111,7 +118,7 @@ def _pick(pool, kind, season, caps, rng, used_ids, n=1, variant=None):
             f"not enough eligible {kind}"
             + (f"/{variant}" if variant else "")
             + f" recipes for {season}: need {n}, have {len(cands)}")
-    chosen = cands[:n]
+    chosen = F.choose(cands, n, stock, servings, kind + (f"/{variant}" if variant else ""))
     for r in chosen:
         used_ids.add(r["id"])
     return chosen
@@ -139,22 +146,18 @@ def _pick_sides(pool, season, caps, rng, n, max_repeats):
     return chosen
 
 
-def _pick_beef(pool, season, caps, rng, used, n, max_asian):
+def _pick_beef(pool, season, caps, rng, used, n, max_asian, stock=None):
     """Pick n distinct ground-beef dishes for the week: no repeat (distinct
     recipe ids) and at most `max_asian` Asian-style (beef_style == 'asian')."""
     cands = [r for r in pool
              if r.get("kind") == "ground_beef" and r.get("season") == season
              and r["id"] not in used and _eligible(r, caps, "ground_beef")]
     rng.shuffle(cands)
-    chosen, asian = [], 0
-    for r in cands:
-        if len(chosen) == n:
-            break
-        if r.get("beef_style") == "asian" and asian >= max_asian:
-            continue
-        chosen.append(r)
-        if r.get("beef_style") == "asian":
-            asian += 1
+
+    def ok(chosen, r):
+        return not (r.get("beef_style") == "asian"
+                    and sum(c.get("beef_style") == "asian" for c in chosen) >= max_asian)
+    chosen = F.choose(cands, n, stock, 2, "ground_beef", ok)
     if len(chosen) < n:
         raise PlanError(f"not enough eligible ground_beef for {season}: need {n}, "
                         f"have {len(chosen)} (<= {max_asian} Asian-style)")
@@ -163,7 +166,8 @@ def _pick_beef(pool, season, caps, rng, used, n, max_asian):
     return chosen
 
 
-def generate_week(pool: list[dict], week_start: datetime.date, config: dict) -> list[PlanEntry]:
+def generate_week(pool: list[dict], week_start: datetime.date, config: dict,
+                  stock: "F.Stock | None" = None) -> list[PlanEntry]:
     caps = config["caps"]
     pr = config["proteins"]
     seasons = config.get("seasons")
@@ -191,23 +195,39 @@ def generate_week(pool: list[dict], week_start: datetime.date, config: dict) -> 
 
     # Fish: Sunday. Chicken + steak are fixed counts; ground beef is the week's
     # distinct dishes (no repeat, <= max_asian Asian-style).
-    fish = _pick(pool, "fish", season, caps, rng, used, 1, variant=fish_variant)[0]
+    if stock is not None:
+        # Fish parity yields to the fish that is in the freezer; neither in stock
+        # -> the parity fish as before (bought fresh / Costco fallback).
+        other = next((v for v in pr["fish_parity"].values() if v != fish_variant), fish_variant)
+
+        def _fish(v):
+            return [r for r in pool if r.get("kind") == "fish" and r.get("season") == season
+                    and r.get("variant") == v and _eligible(r, caps, "fish")]
+        if not stock.has(_fish(fish_variant), 2) and stock.has(_fish(other), 2):
+            fish_variant = other
+        stock.fish = fish_variant
+    fish = _pick(pool, "fish", season, caps, rng, used, 1, variant=fish_variant,
+                 stock=stock)[0]
     # Burger night: every Nth ISO week one chicken dinner becomes the fixed
     # "Burger night" recipe (Amana patties). Skipped quietly if not seeded.
     bn = config.get("burger_night") or {}
     burger = None
     if bn.get("enabled") and int(wk.split("W")[1]) % int(bn.get("every_n_weeks", 5)) == 0:
         burger = _by_name(pool, bn.get("recipe", "Burger night"))
+    if burger and stock is not None:
+        stock.take(stock.need_for(burger, 2))
     chicken = _pick(pool, "chicken", season, caps, rng, used,
-                    pr["poultry"] - (1 if burger else 0))
-    steak = _scheduled(pool, "steak", season, caps, rng, used, wk, config) or \
-        _pick(_unscheduled(pool, "steak", wk, config), "steak", season, caps, rng, used, 1)[0]
+                    pr["poultry"] - (1 if burger else 0), stock=stock)
+    steak = _scheduled(pool, "steak", season, caps, rng, used, wk, config, stock) or \
+        _pick(_unscheduled(pool, "steak", wk, config), "steak", season, caps, rng, used, 1,
+              stock=stock)[0]
     beef = _pick_beef(pool, season, caps, rng, used, beef_n,
-                      beef_cfg.get("max_asian_per_week", 1))
+                      beef_cfg.get("max_asian_per_week", 1), stock)
     roast = None
     if roast_week:
-        roast = _scheduled(pool, "roast", season, caps, rng, used, wk, config) or \
-            _pick(_unscheduled(pool, "roast", wk, config), "roast", season, caps, rng, used, 1)[0]
+        roast = _scheduled(pool, "roast", season, caps, rng, used, wk, config, stock, 4) or \
+            _pick(_unscheduled(pool, "roast", wk, config), "roast", season, caps, rng, used, 1,
+                  stock=stock, servings=4)[0]
 
     # Flex dinner: alternates pork chop / chicken breast by week (parity picks the
     # rotation slot). A chicken flex is an extra chicken dish not already used.
@@ -217,7 +237,17 @@ def generate_week(pool: list[dict], week_start: datetime.date, config: dict) -> 
         rotation = flex_cfg.get("rotation") or ["pork", "chicken"]
         flex_kind = rotation[(0 if parity == "A" else 1) % len(rotation)]
         pick_kind = "pork" if flex_kind == "pork" else "chicken"
-        flex = _pick(pool, pick_kind, season, caps, rng, used, 1)[0]
+        if stock is not None:
+            # The week's rotation kind unless the freezer can't cover it and the
+            # other kind can (2 pork-chop packages left, chicken plenty: chicken).
+            def _kind(k):
+                return [r for r in pool if r.get("kind") == k and r.get("season") == season
+                        and r["id"] not in used and _eligible(r, caps, k)]
+            alt = "chicken" if pick_kind == "pork" else "pork"
+            if (not any(stock.fits(stock.need_for(r, 2)) for r in _kind(pick_kind))
+                    and stock.has(_kind(alt), 2)):
+                pick_kind = alt
+        flex = _pick(pool, pick_kind, season, caps, rng, used, 1, stock=stock)[0]
 
     # Day assignment: fish on its day, roast on roast_night (if a roast week),
     # the rest fill the remaining days in a deterministic shuffled order.
@@ -276,13 +306,19 @@ def generate_week(pool: list[dict], week_start: datetime.date, config: dict) -> 
                                      or "beef-lunch" in (r.get("tags") or ()))
                  and r["id"] not in used]
         rng.shuffle(cands)
+        if stock is not None:                         # only a stir fry the freezer covers
+            lsv = config["lunches"]["servings_each"]
+            cands = [r for r in cands if stock.fits(stock.need_for(r, lsv))]
+            if cands:
+                stock.take(stock.need_for(cands[0], lsv))
         beef_lunch = cands[0] if cands else None      # none free/seeded: plain lunches
     n_lunch = config["lunches"]["recipes_per_week"] - (1 if beef_lunch else 0)
     if beef_lunch:
         # Reserve it BEFORE the lunch pick, so a beef lunch that also carries the
         # lunch-prep keyword can't be picked twice (2 distinct batches, not 3).
         used.add(beef_lunch["id"])
-    lunches = _pick(pool, "lunch", season, caps, rng, used, n_lunch)
+    lunches = _pick(pool, "lunch", season, caps, rng, used, n_lunch, stock=stock,
+                    servings=config["lunches"]["servings_each"])
     if beef_lunch:
         lunches.append(beef_lunch)
     lunch_servings = config["lunches"]["servings_each"]
@@ -336,7 +372,7 @@ def _rules(config, kind):
     return [r for r in (config.get("scheduled") or []) if r.get("kind") == kind]
 
 
-def _scheduled(pool, kind, season, caps, rng, used, wk, config):
+def _scheduled(pool, kind, season, caps, rng, used, wk, config, stock=None, servings=2):
     """Freezer-limited recipes (config `scheduled`): on a scheduled week the
     `kind` slot IS one of the tagged recipes (e.g. short ribs on a roast week).
     Returns the pick, or None when this isn't a scheduled week / none is seeded."""
@@ -348,6 +384,8 @@ def _scheduled(pool, kind, season, caps, rng, used, wk, config):
         if cands:
             rng.shuffle(cands)
             used.add(cands[0]["id"])
+            if stock is not None:
+                stock.take(stock.need_for(cands[0], servings))
             return cands[0]
     return None
 

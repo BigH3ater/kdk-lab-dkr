@@ -58,5 +58,12 @@ services:
       GROCERY_SUFFIX: "${GROCERY_SUFFIX:-}"            # -> the Loki `container` label
       LOKI_URL: "${LOKI_URL:-http://10.1.20.21:3100}"   # direct push (kdk-log-01); empty disables
       NODE_NAME: "${NODE_NAME:-kdk-dkr-01}"             # host label on the Loki stream
+    volumes:
+      # Freezer inventory (owner design 2026-11-11), the dashboard's Pantry-tab
+      # file. The build reads it to plan only what the freezer covers and, after
+      # writing the plan, decrements what the week reserved (atomic tmp + rename,
+      # .bak kept) -- so read-write, not read-only. The rootfs stays read_only.
+      # Missing file = the build plans as before (freezer_inventory_missing).
+      - /opt/kdk-lab/dashboard/pantry:/pantry
     labels:
       kdk.baseline.skip: "healthcheck"   # one-shot job, no long-running endpoint
