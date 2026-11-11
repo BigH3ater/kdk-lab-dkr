@@ -89,9 +89,15 @@ class EpubLinker:
         return True
 
     async def drain(self) -> None:
-        """Wait for the running attempts (tests)."""
+        """Wait for the running attempts (tests).
+
+        asyncio.wait, not gather: gather on a task that has already finished completes
+        eagerly and the await never yields, so the discard callback could not run and
+        this loop spun forever (CI hang 2026-11-11). Pruning here does not rely on it.
+        """
         while self._tasks:
-            await asyncio.gather(*list(self._tasks), return_exceptions=True)
+            done, _ = await asyncio.wait(list(self._tasks))
+            self._tasks.difference_update(done)
 
     async def cancel(self) -> None:
         """Stop the running attempts (shutdown). A cancelled one is simply retried later."""
