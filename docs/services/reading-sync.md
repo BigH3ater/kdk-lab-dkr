@@ -100,7 +100,7 @@ Wi-Fi and Tailscale up (the subnet router carries 192.168.191.0/24).
    - If the catalogue answers "Authentication required", edit it: URL
      `https://jmack:<password>@opds.kmkdp.com/opds` and leave the username and password fields
      empty (the abs-opds README form).
-   - Keep the Calibre catalogue until rollout step 4 retires Calibre, but download from the new one.
+   - Delete the old Calibre catalogue entry (long-press it → Delete): Calibre is retired.
 3. **Progress sync.** Open any book → top menu → Tools (wrench) → **Progress sync**:
    - **Custom sync server**: `https://kosync.kmkdp.com` (base URL only, no path).
    - **Register / Login** → **Login** with `jmack` and the sync password. **Register** also
@@ -109,9 +109,10 @@ Wi-Fi and Tailscale up (the subnet router carries 192.168.191.0/24).
    - **Auto sync**: on. KOReader then pushes on page turns (every N pages), on close and on
      suspend, and pulls on open and resume.
    - **Sync to a newer state**: Silent (or Prompt). **Sync to an older state**: Prompt.
-4. **Re-download the EPUBs you are reading** from the new catalogue. Calibre stamps metadata into
-   every EPUB it serves, so a Calibre copy has a different hash and never syncs. Calibre's PDFs are
-   unchanged (25/25 measured), so PDFs already on the tablet match without a re-download.
+4. **Re-download the EPUBs you are reading** from the new catalogue. Calibre (retired) stamped
+   metadata into every EPUB it served, so an old Calibre copy has a different hash and never
+   syncs. Calibre's PDFs are unchanged (25/25 measured), so PDFs already on the tablet match
+   without a re-download.
    - Re-downloading many books in 15 minutes can fire the `AbsMassDownload` alert (more than 10
      downloads from one client). That is expected once; the client is the abs-opds container.
 
@@ -135,7 +136,9 @@ Around!*** (the other three MOBIs have an EPUB beside them). KOReader opens MOBI
 path handles it, so convert it once to EPUB in the library. The DMZ mounts the library
 read-only, so run it on kdk-dkr-01 (LazyLibrarian's side, where the library is writable), with
 Calibre's `ebook-convert` from the `kdk/readwise-koreader` image, as uid 1000 (the files' owner),
-with no network:
+with no network. That image is left over from the retired readwise-koreader job and is the only
+image on dkr-01 with `ebook-convert`; the post-retirement host cleanup keeps it until this
+conversion is done (the EPUB exists):
 
 ```bash
 ssh kdkadmin@10.1.20.20

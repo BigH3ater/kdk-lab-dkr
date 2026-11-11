@@ -28,16 +28,10 @@ act on the tablet whenever it's reachable:
 
 - **Highlights/annotations → Obsidian:** `remarks` against files pulled over SSH,
   writing Markdown into the headless "Kodiak Codex" vault.
-- **Readwise articles → KOReader:** `readwise-koreader` (revived 2026-10-30) mirrors
-  Reader docs tagged `remarkable` as EPUBs into `/home/root/books/Readwise`; highlights
-  ride back out via `koreader-highlights`. It SSH-probes the tailnet node
-  (`remarkable-pp` / `100.103.233.103`) first, then the LAN (`10.1.30.245`) — so delivery
-  works from anywhere, not only on home Wi-Fi. See `docs/services/readwise-koreader.md`.
-- **Vault notes → KOReader:** `obsidian-to-koreader` renders Obsidian notes to PDF and
-  mirrors them into `/home/root/books/kodiak-codex/<vault path>` (the vault's folder tree).
-  A "Send to reMarkable" tap is picked up by a watcher within seconds; a scheduled job also
-  keeps selected folders (e.g. `20.Work`) and the other sections in sync every 6 h. Tailnet
-  first, LAN fallback. See `docs/services/obsidian-to-koreader.md`.
+- **Books → KOReader:** the tablet pulls ebooks from Audiobookshelf over OPDS and syncs
+  its reading position (`docs/services/reading-sync.md`). Nothing is pushed to it. The
+  `readwise-koreader` (Readwise articles) and `obsidian-to-koreader` (vault notes as PDFs,
+  "Send to reMarkable" plugin) feeds and Calibre were retired 2026-11.
 - **Books (send + remove):** `rmapi` against rmfakecloud (internal/LAN).
 - **Templates:** `rmtemplate` (Paper Pro template CLI).
 
@@ -65,10 +59,10 @@ file browser (including "set as sleep screen"), and backup/restore.
 - Do **not** install or change tablet software with ad-hoc SSH commands or scripts; use
   reManager. Anything the lab builds for the device is packaged for Vellum's index so it
   installs the same way.
-- Lab jobs only move **content** over SSH: `readwise-koreader` and the
-  `obsidian-to-koreader` channel deliver EPUB/PDF files into `/home/root/books/`,
-  and `koreader-highlights` collects `.sdr` highlights (`remarkable-ocr`, the notebook
-  OCR job, was retired 2026-11-05). None of them changes software.
+- Lab jobs only move **content**: `koreader-highlights` collects `.sdr` highlights over
+  SSH, and KOReader pulls books from Audiobookshelf over OPDS (`remarkable-ocr`,
+  `readwise-koreader` and `obsidian-to-koreader` were retired 2026-11). None of them
+  changes software.
 
 ### Launching sideloaded apps (xovi + AppLoad)
 

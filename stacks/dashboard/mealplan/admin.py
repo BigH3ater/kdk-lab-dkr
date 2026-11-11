@@ -517,7 +517,6 @@ TILES = [
     ]),
     ("Books", [
         ("LazyLibrarian", "https://lazylibrarian.kmkdp.com/", "dkr-01", "https://lazylibrarian.kmkdp.com"),
-        ("Calibre (reMarkable)", "https://calibre.kmkdp.com/", "dkr-01", None),
         ("Audiobookshelf admin", "https://audiobookshelf.kmkdp.com/", "dmz-01",
          "https://audiobookshelf.kmkdp.com/healthcheck"),
         ("Wizarr invites", "https://wizarr.kmkdp.com/admin", "dmz-01", "https://wizarr.kmkdp.com"),

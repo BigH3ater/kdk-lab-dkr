@@ -387,7 +387,7 @@ networks:
   # DB / cache / app tier: no route out. Pinned (not pool-auto) because nginx needs a
   # fixed address for AUTH_PROXY_TRUSTED_IPS and nginx.conf's geo block. kdk-dkr-01
   # owns 10.208.0.0/16 (docs/reference/docker-ipam.md); .200 is far above the pool's
-  # sequential auto-allocations (calibre pins .22). The nightly backup-dkr-01
+  # sequential auto-allocations. The nightly backup-dkr-01
   # pgdump-wger job joins this network as `wger_backend`.
   backend:
     internal: true

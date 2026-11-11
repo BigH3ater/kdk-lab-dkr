@@ -79,7 +79,6 @@ obsidian-headless/sync: no-new-privileges,cap_drop,read_only,pids_limit,mem_limi
 op-connect/connect-api: no-new-privileges,cap_drop,read_only,pids_limit,mem_limit,logging,healthcheck
 op-connect/connect-sync: no-new-privileges,cap_drop,read_only,pids_limit,mem_limit,logging,healthcheck
 proxy/traefik: cap_drop,read_only,pids_limit,mem_limit,healthcheck
-readwise-koreader/readwise-koreader: no-new-privileges,cap_drop,read_only,pids_limit,mem_limit,logging,healthcheck
 roborock-cert/lego: healthcheck
 scrypted-homebridge/scrypted: no-new-privileges,cap_drop,read_only,pids_limit,mem_limit,logging,healthcheck,host-net
 storage-health/verify: no-new-privileges,cap_drop,read_only,pids_limit,mem_limit,logging,healthcheck,host-net

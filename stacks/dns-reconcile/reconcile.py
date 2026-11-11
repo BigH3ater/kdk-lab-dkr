@@ -43,7 +43,7 @@ RETIRED = {"homebridge.kmkdp.com"}
 
 # The reMarkable cloud domains a device hits. Until 2026-10-31 these were redirected to
 # rmfakecloud (self-hosted cloud on kdk-dkr-01); rmfakecloud is retired (tablet content
-# now moves over SSH: obsidian-to-koreader, readwise-koreader, remarkable-ocr), so they
+# moves over SSH, and ebooks come from Audiobookshelf over OPDS), so they
 # are blackholed to 0.0.0.0 instead. Dropping the rewrite would let the tablet reach
 # reMarkable's real cloud; the blackhole keeps it cloud-free. Host list from the
 # ddvk/rmfakecloud device setup docs. Non-.kmkdp.com, so the prune step never touches

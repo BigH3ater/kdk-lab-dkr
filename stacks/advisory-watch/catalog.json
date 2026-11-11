@@ -259,11 +259,6 @@
       "github": "powersync-ja/powersync-service",
       "note": "wger's offline-sync service (Node); image tag = service release"
     },
-    "kdk/calibre": {
-      "local": true,
-      "base": "python",
-      "note": "built from stacks/calibre/Dockerfile; calibre is a Debian apt package inside the image (Trivy covers it). kovidgoyal/calibre GHSA compare was dropped 2026-10-28: the local tag `latest` cannot be compared (always Unknown)."
-    },
     "kdk/dashboard-mealplan": {
       "local": true,
       "base": "python"
@@ -281,15 +276,6 @@
       "local": true,
       "base": "python",
       "note": "built from stacks/reading-sync/kosync-helper/Dockerfile (python:3.12-slim + fastapi, uvicorn, httpx, pypdf from uv.lock)"
-    },
-    "kdk/obsidian-to-koreader": {
-      "local": true,
-      "base": "python"
-    },
-    "kdk/readwise-koreader": {
-      "local": true,
-      "base": "python",
-      "note": "built from stacks/readwise-koreader/Dockerfile; calibre is a Debian apt package inside the image (Trivy covers it), like kdk/calibre."
     },
     "kdk/roborock-map": {
       "local": true,
@@ -435,14 +421,6 @@
     "wger/server": {
       "github": "wger-project/wger",
       "note": "Django app; image tag = server release (2.7.0). Sidecar images in stacks/wger: nginx, postgres, redis (own entries), journeyapps/powersync-service"
-    },
-    "yuzutech/kroki": {
-      "github": "yuzutech/kroki",
-      "note": "Kroki core (Vert.x). Internal-only diagram renderer used by obsidian-to-koreader; no ingress"
-    },
-    "yuzutech/kroki-mermaid": {
-      "github": "yuzutech/kroki",
-      "note": "Kroki Mermaid companion (headless Chromium); versioned and released with the kroki core repo"
     }
   }
 }

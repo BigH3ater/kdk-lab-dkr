@@ -26,7 +26,7 @@ Audiobook, ebook and podcast server on the DMZ node. Its router serves the DMZ T
 | Image | `ghcr.io/advplyr/audiobookshelf:2.37.2` (digest-pinned in `stacks/audiobookshelf/compose.yaml`) |
 | Deploy | Komodo stack `audiobookshelf` (git-linked) |
 | Storage | config + metadata (SQLite DB) local in `/opt/kdk-lab/audiobookshelf`; audiobooks RO from `/mnt/media/books/audiobook`; ebooks RO from `/mnt/media/books/ebook`; podcasts rw on NFS `/mnt/appdata/audiobookshelf/podcasts` |
-| Blast radius | No audiobook/podcast streaming or phone/browser ebook reading; progress sync pauses. The reMarkable keeps working (Calibre OPDS) |
+| Blast radius | No audiobook/podcast streaming or phone/browser ebook reading; progress sync pauses. The reMarkable can still open books already downloaded, but cannot fetch new ones (its OPDS catalogue, [Reading sync](reading-sync.md), reads from ABS) |
 
 ## Verify
 
@@ -50,7 +50,7 @@ ssh kdkadmin@192.168.191.20 'ls /mnt/appdata/audiobookshelf/podcasts | head'    
 | `/opt/kdk-lab/audiobookshelf/config` | SQLite DB, users, settings (local disk, nightly backup-dmz) |
 | `/opt/kdk-lab/audiobookshelf/metadata` | covers, cache (local disk) |
 | `/mnt/media/books/audiobook` → `/audiobooks:ro` | audiobook library (media NFS is read-only on the DMZ) |
-| `/mnt/media/books/ebook` → `/ebooks:ro` | `ebooks` library. Same folder `calibre-import` reads; ABS must never write it |
+| `/mnt/media/books/ebook` → `/ebooks:ro` | `ebooks` library, the only ebook library (LazyLibrarian writes it on kdk-dkr-01); ABS must never write it |
 | `/mnt/appdata/audiobookshelf/podcasts` → `/podcasts` | podcast library, written by ABS. Moved off the 59 GB root disk 2026-10-28 (7.5 GB). Library path in ABS stays `/podcasts`. Not in backup-dmz (tankz3 snapshots only; re-downloadable) |
 
 ## Observability
@@ -129,7 +129,7 @@ Repo side is done (router `entrypoints: websecure,tunnel`, `abs-headers` middlew
 ## Apps and ebooks
 
 - Which phone apps to use (iOS/Android, audio vs ebooks, OIDC schemes): vault `3. Resources/Reading/ABS Apps and Ebooks 2026-11-08.md`.
-- **Ebooks for phones and browsers live here.** Calibre serves the reMarkable only (ABS has no OPDS).
+- **All ebooks live here.** Phones and browsers read them in ABS; the reMarkable's KOReader pulls them over OPDS through abs-opds ([Reading sync](reading-sync.md)). Calibre was retired 2026-11.
 - **`/ebooks` is its own mount**, so the audiobook library keeps its `/audiobooks` path and its items and progress are not re-matched.
 - **New books appear within the hour.** The `ebooks` library scans at minute 15 of every hour, because the watcher does not see writes made on the NFS server and the `abs-notify` hook only handles audiobooks.
 - **Invitees see every library by default.** New ABS accounts get "access all libraries". Untick it and choose libraries for anyone who should not see the ebook shelf.

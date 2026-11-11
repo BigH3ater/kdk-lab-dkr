@@ -66,7 +66,7 @@ curl -s https://kitchen.kmkdp.com/manifest.webmanifest | head -c 200            
 lives in Traefik, not the sidecar, because the sidecar's own `/` (after the strip) is the week
 grid. Vikunja (`:3456`, Authelia OIDC, SQLite) is at `tasks.kmkdp.com`. The `*.kmkdp.com`
 service URLs resolve to the DMZ (`192.168.191.20`) and are reachable (internal→DMZ:443 is
-open); Calibre is internal at `10.1.20.20:8081`.
+open).
 
 The meal-plan sidecar logs into Tandoor with a dedicated account (session auth — REST tokens
 are disabled) and reads `/api/meal-plan/`; ratings post back as CookLog entries. Per-user

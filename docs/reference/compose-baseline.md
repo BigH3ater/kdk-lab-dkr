@@ -192,8 +192,8 @@ redeploys, verifies the service, and regenerates the known-gaps file.
 1. **DMZ (kdk-dkr-dmz-01)**: dmz-proxy, identity, wizarr, tandoor, audiobookshelf,
    jellyfin, immich, dmz-apps, then the one-shots (wizarr-sync, backup-dmz).
 2. **kdk-dkr-01**: proxy, op-connect, komodo, docs, the long-running apps (media,
-   apps, dashboard, actual, calibre, trailarr, jellystat, net-exporters,
-   obsidian/readwise/remarkable pipelines), then the one-shots (arr-*, tdarr-*,
+   apps, dashboard, actual, trailarr, jellystat, net-exporters,
+   obsidian/remarkable pipelines), then the one-shots (arr-*, tdarr-*,
    backup-*, storage-health, dns-reconcile, docs-to-vault).
 3. **kdk-log-01**: loki, advisory-watch, trivy-scan-log01 (hardened at build; verify with the check).
 4. **kdk-dkr-02 / kdk-dkr-03**: home-assistant (drop `privileged`), scrypted-homebridge, nut.

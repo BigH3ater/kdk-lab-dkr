@@ -64,7 +64,7 @@ services:
       - /var/cache/searxng:uid=977,gid=977,mode=0755   # faviconcache.db etc. (ephemeral)
     # The hosts' resolv.conf carries `search kmkdp.com` and AdGuard rewrites *.kmkdp.com
     # to Traefik. No search list, so an engine hostname can never resolve into the lab
-    # (same fix as stacks/kroki). Lookups still go through Docker's resolver to the
+    # (the fix the retired Kroki stack needed). Lookups still go through Docker's resolver to the
     # host's upstreams (10.1.1.53/.54, the lab's AdGuard pair).
     dns_search: .
     environment:

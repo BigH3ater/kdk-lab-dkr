@@ -86,7 +86,7 @@ If Prowlarr's app sync does not cover LazyLibrarian in your Prowlarr version, ad
 | **AudioBook Library Folder** | `/data/media/books/audiobook` | `AUDIO_DIR` |
 | **Alternate Directory** | `/data/media/staging/ebook` (pinned, see [Pinned settings](#pinned-settings); empty = the Import eBooks button does nothing) | `ALTERNATE_DIR` |
 
-LazyLibrarian keeps ebooks and audiobooks in **separate** base folders — verified in source (`configdefs.py`: `EBOOK_DIR` / `AUDIO_DIR`). This matches [[audiobookshelf|ABS]], which reads only `/mnt/media/books/audiobook`.
+LazyLibrarian keeps ebooks and audiobooks in **separate** base folders — verified in source (`configdefs.py`: `EBOOK_DIR` / `AUDIO_DIR`). This matches [[audiobookshelf|ABS]], which reads each folder as its own library: `/mnt/media/books/audiobook` for audiobooks and `/mnt/media/books/ebook` (read-only) for the `ebooks` library, scanned hourly at minute 15. ABS is the only ebook library: the tablet pulls from it over OPDS ([[reading-sync]]). Calibre was retired 2026-11; nothing else imports from the ebook folder.
 
 ### 5. Naming — series folders for ABS (`Config -> Processing -> Name Formatting`)
 
