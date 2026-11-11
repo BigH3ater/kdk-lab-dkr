@@ -136,7 +136,9 @@ class Stock:
     def __init__(self, data):
         self.data = copy.deepcopy(data)
         self.cuts = {c["id"]: c for c in self.data.get("cuts") or [] if c.get("id")}
-        self.short = []          # [{slot, recipe, need}] picks the stock could not cover
+        self.short = []          # [{slot, recipe, need, have}] recipes SKIPPED: the stock was short
+        self.short_slots = []    # [{slot, day, checked, counts}] dinners/preps left unplanned
+        self.fallbacks = []      # [{slot, planned, recipe}] a slot filled with another protein
         self.fish = None         # the fish variant the generator settled on
 
     def known(self, cut_id):
@@ -171,6 +173,12 @@ class Stock:
         for k, v in need.items():
             c = self.cuts[k]
             c["count"] = round(max(0.0, self.remaining(k) - v), 2)
+
+    def give(self, need):
+        """Undo a take (a dinner dropped after it was picked, e.g. a skip day)."""
+        for k, v in need.items():
+            c = self.cuts[k]
+            c["count"] = round(self.remaining(k) + v, 2)
 
     def has(self, items, servings):
         """True when some item has a NON-empty need the stock covers (the food
@@ -237,11 +245,14 @@ def order_by_stock(cands, stock, servings):
 
 
 def choose(cands, n, stock, servings, slot, ok=None):
-    """Pick n from the (already shuffled) candidates. With a stock: covered
-    recipes first, most stock first, each pick taken before the next is tested;
-    if fewer than n are covered, the rest are filled from the short ones (noted
-    in stock.short, never a build failure). `ok(chosen, r)` is an extra rule
-    (e.g. at most one Asian-style beef)."""
+    """Pick up to n from the (already shuffled) candidates. With a stock: only
+    recipes the freezer covers, most stock first, each pick taken before the
+    next is tested. Owner rule (2026-11-11): never a dinner whose protein count
+    is short, so when fewer than n are covered the list comes back SHORT (the
+    caller tries another protein or leaves the slot unplanned) and the skipped
+    recipes are noted in stock.short (the freezer_short_pick log). Without a
+    stock: the first n that pass `ok`, as before. `ok(chosen, r)` is an extra
+    rule (e.g. at most one Asian-style beef)."""
     ok = ok or (lambda chosen, r: True)
     if stock is None:
         chosen = []
@@ -259,17 +270,22 @@ def choose(cands, n, stock, servings, slot, ok=None):
         if ok(chosen, r) and stock.fits(need):
             stock.take(need)
             chosen.append(r)
-    for r in cands:
-        if len(chosen) == n:
-            break
-        if r in chosen or not ok(chosen, r):
-            continue
-        need = stock.need_for(r, servings)
-        stock.short.append({"slot": slot, "recipe": r.get("name"), "need": need,
-                            "have": {k: stock.remaining(k) for k in need}})
-        stock.take(need)
-        chosen.append(r)
+    if len(chosen) < n:
+        for r in cands:
+            if r in chosen or not ok(chosen, r):
+                continue
+            need = stock.need_for(r, servings)
+            stock.short.append({"slot": slot, "recipe": r.get("name"), "need": need,
+                                "have": {k: stock.remaining(k) for k in need}})
     return chosen
+
+
+def cuts_of(cands, stock, servings):
+    """The known cuts the candidates need, for the freezer_short_slot log."""
+    out = set()
+    for r in cands:
+        out |= set(stock.need_for(r, servings))
+    return out
 
 
 # ---- reservation -------------------------------------------------------------

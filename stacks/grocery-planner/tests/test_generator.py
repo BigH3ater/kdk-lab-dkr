@@ -375,3 +375,67 @@ def test_note_role_reads_the_first_word():
     assert G.note_role("[gp:2026-W47] leftover (from Tuesday dinner)") == "leftover"
     assert G.note_role("[gp:2026-W46] side") == "side"
     assert G.note_role("") == ""
+
+
+# ---- skip_days (holidays / travel) -----------------------------------------
+def _lunch_servings(entries):
+    return sum(e.servings for e in entries if e.meal_type == "lunch")
+
+
+def _with_skip(cfg, *days):
+    return {**cfg, "skip_days": [d.isoformat() for d in days]}
+
+
+def test_skip_days_seeded_empty(cfg):
+    assert cfg["skip_days"] == []
+
+
+def test_skip_day_drops_dinner_prep_and_leftovers_and_shrinks_lunches(cfg):
+    pool = make_pool()
+    for wk in range(4):
+        sun = SUNDAY + datetime.timedelta(weeks=wk)
+        thu = sun + datetime.timedelta(days=4)
+        base = G.generate_week(pool, sun, cfg)
+        got = G.generate_week(pool, sun, _with_skip(cfg, thu), report=(rep := {}))
+        assert not [e for e in got if e.date == thu]                  # nothing on the day
+        assert G.plan_summary(got)["dinners"] == 4
+        assert rep["skip_days"] == ["thursday"]
+        # Wednesday is no longer cooked at 4 for a Thursday lunch
+        assert not [e for e in got if e.role == "leftover" and e.date == thu]
+        assert all(e.servings == 2 for e in got
+                   if e.role == "dinner-main" and e.date == thu - datetime.timedelta(days=1)
+                   and _kind(pool, e.recipe_id) != "roast")      # a whole roast is cooked anyway
+        # lunch arithmetic: 2 people x the lunch days left (Mon-Sat minus Thursday)
+        assert _lunch_servings(base) == 12
+        assert _lunch_servings(got) == 10
+        assert len([e for e in got if e.role == "lunch"]) == 1         # Sunday batch only
+
+
+def test_skip_sunday_no_fish_no_sunday_prep(cfg):
+    pool = make_pool()
+    got = G.generate_week(pool, SUNDAY, _with_skip(cfg, SUNDAY))
+    assert not [e for e in got if e.date == SUNDAY and e.meal_type in ("dinner", "lunch")]
+    assert G.plan_summary(got)["dinners"] == 4
+    assert [e.date.weekday() for e in got if e.role == "lunch"] == [3]   # Thursday batch
+    assert _lunch_servings(got) == 12                                   # Sunday was no lunch day
+    assert G.plan_summary(got)["breakfast"] == 1                        # weekly staples stay
+
+
+def test_skip_day_outside_the_week_or_off_night_changes_nothing(cfg):
+    pool = make_pool()
+    base = [(e.date, e.recipe_id, e.servings) for e in G.generate_week(pool, SUNDAY, cfg)]
+    for d in (SUNDAY - datetime.timedelta(days=1), SUNDAY + datetime.timedelta(days=5)):
+        if d.weekday() == 4:            # Friday: an off night, but still a lunch day
+            continue
+        got = G.generate_week(pool, SUNDAY, _with_skip(cfg, d))
+        assert [(e.date, e.recipe_id, e.servings) for e in got] == base
+
+
+def test_skip_roast_night_moves_the_roast(cfg):
+    pool = make_pool()
+    a = _parity_sundays()["A"]
+    wed = a + datetime.timedelta(days=3)
+    got = G.generate_week(pool, a, _with_skip(cfg, wed))
+    roast = [e for e in got if e.role == "dinner-main" and _kind(pool, e.recipe_id) == "roast"]
+    assert len(roast) == 1 and roast[0].date != wed
+    assert not [e for e in got if e.date == wed]

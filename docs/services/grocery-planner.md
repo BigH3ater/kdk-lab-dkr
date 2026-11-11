@@ -110,12 +110,21 @@ plan page lives in the dashboard mealplan sidecar at `home.kmkdp.com/meal/grocer
 - **Freezer inventory (2026-11-11):** one JSON file the owner keeps on the
   Pantry tab (Freezer section: −/+/set, fill-in and set-portions markers, add a
   cut, "Order arrived" for the `standing_orders`, undo via `.bak`). The build
-  never plans a dinner/lunch the freezer is short for, lets fish parity yield to
-  the fish in stock, prefers the most-stocked cut, and decrements what it
-  reserved (`freezer_reserved`). Recipe foods map to cuts by `freezer.map` in
+  never plans a dinner/lunch the freezer is short for: a short slot takes
+  another protein in stock (`freezer.fallback`: steak → ground beef → poultry →
+  fish, `freezer_fallback`), and if nothing fits the dinner is left unplanned
+  (`freezer_short_slot`, one more night off); the build never fails over it.
+  It lets fish parity yield to the fish in stock, prefers the most-stocked cut,
+  and decrements what it reserved (`freezer_reserved`). Tuna steaks are freezer
+  stock too (`NewPiFreezer`). Recipe foods map to cuts by `freezer.map` in
   `config.yaml`. The job's mount is read-write because the build writes the
   decrement; the rootfs stays read-only. No file = the plan as before. Runbook:
   [Freezer inventory](../runbooks/grocery-planner.md#freezer-inventory-pantry-tab-freezer-section).
+
+- **Skip days:** `config.yaml` → `skip_days` (ISO dates, seeded empty; the
+  owner fills it for holidays and travel): no dinner, no lunch prep and no
+  leftovers on those days, and the lunch count shrinks with them. Runbook:
+  [Skip days](../runbooks/grocery-planner.md#skip-days-holidays-travel).
 
 - **Page route:** the page is added to the **dashboard mealplan sidecar** as
   `/groceries` (served at `home.kmkdp.com/meal/groceries`), not a new container.

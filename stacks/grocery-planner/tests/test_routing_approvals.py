@@ -36,13 +36,16 @@ def test_beef_and_steak_are_amana(cfg):
     assert _route("chuck roast", cfg) == "Amana/bulk: Freezer Beef"
 
 
-def test_tuna_is_newpi_weekly_salmon_fallback_costco(cfg):
-    # Tuna at New Pi is frozen but weekly (not a Costco bulk item); salmon's
-    # frozen fallback stays Costco.
-    assert _route("tuna steak", cfg) == "NewPi/weekly: Meat & Seafood"
-    assert _route("frozen tuna", cfg) == "NewPi/weekly: Meat & Seafood"
-    assert _route("ahi", cfg) == "NewPi/weekly: Meat & Seafood"
+def test_tuna_is_freezer_stock_salmon_fallback_costco(cfg):
+    # 2026-11-11: tuna steaks are chest-freezer stock (counted on the Pantry
+    # tab), not a weekly New Pi line; salmon's frozen fallback stays Costco.
+    from grocery.seed import is_freezer_stock
+    for name in ("tuna", "tuna steak", "frozen tuna", "ahi", "ahi tuna steaks",
+                 "tuna (yellowfin tuna) steaks"):
+        assert _route(name, cfg) == "NewPiFreezer/stock: Freezer", name
+        assert is_freezer_stock(_route(name, cfg), cfg["stores"]), name
     assert _route("frozen salmon", cfg) == "Costco/bulk: Freezer"
+    assert _route("salmon fillets", cfg) == "NewPi/weekly: Meat & Seafood"
 
 
 def test_pork_and_target_comfort_items(cfg):
@@ -71,13 +74,14 @@ def test_frozen_veg_routes_to_target_frozen(cfg):
     assert _route("frozen Brussels sprouts", cfg) == "Target/weekly: Frozen"
     # the longer fish rules still win
     assert _route("frozen salmon", cfg) == "Costco/bulk: Freezer"
-    assert _route("frozen tuna", cfg) == "NewPi/weekly: Meat & Seafood"
+    assert _route("frozen tuna", cfg) == "NewPiFreezer/stock: Freezer"
 
 
 def test_fish_steaks_are_not_beef(cfg):
     # Karen pass 2: "steak" (beef, Amana) must not swallow fish sold as steaks.
-    for name in ("tuna steak", "Tuna steaks", "ahi tuna steak", "salmon steak"):
-        assert _route(name, cfg) == "NewPi/weekly: Meat & Seafood", name
+    for name in ("tuna steak", "Tuna steaks", "ahi tuna steak"):
+        assert _route(name, cfg) == "NewPiFreezer/stock: Freezer", name
+    assert _route("salmon steak", cfg) == "NewPi/weekly: Meat & Seafood"
     assert _route("ribeye steak", cfg) == "Amana/bulk: Freezer Beef"
 
 

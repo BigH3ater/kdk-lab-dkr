@@ -565,7 +565,14 @@ def run_weekly(cfg, poll=False):
                  note="fish parity yielded to the fish in the freezer")
         if stock.short:
             jlog(event="freezer_short_pick", level="warn", week=wk, picks=stock.short,
-                 note="no recipe the freezer covers for this slot; planned anyway")
+                 note="skipped: the freezer is short for these recipes (not planned)")
+        if stock.fallbacks:
+            jlog(event="freezer_fallback", level="warn", week=wk, slots=stock.fallbacks,
+                 note="no recipe the freezer covers for this slot: planned another protein")
+        for s in stock.short_slots:
+            jlog(event="freezer_short_slot", level="warn", week=wk, slot=s["slot"],
+                 day=s["day"], cuts_checked=s["checked"], counts=s["counts"],
+                 note="nothing in the freezer fits this slot: left unplanned")
         try:
             for e in entries:
                 if e.recipe_id not in by_id:
@@ -574,6 +581,10 @@ def run_weekly(cfg, poll=False):
             log.warning("recipe detail fetch for the freezer failed: %s", ex)
         reserve_freezer(cfg, wk, entries, by_id)
 
+    if report.get("no_dinner") or report.get("skip_days"):
+        jlog(event="no_dinner", week=wk, freezer_short=report.get("no_dinner") or [],
+             skip_days=report.get("skip_days") or [],
+             note="nights with no dinner besides the off_nights")
     if report.get("lunch_gaps"):
         jlog(event="lunch_gap", level="warn", week=wk, days=report["lunch_gaps"],
              note="no lunch-friendly dinner for the night before: added to a prep batch")
@@ -773,11 +784,21 @@ def preview(cfg, week_of=None):
         return 1
     if stock is None:
         print("NOTE: no freezer inventory; planned without it.")
-    elif stock.short:
-        print("NOTE: planned beyond the freezer for: "
-              + ", ".join(f"{s['recipe']} {s['need']}" for s in stock.short))
+    else:
+        if stock.short:
+            print("NOTE: skipped, the freezer is short: "
+                  + ", ".join(f"{s['recipe']} {s['need']} (have {s['have']})" for s in stock.short))
+        for f in stock.fallbacks:
+            print(f"NOTE: freezer_fallback: {f['slot']} slot -> {f['planned']}: {f['recipe']}")
+        for s in stock.short_slots:
+            print(f"NOTE: freezer_short_slot: {s['slot']} ({s['day'] or 'any night'}) left "
+                  f"unplanned; cuts checked {s['counts']}")
+    no_dinner = (report.get("off_nights") or []) + \
+        [f"{d} (skip day)" for d in report.get("skip_days") or []
+         if d not in (report.get("off_nights") or [])] + \
+        [f"{d} (freezer short)" for d in report.get("no_dinner") or []]
     print(f"== {wk} ({season}) {start:%a %b %-d} - {end:%a %b %-d}: {len(entries)} meal-plan entries"
-          f"; no dinner: {', '.join(report.get('off_nights') or []) or '-'}")
+          f"; no dinner: {', '.join(no_dinner) or '-'}")
     if report.get("lunch_gaps"):
         print("NOTE: lunch days no leftover covers (added to a prep): "
               + ", ".join(report["lunch_gaps"]))

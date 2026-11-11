@@ -389,7 +389,7 @@ seasons:
 # food.supermarket_category. Ambiguous foods fall back to the freshness rule;
 # per-food overrides live in recipes/foods.yaml.
 stores:
-  order: [NewPi, Target, Costco, Amana, OConnell, Penzeys]
+  order: [NewPi, Target, Costco, Amana, OConnell, NewPiFreezer, Penzeys]
   # Which stores each run touches.
   weekly_stores: [NewPi, Target]
   # Costco-routed foods (Nurri shakes, frozen-salmon fallback) are on no run's
@@ -401,7 +401,10 @@ stores:
   # (owner 2026-11-01), delivered frozen by the farm van on the Iowa City route
   # (3rd Monday monthly) or FedEx. `grocery.run --freezer` sizes the orders.
   # Penzeys = spices (owner 2026-11-01): pantry stock, restocked online.
-  stock_stores: [Amana, OConnell, Penzeys]
+  # NewPiFreezer = fish bought frozen (tuna steaks) and kept in the chest freezer,
+  # counted on the Pantry tab (freezer.json `tuna-steaks`), so it is on hand,
+  # never on a weekly list, and listed on the Thaw tab (2026-11-11).
+  stock_stores: [Amana, OConnell, Penzeys, NewPiFreezer]
   # Default by shelf life when a food has no explicit override.
   default_fresh: NewPi         # ambiguous perishable -> New Pi
   default_shelf_stable: Target # ambiguous shelf-stable -> Target
@@ -412,6 +415,7 @@ stores:
     Costco:  ["Freezer", "Pantry Bulk", "Snacks Bulk", Other]
     Amana:   ["Freezer Beef", Other]
     OConnell: ["Freezer", Other]
+    NewPiFreezer: ["Freezer", Other]
     Penzeys: [Spices, Other]
 
 # Thaw lead times (groceries page, Thaw tab): how long before a meal a
@@ -434,8 +438,16 @@ thaw:
 # kdk-dkr-01, /opt/kdk-lab/dashboard/pantry/freezer.json (mounted at /pantry in
 # the dashboard sidecar, which edits it on the groceries Pantry tab, and in this
 # job). The weekly build: (a) never picks a dinner/lunch the freezer is short
-# for (unless no recipe for that slot fits: then planned anyway + a
-# freezer_short_pick warning); (b) fish parity yields to the fish in stock; (c)
+# for (owner 2026-11-11: "never pick a dinner whose protein count is short").
+# The skipped recipes are logged as freezer_short_pick. When no recipe for a
+# dinner slot fits, the slot is tried with another protein that has stock, in
+# the `fallback` order below (steak -> ground beef -> poultry -> fish; the
+# other slots walk the ladder back first), keeping the week's rules (no repeat,
+# <= max_asian Asian-style beef, scheduled cuts only on their weeks), logged as
+# freezer_fallback. Nothing fits -> that dinner is left unplanned (one more
+# night off) and logged as freezer_short_slot with the cuts checked and their
+# counts. A lunch prep with nothing in stock is left unplanned the same way.
+# The build never fails over the freezer. (b) fish parity yields to the fish in stock; (c)
 # prefers the cut with the most stock; (d) after writing the plan, decrements
 # what it reserved (freezer_reserved event; the Thaw tab lists them). File
 # missing/unreadable -> planned exactly as before (freezer_inventory_missing).
@@ -463,8 +475,14 @@ freezer:
     ground beef patt: burger-patties     # "ground beef patties" (Burger night)
     stew meat: stew-meat
     fajita strips: fajita-strips
+    # Flank / skirt steak recipes (Grilled Chimichurri Flank Steak, Steak
+    # Fajitas, Mongolian Beef) are cooked with the share's fajita strips
+    # (2026-11-11; read-only check of the live Tandoor food names).
+    flank steak: fajita-strips
+    skirt steak: fajita-strips
     brat: brats
     cheddar brat: brats-cheddar
+    tuna: tuna-steaks                    # bare "tuna" (Seared Ahi Tuna, Tuna Steak)
     tuna steak: tuna-steaks
     yellowfin tuna: tuna-steaks
     ahi tuna: tuna-steaks
@@ -472,6 +490,25 @@ freezer:
     chicken breast: chicken-breast
     pork chop: pork-chops
     bacon: bacon
+  # Protein ladder for a dinner slot the freezer cannot cover (generator
+  # FALLBACK_DEFAULT; listed here so the order is a config edit). Kinds:
+  # steak, ground_beef, chicken (poultry), fish, pork (flex), roast.
+  fallback:
+    steak: [ground_beef, chicken, fish]
+    ground_beef: [steak, chicken, fish]
+    chicken: [ground_beef, steak, fish]
+    fish: [chicken, ground_beef, steak]
+    pork: [chicken, ground_beef, steak, fish]
+    roast: [ground_beef, steak, chicken, fish]
+
+# Days with no cooking at all (owner fills it: holidays, travel). ISO dates,
+# e.g. "2026-11-26". On a skip day the build plans no dinner, no lunch prep and
+# no leftovers: the week's mix is picked as usual and the dinner that lands on
+# that day is dropped. Lunch days shrink with it (2 people x the lunch days
+# left): no prep batch on a skipped prep day, no dinner cooked at 4 for a
+# skipped lunch day, and a lunch day nothing covers goes to the prep before it
+# (lunch_gap). Dates outside the planned week are ignored.
+skip_days: []
 
 # Standing orders: what an order adds to the freezer when it arrives (the
 # "Order arrived" button on the Pantry tab's Freezer section adds these counts;
