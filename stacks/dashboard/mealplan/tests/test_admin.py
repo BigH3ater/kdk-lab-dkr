@@ -211,7 +211,8 @@ def test_tiles_with_live_sources():
 
 
 def test_tile_komodo_not_configured_and_configured():
-    assert tiles()["Deploys failed"] == {"label": "Deploys failed", "value": "–", "sub": "not configured", "state": "off"}
+    assert tiles()["Deploys failed"] == {"label": "Deploys failed", "value": "–", "sub": "not configured", "state": "off",
+                                         "href": ""}
     k = {"configured": True, **admin.parse_komodo(KOMODO_BODY)}
     t = tiles({"komodo": (k, "ok")})["Deploys failed"]
     # only finished Deploy* updates count; the in-progress one and the procedure do not

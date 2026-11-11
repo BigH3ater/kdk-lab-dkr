@@ -320,6 +320,13 @@ _CSS = ("<style>.pair{max-width:640px;margin:32px auto;padding:0 16px}"
         ".pair table{width:100%;border-collapse:collapse}.pair td,.pair th{text-align:left;padding:8px 4px;"
         "border-bottom:1px solid #2d2420;vertical-align:middle}.pair .revoked{opacity:.55}"
         ".pair form.inline{display:inline}.pair .err{color:#E2A86B}.pair .row{display:flex;gap:12px;flex-wrap:wrap}"
+        ".pair h2{margin:0 0 12px;font-size:22px}.pair p,.pair td{overflow-wrap:anywhere}"
+        ".pair .home{display:inline-flex;align-items:center;min-height:44px;margin-bottom:8px}"
+        "@media(max-width:600px){.pair .card{padding:18px 16px}.pair thead{display:none}"
+        ".pair table,.pair tbody,.pair tr,.pair td{display:block}"
+        ".pair tr{padding:10px 0;border-bottom:1px solid #2d2420}.pair td{border:0;padding:2px 0}"
+        ".pair td[data-label]::before{content:attr(data-label) ': ';color:#BFAE9E}"
+        ".pair td:first-child{font-weight:600}.pair td:empty{display:none}.pair td form.inline{display:block;margin-top:8px}}"
         "</style>")
 
 
@@ -375,7 +382,8 @@ def _when(ts, tz) -> str:
 
 def devices_page(head: str, devs: list[dict], tz, configured: bool, base: str,
                  code: str = "", link: str = "", qr: str = "") -> str:
-    parts = ["<section class='card'><h1>Kitchen devices</h1>"
+    parts = [f"<a class='home' href='{base}/home'>Household home</a>",
+             "<section class='card'><h1>Kitchen devices</h1>"
              "<p>Paired screens open <b>kitchen.kmkdp.com</b> without a sign-in for one year. "
              "Revoke one here if it is lost or replaced.</p>"]
     if not configured:
@@ -386,7 +394,7 @@ def devices_page(head: str, devs: list[dict], tz, configured: bool, base: str,
                      "<button class='btn primary' type='submit'>Pair a device</button></form>")
     parts.append("</section>")
     if code:
-        parts.append("<section class='card'><h1>Pairing link</h1>"
+        parts.append("<section class='card'><h2>Pairing link</h2>"
                      "<p>Open this on the kitchen screen within 10 minutes. It works once.</p>"
                      f"<p><a href='{escape(link)}'>{escape(link)}</a></p>"
                      + (f"<div class='qr'>{qr}</div>" if qr else "")
@@ -402,12 +410,14 @@ def devices_page(head: str, devs: list[dict], tz, configured: bool, base: str,
                    f"<input type='hidden' name='id' value='{escape(d['id'])}'>"
                    "<button class='btn ghost' type='submit'>Revoke</button></form>")
         rows.append(f"<tr class='{'revoked' if d.get('revoked') else ''}'><td>{escape(d.get('name') or '')}</td>"
-                    f"<td>{escape(_when(d.get('issued'), tz))}</td><td>{escape(_when(d.get('last_seen'), tz))}</td>"
-                    f"<td>{escape(state)}</td><td>{act}</td></tr>")
-    table = ("<table><tr><th>Name</th><th>Paired</th><th>Last seen</th><th>State</th><th></th></tr>"
-             + "".join(rows) + "</table>") if rows else "<p class='muted'>No devices paired yet.</p>"
+                    f"<td data-label='Paired'>{escape(_when(d.get('issued'), tz))}</td>"
+                    f"<td data-label='Last seen'>{escape(_when(d.get('last_seen'), tz))}</td>"
+                    f"<td data-label='State'>{escape(state)}</td><td>{act}</td></tr>")
+    table = ("<table><thead><tr><th>Name</th><th>Paired</th><th>Last seen</th><th>State</th>"
+             "<th><span class='sr'>Action</span></th></tr></thead><tbody>"
+             + "".join(rows) + "</tbody></table>") if rows else "<p class='muted'>No devices paired yet.</p>"
     active = any(not d.get("revoked") for d in devs)
     revoke_all = (f"<form method='post' action='{base}/kitchen/devices/revoke-all'>"
                   "<button class='btn ghost' type='submit'>Revoke all</button></form>") if active else ""
-    parts.append(f"<section class='card'><h1>Paired</h1>{table}<div class='row'>{revoke_all}</div></section>")
+    parts.append(f"<section class='card'><h2>Paired</h2>{table}<div class='row'>{revoke_all}</div></section>")
     return _shell(head, "".join(parts))
