@@ -5,7 +5,7 @@
 #     resolved. Cluster-independent by design, so an outage of the rest of the
 #     estate never silences paging.
 #   - Email, through the in-lab Proton SMTP bridge on kdk-dkr-01 (10.1.20.20:25),
-#     in two roles: (a) severity=critical is ALSO e-mailed (receiver email-ops) --
+#     in two roles: (a) severity=critical is ALSO e-mailed (receiver critical-ops) --
 #     a second, durable record of what matters most, NOT a replacement for
 #     Pushover; (b) severity=info is e-mailed ONLY (receiver email-info), batched
 #     into a ~6 h digest -- app-notification/provenance alerts that never page
@@ -42,11 +42,11 @@ route:
   repeat_interval: 4h
   routes:
     # CRITICAL (any source, Loki or Prometheus): high-priority Pushover AND an
-    # e-mail to the owner. The `email-ops` receiver carries BOTH notifiers, so a
+    # e-mail to the owner. The `critical-ops` receiver carries BOTH notifiers, so a
     # critical is never e-mail-only and never Pushover-only -- it is the single
     # home for criticals, matched first so nothing below can steal it.
     - matchers: ['severity="critical"']
-      receiver: email-ops
+      receiver: critical-ops
       group_by: ["alertname", "host"]
       group_wait: 30s
       group_interval: 5m
@@ -81,10 +81,15 @@ route:
     # Loki ruler alerts (stacks/loki/rules/, sent from kdk-log-01 to
     # 10.1.20.30:9093) that are NOT critical and NOT info (i.e. warning).
     # Grouped per host so one silent host is one page. Pushover.
+    # repeat 12h (was 4h, review 2026-11-10): Loki warnings are mostly
+    # long-window state (weekly CloudflareRuleDrift, multi-hour absent_over_time
+    # silences), so 4h re-pushed the same known fact ~6x a day. A new alert or
+    # a new host in the group still pages at once (group_wait / group_interval
+    # are unchanged); only the reminder of an unchanged group slows down.
     - matchers: ['source="loki"']
       receiver: pushover
       group_by: ["alertname", "host"]
-      repeat_interval: 4h
+      repeat_interval: 12h
 
 receivers:
   - name: pushover
@@ -119,7 +124,7 @@ receivers:
         html: false
 
   # INFO receiver: e-mail ONLY (no Pushover), through the same Proton bridge
-  # smarthost as email-ops. This is where app-notification / provenance alerts
+  # smarthost as critical-ops. This is where app-notification / provenance alerts
   # land per the owner's 2026-10-30 decision. send_resolved is off (an info
   # event is a point-in-time note, not an outage that "resolves") and the route
   # groups into a ~6 h digest, so a busy info rule arrives as one mail, not many.
@@ -146,8 +151,9 @@ receivers:
   # CRITICAL receiver: Pushover (so every alert still reaches Pushover) PLUS an
   # e-mail to the owner's mailbox. admin@kmkdp.com is the lab's administrative
   # inbox (the ACME/LLDAP/roborock-cert contact used across the repo); change it
-  # here if a dedicated ops mailbox is created.
-  - name: email-ops
+  # here if a dedicated ops mailbox is created. Named `email-ops` until
+  # 2026-11-11; renamed because it pages Pushover as well as e-mailing.
+  - name: critical-ops
     pushover_configs:
       - user_key_file: /etc/alertmanager/pushover-user-key
         token_file: /etc/alertmanager/pushover-app-token
