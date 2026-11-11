@@ -652,3 +652,80 @@ def test_no_mid_word_hyphenation_on_kitchen_pages():
     # 3 columns on the iPad landscape, 2 portrait, 1 phone; 44 px+ tick target
     assert ".clist{column-count:3" in css and "column-count:2" in css and "column-count:1" in css
     assert "grid-template-columns:44px" in css.split(".tick-row{", 1)[1].split("}", 1)[0]
+
+
+# ---- weekly forecast view ---------------------------------------------------------------------
+def _wx_week():
+    """7 days of daily rows (with the forecast-only fields) and 7 x 24 hours."""
+    days = [(NOW.date() + datetime.timedelta(days=i)).isoformat() for i in range(7)]
+    hours = [f"{d}T{h:02d}:00" for d in days for h in range(24)]
+    n = len(hours)
+    return {"daily": {"time": days, "weather_code": [0, 3, 61, 71, 95, 2, 1],
+                      "temperature_2m_max": [51.2, 48, 50, 33, 60, 55, 52],
+                      "temperature_2m_min": [31, 30, 35, 20, 44, 40, 38],
+                      "precipitation_probability_max": [0, 10, 80, 60, 90, None, 5],
+                      "precipitation_sum": [0, 0.004, 0.43, 0.2, 1.1, None, 0],
+                      "wind_speed_10m_max": [8.4, 12, 20.6, 15, 30, 9, 7],
+                      "sunrise": [f"{d}T06:49" for d in days], "sunset": [f"{d}T16:48" for d in days]},
+            "hourly": {"time": hours, "temperature_2m": [30 + (i % 10) for i in range(n)],
+                       "precipitation_probability": [i % 100 for i in range(n)],
+                       "weather_code": [0] * n}}
+
+
+def test_forecast_view_hours_and_days():
+    fc = kitchen.forecast_view(_wx_week(), NOW, app.WMO)
+    today, tomorrow = fc["hourly"]
+    assert [b["date"] for b in fc["hourly"]] == [NOW.date(), NOW.date() + datetime.timedelta(days=1)]
+    assert len(today["hours"]) == 24 and len(tomorrow["hours"]) == 24          # midnight to midnight
+    assert [h["past"] for h in today["hours"]] == [True] * 17 + [False] * 7    # it is 5:20 PM
+    assert [h["t"] for h in today["hours"] if h["now"]] == ["5 PM"]
+    assert not any(h["past"] or h["now"] for h in tomorrow["hours"])
+    d = fc["days"]
+    assert len(d) == 7 and d[0]["today"] and not d[1]["today"]
+    assert (d[2]["hi"], d[2]["lo"], d[2]["pop"], d[2]["rain"], d[2]["wind"]) == (50, 35, 80, 0.43, 21)
+    assert d[0]["sunrise"] == "6:49 AM" and d[0]["sunset"] == "4:48 PM"
+    assert d[5]["pop"] is None and d[5]["rain"] is None                        # Open-Meteo nulls
+    assert kitchen.forecast_view(None, NOW, app.WMO) is None
+    assert kitchen.forecast_view({"daily": {}}, NOW, app.WMO) is None
+
+
+def test_forecast_page_route_and_layout(home):
+    app.WX_FEED.set(_wx_week())
+    r = home.get("/kitchen/weather")
+    html = r.get_data(as_text=True)
+    assert r.status_code == 200 and r.headers["Cache-Control"] == "no-store"
+    assert "data-page='weather'" in html and "data-home='/meal/kitchen'" in html and ">Back</a>" in html
+    # today + tomorrow: 24 hourly cells each, past hours dimmed, today highlighted
+    assert len(re.findall(r"<div class='fh( past| now)?'>", html)) == 48 and html.count("<div class='fh past'>") == 17
+    assert "<div class='fh now'><div class='fh-t'>Now</div>" in html
+    assert "<section class='card fday today'>" in html and ">Today <span class='muted'>Mon, Nov 9</span>" in html
+    assert ">Tuesday <span class='muted'>Tue, Nov 10</span>" in html
+    # the other five days: daily summary only
+    assert html.count("<article class='card fcard'>") == 5
+    week = html.split("class='fweek'")[1]
+    assert "0.43 in" in week and "wind 21 mph" in week and "Sunrise 6:49 AM · Sunset 4:48 PM" in week
+    assert not re.search(r"class='fh( |')", week)
+    # from the household page, Back goes home
+    assert "data-home='/meal/home'" in home.get("/kitchen/weather?from=home").get_data(as_text=True)
+
+
+def test_forecast_page_escapes_and_handles_no_data(home, monkeypatch):
+    app.WX_FEED.set(_wx_week())
+    monkeypatch.setitem(app.WMO, 61, "<b>Rain</b>")
+    html = home.get("/kitchen/weather").get_data(as_text=True)
+    assert "<b>Rain</b>" not in html and "&lt;b&gt;Rain&lt;/b&gt;" in html
+    monkeypatch.setattr(app.WX_FEED, "get", lambda *a, **k: None)
+    assert "Weather unavailable right now." in home.get("/kitchen/weather").get_data(as_text=True)
+
+
+def test_weather_widgets_link_to_the_forecast(home):
+    board = home.get("/kitchen").get_data(as_text=True)
+    assert "<a class='card wx wx-link' href='/meal/kitchen/weather' aria-label='7-day forecast'>" in board
+    hh = home.get("/home").get_data(as_text=True)
+    assert "<a class='hh-wx' href='/meal/kitchen/weather?from=home' aria-label='7-day forecast'>" in hh
+
+
+def test_moon_icon_is_a_filled_crescent():
+    svg = kitchen.wx_icon(0, True, 52, "Clear")
+    assert 'fill="currentColor"' in svg and "M19 15.2" in svg
+    assert 'fill="currentColor"' not in kitchen.wx_icon(0, False, 52, "Clear")    # the sun stays outlined

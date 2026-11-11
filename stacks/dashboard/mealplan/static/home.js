@@ -73,7 +73,7 @@
 
   // ---- idle return: sub-views go back to the board after 5 idle minutes --------
   var timersRunning = 0;
-  if (page === "ingredients" || page === "steps" || page === "pantry" || page === "chores") {
+  if (page === "ingredients" || page === "steps" || page === "pantry" || page === "chores" || page === "weather") {
     var home = body.dataset.home || "/meal/kitchen", last = Date.now();
     ["pointerdown", "keydown", "touchstart", "scroll"].forEach(function (ev) {
       document.addEventListener(ev, function () { last = Date.now(); }, {passive: true, capture: true});
@@ -81,6 +81,14 @@
     setInterval(function () {
       if (timersRunning === 0 && Date.now() - last > 5 * 60 * 1000) { location.href = home; }
     }, 15000);
+  }
+
+  // ---- forecast: start today's hour row at the current hour ----------------------
+  if (page === "weather") {
+    var nowCell = document.querySelector(".fh.now");
+    if (nowCell && nowCell.parentElement) {
+      nowCell.parentElement.scrollLeft = Math.max(0, nowCell.offsetLeft - nowCell.parentElement.offsetLeft - 8);
+    }
   }
 
   // ---- fragment refresh (every 2 min, no page flash) ---------------------------

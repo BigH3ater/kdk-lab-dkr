@@ -346,7 +346,7 @@ def test_host_normalisation(kit):
 def test_paths_outside_the_allowlist_are_404(kit):
     pair(kit)
     for path in ("/kitchen", "/kitchen/pantry", "/meal/kitchen", "/home", "/groceries", "/tasks",
-                 "/weather", "/mealplan.json", "/healthz", "/kitchen/devices", "/kitchen/step-photo/16",
+                 "/kitchen/weather", "/mealplan.json", "/healthz", "/kitchen/devices", "/kitchen/step-photo/16",
                  "/step-photo/abc", "/ingredients/x", "/nope"):
         assert kget(kit, path).status_code == 404, path
     for path in ("/rate", "/groceries/tick", "/groceries/thaw-tick", "/", "/kitchen/devices/revoke-all"):
@@ -491,3 +491,15 @@ def test_kitchen_chores_view_is_allowlisted_and_needs_the_cookie(kit, vik):
     assert kpost(kit, "/chores", headers={"X-Kitchen": "1"}).status_code == 404
     assert kget(kit, "/kitchen/chores").status_code == 404
     assert kget(kit, "/chores/x").status_code == 404
+
+
+def test_kitchen_weather_view_is_allowlisted_get_only(kit):
+    assert kget(kit, "/weather").status_code == 401                       # unpaired: the pair screen
+    pair(kit)
+    assert "href='/weather' aria-label='7-day forecast'" in kget(kit, "/").get_data(as_text=True)
+    r = kget(kit, "/weather")
+    page = r.get_data(as_text=True)
+    assert r.status_code == 200 and "data-page='weather'" in page and "data-home='/'" in page
+    assert "/meal/" not in page and r.headers["X-Frame-Options"] == "DENY"
+    assert kpost(kit, "/weather", headers={"X-Kitchen": "1"}).status_code == 404
+    assert kget(kit, "/weather/x").status_code == 404

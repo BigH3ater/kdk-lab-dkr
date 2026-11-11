@@ -27,7 +27,8 @@ same app for the lab admin page only: GET / and /static/*, ADMIN_USERS only
 (403 otherwise), everything else 404 there (admin.py).
 
 kitchen.kmkdp.com (internal Traefik, NO forwardauth) reaches this same app for
-paired kitchen devices only: /, /ingredients, /steps, /pantry, /chores, /step-photo/<id>,
+paired kitchen devices only: /, /ingredients, /steps, /pantry, /chores, /weather,
+/step-photo/<id>,
 /manifest.webmanifest, /static/*, POST /tasks/complete, /groceries/add,
 /groceries/reorder, and /pair. Everything else is a 404 there, Remote-* headers
 are ignored, and every other request needs the signed device cookie (devices.py).
@@ -903,8 +904,10 @@ def tasks_complete():
 # ---- Weather: Tiffin, IA 7-day strip (Open-Meteo, keyless) ------------------
 WX_URL = ("https://api.open-meteo.com/v1/forecast?latitude=41.706&longitude=-91.663"
           "&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max"
+          ",precipitation_sum,wind_speed_10m_max,sunrise,sunset"
           "&hourly=temperature_2m,precipitation_probability,weather_code"
-          "&temperature_unit=fahrenheit&timezone=America%2FChicago&forecast_days=7")
+          "&temperature_unit=fahrenheit&wind_speed_unit=mph&precipitation_unit=inch"
+          "&timezone=America%2FChicago&forecast_days=7")      # 7 days = 168 hourly rows
 
 
 def _wx_fetch() -> dict:
@@ -2219,6 +2222,15 @@ def kitchen_chores():
     return _html(kitchen.chores_page(d, ASSET_VER, kitchen.kpath()))
 
 
+@app.get("/kitchen/weather")
+def kitchen_weather():
+    """The weekly forecast, from the 15-min WX_FEED cache (no upstream call
+    here once the warmer has filled it)."""
+    now = _now()
+    fc = kitchen.forecast_view(WX_FEED.get(), now, WMO)
+    return _html(kitchen.forecast_page(fc, now, ASSET_VER, _back_href()))
+
+
 @app.get("/kitchen/ingredients")
 def kitchen_ingredients():
     d = _home_data()
@@ -2486,7 +2498,8 @@ def _current_device(p) -> dict | None:
 
 
 _KITCHEN_GET = {"/": "kitchen_board", "/ingredients": "kitchen_ingredients",
-                "/steps": "kitchen_steps", "/pantry": "kitchen_pantry", "/chores": "kitchen_chores"}
+                "/steps": "kitchen_steps", "/pantry": "kitchen_pantry", "/chores": "kitchen_chores",
+                "/weather": "kitchen_weather"}
 _KITCHEN_POST = {"/tasks/complete", "/groceries/add", "/groceries/reorder"}
 _STEP_PHOTO = re.compile(r"^/step-photo/(\d{1,9})$")
 
