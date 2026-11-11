@@ -10,6 +10,8 @@
 #   kosync-helper  Our KOReader Progress sync server at kosync.kmkdp.com. PDF
 #                  documents: page <-> ABS ebookLocation, finished at the last page.
 #                  Everything else (EPUB, login, register): passed to BookBridge.
+#                  An EPUB BookBridge has not linked: the helper creates the
+#                  ebook-only link through BookBridge's web UI (Add Book submit).
 #   bookbridge     EPUB position <-> ABS CFI (ebook-only links). No router: only
 #                  the helper talks to its KOSync port, over the internal
 #                  `reading-sync` network. Admin UI: SSH tunnel only (doc page).
@@ -83,7 +85,7 @@ services:
     build:
       context: ./kosync-helper
       provenance: false
-    image: kdk/kosync-helper:0.1.0
+    image: kdk/kosync-helper:0.2.0
     container_name: kosync-helper
     user: "65532:65532"
     init: true
@@ -96,6 +98,13 @@ services:
       KOSYNC_USER: "jmack"          # only this sync login may write ABS PDF progress
       EBOOKS_ROOT: "/ebooks"
       PDF_MAP_REFRESH_SECONDS: "3600"
+      # EPUB auto-link: an EPUB the tablet syncs that BookBridge has not linked gets
+      # the ebook-only link through BookBridge's own Add Book submit (doc page). The
+      # account must be the one the KOSync login `jmack` resolves to: BookBridge's
+      # primary admin (links are per account). Empty password = auto-link off.
+      BOOKBRIDGE_WEB_URL: "http://bookbridge:5757"
+      BOOKBRIDGE_WEB_USER: "kdkadmin"
+      BOOKBRIDGE_WEB_PASSWORD: "${KOSYNC_HELPER_BOOKBRIDGE_PASSWORD}"
     volumes:
       # Same container path ABS uses, so the ebookFile path ABS reports opens as-is.
       - /mnt/media/books/ebook:/ebooks:ro

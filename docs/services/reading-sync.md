@@ -5,7 +5,7 @@ stack: reading-sync
 tier: dmz
 status: planned
 storage: yes
-secrets: [abs-opds-abs-api-key, abs-opds-jmack, kosync-helper-abs-api-key, bookbridge-abs-api-key, bookbridge-secret-key, bookbridge-kosync-jmack]
+secrets: [abs-opds-abs-api-key, abs-opds-jmack, kosync-helper-abs-api-key, bookbridge-abs-api-key, bookbridge-secret-key, bookbridge-kosync-jmack, kosync-helper-bookbridge-login]
 updated: 2026-11-10
 tags: [homelab/stack, tier/dmz, status/planned, books]
 ---
@@ -25,6 +25,7 @@ flowchart LR
   OPDS -->|"Bearer, jmack key"| ABS["Audiobookshelf"]
   H -->|"PDF: page to ebookLocation"| ABS
   H -->|"EPUB, login: unchanged"| BB["BookBridge :5758<br/>(no router)"]
+  H -.->|"EPUB auto-link: Add Book (:5757)"| BB
   BB -->|"EPUB CFI"| ABS
   PH["Plappa / ABS web reader"] --> ABS
 ```
@@ -55,14 +56,21 @@ flowchart LR
     and `isFinished` at the last page. On a pull it answers from ABS in kosync format. Same file,
     same page count, so page N on the tablet is page N in ABS.
   - **Everything else** (EPUB, register, login): passed to BookBridge unchanged.
-  - **Hash map**: the helper computes KOReader's partial MD5 and the page count of every primary
-    PDF in the library from the read-only mount, at start and then hourly.
+  - **EPUB auto-link**: when BookBridge has accepted a `jmack` PUT for an EPUB in the map and has
+    no link for that hash, the helper creates the ebook-only link itself (see EPUB auto-link
+    below).
+  - **Hash map**: the helper computes KOReader's partial MD5 of every primary PDF (plus its page
+    count) and every primary EPUB in the library from the read-only mount, at start and then
+    hourly.
   - **Auth**: BookBridge's. Before a PDF read or write the helper checks the device's login with
     BookBridge `/users/auth` and caches a success for 5 minutes. Only the login `jmack` can use the
     PDF path, because the helper's ABS key acts as `jmack`.
 - **BookBridge** syncs EPUB positions: KOReader's xpointer becomes an ABS EPUB CFI and back, as
-  ebook-only links. The first time it sees an EPUB hash, it finds the file in `/books` and creates
-  the link itself. Auto-mapping to an audiobook is off (`KOSYNC_AUTO_MAP_ON_AGREEMENT=false`).
+  ebook-only links. It finds a new EPUB hash in `/books`, but in 7.12.0 it never links it on its
+  own while ABS is configured: its discovery searches every ABS item (it ignores
+  `ABS_LIBRARY_ID`), finds the EPUB's own ABS ebook item, and saves a suggestion instead. The
+  helper's auto-link fills that gap. Auto-mapping to an audiobook is off
+  (`KOSYNC_AUTO_MAP_ON_AGREEMENT=false`).
 
 ## Verify
 
@@ -71,10 +79,11 @@ ssh kdkadmin@192.168.191.20 'sudo docker ps --filter name=abs-opds --filter name
 curl -s https://kosync.kmkdp.com/healthcheck                  # OK (BookBridge, through the helper)
 curl -s -o /dev/null -w '%{http_code}\n' https://opds.kmkdp.com/opds   # 401 (needs Basic auth)
 ssh kdkadmin@192.168.191.20 'sudo docker exec kosync-helper python -I -c "import urllib.request;print(urllib.request.urlopen(\"http://127.0.0.1:8080/health\").read().decode())"'
-#   {"pdfs": 23, "map_loaded": true, "status": "ok"}
+#   {"pdfs": 23, "epubs": <n>, "epub_autolink": true, "map_loaded": true, "status": "ok"}
 ```
 
 The PDF count matches the library: 23 items whose primary ebook is a PDF (2026-11-10).
+`epub_autolink: false` means the helper has no BookBridge password (auto-link off).
 
 ## KOReader setup (tablet)
 
@@ -156,13 +165,80 @@ container on `proxy-dmz` could claim it), with the password from the `bookbridge
 `kdk-ops`. Then check **Account → My Integrations**: the Audiobookshelf card has the token and
 library `ebooks`, and the KOReader/KoSync card has user `jmack`. Use each card's **Test** button.
 
+## EPUB auto-link
+
+Read forward in an EPUB downloaded from the catalogue and it links itself; nothing to do in
+BookBridge. How it works, after a `jmack` PUT that BookBridge accepted:
+
+1. The hash is in the helper's EPUB map (a primary EPUB of the `ebooks` library). PDFs and
+   unknown hashes never get here.
+2. The helper signs in to the BookBridge web UI as `kdkadmin` (`http://bookbridge:5757`, the
+   internal network) and reads `/api/me/books` and `/api/me/kosync-documents`. A hash that is
+   already linked is left alone. An ABS item that already has a book with another hash is left
+   alone too (`epub_mapping_conflict`).
+3. It checks the item in ABS (in the `ebooks` library, a book with no audio files, primary ebook
+   an EPUB at the mapped path and size) and re-hashes the file on the mount. Any mismatch:
+   `epub_mapping_refused`, retried after the next hourly map refresh.
+4. It makes the Add Book submit (`POST /match`: no audiobook, ebook `<item>_abs.epub`, source
+   ABS), the same request as doing it by hand, then checks that the new book carries the hash:
+   `epub_mapping_created`.
+
+One attempt per hash at a time. A failure waits 60 s, doubling to 6 h. A refused login pauses
+every hash for 15 minutes, so the helper never reaches BookBridge's 5-failures-a-minute login
+limit. The helper never writes BookBridge's database and never touches an audiobook.
+
+Why `kdkadmin`: BookBridge links books per account, and the KOSync login `jmack` (the global
+`KOSYNC_USER`) belongs to the primary admin. A link made by any other account is invisible to the
+tablet. BookBridge 7.12.0 has no API token for links (`ADMIN_API_TOKEN` only manages reader
+accounts), and a reader account has no ABS key to hash the `_abs` ebook with.
+
+### One-time setup (before the merge)
+
+The `pre_deploy` fails while the 1Password item is missing, so do this first.
+
+1. Create the helper's item with a new password (letters and digits only):
+
+   ```bash
+   op item create --vault kdk-cluster --category login --title kosync-helper-bookbridge-login \
+     username=kdkadmin --generate-password=letters,digits,32 >/dev/null
+   ```
+
+2. Make it kdkadmin's BookBridge password. Open the UI over the tunnel (BookBridge admin UI,
+   above) → **Account**. Current password = the `bookbridge-admin` item in `kdk-ops`. New and
+   Confirm = the new item's password, copied from the 1Password app. **Save changes**.
+3. Store the same value in the owner's item, so both stay right:
+
+   ```bash
+   op item edit bookbridge-admin --vault kdk-ops \
+     "password=$(op read 'op://kdk-cluster/kosync-helper-bookbridge-login/password')" >/dev/null
+   ```
+
+4. Sign out and back in to the UI with the new password, then merge. The deploy renders
+   `KOSYNC_HELPER_BOOKBRIDGE_PASSWORD`, and `/health` shows `"epub_autolink": true`.
+
+### Linking by hand (fallback)
+
+If an EPUB still does not sync (the helper log shows `epub_mapping_refused` or
+`epub_mapping_failed`), link it in the UI:
+
+1. **Add Book**. Search for the title only, without the ISBN in brackets that some file names
+   carry (the search does not match it).
+2. Audiobook: **None** (No audio).
+3. Ebook: the result with the **ABS** badge (its file name is `<item id>_abs.epub`), not the
+   `/books` file of the same name.
+4. Add it and process the queue. The book shows on the dashboard as ebook only.
+
+The **Library Suggestions** page (about 33 entries) is a separate scan of unmatched ABS items
+looking for an audiobook partner. It has nothing to do with tablet sync: ignore it.
+
 ## Troubleshooting
 
 | Symptom | Cause | Fix |
 |---|---|---|
 | KOReader "Something went wrong when syncing progress" | tablet offline or Tailscale down; or the helper or BookBridge is down | check Wi-Fi + Tailscale; `curl https://kosync.kmkdp.com/healthcheck` from the laptop; container status (Verify) |
 | Login fails right after a wrong password | BookBridge refuses a login for a minute after five failures per tablet address | wait a minute, then log in with the 1Password value |
-| An EPUB never syncs | the copy came from Calibre (different hash); or BookBridge made a suggestion instead of a link because an audiobook has the same title | re-download from the OPDS catalogue; in the BookBridge UI resolve the suggestion as ebook only |
+| An EPUB never syncs | the copy came from Calibre (different hash); or the auto-link did not run (`epub_autolink: false` in `/health`) or was refused | re-download from the OPDS catalogue; `sudo docker logs kosync-helper` for `epub_mapping_*` / `bookbridge_login_failed`; link it by hand (EPUB auto-link, fallback). Resolving the BookBridge suggestion does not create the link |
+| `bookbridge_login_failed` in the helper log | kdkadmin's BookBridge password and `kosync-helper-bookbridge-login` differ | set them equal (EPUB auto-link, setup steps 2 and 3), redeploy |
 | EPUB lands minutes behind | BookBridge waits `KOSYNC_PUT_DEBOUNCE_SECONDS` (300 s) after the last page turn | expected |
 | A PDF does nothing in ABS | the PDF is a supplementary file (the item's primary ebook is an EPUB), or it was added less than an hour ago, or the ABS key expired | read the same format on both sides; wait for the hourly refresh or restart the helper; `sudo docker logs kosync-helper` for `pdf_map_refresh_failed` / `pdf_put_failed` |
 | Helper unhealthy (`/health` 503) | the hourly map refresh has failed for too long (ABS down, key expired or revoked) | `sudo docker logs --tail 50 kosync-helper`; renew the key (Secret Rotation) |
@@ -182,9 +258,13 @@ library `ebooks`, and the KOReader/KoSync card has user `jmack`. Use each card's
 ## Observability
 
 - Container logs → Alloy → Loki (`{container="kosync-helper"}` etc.). The helper logs JSON with
-  the event, ABS item id and status only: no keys, users or document hashes. Events:
-  `pdf_put`, `pdf_put_finished`, `pdf_get`, `pdf_get_empty`, `passthrough`, `auth_refused`,
-  `pdf_map_refreshed`, `pdf_map_refresh_failed` and the `_timeout` / `_failed` variants.
+  the event, ABS item id, status and a fixed reason word only: no keys, passwords, users or
+  document hashes. Events: `pdf_put`, `pdf_put_finished`, `pdf_get`, `pdf_get_empty`,
+  `passthrough`, `auth_refused`, `pdf_map_refreshed`, `epub_map_refreshed`,
+  `pdf_map_refresh_failed` and the `_timeout` / `_failed` variants. EPUB auto-link:
+  `epub_autolink_enabled` / `_disabled` (start), `epub_mapping_created`, `epub_mapping_exists`,
+  `epub_mapping_conflict`, `epub_mapping_refused`, `epub_mapping_failed`,
+  `epub_mapping_hash_mismatch`, `bookbridge_login_failed`.
 - Healthchecks: abs-opds (`/opds` answers 401), helper (`/health`), BookBridge (`:5758/healthcheck`).
 
 ## Architecture
@@ -220,6 +300,7 @@ Rotation = update the item, then redeploy the stack (the `pre_deploy` re-renders
 | `kosync-helper-abs-api-key` | kosync-helper | as for abs-opds |
 | `bookbridge-abs-api-key` | BookBridge first-boot seed | new key, then paste it in BookBridge → My Integrations → Audiobookshelf (the env only seeds the first boot) |
 | `bookbridge-secret-key` | BookBridge credential encryption | do not rotate casually: a new key makes every stored login unreadable and you re-enter them |
+| `kosync-helper-bookbridge-login` | kosync-helper (EPUB auto-link), = kdkadmin's BookBridge password | `op item edit kosync-helper-bookbridge-login --vault kdk-cluster --generate-password=letters,digits,32`, then EPUB auto-link setup steps 2 to 4 (Account page, `kdk-ops` copy, redeploy) |
 | `bookbridge-kosync-jmack` | BookBridge `KOSYNC_KEY`, typed into KOReader | `op item edit bookbridge-kosync-jmack --vault kdk-cluster --generate-password=letters,digits,32`, redeploy, KOReader → Progress sync → Logout → Login |
 
 A new ABS API key for `jmack`, with an expiry: ABS → Settings → API Keys → **Add API Key**, name

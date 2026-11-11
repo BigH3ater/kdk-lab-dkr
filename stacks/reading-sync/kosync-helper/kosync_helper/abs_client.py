@@ -2,7 +2,8 @@
 
 Endpoints checked in the ABS 2.37.2 source (server/routers/ApiRouter.js):
   GET   /api/libraries/:id/items?minified=1   items; media.ebookFormat on each
-  GET   /api/items/:id                        media.ebookFile.metadata.path
+  GET   /api/items/:id                        libraryId, mediaType, media.ebookFile
+                                              (ebookFormat, metadata.path/size), media.audioFiles
   GET   /api/me/progress/:libraryItemId       404 when there is no progress
   PATCH /api/me/progress/:libraryItemId       MeController.createUpdateMediaProgress
 """
@@ -13,6 +14,9 @@ from urllib.parse import quote
 import httpx
 
 from .config import UUID_RE
+
+
+EBOOK_FORMATS = ("pdf", "epub")
 
 
 class AbsError(Exception):
@@ -49,20 +53,22 @@ class AbsClient:
             raise AbsError("unexpected JSON")
         return data
 
-    async def list_pdf_items(self, library_id: str) -> list[tuple[str, str]]:
-        """(item_id, ebook path as ABS sees it) for every item whose PRIMARY ebook is a PDF.
+    async def list_ebook_items(self, library_id: str) -> list[tuple[str, str, str]]:
+        """(item_id, ebook path as ABS sees it, format) for every item whose PRIMARY
+        ebook is a PDF or an EPUB.
 
-        Supplementary PDFs are skipped on purpose: ABS keeps one ebook position per
-        item, and for an item whose primary ebook is an EPUB that position is a CFI.
+        Supplementary files are skipped on purpose: ABS keeps one ebook position per
+        item, and it belongs to the primary ebook (a page for a PDF, a CFI for an EPUB).
         """
         lib = _item_path(library_id)
         data = await self._get_json(f"/api/libraries/{lib}/items", params={"minified": "1"})
         if data is None:
             raise AbsError("library not found")
-        out: list[tuple[str, str]] = []
+        out: list[tuple[str, str, str]] = []
         for item in data.get("results") or []:
             media = (item or {}).get("media") or {}
-            if media.get("ebookFormat") != "pdf":
+            fmt = media.get("ebookFormat")
+            if fmt not in EBOOK_FORMATS:
                 continue
             item_id = item.get("id")
             if not isinstance(item_id, str) or not UUID_RE.match(item_id):
@@ -70,9 +76,17 @@ class AbsClient:
             full = await self._get_json(f"/api/items/{_item_path(item_id)}")
             ebook = ((full or {}).get("media") or {}).get("ebookFile") or {}
             path = (ebook.get("metadata") or {}).get("path")
-            if ebook.get("ebookFormat") == "pdf" and isinstance(path, str):
-                out.append((item_id, path))
+            if ebook.get("ebookFormat") == fmt and isinstance(path, str):
+                out.append((item_id, path, fmt))
         return out
+
+    async def list_pdf_items(self, library_id: str) -> list[tuple[str, str]]:
+        """(item_id, path) for every item whose primary ebook is a PDF."""
+        return [(i, p) for i, p, fmt in await self.list_ebook_items(library_id) if fmt == "pdf"]
+
+    async def get_item(self, item_id: str) -> dict | None:
+        """The full library item (GET /api/items/:id), None when ABS has no such item."""
+        return await self._get_json(f"/api/items/{_item_path(item_id)}")
 
     async def get_progress(self, item_id: str) -> dict | None:
         return await self._get_json(f"/api/me/progress/{_item_path(item_id)}")

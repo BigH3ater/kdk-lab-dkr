@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import os
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 UUID_RE = re.compile(r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")
 
@@ -11,7 +11,7 @@ UUID_RE = re.compile(r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]
 @dataclass(frozen=True)
 class Settings:
     abs_url: str
-    abs_api_key: str
+    abs_api_key: str = field(repr=False)
     abs_library_id: str
     bookbridge_url: str
     kosync_user: str
@@ -20,6 +20,15 @@ class Settings:
     auth_cache_seconds: int = 300
     upstream_timeout: float = 4.0
     max_body_bytes: int = 64 * 1024
+    # EPUB auto-link (BookBridge web UI, session login). Off while user or password is empty.
+    bookbridge_web_url: str = "http://bookbridge:5757"
+    bookbridge_web_user: str = ""
+    bookbridge_web_password: str = field(default="", repr=False)
+    epub_link_delay_seconds: float = 10.0
+
+    @property
+    def epub_autolink_enabled(self) -> bool:
+        return bool(self.bookbridge_web_user and self.bookbridge_web_password)
 
     def __post_init__(self) -> None:
         if not self.abs_api_key:
@@ -28,7 +37,7 @@ class Settings:
             raise ValueError("ABS_LIBRARY_ID is not a UUID")
         if not self.kosync_user:
             raise ValueError("KOSYNC_USER is empty")
-        for name in ("abs_url", "bookbridge_url"):
+        for name in ("abs_url", "bookbridge_url", "bookbridge_web_url"):
             if not getattr(self, name).startswith(("http://", "https://")):
                 raise ValueError(f"{name.upper()} must be an http(s) URL")
 
@@ -45,4 +54,8 @@ def from_env() -> Settings:
         refresh_seconds=int(e.get("PDF_MAP_REFRESH_SECONDS", "3600")),
         auth_cache_seconds=int(e.get("AUTH_CACHE_SECONDS", "300")),
         upstream_timeout=float(e.get("UPSTREAM_TIMEOUT_SECONDS", "4")),
+        bookbridge_web_url=e.get("BOOKBRIDGE_WEB_URL", "http://bookbridge:5757").rstrip("/"),
+        bookbridge_web_user=e.get("BOOKBRIDGE_WEB_USER", ""),
+        bookbridge_web_password=e.get("BOOKBRIDGE_WEB_PASSWORD", ""),
+        epub_link_delay_seconds=float(e.get("EPUB_LINK_DELAY_SECONDS", "10")),
     )

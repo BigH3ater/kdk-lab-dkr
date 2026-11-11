@@ -8,3 +8,4 @@ KOSYNC_HELPER_ABS_API_KEY="{{ op://kdk-cluster/kosync-helper-abs-api-key/passwor
 BOOKBRIDGE_ABS_API_KEY="{{ op://kdk-cluster/bookbridge-abs-api-key/password }}"
 BOOKBRIDGE_SECRET_KEY="{{ op://kdk-cluster/bookbridge-secret-key/password }}"
 BOOKBRIDGE_KOSYNC_PASSWORD="{{ op://kdk-cluster/bookbridge-kosync-jmack/password }}"
+KOSYNC_HELPER_BOOKBRIDGE_PASSWORD="{{ op://kdk-cluster/kosync-helper-bookbridge-login/password }}"
