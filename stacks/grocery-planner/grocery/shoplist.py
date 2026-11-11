@@ -57,6 +57,19 @@ def is_excluded(name, excludes):
     return any(str(x).lower() in low for x in (excludes or []))
 
 
+def is_never_buy(name, terms):
+    """True if the food name holds a config `never_buy` term (owner 2026-11-11:
+    brussels sprouts, cabbage, red cabbage). Case-insensitive substring of the
+    canonical food name; a term's trailing "s" is optional ("brussels sprouts"
+    also hits the food "brussels sprout")."""
+    low = (name or "").lower()
+    for t in terms or []:
+        t = str(t).lower().strip()
+        if t and (t in low or (t.endswith("s") and t[:-1] in low)):
+            return True
+    return False
+
+
 def packs_needed(weekly_amount, weeks, pack_size):
     """Whole packs for a bulk item: ceil(weekly_amount * weeks / pack_size).
     Returns None if pack_size is missing/invalid, 0 if nothing is needed."""
@@ -147,14 +160,16 @@ def entry_mealplan_id(entry):
     return lr.get("mealplan") if isinstance(lr, dict) else None
 
 
-def build_store_lists(entries, config, run_mode="weekly", now=None):
+def build_store_lists(entries, config, run_mode="weekly", now=None, stats=None):
     """Return (store_lists, unrouted, skipped_onhand).
 
     store_lists: {store: StoreList} limited to the run's stores (weekly ->
     stores.weekly_stores, bulk -> stores.bulk_stores). unrouted: [Item] with no
     parseable store (owner must assign a category). skipped_onhand: count.
     Checked and future-delayed entries are not on any list (see is_open);
-    `now` (aware datetime) defaults to the current UTC time."""
+    `now` (aware datetime) defaults to the current UTC time. A recipe line whose
+    food is on config `never_buy` is on no list; pass a dict as `stats` to get
+    the count in stats["skipped_never_buy"]."""
     import datetime as _dt
     now = now or _dt.datetime.now(_dt.timezone.utc)
     stores_cfg = config["stores"]
@@ -162,6 +177,8 @@ def build_store_lists(entries, config, run_mode="weekly", now=None):
                      else stores_cfg["bulk_stores"])
     aisle_order = stores_cfg.get("aisles", {})
     excludes = config.get("exclude") or []
+    never = config.get("never_buy") or []
+    n_never = 0
     lists: dict[str, StoreList] = {}
     unrouted: list[Item] = []
     skipped = 0
@@ -172,6 +189,9 @@ def build_store_lists(entries, config, run_mode="weekly", now=None):
         food = _food_of(e)
         if is_excluded(food.get("name", ""), excludes):
             continue                           # dog/pet food etc. -- never ordered here
+        if _from_recipe(e) and is_never_buy(food.get("name", ""), never):
+            n_never += 1                       # owner never buys it (a hand add still lists)
+            continue
         if food.get("food_onhand") and _from_recipe(e):
             skipped += 1                       # pantry/stock line a recipe pulled in
             continue
@@ -196,6 +216,8 @@ def build_store_lists(entries, config, run_mode="weekly", now=None):
         def keyf(a):
             return (order.index(a) if a in order else len(order), a)
         sl.aisles = {a: sl.aisles[a] for a in sorted(sl.aisles, key=keyf)}
+    if stats is not None:
+        stats["skipped_never_buy"] = n_never
     return lists, unrouted, skipped
 
 

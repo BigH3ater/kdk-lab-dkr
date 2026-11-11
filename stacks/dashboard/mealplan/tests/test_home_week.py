@@ -88,8 +88,10 @@ def test_midweek_shows_sunday_to_saturday_with_past_days_marked(home):
 
 def test_lunch_prep_copies_fill_the_week(home):
     html = home(datetime.date(2026, 11, 12))
-    assert html.count("Fall Chicken Sheet Pan Dinner") == 7     # Sunday + 6 "Lunch prep" copies
-    assert html.count(">Lunch prep<") == 6
+    # a batch of 4 feeds 4 / lunches.people = 2 days (owner 2026-11-11):
+    # Sunday + the Mon and Tue "Lunch prep" copies
+    assert html.count("Fall Chicken Sheet Pan Dinner") == 3
+    assert html.count(">Lunch prep<") == 2
 
 
 def test_next_week_row_only_when_entries_exist(home):
@@ -102,7 +104,7 @@ def test_next_week_row_only_when_entries_exist(home):
     assert [d for _, d in days[7:]] == ["Sun 15", "Mon 16", "Tue 17", "Wed 18", "Thu 19", "Fri 20", "Sat 21"]
     assert all(c == "" for c, _ in days[7:])
     nxt = html[html.index("Next week"):]
-    assert "Beef Tacos" in nxt and nxt.count("Mediterranean Chicken and Orzo") == 7   # W47 prep copies
+    assert "Beef Tacos" in nxt and nxt.count("Mediterranean Chicken and Orzo") == 3   # W47 prep + 2 copies
     assert "Mediterranean Chicken and Orzo" not in html[:html.index("Next week")]
     assert "Beef Tacos" not in html[:html.index("Next week")]
     # one Tandoor read covers both weeks

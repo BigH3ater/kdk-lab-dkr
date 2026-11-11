@@ -110,3 +110,29 @@ def test_aggregate_ingredients_scales_and_sums():
     # entry at 4 servings -> scale 2x -> 2 onions
     rows = R.aggregate_ingredients([E(10, 4)], detail)
     assert len(rows) == 1 and rows[0]["amount"] == 2.0
+
+
+# ---- never_buy (owner 2026-11-11) ---------------------------------------------
+def test_never_buy_match():
+    terms = ["brussels sprouts", "cabbage", "red cabbage"]
+    assert S.is_never_buy("Brussels Sprouts", terms)
+    assert S.is_never_buy("brussels sprout", terms)          # trailing s optional
+    assert S.is_never_buy("red cabbage", terms) and S.is_never_buy("Napa cabbage", terms)
+    assert not S.is_never_buy("broccoli", terms)
+    assert not S.is_never_buy("brussels sprouts", [])
+
+
+def test_never_buy_lines_are_on_no_list_and_counted(cfg):
+    assert cfg["never_buy"] == ["brussels sprouts", "cabbage", "red cabbage"]
+    entries = [
+        _entry(1, "brussels sprouts", "NewPi/weekly: Produce", list_recipe=50),
+        _entry(2, "red cabbage", "NewPi/weekly: Produce", list_recipe=65),
+        _entry(3, "broccoli", "NewPi/weekly: Produce", list_recipe=164),
+        _entry(4, "cabbage", "NewPi/weekly: Produce"),        # added by hand: still listed
+    ]
+    stats = {}
+    lists, _, skipped = S.build_store_lists(entries, cfg, "weekly", stats=stats)
+    assert [i.food for a in lists["NewPi"].aisles.values() for i in a] == ["broccoli", "cabbage"]
+    assert stats == {"skipped_never_buy": 2} and skipped == 0
+    # without `stats` the 3-tuple is unchanged (poll pass, page callers)
+    assert len(S.build_store_lists(entries, cfg, "weekly")) == 3

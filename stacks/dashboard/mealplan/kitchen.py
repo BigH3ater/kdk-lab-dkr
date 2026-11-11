@@ -221,16 +221,33 @@ def titles_html(titles, sep: str = " and ") -> str:
 
 
 def role_of(e: dict) -> str:
-    """The planner role from the meal-plan note ("[gp:2026-W46] side")."""
+    """The planner role from the meal-plan note: the first word after the week
+    marker ("[gp:2026-W46] side", "[gp:2026-W47] lunch (Sunday prep, during
+    dinner)" -> "lunch")."""
     note = e.get("note") or ""
-    return note.rsplit("] ", 1)[-1].strip() if "[gp:" in note else ""
+    if "[gp:" not in note:
+        return ""
+    rest = note.rsplit("] ", 1)[-1].strip()
+    return rest.split(" ", 1)[0] if rest else ""
 
 
-def make_dish(entry: dict, rec: dict, onhand=None) -> dict:
+def is_never_buy(food: str, terms) -> bool:
+    """Planner config `never_buy` match, the same rule as the planner's
+    shoplist.is_never_buy: case-insensitive substring, trailing "s" optional."""
+    low = (food or "").lower()
+    for t in terms or []:
+        t = str(t).lower().strip()
+        if t and (t in low or (t.endswith("s") and t[:-1] in low)):
+            return True
+    return False
+
+
+def make_dish(entry: dict, rec: dict, onhand=None, never_buy=None) -> dict:
     """One planned recipe, scaled to the plan's servings like Tandoor's
     add-to-shopping: {rid, title, role, servings, total_min, image, url,
-    ingredients: [{key, qty, food, note, onhand}], steps: [...]}.
-    `onhand(food)` marks pantry/stock foods (the Tandoor on-hand flag counts too)."""
+    ingredients: [{key, qty, food, note, onhand, skip}], steps: [...]}.
+    `onhand(food)` marks pantry/stock foods (the Tandoor on-hand flag counts too);
+    `skip` marks a planner never_buy food (struck through: it is never bought)."""
     try:
         scale = float(entry.get("servings") or 0) / float(rec.get("servings") or 0)
     except (TypeError, ValueError, ZeroDivisionError):
@@ -241,7 +258,8 @@ def make_dish(entry: dict, rec: dict, onhand=None) -> dict:
         ings.append({"key": str(ing.get("id") if ing.get("id") is not None else f"i{i}"),
                      "qty": fmt_qty((ing.get("amount") or 0) * scale, ing.get("unit") or ""),
                      "food": ing["food"], "note": ing.get("note") or "",
-                     "onhand": bool(ing.get("onhand") or (onhand and onhand(ing["food"])))})
+                     "onhand": bool(ing.get("onhand") or (onhand and onhand(ing["food"]))),
+                     "skip": is_never_buy(ing["food"], never_buy)})
     steps = []
     carry = ""                                         # an imported section heading
     for st in rec.get("steps") or []:
@@ -275,17 +293,26 @@ def dinner_entries(plan: list[dict], day: datetime.date) -> list[dict]:
     return sorted(rows, key=lambda e: role_of(e) == "side")
 
 
-def lunch_prep(plan: list[dict], week_start: datetime.date) -> dict | None:
-    """This plan week's prep lunches (cooked on the prep day, eaten Mon-Sat):
-    {mains, sides, servings, prep_day}. Leftover lunches are not prep."""
-    rows = [e for e in plan if e.get("date") == week_start.isoformat()
-            and e.get("meal_type") == "Lunch" and role_of(e) in ("lunch", "side")]
-    if not rows:
+def lunch_prep(plan: list[dict], week_start: datetime.date,
+               today: datetime.date | None = None) -> dict | None:
+    """The plan week's current prep lunch: {mains, sides, servings, prep_day}.
+    Owner 2026-11-11: two prep days (Sunday + Thursday); the card shows the
+    latest prep day on or before `today` (default: the week start), else the
+    week's first. Leftover lunches are not prep."""
+    week = {(week_start + datetime.timedelta(days=i)).isoformat() for i in range(7)}
+    rows_all = [e for e in plan if e.get("date") in week
+                and e.get("meal_type") == "Lunch" and role_of(e) in ("lunch", "side")]
+    if not rows_all:
         return None
+    dates = sorted({e["date"] for e in rows_all})
+    t = (today or week_start).isoformat()
+    day = max((d for d in dates if d <= t), default=dates[0])
+    rows = [e for e in rows_all if e["date"] == day]
     mains = [e["title"] for e in rows if role_of(e) == "lunch"]
     sides = [e["title"] for e in rows if role_of(e) == "side"]
     servings = int(sum(float(e.get("servings") or 0) for e in rows if role_of(e) == "lunch"))
-    return {"mains": mains, "sides": sides, "servings": servings, "prep_day": week_start}
+    return {"mains": mains, "sides": sides, "servings": servings,
+            "prep_day": datetime.date.fromisoformat(day)}
 
 
 def thaw_hint(rows: list[dict], tomorrow: datetime.date, today: datetime.date) -> str:
@@ -566,8 +593,8 @@ def _dinner_card(dishes: list[dict], big: bool = True) -> str:
                 "<h1 class='dish'>No dinner planned</h1>"
                 "<div class='muted'>Plan one in Recipes and it shows here.</div></div></article>")
     main, sides = dishes[0], dishes[1:]
-    n_ing = sum(len(d["ingredients"]) for d in dishes)
-    n_on = sum(1 for d in dishes for i in d["ingredients"] if i["onhand"])
+    n_ing = sum(1 for d in dishes for i in d["ingredients"] if not i.get("skip"))
+    n_on = sum(1 for d in dishes for i in d["ingredients"] if i["onhand"] and not i.get("skip"))
     meta = [fmt_minutes(main["total_min"])]
     if main["servings"]:
         meta.append(f"serves {fmt_num(float(main['servings']))}")
@@ -745,8 +772,16 @@ def forecast_page(fc: dict | None, now: datetime.datetime, asset_ver: str, back:
 
 
 # ---- ingredients view ------------------------------------------------------------
+SKIP_MARK = " <span class='pill skip'>skip</span>"
+
+
 def _ing_row(i: dict, scope: str) -> str:
     note = f"<span class='note'>{escape(i['note'])}</span>" if i["note"] else ""
+    if i.get("skip"):
+        # never_buy: shown struck through, not a checklist row (nothing to pull)
+        return ("<div class='ing skip'><span class='box' aria-hidden='true'></span>"
+                f"<span class='qty'><s>{escape(i['qty'])}</s></span>"
+                f"<span class='food'><s class='fname'>{escape(i['food'])}</s>{SKIP_MARK}{note}</span></div>")
     pantry = " <span class='pill'>on hand</span>" if i["onhand"] else ""
     return (f"<button type='button' class='ing' data-check='{escape(scope)}:{escape(i['key'])}' aria-pressed='false'>"
             "<span class='box' aria-hidden='true'></span>"
@@ -768,7 +803,7 @@ def ingredient_groups(dishes: list[dict], today: datetime.date) -> str:
 
 
 def ingredients_page(dishes: list[dict], today: datetime.date, asset_ver: str, back: str) -> str:
-    total = sum(len(d["ingredients"]) for d in dishes)
+    total = sum(1 for d in dishes for i in d["ingredients"] if not i.get("skip"))
     serv = f" · serves {fmt_num(float(dishes[0]['servings']))}" if dishes and dishes[0]["servings"] else ""
     body = ingredient_groups(dishes, today) if dishes else "<div class='card empty'>No dinner planned tonight.</div>"
     return (head("Pull ingredients", asset_ver, kiosk=True)
@@ -789,8 +824,11 @@ def _step_html(s: dict, n: int, total: int, dish: dict) -> str:
         f"Start {escape(fmt_minutes(m))} timer</button>" for m in s["timers"])
     photo = (f"<img class='step-photo' src='{kpath('/step-photo')}/{int(s['photo'])}' alt='' loading='lazy'>"
              if s.get("photo") else "")
-    uses = "".join(f"<div class='use'><span class='qty'>{escape(u['qty'])}</span><span>{escape(u['food'])}</span></div>"
-                   for u in s["uses"])
+    uses = "".join(
+        f"<div class='use skip'><span class='qty'><s>{escape(u['qty'])}</s></span>"
+        f"<span><s>{escape(u['food'])}</s>{SKIP_MARK}</span></div>" if u.get("skip") else
+        f"<div class='use'><span class='qty'>{escape(u['qty'])}</span><span>{escape(u['food'])}</span></div>"
+        for u in s["uses"])
     aside = ""
     if photo or uses:
         aside = (f"<aside class='card step-aside'>{photo}"
@@ -981,7 +1019,7 @@ def household_fragment(d: dict, all_chores: bool = False) -> str:
         sides = f"with {titles_html(x['title'] for x in dishes[1:])}" if len(dishes) > 1 else ""
         meta = " · ".join(m for m in (fmt_minutes(main["total_min"]),
                                       f"serves {fmt_num(float(main['servings']))}" if main["servings"] else "") if m)
-        n_ing = sum(len(x["ingredients"]) for x in dishes)
+        n_ing = sum(1 for x in dishes for i in x["ingredients"] if not i.get("skip"))
         dinner = (f"<article class='card hh-dinner'>{'<div class=hh-photo>' + photo + '</div>' if photo else ''}"
                   "<div class='pad'><div class='eyebrow rust'>Dinner tonight</div>"
                   f"<h2 class='dish'>{title_html(main['title'])}</h2>"

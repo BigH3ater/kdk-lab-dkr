@@ -5,9 +5,10 @@ selected recipes:
 
   * season chosen by date (Spring Mar-May, Summer Jun-Aug, Fall Sep-Nov, Winter
     Dec-Feb);
-  * 7 dinners = 1 fish + 2 chicken breast + 2 ground beef + 1 flex + 1 steak;
-    a roast week swaps one ground beef for a slow-cooker roast. No legume-only
-    mains (beans as an ingredient are fine);
+  * 5 dinners (owner 2026-11-11; proteins.off_nights Fri + Sat get none) =
+    1 fish + 1 chicken breast + 1 ground beef + 1 flex + 1 steak; a roast week
+    swaps the ground beef for a slow-cooker roast. No legume-only mains (beans
+    as an ingredient are fine);
   * the flex dinner alternates pork chop / chicken breast by week (parity);
   * ground beef dishes vary: no repeat within the week, at most one Asian-style
     (e.g. beef & broccoli); feta rides on the weekend eggs;
@@ -16,8 +17,12 @@ selected recipes:
     main already holds a vegetable (`veg_foods`, see config sides.vegetables);
   * a brown-rice side (microwave packet recipe) for every main served over rice
     (`rice`, from the serve-with-rice keyword or detection in run.build_pool);
-  * N lunch preps (config lunches.recipes_per_week) at 4 servings, breakfast
-    staples once a week, snack feeders once a week as the Snack meal type;
+  * N lunch preps (config lunches.recipes_per_week) at 4 servings, one per
+    lunches.prep_days (Sunday + Thursday); the other lunch days are leftovers:
+    a `lunch_friendly` chicken dinner cooked at 4 the night before (its next-day
+    Lunch entry has role "leftover"), or the roast's Thursday lunch;
+  * breakfast staples once a week, ONE snack entry (snacks.prep_enabled adds
+    the Snack prep entry back) as the Snack meal type;
   * simplicity caps (working_time, ingredient count) as a fail-closed filter;
   * deterministic per week key, so a double run yields the same plan (the run
     job additionally refuses to re-POST a week that is already planned);
@@ -28,7 +33,7 @@ selected recipes:
 
 The pool is a list of plain dicts so tests need no Tandoor. Each recipe:
   {id, name, slot, kind, season, working_time, ingredient_count, variant?,
-   veg_foods?, rice?}
+   veg_foods?, rice?, lunch_friendly?}
 kind in fish|chicken|ground_beef|steak|side|lunch|staple|snack.
 veg_foods: the main's vegetable foods (non-empty -> no veg side). rice: True ->
 the main gets the rice side.
@@ -167,7 +172,10 @@ def _pick_beef(pool, season, caps, rng, used, n, max_asian, stock=None):
 
 
 def generate_week(pool: list[dict], week_start: datetime.date, config: dict,
-                  stock: "F.Stock | None" = None) -> list[PlanEntry]:
+                  stock: "F.Stock | None" = None, report: dict | None = None) -> list[PlanEntry]:
+    """The week's plan entries. `report` (optional dict) receives what the run
+    logs besides the entries: lunch_gaps (lunch days only a prep could cover,
+    added to that prep) and off_nights."""
     caps = config["caps"]
     pr = config["proteins"]
     seasons = config.get("seasons")
@@ -186,12 +194,53 @@ def generate_week(pool: list[dict], week_start: datetime.date, config: dict,
     beef_cfg = config.get("beef") or {}
 
     fish_day = _offset(week_start, _DOW[pr["fish_day"]])   # offset of fish weekday
+    # Cooked nights: every day but proteins.off_nights (owner 2026-11-11: Friday +
+    # Saturday are leftovers / eat out and get no dinner entry).
+    off = {_offset(week_start, _DOW[n]) for n in pr.get("off_nights") or []}
+    cook_days = [d for d in range(7) if d not in off]
+    if fish_day in off:
+        raise PlanError(f"fish_day {pr['fish_day']} is one of the off_nights")
 
     # Roast week? (parity A by default, every other week). On a roast week the
-    # slow-cooker roast replaces ONE GROUND-BEEF dinner: 2 beef + 1 roast.
+    # slow-cooker roast replaces ONE GROUND-BEEF dinner.
     roast_cfg = config.get("roast") or {}
     roast_week = bool(roast_cfg.get("enabled")) and parity == roast_cfg.get("parity", "A")
     beef_n = pr["ground_beef"] - (1 if roast_week else 0)
+    rd = None
+    if roast_week:
+        rd = _offset(week_start, _DOW[roast_cfg.get("night", "wednesday")])
+        if rd == fish_day or rd not in cook_days:    # use the next free cooked night
+            rd = next(d for d in cook_days if d != fish_day)
+
+    # ---- lunch coverage (owner 2026-11-11), decided before the dinners -------
+    # Each lunch day (lunches.days) is fed by, in order: the roast's Thursday
+    # leftovers (roast week), a prep batch (servings_each / people days, the days
+    # right after its prep day), or a `lunch-friendly` dinner cooked the night
+    # before at leftovers.servings. A day none of these can cover goes to the
+    # latest prep before it (+people servings) and is reported as a gap.
+    lcfg = config["lunches"]
+    people = int(lcfg.get("people", 2))
+    lunch_days = [_offset(week_start, _DOW[n]) for n in
+                  (lcfg.get("days") or ["monday", "tuesday", "wednesday", "thursday",
+                                        "friday", "saturday"])]
+    prep_names = lcfg.get("prep_days") or [lcfg.get("prep_day", "sunday")]
+    prep_offsets = [_offset(week_start, _DOW[prep_names[i % len(prep_names)]])
+                    for i in range(int(lcfg["recipes_per_week"]))]
+    covered: dict[int, str] = {}
+    roast_lunch_day = None
+    if roast_week:
+        roast_lunch_day = _offset(week_start, _DOW["thursday"])
+        covered[roast_lunch_day] = "roast"
+    per_prep = max(1, int(lcfg["servings_each"]) // people)
+    for i, p in enumerate(prep_offsets):
+        for d in [d for d in lunch_days if d > p and d not in covered][:per_prep]:
+            covered[d] = f"prep{i}"
+    lo_cfg = lcfg.get("leftovers") or {}
+    lo_on = bool(lo_cfg.get("enabled"))
+    lo_servings = int(lo_cfg.get("servings", 4))
+    need_lo = [d for d in lunch_days if d not in covered]
+    lo_nights = [d - 1 for d in need_lo
+                 if lo_on and d - 1 in cook_days and d - 1 not in (fish_day, rd)]
 
     # Fish: Sunday. Chicken + steak are fixed counts; ground beef is the week's
     # distinct dishes (no repeat, <= max_asian Asian-style).
@@ -216,8 +265,25 @@ def generate_week(pool: list[dict], week_start: datetime.date, config: dict,
         burger = _by_name(pool, bn.get("recipe", "Burger night"))
     if burger and stock is not None:
         stock.take(stock.need_for(burger, 2))
-    chicken = _pick(pool, "chicken", season, caps, rng, used,
-                    pr["poultry"] - (1 if burger else 0), stock=stock)
+
+    # Lunch-friendly dinners fill the chicken slots first (a lunch-prep recipe
+    # carrying the keyword may be drawn as the dinner), cooked at lo_servings.
+    def _lf_pick(n):
+        if n <= 0:
+            return []
+        cands = [r for r in pool if r.get("lunch_friendly") and r.get("season") == season
+                 and r.get("kind") in ("chicken", "lunch") and r["id"] not in used
+                 and _eligible(r, caps, r["kind"])]
+        rng.shuffle(cands)
+        chosen = F.choose(cands, n, stock, lo_servings, "chicken/lunch-friendly")
+        for r in chosen:
+            used.add(r["id"])
+        return chosen
+
+    n_chicken = pr["poultry"] - (1 if burger else 0)
+    lf = _lf_pick(min(len(lo_nights), n_chicken))
+    chicken = lf + _pick(pool, "chicken", season, caps, rng, used, n_chicken - len(lf),
+                         stock=stock)
     steak = _scheduled(pool, "steak", season, caps, rng, used, wk, config, stock) or \
         _pick(_unscheduled(pool, "steak", wk, config), "steak", season, caps, rng, used, 1,
               stock=stock)[0]
@@ -247,23 +313,48 @@ def generate_week(pool: list[dict], week_start: datetime.date, config: dict,
             if (not any(stock.fits(stock.need_for(r, 2)) for r in _kind(pick_kind))
                     and stock.has(_kind(alt), 2)):
                 pick_kind = alt
-        flex = _pick(pool, pick_kind, season, caps, rng, used, 1, stock=stock)[0]
+        if pick_kind == "chicken" and len(lf) < len(lo_nights):
+            more = _lf_pick(1)
+            lf += more
+            flex = more[0] if more else None
+        if flex is None:
+            flex = _pick(pool, pick_kind, season, caps, rng, used, 1, stock=stock)[0]
 
     # Day assignment: fish on its day, roast on roast_night (if a roast week),
-    # the rest fill the remaining days in a deterministic shuffled order.
+    # each lunch-friendly dinner on a night before a leftover lunch day, the rest
+    # fill the remaining cooked nights in a deterministic shuffled order.
     mains_by_day = {fish_day: fish}
     if roast_week:
-        rd = _offset(week_start, _DOW[roast_cfg.get("night", "wednesday")])
-        if rd in mains_by_day:                       # roast_night == fish day: use next free
-            rd = next(d for d in range(7) if d not in mains_by_day)
         mains_by_day[rd] = roast
-    other = chicken + beef + [steak] + ([burger] if burger else [])
-    if flex is not None:
-        other.append(flex)
+    lo_by_night = dict(zip(lo_nights, lf))
+    mains_by_day.update(lo_by_night)
+    lf_ids = {id(r) for r in lo_by_night.values()}
+    other = [r for r in chicken + beef + [steak] + ([burger] if burger else [])
+             + ([flex] if flex is not None else []) if id(r) not in lf_ids]
     rng.shuffle(other)
-    days = [d for d in range(7) if d not in mains_by_day]
+    days = [d for d in cook_days if d not in mains_by_day]
+    if len(other) != len(days) or len(cook_days) != int(pr["dinners_per_week"]):
+        raise PlanError(
+            f"dinner mix does not fit the week: {len(mains_by_day) + len(other)} mains for "
+            f"{len(cook_days)} cooked nights (dinners_per_week {pr['dinners_per_week']}, "
+            f"off_nights {pr.get('off_nights') or []})")
     for d, rec in zip(days, other):
         mains_by_day[d] = rec
+
+    # Leftover days nothing covers -> the latest prep before them (+people each).
+    extra = [0] * len(prep_offsets)
+    gaps = []
+    for d in need_lo:
+        if d - 1 in lo_by_night:
+            continue
+        before = [i for i, p in enumerate(prep_offsets) if p < d]
+        i = before[-1] if before else 0
+        if prep_offsets:
+            extra[i] += people
+        gaps.append(_dayname(week_start, d))
+    if report is not None:
+        report["lunch_gaps"] = gaps
+        report["off_nights"] = [_dayname(week_start, d) for d in sorted(off)]
 
     # Sides: one veg side per dinner whose main has no vegetable of its own
     # (sides.skip_when_main_has_veg; W46: the broccoli stir fry got green beans).
@@ -271,7 +362,7 @@ def generate_week(pool: list[dict], week_start: datetime.date, config: dict,
     # repeats a side up to sides.max_repeats_per_week (relaxing only if the
     # approved pool is tiny) so every dinner that needs one gets one.
     sides_cfg = config["sides"]
-    side_days = [d for d in range(7) if sides_cfg["per_dinner"]
+    side_days = [d for d in cook_days if sides_cfg["per_dinner"]
                  and not (sides_cfg.get("skip_when_main_has_veg", True)
                           and mains_by_day[d].get("veg_foods"))]
     sides = (_pick_sides(pool, season, caps, rng, len(side_days),
@@ -279,12 +370,14 @@ def generate_week(pool: list[dict], week_start: datetime.date, config: dict,
     side_for = dict(zip(side_days, sides))
     rice = _rice_recipe(pool, config)
 
-    for d in range(7):
+    for d in cook_days:
         date = week_start + datetime.timedelta(days=d)
         main = mains_by_day[d]
         # The roast dinner is shopped for 4: dinner + Thursday leftover lunch for
-        # two (the leftover entry itself adds no shopping).
-        servings = 4 if (roast is not None and main is roast) else 2
+        # two; a lunch-friendly dinner for lo_servings (dinner + next-day lunch).
+        # The leftover entries themselves add no shopping.
+        servings = (4 if (roast is not None and main is roast)
+                    else lo_servings if d in lo_by_night else 2)
         entries.append(PlanEntry(date, "dinner", main["id"], main["name"], servings,
                                  "dinner-main", main.get("slot", ""), note("dinner")))
         if d in side_for:
@@ -292,13 +385,17 @@ def generate_week(pool: list[dict], week_start: datetime.date, config: dict,
             entries.append(PlanEntry(date, "dinner", side["id"], side["name"], 2,
                                      "side", side.get("slot", ""), note("side")))
         if rice and main.get("rice"):
-            entries.append(PlanEntry(date, "dinner", rice["id"], rice["name"], 2,
+            entries.append(PlanEntry(date, "dinner", rice["id"], rice["name"], servings,
                                      "rice", rice.get("slot", ""), note("side")))
+        if d in lo_by_night:
+            # Next day's lunch = this dinner's leftovers (role "leftover"; the run
+            # job posts it WITHOUT addshopping: the dinner already ordered for it).
+            entries.append(PlanEntry(date + datetime.timedelta(days=1), "lunch", main["id"],
+                                     main["name"], people, "leftover", main.get("slot", ""),
+                                     note(f"leftover (from {date:%A} dinner)")))
 
-    # ---- lunches: N preps at 4 servings, on the prep day -------------------
-    prep_day = _offset(week_start, _DOW[config["lunches"]["prep_day"]])
-    prep_date = week_start + datetime.timedelta(days=prep_day)
-    bsf = config["lunches"].get("beef_stir_fry") or {}
+    # ---- lunches: N preps at servings_each, one per prep day ---------------
+    bsf = lcfg.get("beef_stir_fry") or {}
     beef_lunch = None
     if bsf.get("enabled") and parity == bsf.get("parity", "A"):
         names = {n.lower() for n in bsf.get("recipes") or []}
@@ -307,45 +404,49 @@ def generate_week(pool: list[dict], week_start: datetime.date, config: dict,
                  and r["id"] not in used]
         rng.shuffle(cands)
         if stock is not None:                         # only a stir fry the freezer covers
-            lsv = config["lunches"]["servings_each"]
+            lsv = lcfg["servings_each"]
             cands = [r for r in cands if stock.fits(stock.need_for(r, lsv))]
             if cands:
                 stock.take(stock.need_for(cands[0], lsv))
         beef_lunch = cands[0] if cands else None      # none free/seeded: plain lunches
-    n_lunch = config["lunches"]["recipes_per_week"] - (1 if beef_lunch else 0)
+    n_lunch = lcfg["recipes_per_week"] - (1 if beef_lunch else 0)
     if beef_lunch:
         # Reserve it BEFORE the lunch pick, so a beef lunch that also carries the
         # lunch-prep keyword can't be picked twice (2 distinct batches, not 3).
         used.add(beef_lunch["id"])
     lunches = _pick(pool, "lunch", season, caps, rng, used, n_lunch, stock=stock,
-                    servings=config["lunches"]["servings_each"])
+                    servings=lcfg["servings_each"])
     if beef_lunch:
-        lunches.append(beef_lunch)
-    lunch_servings = config["lunches"]["servings_each"]
-    for rec in lunches:
-        entries.append(PlanEntry(prep_date, "lunch", rec["id"], rec["name"],
-                                 lunch_servings, "lunch",
-                                 rec.get("slot", ""), note("lunch")))
+        lunches.append(beef_lunch)                    # the last (mid-week) batch
+    for i, rec in enumerate(lunches):
+        p = prep_offsets[i] if i < len(prep_offsets) else prep_offsets[0]
+        pdate = week_start + datetime.timedelta(days=p)
+        lsv = int(lcfg["servings_each"]) + (extra[i] if i < len(extra) else 0)
+        label = f"lunch ({pdate:%A} prep, during dinner)"
+        entries.append(PlanEntry(pdate, "lunch", rec["id"], rec["name"],
+                                 lsv, "lunch", rec.get("slot", ""), note(label)))
         if rice and rec.get("rice"):
-            entries.append(PlanEntry(prep_date, "lunch", rice["id"], rice["name"],
-                                     lunch_servings, "rice", rice.get("slot", ""),
-                                     note("side")))
+            entries.append(PlanEntry(pdate, "lunch", rice["id"], rice["name"],
+                                     lsv, "rice", rice.get("slot", ""), note("side")))
 
     # Roast leftovers -> Thursday lunch (role "leftover"; the run job posts it
     # WITHOUT addshopping, so no extra beef/pantry is ordered for it).
     if roast_week and roast is not None:
-        tdate = week_start + datetime.timedelta(days=_offset(week_start, _DOW["thursday"]))
-        entries.append(PlanEntry(tdate, "lunch", roast["id"], roast["name"], 2,
-                                 "leftover", roast.get("slot", ""), note("leftover")))
+        tdate = week_start + datetime.timedelta(days=roast_lunch_day)
+        rdate = week_start + datetime.timedelta(days=rd)
+        entries.append(PlanEntry(tdate, "lunch", roast["id"], roast["name"], people,
+                                 "leftover", roast.get("slot", ""),
+                                 note(f"leftover (from {rdate:%A} dinner)")))
 
-    # ---- breakfast staples + snack feeders (once a week, prep day) ---------
+    # ---- breakfast staples + snack feeders (once a week, first prep day) ---
+    prep_date = week_start + datetime.timedelta(days=prep_offsets[0] if prep_offsets else 0)
     for name_key, role in (("staples_recipe", "breakfast"),):
         fixed = _by_name(pool, config["breakfast"][name_key])
         if fixed:
             entries.append(PlanEntry(prep_date, "breakfast", fixed["id"], fixed["name"],
                                      fixed.get("servings", 7), role,
                                      fixed.get("slot", ""), note("breakfast")))
-    for key in ("buy_recipe", "prep_recipe"):
+    for key in snack_keys(config):
         fixed = _by_name(pool, config["snacks"][key])
         if fixed:
             # Filed under the Snack meal type (was Breakfast: no Snack type existed).
@@ -354,6 +455,25 @@ def generate_week(pool: list[dict], week_start: datetime.date, config: dict,
                                      fixed.get("slot", ""), note("snack")))
 
     return entries
+
+
+def snack_keys(config):
+    """The snacks config keys planned each week: "Snacks to buy", plus "Snack
+    prep" only when snacks.prep_enabled (owner 2026-11-11: off, one entry)."""
+    sn = config.get("snacks") or {}
+    return ["buy_recipe"] + (["prep_recipe"] if sn.get("prep_enabled", True) else [])
+
+
+def note_role(note):
+    """The planner role from a meal-plan note: "[gp:2026-W47] lunch (Sunday prep,
+    during dinner)" -> "lunch". The first word after the week marker; the rest is
+    a label for people."""
+    rest = (note or "").rsplit("] ", 1)[-1].strip()
+    return rest.split(" ", 1)[0] if rest else ""
+
+
+def _dayname(week_start, d):
+    return (week_start + datetime.timedelta(days=d)).strftime("%A").lower()
 
 
 def _offset(week_start, target_weekday):
@@ -415,7 +535,7 @@ def missing_counts(existing_notes, config):
     logs this so the gap is visible instead of silent."""
     have = {}
     for n in existing_notes:
-        role = (n or "").rsplit("] ", 1)[-1].strip()
+        role = note_role(n)
         have[role] = have.get(role, 0) + 1
     want = {"dinner": int(config["proteins"]["dinners_per_week"]),
             "lunch": int(config["lunches"]["recipes_per_week"])}

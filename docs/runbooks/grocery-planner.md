@@ -84,7 +84,9 @@ New Pi now **delivers on Saturday** and needs 2–3 days' lead, so:
 | **Thursday 07:05** | poll pass applies the decision (single store: the other store's entries for the week are deleted); the page shows the approved lists. Re-polls at 12:05 and 17:05 catch a late decision |
 | **Friday night** | owner places the Target Drive Up order (no lead time) from the same list |
 | **Saturday** | New Pi delivers |
-| **Sunday** | prep day + the fresh-fish dinner (salmon keeps 1–2 days; tuna weeks have no timing constraint) |
+| **Sunday** | prep day + the fresh-fish dinner (salmon keeps 1–2 days; tuna weeks have no timing constraint); the first lunch batch is cooked during dinner |
+| **Thursday (plan week)** | the second lunch batch is cooked during dinner (feeds Fri + Sat) |
+| **Friday + Saturday** | no dinner planned: leftovers / eat out (`proteins.off_nights`) |
 
 The times are config values (`schedule`, `approvals.weekly`); the Komodo crons
 in `komodo/resources.toml` mirror them, off the gitops `:00/:15/:30/:45` slots.
@@ -114,14 +116,23 @@ All in `config.yaml`:
 - **Scoring:** `prior_m`, `prior_weight_C`, the `good` / `acceptable` thresholds,
   and `site_count_weight` per site. Lower `good.min_count` if the reachable sites
   give few 100+-review recipes.
-- **Dinner mix:** `proteins` (fish 1, poultry 2, ground_beef 2, steak 1; a roast
-  week drops ground_beef to 1). `beef` sets the ground-beef variety rule
+- **Dinner mix:** `proteins` (owner 2026-11-11: `dinners_per_week: 5`,
+  `off_nights: [friday, saturday]`, fish 1, poultry 1, ground_beef 1, steak 1
+  + the flex; a roast week drops ground_beef to 0). The mix must add up to the
+  cooked nights or the build stops with `plan_error` ("dinner mix does not fit
+  the week"). `beef` sets the ground-beef variety rule
   (`no_repeat_within_week`, `max_asian_per_week`); feta rides on the weekend eggs.
+- **Lunches:** `lunches` (`recipes_per_week: 2`, `servings_each: 4`, `people: 2`,
+  `prep_days: [sunday, thursday]`, `days` = the lunch days to cover) and
+  `lunches.leftovers` (the `lunch-friendly` keyword, `servings: 4`, and the
+  recipe names the build tags). See
+  [Weekly volume and never_buy](#weekly-volume-and-never_buy-2026-11-11).
+- **Snacks:** `snacks.prep_enabled` (false: only "Snacks to buy" is planned).
 - **Flex dinner:** the `flex` block — `enabled` and `rotation` (default
   `[pork, chicken]`; parity A → rotation[0], B → rotation[1]). The flex dinner
   takes one slot to stretch the Amana beef; a chicken flex is an extra chicken
-  dish not already used that week. Set `flex.enabled: false` to drop it (that
-  slot becomes a 3rd ground beef).
+  dish not already used that week. Set `flex.enabled: false` to drop it (then
+  raise another `proteins` count, or the mix no longer fits the 5 nights).
 - **Pork chops** are fresh/weekly at New Pi; add candidates in
   `recipes/candidates/<season>.yaml` under `<season>-pork-*` slots.
 - **Roast dinner:** the `roast` block — `enabled`, `parity` (`A` = odd ISO week =
@@ -140,6 +151,9 @@ All in `config.yaml`:
 - **Pets:** dog/pet food is a JustFoodForDogs subscription, budgeted in Actual
   and **not ordered here** — the config `exclude` list keeps any such item off
   every store list.
+- **Foods never bought:** `never_buy` (brussels sprouts, cabbage, red cabbage):
+  recipe lines with one of these foods reach no list. See
+  [Weekly volume and never_buy](#weekly-volume-and-never_buy-2026-11-11).
 - **Store routing:** `stores` and `recipes/foods.yaml` (per-food category; a
   `pack_size` is kept on pack items but no run rounds with it since the bulk
   run was dropped). Move a food's
@@ -435,6 +449,80 @@ HOST=10.1.20.20
 ssh kdkadmin@$HOST "sudo -n docker logs grocery-planner 2>&1 | grep -E 'freezer_(reserved|short|fish|unmapped|inventory_missing)'"
 ```
 
+## Weekly volume and never_buy (2026-11-11)
+
+Owner decisions 2026-11-11, all in `config.yaml`:
+
+- **5 dinners** (Sunday to Thursday). Friday and Saturday get no dinner entry
+  (`proteins.off_nights`); the pages show "Nothing planned" there.
+- **2 lunch preps of 4**: Sunday (note `lunch (Sunday prep, during dinner)`,
+  feeds Mon + Tue) and Thursday (`lunch (Thursday prep, during dinner)`, feeds
+  Fri + Sat). On parity A weeks the Thursday batch is the ground-beef stir fry.
+- **Bulk dinners for the other lunches.** A dinner whose Tandoor recipe has the
+  `lunch-friendly` keyword is planned at 4 servings and the next day's Lunch is a
+  leftover entry of it, posted without `addshopping` (the doubled dinner already
+  ordered it). The weekly build tags `lunches.leftovers.recipes` with the keyword
+  (`setup` line `tag:lunch-friendly:<id>`, once); tag more recipes by hand in
+  Tandoor. Only the chicken slots (1 chicken + the chicken flex) are filled from
+  them; a lunch-prep recipe with the keyword (Fall Chicken Sheet Pan, Chicken and
+  Orzo) can be drawn as that dinner.
+- **Lunch arithmetic:** 2 people x 7 days = 14, minus Sunday (prep day, as
+  before) = 12 servings: Sunday batch 4 + Thursday batch 4 + Wednesday leftover 2
+  + Thursday leftover 2. Non-roast week: two bulk dinners (Tue, Wed). Roast week:
+  one bulk dinner (Tue) + the roast's Thursday lunch. A day nothing covers (no
+  lunch-friendly recipe left in the season, or burger night took the chicken)
+  is added to the prep before it (+2 servings) and logged as `lunch_gap`.
+- **One snack entry** ("Snacks to buy"); `snacks.prep_enabled: true` brings
+  "Snack prep" back.
+- **never_buy**: a recipe line whose food name contains a `never_buy` term
+  (case-insensitive; "brussels sprouts" also matches "brussels sprout") is on no
+  store list: the build counts it as `skipped_never_buy` on the `planned` line,
+  the groceries page hides it, `--preview` lists it under "NOT LISTED", and the
+  kitchen page shows it struck through with a **skip** mark. A food added by
+  hand (add box, Tandoor) is still listed. A recipe with a `never_buy` food in
+  its title (Roasted Cabbage Steaks) is left out of the plan. The dashboard reads
+  the list from the mounted planner config: redeploy the dashboard after a
+  change.
+
+**Check the next Tuesday build** (Loki, `{job="grocery-planner"}`, the
+`planned` line): `summary.dinners` 5, `summary.lunches` 2, `summary.snacks` 1,
+`summary.leftovers` 2 (both weeks: two bulk-dinner lunches, or one + the
+roast's), `skipped_never_buy` = the never_buy lines Tandoor added (0 once the
+optional review is applied), and no `lunch_gap` line. On the kitchen page, a
+dinner with a never_buy food shows it struck through on Pull ingredients and in
+the step's "This step uses" box.
+
+### Optional-ingredient review
+
+Recipe imports carry lines that are not part of the dish as cooked: "(optional)",
+"for serving", "garnish", "to taste", and never_buy foods. The review lists them
+for every planner recipe (season books, `recipes/fixed.yaml`, and any recipe on a
+meal plan):
+
+**On kdk-dkr-01 as kdkadmin**
+
+```bash
+cd /opt/kdk-lab/stacks/grocery-weekly/stacks/grocery-planner
+sudo docker compose run --rm grocery grocery.cleanup --optional-review          # dry run
+# apply: the rootfs is read-only, so the backups go to a host dir (uid 1000)
+sudo install -d -o 1000 -g 1000 -m 700 /opt/kdk-lab/grocery-backup
+sudo docker compose run --rm -v /opt/kdk-lab/grocery-backup:/backup \
+  -e GROCERY_BACKUP_DIR=/backup grocery grocery.cleanup --optional-review --apply
+sudo ls /opt/kdk-lab/grocery-backup/          # one optional-review-backup-<time>/ dir
+```
+
+- `remove`: optional / for serving / garnish / if desired, or a never_buy food.
+  `--apply` deletes these ingredient lines in Tandoor, after saving each touched
+  recipe as `<backup dir>/optional-review-backup-<time>/<recipe id>.json`.
+- `review`: ambiguous, never touched (part of the amount is cooked, "plus more
+  for garnish"; an alternative, "or mirin (optional)"; a serving-rice food the
+  rice side reads; a never_buy food that is the dish itself). Edit by hand in
+  Tandoor if wanted.
+- `to-taste`: left in place, marked `pantry: yes/no` (no = not on the
+  `cleanup.yaml` pantry list, so Tandoor would order it).
+
+To undo a removal, re-add the line in Tandoor from the recipe's JSON backup.
+
 ## Preview a week before its run
 
 The Tuesday build plans the NEXT Sun–Sat week. To see what it would plan, and the
@@ -544,12 +632,14 @@ household, no per-plan sharing is needed. The weekly run logs a `sharing_note`.
 ## Amana ground-beef runway
 
 An Amana eighth is ~30 lb ground beef + patties, plus 8 roasts (~3.5 lb each)
-and the steaks. With the current mix, ground-beef **dinners average ~1.5/week**
-(2 most weeks, 1 on the every-other-week roast weeks = (2+1)/2), each ~1 lb for
-two, plus a beef lunch prep in alternate weeks (~0.5 lb/wk). So beef runs
-~1.5 + 0.5 ≈ **2 lb/week** → 30 lb lasts **~15 weeks**, and with the patties
-**~15–18 weeks** — lining up with the **~16 weeks** the 8 roasts last (one every
-other week) and the steaks (~1/week). If the beef runs out first, the owner's
+and the steaks. With the 5-dinner mix (2026-11-11), ground-beef **dinners
+average ~0.5/week** (1 on non-roast weeks, 0 on the every-other-week roast
+weeks), each ~1 lb for two, plus a beef lunch prep in alternate weeks
+(~0.5 lb/wk). So beef runs ≈ **1 lb/week** → 30 lb lasts **~30 weeks**, about
+twice the **~16 weeks** the 8 roasts last (one every other week); the steaks
+still go ~1/week. (The 7-dinner mix ran ~2 lb/week, ~15 weeks.) The freezer
+inventory's most-stocked-first rule and the Pantry tab show the drift; a
+ground-beef flex when stock is high is the open follow-up. If the beef runs out first, the owner's
 options are Amana's add-on 1-lb ground-beef packages or reordering the share
 sooner (a low-stock reorder task is Phase 2).
 
@@ -612,6 +702,10 @@ public rating, and demote dishes the household rates low (Phase 2).
   hand (see "On hand is only for pantry and stock foods" above), ignore shopping
   (a `not_food` name such as "diced" means the line was mis-read: run the clean-up
   `--apply`, it re-reads it), or a Costco/stock store (not a weekly list).
+- **`lunch_gap` warning.** A lunch day had no lunch-friendly dinner the night
+  before (none left in the season, or burger night took the chicken slot); the
+  day was added to the prep batch before it. Tag another chicken dinner
+  `lunch-friendly` in Tandoor (or add it to `lunches.leftovers.recipes`).
 - **Week already planned.** A re-run logs `skip: week already planned` — the week
   key marker (`gp:<ISO week>`) is already on the meal-plan entries. Delete those
   entries in Tandoor to force a regenerate. A config change never reaches a
@@ -653,6 +747,12 @@ public rating, and demote dishes the household rates low (Phase 2).
   still in `docker logs grocery-planner<suffix>`.
 
 ## Rollback
+
+Weekly volume / never_buy (2026-11-11) only: revert the PR (config + code);
+the next Tuesday build plans 7 dinners / 3 preps / 2 snacks again. The
+`lunch-friendly` keyword on the tagged recipes is harmless to leave. Lines the
+optional review removed come back from the JSON backups (re-add by hand in
+Tandoor).
 
 Freezer inventory only: delete the `/opt/kdk-lab/dashboard/pantry` volume line
 from `stacks/grocery-planner/compose.yaml` (the build then logs

@@ -218,6 +218,11 @@ body.is-night .shell{visibility:hidden}
 .ing.got .fname,.ing.got .qty{text-decoration:line-through}
 .ing.got .qty{color:var(--muted)}
 .ing.got .box{background:var(--rust);border-color:var(--rust)}
+/* never_buy (planner config): struck through, not a checklist row */
+.ing.skip,.use.skip{color:var(--muted);cursor:default}
+.ing.skip .qty,.use.skip .qty{color:var(--muted)}
+.ing.skip .box{visibility:hidden}
+.pill.skip{color:var(--rust);border-color:var(--rust);text-decoration:none}
 
 /* steps view */
 .steps-shell{gap:clamp(10px,1.7vh,14px)!important}

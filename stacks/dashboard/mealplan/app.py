@@ -385,15 +385,17 @@ def fetch_plan(mon: datetime.date, sun: datetime.date) -> list[dict]:
     return out
 
 
-# Lunch prep is cooked on the plan week's prep day (Sunday) and eaten Mon-Sat,
-# but Tandoor holds it as one Sunday entry, so it vanished from the rolling week
-# on Monday. Tandoor 2.7.2 filters /api/meal-plan/ on to_date only (to_date >=
-# from_date param AND to_date <= to_date param), so a Sun->Sat range would drop
-# out of any window that holds the Sunday but not the Saturday; the sidecar
-# instead repeats the planner's prep lunches (note "[gp:<wk>] lunch" or
-# "... side" on Lunch, never the roast "leftover") on each later day of that
-# plan week, labelled "Lunch prep". The prep day is the plan week's first day
-# (planner config: cadence Sunday, lunches.prep_day sunday).
+# Lunch prep is cooked on a prep day and eaten on the days after it, but
+# Tandoor holds it as one entry on the prep day, so it vanished from the rolling
+# week the next day. Tandoor 2.7.2 filters /api/meal-plan/ on to_date only
+# (to_date >= from_date param AND to_date <= to_date param), so a multi-day
+# entry would drop out of any window that holds its start but not its end; the
+# sidecar instead repeats the planner's prep lunches (note "[gp:<wk>] lunch ..."
+# or "... side" on Lunch, never a "leftover") as "Lunch prep" on the days that
+# batch feeds. Owner 2026-11-11: two batches (Sunday + Thursday), each feeding
+# servings / lunches.people days (4 / 2 = 2: Sunday -> Mon + Tue, Thursday ->
+# Fri + Sat), skipping days that have a planner leftover lunch of their own
+# (Wed + Thu are dinner / roast leftovers). Never past the plan week.
 LUNCH_PREP_LABEL = "Lunch prep"
 
 
@@ -401,42 +403,80 @@ def _plan_week_start(d: datetime.date) -> datetime.date:
     return stock.plan_week_start(d)
 
 
-def _is_prep_lunch(e: dict) -> bool:
+def _gp_role(e: dict) -> str:
+    """The planner role: the first word after "[gp:<wk>] " (the rest of a note
+    such as "lunch (Sunday prep, during dinner)" is a label for people)."""
     note = e.get("note") or ""
-    return (e.get("meal_type") == "Lunch" and "[gp:" in note
-            and note.rsplit("] ", 1)[-1].strip() in ("lunch", "side"))
+    if "[gp:" not in note:
+        return ""
+    rest = note.rsplit("] ", 1)[-1].strip()
+    return rest.split(" ", 1)[0] if rest else ""
+
+
+def _is_prep_lunch(e: dict) -> bool:
+    return e.get("meal_type") == "Lunch" and _gp_role(e) in ("lunch", "side")
+
+
+def _lunch_people() -> int:
+    try:
+        return max(1, int((stock.planner_cfg().get("lunches") or {}).get("people") or 2))
+    except Exception:
+        return 2
+
+
+def prep_days_fed(prep_day: datetime.date, rows: list[dict], taken: set[str],
+                  people: int = 2) -> list[datetime.date]:
+    """The days a prep day's batches feed: servings of its `lunch` rows /
+    `people`, the days right after the prep day that are not in `taken` (a
+    planner leftover lunch), never past its plan week. Rows without servings
+    keep the old rule (the rest of the week)."""
+    servings = sum(float(e.get("servings") or 0) for e in rows if _gp_role(e) == "lunch")
+    ws = _plan_week_start(prep_day)
+    last = ws + datetime.timedelta(days=6)
+    n = int(servings // people) if servings else 7
+    out, d = [], prep_day + datetime.timedelta(days=1)
+    while d <= last and len(out) < n:
+        if d.isoformat() not in taken:
+            out.append(d)
+        d += datetime.timedelta(days=1)
+    return out
 
 
 def with_lunch_prep(plan: list[dict], start: datetime.date, prep: list[dict] | None = None,
                     days: int = 7) -> list[dict]:
-    """`plan` plus a "Lunch prep" copy of each prep-day lunch on every later day
-    of its plan week inside [start, start+days). `prep` holds extra entries for a
-    prep day before `start` (fetched separately). Pure; the copies keep the
-    recipe link/photo and carry `prep_copy: True`."""
-    src = [e for e in list(plan) + list(prep or []) if e.get("date") and _is_prep_lunch(e)]
+    """`plan` plus a "Lunch prep" copy of each prep-day lunch on each day of
+    [start, start+days) that batch feeds (prep_days_fed). `prep` holds extra
+    entries dated before `start` (fetched separately: the plan week's earlier
+    days). Pure; the copies keep the recipe link/photo and carry `prep_copy`."""
+    rows = list(plan) + list(prep or [])
+    src = [e for e in rows if e.get("date") and _is_prep_lunch(e)]
+    taken = {e["date"] for e in rows if e.get("date") and e.get("meal_type") == "Lunch"
+             and _gp_role(e) == "leftover"}
     seen, by_day = set(), {}
     for e in src:
         key = (e["date"], e.get("recipe_id"), e.get("title"))
         if key not in seen:
             seen.add(key)
             by_day.setdefault(e["date"], []).append(e)
+    people = _lunch_people()
+    window = {(start + datetime.timedelta(days=i)).isoformat() for i in range(days)}
     out = list(plan)
-    for i in range(days):
-        d = start + datetime.timedelta(days=i)
-        ws = _plan_week_start(d)
-        if d == ws:
-            continue                       # the prep day shows the real entries
-        for e in by_day.get(ws.isoformat(), []):
-            out.append(dict(e, date=d.isoformat(), meal_type=LUNCH_PREP_LABEL, prep_copy=True))
+    for pday, es in sorted(by_day.items()):
+        for d in prep_days_fed(datetime.date.fromisoformat(pday), es, taken, people):
+            if d.isoformat() in window:
+                for e in es:
+                    out.append(dict(e, date=d.isoformat(), meal_type=LUNCH_PREP_LABEL,
+                                    prep_copy=True))
     return out
 
 
 def fetch_plan_with_prep(start: datetime.date, end: datetime.date) -> list[dict]:
     """fetch_plan for [start, end] plus the lunch-prep copies; fetches the
-    current plan week's prep day too when it falls before `start`."""
+    current plan week's earlier days too (its prep days and leftover lunches)
+    when they fall before `start`."""
     plan = fetch_plan(start, end)
     ws = _plan_week_start(start)
-    prep = fetch_plan(ws, ws) if ws < start else []
+    prep = fetch_plan(ws, start - datetime.timedelta(days=1)) if ws < start else []
     return with_lunch_prep(plan, start, prep, (end - start).days + 1)
 
 
@@ -1024,6 +1064,19 @@ _AISLE_ORDER = {
 _GROCERY_EXCLUDE = ("dog food", "pet food", "dog treats")
 
 
+def _never_buy_terms() -> list[str]:
+    """The planner config `never_buy` foods (owner 2026-11-11), read from the
+    mounted planner config (stock.planner_cfg); empty if it can't be read."""
+    try:
+        return [str(x).lower() for x in stock.planner_cfg().get("never_buy") or []]
+    except Exception:
+        return []
+
+
+def _never_buy(food: str) -> bool:
+    return kitchen.is_never_buy(food, _never_buy_terms())
+
+
 def _api_send(method: str, path: str, body: dict) -> requests.Response:
     """POST/PATCH to Tandoor with the CSRF header + Referer, re-login once on 401/403."""
     s = _session()
@@ -1119,6 +1172,8 @@ def _route(e, forced_ids=frozenset()) -> tuple[str, str] | None:
     fname = (food.get("name") or "").lower()
     if any(x in fname for x in _GROCERY_EXCLUDE):
         return None               # pets are budgeted in Actual, never ordered here
+    if _from_recipe(e) and _never_buy(fname):
+        return None               # planner config never_buy (a hand add still lists)
     if e.get("id") in forced_ids:
         return "Manual", ""       # the add box's "Manual list instead"
     cat = food.get("supermarket_category")
@@ -1488,12 +1543,13 @@ def _plan_lines(plan: list[dict], detail=None) -> list[dict]:
     """One row per ingredient of each planned meal: {date, meal_type, recipe,
     recipe_id, food, amount, unit}. Amounts are scaled to the meal plan's
     servings like Tandoor's own add-to-shopping. A recipe that fails to load is
-    skipped (logged), not fatal."""
+    skipped (logged), not fatal. A planner leftover lunch adds no lines: its
+    dinner already holds them (shopped and thawed for 4)."""
     detail = detail or _recipe_detail
     out = []
     for e in plan:
         rid = e.get("recipe_id")
-        if not rid or not e.get("date"):
+        if not rid or not e.get("date") or _gp_role(e) == "leftover":
             continue
         try:
             rec = detail(rid)
@@ -2326,7 +2382,8 @@ def _dishes(entries: list[dict]) -> list[dict]:
         if not e.get("recipe_id"):
             continue
         try:
-            out.append(kitchen.make_dish(e, _recipe(e["recipe_id"]), _onhand))
+            out.append(kitchen.make_dish(e, _recipe(e["recipe_id"]), _onhand,
+                                         never_buy=_never_buy_terms()))
         except Exception:
             log.warning("kitchen: recipe %s unavailable", e.get("recipe_id"))
     return out
@@ -2361,7 +2418,7 @@ def _home_data(now: datetime.datetime | None = None) -> dict:
         "wx": kitchen.wx_view(WX_FEED.get(), now, WMO),
         "cal": CAL_FEED.get(),
         "dinner": _dishes(kitchen.dinner_entries(plan, today)),
-        "lunch": kitchen.lunch_prep(plan, stock.plan_week_start(today)),
+        "lunch": kitchen.lunch_prep(plan, stock.plan_week_start(today), today),
         "tomorrow_titles": [e["title"] for e in kitchen.dinner_entries(plan, tomorrow)],
         "thaw": thaw,
         "chores": cols,

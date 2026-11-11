@@ -5,6 +5,10 @@
   python -m grocery.cleanup --apply --refresh-list
                                              # ...then rebuild the shopping-list entries
                                              # of the planned meals from the clean recipes
+  python -m grocery.cleanup --optional-review          # list optional / garnish /
+                                             # to-taste / never_buy lines (dry run)
+  python -m grocery.cleanup --optional-review --apply  # OWNER: delete the clear-cut
+                                             # ones (JSON backup first; grocery/optional.py)
 
 What --apply does, in order:
   1. Automations: UNIT_ALIAS / FOOD_ALIAS / NEVER_UNIT, so new imports arrive
@@ -299,6 +303,32 @@ def planner_recipe_ids(t, fixed_cfg):
     return sorted(ids)
 
 
+def review_recipe_ids(t, fixed_cfg):
+    """The optional review's recipes: the planner's (season books + fixed) plus
+    any recipe on a meal plan (recipe 7 is planned but in no book)."""
+    ids = set(planner_recipe_ids(t, fixed_cfg))
+    ids |= {(m.get("recipe") or {}).get("id") for m in t.get_all("/api/meal-plan/")}
+    ids.discard(None)
+    return sorted(ids)
+
+
+def optional_review(t, cc, cfg, fixed_cfg, apply=False, backup_dir=None):
+    """Dry run: print the optional-ingredient review. --apply: delete the
+    `remove` lines (each recipe backed up as JSON first). Returns the rows."""
+    from . import optional as O
+    recipes = {rid: t.get(f"/api/recipe/{rid}/") for rid in review_recipe_ids(t, fixed_cfg)}
+    rows = O.review(recipes.values(), cfg, pantry=cc.get("pantry") or [])
+    print(f"optional review: {len(recipes)} recipes, {len(rows)} lines")
+    print(O.render(rows))
+    if apply:
+        bdir = backup_dir or O.default_backup_dir()
+        done = O.apply(t, rows, recipes, bdir)
+        log.info("deleted %d ingredient lines; recipe backups in %s", len(done), bdir)
+    else:
+        log.info("dry run: nothing written. Re-run with --apply.")
+    return rows
+
+
 def run(t, cc, cfg, foods_cfg, fixed_cfg, apply=False, refresh_list=False):
     maps = Maps(cc)
     changes = 0
@@ -515,6 +545,10 @@ def main(argv=None):
                     help="rebuild the planned meals' shopping entries from the clean recipes")
     ap.add_argument("--test", action="store_true",
                     help="test each planner recipe's shopping list against the rules (read-only)")
+    ap.add_argument("--optional-review", action="store_true",
+                    help="list optional/garnish/to-taste/never_buy lines; --apply deletes "
+                         "the clear-cut ones (JSON backup per recipe first)")
+    ap.add_argument("--backup-dir", help="where --optional-review --apply saves recipe JSON")
     ap.add_argument("--test-live", action="store_true",
                     help="as --test, but really add each recipe to the shopping list, check, delete")
     a = ap.parse_args(argv)
@@ -525,6 +559,10 @@ def main(argv=None):
                 space_id=cfg["tandoor"].get("space_id"),
                 household=cfg["tandoor"].get("household"),
                 household_id=cfg["tandoor"].get("household_id")).login()
+    if a.optional_review:
+        optional_review(t, load_cleanup(), cfg, fixed_cfg, apply=a.apply,
+                        backup_dir=a.backup_dir)
+        return 0
     if a.test or a.test_live:
         bad = validate_recipes(t, load_cleanup(), cfg, foods_cfg, fixed_cfg, live=a.test_live)
         return 1 if bad else 0
