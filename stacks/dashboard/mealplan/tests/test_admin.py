@@ -469,9 +469,9 @@ def test_each_tile_maps_to_its_own_probe():
                              "up": [("10.1.20.21:3100", "loki", 1.0)]})
     assert admin.tile_dot(_tile("Grafana")[3], st) == "down"
     assert admin.tile_dot(_tile("Loki (Grafana Explore)")[3], st) == "up"
-    # the only tiles without a dot: GitHub (external) and Calibre (being retired)
+    # the only tile without a dot: GitHub (external); Calibre retired in #458
     assert sorted(t[0] for _g, items in admin.TILES for t in items if t[3] is None) == [
-        "Calibre (reMarkable)", "GitHub repo"]
+        "GitHub repo"]
 
 
 def test_new_reading_tiles_link_working_paths():
@@ -513,7 +513,7 @@ HOMEPAGE_HREFS = [
     "https://radarr.kmkdp.com/", "https://sonarr.kmkdp.com/", "https://bazarr.kmkdp.com/",
     "https://prowlarr.kmkdp.com/", "https://sabnzbd.kmkdp.com/", "https://tdarr.kmkdp.com/",
     "https://trailarr.kmkdp.com/", "https://seerr.kmkdp.com/", "https://libreseerr.kmkdp.com/",
-    "https://lazylibrarian.kmkdp.com/", "https://calibre.kmkdp.com/",
+    "https://lazylibrarian.kmkdp.com/",  # calibre.kmkdp.com retired in #458
     "https://wizarr.kmkdp.com/admin", "https://immich.kmkdp.com/", "https://recipes.kmkdp.com/",
     "https://homeassistant.kmkdp.com/", "https://scrypted.kmkdp.com/",
     "https://zigbee.kmkdp.com/", "https://nodered.kmkdp.com/", "https://budget.kmkdp.com/",
