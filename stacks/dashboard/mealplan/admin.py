@@ -572,8 +572,8 @@ def tile_dot(probe: str | None, status: dict[str, bool]) -> str | None:
 
 
 # ---- status strip --------------------------------------------------------------------
-def _tile(label, value, sub, state="ok"):
-    return {"label": label, "value": value, "sub": sub, "state": state}
+def _tile(label, value, sub, state="ok", href=""):
+    return {"label": label, "value": value, "sub": sub, "state": state, "href": href}
 
 
 def _missing(label, feed_state: str, what: str):
@@ -582,8 +582,9 @@ def _missing(label, feed_state: str, what: str):
     return _tile(label, "?", f"{what} unreachable", "bad")
 
 
-def status_tiles(src: dict, now: float, tz) -> list[dict]:
-    """src: {name: (value, state)} where state is 'ok', 'loading' or 'failed'."""
+def status_tiles(src: dict, now: float, tz, komodo_ui: str = "") -> list[dict]:
+    """src: {name: (value, state)} where state is 'ok', 'loading' or 'failed'.
+    komodo_ui: the Komodo web UI; a failed deploy links there."""
     tiles = []
     alerts, st = src["alerts"]
     if alerts is None:
@@ -620,7 +621,8 @@ def status_tiles(src: dict, now: float, tz) -> list[dict]:
     else:
         tiles.append(_tile("Deploys failed", str(kom["failed"]),
                            f"of {kom['deploys']}{'+' if kom.get('more') else ''} in 24 h",
-                           "bad" if kom["failed"] else "ok"))
+                           "bad" if kom["failed"] else "ok",
+                           f"{komodo_ui}/" if kom["failed"] and komodo_ui else ""))
     gh, st = src["github"]
     if gh is None:
         tiles.append(_missing("Draft PRs", st, "GitHub"))
@@ -681,11 +683,16 @@ def _sub_html(sub: str) -> str:
 
 
 def _stats_html(tiles: list[dict]) -> str:
-    return "".join(
-        f"<div class='ad-stat {escape(t['state'])}'><div class='ad-lbl'>{escape(t['label'])}</div>"
-        f"<div class='ad-val'>{escape(t['value'])}</div>"
-        f"<div class='ad-sub' title='{escape(t['sub'])}'>{_sub_html(t['sub'])}</div></div>"
-        for t in tiles)
+    out = []
+    for t in tiles:
+        inner = (f"<div class='ad-lbl'>{escape(t['label'])}</div><div class='ad-val'>{escape(t['value'])}</div>"
+                 f"<div class='ad-sub' title='{escape(t['sub'])}'>{_sub_html(t['sub'])}</div>")
+        if t.get("href"):
+            out.append(f"<a class='ad-stat {escape(t['state'])}' href='{escape(t['href'])}' target='_blank' "
+                       f"rel='noopener'>{inner}</a>")
+        else:
+            out.append(f"<div class='ad-stat {escape(t['state'])}'>{inner}</div>")
+    return "".join(out)
 
 
 def _alerts_html(alerts, state: str, am_ui: str, now: float) -> str:
@@ -702,7 +709,7 @@ def _alerts_html(alerts, state: str, am_ui: str, now: float) -> str:
                         f"<span class='ad-name' title='{escape(a['summary'])}'>{escape(a['name'])}"
                         f"<span class='ad-inst'>{escape(a['instance'])}</span></span>"
                         f"<span class='muted'>{escape(age)}</span>"
-                        f"<a href='{escape(am_filter_link(am_ui, a))}' target='_blank' rel='noopener'>Silence</a></div>")
+                        f"<a class='ad-act' href='{escape(am_filter_link(am_ui, a))}' target='_blank' rel='noopener'>Silence</a></div>")
         more = f"<div class='ad-empty'>{len(alerts) - 12} more in Alertmanager</div>" if len(alerts) > 12 else ""
         body = "".join(rows) + more
     return ("<div class='card ad-card'><div class='ad-h'><h2>Firing alerts</h2>"
@@ -718,9 +725,11 @@ def _signins_html(si, state: str, tz) -> str:
         body = "<div class='ad-empty'>No sign-in attempts in 24 h.</div>"
     else:
         rows = []
+        today = datetime.datetime.now(tz).date()
         for r in si["rows"][:10]:
             t = datetime.datetime.fromtimestamp(r["ts"], tz)
-            rows.append(f"<div class='ad-row ad-login'><span class='muted'>{t:%H:%M}</span>"
+            when = f"{t:%H:%M}" if t.date() == today else f"{t:%a %H:%M}"
+            rows.append(f"<div class='ad-row ad-login'><span class='muted'>{when}</span>"
                         f"<span>{escape(r['user'] or '–')}</span><span class='muted ad-ell'>{escape(r['app'])}</span>"
                         f"<span class='res {'ok' if r['ok'] else 'bad'}'>{escape(r['result'])}</span></div>")
         body = "".join(rows)
@@ -816,7 +825,7 @@ def page(d: dict, asset_ver: str) -> str:
     tz, now = d["tz"], d["now"]
     searching = d.get("syslog") is not None
     return (head(asset_ver, refresh=not searching)
-            + "<body class='admin'><header class='ad-top'><div class='brand'>Mack House</div>"
+            + "<body class='admin'><header class='ad-top'><h1 class='brand'>Mack House</h1>"
             f"<span class='ad-badge'>Admin</span><span class='muted ad-hostname'>{escape(d['admin_host'])}</span>"
             f"<a class='ad-home' href='{escape(d['home_url'])}'>Household home</a>"
             f"<span class='muted'>{escape(d['user'])}</span></header><main class='ad-main'>"

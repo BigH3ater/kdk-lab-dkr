@@ -89,17 +89,18 @@ def test_toggle_renders_off_by_default_on_every_add_box(fake):  # noqa: F811
         assert "checked" not in box and "disabled" not in box
     css = open(os.path.join(os.path.dirname(app.__file__), "static", "home.css")).read()
     assert "min-height:44px;min-width:44px" in css.split(".mtog{", 1)[1].split("}", 1)[0]
-    assert "min-height:44px;min-width:44px" in app.GROCERIES_CSS.split(".addbox .mtog{", 1)[1].split("}", 1)[0]
+    # the groceries page uses that same .mtog from home.css (no own sizing)
+    assert "/static/home.css" in _groceries(c) and app.GROCERIES_CSS.count(".mtog") == 1   # only the phone order
 
 
 def test_groceries_add_box_wraps_on_a_phone():
     # 390 px: input + toggle + Add overflowed the page by 16 px; the box wraps,
     # the input may shrink, and the toggle takes its own row under 480 px
     css = app.GROCERIES_CSS
-    assert "flex-wrap:wrap" in css.split(".addbox{", 1)[1].split("}", 1)[0]
-    assert "min-width:0" in css.split(".addbox input{", 1)[1].split("}", 1)[0]
+    assert "flex-wrap:wrap" in css.split(".gadd{", 1)[1].split("}", 1)[0]
+    assert "min-width:0" in css.split(".gadd input[name=item]{", 1)[1].split("}", 1)[0]
     phone = css.split("@media(max-width:480px){", 1)[1].split("}}", 1)[0]
-    assert ".addbox .mtog{order:3;flex-basis:100%" in phone
+    assert ".gadd .mtog{order:3;flex-basis:100%" in phone
 
 
 def test_forced_manual_keeps_a_known_food_off_the_store_list(fake, _forced_registry):  # noqa: F811

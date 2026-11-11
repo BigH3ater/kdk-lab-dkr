@@ -550,7 +550,7 @@ def test_unnamed_steps_get_an_excerpt_tab_not_step_n(home):
     # step 1 has no name: its opening words, not a second "Step 1" next to the number
     assert tabs[0] == "<span class='tn'>1</span> Start the rice first"
     assert tabs[1] == "<span class='tn'>2</span> Make the sauce"
-    assert "Step 1 of 4</div>" in html and "Step 1 of 4 · Step 1" not in html
+    assert "Step 1 of 4</h2>" in html and "Step 1 of 4 · Step 1" not in html
     assert "Step 2 of 4 · Make the sauce" in html
     assert kitchen.tab_label("Pour in the broth. Simmer 2 minutes.", 4) == "Pour in the broth"
     assert kitchen.tab_label("", 4) == "Step 4"

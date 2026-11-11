@@ -70,10 +70,18 @@ def fmt_num(x: float) -> str:
     return f"{x:.1f}".rstrip("0").rstrip(".") if w < 10 else str(round(x))
 
 
+# count units that take an "s" above one ("2 cloves garlic", not "2 clove")
+_PLURAL_UNITS = {"clove": "cloves", "slice": "slices", "can": "cans", "head": "heads", "bunch": "bunches",
+                 "ear": "ears", "sprig": "sprigs", "pint": "pints", "stalk": "stalks", "package": "packages",
+                 "piece": "pieces", "pinch": "pinches", "jar": "jars", "bottle": "bottles"}
+
+
 def fmt_qty(amount: float, unit: str) -> str:
     n = fmt_num(amount or 0)
     if not n:
         return ""
+    if (amount or 0) > 1 and unit.lower() in _PLURAL_UNITS:
+        unit = _PLURAL_UNITS[unit.lower()]
     return f"{n} {unit}".strip()
 
 
@@ -494,7 +502,8 @@ def chore_groups_html(columns: list[dict], today: datetime.date, nxt: str = "") 
 
 def chores_head(counts: dict | None) -> str:
     if counts is None:
-        return "<span class='muted'>Chores unavailable right now</span>"
+        return ""      # the card body says "Couldn't reach the task list right now."
+
     late = (f" · </span><span class='late-n'>{counts['late']} late</span>" if counts["late"]
             else "</span>")
     return f"<span class='muted'>{counts['due']} due today{late}"
@@ -521,7 +530,8 @@ def cal_line(events: list[dict] | None, day: datetime.date) -> str:
 
 
 # ---- page shell ----------------------------------------------------------------
-def head(title: str, asset_ver: str, kiosk: bool) -> str:
+def head(title: str, asset_ver: str, kiosk: bool, js: bool = True) -> str:
+    """js=False leaves out home.js (the groceries page has its own script)."""
     app_meta = ""
     if kiosk:
         app_meta = (f"<link rel='manifest' href='{base()}/manifest.webmanifest' crossorigin='use-credentials'>"
@@ -537,7 +547,8 @@ def head(title: str, asset_ver: str, kiosk: bool) -> str:
             f"<link rel='icon' type='image/png' sizes='192x192' href='{base()}/static/icon-192.png'>"
             f"{app_meta}"
             f"<link rel='stylesheet' href='{base()}/static/home.css?v={asset_ver}'>"
-            f"<script defer src='{base()}/static/home.js?v={asset_ver}'></script></head>")
+            + (f"<script defer src='{base()}/static/home.js?v={asset_ver}'></script>" if js else "")
+            + "</head>")
 
 
 def _back(href: str) -> str:
@@ -787,7 +798,7 @@ def _step_html(s: dict, n: int, total: int, dish: dict) -> str:
                  + "</aside>")
     name = f" · {escape(s['title'])}" if s.get("named", True) else ""     # not "Step 1 of 6 · Step 1"
     return (f"<section class='step{' has-aside' if aside else ''}' data-step='{n}' {'hidden' if n else ''}>"
-            f"<article class='card step-main'><div class='eyebrow tan'>Step {n + 1} of {total}{name}</div>"
+            f"<article class='card step-main'><h2 class='eyebrow tan'>Step {n + 1} of {total}{name}</h2>"
             f"<div class='step-body'>{body_html(s['body'])}</div>"
             f"<div class='timers'>{tm}</div></article>{aside}</section>")
 
@@ -797,7 +808,8 @@ def steps_page(dish: dict | None, dishes: list[dict], asset_ver: str, back: str)
         msg = "No dinner planned tonight." if not dish else "This recipe has no steps in Tandoor."
         return (head("Steps", asset_ver, kiosk=True)
                 + f"<body data-page='steps' data-home='{escape(back)}' class='kiosk sub'><div class='shell'>"
-                f"<header class='subhdr'>{_back(back)}</header><div class='card empty'>{escape(msg)}</div></div></body></html>")
+                f"<header class='subhdr'>{_back(back)}<h1 class='sr'>Steps</h1></header>"
+                f"<div class='card empty'>{escape(msg)}</div></div></body></html>")
     steps = dish["steps"]
     tabs = "".join(f"<button type='button' class='tab' data-go='{n}' aria-selected='{'true' if n == 0 else 'false'}'>"
                    f"<span class='tn'>{n + 1}</span> {escape(s.get('tab') or s['title'])}</button>"
@@ -815,7 +827,8 @@ def steps_page(dish: dict | None, dishes: list[dict], asset_ver: str, back: str)
     return (head("Steps", asset_ver, kiosk=True)
             + f"<body data-page='steps' data-home='{escape(back)}' class='kiosk sub'><div class='shell steps-shell'>"
             f"<header class='subhdr'>{_back(back)}<div class='subtitle'>"
-            f"<div class='eyebrow rust'>{title_html(dish['title'])}{escape(serv)}</div>"
+            f"<h1 class='sr'>Steps: {title_html(dish['title'])}</h1>"
+            f"<div class='eyebrow rust' aria-hidden='true'>{title_html(dish['title'])}{escape(serv)}</div>"
             f"<div class='dishsws'>{others}</div></div>"
             f"<div id='timerbar' class='timerbar' aria-live='polite'></div>"
             f"<a class='btn ghost' href='{escape(ing_href)}'>All ingredients</a></header>"
@@ -1032,8 +1045,9 @@ def household_fragment(d: dict, all_chores: bool = False) -> str:
 def household_page(d: dict, asset_ver: str, all_chores: bool = False) -> str:
     now = d["now"]
     wx = d.get("wx")
-    wxs = (f"{wx_icon(wx['code'], wx['night'], 28, wx['desc'])}<span><b>{wx['temp']}°</b> {escape(wx['desc'])}"
-           f"<span class='muted'> · H {wx['hi']}° L {wx['lo']}°</span></span>") if wx else ""
+    wxs = (f"{wx_icon(wx['code'], wx['night'], 28, wx['desc'])}<span><b>{wx['temp']}°</b>"
+           f"<span class='wx-desc'> {escape(wx['desc'])}</span>"
+           f"<span class='muted wx-hl'> · H {wx['hi']}° L {wx['lo']}°</span></span>") if wx else ""
     wx_link = (f"<a class='hh-wx' href='{kpath('/weather')}?from=home' aria-label='7-day forecast'>{wxs}</a>"
                if wx else "")
     # admin.kmkdp.com link: only for ADMIN_USERS (app.py sets admin_url; never on the kitchen host)
@@ -1041,7 +1055,7 @@ def household_page(d: dict, asset_ver: str, all_chores: bool = False) -> str:
              if d.get("admin_url") and not on_kitchen_host() else "")
     return (head("Mack House", asset_ver, kiosk=False)
             + "<body data-page='home' class='household'>"
-            f"<header class='hh-top'><div class='brand'>Mack House</div>{admin}"
+            f"<header class='hh-top'><h1 class='brand'>Mack House</h1>{admin}"
             f"<div class='hh-when'><span>{now:%a, %b %-d}</span>{wx_link}</div></header>"
             f"<div class='hh-add'>{add_box('home', compact=True, flash=d.get('flash'), manual_ok=d.get('manual_ok', True))}</div>"
             f"<main class='hh-main' id='board' data-fragment='{base()}/home?fragment=1{'&amp;chores=all' if all_chores else ''}'>"

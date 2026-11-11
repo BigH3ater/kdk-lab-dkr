@@ -4,7 +4,7 @@
    collapsed/mobile behaviour. Styling lives in shared-nav.css.
 
    - Each guide page loads shared-nav.css + shared-nav.js directly.
-   - The Flask /meal pages (week grid, groceries, tasks, weather) inject both in
+   - The Flask /meal pages (week grid, tasks, weather) inject both in
      their <head>. The household page (/meal/home) and the kitchen board draw
      their own header and app grid and do not load the sidebar.
 
