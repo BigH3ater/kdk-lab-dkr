@@ -313,6 +313,18 @@
         "ghcr.io/mrlhansen/idrac_exporter"
       ],
       "allowedVersions": "<3"
+    },
+    {
+      "description": "Docker Compose version for CI (setup-compose-action `version:` in compose-baseline.yml, depName docker/compose, depType uses-with): own PR, never in the internal patch group. docker/setup-compose-action installs from a release list that trails the GitHub release; on 2026-11-11 the v5.7.1 bump rode #474 and turned compose-config red, blocking every image bump in the group. The 7-day release age gives the list time to catch up; keep the version on the same major the hosts run.",
+      "matchManagers": [
+        "github-actions"
+      ],
+      "matchDepNames": [
+        "docker/compose"
+      ],
+      "groupName": "docker compose (CI)",
+      "groupSlug": "docker-compose-ci",
+      "minimumReleaseAge": "7 days"
     }
   ]
 }
