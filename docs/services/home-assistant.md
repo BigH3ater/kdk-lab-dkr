@@ -277,9 +277,15 @@ reports a failed mop:
   | Thursday, Friday | catch-up only if no mop since this week's Monday 00:00 (Wednesday was missed) and none in 48 h |
   | Saturday to Tuesday | never (11-03: a Tuesday catch-up emptied the tank the day before the Wednesday mop) |
 
-  The start-of-run water/dock gate (`f_pre` → `rr_mop_skip`) still applies on
-  every mop day. The 07:45 "needs clean water" nag fires when `rr_next_mop` is
-  today, so it follows a catch-up day too.
+  A mop-due day (Wednesday or a catch-up) is **mop only** since 2026-11-12: the
+  run skips stages 1–4 and goes straight to the mop pass (stage 5), starting
+  at 08:30 on a full battery instead of after a ~2 h recharge. The start-of-run
+  water/dock gate (`f_pre` → `rr_mop_skip`) still applies: if it finds a
+  problem, the day falls back to the normal vacuum run (stages 1–4) and the mop
+  gate sends `rr_mop_failed`. The Daily clean button enters the same way
+  (`f_34` → `f_35` → `f_pre`), so on a mop-due day it also mops only; once
+  `rr_last_mop_run` is within 48 h it vacuums. The 07:45 "needs clean water"
+  nag fires when `rr_next_mop` is today, so it follows a catch-up day too.
 - **Mop-pass end and failures.** HA exposes no routine-step entity, so `f_mopchk`
   calls the 7-job "Mopping" routine done only after cleaning has been off for
   **20 min** with the robot home (docked/charging) and not washing; gaps between
@@ -302,7 +308,21 @@ reports a failed mop:
   | 2 | Master bedroom — zone B | `app_zoned_clean` | 40 min | master bedroom |
   | 3 | Main floor sweep (11 rooms) | `app_segment_clean` [1,4,5,3,13,12,11,6,7,8,10] | 150 min (+ recharge watcher) | the 11 rooms |
   | 4 | Rachel's office (last) | battery gate (≥30 %, 90 min), mode re-set to vacuum (set, 5 s settle, check, one retry), then `app_segment_clean` [9] | 40 min | Rachel's office |
-  | 5 | Mop pass (all floors), mop days only | `button.mr_slave_mopping` routine | 120 min | `rr_last_mop_run` |
+  | 5 | Mop pass (all floors), mop days only | battery ≥ 80 % (180 min), then `button.mr_slave_mopping` routine | 120 min to the first `charging`, then `f_mopchk` | `rr_last_mop_run` |
+
+  Branch at `f_pre` (2026-11-12):
+
+  | Day | `f_pre` output | Stages run |
+  |---|---|---|
+  | Not mop-due | out 0 (`lo_runA`) | 1 → 2 → 3 → 4 → mop gate `f_58` says no mop → done |
+  | Mop-due, dock/water OK | out 2 (`f_ev_start` + `f_58`) | 5 only; phase "Mop day — mop pass only, starting", then "Mop pass (all floors)"; no room stamps |
+  | Mop-due, dock/water problem | out 0 + preflight notice | 1 → 4, then `f_58` → `rr_mop_failed`, no `rr_last_mop_run` stamp |
+
+  The 120-min mop dock wait (`w_62`) only covers the time to the robot's first
+  `charging` after the routine starts. After that `f_mopchk` polls every 3 min
+  (each wait for cleaning-off capped at 300 min, give up after 40 dock cycles or
+  120 checks), so a long pass (11-12: 10:35 to past 16:30) is bounded by
+  `f_mopchk`, not by `w_62`.
 
   Between stages the dock empties the bin (8 s settle, best-effort
   `app_start_collect_dust`, 50 s) and the run checks `rr_cancel`. The robot
@@ -370,8 +390,9 @@ scripts/nodered-flow-sync.sh diff      # "repo matches live"
 Then watch the next scheduled run's `input_text.rr_run_phase` (dashboard
 Current status, or the HA logbook for that entity): zone A, zone B, emptying
 before main sweep, main floor sweep (11 rooms), emptying before Rachel's
-office, Rachel's office (last), then main sweep complete and mop pass or
-complete.
+office, Rachel's office (last), then main sweep complete and complete. On a
+mop-due day: "Mop day — mop pass only, starting", "Mop pass (all floors)",
+then complete, with no `rr_last_clean_*` stamps that day.
 
 ## Verify
 
