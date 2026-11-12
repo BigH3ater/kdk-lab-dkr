@@ -25,6 +25,10 @@
  *
  * 2026-11-07 (feat/roborock-dock-watcher, after zone A could not dock):
  *   - stage dock watcher f_dw: retry once, alert, hold 30 min, continue or cancel
+ *
+ * 2026-11-12 (feat/roborock-mop-day-mop-only, owner: "Wednesday just mops"):
+ *   - f_pre out 2: a mop-due day with a clean dock skips stages 1-4, mop pass only
+ *   - dock/water problem on a mop day -> normal vacuum run; non-mop days unchanged
  */
 const fs = require("fs");
 const path = require("path");
@@ -761,6 +765,84 @@ console.log("Stage dock watcher -- behaviour");
   const fo = mkFlow({ rr_pending: "" });
   r = run("f_dockevt", ev, fo);
   ok(r && r[0] && fo.get("rr_dock").busy === true, "f_dockevt: outside a run -> its 3-retry loop as before");
+}
+
+// ===========================================================================
+// 2026-11-12 (owner: "Wednesday just mops"): a mop-due day skips stages 1-4
+console.log("F -- mop day: mop pass only, no vacuum stages");
+{
+  // every node reachable from a list of node ids (wires + link out -> link in)
+  const reach = (start) => {
+    const seen = new Set(), todo = [...start];
+    while (todo.length) {
+      const id = todo.pop();
+      if (seen.has(id) || !byId[id]) continue;
+      seen.add(id);
+      for (const out of byId[id].wires || []) todo.push(...out);
+      if (byId[id].type === "link out") todo.push(...(byId[id].links || []));
+    }
+    return seen;
+  };
+  const STAGE_JOBS = ["s_37", "s_43", "s_49", OFFICE.clean];   // zone A, zone B, 11-room sweep, office
+
+  // wiring: f_pre out 2 -> tracker start + mop gate; scheduled and button runs share f_34 -> f_35 -> f_pre
+  eq(byId["f_pre"].outputs, 3, "f_pre has 3 outputs");
+  eq(byId["f_pre"].wires, [["lo_runA", "f_ev_start"], ["lo_n_pre"], ["f_ev_start", "f_58"]],
+     "f_pre out0 -> vacuum run, out1 -> notify, out2 -> evt start + f_58 mop gate");
+  ok(byId["i_31"].wires[0].includes("f_34") && byId["t_33"].wires[0].includes("f_34"),
+     "8:30 inject and Daily clean button both enter via f_34");
+  eq(byId["f_34"].wires, [["f_35"]], "f_34 -> f_35");
+  eq(byId["f_35"].wires, [["f_pre"]], "f_35 -> f_pre");
+  const mopPath = reach(byId["f_pre"].wires[2]);
+  ok(STAGE_JOBS.every((id) => !mopPath.has(id)), "mop-only path reaches no zone A/B, sweep or office job");
+  ok(mopPath.has("s_61") && mopPath.has("w_mopbat"), "mop-only path reaches the battery wait and the Mopping routine");
+  const vacPath = reach(byId["f_pre"].wires[0]);
+  ok(STAGE_JOBS.every((id) => vacPath.has(id)) && vacPath.has("f_58"), "vacuum path still runs stages 1-4 then the mop gate");
+
+  // Wednesday, clean dock -> out 2 only, then f_58 starts the mop pass
+  let fp = mkFlow({});
+  let r = withDate(WED2, () => run("f_pre", {}, fp, gMop(PREV_WED_MOP)));
+  ok(!r[0] && !r[1] && r[2] && r[2].rr_mop_only === true, "Wed + clean dock -> mop-only output, no vacuum stage");
+  ok(fp.get("rr_mop_skip") === false && fp.get("rr_mop_pending") === true, "Wed + clean dock -> mop pending, not skipped");
+  ok(isMop(withDate(WED2, () => run("f_58", r[2], fp, gMop(PREV_WED_MOP)))), "f_58 on the mop-only msg -> battery wait -> mop pass");
+
+  // Thursday catch-up is a mop day too
+  r = withDate(THU2, () => run("f_pre", {}, mkFlow({}), gMop(PREV_WED_MOP)));
+  ok(!r[0] && r[2] && r[2].rr_mop_only, "Thu catch-up + clean dock -> mop only");
+
+  // Wednesday after the mop already ran (Daily clean pressed again) -> normal vacuum run
+  r = withDate(at(4, 18), () => run("f_pre", {}, mkFlow({}), gMop(at(4, 16))));
+  ok(r[0] && !r[2], "Wed, mop done today -> vacuum run");
+
+  // Wednesday, water gate fails -> normal vacuum run; mop gate then reports the failure
+  fp = mkFlow({});
+  r = withDate(WED2, () => run("f_pre", {}, fp, gMop(PREV_WED_MOP, state({ "binary_sensor.mr_slave_water_shortage_2": "on" }))));
+  ok(r[0] && !r[2] && r[0].rr_mop_only === undefined, "Wed + empty tank -> vacuum run (out 0), not mop-only");
+  ok(r[1] && /mop pass will be skipped/.test(r[1].notify.message), "Wed + empty tank -> preflight notice");
+  r = withDate(WED2, () => run("f_58", {}, fp, gMop(PREV_WED_MOP)));
+  ok(!r[0] && !r[1] && r[2] && /dock had a problem/.test(r[2].rr_mop_reason), "after the vacuum run f_58 -> f_mopfail (rr_mop_failed)");
+  fp = mkFlow({});
+  r = withDate(WED2, () => run("f_pre", {}, fp, gMop(PREV_WED_MOP, state({ "sensor.mr_slave_dock_dock_error": "water_empty" }))));
+  ok(r[0] && !r[2], "Wed + dock error -> vacuum run");
+
+  // non-mop day unchanged
+  fp = mkFlow({});
+  r = withDate(TUE, () => run("f_pre", {}, fp, gMop(PREV_WED_MOP)));
+  ok(r[0] && !r[1] && !r[2] && r[0].rr_mop_only === undefined, "Tue -> vacuum run only, as before");
+  ok(isVacOnly(withDate(TUE, () => run("f_58", r[0], fp, gMop(PREV_WED_MOP)))), "Tue -> f_58 vacuum only");
+
+  // tracker: mop-only start phase; a whole mop-only run stamps no room
+  const ft = mkFlow({});
+  let t = run("f_track", { rr_evt: "start", rr_mop_only: true }, ft);
+  ok(/^Mop day/.test(ft.get("rr_run").phase) && t[1].length === 0, "f_track mop-only start -> 'Mop day' phase, no stamp");
+  ok(!/zone A/.test(ft.get("rr_run").phase), "mop-only start phase does not name zone A");
+  t = run("f_track", { rr_evt: "mop" }, ft);
+  eq(ft.get("rr_run").phase, "Mop pass (all floors)", "mop event -> Mop pass phase");
+  t = run("f_track", { rr_evt: "done" }, ft);
+  ok(t[1].length === 0 && ft.get("rr_run").phase === "Complete", "mop-only done -> Complete, no room stamps");
+  const fv = mkFlow({});
+  run("f_track", { rr_evt: "start" }, fv);
+  eq(fv.get("rr_run").phase, "Master bedroom — zone A", "normal start phase unchanged");
 }
 
 // ===========================================================================
