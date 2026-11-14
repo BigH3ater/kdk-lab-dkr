@@ -227,7 +227,8 @@ def test_overlapping_bands_warn_at_startup_by_name_only():
     ])
     w = events(startup_lines(env(SCALE_BRIDGE_PEOPLE=overlap)), "config_bands_overlap")
     assert len(w) == 1 and w[0]["level"] == "warning" and w[0]["pairs"] == [["alice", "bob"]]
-    assert not any(n in json.dumps(w) for n in ("60", "74", "75", "95"))
+    no_ts = [{k: v for k, v in x.items() if k != "ts"} for x in w]   # the timestamp can contain "75"
+    assert not any(n in json.dumps(no_ts) for n in ("60", "74", "75", "95"))
     assert events(startup_lines(env()), "config_bands_overlap") == []
 
 

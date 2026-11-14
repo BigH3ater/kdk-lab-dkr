@@ -26,11 +26,32 @@ def test_settled_weight_frame():
     assert (f.stable, f.weight_cg, f.state) == (True, 7000, 0x05)
 
 
-def test_zero_weight_stable_trap_frame_decodes_as_stable_zero():
-    # As the load comes off: stable bit set, weight 0, bytes 1-2 differ from normal frames.
-    f = p.parse_frame(bytes.fromhex("cf6cc00000000000000063"))
-    assert isinstance(f, p.WeightFrame)
-    assert f.stable and f.weight_cg == 0 and f.state == 0x00
+def test_end_marker_carries_the_heart_rate_in_byte_1():
+    # As the load comes off: stable bit (+ another flag), weight 0, state 00. Synthetic BPM 0x4b.
+    f = p.parse_frame(bytes.fromhex("cf4bc00000000000000044"))
+    assert isinstance(f, p.EndMarkerFrame) and not isinstance(f, p.WeightFrame)
+    assert f.heart_rate_bpm == 75 and f.heart_rate_raw == 0x4B and f.flags == 0xC0
+
+
+def test_end_marker_with_heart_rate_0_means_none():
+    f = p.parse_frame(with_xor(bytes.fromhex("cf00c000000000000000")))
+    assert isinstance(f, p.EndMarkerFrame) and f.heart_rate_bpm is None and f.heart_rate_raw == 0
+
+
+def test_end_marker_needs_only_the_stable_bit_not_the_extra_flag():
+    f = p.parse_frame(with_xor(bytes.fromhex("cf4b8000000000000000")))
+    assert isinstance(f, p.EndMarkerFrame) and f.heart_rate_bpm == 75 and f.flags == 0x80
+
+
+@pytest.mark.parametrize("body,why", [
+    ("cf4b4000000000000000", "no stable bit"),
+    ("cf4bc000000000000005", "state 05, not 00"),
+    ("cf4bc000000000000008", "state 08"),
+    ("cf4bc0581b0000000000", "non-zero weight"),
+])
+def test_other_cf_frames_stay_weight_frames(body, why):
+    f = p.parse_frame(with_xor(bytes.fromhex(body)))
+    assert isinstance(f, p.WeightFrame), why
 
 
 def test_impedance_frames():

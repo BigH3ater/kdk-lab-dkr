@@ -45,6 +45,9 @@ class Settings:
     tokens: dict[str, str] = field(default_factory=dict, repr=False)   # token_env -> token
     proxies: tuple[Proxy, ...] = ()
     heartbeat_path: str = "/tmp/scale-bridge.alive"
+    write_heart_rate: bool = False              # heart rate meaning confirmed on one capture only
+    capture_dir: str = ""                       # raw capture JSONL per session; "" = off (compose: /captures)
+    capture_keep_days: int = 60                 # 0 = keep forever
     log_level: str = "INFO"
 
     def token_for(self, person: Person) -> str:
@@ -84,6 +87,7 @@ def from_env(env: dict[str, str] | None = None) -> Settings:
         session=float(e.get("SCALE_SESSION_TIMEOUT_S", "90")),
         impedance_wait=float(e.get("SCALE_IMPEDANCE_WAIT_S", "5")),
         df_grace=float(e.get("SCALE_DF_GRACE_S", "1")),
+        end_marker_wait=float(e.get("SCALE_END_MARKER_WAIT_S", "20")),
     )
     return Settings(
         dry_run=_bool(e.get("SCALE_BRIDGE_DRY_RUN"), True),
@@ -104,4 +108,7 @@ def from_env(env: dict[str, str] | None = None) -> Settings:
         tokens={x.token_env: e.get(x.token_env, "") for x in people},
         proxies=parse_proxies(e.get("SCALE_BRIDGE_ESPHOME_PROXIES", ""), e),
         log_level=e.get("SCALE_BRIDGE_LOG_LEVEL", "INFO"),
+        write_heart_rate=_bool(e.get("SCALE_BRIDGE_WRITE_HEART_RATE"), False),
+        capture_dir=(e.get("SCALE_BRIDGE_CAPTURE_DIR") or "").strip(),
+        capture_keep_days=int(e.get("SCALE_BRIDGE_CAPTURE_KEEP_DAYS", "60")),
     )

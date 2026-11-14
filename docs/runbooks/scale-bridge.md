@@ -1,5 +1,5 @@
 ---
-title: scale-bridge — host files, deploy, first weigh-in, go live, rollback
+title: scale-bridge — host files, deploy, first weigh-in, go live, raw captures, rollback
 updated: 2026-11-14
 ---
 
@@ -7,16 +7,30 @@ updated: 2026-11-14
 
 Owner steps for [scale-bridge](../services/scale-bridge.md) (Body Pod 2 → wger) on
 kdk-dkr-02. Steps 1–3 come **before** the PR is merged: the deploy fails while either
-env file is missing. Nothing here prints a key: values travel from 1Password over SSH
+env file is missing. The captures directory in step 1 (new in 0.1.3) also comes before the
+merge: without it the deploy still succeeds, but nothing is captured (see step 1). Nothing here prints a key: values travel from 1Password over SSH
 stdin and are checked by byte length.
 
-## 1. Host directory
+## 1. Host directories
 
 **Laptop (SSH agent)**
 
 ```bash
 ssh kdkadmin@10.1.30.21 'sudo install -d -o root -g root -m 0750 /opt/kdk-lab/scale-bridge'
+# raw capture files (health data): writable by the container uid 65534 only, readable by root
+ssh kdkadmin@10.1.30.21 'sudo install -d -o 65534 -g root -m 0750 /opt/kdk-lab/scale-bridge/captures && sudo stat -c "%u:%g %a %n" /opt/kdk-lab/scale-bridge/captures'
+#   65534:0 750 /opt/kdk-lab/scale-bridge/captures
 ```
+
+`install -d` on an existing directory only resets its owner and mode, so rerunning it is
+safe (also the fix for a directory Docker created). The parent stays `root:root 0750`: the
+container gets `captures/` itself as a bind mount, so it never needs the parent.
+
+If the captures directory is missing at deploy time, Docker creates it as an empty
+`root:root 0755` directory (short-syntax bind mount) and the deploy **succeeds**; uid 65534
+cannot write there, so the bridge logs one `capture_unavailable` error at startup
+(`problem: not_writable`) and runs without capturing. Fix: run the second command above; the
+next weigh-in is captured, no restart needed.
 
 ## 2. `secrets.env` from 1Password
 
@@ -93,7 +107,7 @@ ssh kdkadmin@10.1.30.21 'sudo chown root:root /opt/kdk-lab/scale-bridge/scale-br
 
 Merge the PR. The `gitops-sync` procedure (every 15 min) creates the stack and deploys
 it; to go now: **komodo.kmkdp.com → Procedures → gitops-sync → Run**, or **Stacks →
-scale-bridge → Deploy**. The deploy builds `kdk/scale-bridge:0.1.2` on the Pi (a few
+scale-bridge → Deploy**. The deploy builds `kdk/scale-bridge:0.1.3` on the Pi (a few
 minutes the first time).
 
 **Laptop (SSH agent)**
@@ -102,10 +116,14 @@ minutes the first time).
 ssh kdkadmin@10.1.30.21 'sudo docker ps --filter name=scale-bridge --format "{{.Names}} {{.Status}}"'
 #   scale-bridge Up ... (healthy)          (health starts after ~1 min)
 ssh kdkadmin@10.1.30.21 'sudo docker logs scale-bridge 2>&1 | head -5'
-#   {"event":"config","dry_run":true,"people":["jmack","rach"],...}
+#   {"event":"config","version":"0.1.3","dry_run":true,"write_heart_rate":false,"people":["jmack","rach"],...}
 #   {"event":"token_check","person":"jmack","result":"ok","status":200}   (and rach)
+#   {"event":"capture","enabled":true,"dir":"/captures","keep_days":60}
 #   {"event":"scanning","transport":"local","dry_run":true,...}
 ```
+
+`capture` `enabled: false` with a `capture_unavailable` error = the captures directory in
+step 1 is missing or has the wrong owner.
 
 `token_check` `missing` or `rejected` = step 2. `config_invalid` = step 3 (the error names
 the field).
@@ -127,12 +145,17 @@ Expected, in order:
 
 | Line | Fields to check |
 |---|---|
-| `session` | `result: reading`, `ended_by: complete`, `settled: true`, `settled_state: "05"`, `impedance_frames: 2`, `extended_frames: 4`, `bad_frames: 0` |
+| `session` | `result: reading`, `ended_by: end_marker`, `settled: true`, `settled_state: "05"`, `impedance_frames: 2`, `extended_frames: 4`, `bad_frames: 0`, `end_marker: true`, `heart_rate: true` |
 | `attribution` | `result: matched`, `person: <you>`, `impedance: true` |
-| `would_write` | `weight_lb` = the display (lb, 0.1; `weight_kg` alongside), `impedance_values: 10`, 11 `categories` |
+| `would_write` | `weight_lb` = the display (lb, 0.1; `weight_kg` alongside), `impedance_values: 10`, `heart_rate: true`, 11 `categories` |
+| `capture_written` | `file: <yyyymmddThhmmssZ>-<session>.jsonl`, `frames` = the `session` line's `frames` |
 
 Then the other person. `ended_by: impedance_timeout` with `impedance_frames: 0` = handle
-let go too early (a weight-only reading). The `would_write` line is the only place the
+let go too early (a weight-only reading). `ended_by: end_marker_timeout` = a complete
+reading, but the end marker (heart rate) did not come within 20 s; `end_marker: true` with
+`heart_rate: false` = the scale sent the marker with no heart rate. The session now lasts
+about 5 s longer than before 0.1.3 (it waits for the marker): stay on until the display
+shows the result. The `would_write` line is the only place the
 weight is logged.
 
 ## 6. Switch dry-run off
@@ -168,6 +191,45 @@ error) retries the same way; `write_gave_up` = enter that weight in the app. A r
 same weigh-in (the scale re-sends it on a reconnect, also after a container restart) logs
 `wrote` with `created: 0` and `exists` counting the rows already there.
 
+## 7. Raw capture files
+
+One file per weigh-in session in `/opt/kdk-lab/scale-bridge/captures` (what is in them and
+why: [service page](../services/scale-bridge.md#raw-capture-files)). They are health data:
+copy them only to the laptop (into the vault, never into a git checkout) or to the emulator
+host for a replay, and delete copies when the test is done.
+
+**Laptop (SSH agent)**
+
+```bash
+# list (newest last): names carry the UTC start time and the session id
+ssh kdkadmin@10.1.30.21 'sudo ls -l /opt/kdk-lab/scale-bridge/captures'
+# frame count of one file without printing it (header + frames + footer = lines)
+ssh kdkadmin@10.1.30.21 'sudo wc -l /opt/kdk-lab/scale-bridge/captures/<file>.jsonl'
+# copy one to the laptop (root-owned on the host: sudo cat over SSH, never scp as root)
+D="$HOME/Documents/kodiak-codex/1. Projects/exercise/scale-sniff/captures-bridge"
+(umask 077; mkdir -p "$D" && ssh kdkadmin@10.1.30.21 'sudo cat /opt/kdk-lab/scale-bridge/captures/<file>.jsonl' > "$D/<file>.jsonl")
+# copy all of them
+(umask 077; mkdir -p "$D" && ssh kdkadmin@10.1.30.21 'sudo tar -C /opt/kdk-lab/scale-bridge/captures -cf - .' | tar -C "$D" -xf -)
+```
+
+Replay: the emulator reads the records with `"kind": "frame"` (`t`, `hex`) and ignores the
+header and footer, exactly as for the sniff-script captures.
+
+Delete (they also expire by themselves after `SCALE_BRIDGE_CAPTURE_KEEP_DAYS`, 60 days):
+
+```bash
+ssh kdkadmin@10.1.30.21 'sudo rm /opt/kdk-lab/scale-bridge/captures/<file>.jsonl'       # one
+ssh kdkadmin@10.1.30.21 'sudo find /opt/kdk-lab/scale-bridge/captures -name "*.jsonl" -delete'   # all
+```
+
+Capturing off: set `SCALE_BRIDGE_CAPTURE_DIR: ""` in `stacks/scale-bridge/compose.yaml` (a
+PR), deploy, then delete the files.
+
+**Heart rate to wger:** off (`SCALE_BRIDGE_WRITE_HEART_RATE: "false"`) because the byte has
+been checked against the vendor app on one capture only. After the paired tests agree, a
+one-line PR sets it to `"true"`; the next live weigh-in creates the custom category
+`Heart rate (scale)` (bpm) per person.
+
 ## Troubleshooting
 
 - `fatal` `ConnectionResetError` `[Errno 104]` right after the `config` line: the
@@ -185,8 +247,10 @@ same weigh-in (the scale re-sends it on a reconnect, also after a container rest
 - **Stop it:** Komodo → Stacks → scale-bridge → Destroy. To keep it gone, revert the PR
   (the `[[stack]]` entry) so the next sync does not redeploy it.
 - **Back to dry-run only:** revert the step 6 PR, deploy.
-- **Left behind:** `/opt/kdk-lab/scale-bridge/` (remove with
+- **Back to 0.1.2 (no end-marker wait, no captures):** revert the 0.1.3 PR, deploy. The
+  captures directory and its files stay; delete them as in step 7 if not wanted.
+- **Left behind:** `/opt/kdk-lab/scale-bridge/` including `captures/` (health data; remove with
   `ssh kdkadmin@10.1.30.21 'sudo rm -r /opt/kdk-lab/scale-bridge'`), the image
-  (`sudo docker image rm kdk/scale-bridge:0.1.2`, plus `:0.1.1` / `:0.1.0` if still there), and in wger the written entries and the
-  ten impedance categories (delete per person in the web UI; deleting a category deletes
+  (`sudo docker image rm kdk/scale-bridge:0.1.3`, plus `:0.1.2` / `:0.1.1` / `:0.1.0` if still there), and in wger the written entries and the
+  ten impedance categories (and `Heart rate (scale)` if it was switched on) (delete per person in the web UI; deleting a category deletes
   its entries). The wger keys stay: other tools use them.
