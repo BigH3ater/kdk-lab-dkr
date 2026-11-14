@@ -6,6 +6,7 @@ import pytest
 
 from scale_bridge.attribution import ConfigError, attribute, load_people
 from scale_bridge.config import from_env, parse_proxies
+from scale_bridge.wger import LB_PER_KG
 
 EXAMPLE = pathlib.Path(__file__).parent.parent / "scale-bridge.env.example"
 PEOPLE = json.dumps([
@@ -90,3 +91,63 @@ def test_committed_example_env_parses():
     s = from_env(env)
     assert [x.name for x in s.people] == ["person-a", "person-b"]
     assert s.dry_run is True
+
+
+# --- bands in pounds (min_lb/max_lb), the documented default -----------------
+
+def _one(**band):
+    return json.dumps([{"name": "alice", "token_env": "WGER_API_KEY_ALICE", **band}])
+
+
+def test_lb_band_is_converted_to_kg_once():
+    (p,) = load_people(_one(min_lb=110, max_lb=132))
+    assert p.min_kg == pytest.approx(110 / LB_PER_KG) and p.max_kg == pytest.approx(132 / LB_PER_KG)
+    assert p.min_kg == pytest.approx(49.895, abs=1e-3) and p.max_kg == pytest.approx(59.874, abs=1e-3)
+
+
+def test_kg_band_is_unchanged():
+    (p,) = load_people(_one(min_kg=50, max_kg=60))
+    assert (p.min_kg, p.max_kg) == (50.0, 60.0)
+
+
+@pytest.mark.parametrize("band,msg", [
+    (dict(min_lb=110, max_lb=132, min_kg=50, max_kg=60), "both min_kg/max_kg and min_lb/max_lb"),
+    (dict(min_lb=110, max_kg=60), "not mixed"),
+    (dict(min_kg=50, max_lb=132), "not mixed"),
+    (dict(min_lb=110), "not mixed, not half"),
+    (dict(min_lb=110, max_lb=132, max_kg=60), "not mixed"),
+    (dict(), "missing its band"),
+    (dict(min_lb=132, max_lb=110), "min_lb < max_lb"),
+    (dict(min_lb="x", max_lb=132), "min_lb/max_lb must be numbers"),
+])
+def test_bad_lb_band(band, msg):
+    with pytest.raises(ConfigError, match=msg):
+        load_people(_one(**band))
+
+
+def test_mixed_people_lb_and_kg():
+    people = load_people(json.dumps([
+        {"name": "alice", "min_lb": 110, "max_lb": 132, "token_env": "WGER_API_KEY_ALICE"},  # 49.9-59.9 kg
+        {"name": "bob", "min_kg": 60, "max_kg": 80, "token_env": "WGER_API_KEY_BOB"},
+    ]))
+    assert attribute(people, 55.0).person.name == "alice"
+    assert attribute(people, 70.0).person.name == "bob"
+    assert attribute(people, 59.95).outcome == "no_match"        # between 132 lb and 60 kg
+
+
+def test_lb_band_boundaries_are_inclusive():
+    people = load_people(_one(min_lb=110, max_lb=132))
+    lo, hi = 110 / LB_PER_KG, 132 / LB_PER_KG
+    assert attribute(people, lo).outcome == "matched"
+    assert attribute(people, hi).outcome == "matched"
+    assert attribute(people, lo - 1e-6).outcome == "no_match"
+    assert attribute(people, hi + 1e-6).outcome == "no_match"
+    # A two-decimal kg reading either side of 110.0 lb.
+    assert attribute(people, 49.90).outcome == "matched"          # 110.01 lb
+    assert attribute(people, 49.89).outcome == "no_match"         # 109.99 lb
+
+
+def test_lb_people_from_env():
+    s = from_env({"SCALE_BRIDGE_PEOPLE": _one(min_lb=110, max_lb=132)})
+    assert [x.name for x in s.people] == ["alice"]
+    assert s.people[0].min_kg == pytest.approx(110 / LB_PER_KG)

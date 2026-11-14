@@ -142,9 +142,22 @@ def test_dry_run_posts_nothing_and_logs_weight_only_in_would_write():
     assert out == "dry_run" and api.requests == []
     ww = [x for x in lines if x["event"] == "would_write"]
     assert len(ww) == 1 and ww[0]["person"] == "alice" and ww[0]["weight_kg"] == 70.0
+    assert ww[0]["weight_lb"] == 154.3                 # 70 kg, rounded to 0.1 lb for the display
     assert ww[0]["impedance_values"] == 10 and len(ww[0]["categories"]) == 11
     others = json.dumps([x for x in lines if x["event"] != "would_write"])
-    assert "70.0" not in others and "305" not in others
+    assert "70.0" not in others and "154.3" not in others and "305" not in others
+    assert "weight_lb" not in others and "weight_kg" not in others
+
+
+def test_dry_run_with_a_pound_band_matches_and_logs_lb():
+    people = json.dumps([
+        {"name": "alice", "min_lb": 150, "max_lb": 160, "token_env": "WGER_API_KEY_ALICE"},   # 68.0-72.6 kg
+        {"name": "bob", "min_kg": 80, "max_kg": 95, "token_env": "WGER_API_KEY_BOB"},
+    ])
+    out, api, lines, _ = bridge_run(env(SCALE_BRIDGE_PEOPLE=people))
+    assert out == "dry_run" and api.requests == []
+    ww = [x for x in lines if x["event"] == "would_write"]
+    assert len(ww) == 1 and ww[0]["person"] == "alice" and ww[0]["weight_lb"] == 154.3
     assert TOKEN_A not in json.dumps(lines)
 
 

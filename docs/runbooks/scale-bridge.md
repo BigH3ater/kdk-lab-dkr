@@ -31,10 +31,16 @@ A rotated key goes into 1Password first (that step), then this step again.
   printf 'WGER_API_KEY_JMACK=%s\n' "$(op read op://kdk-cluster/wger-api-jmack/credential)"
   printf 'WGER_API_KEY_RACH=%s\n'  "$(op read op://kdk-cluster/wger-api-rach/credential)"
 } | ssh kdkadmin@10.1.30.21 'sudo install -m 600 -o root -g root /dev/stdin /opt/kdk-lab/scale-bridge/secrets.env'
-# verify: two lines, each key 40 characters; prints names and lengths only
+# verify: prints names and lengths only
 ssh kdkadmin@10.1.30.21 'sudo awk -F= "{print \$1, length(\$2)}" /opt/kdk-lab/scale-bridge/secrets.env; sudo stat -c "%U:%G %a" /opt/kdk-lab/scale-bridge/secrets.env'
-#   WGER_API_KEY_JMACK 40 / WGER_API_KEY_RACH 40 / root:root 600
+#   WGER_API_KEY_JMACK <n> / WGER_API_KEY_RACH <n> / root:root 600
+# compare each <n> with the 1Password copy (op read adds a newline, so subtract 1):
+op read op://kdk-cluster/wger-api-jmack/credential | wc -c     # = <n> + 1
+op read op://kdk-cluster/wger-api-rach/credential  | wc -c     # = <n> + 1
 ```
+
+Two lines, both lengths non-zero and equal to `wc -c` minus the newline. Do not check
+for a fixed length.
 
 `printf` is a shell builtin, so the keys are never in a process argument list. If
 `op read` says the field does not exist, the item stores the key under `password`: use
@@ -61,13 +67,16 @@ code --remote ssh-remote+kdkadmin@10.1.30.21 /opt/kdk-lab/scale-bridge/scale-bri
 In VS Code, write (one line for the JSON, in single quotes):
 
 ```text
-SCALE_BRIDGE_PEOPLE='[{"name":"jmack","min_kg":<lo>,"max_kg":<hi>,"token_env":"WGER_API_KEY_JMACK"},{"name":"rach","min_kg":<lo>,"max_kg":<hi>,"token_env":"WGER_API_KEY_RACH"}]'
+SCALE_BRIDGE_PEOPLE='[{"name":"jmack","min_lb":<lo>,"max_lb":<hi>,"token_env":"WGER_API_KEY_JMACK"},{"name":"rach","min_lb":<lo>,"max_lb":<hi>,"token_env":"WGER_API_KEY_RACH"}]'
 SCALE_ADDRESS=
 SCALE_BRIDGE_ESPHOME_PROXIES=
 ```
 
-- Bands: kg, inclusive, a few kg either side of each person's recent weight, and **not
-  overlapping** (a weight in two bands is written nowhere).
+- Bands: pounds, inclusive, a few lb either side of each person's recent weight, and
+  **not overlapping** (a weight in two bands is written nowhere). Kilograms still work
+  (`min_kg`/`max_kg` instead): one pair per person, both ends in the same unit; both
+  pairs, or a mixed pair, is `config_invalid`. A file written with kg bands before
+  0.1.1 keeps working unchanged.
 - `SCALE_ADDRESS`: optional, the scale's address from the vault capture note. Empty =
   any device named `Body Pod 2`.
 - `SCALE_BRIDGE_ESPHOME_PROXIES`: empty until a proxy exists (`<ip>=ESPHOME_NOISE_SCALE_PROXY`).
@@ -83,7 +92,7 @@ ssh kdkadmin@10.1.30.21 'sudo chown root:root /opt/kdk-lab/scale-bridge/scale-br
 
 Merge the PR. The `gitops-sync` procedure (every 15 min) creates the stack and deploys
 it; to go now: **komodo.kmkdp.com → Procedures → gitops-sync → Run**, or **Stacks →
-scale-bridge → Deploy**. The deploy builds `kdk/scale-bridge:0.1.0` on the Pi (a few
+scale-bridge → Deploy**. The deploy builds `kdk/scale-bridge:0.1.1` on the Pi (a few
 minutes the first time).
 
 **Laptop (SSH agent)**
@@ -119,7 +128,7 @@ Expected, in order:
 |---|---|
 | `session` | `result: reading`, `ended_by: complete`, `settled: true`, `settled_state: "05"`, `impedance_frames: 2`, `extended_frames: 4`, `bad_frames: 0` |
 | `attribution` | `result: matched`, `person: <you>`, `impedance: true` |
-| `would_write` | `weight_kg` = the display, `impedance_values: 10`, 11 `categories` |
+| `would_write` | `weight_lb` = the display (lb, 0.1; `weight_kg` alongside), `impedance_values: 10`, 11 `categories` |
 
 Then the other person. `ended_by: impedance_timeout` with `impedance_frames: 0` = handle
 let go too early (a weight-only reading). The `would_write` line is the only place the
@@ -140,6 +149,18 @@ ssh kdkadmin@10.1.30.21 'sudo docker logs --since 5m scale-bridge 2>&1 | grep -E
 new entry; ten `Impedance … kHz …` categories exist, unit `ohm`. A `write_failed` line
 retries by itself (30 s, doubling, 6 tries); `write_gave_up` = enter that weight in the app.
 
+## Troubleshooting
+
+- `fatal` `ConnectionResetError` `[Errno 104]` right after the `config` line: the
+  container uid has no passwd entry on kdk-dkr-02, and dbus-daemon resets the system-bus
+  connection (0.1.0 ran as 65532 and hit this on the first deploy). 0.1.1 runs as
+  `65534:65534` (`nobody:nogroup`); check with `getent passwd 65534` on the host.
+- Ad-hoc `docker run --env-file /opt/kdk-lab/scale-bridge/scale-bridge.env ...` test
+  containers: `docker run` keeps the single quotes around the `SCALE_BRIDGE_PEOPLE` JSON
+  (compose `env_file` strips them), so the value fails to parse. Use a root-600 copy with the
+  quotes removed, or test through compose. The Komodo deploy is not affected.
+- Other symptoms: [service troubleshooting](../services/scale-bridge.md#troubleshooting).
+
 ## Rollback
 
 - **Stop it:** Komodo → Stacks → scale-bridge → Destroy. To keep it gone, revert the PR
@@ -147,6 +168,6 @@ retries by itself (30 s, doubling, 6 tries); `write_gave_up` = enter that weight
 - **Back to dry-run only:** revert the step 6 PR, deploy.
 - **Left behind:** `/opt/kdk-lab/scale-bridge/` (remove with
   `ssh kdkadmin@10.1.30.21 'sudo rm -r /opt/kdk-lab/scale-bridge'`), the image
-  (`sudo docker image rm kdk/scale-bridge:0.1.0`), and in wger the written entries and the
+  (`sudo docker image rm kdk/scale-bridge:0.1.1`, plus `:0.1.0` if it is still there), and in wger the written entries and the
   ten impedance categories (delete per person in the web UI; deleting a category deletes
   its entries). The wger keys stay: other tools use them.
