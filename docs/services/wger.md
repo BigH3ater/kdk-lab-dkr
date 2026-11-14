@@ -37,7 +37,7 @@ with `gen_wger.py --purge-kdk` (step 9b).
 
 | Person | Routines, as the app lists them |
 |---|---|
-| jmack | Mon · Lower A, Wed · Upper A, Fri · Lower B, Sat · Upper B (nothing on Tue/Thu/Sun). Each: 30-min treadmill walk, then about nine exercises at three sets with planned weights and 60-90 s rest, core last |
+| jmack | Mon · Lower A, Wed · Upper A, Fri · Lower B, Sat · Upper B (nothing on Tue/Thu/Sun). Each: 30-min treadmill walk, then about nine exercises at three sets with planned weights, 60-90 s rest (30-45 s between sides on one-side moves; alternating core moves are plain sets), core last; about 49-57 min after the walk |
 | rach | Mon · Strength A, Tue · Cardio, Wed · Daily parts, Thu · Strength B, Fri · Cardio, Sat · Daily parts, Sun · Daily parts (desk breaks + the day's session + evening mobility) |
 
 Each routine has one day and the weekly schedule **off**: wger then repeats that day on

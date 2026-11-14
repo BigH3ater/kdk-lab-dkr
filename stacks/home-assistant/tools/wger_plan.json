@@ -23,7 +23,7 @@
         "Stand up by pushing the floor away through the whole foot."
       ],
       "safety": "Squat to the bench, not below it; no bouncing. Stop the set if a knee hurts.",
-      "video": "https://www.youtube.com/watch?v=CNCJllFw1_E"
+      "video": "https://www.youtube.com/watch?v=D1IEI-lfLxU"
     },
     "db-rdl": {
       "uuid": "65d12ecf-54b8-466d-a412-e55c396cad69", "name": "Dumbbell Romanian Deadlift",
@@ -177,7 +177,7 @@
         "Straighten the arms to lift it back up."
       ],
       "safety": "Brace the stomach so the back does not arch; control the weight behind the head.",
-      "video": "https://www.youtube.com/watch?v=kZ-ReOdn2qk"
+      "video": "https://www.youtube.com/watch?v=7h3lG2WnLXg"
     },
     "side-plank": {
       "uuid": "6465446b-4297-4379-b832-3fbaca037ffb", "name": "Side Plank",
@@ -199,7 +199,7 @@
         "Put it down with a squat, then carry it on the other side."
       ],
       "safety": "Clear the walking path first; lift and set the weight down with a flat back.",
-      "video": "https://www.youtube.com/watch?v=3RKKnZhhelE"
+      "video": "https://www.youtube.com/watch?v=QX6jSs_1M2Q"
     },
     "reverse-crunch": {
       "uuid": "5d8d3581-bce5-4a28-868f-8b299eaedbdd", "name": "Reverse crunch",
@@ -397,7 +397,7 @@
         "Set the weights down with a squat."
       ],
       "safety": "Clear the walking path first; put the weights down before your grip fails.",
-      "video": "https://www.youtube.com/watch?v=NxUXgNNLIvk"
+      "video": "https://www.youtube.com/watch?v=E2mpouWZVzo"
     },
     "russian-twist": {
       "uuid": "10510fb5-6ebd-4ddc-b03e-423b15deceea", "name": "Russian Twist",
@@ -529,13 +529,13 @@
           {"exercise": "treadmill-walk", "sets": 1, "minutes": 30, "comment": "Easy to brisk walk; progress incline or pace"},
           {"exercise": "goblet-squat", "sets": 3, "reps": [8, 12], "weight": 15, "rest": [60, 90], "comment": "One dumbbell; squat to the bench"},
           {"exercise": "db-rdl", "sets": 3, "reps": [8, 12], "weight": 15, "rest": [60, 90]},
-          {"exercise": "step-up", "sets": 3, "reps": [8, 10], "per_side": true, "rest": [60, 90], "comment": "Bodyweight, low step"},
+          {"exercise": "step-up", "sets": 3, "reps": [8, 10], "per_side": true, "rest": [30, 45], "comment": "Bodyweight, low step"},
           {"exercise": "db-hip-thrust", "sets": 3, "reps": [10, 12], "weight": 25, "rest": [60, 90], "comment": "One dumbbell across the hips"},
           {"exercise": "calf-raise", "sets": 3, "reps": [12, 15], "weight": 20, "rest": [60, 90]},
           {"exercise": "tib-raise", "sets": 2, "reps": 15, "rest": [60, 90]},
           {"exercise": "plank", "sets": 3, "seconds": [30, 45], "rest": [60, 90]},
-          {"exercise": "dead-bug", "sets": 3, "reps": 8, "per_side": true, "rest": [60, 90]},
-          {"exercise": "bird-dog", "sets": 2, "reps": 8, "per_side": true, "rest": [60, 90]}
+          {"exercise": "dead-bug", "sets": 3, "reps": 8, "rest": [60, 90], "comment": "8 each side, alternating"},
+          {"exercise": "bird-dog", "sets": 2, "reps": 8, "rest": [60, 90], "comment": "8 each side, alternating"}
         ]},
         {"day": "wed", "name": "Wed · Upper A", "summary": "Walk, upper body A, core", "slots": [
           {"exercise": "treadmill-walk", "sets": 1, "minutes": 30, "comment": "Easy to brisk walk; progress incline or pace"},
@@ -545,33 +545,33 @@
           {"exercise": "lateral-raise", "sets": 3, "reps": [12, 15], "weight": 5, "rest": [60, 90]},
           {"exercise": "hammer-curl", "sets": 3, "reps": [10, 12], "weight": 10, "rest": [60, 90]},
           {"exercise": "overhead-triceps", "sets": 3, "reps": [10, 12], "weight": 15, "rest": [60, 90], "comment": "One dumbbell, both hands"},
-          {"exercise": "side-plank", "sets": 2, "seconds": [20, 30], "per_side": true, "rest": [60, 90]},
-          {"exercise": "suitcase-carry", "sets": 3, "lengths": 4, "weight": 25, "per_side": true, "rest": [60, 90], "comment": "One dumbbell; 10-ft lengths"},
+          {"exercise": "side-plank", "sets": 2, "seconds": [20, 30], "per_side": true, "rest": [30, 45]},
+          {"exercise": "suitcase-carry", "sets": 3, "lengths": 4, "weight": 25, "per_side": true, "rest": [30, 45], "comment": "One dumbbell; 10-ft lengths"},
           {"exercise": "reverse-crunch", "sets": 3, "reps": [10, 12], "rest": [60, 90]}
         ]},
         {"day": "fri", "name": "Fri · Lower B", "summary": "Walk, lower body B, core", "slots": [
           {"exercise": "treadmill-walk", "sets": 1, "minutes": 30, "comment": "Easy to brisk walk; progress incline or pace"},
-          {"exercise": "split-squat", "sets": 3, "reps": [8, 10], "per_side": true, "rest": [60, 90], "comment": "Bodyweight first; stationary, comfortable depth"},
-          {"exercise": "sl-rdl", "sets": 3, "reps": [8, 10], "weight": 10, "per_side": true, "rest": [60, 90], "comment": "One dumbbell"},
+          {"exercise": "split-squat", "sets": 3, "reps": [8, 10], "per_side": true, "rest": [30, 45], "comment": "Bodyweight first; stationary, comfortable depth"},
+          {"exercise": "sl-rdl", "sets": 3, "reps": [8, 10], "weight": 10, "per_side": true, "rest": [30, 45], "comment": "One dumbbell"},
           {"exercise": "wall-sit", "sets": 3, "seconds": [30, 45], "rest": [60, 90]},
-          {"exercise": "sl-glute-bridge", "sets": 3, "reps": 10, "per_side": true, "rest": [60, 90]},
-          {"exercise": "side-lying-abduction", "sets": 2, "reps": 15, "per_side": true, "rest": [60, 90]},
-          {"exercise": "sl-calf-raise", "sets": 2, "reps": [10, 15], "per_side": true, "rest": [60, 90]},
+          {"exercise": "sl-glute-bridge", "sets": 3, "reps": 10, "per_side": true, "rest": [30, 45]},
+          {"exercise": "side-lying-abduction", "sets": 2, "reps": 15, "per_side": true, "rest": [30, 45]},
+          {"exercise": "sl-calf-raise", "sets": 2, "reps": [10, 15], "per_side": true, "rest": [30, 45]},
           {"exercise": "lying-leg-raise", "sets": 3, "reps": [10, 12], "rest": [60, 90]},
-          {"exercise": "plank-shoulder-tap", "sets": 3, "reps": 10, "per_side": true, "rest": [60, 90]},
+          {"exercise": "plank-shoulder-tap", "sets": 3, "reps": 10, "rest": [60, 90], "comment": "10 each side, alternating"},
           {"exercise": "hollow-hold", "sets": 2, "seconds": [20, 30], "rest": [60, 90]}
         ]},
         {"day": "sat", "name": "Sat · Upper B", "summary": "Walk, upper body B, core", "slots": [
           {"exercise": "treadmill-walk", "sets": 1, "minutes": 30, "comment": "Easy to brisk walk; progress incline or pace"},
           {"exercise": "db-bench-press", "sets": 3, "reps": [8, 12], "weight": 15, "rest": [60, 90]},
-          {"exercise": "one-arm-row", "sets": 3, "reps": [10, 12], "weight": 20, "per_side": true, "rest": [60, 90], "comment": "One arm, hand and knee on the bench"},
+          {"exercise": "one-arm-row", "sets": 3, "reps": [10, 12], "weight": 20, "per_side": true, "rest": [30, 45], "comment": "One arm, hand and knee on the bench"},
           {"exercise": "push-up", "sets": 3, "reps": [8, 12], "rest": [60, 90]},
           {"exercise": "db-pullover", "sets": 3, "reps": [10, 12], "weight": 15, "rest": [60, 90], "comment": "One dumbbell, both hands"},
           {"exercise": "rear-delt-raise", "sets": 3, "reps": [12, 15], "weight": 5, "rest": [60, 90]},
           {"exercise": "biceps-curl", "sets": 3, "reps": [10, 12], "weight": 10, "rest": [60, 90]},
           {"exercise": "triceps-kickback", "sets": 3, "reps": [10, 12], "weight": 5, "rest": [60, 90]},
           {"exercise": "farmer-carry", "sets": 3, "seconds": 30, "weight": 25, "rest": [60, 90]},
-          {"exercise": "russian-twist", "sets": 3, "reps": 10, "per_side": true, "rest": [60, 90]}
+          {"exercise": "russian-twist", "sets": 3, "reps": 10, "rest": [60, 90], "comment": "10 each side, alternating"}
         ]}
       ]
     },

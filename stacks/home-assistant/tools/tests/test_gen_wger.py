@@ -417,10 +417,11 @@ def test_routines_slots_weights_rest(fake):
     mon = fake.tree("jmack", "mon")
     assert mon[0] == ("treadmill-walk", "Minutes", 1.0, 30.0, None, None, None, None)
     assert mon[1] == ("goblet-squat", "Repetitions", 3.0, 8.0, 12.0, 15.0, 60.0, 90.0)
-    assert mon[3] == ("step-up", "Repetitions", 6.0, 8.0, 10.0, None, 60.0, 90.0)
+    assert mon[3] == ("step-up", "Repetitions", 6.0, 8.0, 10.0, None, 30.0, 45.0)      # one side per set, short rest
+    assert ("dead-bug", "Repetitions", 3.0, 8.0, None, None, 60.0, 90.0) in mon         # alternating: plain sets
     wed = fake.tree("jmack", "wed")
-    assert ("suitcase-carry", "10-ft lengths", 6.0, 4.0, None, 25.0, 60.0, 90.0) in wed
-    assert ("side-plank", "Seconds", 4.0, 20.0, 30.0, None, 60.0, 90.0) in wed
+    assert ("suitcase-carry", "10-ft lengths", 6.0, 4.0, None, 25.0, 30.0, 45.0) in wed
+    assert ("side-plank", "Seconds", 4.0, 20.0, 30.0, None, 30.0, 45.0) in wed
     thu = fake.tree("rach", "thu")
     assert ("db-rdl", "Repetitions", 3.0, 8.0, None, None, 90.0, None) in thu
     # the same built-in in both people's routines
