@@ -1,7 +1,9 @@
 """gen_wger.py against an in-memory fake of the wger 2.7 REST API (requests.Session patched).
 
-The guide data here is synthetic (the real workout.json comes from the private vault);
-it uses the real catalog's slugs and the real dose formats."""
+The fake holds one built-in exercise per wger_plan.json entry (uuid + English name as the plan
+says), a few kdk-lab custom exercises and old kdk routines, so the tests cover the built-in
+lookup, the description patch, the routines and --purge-kdk without a live server."""
+import copy
 import datetime as dt
 import json
 import re
@@ -14,21 +16,22 @@ import pytest
 TOOLS = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(TOOLS))
 import gen_wger as gw  # noqa: E402
-import workout_catalog  # noqa: E402
 
 TODAY = dt.date(2026, 11, 6)          # a Friday; Monday's routine must start Monday 2026-11-02
 URL = "https://wger.test"
 KEYS = {"WGER_API_KEY_JMACK": "tok-jmack", "WGER_API_KEY_RACH": "tok-rach"}
+PLAN = gw.load_plan()
 
 PRIVATE = {"routine", "day", "slot", "slot-entry", "sets-config", "repetitions-config",
-           "max-repetitions-config", "rest-config", "max-rest-config", "workoutlog", "workoutsession"}
-EXERCISE_WRITE = {"exercise", "exercise-translation", "exerciseimage"}
-CHILDREN = {"routine": [("day", "routine"), ("workoutsession", "routine")],
+           "max-repetitions-config", "weight-config", "rest-config", "max-rest-config", "workoutlog",
+           "workoutsession"}
+EXERCISE_WRITE = {"exercise", "exercise-translation"}
+CHILDREN = {"routine": [("day", "routine"), ("workoutsession", "routine"), ("workoutlog", "routine")],
             "day": [("slot", "day"), ("workoutsession", "day")], "workoutsession": [("workoutlog", "session")],
             "slot": [("slot-entry", "slot")],
-            "slot-entry": [("sets-config", "slot_entry"), ("repetitions-config", "slot_entry"),
-                           ("max-repetitions-config", "slot_entry"), ("rest-config", "slot_entry"),
-                           ("max-rest-config", "slot_entry"), ("workoutlog", "slot_entry")]}
+            "slot-entry": [(c, "slot_entry") for c in gw.CONFIGS.values()] + [("workoutlog", "slot_entry")],
+            "exercise": [("exercise-translation", "exercise"), ("slot-entry", "exercise"),
+                         ("workoutlog", "exercise")]}
 
 
 class Resp:
@@ -42,43 +45,41 @@ class Resp:
         return self._body
 
 
-# wger 2.7's muscle rows (id, Latin name, English name) as this instance has them
-MUSCLES = [("Biceps brachii", "Biceps"), ("Anterior deltoid", "Shoulders"), ("Serratus anterior", ""),
-           ("Pectoralis major", "Chest"), ("Triceps brachii", "Triceps"), ("Rectus abdominis", "Abs"),
-           ("Gastrocnemius", "Calves"), ("Gluteus maximus", "Glutes"), ("Trapezius", ""),
-           ("Quadriceps femoris", "Quads"), ("Biceps femoris", "Hamstrings"), ("Latissimus dorsi", "Lats"),
-           ("Brachialis", ""), ("Obliquus externus abdominis", ""), ("Soleus", ""), ("Erector spinae", "Lower back")]
-
-
 class FakeWger:
-    def __init__(self, lengths_unit=True):
+    def __init__(self, lengths_unit=True, plan=PLAN):
         self.users = {"tok-jmack": ("jmack", True), "tok-rach": ("rach", False)}
-        self.t = {k: {} for k in PRIVATE | EXERCISE_WRITE | {"language", "exercisecategory", "equipment",
-                                                            "setting-repetitionunit", "setting-weightunit", "muscle"}}
-        self.next_id = 1000
+        self.t = {k: {} for k in PRIVATE | EXERCISE_WRITE | {"language", "equipment", "setting-repetitionunit",
+                                                            "setting-weightunit"}}
+        self.next_id = 5000
         self.writes = []
-        self.writers = []
-        self.images = {}
         for i, (s, n) in enumerate([("de", "Deutsch"), ("en", "English")], 1):
             self.t["language"][i] = {"id": i, "short_name": s, "full_name": n}
-        for i, n in enumerate(["Arms", "Legs", "Abs", "Chest", "Back", "Shoulders", "Calves", "Cardio"], 8):
-            self.t["exercisecategory"][i] = {"id": i, "name": n}
-        for i, n in enumerate(["Barbell", "SZ-Bar", "Dumbbell", "Gym mat", "Swiss Ball", "Pull-up bar",
-                               "none (bodyweight exercise)", "Bench", "Incline bench"], 1):
+        for i, n in [(3, "Dumbbell"), (4, "Gym mat"), (7, "none (bodyweight exercise)"), (8, "Bench"),
+                     (9, "Incline bench"), (13, "Treadmill")]:
             self.t["equipment"][i] = {"id": i, "name": n}
-        for i, (n, en) in enumerate(MUSCLES, 1):
-            self.t["muscle"][i] = {"id": i, "name": n, "name_en": en}
-        units = ["Repetitions", "Until Failure", "Seconds", "Minutes", "Miles", "Kilometers", "Max Reps", "Meters"]
-        if lengths_unit:
-            units.append("10-ft lengths")
+        units = ["Repetitions", "Until Failure", "Seconds", "Minutes", "Miles"] + (["10-ft lengths"] if lengths_unit else [])
         for i, n in enumerate(units, 1):
             self.t["setting-repetitionunit"][i] = {"id": i, "name": n}
-        for i, n in enumerate(["kg", "lb", "Body Weight", "Plates"], 1):
+        for i, n in enumerate(["kg", "lb", "Body Weight"], 1):
             self.t["setting-weightunit"][i] = {"id": i, "name": n}
-        # an upstream (wger.de) exercise whose name collides with the catalog's "Hammer Curl"
-        self.t["exercise"][1] = {"id": 1, "category": 8, "equipment": [3]}
-        self.t["exercise-translation"][1] = {"id": 1, "exercise": 1, "language": 2, "name": "Hammer Curls",
-                                             "description_source": "Upstream text."}
+        self.ex_of = {}
+        for n, (key, ex) in enumerate(plan["exercises"].items(), 1):
+            self.add_exercise(100 + n, ex["uuid"], ex["name"], "upstream author", [7])
+            self.ex_of[key] = 100 + n
+        # an upstream exercise with a German translation only: never in the plan, never touched
+        self.add_exercise(90, "00000000-0000-4000-8000-000000000090", None, "wger.de", [])
+        # the old custom exercises (two translated, one without a translation: invisible to the API)
+        for i in (1, 2):
+            self.add_exercise(i, f"00000000-0000-4000-8000-00000000000{i}", f"Old kdk {i} · kdk plan", "kdk-lab", [3])
+        self.add_exercise(3, "00000000-0000-4000-8000-000000000003", None, "kdk-lab", [], translated=False)
+
+    def add_exercise(self, eid, uuid, name, author, equipment, translated=True):
+        self.t["exercise"][eid] = {"id": eid, "uuid": uuid, "license_author": author, "equipment": list(equipment)}
+        if translated:
+            tid = eid * 10
+            self.t["exercise-translation"][tid] = {
+                "id": tid, "exercise": eid, "language": 2 if name else 1, "name": name or "Ein Name",
+                "description_source": "Upstream text.", "license_author": author}
 
     # -- helpers
     def rows(self, table, user=None):
@@ -93,6 +94,16 @@ class FakeWger:
     def pub(self, row):
         return {k: v for k, v in row.items() if not k.startswith("_")}
 
+    def visible_exercises(self):
+        """wger 2.7: the exercise API lists only exercises with a translation."""
+        have = {t["exercise"] for t in self.t["exercise-translation"].values()}
+        return [e for e in self.t["exercise"].values() if e["id"] in have]
+
+    def info(self, e):
+        return {**self.pub(e), "equipment": [{"id": i, "name": self.t["equipment"][i]["name"]} for i in e["equipment"]],
+                "translations": [self.pub(t) for t in self.t["exercise-translation"].values()
+                                 if t["exercise"] == e["id"]]}
+
     def handle(self, method, url, headers, params=None, json=None, data=None, files=None):
         path = urlparse(url).path
         assert path.startswith("/api/v2/"), path
@@ -103,57 +114,52 @@ class FakeWger:
             return Resp(200, {"result": perm})
         table = parts[0]
         oid = int(parts[1]) if len(parts) > 1 else None
+        params = dict(params or {})
+        limit, offset = int(params.pop("limit", 20)), int(params.pop("offset", 0))
+
+        def page(rows):
+            rows = [r for r in rows if all(str(r.get(k)) == str(v) for k, v in params.items())]
+            rows.sort(key=lambda r: r["id"])
+            return Resp(200, {"count": len(rows), "next": "more" if offset + limit < len(rows) else None,
+                              "results": rows[offset:offset + limit]})
+
         if method == "GET" and table in ("templates", "public-templates"):
             own = table == "templates"
-            rows = [r for r in self.t["routine"].values() if r.get("is_template")
-                    and (r["_user"] == user if own else r.get("is_public"))]
-            return Resp(200, {"count": len(rows), "next": None, "results": [self.pub(r) for r in rows]})
+            return page([self.pub(r) for r in self.t["routine"].values() if r.get("is_template")
+                         and (r["_user"] == user if own else r.get("is_public"))])
+        if method == "GET" and table == "exerciseinfo":
+            rows = [self.info(e) for e in self.visible_exercises()]
+            if oid is not None:
+                row = next((r for r in rows if r["id"] == oid), None)
+                return Resp(404, {"detail": "nf"}) if row is None else Resp(200, row)
+            return page(rows)
         if table in PRIVATE and user is None:
             return Resp(401, {"detail": "not authenticated"})
         if method == "GET":
-            params = dict(params or {})
-            limit, offset = int(params.pop("limit", 20)), int(params.pop("offset", 0))
-            rows = self.rows(table, user)
+            rows = self.visible_exercises() if table == "exercise" else self.rows(table, user)
             if table == "routine":          # wger 2.7: everyone's public templates are listed too
-                rows += [r for r in self.t["routine"].values() if r["_user"] != user and r.get("is_public")]
+                rows = rows + [r for r in self.t["routine"].values() if r["_user"] != user and r.get("is_public")]
             if oid is not None:
                 row = next((r for r in rows if r["id"] == oid), None)
                 return Resp(404, {"detail": "nf"}) if row is None else Resp(200, self.pub(row))
-            rows = [r for r in rows if all(str(r.get(k)) == str(v) for k, v in params.items())]
-            rows.sort(key=lambda r: r["id"])
-            page = rows[offset:offset + limit]
-            more = offset + limit < len(rows)
-            return Resp(200, {"count": len(rows), "next": "more" if more else None,
-                              "results": [self.pub(r) for r in page]})
-        self.writes.append((method, table))
-        self.writers.append(user)
+            return page([self.pub(r) for r in rows])
+        self.writes.append((method, table, user))
         if table in EXERCISE_WRITE and not perm:
             return Resp(403, {"detail": "not trustworthy"})
         if method == "DELETE":
-            if oid not in self.t[table]:
+            row = self.t[table].get(oid)
+            if row is None or (table in PRIVATE and row["_user"] != user) \
+                    or (table == "exercise" and row not in self.visible_exercises()):
                 return Resp(404, {"detail": "nf"})
             self.delete(table, oid)
             return Resp(204, None)
-        body = dict(json if json is not None else data or {})
+        body = dict(json or {})
         if method == "PATCH":
             row = self.t[table].get(oid)
             if row is None or (table in PRIVATE and row["_user"] != user):
                 return Resp(404, {"detail": "nf"})
             row.update(self.norm(table, body))
             return Resp(200, self.pub(row))
-        # POST
-        if table == "exercise-translation":
-            norm = re.sub(r"[\s\-_]+", "", body["name"].lower())
-            for r in self.t[table].values():
-                if re.sub(r"[\s\-_]+", "", r["name"].lower()).rstrip("s") == norm.rstrip("s"):
-                    return Resp(400, {"name": f'The name "{body["name"]}" is too similar to the existing '
-                                              f'exercise "{r["name"]}".'})
-        if table == "exerciseimage":
-            name, content, _ = files["image"]
-            body = {"exercise": int(data["exercise"]), "is_main": data["is_main"] == "true",
-                    "image": f"/media/{name}", "style": data.get("style"),
-                    "is_ai_generated": data.get("is_ai_generated") == "true"}
-            self.images[self.next_id + 1] = content
         self.next_id += 1
         row = {"id": self.next_id, **self.norm(table, body), "_user": user}
         self.t[table][self.next_id] = row
@@ -165,34 +171,28 @@ class FakeWger:
             body = {**body, "value": f"{float(body['value']):.2f}"}    # wger returns decimals as strings
         return body
 
-    def routine(self, user, key="daily"):
-        (r,) = [r for r in self.rows("routine", user) if f"[kdk:{key}]" in r.get("description", "")]
+    def routine(self, user, tag):
+        (r,) = [r for r in self.rows("routine", user) if f"[kdk:{tag}]" in r.get("description", "")
+                and not r.get("is_template")]
         return r
 
-    def routine_tree(self, user, key="mon"):
-        """{weekday name: [[(slug, unit name, sets, reps, max), ...] per slot]} for one of a user's
-        routines (the block with this key); a rest day maps to []."""
-        slug_of = {}
-        for tr in self.t["exercise-translation"].values():
-            m = gw.MARKER_RE.search(tr.get("description_source", ""))
-            if m:
-                slug_of[tr["exercise"]] = m.group("slug")
+    def tree(self, user, tag):
+        """[(plan key, unit, sets, reps, max, weight, rest, max_rest), ...] in slot order."""
+        key_of = {v: k for k, v in self.ex_of.items()}
         unit = {u["id"]: u["name"] for u in self.t["setting-repetitionunit"].values()}
 
         def cfg(table, eid):
             v = [c["value"] for c in self.t[table].values() if c["slot_entry"] == eid]
-            return int(float(v[0])) if v else None
+            return float(v[0]) if v else None
 
-        r = self.routine(user, key)
-        out = {}
-        for d in sorted((d for d in self.rows("day", user) if d["routine"] == r["id"]), key=lambda d: d["order"]):
-            slots = sorted((s for s in self.rows("slot", user) if s["day"] == d["id"]), key=lambda s: s["order"])
-            out[d["name"]] = [[(slug_of[e["exercise"]], unit[e["repetition_unit"]], cfg("sets-config", e["id"]),
-                                cfg("repetitions-config", e["id"]), cfg("max-repetitions-config", e["id"]))
-                               for e in sorted((e for e in self.rows("slot-entry", user) if e["slot"] == s["id"]),
-                                               key=lambda e: e["order"])]
-                              for s in slots]
-        return r, out
+        r = self.routine(user, tag)
+        (d,) = [d for d in self.rows("day", user) if d["routine"] == r["id"]]
+        out = []
+        for s in sorted((s for s in self.rows("slot", user) if s["day"] == d["id"]), key=lambda s: s["order"]):
+            for e in sorted((e for e in self.rows("slot-entry", user) if e["slot"] == s["id"]), key=lambda e: e["order"]):
+                out.append((key_of[e["exercise"]], unit[e["repetition_unit"]],
+                            *(cfg(t, e["id"]) for t in gw.CONFIGS.values())))
+        return out
 
 
 class FakeSession:
@@ -202,86 +202,6 @@ class FakeSession:
 
     def request(self, method, url, timeout=None, **kw):
         return self.fake.handle(method, url, self.headers, **kw)
-
-
-# ---------------------------------------------------------------- synthetic guide
-WALK = ("treadmill-walk", "Treadmill — zone-2 walk", "15 min · easy pace, zone 2")
-LONG_WALK = ("treadmill-walk", "Treadmill — zone-2 walk", "25–30 min · zone 2 (today's walk)")
-PT = [("pt-slr", "PT — Straight leg raise", "2 × 15–30 / leg"),
-      ("pt-bridge", "PT — Bridge with knee extension", "2 × 10 / leg"),
-      ("pt-abduction", "PT — Side-lying hip abduction", "2 × 15–30 / side"),
-      ("adductor", "Adductor squeeze", "3 × 20 s")]
-HANDS = [("hand-warm", "Warm up the hands", "30 s"),
-         ("hand-glides", "Tendon glides", "5 × each position"),
-         ("hand-median", "Median nerve glide (gentle)", "5 slow reps / side"),
-         ("finger-ext", "Finger extensions", "2 × 15–20 · level 1 → 2 → 3")]
-FLEX = [("flex-side-bend", "Standing side bend", "2 × 20 s / side"),
-        ("flex-cat-cow", "Cat–cow on forearms", "8 slow reps")]
-EVERY = ("", "Every day: PT stretches", "~6 min — any time today")
-SUPER = " · superset: alternate with the next exercise, rest after each pair"
-DAYS = {
-    "Monday": [WALK, *PT, *HANDS, ("box-squat", "Goblet box squat", "3 × 8–12 · start light"),
-               ("wall-sit", "Wall sit", "4 × 30–45 s"), EVERY],
-    "Tuesday": [WALK, ("arm-circles", "Arm circles", "30 s each way"),
-                ("hammer-curl", "Hammer curl", "2 × 10–12 · start light" + SUPER),
-                ("triceps-ext", "Overhead triceps extension", "2 × 10–12"),
-                ("farmer", "Grip — farmer's hold", "3 × 20–30 s · start light"), EVERY],
-    "Wednesday": [LONG_WALK, *FLEX, EVERY],
-    "Thursday": [WALK, *PT, *HANDS, ("step-up", "Low step-up", "3 × 8–10 / leg · body weight"),
-                 ("tib-raise", "Tibialis toe raise", "2 × 15"), EVERY],
-    "Friday": [WALK, ("suitcase", "Suitcase carry (10-ft lengths)", "3 × 4 lengths (10 ft) / side, one dumbbell"),
-               ("side-plank", "Side plank", "2 × 20 s / side"), EVERY],
-    "Saturday": [LONG_WALK, *FLEX, *PT, *HANDS, EVERY],
-    "Sunday": [WALK, *FLEX, ("flex-sphinx", "Sphinx", "3 × 20 s · Sunday"),
-               ("flex-legs-up-wall", "Legs up the wall", "3–5 min · Sunday or any evening"), EVERY],
-}
-EVERYDAY = [("pt-hamstring", "PT — Hamstring stretch", "3 × 30 s hold · daily"),
-            ("pt-quad", "PT — Quad stretch", "3 × 30 s hold · daily")]
-NO_POSTER = "wall-sit"
-TITLES = {"Monday": "Lower A", "Tuesday": "Upper A", "Wednesday": "Treadmill + flexibility flow",
-          "Thursday": "Lower B", "Friday": "Upper B", "Saturday": "Treadmill + flexibility flow + PT",
-          "Sunday": "Yoga"}
-JACOB_NAMES = ["Mon · Lower A", "Tue · Upper A", "Wed · Treadmill + flow", "Thu · Lower B", "Fri · Upper B",
-               "Sat · Walk + flow + PT", "Sun · Yoga"]
-JACOB_TPL = ["Mon · Lower A (template)", "Tue · Upper A (template)", "Tpl · Wed · Walk + flow",
-             "Thu · Lower B (template)", "Fri · Upper B (template)", "Tpl · Sat · Walk+flow+PT",
-             "Sun · Yoga (template)"]
-RACH_TPL = ["Tpl · Mon · Strength A", "Tue · Cardio (template)", "Tpl · Wed · Daily parts", "Tpl · Thu · Strength B",
-            "Fri · Cardio (template)", "Tpl · Sat · Daily parts", "Tpl · Sun · Daily parts"]
-RACH_NAMES = ["Mon · Strength A", "Tue · Cardio", "Wed · Daily parts", "Thu · Strength B", "Fri · Cardio",
-              "Sat · Daily parts", "Sun · Daily parts"]
-
-
-def all_slugs() -> set[str]:
-    """Every person's catalog slugs: the top-level list + every "plans" entry."""
-    cat = workout_catalog.load()
-    return {s for pl in [cat, *cat.get("plans", {}).values()] for it in pl["items"] for s in it["slugs"]}
-
-
-def rach_plan() -> dict:
-    return workout_catalog.load()["plans"]["rach"]
-
-
-def step(n, s):
-    slug, title, dose = s
-    return {"num": str(n), "title": title, "dose": dose, "slug": slug,
-            "image": f"exercise/ex-{slug}-rom.png" if slug else "", "everyday": not slug}
-
-
-@pytest.fixture
-def guide(tmp_path):
-    d = tmp_path / "guide"
-    (d / "exercise").mkdir(parents=True)
-    data = {"version": 1, "everyday": [step(i, s) for i, s in enumerate(EVERYDAY, 1)], "days": []}
-    for name, steps in DAYS.items():
-        data["days"].append({"id": name[:3].lower(), "name": name, "title": f"{name} — {TITLES[name]}", "summary": "s",
-                             "youneed": "", "steps": [step(i, s) for i, s in enumerate(steps, 1)]})
-    data["days"][0]["steps"][1]["cues"] = ["Lock the knee", "Lift slowly"]
-    (d / "workout.json").write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
-    slugs = {s for it in workout_catalog.load()["items"] for s in it["slugs"]} | {"arm-circles"}
-    for s in slugs - {NO_POSTER}:
-        (d / "exercise" / f"ex-{s}-rom.png").write_bytes(b"\x89PNG fake " + s.encode())
-    return d
 
 
 @pytest.fixture
@@ -294,864 +214,401 @@ def fake(monkeypatch):
     return f
 
 
-def run(guide, *args):
-    return gw.main(["--posters", str(guide), *args], today=TODAY)
+def run(*args, plan_path=gw.PLAN):
+    return gw.main(list(args), today=TODAY, plan_path=plan_path)
 
 
-# ---------------------------------------------------------------- dose parsing
-# one sample per catalog kind (score has no dose: it is not in the routine)
-KIND_SAMPLES = {
-    "w": [("3 × 8–12 · start light", (3, 8, 12, "reps")), ("2 × 15 · start light", (2, 15, None, "reps"))],
-    "r": [("2 × 15–30 / leg", (2, 15, 30, "reps")), ("3 × 8–12 (stop 2 short of failure)", (3, 8, 12, "reps"))],
-    "t": [("3 × 20 s", (3, 20, None, "seconds")), ("4 × 30–45 s", (4, 30, 45, "seconds"))],
-    "wt": [("3 × 20–30 s · start light", (3, 20, 30, "seconds"))],
-    "wl": [("3 × 4 lengths (10 ft) / side, one dumbbell", (3, 4, None, "lengths"))],
-    "min": [("15 min · easy pace, zone 2 · before the session", (1, 15, None, "minutes")),
-            ("25–30 min · zone 2 (today's walk)", (1, 25, 30, "minutes"))],
-    "done": [("30 s", (1, 30, None, "seconds")), ("5 × each position", (1, 5, None, "reps")),
-             ("2 × 20 s / hand", (2, 20, None, "seconds")), ("5 slow reps / side", (1, 5, None, "reps")),
-             ("8 slow reps", (1, 8, None, "reps")), ("30 s each way", (1, 30, None, "seconds")),
-             ("3–5 min · Sunday or any evening", (1, 3, 5, "minutes")),
-             ("3 × 30 s hold · daily", (3, 30, None, "seconds")), ("2 × 10", (2, 10, None, "reps"))],
-}
+def write_plan(tmp_path, plan):
+    p = tmp_path / "plan.json"
+    p.write_text(json.dumps(plan), encoding="utf-8")
+    return p
 
 
-def test_dose_samples_cover_every_catalog_kind():
-    kinds = {it["kind"] for it in workout_catalog.load()["items"]} - {"score"}
-    assert kinds <= set(KIND_SAMPLES), kinds - set(KIND_SAMPLES)
+def old_routine(fake, user, tag, name, template=False, logs=0, exercise=None):
+    """An old generated routine with one day, one slot, one entry and `logs` logs."""
+    fake.next_id += 1
+    rid = fake.next_id
+    fake.t["routine"][rid] = {"id": rid, "name": name, "description": f"old [kdk:{tag}]", "is_template": template,
+                              "is_public": template, "start": "2026-11-02", "end": "2027-02-22", "_user": user}
+    did, sid, eid = rid + 1, rid + 2, rid + 3
+    fake.t["day"][did] = {"id": did, "routine": rid, "name": "Monday", "order": 1, "_user": user}
+    fake.t["slot"][sid] = {"id": sid, "day": did, "order": 1, "_user": user}
+    fake.t["slot-entry"][eid] = {"id": eid, "slot": sid, "exercise": exercise or 1, "order": 1, "_user": user}
+    for n in range(logs):
+        lid = rid + 10 + n
+        fake.t["workoutlog"][lid] = {"id": lid, "routine": rid, "slot_entry": eid, "exercise": exercise or 1,
+                                     "_user": user}
+    fake.next_id = rid + 20
+    return rid
 
 
-@pytest.mark.parametrize("kind,text,want", [(k, t, w) for k, v in KIND_SAMPLES.items() for t, w in v])
-def test_parse_dose(kind, text, want):
-    d = gw.parse_dose(text, kind)
-    assert (d["sets"], d["value"], d["max"], d["unit"]) == want
-    if kind in gw.KIND_UNIT:
-        assert d["unit"] == gw.KIND_UNIT[kind]
+# ---------------------------------------------------------------- the plan file
+def test_plan_shape_four_days_for_jmack_seven_for_rach():
+    j = gw.plan_routines(PLAN, "jmack")
+    assert [b["key"] for b in j] == ["mon", "wed", "fri", "sat"]
+    assert [b["name"] for b in j] == ["Mon · Lower A", "Wed · Upper A", "Fri · Lower B", "Sat · Upper B"]
+    r = gw.plan_routines(PLAN, "rach")
+    assert [b["key"] for b in r] == gw.DAY_TAGS
+    assert [b["name"] for b in r] == ["Mon · Strength A", "Tue · Cardio", "Wed · Daily parts", "Thu · Strength B",
+                                      "Fri · Cardio", "Sat · Daily parts", "Sun · Daily parts"]
+    for b in j:
+        first = b["days"][0]["slots"][0]["entries"][0]
+        assert (first["key"], first["unit"], first["sets"], first["reps"]) == ("treadmill-walk", "minutes", 1, 30)
+        assert len(b["days"][0]["slots"]) == 10                 # walk + 9 exercises
+    for b in j + r:
+        assert len(b["name"]) <= gw.ROUTINE_NAME_MAX and b["description"].endswith(f"[kdk:{b['key']}]")
 
 
-def test_parse_dose_unparsed_falls_back_to_kind_unit():
-    d = gw.parse_dose("as many as feel good", "t")
-    assert d["sets"] is None and d["unit"] == "seconds"
+def test_plan_exercises_carry_how_safety_and_a_youtube_video():
+    for key, ex in PLAN["exercises"].items():
+        assert 3 <= len(ex["how"]) <= 5 and ex["safety"], key
+        assert gw.VIDEO_RE.match(ex["video"]), key
 
 
-def test_every_guide_dose_parses(guide):
-    warns = []
-    gw.plan_week(json.loads((guide / "workout.json").read_text()), workout_catalog.load(), warns.append)
-    assert warns == []
+def test_plan_validation_catches_mistakes(tmp_path):
+    bad = copy.deepcopy(PLAN)
+    bad["exercises"]["plank"]["how"] = ["only one"]
+    bad["people"]["jmack"]["routines"][0]["slots"][1]["reps"] = [12, 8]
+    bad["people"]["jmack"]["routines"][0]["slots"][2]["exercise"] = "nope"
+    bad["people"]["jmack"]["routines"][1]["name"] = "Wed · " + "x" * 30
+    bad["exercises"]["extra"] = {**PLAN["exercises"]["plank"], "uuid": "11111111-1111-4111-8111-111111111111"}
+    with pytest.raises(gw.WgerError) as e:
+        gw.load_plan(write_plan(tmp_path, bad))
+    msg = str(e.value)
+    for want in ("plank: how needs 3-5 lines", "reps must be", "unknown exercise 'nope'", "longer than 25",
+                 "exercises.extra: not used"):
+        assert want in msg, want
 
 
-# ---------------------------------------------------------------- end to end
-def test_dry_run_writes_nothing(guide, fake, capsys):
-    assert run(guide) == 0
+def test_per_side_doubles_the_sets_and_says_so():
+    mon = gw.plan_routines(PLAN, "jmack")[0]["days"][0]["slots"]
+    step = next(s for s in mon if s["entries"][0]["key"] == "step-up")
+    e = step["entries"][0]
+    assert (e["sets"], e["reps"], e["max_reps"], e["side"]) == (6, 8, 10, True)
+    assert e["comment"].startswith(gw.SIDE_ENTRY) and "3 × 8–10 / side" in e["comment"]
+    assert step["comment"].endswith(gw.SIDE_SLOT)
+    goblet = next(s for s in mon if s["entries"][0]["key"] == "goblet-squat")["entries"][0]
+    assert (goblet["sets"], goblet["weight"], goblet["rest"], goblet["max_rest"]) == (3, 15, 60, 90)
+    assert goblet["comment"] == "3 × 8–12 @ 15 lb · rest 60–90 s"
+
+
+def test_rach_doses_carried_over():
+    r = {b["key"]: b["days"][0]["slots"] for b in gw.plan_routines(PLAN, "rach")}
+    keys = [s["entries"][0]["key"] for s in r["mon"]]
+    assert keys == ["double-calf-raise", "hip-flexor-stretch", "box-squat", "pallof-press", "incline-push-up",
+                    "wall-squat", "cow-cat"]
+    pallof = r["mon"][3]["entries"][0]
+    assert (pallof["sets"], pallof["reps"], pallof["rest"], pallof["max_rest"]) == (6, 10, 40, 60)
+    walk = r["tue"][2]["entries"][0]
+    assert (walk["key"], walk["unit"], walk["reps"], walk["max_reps"]) == ("walking", "minutes", 20, 30)
+    assert "water walking" in r["tue"][2]["comment"].lower()
+    assert [s["entries"][0]["key"] for s in r["wed"]] == ["double-calf-raise", "hip-flexor-stretch", "wall-squat",
+                                                          "cow-cat"]
+    rdl = r["thu"][2]["entries"][0]
+    assert (rdl["key"], rdl["sets"], rdl["reps"], rdl["rest"], rdl["weight"]) == ("db-rdl", 3, 8, 90, None)
+
+
+def test_describe_how_safety_video_and_hidden_marker():
+    ex = PLAN["exercises"]["plank"]
+    text = gw.describe("plank", ex)
+    assert text.startswith("**How**\n\n- ")
+    assert f"**Safety:** {ex['safety']}" in text
+    assert f"\n\nVideo: {ex['video']}\n\n" in text
+    m = gw.MARKER_RE.search(text)
+    assert m and text.endswith(m.group(0)) and m.group(1) == gw.h12(text[:m.start()].rstrip("\n"))
+    assert "Video:" not in gw.describe("plank", {**ex, "video": ""})
+
+
+def test_video_url_is_the_single_address_source(monkeypatch):
+    monkeypatch.setattr(gw, "video_url", lambda key, ex: f"https://jellyfin.test/{key}")
+    assert "Video: https://jellyfin.test/plank" in gw.describe("plank", PLAN["exercises"]["plank"])
+
+
+# ---------------------------------------------------------------- built-in exercises
+def test_dry_run_writes_nothing(fake, capsys):
+    assert run() == 0
     assert fake.writes == []
-    out = capsys.readouterr().out
-    assert "would: jmack: POST exercise/ treadmill-walk" in out
-    assert "would: rach: POST routine/" in out
-    assert "tok-" not in out
+    assert "planned (dry run" in capsys.readouterr().out
 
 
-def test_apply_then_second_run_makes_no_writes(guide, fake, capsys):
-    assert run(guide, "--apply") == 0
-    first = len(fake.writes)
-    assert first > 0
+def test_dry_run_without_keys_checks_exercises_only(fake, monkeypatch, capsys):
+    for k in KEYS:
+        monkeypatch.delenv(k)
+    assert run() == 0
+    out, err = capsys.readouterr()
+    assert "exercise-translation" in out and "routine/" not in out and fake.writes == []
+    assert "dry run checks the exercises only" in err
+
+
+@pytest.mark.parametrize("args", [["--apply"], ["--check"], ["--purge-kdk"]])
+def test_missing_key_is_an_error_for_real_runs(fake, monkeypatch, capsys, args):
+    monkeypatch.delenv("WGER_API_KEY_RACH")
+    assert run(*args) == 2
+    assert "WGER_API_KEY_RACH is not set" in capsys.readouterr().err
+
+
+def test_apply_then_second_run_makes_no_writes_and_check_passes(fake, capsys):
+    assert run("--check") == 1
+    assert run("--apply") == 0
     fake.writes.clear()
-    assert run(guide, "--apply") == 0
+    assert run("--apply") == 0 and fake.writes == []
+    assert run("--check") == 0
+    assert "wger matches the plan" in capsys.readouterr().out
+
+
+def test_descriptions_patched_with_the_owner_key_only(fake):
+    assert run("--apply") == 0
+    for key, eid in fake.ex_of.items():
+        (tr,) = [t for t in fake.t["exercise-translation"].values() if t["exercise"] == eid]
+        assert tr["description_source"] == gw.describe(key, PLAN["exercises"][key])
+    assert {u for m, t, u in fake.writes if t in EXERCISE_WRITE} == {"jmack"}
+    other = fake.t["exercise-translation"][900]
+    assert other["description_source"] == "Upstream text."                  # not in the plan: untouched
+    assert fake.t["exercise-translation"][10]["description_source"] == "Upstream text."
+
+
+def test_hand_edited_description_is_restored(fake):
+    assert run("--apply") == 0
+    tr = next(t for t in fake.t["exercise-translation"].values() if t["exercise"] == fake.ex_of["plank"])
+    tr["description_source"] = "edited in the web UI"
+    assert run("--check") == 1
+    assert run("--apply") == 0 and tr["description_source"] == gw.describe("plank", PLAN["exercises"]["plank"])
+
+
+def test_name_mismatch_stops_the_run(fake, capsys):
+    tr = next(t for t in fake.t["exercise-translation"].values() if t["exercise"] == fake.ex_of["side-plank"])
+    tr["name"] = "Side Plank (other one)"
+    assert run("--apply") == 2
+    assert "named 'Side Plank (other one)' in wger" in capsys.readouterr().err
     assert fake.writes == []
-    assert "0 write(s) made" in capsys.readouterr().out
-    assert run(guide, "--check") == 0
 
 
-def test_exercises_markers_images_and_owner(guide, fake):
-    assert run(guide, "--apply") == 0
-    trs = [t for t in fake.t["exercise-translation"].values() if gw.MARKER_RE.search(t["description_source"])]
-    slugs = {gw.MARKER_RE.search(t["description_source"]).group("slug") for t in trs}
-    assert slugs == all_slugs() | {"arm-circles"}      # both plans + the guide-only slug
-    assert all(t["_user"] == "jmack" for t in trs)     # exercises are global: the owner writes them
-    by = {gw.MARKER_RE.search(t["description_source"]).group("slug"): t for t in trs}
-    assert by["pt-slr"]["name"] == "Straight Leg Raise"
-    assert by["hand-glides"]["name"] == "Tendon glides"          # multi-slug item -> guide title
-    assert by["hammer-curl"]["name"] == "Hammer Curl · kdk plan"   # collided with upstream "Hammer Curls"
-    assert "- Lock the knee\n- Lift slowly" in by["pt-slr"]["description_source"]
-    assert "- Mon, Tue, Thu, Fri, Sun: 15 min · easy pace, zone 2" in by["treadmill-walk"]["description_source"]
-    assert "img:none" in by[NO_POSTER]["description_source"]
-    m = gw.MARKER_RE.search(by["pt-slr"]["description_source"])
-    assert m.group("img") != "none" and int(m.group("imgid")) in fake.t["exerciseimage"]
-    hers = {s for it in rach_plan()["items"] for s in it["slugs"]}      # no posters yet (fixture as in life)
-    assert len(fake.t["exerciseimage"]) == len(slugs - hers) - 1        # every other slug but NO_POSTER
-    assert sum(1 for t in fake.t["exerciseimage"].values()
-               if t["exercise"] == by[NO_POSTER]["exercise"]) == 0
+def test_unknown_uuid_and_kdk_exercise_stop_the_run(fake, capsys):
+    fake.t["exercise"][fake.ex_of["plank"]]["uuid"] = "99999999-9999-4999-8999-999999999999"
+    assert run() == 2
+    assert "no wger exercise with uuid" in capsys.readouterr().err
+    fake.t["exercise"][fake.ex_of["plank"]].update(uuid=PLAN["exercises"]["plank"]["uuid"], license_author="kdk-lab")
+    assert run() == 2
+    assert "built-ins only" in capsys.readouterr().err
 
 
-def test_image_upload_skipped_when_unchanged_and_replaced_when_changed(guide, fake):
-    assert run(guide, "--apply") == 0
+def test_treadmill_equipment_linked_and_missing_row_warns(fake, capsys):
+    assert run("--apply") == 0
+    assert fake.t["exercise"][fake.ex_of["treadmill-walk"]]["equipment"] == [7, 13]
+    assert "no equipment 'Resistance band'" in capsys.readouterr().err
+    fake.t["equipment"][22] = {"id": 22, "name": "Resistance band"}
+    assert run("--apply") == 0
+    assert fake.t["exercise"][fake.ex_of["pallof-press"]]["equipment"] == [7, 22]
     fake.writes.clear()
-    assert run(guide, "--apply") == 0
-    assert ("POST", "exerciseimage") not in fake.writes
-    old = {i for i, r in fake.t["exerciseimage"].items() if r["image"].endswith("ex-rdl-rom.png")}
-    (guide / "exercise" / "ex-rdl-rom.png").write_bytes(b"\x89PNG new poster")
-    fake.writes.clear()
-    assert run(guide, "--apply") == 0
-    assert sorted(fake.writes) == [("DELETE", "exerciseimage"), ("PATCH", "exercise-translation"),
-                                   ("POST", "exerciseimage")]
-    now = {i for i, r in fake.t["exerciseimage"].items() if r["image"].endswith("ex-rdl-rom.png")}
-    assert len(now) == 1 and not (now & old)
-    assert fake.images[now.pop()] == b"\x89PNG new poster"
+    assert run("--apply") == 0 and fake.writes == []
 
 
-def week(fake, user):
-    """{weekday: [[entries] per slot]} over the seven weekday routines."""
-    out = {}
-    for tag, wd in zip(gw.DAY_TAGS, gw.WEEKDAYS):
-        _, tree = fake.routine_tree(user, tag)
-        assert list(tree) == [wd]                                         # one day, named for its weekday
-        out[wd] = tree[wd]
-    return out
-
-
-def test_weekday_routines(guide, fake):
-    assert run(guide, "--apply") == 0
-    rs = [fake.routine("jmack", t) for t in gw.DAY_TAGS]
-    assert [r["name"] for r in rs] == JACOB_NAMES and all(len(r["name"]) <= 25 for r in rs)
-    assert not any(r["fit_in_week"] for r in rs)                          # one day, repeated every date
-    starts = [dt.date.fromisoformat(r["start"]) for r in rs]
-    assert starts == [dt.date(2026, 11, 2) - dt.timedelta(days=i) for i in range(7)]   # staggered: list order
-    assert {r["end"] for r in rs} == {"2027-02-22"}
-    assert all((dt.date.fromisoformat(r["end"]) - st).days <= 120 for r, st in zip(rs, starts))
-    rids = {r["id"] for r in rs}
-    days = [d for d in fake.rows("day", "jmack") if d["routine"] in rids]
-    assert len(days) == 7 and all(d["order"] == 1 and not d["is_rest"] and not d["need_logs_to_advance"]
-                                  for d in days)
-    tree = week(fake, "jmack")
-    for wd, slots in tree.items():
-        flat = [e[0] for s in slots for e in s]
-        assert flat[0] == "treadmill-walk", wd
-        assert flat[-2:] == ["pt-hamstring", "pt-quad"], wd           # stretches every day
-        assert ("pt-slr" in flat) == (wd in ("Monday", "Thursday", "Saturday")), wd
-        assert ("hand-warm" in flat) == (wd in ("Monday", "Thursday", "Saturday")), wd
-    assert tree["Monday"][0] == [("treadmill-walk", "Minutes", 1, 15, None)]
-    assert tree["Wednesday"][0] == [("treadmill-walk", "Minutes", 1, 25, 30)]
-    assert tree["Saturday"][0] == [("treadmill-walk", "Minutes", 1, 25, 30)]
-    assert ("flex-sphinx", "Seconds", 3, 20, None) in [e for s in tree["Sunday"] for e in s]
-    assert [("hammer-curl", "Repetitions", 2, 10, 12), ("triceps-ext", "Repetitions", 2, 10, 12)] \
-        in tree["Tuesday"]                                                # superset = one slot, two entries
-    assert [("suitcase", "10-ft lengths", 6, 4, None)] in tree["Friday"]      # 3 × per side = 6 sets
-    assert [("pt-slr", "Repetitions", 4, 15, 30)] in tree["Monday"]           # 2 × 15–30 / leg
-    lb = next(u["id"] for u in fake.t["setting-weightunit"].values() if u["name"] == "lb")
-    assert all(e["weight_unit"] == lb for e in fake.t["slot-entry"].values())
-    assert not any("weight" in t for _, t in fake.writes)                 # weights left blank
-
-
-def test_app_lists_the_weekdays_in_order(guide, fake):
-    """wger (and the app) list routines by -start, -created: the staggered starts give Mon..Sun."""
-    assert run(guide, "--apply") == 0
-    for user in ("jmack", "rach"):
-        rows = sorted((r for r in fake.rows("routine", user) if not r.get("is_template")),
-                      key=lambda r: (r["start"], r["id"]), reverse=True)
-        assert [gw.routine_tag(r) for r in rows] == gw.DAY_TAGS
-
-
-def test_templates_one_per_weekday_public_and_copy_safe(guide, fake, capsys):
-    assert run(guide, "--apply") == 0
-    for user, names in (("jmack", JACOB_TPL), ("rach", RACH_TPL)):
-        tpls = {gw.TPL_RE.search(r["description"]).group(1): r for r in fake.rows("routine", user)
-                if r.get("is_template")}
-        assert list(tpls) == gw.DAY_TAGS and [r["name"] for r in tpls.values()] == names
-        assert all(r["is_public"] and len(r["name"]) <= 25 and gw.routine_tag(r) is None for r in tpls.values())
-        for t, tp in tpls.items():                                  # same day and slots as the routine
-            assert fake.routine_tree(user, t)[1] == tree_of(fake, user, tp)
-    # rach sees jmack's public templates in routine/, but they never count as her routines
-    assert sum(1 for r in fake.t["routine"].values() if r["_user"] == "rach" and not r.get("is_template")) == 7
-    # a copy (what the web UI's copy makes: a plain routine, description and tag included) is left alone
-    tp = next(r for r in fake.rows("routine", "jmack") if r.get("is_template") and "[kdk:tpl:mon]" in r["description"])
-    fake.t["routine"][5000] = {**tp, "id": 5000, "is_template": False, "is_public": False, "_user": "rach"}
-    fake.writes.clear()
-    assert run(guide, "--apply") == 0 and fake.writes == []
-    assert run(guide, "--check") == 0
-    # a hand-edited template is put back, a duplicate without history is deleted
-    tp["name"] = "mine"
-    fake.t["routine"][5001] = {**tp, "id": 5001}
-    capsys.readouterr()
-    assert run(guide, "--apply") == 0
-    assert tp["name"] == JACOB_TPL[0] and 5001 not in fake.t["routine"] and 5000 in fake.t["routine"]
-
-
-def tree_of(fake, user, r):
-    key = "_tree_tmp"
-    r["description"] += f" [kdk:{key}]"
-    try:
-        return fake.routine_tree(user, key)[1]
-    finally:
-        r["description"] = r["description"].removesuffix(f" [kdk:{key}]")
-
-
-def test_routine_names_shorten_to_fit():
-    assert gw.routine_name("Wed", "Wednesday — Treadmill + flexibility flow") == "Wed · Treadmill + flow"
-    assert gw.routine_name("Sat", "Saturday — Treadmill + flexibility flow + PT") == "Sat · Walk + flow + PT"
-    with pytest.raises(gw.WgerError, match="longer than wger's 25"):
-        gw.routine_name("Mon", "Monday — Lower body strength and conditioning")
-
-
-def test_check_detects_drift_without_writing(guide, fake, capsys):
-    assert run(guide, "--apply") == 0
-    cfg = next(c for c in fake.t["sets-config"].values() if c["_user"] == "rach")
-    cfg["value"] = "9.00"
-    fake.writes.clear()
-    capsys.readouterr()
-    assert run(guide, "--check") == 1
-    assert fake.writes == []
-    assert "DRIFT: rach: PATCH sets-config/" in capsys.readouterr().out
-    assert run(guide, "--apply") == 0
-    assert run(guide, "--check") == 0
-
-
-def test_check_flags_a_routine_about_to_expire(guide, fake):
-    assert run(guide, "--apply") == 0
-    later = TODAY + dt.timedelta(days=100)
-    assert gw.main(["--posters", str(guide), "--check"], today=later) == 1
-    assert gw.main(["--posters", str(guide), "--apply"], today=later) == 0
-    monday = later - dt.timedelta(days=later.weekday())
-    for user in ("jmack", "rach"):                                          # all seven roll together
-        starts = [fake.routine(user, t)["start"] for t in gw.DAY_TAGS]
-        assert starts == [(monday - dt.timedelta(days=i)).isoformat() for i in range(7)]
-
-
-def test_person_filter(guide, fake):
-    assert run(guide, "--apply", "--person", "jmack") == 0
-    assert not fake.rows("routine", "rach")
-    fake.writes.clear()
-    fake.writers.clear()
-    assert run(guide, "--apply", "--person", "rach") == 0
-    assert fake.writes and all(t in PRIVATE for _, t in fake.writes)   # rach never writes exercises
-    assert set(fake.writers) == {"rach"}
-    assert fake.routine_tree("rach")[1]["Monday"][0] == [("glute-calf-raise", "Repetitions", 1, 15, None)]
-
-
-def test_person_without_owner_cannot_create_exercises(guide, fake, capsys):
-    assert run(guide, "--apply", "--person", "rach") == 2
+def test_person_without_owner_cannot_patch_exercises(fake, capsys):
+    assert run("--apply", "--person", "rach") == 2
     assert "first person's key" in capsys.readouterr().err
-    assert fake.writes == []
 
 
-def test_missing_lengths_unit_prints_admin_step_and_stops(guide, monkeypatch, capsys):
+# ---------------------------------------------------------------- routines
+def test_routines_slots_weights_rest(fake):
+    assert run("--apply") == 0
+    j = [r for r in fake.rows("routine", "jmack")]
+    assert sorted(gw.routine_tag(r) for r in j) == ["fri", "mon", "sat", "wed"]
+    assert len(fake.rows("routine", "rach")) == 7
+    mon = fake.tree("jmack", "mon")
+    assert mon[0] == ("treadmill-walk", "Minutes", 1.0, 30.0, None, None, None, None)
+    assert mon[1] == ("goblet-squat", "Repetitions", 3.0, 8.0, 12.0, 15.0, 60.0, 90.0)
+    assert mon[3] == ("step-up", "Repetitions", 6.0, 8.0, 10.0, None, 60.0, 90.0)
+    wed = fake.tree("jmack", "wed")
+    assert ("suitcase-carry", "10-ft lengths", 6.0, 4.0, None, 25.0, 60.0, 90.0) in wed
+    assert ("side-plank", "Seconds", 4.0, 20.0, 30.0, None, 60.0, 90.0) in wed
+    thu = fake.tree("rach", "thu")
+    assert ("db-rdl", "Repetitions", 3.0, 8.0, None, None, 90.0, None) in thu
+    # the same built-in in both people's routines
+    assert fake.ex_of["db-rdl"] in {e["exercise"] for e in fake.rows("slot-entry", "jmack")}
+    assert fake.ex_of["db-rdl"] in {e["exercise"] for e in fake.rows("slot-entry", "rach")}
+
+
+def test_app_lists_the_weekdays_in_order(fake):
+    assert run("--apply") == 0
+    for user in ("jmack", "rach"):
+        rs = sorted(fake.rows("routine", user), key=lambda r: (r["start"], r["id"]), reverse=True)
+        tags = [gw.routine_tag(r) for r in rs]
+        assert tags == sorted(tags, key=gw.DAY_TAGS.index)
+        assert len({r["end"] for r in rs}) == 1
+        mon = fake.routine(user, "mon")
+        assert mon["start"] == "2026-11-02" and mon["fit_in_week"] is False
+        assert (dt.date.fromisoformat(mon["end"]) - dt.date(2026, 11, 2)).days == gw.END_DAYS
+
+
+def test_weight_change_patches_only_that_config(fake, tmp_path):
+    assert run("--apply") == 0
+    plan = copy.deepcopy(PLAN)
+    plan["people"]["jmack"]["routines"][0]["slots"][1]["weight"] = 20
+    p = write_plan(tmp_path, plan)
+    fake.writes.clear()
+    assert run("--apply", plan_path=p) == 0
+    assert fake.writes == [("PATCH", "slot-entry", "jmack"), ("PATCH", "weight-config", "jmack")]  # comment + value
+
+
+def test_slot_with_logs_is_retired_not_deleted(fake, tmp_path):
+    assert run("--apply") == 0
+    r = fake.routine("jmack", "mon")
+    entry = next(e for e in fake.rows("slot-entry", "jmack") if e["exercise"] == fake.ex_of["tib-raise"])
+    fake.t["workoutlog"][1] = {"id": 1, "routine": r["id"], "slot_entry": entry["id"], "_user": "jmack"}
+    plan = copy.deepcopy(PLAN)
+    slots = plan["people"]["jmack"]["routines"][0]["slots"]
+    plan["people"]["jmack"]["routines"][0]["slots"] = [s for s in slots if s["exercise"] != "tib-raise"]
+    plan["people"]["jmack"]["routines"][1]["slots"].append({"exercise": "tib-raise", "sets": 2, "reps": 15})
+    p = write_plan(tmp_path, plan)
+    assert run("--apply", plan_path=p) == 0
+    assert 1 in fake.t["workoutlog"]
+    slot = fake.t["slot"][entry["slot"]]
+    assert slot["comment"].startswith(gw.RETIRED) and slot["order"] > gw.RETIRED_ORDER
+    fake.writes.clear()
+    assert run("--apply", plan_path=p) == 0 and fake.writes == []
+
+
+def test_normal_run_never_deletes_routines(fake, capsys):
+    tue = old_routine(fake, "jmack", "tue", "Tue · Upper A", logs=2)
+    tue2 = old_routine(fake, "jmack", "thu", "Thu · Lower B")
+    tpl = old_routine(fake, "jmack", "tpl:mon", "Mon · Lower A (template)", template=True)
+    assert run("--apply") == 0
+    assert {tue, tue2, tpl} <= set(fake.t["routine"])
+    assert not any(m == "DELETE" and t == "routine" for m, t, _ in fake.writes)
+    assert "--purge-kdk removes them" in capsys.readouterr().err
+
+
+def test_a_plan_routine_from_the_old_layout_is_reused(fake):
+    rid = old_routine(fake, "jmack", "mon", "Mon · Lower A", logs=1)
+    assert run("--apply") == 0
+    assert fake.routine("jmack", "mon")["id"] == rid
+    assert len([x for x in fake.t["workoutlog"].values() if x["routine"] == rid]) == 1   # old slot kept (logs)
+
+
+def test_missing_lengths_unit_prints_admin_step_and_stops(monkeypatch, capsys):
     f = FakeWger(lengths_unit=False)
     monkeypatch.setattr(gw.requests, "Session", lambda: FakeSession(f))
     monkeypatch.setenv("WGER_URL", URL)
     for k, v in KEYS.items():
         monkeypatch.setenv(k, v)
-    assert run(guide, "--apply") == 3
-    out = capsys.readouterr().out
-    assert "RepetitionUnit.objects.get_or_create(name='10-ft lengths'" in out
-    assert "docker exec -i wger-web python3 manage.py shell" in out
+    assert run("--apply") == 3
+    assert "RepetitionUnit.objects.get_or_create(name='10-ft lengths'" in capsys.readouterr().out
     assert not f.t["routine"]
 
 
-def test_slot_with_logs_is_retired_not_deleted(guide, fake):
-    assert run(guide, "--apply") == 0
-    r = fake.routine("jmack", "tue")
-    farmer_ex = next(t["exercise"] for t in fake.t["exercise-translation"].values()
-                     if "kdk:farmer " in t.get("description_source", ""))
-    entry = next(e for e in fake.rows("slot-entry", "jmack") if e["exercise"] == farmer_ex)
-    fake.t["workoutlog"][1] = {"id": 1, "routine": r["id"], "slot_entry": entry["id"], "_user": "jmack"}
-    data = json.loads((guide / "workout.json").read_text())
-    tue = next(d for d in data["days"] if d["name"] == "Tuesday")
-    tue["steps"] = [s for s in tue["steps"] if s["slug"] != "farmer"]
-    (guide / "workout.json").write_text(json.dumps(data, ensure_ascii=False))
-    assert run(guide, "--apply") == 0
-    assert entry["id"] in fake.t["slot-entry"] and 1 in fake.t["workoutlog"]   # log survives
-    slot = fake.t["slot"][entry["slot"]]
-    assert slot["comment"].startswith(gw.RETIRED) and slot["order"] > gw.RETIRED_ORDER
-    fake.writes.clear()
-    assert run(guide, "--apply") == 0 and fake.writes == []                    # stays idempotent
-    assert [e["id"] for e in fake.rows("slot-entry", "jmack") if e["exercise"] == farmer_ex] == [entry["id"]]
-
-
-def test_missing_key_is_an_error_not_a_prompt(guide, fake, monkeypatch, capsys):
-    monkeypatch.delenv("WGER_API_KEY_RACH")
-    assert run(guide) == 2
-    assert "WGER_API_KEY_RACH is not set" in capsys.readouterr().err
-
-
-# ---------------------------------------------------------------- presentation (muscles, marker, images, equipment)
-def by_slug(fake):
-    out = {}
-    for t in fake.t["exercise-translation"].values():
-        m = gw.MARKER_RE.search(t.get("description_source", ""))
-        if m:
-            out[m.group("slug")] = t
-    return out
-
-
-def muscle_ids(fake, names):
-    by = {k: m["id"] for m in fake.t["muscle"].values() for k in (m["name_en"], m["name"]) if k}
-    return sorted(by[n] for n in names)
-
-
-def test_sidecar_covers_every_slug_with_known_names(guide):
-    side = gw.load_sidecar()
-    assert all_slugs() | {"arm-circles"} == set(side)
-    fake_names = {k for n, en in MUSCLES for k in (n, en) if k} | set(gw.CUSTOM_MUSCLES)
-    for slug, e in side.items():
-        assert set(e["muscles"] + e["secondary"]) <= fake_names, slug
-        assert e["equipment"], slug
-        assert e["muscles"] or e.get("what"), f"{slug}: no muscle and no 'what' line"
-
-
-def test_sidecar_typo_is_an_error(tmp_path):
-    bad = tmp_path / "side.json"
-    bad.write_text(json.dumps({"exercises": {"rdl": {"muscles": ["Hamstring"], "secondary": [],
-                                                      "equipment": ["Dumbbell"]}}}))
-    gw.load_sidecar(bad)                                   # offline: the server may have it
-    with pytest.raises(gw.WgerError, match="unknown muscle"):
-        gw.load_sidecar(bad, known={"Hamstrings"})
-
-
-def test_muscles_written_and_drift_patched(guide, fake, capsys):
-    assert run(guide, "--apply") == 0
-    by = by_slug(fake)
-    side = gw.load_sidecar()
-    for slug in ("rdl", "pt-slr", "flex-sphinx", "side-plank"):
-        ex = fake.t["exercise"][by[slug]["exercise"]]
-        assert sorted(ex["muscles"]) == muscle_ids(fake, side[slug]["muscles"]), slug
-        assert sorted(ex["muscles_secondary"]) == muscle_ids(fake, side[slug]["secondary"]), slug
-    assert fake.t["exercise"][by["hand-glides"]["exercise"]]["muscles"] == []     # hands: no wger muscle
-    fake.t["exercise"][by["rdl"]["exercise"]]["muscles"] = []
-    fake.writes.clear()
-    capsys.readouterr()
-    assert run(guide, "--check") == 1
-    assert "PATCH exercise/" in capsys.readouterr().out and fake.writes == []
-    assert run(guide, "--apply") == 0
-    assert fake.writes == [("PATCH", "exercise")]
-    assert run(guide, "--check") == 0
-
-
-def test_marker_is_a_trailing_html_comment_and_template_blocks(guide, fake):
-    assert run(guide, "--apply") == 0
-    by = by_slug(fake)
-    src = by["pt-slr"]["description_source"]
-    visible, _, comment = src.rpartition("\n\n<!-- ")
-    assert comment.startswith("kdk:pt-slr v:") and comment.endswith(" -->")
-    assert "kdk:" not in visible and "<!--" not in visible
-    assert "part of our home workout plan" not in visible
-    assert visible.startswith("Works the quads; also the abs.")
-    assert "**Dose**\n\n- Mon, Thu, Sat: 2 × 15–30 / leg" in visible
-    assert "**How**\n\n- Lock the knee\n- Lift slowly" in visible
-    assert visible.endswith("**Safety:** " + gw.SAFETY_DEFAULT)
-    assert "- Every day: 3 × 30 s hold · daily" in by["pt-hamstring"]["description_source"]
-    assert gw.SAFETY_STRETCH in by["pt-hamstring"]["description_source"]
-    assert gw.SAFETY_WEIGHTED in by["rdl"]["description_source"]
-    assert "**Dose**: not in the weekly plan" in by["flat-press"]["description_source"]
-    assert by["box-squat"]["description_source"].startswith("Goblet box squat. Works the quads and glutes")
-
-
-def test_legacy_plain_marker_is_migrated_in_place(guide, fake):
-    assert run(guide, "--apply") == 0
-    tr = by_slug(fake)["rdl"]
-    m = gw.MARKER_RE.search(tr["description_source"])
-    tr["description_source"] = ("Romanian deadlift. This exercise is part of our home workout plan.\n"
-                                + m.group(0).replace(m.group("v"), "0" * 12))       # the pre-2026-11-07 shape
-    n_ex, n_img = len(fake.t["exercise"]), len(fake.t["exerciseimage"])
-    fake.writes.clear()
-    assert run(guide, "--apply") == 0
-    assert fake.writes == [("PATCH", "exercise-translation")]         # text only: same exercise, same image
-    assert (len(fake.t["exercise"]), len(fake.t["exerciseimage"])) == (n_ex, n_img)
-    assert tr["description_source"].endswith(" -->") and "part of our home" not in tr["description_source"]
-
-
-def test_hand_edited_description_is_restored(guide, fake):
-    assert run(guide, "--apply") == 0
-    tr = by_slug(fake)["plank"]
-    tr["description_source"] = tr["description_source"].replace("**Safety:**", "**Careful:**")
-    assert run(guide, "--check") == 1
-    assert run(guide, "--apply") == 0 and "**Safety:**" in tr["description_source"]
-
-
-def test_step_images_upload_in_order_replace_the_poster_and_stay_idempotent(guide, fake):
-    assert run(guide, "--apply") == 0
-    ex_id = by_slug(fake)["rdl"]["exercise"]
-    for n in (2, 1, 3):
-        (guide / "exercise" / f"ex-rdl-step{n}.png").write_bytes(f"\x89PNG step {n}".encode())
-    (guide / "exercise" / "ex-rdl-step10.png").write_bytes(b"\x89PNG step 10")
-    fake.writes.clear()
-    assert run(guide, "--apply") == 0
-    imgs = sorted((i for i in fake.t["exerciseimage"].values() if i["exercise"] == ex_id), key=lambda i: i["id"])
-    assert [i["image"] for i in imgs] == [f"/media/ex-rdl-step{n}.png" for n in (1, 2, 3, 10)]   # numeric order
-    assert [i["is_main"] for i in imgs] == [True, False, False, False]
-    assert all(i["style"] == gw.STYLE_PHOTO and i["is_ai_generated"] for i in imgs)
-    m = gw.MARKER_RE.search(by_slug(fake)["rdl"]["description_source"])
-    assert [int(x) for x in m.group("imgid").split(",")] == [i["id"] for i in imgs]
-    assert sorted(fake.writes) == sorted([("POST", "exerciseimage")] * 4 + [("DELETE", "exerciseimage"),
-                                                                            ("PATCH", "exercise-translation")])
-    fake.writes.clear()
-    assert run(guide, "--apply") == 0 and fake.writes == []
-    (guide / "exercise" / "ex-rdl-step10.png").unlink()
-    (guide / "exercise" / "ex-rdl-step2.png").write_bytes(b"\x89PNG step 2 v2")
-    assert run(guide, "--check") == 1
-    assert run(guide, "--apply") == 0
-    now = sorted((i for i in fake.t["exerciseimage"].values() if i["exercise"] == ex_id), key=lambda i: i["id"])
-    assert [i["image"] for i in now] == [f"/media/ex-rdl-step{n}.png" for n in (1, 2, 3)]
-    assert not {i["id"] for i in now} & {i["id"] for i in imgs}
-    assert fake.images[now[1]["id"]] == b"\x89PNG step 2 v2"
-
-
-def test_lone_poster_keeps_the_legacy_hash(tmp_path):
-    d = tmp_path / "exercise"
-    d.mkdir()
-    (d / "ex-rdl-rom.png").write_bytes(b"poster")
-    (d / "ex-rdl-x-step1.png").write_bytes(b"other slug")          # ex-rdl-x is not rdl
-    files = gw.image_files(tmp_path, "rdl")
-    assert [f.name for f in files] == ["ex-rdl-rom.png"]
-    assert gw.images_hash(files) == gw.h12(b"poster")
-    assert gw.images_hash([]) == "none"
-
-
-def test_missing_equipment_warns_once_then_links_when_added(guide, fake, capsys):
-    assert run(guide, "--apply") == 0
-    err = capsys.readouterr().err
-    assert err.count("wger has no equipment 'Treadmill'") == 1
-    ex = fake.t["exercise"][by_slug(fake)["treadmill-walk"]["exercise"]]
-    assert ex["equipment"] == []
-    fake.t["equipment"][50] = {"id": 50, "name": "Treadmill"}       # the admin step ran
-    assert run(guide, "--check") == 1
-    assert run(guide, "--apply") == 0
-    assert ex["equipment"] == [50]
-    eq = {e["name"]: e["id"] for e in fake.t["equipment"].values()}
-    assert sorted(fake.t["exercise"][by_slug(fake)["incline-press"]["exercise"]]["equipment"]) == \
-        sorted([eq["Dumbbell"], eq["Incline bench"]])
-    assert fake.t["exercise"][by_slug(fake)["plank"]["exercise"]]["equipment"] == [eq["Gym mat"]]
-
-
-def test_check_counts_a_slug_missing_from_the_sidecar(guide, fake, monkeypatch, capsys):
-    assert run(guide, "--apply") == 0
-    side = gw.load_sidecar()
-    side.pop("arm-circles")
-    monkeypatch.setattr(gw, "load_sidecar", lambda path=gw.SIDECAR: side)
-    capsys.readouterr()
-    assert run(guide, "--check") == 1
-    assert "no entry for arm-circles" in capsys.readouterr().out
-
-
-# the household list after runbook step 12 (owner answers 2026-11-07)
-KEEP_EQUIPMENT = {"Dumbbell", "Gym mat", "none (bodyweight exercise)", "Bench", "Incline bench"}
-LOCAL_EQUIPMENT = ["Treadmill", "Finger stretcher", "Strap", "Towel", "Pillow", "Door frame", "Wall"]
-# Rachel's plan (runbook wger step 12b): local rows to add + built-ins step 12 deleted; owner decides
-PENDING_EQUIPMENT = {"Pool", "Recumbent bike", "Resistance band", "Swiss Ball"}
-
-
-def add_rows(fake, table, names, **extra):
-    for i, n in enumerate(names, 200 + len(fake.t[table])):
-        fake.t[table][i] = {"id": i, "name": n, **extra}
-
-
-def test_sidecar_uses_only_the_household_equipment():
-    used = {e for v in gw.load_sidecar().values() for e in v["equipment"]}
-    allowed = KEEP_EQUIPMENT | set(LOCAL_EQUIPMENT) | PENDING_EQUIPMENT
-    assert used <= allowed, used - allowed
-    assert set(LOCAL_EQUIPMENT) <= used                               # every local row is used by a slug
-
-
-def test_local_equipment_rows_link_per_slug(guide, fake):
-    add_rows(fake, "equipment", LOCAL_EQUIPMENT)
-    assert run(guide, "--apply") == 0
-    eq = {e["name"]: e["id"] for e in fake.t["equipment"].values()}
-    by = by_slug(fake)
-
-    def names(slug):
-        return sorted(n for n, i in eq.items() if i in fake.t["exercise"][by[slug]["exercise"]]["equipment"])
-    assert names("finger-ext") == ["Finger stretcher"]
-    assert names("pt-hamstring") == ["Gym mat", "Strap"]
-    assert names("towel-wring") == ["Towel"]
-    assert names("adductor") == ["Gym mat", "Pillow"]
-    assert names("flex-doorway-chest") == ["Door frame"]
-    assert names("wall-sit") == ["Wall"]
-    assert names("treadmill-walk") == ["Treadmill"]
-
-
-def test_custom_muscles_are_never_linked_but_stay_in_the_text(guide, fake, capsys):
-    """The iOS app errors on any linked muscle id without a bundled SVG (ids above 16)."""
-    fake.t["muscle"][90] = {"id": 90, "name": "Forearm flexors", "name_en": "Forearm flexors"}
-    assert run(guide, "--apply") == 0
-    assert "wger has no muscle" not in capsys.readouterr().err
-    by = by_slug(fake)
-    glides = fake.t["exercise"][by["hand-glides"]["exercise"]]
-    assert glides["muscles"] == [] and glides["muscles_secondary"] == []
-    wc = fake.t["exercise"][by["wrist-curl"]["exercise"]]
-    assert wc["muscles"] == [] and wc["muscles_secondary"] == muscle_ids(fake, ["Brachialis"])
-    assert by["wrist-curl"]["description_source"].startswith("Works the forearm flexors; also the brachialis.")
-    fake.writes.clear()
-    assert run(guide, "--apply") == 0 and fake.writes == []
-    assert run(guide, "--check") == 0
-
-
-def test_an_already_linked_custom_muscle_is_unlinked(guide, fake, monkeypatch):
-    fake.t["muscle"][90] = {"id": 90, "name": "Forearm flexors", "name_en": "Forearm flexors"}
-    monkeypatch.setattr(gw, "LINK_CUSTOM_MUSCLES", True)
-    assert run(guide, "--apply") == 0
-    ex = fake.t["exercise"][by_slug(fake)["wrist-curl"]["exercise"]]
-    assert ex["muscles"] == [90]
-    monkeypatch.setattr(gw, "LINK_CUSTOM_MUSCLES", False)
-    assert run(guide, "--apply") == 0
-    assert ex["muscles"] == []
-
-
-def test_custom_muscles_left_out_until_created_then_linked(guide, fake, capsys, monkeypatch):
-    monkeypatch.setattr(gw, "LINK_CUSTOM_MUSCLES", True)
-    assert run(guide, "--apply") == 0
-    err = capsys.readouterr().err
-    for n in gw.CUSTOM_MUSCLES:
-        assert err.count(f"wger has no muscle {n!r}") == 1, n
-    by = by_slug(fake)
-    glides = fake.t["exercise"][by["hand-glides"]["exercise"]]
-    assert glides["muscles"] == [] and glides["muscles_secondary"] == []
-    assert by["hand-glides"]["description_source"].startswith("Moves the finger tendons")
-    assert by["wrist-curl"]["description_source"].startswith("Works the forearm flexors; also the brachialis.")
-    fake.t["muscle"][90] = {"id": 90, "name": "Forearm flexors", "name_en": "Forearm flexors"}   # step 13a
-    assert run(guide, "--check") == 1
-    assert run(guide, "--apply", "--person", "jmack") == 0
-    assert glides["muscles"] == [90] and glides["muscles_secondary"] == []      # Hand intrinsics still missing
-    wc = fake.t["exercise"][by["wrist-curl"]["exercise"]]
-    assert wc["muscles"] == [90] and wc["muscles_secondary"] == muscle_ids(fake, ["Brachialis"])
-    fake.writes.clear()
-    assert run(guide, "--apply") == 0 and fake.writes == []
-
-
-def test_muscle_typo_is_an_error_at_run_time(guide, fake, monkeypatch, capsys):
-    side = gw.load_sidecar()
-    side["rdl"] = {**side["rdl"], "muscles": ["Hamstring"]}
-    monkeypatch.setattr(gw, "load_sidecar", lambda path=gw.SIDECAR, known=None: side)
-    assert run(guide, "--apply") == 2
-    assert "wger has no muscle 'Hamstring' (for rdl)" in capsys.readouterr().err
-
-
-# ---------------------------------------------------------------- per-person plans
-def test_jacob_specs_and_days_ignore_the_other_plans(guide):
-    """Jacob's exercise texts + week are what they were before per-person plans existed."""
-    cat = workout_catalog.load()
-    g = json.loads((guide / "workout.json").read_text())
-    sources = gw.plan_sources(cat, lambda: g)
-    assert sources["jmack"] == (cat, g)
-    alone = gw.exercise_specs(cat, g, guide)
-    merged = gw.all_specs(sources, guide, lambda m: None)
-    assert list(merged)[:len(alone)] == list(alone)
-    assert all(merged[k]["text"] == alone[k]["text"] for k in alone)
-    assert gw.plan_week(*sources["jmack"][::-1], lambda m: None) == gw.plan_week(g, cat, lambda m: None)
-
-
-def test_rach_routines_are_her_plan(guide, fake):
-    assert run(guide, "--apply") == 0
-    assert [fake.routine("rach", t)["name"] for t in gw.DAY_TAGS] == RACH_NAMES
-    tree = week(fake, "rach")
-    desk = ["glute-calf-raise", "seated-nerve-glide", "kneeling-hip-flexor"]
-    evening = ["wall-slide", "pelvic-tilt", "side-lying-rest"]
-    session = {"Monday": ["high-box-squat", "pallof-press", "wall-pushup"],
-               "Tuesday": ["water-walk"], "Thursday": ["elevated-rdl", "seated-band-row", "glute-bridge"],
-               "Friday": ["water-walk"]}
-    for wd, slots in tree.items():
-        assert [e[0] for s in slots for e in s] == desk + session.get(wd, []) + evening, wd
-    assert [("water-walk", "Minutes", 1, 20, 30)] in tree["Tuesday"]
-    assert [("high-box-squat", "Repetitions", 3, 8, None)] in tree["Monday"]
-    assert [("kneeling-hip-flexor", "Seconds", 2, 30, None)] in tree["Sunday"]     # 30 s / side, one break
-    assert [("side-lying-rest", "Minutes", 2, 2, 3)] in tree["Wednesday"]           # 2–3 min / side
-    assert [("glute-calf-raise", "Repetitions", 1, 15, None)] in tree["Monday"]     # 15 reps, one break
-    mon = next(d for d in fake.rows("day", "rach") if d["routine"] == fake.routine("rach", "mon")["id"])
-    assert mon["description"] == "Desk breaks + Strength A + Evening mobility"
-    jm = {e[0] for s in fake.routine_tree("jmack")[1]["Monday"] for e in s}
-    assert not jm & set(desk + evening)                                  # Jacob's week has none of hers
-
-
-def test_every_rach_dose_parses():
-    warns = []
-    gw.plan_week(gw.plan_guide(rach_plan()), rach_plan(), warns.append)
-    assert warns == []
-
-
-def test_rach_exercise_text_lists_her_weekdays(guide, fake):
-    assert run(guide, "--apply") == 0
-    by = by_slug(fake)
-    assert "Mon: 3 × 8 · RPE 6–7" in by["high-box-squat"]["description_source"]
-    assert "Every day: 15 reps" in by["glute-calf-raise"]["description_source"]
-    assert "Tue, Fri: 20–30 min" in by["water-walk"]["description_source"]
-
-
-def test_a_slug_in_two_plans_is_an_error(guide):
-    cat = workout_catalog.load()
-    g = json.loads((guide / "workout.json").read_text())
-    pl = json.loads(json.dumps(cat["plans"]["rach"]))
-    pl["items"][0]["slugs"] = ["box-squat"]
-    pl["items"][0]["steps"][0]["slug"] = "box-squat"
-    cat["plans"]["rach"] = pl
-    with pytest.raises(gw.WgerError, match="box-squat is in the plans of jmack and rach"):
-        gw.all_specs(gw.plan_sources(cat, lambda: g), guide, lambda m: None)
-
-
-# ---------------------------------------------------------------- migration from the block routines (2026-11-07)
-REAL_PLAN_WEEK = gw.plan_week
-JACOB_BLOCKS = [("daily", "Daily · walk + stretches", {"treadmill_walk", "stretches"}),
-                ("lifts", "Lifts · Mon/Tue/Thu/Fri", None),
-                ("pt_hands", "PT + hands · Mon/Thu/Sat", {"activation", "hands"}),
-                ("flow", "Flow + yoga · Wed/Sat/Sun", {"flex_flow", "yoga"})]
-RACH_BLOCKS = [("daily", "Daily · desk + evening", {"desk", "evening"}),
-               ("strength", "Strength · Mon/Thu", {"strength_a", "strength_b"}),
-               ("cardio", "Cardio · Tue/Fri", None)]
-
-
-def block_week(guide, pl, warn):
-    """The layout #413 put live: one routine per block, its days Monday.. with rest days."""
-    week = REAL_PLAN_WEEK(guide, pl, warn)
-    item = {s: it for it in pl["items"] for s in it["slugs"]}
-    blocks = RACH_BLOCKS if "plans" not in pl else JACOB_BLOCKS
-
-    def block_of(slug):
-        it = item.get(slug)
-        for key, _, members in blocks:
-            if it is not None and members and (it["id"] in members or it["group"] in members):
-                return key
-        return next(k for k, _, m in blocks if m is None)
-
-    out = []
-    for key, name, _ in blocks:
-        days = [{**b["days"][0],
-                 "slots": [s for s in b["days"][0]["slots"] if block_of(s["entries"][0]["slug"]) == key]}
-                for b in week]
-        last = max(i for i, d in enumerate(days) if d["slots"])
-        days = [{**d, "is_rest": not d["slots"]} for d in days[:last + 1]]
-        out.append({"key": key, "name": name, "description": f"Blocks. [kdk:{key}]", "days": days})
-    return out
-
-
-def make_blocks(guide, fake, monkeypatch):
-    """Load the block layout, then add what the live jmack routine 1 holds: two walk logs on the
-    Friday walk slot and their session on that day."""
-    real_templates = gw.sync_templates
-    monkeypatch.setattr(gw, "plan_week", block_week)
-    monkeypatch.setattr(gw, "sync_templates", lambda *a: None)          # #413 made no templates
-    assert run(guide, "--apply") == 0
-    monkeypatch.setattr(gw, "plan_week", REAL_PLAN_WEEK)
-    monkeypatch.setattr(gw, "sync_templates", real_templates)
-    daily = fake.routine("jmack", "daily")
-    fri = next(d for d in fake.rows("day", "jmack") if d["routine"] == daily["id"] and d["name"] == "Friday")
-    slot = next(s for s in fake.rows("slot", "jmack") if s["day"] == fri["id"] and s["order"] == 1)
-    walk = next(e for e in fake.rows("slot-entry", "jmack") if e["slot"] == slot["id"])
-    fake.t["workoutsession"][1] = {"id": 1, "routine": daily["id"], "day": fri["id"], "_user": "jmack"}
-    for i in (1, 2):
-        fake.t["workoutlog"][i] = {"id": i, "routine": daily["id"], "slot_entry": walk["id"], "session": 1,
-                                   "_user": "jmack"}
-    return daily, fri, walk
-
-
-def test_migration_from_the_blocks_keeps_the_walk_logs(guide, fake, monkeypatch, capsys):
-    daily, fri, walk = make_blocks(guide, fake, monkeypatch)
-    old = {u: {r["id"] for r in fake.rows("routine", u)} for u in ("jmack", "rach")}
-    assert len(old["jmack"]) == 4 and len(old["rach"]) == 3
-    capsys.readouterr()
-    assert run(guide, "--check") == 1
-    assert run(guide) == 0
-    assert f"would: jmack: PATCH routine/{daily['id']}/ 'Fri · Upper B'" in capsys.readouterr().out
-    fake.writes.clear()
-    assert run(guide, "--apply") == 0
-    assert fake.routine("jmack", "fri")["id"] == daily["id"]                   # the routine with the logs
-    assert set(fake.t["workoutlog"]) == {1, 2} and 1 in fake.t["workoutsession"]
-    assert walk["id"] in fake.t["slot-entry"] and fri["id"] in fake.t["day"]  # same walk slot, same day
-    for u, names in (("jmack", JACOB_NAMES), ("rach", RACH_NAMES)):
-        rs = {t: fake.routine(u, t) for t in gw.DAY_TAGS}
-        assert [r["name"] for r in rs.values()] == names
-        assert old[u] <= {r["id"] for r in rs.values()}                       # every block routine reused
-        assert len(fake.rows("routine", u)) == 14 and len(fake.rows("day", u)) == 14   # + 7 templates
-    assert ("DELETE", "routine") not in fake.writes
-    assert [m for m, t in fake.writes if t == "routine"].count("POST") == 3 + 4 + 14
-    assert week(fake, "jmack")["Friday"][0] == [("treadmill-walk", "Minutes", 1, 15, None)]
-    fake.writes.clear()
-    assert run(guide, "--apply") == 0 and fake.writes == []
-    assert run(guide, "--check") == 0
-
-
-def test_migration_puts_blocks_on_the_weekdays_they_already_hold(guide, fake, monkeypatch):
-    daily, _, _ = make_blocks(guide, fake, monkeypatch)
-    ids = {gw.routine_tag(r): r["id"] for r in fake.rows("routine", "jmack")}
-    assert run(guide, "--apply") == 0
-    got = {gw.routine_tag(r): r["id"] for r in fake.rows("routine", "jmack") if not r.get("is_template")}
-    assert got["fri"] == ids["daily"]
-    assert got["sun"] == ids["flow"]                 # Sunday: the 4 flow/yoga slots it already has
-    assert {got["mon"], got["tue"], got["thu"], got["sat"], got["wed"]} >= {ids["lifts"], ids["pt_hands"]}
-
-
-def test_leftover_routines_are_deleted_only_without_history(guide, fake, capsys):
-    assert run(guide, "--apply") == 0
-    for rid, name in ((9998, "Lifts · Mon/Tue/Thu/Fri"), (9999, gw.LEGACY_NAME)):
-        desc = "[kdk:lifts]" if rid == 9998 else ""
-        fake.t["routine"][rid] = {"id": rid, "name": name, "description": desc, "start": "2026-11-02",
-                                  "end": "2027-02-28", "fit_in_week": True, "is_template": False, "_user": "jmack"}
-    fake.t["workoutsession"][5] = {"id": 5, "routine": 9999, "day": None, "_user": "jmack"}
-    fake.writes.clear()
-    capsys.readouterr()
-    assert run(guide, "--apply") == 0
-    assert 9998 not in fake.t["routine"] and fake.writes == [("DELETE", "routine")]
-    assert 9999 in fake.t["routine"]
-    assert "routine 'Week (kdk)' (id 9999) is not in the plan but has logs or sessions" in capsys.readouterr().err
-
-
-def test_an_extra_day_with_a_session_is_kept(guide, fake, capsys):
-    assert run(guide, "--apply") == 0
-    r = fake.routine("jmack", "sun")
+# ---------------------------------------------------------------- purge
+@pytest.fixture
+def old(fake):
+    """jmack: old Tue (2 logs), a block routine, a template, the plan's Mon (1 log), a hand-made
+    routine; rach: an old public template; plus a public template of rach jmack can see."""
+    ids = {
+        "tue": old_routine(fake, "jmack", "tue", "Tue · Upper A", logs=2),
+        "daily": old_routine(fake, "jmack", "daily", "Daily", logs=1, exercise=2),
+        "tpl": old_routine(fake, "jmack", "tpl:wed", "Tpl · Wed · Walk + flow", template=True),
+        "mon": old_routine(fake, "jmack", "mon", "Mon · Lower A", logs=1, exercise=2),
+        "rach_tpl": old_routine(fake, "rach", "tpl:sun", "Tpl · Sun · Daily parts", template=True),
+        "rach_mon": old_routine(fake, "rach", "mon", "Mon · Strength A"),
+    }
     fake.next_id += 1
-    extra = {"id": fake.next_id, "routine": r["id"], "name": "Saturday", "order": 2, "description": "",
-             "is_rest": False, "need_logs_to_advance": False, "_user": "jmack"}
-    fake.t["day"][extra["id"]] = extra
-    fake.t["workoutsession"][7] = {"id": 7, "routine": r["id"], "day": extra["id"], "_user": "jmack"}
-    capsys.readouterr()
-    assert run(guide, "--apply") == 0
-    assert extra["id"] in fake.t["day"] and 7 in fake.t["workoutsession"]
-    assert "extra day 'Saturday'" in capsys.readouterr().err
-    del fake.t["workoutsession"][7]
-    assert run(guide, "--apply") == 0
-    assert extra["id"] not in fake.t["day"]
+    mine = fake.next_id
+    fake.t["routine"][mine] = {"id": mine, "name": "My own", "description": "hand-made", "_user": "jmack"}
+    ids["own"] = mine
+    return ids
 
 
-# ---------------------------------------------------------------- tracking shape (2026-11-07 owner findings)
-@pytest.mark.parametrize("dose,kind,want", [
-    ("2 × 15–30 / leg", "r", (4, 15, 30, "reps", "L/R")),
-    ("2 × 15–30 / side", "r", (4, 15, 30, "reps", "L/R")),
-    ("3 × 8–10 / leg · start 10 lb", "w", (6, 8, 10, "reps", "L/R")),
-    ("3 × 10–12 / arm · start 20 lb", "w", (6, 10, 12, "reps", "L/R")),
-    ("3 × 4 lengths (10 ft) / side @25 lb", "wl", (6, 4, None, "lengths", "L/R")),
-    ("2 × 20 s / side", "t", (4, 20, None, "seconds", "L/R")),
-    ("2 × 20 s / hand", "done", (4, 20, None, "seconds", "L/R")),
-    ("5 slow reps / side", "done", (2, 5, None, "reps", "L/R")),
-    ("30 s / side", "done", (2, 30, None, "seconds", "L/R")),
-    ("2 × 20 s / side · Sunday", "done", (4, 20, None, "seconds", "L/R")),
-    ("2 × 5 / direction", "r", (4, 5, None, "reps", "dir")),
-    ("30 s each way", "done", (2, 30, None, "seconds", "dir")),
-    ("10–12 reps / leg · 2–3× a day", "r", (2, 10, 12, "reps", "L/R")),     # one desk break: L + R
-    ("30 s / side · 2–3× a day", "t", (2, 30, None, "seconds", "L/R")),
-    ("2–3 min / side", "min", (2, 2, 3, "minutes", "L/R")),
-    ("15 reps · 2–3× a day", "r", (1, 15, None, "reps", None)),             # one set per break
-    ("5 × each position", "done", (1, 5, None, "reps", None)),               # not a side
-    ("3 × 20 s", "t", (3, 20, None, "seconds", None)),
-    ("25–30 min · zone 2 (today's walk)", "min", (1, 25, 30, "minutes", None)),
-    ("2 × 15–20 · 6.6 → 8.8 → 11 lb", "w", (2, 15, 20, "reps", None)),
-])
-def test_per_side_doses_log_one_side_per_set(dose, kind, want):
-    (slot,) = gw.make_slots("Monday", [{"slug": "x", "title": "T", "dose": dose}], {"x": kind}, lambda m: None)
-    (e,) = slot["entries"]
-    assert (e["sets"], e["reps"], e["max_reps"], e["unit"], e["side"]) == want
-    if e["side"]:
-        assert e["comment"].startswith(gw.SIDE_ENTRY[e["side"]]) and dose[:20] in e["comment"]
-        assert slot["comment"] == "T" + gw.SIDE_SLOT[e["side"]]
-    assert len(e["comment"]) <= 100
+def test_purge_dry_run_counts_and_writes_nothing(fake, old, capsys):
+    assert run("--purge-kdk") == 0
+    out = capsys.readouterr().out
+    assert fake.writes == []
+    assert "SUMMARY: 4 routine(s)/template(s) with 3 log(s) and 0 session(s); 2 kdk-lab exercise(s)" in out
+    assert "(their 1 log(s) in the kept routines cascade with them)" in out
+    assert "dry run: nothing deleted" in out and "manage.py shell" in out
+    assert "license_author='kdk-lab'" in out
 
 
-def test_every_per_side_item_in_both_plans_is_doubled(guide):
-    g = json.loads((guide / "workout.json").read_text())
-    cat = workout_catalog.load()
-    entries = {}
-    for wk in (gw.plan_week(g, cat, lambda m: None), gw.plan_week(gw.plan_guide(rach_plan()), rach_plan(),
-                                                                   lambda m: None)):
-        for b in wk:
-            for s_ in b["days"][0]["slots"]:
-                for e in s_["entries"]:
-                    entries[e["slug"]] = e
-    for slug in ("pt-slr", "pt-bridge", "pt-abduction", "hand-median", "flex-side-bend", "step-up",
-                 "side-plank", "suitcase", "seated-nerve-glide", "kneeling-hip-flexor", "side-lying-rest",
-                 "pallof-press"):
-        assert entries[slug]["side"] == "L/R", slug
-    assert entries["arm-circles"]["side"] == "dir"
-    assert entries["hand-glides"]["side"] is None and entries["glute-calf-raise"]["sets"] == 1
+def test_purge_apply_deletes_only_kdk_outside_the_plan(fake, old, capsys):
+    assert run("--purge-kdk", "--apply") == 0
+    out = capsys.readouterr().out
+    for k in ("tue", "daily", "tpl", "rach_tpl"):
+        assert old[k] not in fake.t["routine"], k
+    for k in ("mon", "rach_mon", "own"):
+        assert old[k] in fake.t["routine"], k
+    assert 1 not in fake.t["exercise"] and 2 not in fake.t["exercise"]
+    assert 3 in fake.t["exercise"]                      # no translation: invisible to the API ...
+    assert "FALLBACK" in out and "license_author='kdk-lab'" in out   # ... so the fallback is printed
+    left = [e for e in fake.t["exercise"].values() if e["license_author"] != "kdk-lab"]
+    assert len(left) == len(PLAN["exercises"]) + 1     # every built-in survives
+    assert all(m == "DELETE" for m, _, _ in fake.writes)
+    assert {u for m, t, u in fake.writes if t == "routine"} == {"jmack", "rach"}
 
 
-def test_rest_from_the_dose_becomes_the_rest_timer(guide, fake):
-    assert run(guide, "--apply") == 0
-    rest = {c["slot_entry"]: float(c["value"]) for c in fake.t["rest-config"].values()}
-    mx = {c["slot_entry"]: float(c["value"]) for c in fake.t["max-rest-config"].values()}
-    ex = {gw.MARKER_RE.search(t["description_source"]).group("slug"): t["exercise"]
-          for t in fake.t["exercise-translation"].values() if gw.MARKER_RE.search(t["description_source"])}
-    by = {}
-    for e in fake.rows("slot-entry", "rach"):
-        by.setdefault(e["exercise"], []).append(e["id"])
-    hb = by[ex["high-box-squat"]][0]
-    assert (rest[hb], mx[hb]) == (60.0, 90.0)                              # "rest 60–90 s"
-    er = by[ex["elevated-rdl"]][0]
-    assert rest[er] == 90.0 and er not in mx                                 # "rest 90 s"
-    assert not any(e["id"] in rest for e in fake.rows("slot-entry", "jmack"))   # Jacob's doses name no rest
+def test_purge_exits_1_when_something_remains(fake, old, monkeypatch, capsys):
+    real = fake.handle
+
+    def handle(method, url, headers, **kw):
+        if method == "DELETE" and url.endswith("/exercise/2/"):
+            return Resp(403, {"detail": "no"})
+        return real(method, url, headers, **kw)
+    monkeypatch.setattr(fake, "handle", handle)
+    assert run("--purge-kdk", "--apply") == 1
+    out = capsys.readouterr().out
+    assert "FAILED: exercise 2" in out and "NOT CLEAN" in out and "1 kdk-lab exercise(s) remain" in out
 
 
-def gym_pages(fake, user, tag, overview=True, timers=True):
-    """wger 2.7 date-sequence-gym (per slot: set n of every entry that has an n-th set, entries in
-    order) fed through app 2.1.2's GymStateNotifier page builder (per slot: one overview page per
-    exercise, then per set: log page, then timer page)."""
-    r = fake.routine(user, tag)
-    (day,) = [d for d in fake.rows("day", user) if d["routine"] == r["id"]]
-    pages = ["start"]
-    for s_ in sorted((x for x in fake.rows("slot", user) if x["day"] == day["id"]), key=lambda x: x["order"]):
-        ents = sorted((e for e in fake.rows("slot-entry", user) if e["slot"] == s_["id"]), key=lambda e: e["order"])
-        nsets = {e["id"]: int(float(next(c["value"] for c in fake.t["sets-config"].values()
-                                          if c["slot_entry"] == e["id"]))) for e in ents}
-        sets = [e for n in range(max(nsets.values())) for e in ents if nsets[e["id"]] > n]
-        if overview:
-            pages += [f"overview:{x}" for x in dict.fromkeys(e["exercise"] for e in ents)]
-        for e in sets:
-            pages.append(f"log:{e['exercise']}")
-            if timers:
-                pages.append(f"timer:{e['exercise']}")
-    return pages + ["session", "summary"]
+def test_purge_clean_exit_and_normal_run_afterwards(fake, old, capsys):
+    assert run("--purge-kdk", "--apply") == 0
+    assert "clean: 0 kdk routines" in capsys.readouterr().out
+    assert run("--apply") == 0
+    assert run("--check") == 0
+    assert len(fake.rows("routine", "jmack")) == 5     # 4 plan routines + the hand-made one
 
 
-def test_gym_mode_records_each_set_before_its_rest_timer(guide, fake):
-    assert run(guide, "--apply") == 0
-    ex = {gw.MARKER_RE.search(t["description_source"]).group("slug"): t["exercise"]
-          for t in fake.t["exercise-translation"].values() if gw.MARKER_RE.search(t["description_source"])}
-    for user, tag in [("jmack", t) for t in gw.DAY_TAGS] + [("rach", t) for t in gw.DAY_TAGS]:
-        pages = gym_pages(fake, user, tag)
-        for i, p_ in enumerate(pages):
-            if p_.startswith("timer:"):
-                assert pages[i - 1] == "log:" + p_.split(":")[1], (user, tag, pages[i - 1:i + 1])
-        assert sum(p_.startswith("log:") for p_ in pages) == sum(p_.startswith("timer:") for p_ in pages)
-
-    def seq(tag, slug):
-        return [p_ for p_ in gym_pages(fake, "jmack", tag) if p_.endswith(f":{ex[slug]}")]
-
-    w = ex["wall-sit"]
-    assert seq("mon", "wall-sit") == [f"overview:{w}"] + [f"log:{w}", f"timer:{w}"] * 4      # timed hold, Seconds
-    b = ex["box-squat"]
-    assert seq("mon", "box-squat") == [f"overview:{b}"] + [f"log:{b}", f"timer:{b}"] * 3      # reps
-    t = ex["treadmill-walk"]
-    assert seq("mon", "treadmill-walk") == [f"overview:{t}", f"log:{t}", f"timer:{t}"]       # minutes
-    pages = gym_pages(fake, "jmack", "tue")
-    h, x = ex["hammer-curl"], ex["triceps-ext"]
-    i = pages.index(f"overview:{h}")
-    assert pages[i:i + 10] == [f"overview:{h}", f"overview:{x}",
-                               f"log:{h}", f"timer:{h}", f"log:{x}", f"timer:{x}",
-                               f"log:{h}", f"timer:{h}", f"log:{x}", f"timer:{x}"]      # superset pair
-    s_ = ex["pt-slr"]
-    assert seq("mon", "pt-slr") == [f"overview:{s_}"] + [f"log:{s_}", f"timer:{s_}"] * 4    # L, R, L, R
+def test_purge_refuses_when_a_plan_exercise_is_kdk(fake, old, capsys):
+    fake.t["exercise"][fake.ex_of["plank"]]["license_author"] = "kdk-lab"
+    assert run("--purge-kdk", "--apply") == 2
+    assert "refusing to purge" in capsys.readouterr().err
+    assert fake.writes == []
 
 
-def test_migration_moves_a_second_logged_day_with_its_logs(guide, fake, monkeypatch, capsys):
-    """Live on 2026-11-07: the Daily block also had Saturday logs, the Flow block logs on its
-    Wednesday day. Daily -> Friday (its first logs), its Saturday day moves into the new Saturday
-    routine with its logs and sessions; Flow -> Wednesday."""
-    daily, fri, walk = make_blocks(guide, fake, monkeypatch)
-    flow = fake.routine("jmack", "flow")
-    sat = next(d for d in fake.rows("day", "jmack") if d["routine"] == daily["id"] and d["name"] == "Saturday")
-    wed = next(d for d in fake.rows("day", "jmack") if d["routine"] == flow["id"] and d["name"] == "Wednesday")
-    for d, sid, rid, when in ((sat, 801, daily["id"], "2026-11-07T21:18:00Z"),
-                              (wed, 802, flow["id"], "2026-11-07T21:30:00Z")):
-        slot = next(s for s in fake.rows("slot", "jmack") if s["day"] == d["id"] and s["order"] == 1)
-        e = next(e for e in fake.rows("slot-entry", "jmack") if e["slot"] == slot["id"])
-        fake.t["workoutsession"][sid] = {"id": sid, "routine": rid, "day": d["id"], "datetime_start": when,
-                                         "_user": "jmack"}
-        fake.t["workoutlog"][sid + 100] = {"id": sid + 100, "routine": rid, "slot_entry": e["id"], "session": sid,
-                                            "date": when, "_user": "jmack"}
-    fake.t["workoutsession"][1]["datetime_start"] = "2026-11-06T21:00:00Z"
-    capsys.readouterr()
-    assert run(guide, "--apply") == 0
-    assert "has logs or sessions; left" not in capsys.readouterr().err
-    satr, wedr = fake.routine("jmack", "sat"), fake.routine("jmack", "wed")
-    assert fake.routine("jmack", "fri")["id"] == daily["id"] and wedr["id"] == flow["id"]
-    assert fake.t["day"][sat["id"]]["routine"] == satr["id"]                       # moved, same row
-    assert fake.t["workoutsession"][801]["routine"] == satr["id"]
-    assert fake.t["workoutlog"][901]["routine"] == satr["id"]
-    assert len(fake.t["workoutlog"]) == 4 and len(fake.t["workoutsession"]) == 3
-    assert [d["id"] for d in fake.rows("day", "jmack") if d["routine"] == daily["id"]] == [fri["id"]]
-    assert [d["id"] for d in fake.rows("day", "jmack") if d["routine"] == wedr["id"]] == [wed["id"]]
-    fake.writes.clear()
-    assert run(guide, "--apply") == 0 and fake.writes == []
-    assert run(guide, "--check") == 0
+def test_purge_for_rach_only_leaves_exercises(fake, old, capsys):
+    assert run("--purge-kdk", "--apply", "--person", "rach") == 0
+    assert old["rach_tpl"] not in fake.t["routine"] and old["tue"] in fake.t["routine"]
+    assert 1 in fake.t["exercise"]
+    assert "exercises skipped" in capsys.readouterr().out
+
+
+# ---------------------------------------------------------------- videos
+class OResp:
+    def __init__(self, code, body=None):
+        self.status_code = code
+        self._b = body or {}
+
+    def json(self):
+        return self._b
+
+
+def test_check_videos(monkeypatch, capsys, tmp_path):
+    seen = []
+
+    def get(url, params=None, timeout=None):
+        seen.append(params["url"])
+        return OResp(200, {"title": "t", "author_name": "a"})
+    monkeypatch.setattr(gw.requests, "get", get)
+    assert run("--check-videos") == 0
+    assert len(seen) == len(PLAN["exercises"])
+    plank = PLAN["exercises"]["plank"]["video"]
+    monkeypatch.setattr(gw.requests, "get", lambda url, params=None, timeout=None:
+                        OResp(404 if params["url"] == plank else 200))
+    assert run("--check-videos") == 1
+    assert "FAIL plank" in capsys.readouterr().out
+    plan = copy.deepcopy(PLAN)
+    plan["exercises"]["plank"]["video"] = ""
+    monkeypatch.setattr(gw.requests, "get", get)
+    assert run("--check-videos", plan_path=write_plan(tmp_path, plan)) == 1
+    assert "MISSING plank" in capsys.readouterr().out
+
+
+def test_no_retired_files_left():
+    for name in ("gen-workout-guide.py", "workout_catalog.py", "workout_catalog.json", "wger_exercises.json"):
+        assert not (TOOLS / name).exists(), name
+    assert not re.search(r"workout_catalog|wger_exercises|posters", (TOOLS / "gen_wger.py").read_text())

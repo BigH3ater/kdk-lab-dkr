@@ -1,127 +1,101 @@
 ---
 title: Exercise plan update (wger)
+updated: 2026-11-14
 ---
 
 # Exercise plan update (wger)
 
-[[wger]] is the household's only exercise tracker since **2026-11-06** (the owner chose it
-in the tracking pilot). This page is how a change to the plan (an exercise, a dose, a cue,
-a picture) reaches both people's wger routines, and, at the end, how the in-house tracker
-was retired.
+[[wger]] is the household's only exercise tracker since **2026-11-06**. This page is how a
+change to the plan (an exercise, a dose, a weight, a cue, a video) reaches both people's
+wger routines, and, at the end, how the in-house tracker was retired.
+
+Since **2026-11-14** one file holds the whole plan for both people and the routines use
+wger's built-in exercises only (owner decision; the 71 custom `kdk-lab` exercises, their
+images and the old routines are removed by `gen_wger.py --purge-kdk`, [wger runbook step
+9b](wger.md#9b-purge-the-old-kdk-data-once-owner-present)). The vault day files, the guide
+generator (`gen-workout-guide.py`), `workout_catalog.json` and `wger_exercises.json` are
+retired.
 
 | Where | What | Made by |
 |---|---|---|
-| The private vault | the week's order, Jacob's doses and cues, the pictures (`3. Resources/Exercise/`) | the vault's own generator (`ex_days.py`), not in this repo |
-| `stacks/home-assistant/tools/workout_catalog.json` | the people, the slugs, each item's kind, and Rachel's own plan (`plans.rach`: days, doses, cues) | hand-edited; loader + checks in `workout_catalog.py` |
-| `stacks/home-assistant/tools/wger_exercises.json` | per slug: wger muscles, equipment, optional what/safety lines | hand-edited |
-| Laptop scratch dir (default `/tmp/workout-guide`) | `workout.json` (Jacob's days, steps, doses, cues) + `exercise/` posters | `tools/gen-workout-guide.py` from the vault; **never committed, never published** |
-| wger | one custom exercise per slug (images, muscles, description) + each person's seven weekday routines (Mon · … .. Sun · …) | `tools/gen_wger.py` from the catalog, the sidecar and the scratch dir |
+| `stacks/home-assistant/tools/wger_plan.json` | the built-ins used (uuid, expected name, How / Safety / video) and each person's routines (weekday, slots, sets, reps, start weight, rest) | hand-edited; checked by `gen_wger.py` and its tests |
+| wger | the built-ins' English descriptions + jmack's four and rach's seven weekday routines | `tools/gen_wger.py --apply` from the laptop |
+| The private vault | the reasons (knee rules, history, Rachel's two non-wger items) | by hand; never in this public repo |
 
-Nothing in Home Assistant or on home.kmkdp.com follows the plan any more. The treadmill
-→ wger auto-log and then the whole treadmill HA integration (package, Treadmill
-dashboard, bridge) were retired 2026-11-08; walks are logged in the app.
+**Public repo:** exercise names, sets, reps, start weights, rest and movement cues only (the
+owner's 2026-11-14 decision). No pain notes, no medical history.
 
-**Why the guide generator stays.** `gen_wger.py --posters DIR` reads Jacob's week (doses,
-cues, step order) and every poster from the guide output. Keeping
-`gen-workout-guide.py` as a laptop-only build step is the least churn: `gen_wger.py` and
-its tests are unchanged, Jacob's health content stays in the vault (one source, no second
-copy in this public repo), and the posters are vault files that could not live in the
-catalog anyway. It moved next to its only consumer and writes to a scratch dir instead of
-the published guide.
-
-## Per-person plans
-
-The top-level `groups`/`items` are the first person's slugs (Jacob); his doses and cues
-come from the guide output. A person can have their **own** plan under
-`"plans": {"<login>": {...}}` (Rachel: `plans.rach`) that carries what the guide would
-otherwise supply:
+## The plan file
 
 ```json
-{"id": "high_box_squat", "name": "High Box Squat", "group": "strength_a", "kind": "w",
- "days": ["mon"], "slugs": ["high-box-squat"],
- "steps": [{"slug": "high-box-squat", "title": "High Box Squat",
-            "dose": "3 × 8 · RPE 6–7 · rest 60–90 s", "cues": ["…", "…"]}]}
+"exercises": {
+  "goblet-squat": {"uuid": "b7c6a444-…", "name": "Dumbbell Goblet Squat",
+                   "how": ["…", "…", "…"], "safety": "…",
+                   "video": "https://www.youtube.com/watch?v=…", "equipment": ["…"]}},
+"people": {"jmack": {"name": "Jacob", "about": "<routine description: progression rule>",
+  "parts": {"<name>": [<slots>]},
+  "routines": [{"day": "mon", "name": "Mon · Lower A", "summary": "…", "slots": [
+    {"exercise": "goblet-squat", "sets": 3, "reps": [8, 12], "weight": 15, "rest": [60, 90],
+     "comment": "One dumbbell; squat to the bench"},
+    {"exercise": "step-up", "sets": 3, "reps": [8, 10], "per_side": true},
+    {"part": "<name>"}]}]}}
 ```
 
-- `days`: `["daily"]` or weekday codes (`mon` … `sun`); `steps`: one per slug, in the same
-  order as `slugs`; `"either": true` on a two-slug item = one wger slot holding both
-  ("Either one: log the one you did"). The loader (`workout_catalog.py`) checks all of it.
-- **Public repo:** exercise names, doses, rest and movement cues only. Group names stay
-  neutral; the reasons for a plan live in the vault (`3. Resources/Exercise/<person>/`).
-- Exercises are global in wger, so a slug may appear in **one** person's plan only (an
-  error otherwise: a wger exercise carries one dose text). Give the other person their
-  own slug and sidecar line.
-- `id` is lowercase `[a-z0-9_]`, unique per list; `group` must exist in that list's `groups`.
-
-## Kinds
-
-| `kind` | wger unit |
-|---|---|
-| `w` | weight (lb) + Repetitions |
-| `r` | Repetitions |
-| `t` | Seconds |
-| `wt` | weight + Seconds |
-| `wl` | weight + `10-ft lengths` (carries, e.g. `suitcase`) |
-| `min` | Minutes |
-| `done` | a routine (hand routine, flexibility flow, stretches): its slugs get the unit the dose names, else Repetitions |
-| `score` | a 0–10 check-in with no slugs (`knee_pain`, `hand_pain`): nothing in wger; pain scores stay in the vault Daily note |
-
-A dose whose unit wger does not have yet makes `gen_wger.py --apply` print an ADMIN STEP
-and stop before the routines (units are admin-only; [wger runbook](wger.md)).
+- **Exercise key** (`goblet-squat`) is only a name inside the file. `uuid` picks the
+  built-in (names are not unique in wger: two "Side Plank", two "Single Leg RDL"), `name` is
+  the English name wger reports for it; the run stops when they disagree. Find a uuid with
+  `curl -s https://wger.kmkdp.com/api/v2/exerciseinfo/<id>/ | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d["uuid"], [t["name"] for t in d["translations"] if t["language"] == 2])'`.
+- `how` 3-5 short lines, `safety` one line, `video` a `https://www.youtube.com/watch?v=<id>`
+  address from a physical therapist or certified coach channel (verify with
+  `--check-videos`). They become the description of the built-in, which **everyone** using
+  that exercise sees; a person-specific note goes in the slot `comment` (160 characters).
+  `equipment` names are added to the exercise (never removed).
+- A slot has exactly one of `reps`, `seconds`, `minutes`, `lengths` (10-ft lengths), each a
+  number or `[min, max]`; `rest` the same in seconds; `weight` in lb (per dumbbell unless
+  the comment says one dumbbell); `per_side: true` doubles the sets (one logged set per
+  side). `parts` are reusable slot lists (Rachel's daily desk and evening parts).
+- Every exercise must be used by some routine; routine names fit wger's 25 characters.
+- Address on the `Video:` line: `video_url()` in `gen_wger.py` (the YouTube address today).
 
 ## Procedure
 
-1. **Vault first (laptop).** Change the exercise in the vault generator, regenerate, and
-   look at the new pictures. If the vault Daily template logs the item, update it there.
-2. **Edit the catalog** only when a slug is added, removed or renamed, or Rachel's plan
-   changes (a Jacob dose or cue change needs no repo edit: go to step 4):
-   - add: `{"id": "goblet_squat", "slugs": ["goblet-squat"], "name": "Goblet Squat", "group": "lower_a", "kind": "w"}`
-     plus its `wger_exercises.json` line (muscles, equipment);
-   - rename the display name: change `name`; the wger exercise keeps its id and logs;
-   - remove: delete the entry (wger keeps a slot that has logs, see step 5).
-3. **Test, PR, merge.**
+1. **Edit `wger_plan.json`** (a new exercise: pick the built-in in the web UI or with
+   `exerciseinfo/?uuid=`, add its key, uuid, name, cues and a video; then use it in a slot).
+2. **Test, PR, merge.**
    **Laptop, repo root**
    ```bash
    python3 -m pytest -q stacks/home-assistant/tools/tests
+   python3 stacks/home-assistant/tools/gen_wger.py --check-videos     # every video answers YouTube oEmbed
    ```
-   CI (`workout-generated`) runs the same suite. Nothing deploys: wger is loaded from the
-   laptop in step 5.
-4. **Build the guide output** into the scratch dir:
-   **Laptop, repo root**
-   ```bash
-   python3 stacks/home-assistant/tools/gen-workout-guide.py --out /tmp/workout-guide
-   ```
-   It prints `cues for N day steps`; a `WARNING: ... no cues` line means it could not
-   import the vault's `ex_days.py` (fix that before loading wger, or the descriptions lose
-   their cues). Per-step photos (`ex-<slug>-step<N>.png`) are copied into
-   `/tmp/workout-guide/exercise/` **after** this run (a run starts `exercise/` clean).
-5. **Load the change into wger** (full notes in
-   [wger runbook step 9](wger.md#9-load-the-catalog-our-exercises--weekly-routines)):
+   CI (`workout-generated`) runs the tests. Nothing deploys: wger is loaded from the laptop.
+3. **Load the change into wger** ([wger runbook step 9](wger.md#9-load-the-plan-built-in-exercises--weekday-routines)):
    **Laptop, repo root, as jmack (`op` signed in), after the PR is merged**
    ```bash
-   G=/tmp/workout-guide
    export WGER_URL=https://wger.kmkdp.com
    export WGER_API_KEY_JMACK="$(op read op://kdk-cluster/wger-api-jmack/credential)"
    export WGER_API_KEY_RACH="$(op read op://kdk-cluster/wger-api-rach/credential)"
-   python3 stacks/home-assistant/tools/gen_wger.py --posters "$G"            # dry run: read the planned writes
-   python3 stacks/home-assistant/tools/gen_wger.py --posters "$G" --apply
-   python3 stacks/home-assistant/tools/gen_wger.py --posters "$G" --check    # "wger matches the catalog"
+   python3 stacks/home-assistant/tools/gen_wger.py             # dry run: read the planned writes
+   python3 stacks/home-assistant/tools/gen_wger.py --apply
+   python3 stacks/home-assistant/tools/gen_wger.py --check     # "wger matches the plan"
    unset WGER_API_KEY_JMACK WGER_API_KEY_RACH
    ```
-   A removed exercise's slot is deleted from the routine unless someone logged it; then
-   it moves to the end of the day as `[retired]` (deleting it would delete the logs).
-   Delete it in the app once the history no longer matters.
-6. **Verify** on both phones: wger app → Routines → the weekday's routine (e.g. **Mon · Lower A**) → the changed day shows
-   the change (pull to refresh; the app syncs through PowerSync).
+   A removed exercise's slot is deleted from the routine unless someone logged it; then it
+   moves to the end of the day as `[retired]`.
+4. **Verify** on both phones: wger app → Routines → the weekday's routine → pull to refresh.
 
-**Quarterly:** wger caps a routine at 120 days. `gen_wger.py --check` fails (exit 1) once
-the end is less than 28 days away; `--apply` then rolls the window forward (vault task,
-tag `#homelab/wger`).
+**Progression** (jmack, in each routine's description): when every set reaches the top of
+the rep range, go up one dumbbell step and start again at the bottom of the range. Change
+the slot's `weight` (and `reps`) in the plan and re-run step 3 when that happens, or log the
+heavier weight in the app and update the plan at the next change.
+
+**Quarterly:** wger caps a routine at 120 days. `--check` fails (exit 1) once the end is
+less than 28 days away; `--apply` then rolls the window forward (vault task, tag
+`#homelab/wger`).
 
 ## Rollback
 
-Revert the catalog PR, re-run steps 4 and 5 from the reverted vault state: wger follows
-(slots with logs are kept as `[retired]`, nothing logged is lost).
+Revert the plan PR and re-run step 3: wger follows (slots with logs stay as `[retired]`,
+nothing logged is lost).
 
 ## Retirement of the in-house tracker (2026-11-06)
 
@@ -137,7 +111,7 @@ firewall exception. The owner accepted losing the helpers' recorder history; the
 treadmill (`treadmill.yaml`, the Treadmill view on both Workout
 dashboards and the sidebar links to them; all retired 2026-11-08, see
 [the retired treadmill page](treadmill-glassos-bridge.md)), the wger stack, `gen_wger.py`,
-both catalog files.
+both catalog files (retired 2026-11-14 for `wger_plan.json`).
 
 Host steps, in order, after the PR is merged. The main session runs the checks and
 watches the deploys; the deletes, the token and the 1Password archive are the owner's.

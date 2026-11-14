@@ -6,7 +6,7 @@ tier: internal
 status: live
 storage: yes
 secrets: [vikunja-app, vikunja-api-rw, dashboard-tandoor-rw, homepage-ha-token, proton-calendar-ics, dashboard-kitchen-device-key]
-updated: 2026-11-10
+updated: 2026-11-14
 tags: [homelab/stack, tier/internal, status/live]
 ---
 
@@ -593,10 +593,10 @@ logs `grocery refresh reason=… ms=… upstream_calls=… upstream_ms=…`. Que
 Both were retired on 2026-11-06 when the owner chose [[wger]] in the exercise-tracking
 pilot: `home.kmkdp.com/workout/` (the `dashboard-workout` sidecar, its CSV log and HA
 token) and `/guides/workout/` (the host-managed guide in `/opt/kdk-lab/dashboard/workout`)
-no longer exist; exercise logging and the plan with pictures are in the wger app. The
-guide generator survives as a laptop-only build step for wger
-(`stacks/home-assistant/tools/gen-workout-guide.py`, output to a scratch dir, never
-published). Since 2026-11-07 wger has a **Workouts** tile in the Home group and a
+no longer exist; exercise logging and the plan are in the wger app. The guide generator
+lived on as a laptop-only build step for wger until 2026-11-14, when the plan moved to one
+file (`stacks/home-assistant/tools/wger_plan.json`, built-in wger exercises) and
+`gen-workout-guide.py` was deleted. Since 2026-11-07 wger has a **Workouts** tile in the Home group and a
 **Workouts** sidebar link; the sidebar's two HA workout links became one **Treadmill**
 link (`/treadmill-workouts`), removed 2026-11-08 with the treadmill HA integration. Removal and host clean-up: [workout-tracking-update runbook](../runbooks/workout-tracking-update.md#retirement-of-the-in-house-tracker-2026-11-06).
 

@@ -1,0 +1,628 @@
+{
+  "comment": "The household exercise plan for wger, read by gen_wger.py (runbook docs/runbooks/workout-tracking-update.md). Built-in wger exercises only, keyed by uuid; name = the English name wger must report for that uuid. how/safety/video become the exercise's description. Doses, rest and start weights (lb) live in the routines. No pain notes or medical history here: the vault holds those.",
+  "exercises": {
+    "treadmill-walk": {
+      "uuid": "3f8e5871-4895-48c9-928d-dc1bc134f57b", "name": "Treadmill Cardio",
+      "equipment": ["Treadmill"],
+      "how": [
+        "Start with 3-5 minutes at an easy pace.",
+        "Walk tall with a relaxed arm swing; touch the rails only for balance.",
+        "Hold a pace where you can still talk in full sentences.",
+        "Progress one thing at a time: a little more incline or pace from week to week.",
+        "Finish with 2-3 easy minutes."
+      ],
+      "safety": "Clip on the safety key; stand on the side rails while the belt starts or stops. Walking only: no running, no intervals.",
+      "video": "https://www.youtube.com/watch?v=jkJkmy8IHXU"
+    },
+    "goblet-squat": {
+      "uuid": "b7c6a444-90ea-4f5b-9fea-748311606eaa", "name": "Dumbbell Goblet Squat",
+      "how": [
+        "Hold one dumbbell vertically at your chest, elbows tucked; stand in front of the bench, feet shoulder-width.",
+        "Sit the hips back and down until you lightly touch the bench.",
+        "Keep the chest up and the knees tracking over the toes.",
+        "Stand up by pushing the floor away through the whole foot."
+      ],
+      "safety": "Squat to the bench, not below it; no bouncing. Stop the set if a knee hurts.",
+      "video": "https://www.youtube.com/watch?v=CNCJllFw1_E"
+    },
+    "db-rdl": {
+      "uuid": "65d12ecf-54b8-466d-a412-e55c396cad69", "name": "Dumbbell Romanian Deadlift",
+      "how": [
+        "Stand tall with a dumbbell in each hand in front of the thighs, knees soft (never locked).",
+        "Push the hips back and slide the weights down the front of the legs.",
+        "Keep the back flat and the weights close; stop when the hamstrings are tight.",
+        "Squeeze the glutes and drive the hips forward to stand."
+      ],
+      "safety": "Stop the descent before the lower back rounds; start light.",
+      "video": "https://www.youtube.com/watch?v=gvN6TRHli0g"
+    },
+    "step-up": {
+      "uuid": "9e6dae29-5d03-440a-bdf1-2cb25a5179c2", "name": "Step-ups",
+      "how": [
+        "Place one whole foot on a sturdy, low bench or step.",
+        "Lean slightly forward and press through that heel to stand up on it.",
+        "Bring the other foot up, then step down slowly with the same order reversed.",
+        "Finish all reps on one leg, then switch."
+      ],
+      "safety": "Start with a low step and bodyweight; step, never jump. Stop if the knee hurts.",
+      "video": "https://www.youtube.com/watch?v=ORE0cd7k85c"
+    },
+    "db-hip-thrust": {
+      "uuid": "af77220c-098c-47c2-9f8c-92a651998903", "name": "Dumbbell Hip Thrust",
+      "how": [
+        "Sit on the floor with the upper back against the side of the bench, one dumbbell across the hips.",
+        "Feet flat, about hip-width, close enough that the shins are vertical at the top.",
+        "Tuck the chin and drive the hips up until the body is flat from shoulders to knees.",
+        "Squeeze the glutes for a second, then lower under control."
+      ],
+      "safety": "Do not arch the lower back at the top; hold the dumbbell steady with both hands.",
+      "video": "https://www.youtube.com/watch?v=lvcvlJbg2Ak"
+    },
+    "calf-raise": {
+      "uuid": "7ce443b6-eb84-4f65-b05f-461c1cc8bcc0", "name": "Standing Calf Raises",
+      "how": [
+        "Stand tall with a dumbbell in each hand, feet hip-width.",
+        "Rise onto the balls of the feet as high as you can.",
+        "Pause one second at the top.",
+        "Lower slowly until the heels touch down."
+      ],
+      "safety": "Use a wall or door frame for balance if needed; move slowly, no bouncing.",
+      "video": "https://www.youtube.com/watch?v=Mjkh9vBfm_E"
+    },
+    "tib-raise": {
+      "uuid": "f5252fbe-1e00-4b8d-8781-2e56d6a5250f", "name": "Tibialis raises",
+      "how": [
+        "Lean your back against a wall with the heels about a foot in front of it.",
+        "Keep the legs straight and lift the toes as high as you can.",
+        "Pause at the top, then lower slowly without slapping the feet down.",
+        "Step the feet further out to make it harder."
+      ],
+      "safety": "A burn in the shins is normal; stop if it turns into sharp pain.",
+      "video": "https://www.youtube.com/watch?v=KKfEOow1kgA"
+    },
+    "plank": {
+      "uuid": "c9e57bbe-e839-44c6-861d-1c8dd2845e36", "name": "Plank",
+      "how": [
+        "Forearms on the mat, elbows under the shoulders.",
+        "Step the feet back so the body is one straight line from head to heels.",
+        "Brace the stomach and squeeze the glutes.",
+        "Breathe steadily for the whole hold."
+      ],
+      "safety": "End the hold when the hips sag or the lower back aches.",
+      "video": "https://www.youtube.com/watch?v=3QZlgJ40LfU"
+    },
+    "dead-bug": {
+      "uuid": "d4db2355-4c99-4d80-a179-6aeced7c7fed", "name": "Deadbug",
+      "how": [
+        "Lie on your back, arms straight up, hips and knees bent to 90 degrees.",
+        "Press the lower back gently into the mat.",
+        "Slowly reach one arm overhead and the opposite leg out long.",
+        "Return and repeat on the other side."
+      ],
+      "safety": "Only go as far as you can keep the lower back down; move slowly.",
+      "video": "https://www.youtube.com/watch?v=GbSC02oU3To"
+    },
+    "bird-dog": {
+      "uuid": "6349365e-e901-4280-a1b7-65734986f47d", "name": "Bird Dog",
+      "how": [
+        "Start on hands and knees, hands under the shoulders, knees under the hips.",
+        "Brace the stomach and keep the back flat.",
+        "Reach one arm forward and the opposite leg back until both are level with the body.",
+        "Pause, return slowly and switch sides."
+      ],
+      "safety": "Keep the hips level and do not arch the back; use a mat under the knees.",
+      "video": "https://www.youtube.com/watch?v=xEDnlOxeJH4"
+    },
+    "incline-db-press": {
+      "uuid": "57e17672-52b9-43cf-8d0d-4b3f06a0c0d0", "name": "Incline Bench Press - Dumbbell",
+      "how": [
+        "Set the bench to a low incline (about 30 degrees).",
+        "Sit back with a dumbbell in each hand at the chest, shoulder blades pulled back.",
+        "Press the weights up and slightly in until the arms are straight.",
+        "Lower under control to the sides of the chest."
+      ],
+      "safety": "Keep the feet planted and the elbows about 45 degrees from the body; lower the weights to the thighs to finish.",
+      "video": "https://www.youtube.com/watch?v=JKnpHchOWPU"
+    },
+    "chest-supported-row": {
+      "uuid": "51a2d520-b510-4b6e-bd65-9fc40365e8de", "name": "Incline Chest-Supported Dumbbell Row",
+      "how": [
+        "Set the bench to an incline and lie chest-down on it, a dumbbell in each hand.",
+        "Let the arms hang straight down.",
+        "Pull the elbows back toward the hips, squeezing the shoulder blades together.",
+        "Lower slowly to a full stretch."
+      ],
+      "safety": "Keep the chest on the pad and the neck relaxed; do not shrug.",
+      "video": "https://www.youtube.com/watch?v=tZUYS7X50so"
+    },
+    "db-shoulder-press": {
+      "uuid": "87affa4b-395b-437c-9581-2bd20ea5aa7c", "name": "Shoulder Press, Dumbbells",
+      "how": [
+        "Sit on the bench set upright, a dumbbell in each hand at shoulder height.",
+        "Brace the stomach and keep the back against the pad.",
+        "Press the weights overhead until the arms are straight.",
+        "Lower under control back to the shoulders."
+      ],
+      "safety": "Do not lean back or arch to finish a rep; stop on shoulder pain.",
+      "video": "https://www.youtube.com/watch?v=HzIiNhHhhtA"
+    },
+    "lateral-raise": {
+      "uuid": "63375f5b-2d81-471c-bea4-fc3d207e96cb", "name": "Lateral Raises",
+      "how": [
+        "Stand with a light dumbbell in each hand at your sides, elbows slightly bent.",
+        "Raise the arms out to the sides up to shoulder height.",
+        "Lead with the elbows and keep the shoulders down.",
+        "Lower slowly."
+      ],
+      "safety": "Use light weights and no swinging; stop at shoulder height.",
+      "video": "https://www.youtube.com/watch?v=XPPfnSEATJA"
+    },
+    "hammer-curl": {
+      "uuid": "c0d9fe98-f4fe-49f3-8037-05e1984e7d2d", "name": "Hammer Curls",
+      "how": [
+        "Stand with a dumbbell in each hand, palms facing each other.",
+        "Keep the elbows pinned at your sides.",
+        "Curl the weights up toward the shoulders without turning the wrists.",
+        "Lower slowly to straight arms."
+      ],
+      "safety": "No swinging or leaning back; lighten the weight if you have to.",
+      "video": "https://www.youtube.com/watch?v=nL3SedGG7X0"
+    },
+    "overhead-triceps": {
+      "uuid": "19133a0d-e6b2-4d57-8a84-8aac3d962a99", "name": "Triceps Overhead (Dumbbell)",
+      "how": [
+        "Sit tall and hold one dumbbell overhead with both hands under the top plate.",
+        "Keep the upper arms close to the head.",
+        "Lower the weight behind the head by bending the elbows.",
+        "Straighten the arms to lift it back up."
+      ],
+      "safety": "Brace the stomach so the back does not arch; control the weight behind the head.",
+      "video": "https://www.youtube.com/watch?v=kZ-ReOdn2qk"
+    },
+    "side-plank": {
+      "uuid": "6465446b-4297-4379-b832-3fbaca037ffb", "name": "Side Plank",
+      "how": [
+        "Lie on your side with the elbow under the shoulder, legs stacked.",
+        "Lift the hips so the body is a straight line from head to feet.",
+        "Hold, breathing steadily, then switch sides.",
+        "Easier: bend the knees and keep them on the mat."
+      ],
+      "safety": "End the hold when the hips drop; keep the neck in line with the spine.",
+      "video": "https://www.youtube.com/watch?v=ohaXbjftkYc"
+    },
+    "suitcase-carry": {
+      "uuid": "b6c19c36-34be-4d9f-8c07-8bdf9ab3ba1a", "name": "Suitcase Carry",
+      "how": [
+        "Pick up one dumbbell at your side, like a suitcase.",
+        "Stand tall: do not lean toward or away from the weight.",
+        "Walk slowly with short, even steps for the set length.",
+        "Put it down with a squat, then carry it on the other side."
+      ],
+      "safety": "Clear the walking path first; lift and set the weight down with a flat back.",
+      "video": "https://www.youtube.com/watch?v=3RKKnZhhelE"
+    },
+    "reverse-crunch": {
+      "uuid": "5d8d3581-bce5-4a28-868f-8b299eaedbdd", "name": "Reverse crunch",
+      "how": [
+        "Lie on your back, knees bent, hands flat by your sides.",
+        "Use the stomach to curl the hips off the mat, knees toward the chest.",
+        "Lower the hips slowly until the feet almost touch down.",
+        "Keep the movement small and controlled."
+      ],
+      "safety": "No swinging the legs for momentum; keep the neck relaxed on the mat.",
+      "video": "https://www.youtube.com/watch?v=tz1J8DJ5Ypc"
+    },
+    "split-squat": {
+      "uuid": "8a3e08ab-4e97-4aee-897a-60d8693b9b43", "name": "Dumbbell Split Squat",
+      "how": [
+        "Stand in a long stride, back heel up; hold the dumbbells at your sides once bodyweight is easy.",
+        "Keep both feet where they are for the whole set: this is stationary, not a walking lunge.",
+        "Lower straight down to a comfortable depth, front knee over the middle of the foot.",
+        "Push through the front foot to rise; finish the reps, then switch legs."
+      ],
+      "safety": "Stationary only, no jumping or pivoting; go only as deep as feels comfortable and stop on knee pain.",
+      "video": "https://www.youtube.com/watch?v=qW5OGJ62ZjY"
+    },
+    "sl-rdl": {
+      "uuid": "a630de17-9170-434c-b486-96a6b8705506", "name": "Single-Leg Deadlift with Dumbbell",
+      "how": [
+        "Stand on one leg, knee soft, a dumbbell in the opposite hand.",
+        "Hinge at the hip and let the free leg rise behind you as the weight lowers.",
+        "Keep the hips square to the floor and the back flat.",
+        "Stand back up by squeezing the glute of the standing leg."
+      ],
+      "safety": "Touch a wall or the bench for balance if needed; stop before the back rounds.",
+      "video": "https://www.youtube.com/watch?v=Y3F2eVkpfL8"
+    },
+    "wall-sit": {
+      "uuid": "3f8ad988-1aee-48ca-ad37-44e39ae1715d", "name": "Wall-sit",
+      "how": [
+        "Lean your back flat against a wall, feet about two feet out.",
+        "Slide down to a comfortable depth, knees over the ankles.",
+        "Hold, breathing steadily.",
+        "Slide back up to finish."
+      ],
+      "safety": "Thighs no lower than parallel; stay higher if a knee complains, and stop on knee pain.",
+      "video": "https://www.youtube.com/watch?v=RG7z0P9qrLk"
+    },
+    "sl-glute-bridge": {
+      "uuid": "68f1efb8-e7d2-4a79-99bb-65f128e10a11", "name": "Single Leg Glute Bridge",
+      "how": [
+        "Lie on your back, one knee bent with the foot flat, the other leg straight.",
+        "Push through the heel on the floor to lift the hips.",
+        "Keep the hips level at the top and squeeze the glute.",
+        "Lower slowly; finish the reps, then switch."
+      ],
+      "safety": "Do not arch the lower back to get higher; if the hamstring cramps, bring the foot closer.",
+      "video": "https://www.youtube.com/watch?v=fUOB9VcyvYo"
+    },
+    "side-lying-abduction": {
+      "uuid": "7212cc74-656e-47ce-8292-d211676f2ee1", "name": "Side Lying Hip Abduction",
+      "how": [
+        "Lie on your side, head on your arm, bottom knee bent for balance.",
+        "Keep the top leg straight with the toes pointing forward.",
+        "Lift the top leg slightly behind the body to about 45 degrees.",
+        "Lower slowly."
+      ],
+      "safety": "Do not roll the hips backward; a smaller range done right beats a high kick.",
+      "video": "https://www.youtube.com/watch?v=-rDiQXjeXO0"
+    },
+    "sl-calf-raise": {
+      "uuid": "4e752292-051a-4043-8f80-a390c23875e6", "name": "Calf raises, one legged",
+      "how": [
+        "Stand on one foot, lightly holding a wall for balance.",
+        "Rise onto the ball of the foot as high as you can.",
+        "Pause one second, then lower slowly.",
+        "Finish the reps, then switch."
+      ],
+      "safety": "Use the wall for balance only, not to lift yourself; no bouncing.",
+      "video": "https://www.youtube.com/watch?v=qPd73snQfUs"
+    },
+    "lying-leg-raise": {
+      "uuid": "9e34bc01-9cec-4ee2-a9bb-9c937a471c24", "name": "Leg Raises, Lying",
+      "how": [
+        "Lie on your back, hands under the hips or flat by your sides.",
+        "Press the lower back into the mat.",
+        "Raise the legs together, knees soft, until they point at the ceiling.",
+        "Lower slowly, stopping before the back lifts."
+      ],
+      "safety": "Bend the knees more if the lower back arches; no swinging.",
+      "video": "https://www.youtube.com/watch?v=3oIpxsn6FxQ"
+    },
+    "plank-shoulder-tap": {
+      "uuid": "75d730d0-3b26-4a25-8f1a-7119a98e02ef", "name": "Plank Shoulder Taps",
+      "how": [
+        "Start in a high plank, hands under the shoulders, feet wider than the hips.",
+        "Brace the stomach and squeeze the glutes.",
+        "Lift one hand to tap the opposite shoulder, then put it back down.",
+        "Alternate sides, keeping the hips still."
+      ],
+      "safety": "Widen the feet or drop to the knees if the hips rock.",
+      "video": "https://www.youtube.com/watch?v=_zzqDNRJOxM"
+    },
+    "hollow-hold": {
+      "uuid": "d059c63d-0a81-48a3-912a-44070c0def2e", "name": "Hollow Hold",
+      "how": [
+        "Lie on your back and press the lower back into the mat.",
+        "Lift the shoulders and the legs a little off the mat, arms reaching forward or overhead.",
+        "Hold the shape, breathing steadily.",
+        "Easier: bend the knees or keep the arms by your sides."
+      ],
+      "safety": "End the hold when the lower back lifts off the mat.",
+      "video": "https://www.youtube.com/watch?v=jLxtFNO0r50"
+    },
+    "db-bench-press": {
+      "uuid": "28321cf3-70e6-48a4-ade1-d11382180cb3", "name": "Benchpress Dumbbells",
+      "how": [
+        "Lie on the flat bench, feet planted, a dumbbell in each hand at the chest.",
+        "Pull the shoulder blades back and down.",
+        "Press the weights up until the arms are straight.",
+        "Lower under control to the sides of the chest."
+      ],
+      "safety": "Keep the elbows about 45 degrees from the body; lower the weights to the thighs to finish.",
+      "video": "https://www.youtube.com/watch?v=AuNRCrdhquE"
+    },
+    "one-arm-row": {
+      "uuid": "94a5c406-7bcd-47f3-9687-bdf92a763932", "name": "Bent Over Dumbbell Rows",
+      "how": [
+        "Put one hand and the same-side knee on the bench, back flat.",
+        "Hold a dumbbell in the other hand, arm hanging straight down.",
+        "Pull the elbow up toward the hip.",
+        "Lower slowly; finish the reps, then switch arms."
+      ],
+      "safety": "Keep the back flat and do not twist the torso to lift the weight.",
+      "video": "https://www.youtube.com/watch?v=QynrQpOAOsw"
+    },
+    "push-up": {
+      "uuid": "f5b84269-18af-4464-a61f-b767cbcd81dc", "name": "Push-Up",
+      "how": [
+        "Hands slightly wider than the shoulders, body straight from head to heels.",
+        "Lower the chest toward the floor, elbows about 45 degrees from the body.",
+        "Push back up to straight arms.",
+        "Easier: hands on the bench, or knees down."
+      ],
+      "safety": "Keep the hips from sagging; stop the set when form breaks.",
+      "video": "https://www.youtube.com/watch?v=ZR1QBUtC1GY"
+    },
+    "db-pullover": {
+      "uuid": "c395ad8d-164c-4031-9136-b4116d354451", "name": "Dumbbell Pullover",
+      "how": [
+        "Lie on the flat bench and hold one dumbbell over the chest with both hands.",
+        "Keep a slight bend in the elbows.",
+        "Lower the weight back over the head in an arc until you feel a stretch.",
+        "Pull it back over the chest."
+      ],
+      "safety": "Go only as far back as the shoulders allow without pain; keep the ribs down.",
+      "video": "https://www.youtube.com/watch?v=jQjWlIwG4sI"
+    },
+    "rear-delt-raise": {
+      "uuid": "25cbc266-aa84-44f5-989b-53c9cc8fdc77", "name": "Chest-Supported Rear Delt Raise",
+      "how": [
+        "Lie chest-down on the bench set to an incline, a light dumbbell in each hand.",
+        "Let the arms hang, elbows slightly bent.",
+        "Raise the arms out to the sides until level with the body.",
+        "Lower slowly."
+      ],
+      "safety": "Use light weights; do not shrug or swing.",
+      "video": "https://www.youtube.com/watch?v=XIJTt_Czqmc"
+    },
+    "biceps-curl": {
+      "uuid": "1ae6a28d-10e7-4ecf-af4f-905f8193e2c6", "name": "Biceps Curls With Dumbbell",
+      "how": [
+        "Stand with a dumbbell in each hand, palms forward.",
+        "Keep the elbows at your sides.",
+        "Curl the weights up toward the shoulders.",
+        "Lower slowly to straight arms."
+      ],
+      "safety": "No swinging or leaning back; lighten the weight if you have to.",
+      "video": "https://www.youtube.com/watch?v=Nr-sPLLOIwE"
+    },
+    "triceps-kickback": {
+      "uuid": "5915fabe-c941-4dac-b196-bc4e8c7ce57b", "name": "Tricep Dumbbell Kickback",
+      "how": [
+        "Hinge forward with a flat back, one hand on the bench if you like.",
+        "Hold the upper arm still along your side, elbow bent to 90 degrees.",
+        "Straighten the arm back until it is in line with the body.",
+        "Return slowly."
+      ],
+      "safety": "Keep the upper arm still and the back flat; use a light weight.",
+      "video": "https://www.youtube.com/watch?v=WxmkqZ2gKFo"
+    },
+    "farmer-carry": {
+      "uuid": "3393db0b-98b7-4d53-a0d4-985f97875295", "name": "Dumbbell farmer's carry",
+      "how": [
+        "Pick up a dumbbell in each hand with a squat, not a bent back.",
+        "Stand tall, shoulders down and back.",
+        "Walk slowly with short, even steps for the set time.",
+        "Set the weights down with a squat."
+      ],
+      "safety": "Clear the walking path first; put the weights down before your grip fails.",
+      "video": "https://www.youtube.com/watch?v=NxUXgNNLIvk"
+    },
+    "russian-twist": {
+      "uuid": "10510fb5-6ebd-4ddc-b03e-423b15deceea", "name": "Russian Twist",
+      "how": [
+        "Sit on the mat with knees bent and heels on the floor; lean back slightly with a straight back.",
+        "Hold the hands (or a light dumbbell) at the chest.",
+        "Turn the chest to one side, then the other, moving from the ribs.",
+        "Keep the movement slow."
+      ],
+      "safety": "Keep the feet down and the back straight; stop if the lower back complains.",
+      "video": "https://www.youtube.com/watch?v=s0kT80JLCfA"
+    },
+    "box-squat": {
+      "uuid": "151434a5-c046-459f-a3a9-c3125075856f", "name": "Box squat",
+      "how": [
+        "Use a box, bench or chair high enough that your hips sit slightly above your knees.",
+        "Stand in front of it, feet shoulder-width.",
+        "Sit down fully with control.",
+        "Drive through the heels to stand back up."
+      ],
+      "safety": "Sit, do not drop; raise the seat if the bottom feels strained.",
+      "video": "https://www.youtube.com/watch?v=qveKmiXEkIQ"
+    },
+    "pallof-press": {
+      "uuid": "e56f2970-e4c9-45eb-8e8c-52abb590e7a6", "name": "PALLOF PRESS",
+      "equipment": ["Resistance band"],
+      "how": [
+        "Anchor a band at chest height and stand side-on to it, handle at the chest.",
+        "Step away until the band pulls; feet hip-width, knees soft.",
+        "Press the handle straight out, hold 2 seconds, bring it back.",
+        "Finish the reps, then face the other way."
+      ],
+      "safety": "Do not let the torso twist toward the anchor; check the anchor holds before each set.",
+      "video": "https://www.youtube.com/watch?v=n8ZZG9gElhs"
+    },
+    "incline-push-up": {
+      "uuid": "4aa7e2a7-86ad-4322-978f-ff8b391f556c", "name": "Push-Ups | Incline",
+      "how": [
+        "Hands on a wall, a high counter or the bench, slightly wider than the shoulders.",
+        "Step back so the body is one straight line.",
+        "Lower the chest toward the surface.",
+        "Push back up to straight arms."
+      ],
+      "safety": "No sagging hips or arched back; a higher surface makes it easier.",
+      "video": "https://www.youtube.com/watch?v=wIPJvBQs7RA"
+    },
+    "seated-band-row": {
+      "uuid": "00fcf603-b0d0-48d2-9b5e-c7f0d510d46c", "name": "Rowing seated, narrow grip",
+      "equipment": ["Resistance band"],
+      "how": [
+        "Sit tall on the floor, legs out, a resistance band looped around the feet.",
+        "Hold one end in each hand, arms straight.",
+        "Pull the elbows back, squeezing the shoulder blades together.",
+        "Return slowly."
+      ],
+      "safety": "Do not lean back or let the lower back arch; check the band for nicks first.",
+      "video": "https://www.youtube.com/watch?v=ZIAQvUA_wbs"
+    },
+    "glute-bridge": {
+      "uuid": "ceb0c2d0-06ac-4a49-89e7-8d7b1c1e5672", "name": "Glute Bridge",
+      "how": [
+        "Lie on your back, knees bent, feet flat and hip-width.",
+        "Squeeze the glutes to lift the hips into a line from shoulders to knees.",
+        "Hold at the top, then lower slowly."
+      ],
+      "safety": "Do not over-arch the lower back at the top.",
+      "video": "https://www.youtube.com/watch?v=PhTDzR0TpZs"
+    },
+    "walking": {
+      "uuid": "2e00d8e5-19a2-42ad-a954-f06a56f56561", "name": "Walking",
+      "how": [
+        "Walk tall with long, deliberate strides and a relaxed arm swing.",
+        "In the pool: chest-deep water, walking forward, backward and sideways.",
+        "Keep a moderate pace: you can still hold a conversation."
+      ],
+      "safety": "Pool: enter by the steps and walk where you can stand comfortably.",
+      "video": "https://www.youtube.com/watch?v=ZgxniVfKT4I"
+    },
+    "double-calf-raise": {
+      "uuid": "58ca3e51-ea64-4771-a74a-a74d29f5c40c", "name": "Double Leg Calf Raise",
+      "how": [
+        "Stand tall, feet hip-width, a hand on a wall or chair for balance.",
+        "Squeeze the glutes for 3 seconds.",
+        "Rise slowly onto the balls of both feet and pause 1 second at the top.",
+        "Lower slowly."
+      ],
+      "safety": "Move slowly; no bouncing.",
+      "video": "https://www.youtube.com/watch?v=aZh9tCFh46o"
+    },
+    "hip-flexor-stretch": {
+      "uuid": "0cf08c73-6af3-4852-97a5-1dff53531971", "name": "Hip Flexor Stretch",
+      "how": [
+        "Kneel tall on a cushion.",
+        "Tuck the pelvis under and squeeze the glute on the side you stretch.",
+        "Feel the stretch at the front of that hip; hold and breathe.",
+        "Do not lunge forward: the stretch comes from the tuck alone."
+      ],
+      "safety": "Ease into a mild stretch; never bounce.",
+      "video": "https://www.youtube.com/watch?v=SDsjnuCf90U"
+    },
+    "wall-squat": {
+      "uuid": "46ee5805-512a-43a2-944c-97f7744b0078", "name": "Wall Squat",
+      "how": [
+        "Stand with your back against a smooth wall, feet a little in front of you.",
+        "Slide down into a partial squat, no lower than 90 degrees.",
+        "Hold, breathing steadily, then slide back up."
+      ],
+      "safety": "Stay higher if the knees complain; keep the back on the wall.",
+      "video": "https://www.youtube.com/watch?v=YZqrRImJywM"
+    },
+    "cow-cat": {
+      "uuid": "8ca01d32-2e86-49a1-a130-b99219432e42", "name": "Yoga exercise: Cow-cat",
+      "how": [
+        "Start on hands and knees, hands under the shoulders, knees under the hips.",
+        "Breathe out and gently round the back, tucking the tailbone under with the lower stomach.",
+        "Breathe in and return to a flat back (or a gentle arch).",
+        "Move slowly with the breath."
+      ],
+      "safety": "Stay in a comfortable range; do not let the lower back sag.",
+      "video": "https://www.youtube.com/watch?v=1Y0YjXS9sKI"
+    }
+  },
+  "people": {
+    "jmack": {
+      "name": "Jacob",
+      "about": "30-min treadmill walk, then about 60 min of training; core last. Weights in lb per dumbbell unless the slot says one dumbbell. Progression: when every set reaches the top of the rep range, go up one dumbbell step and start again at the bottom of the range.",
+      "routines": [
+        {"day": "mon", "name": "Mon · Lower A", "summary": "Walk, lower body A, core", "slots": [
+          {"exercise": "treadmill-walk", "sets": 1, "minutes": 30, "comment": "Easy to brisk walk; progress incline or pace"},
+          {"exercise": "goblet-squat", "sets": 3, "reps": [8, 12], "weight": 15, "rest": [60, 90], "comment": "One dumbbell; squat to the bench"},
+          {"exercise": "db-rdl", "sets": 3, "reps": [8, 12], "weight": 15, "rest": [60, 90]},
+          {"exercise": "step-up", "sets": 3, "reps": [8, 10], "per_side": true, "rest": [60, 90], "comment": "Bodyweight, low step"},
+          {"exercise": "db-hip-thrust", "sets": 3, "reps": [10, 12], "weight": 25, "rest": [60, 90], "comment": "One dumbbell across the hips"},
+          {"exercise": "calf-raise", "sets": 3, "reps": [12, 15], "weight": 20, "rest": [60, 90]},
+          {"exercise": "tib-raise", "sets": 2, "reps": 15, "rest": [60, 90]},
+          {"exercise": "plank", "sets": 3, "seconds": [30, 45], "rest": [60, 90]},
+          {"exercise": "dead-bug", "sets": 3, "reps": 8, "per_side": true, "rest": [60, 90]},
+          {"exercise": "bird-dog", "sets": 2, "reps": 8, "per_side": true, "rest": [60, 90]}
+        ]},
+        {"day": "wed", "name": "Wed · Upper A", "summary": "Walk, upper body A, core", "slots": [
+          {"exercise": "treadmill-walk", "sets": 1, "minutes": 30, "comment": "Easy to brisk walk; progress incline or pace"},
+          {"exercise": "incline-db-press", "sets": 3, "reps": [8, 12], "weight": 15, "rest": [60, 90]},
+          {"exercise": "chest-supported-row", "sets": 3, "reps": [10, 12], "weight": 15, "rest": [60, 90]},
+          {"exercise": "db-shoulder-press", "sets": 3, "reps": [8, 12], "weight": 10, "rest": [60, 90]},
+          {"exercise": "lateral-raise", "sets": 3, "reps": [12, 15], "weight": 5, "rest": [60, 90]},
+          {"exercise": "hammer-curl", "sets": 3, "reps": [10, 12], "weight": 10, "rest": [60, 90]},
+          {"exercise": "overhead-triceps", "sets": 3, "reps": [10, 12], "weight": 15, "rest": [60, 90], "comment": "One dumbbell, both hands"},
+          {"exercise": "side-plank", "sets": 2, "seconds": [20, 30], "per_side": true, "rest": [60, 90]},
+          {"exercise": "suitcase-carry", "sets": 3, "lengths": 4, "weight": 25, "per_side": true, "rest": [60, 90], "comment": "One dumbbell; 10-ft lengths"},
+          {"exercise": "reverse-crunch", "sets": 3, "reps": [10, 12], "rest": [60, 90]}
+        ]},
+        {"day": "fri", "name": "Fri · Lower B", "summary": "Walk, lower body B, core", "slots": [
+          {"exercise": "treadmill-walk", "sets": 1, "minutes": 30, "comment": "Easy to brisk walk; progress incline or pace"},
+          {"exercise": "split-squat", "sets": 3, "reps": [8, 10], "per_side": true, "rest": [60, 90], "comment": "Bodyweight first; stationary, comfortable depth"},
+          {"exercise": "sl-rdl", "sets": 3, "reps": [8, 10], "weight": 10, "per_side": true, "rest": [60, 90], "comment": "One dumbbell"},
+          {"exercise": "wall-sit", "sets": 3, "seconds": [30, 45], "rest": [60, 90]},
+          {"exercise": "sl-glute-bridge", "sets": 3, "reps": 10, "per_side": true, "rest": [60, 90]},
+          {"exercise": "side-lying-abduction", "sets": 2, "reps": 15, "per_side": true, "rest": [60, 90]},
+          {"exercise": "sl-calf-raise", "sets": 2, "reps": [10, 15], "per_side": true, "rest": [60, 90]},
+          {"exercise": "lying-leg-raise", "sets": 3, "reps": [10, 12], "rest": [60, 90]},
+          {"exercise": "plank-shoulder-tap", "sets": 3, "reps": 10, "per_side": true, "rest": [60, 90]},
+          {"exercise": "hollow-hold", "sets": 2, "seconds": [20, 30], "rest": [60, 90]}
+        ]},
+        {"day": "sat", "name": "Sat · Upper B", "summary": "Walk, upper body B, core", "slots": [
+          {"exercise": "treadmill-walk", "sets": 1, "minutes": 30, "comment": "Easy to brisk walk; progress incline or pace"},
+          {"exercise": "db-bench-press", "sets": 3, "reps": [8, 12], "weight": 15, "rest": [60, 90]},
+          {"exercise": "one-arm-row", "sets": 3, "reps": [10, 12], "weight": 20, "per_side": true, "rest": [60, 90], "comment": "One arm, hand and knee on the bench"},
+          {"exercise": "push-up", "sets": 3, "reps": [8, 12], "rest": [60, 90]},
+          {"exercise": "db-pullover", "sets": 3, "reps": [10, 12], "weight": 15, "rest": [60, 90], "comment": "One dumbbell, both hands"},
+          {"exercise": "rear-delt-raise", "sets": 3, "reps": [12, 15], "weight": 5, "rest": [60, 90]},
+          {"exercise": "biceps-curl", "sets": 3, "reps": [10, 12], "weight": 10, "rest": [60, 90]},
+          {"exercise": "triceps-kickback", "sets": 3, "reps": [10, 12], "weight": 5, "rest": [60, 90]},
+          {"exercise": "farmer-carry", "sets": 3, "seconds": 30, "weight": 25, "rest": [60, 90]},
+          {"exercise": "russian-twist", "sets": 3, "reps": 10, "per_side": true, "rest": [60, 90]}
+        ]}
+      ]
+    },
+    "rach": {
+      "name": "Rachel",
+      "about": "Desk breaks and evening mobility every day; Strength A Monday, Strength B Thursday, water walking Tuesday and Friday.",
+      "parts": {
+        "desk": [
+          {"exercise": "double-calf-raise", "sets": 1, "reps": 15, "comment": "Desk break, 2-3x a day: glute squeeze 3 s, then 15 slow calf raises"},
+          {"exercise": "hip-flexor-stretch", "sets": 1, "seconds": 30, "per_side": true, "comment": "Desk break, 2-3x a day: tall-kneeling, pelvis tucked"}
+        ],
+        "evening": [
+          {"exercise": "wall-squat", "sets": 2, "reps": 8, "comment": "Supported wall slide: no lower than 90 degrees, hold 5 s each rep"},
+          {"exercise": "cow-cat", "sets": 1, "reps": [15, 20], "comment": "Hands-and-knees pelvic tilt: tuck the tailbone, back to flat"}
+        ]
+      },
+      "routines": [
+        {"day": "mon", "name": "Mon · Strength A", "summary": "Desk breaks + Strength A + Evening mobility", "slots": [
+          {"part": "desk"},
+          {"exercise": "box-squat", "sets": 3, "reps": 8, "rest": [60, 90], "comment": "High box: hips slightly above the knees; RPE 6-7"},
+          {"exercise": "pallof-press", "sets": 3, "reps": 10, "per_side": true, "rest": [40, 60], "comment": "Band at chest height"},
+          {"exercise": "incline-push-up", "sets": 3, "reps": [10, 12], "rest": 60, "comment": "Hands on a wall or a high counter"},
+          {"part": "evening"}
+        ]},
+        {"day": "tue", "name": "Tue · Cardio", "summary": "Desk breaks + Cardio + Evening mobility", "slots": [
+          {"part": "desk"},
+          {"exercise": "walking", "sets": 1, "minutes": [20, 30], "comment": "Water walking: moderate (talk test)"},
+          {"part": "evening"}
+        ]},
+        {"day": "wed", "name": "Wed · Daily parts", "summary": "Desk breaks + Evening mobility", "slots": [
+          {"part": "desk"}, {"part": "evening"}
+        ]},
+        {"day": "thu", "name": "Thu · Strength B", "summary": "Desk breaks + Strength B + Evening mobility", "slots": [
+          {"part": "desk"},
+          {"exercise": "db-rdl", "sets": 3, "reps": 8, "rest": 90, "comment": "Elevated RDL: lower only to just below the kneecaps"},
+          {"exercise": "seated-band-row", "sets": 3, "reps": 12, "rest": 60, "comment": "Seated, band around the feet"},
+          {"exercise": "glute-bridge", "sets": 3, "reps": 12, "rest": 60, "comment": "Hold 2 s at the top"},
+          {"part": "evening"}
+        ]},
+        {"day": "fri", "name": "Fri · Cardio", "summary": "Desk breaks + Cardio + Evening mobility", "slots": [
+          {"part": "desk"},
+          {"exercise": "walking", "sets": 1, "minutes": [20, 30], "comment": "Water walking: moderate (talk test)"},
+          {"part": "evening"}
+        ]},
+        {"day": "sat", "name": "Sat · Daily parts", "summary": "Desk breaks + Evening mobility", "slots": [
+          {"part": "desk"}, {"part": "evening"}
+        ]},
+        {"day": "sun", "name": "Sun · Daily parts", "summary": "Desk breaks + Evening mobility", "slots": [
+          {"part": "desk"}, {"part": "evening"}
+        ]}
+      ]
+    }
+  }
+}

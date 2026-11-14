@@ -1,5 +1,6 @@
 ---
 title: wger — first deploy and onboarding
+updated: 2026-11-14
 ---
 
 # wger: first deploy and onboarding
@@ -189,7 +190,7 @@ ssh $H 'sudo docker exec wger-web python3 manage.py warmup-exercise-api-cache --
 3. wger opens logged in as your Authelia username. The account is created on this first
    visit (`AUTH_PROXY_CREATE_UNKNOWN_USER`).
 
-Then give jmack admin rights (for the catalog generator in step 9 and the Django admin):
+Then give jmack admin rights (for the plan generator in step 9 and the Django admin):
 
 **Laptop → kdk-dkr-01**
 
@@ -229,199 +230,98 @@ curl -s -o /dev/null -w '%{http_code}\n' https://wger.kmkdp.com/api/v2/userprofi
 
 `printf` is a shell builtin, so the key is not in any process's argument list.
 
-## 9. Load the catalog (our exercises + weekly routines)
+## 9. Load the plan (built-in exercises + weekday routines)
 
-`stacks/home-assistant/tools/gen_wger.py` writes the household plan into wger from the
-same catalog as the HA helpers (`tools/workout_catalog.json`) and the guide output
-(`workout.json` + the posters):
+`stacks/home-assistant/tools/gen_wger.py` writes the household plan from
+`tools/wger_plan.json` into wger ([exercise plan update](workout-tracking-update.md) has the
+file format). Since 2026-11-14 it uses wger's **built-in** exercises only: no custom
+exercises, no images, no custom muscles.
 
-- one custom exercise per slug (57 today: the catalog's 56 + `arm-circles`, which only
-  the guide uses), English name, category, equipment and muscles. wger exercises are
-  global, so they are written once, with **jmack's** key (superuser from step 7:
-  trusted, and exempt from the 20-per-hour exercise-create limit);
-- muscles (primary = red, secondary = orange on the app's body map) and equipment come
-  from `tools/wger_exercises.json`, one line per slug. Hands, forearms, adductors and shins
-  have no built-in wger muscle: the sidecar names five local muscles for them (step 13).
-  The app lists those by name and never colours them; loaded forearm work also lights
-  Brachialis as secondary;
-- the description follows one template: what it works (or stretches), **Dose** as one
-  bullet per weekday group (`Mon, Thu, Sat: 2 × 15–30 / leg`, `Every day: …`), **How**
-  (the guide's cues), **Safety** (one line). The idempotency marker
-  `kdk:<slug> v:<text hash> img:<image hash>#<ids>` is an HTML comment at the end of
-  `description_source`: wger strips comments when it renders the description, so it
-  never shows in the app or the web UI. A description edited by hand is put back;
-- images: every `exercise/ex-<slug>-step<N>.png` in N order (step 1 = start position =
-  the main image; photo style, marked AI-generated), or the `ex-<slug>-rom.png` poster
-  when the slug has no step photos. The set is re-uploaded only when a file changes,
-  and then every other image on that exercise is deleted (images on `kdk:` exercises
-  belong to the generator);
-- per person, one routine per weekday (seven each), each holding that whole day in the
-  guide's order, so the app's routine list reads Mon..Sun:
+- **Exercises:** each plan entry names a built-in by uuid plus the English name wger must
+  report for it; the run stops before any write when a uuid is missing, is a `kdk-lab`
+  exercise, or has another name (several built-ins share a name, e.g. two "Side Plank").
+  The English description is replaced by **How** (3-5 lines), **Safety** (one line) and
+  `Video: <address>` (plain text: wger has no link field), ending in a hidden
+  `<!-- kdk-plan v:<hash> -->` comment. Plan `equipment` names are added, never removed
+  (Treadmill on Treadmill Cardio, Resistance band on Rachel's two band moves once step 12
+  has the row). Exercises are global: they are written with **jmack's** key (superuser,
+  step 7) and only when jmack is selected. A description is shared by everyone who uses
+  that exercise; person-specific notes go in the slot comment.
+- **Routines**, one per plan weekday, one day each, `fit_in_week` off (the day repeats on
+  every date, so the app always shows it), starts staggered a day apart with one shared end
+  16 weeks after this week's Monday, so the list reads Mon..Sun. Tag `[kdk:mon]` ..
+  `[kdk:sun]` at the end of the description:
 
-  | jmack | rach |
+  | jmack (Mon/Wed/Fri/Sat; nothing on the other days) | rach (every day) |
   |---|---|
-  | Mon · Lower A | Mon · Strength A |
-  | Tue · Upper A | Tue · Cardio |
-  | Wed · Treadmill + flow | Wed · Daily parts |
-  | Thu · Lower B | Thu · Strength B |
-  | Fri · Upper B | Fri · Cardio |
-  | Sat · Walk + flow + PT | Sat · Daily parts |
-  | Sun · Yoga | Sun · Daily parts |
+  | Mon · Lower A, Wed · Upper A, Fri · Lower B, Sat · Upper B | Mon · Strength A, Tue · Cardio, Wed · Daily parts, Thu · Strength B, Fri · Cardio, Sat · Daily parts, Sun · Daily parts |
 
-  The name is derived, nothing to keep in the catalog: the weekday + the guide's day
-  title (rach: her non-daily groups, else "Daily parts"), shortened until it fits wger's
-  25 characters ("flexibility flow" → "flow", then "Treadmill" → "Walk"; the run stops
-  when it still does not fit). Each routine has ONE day (name = the weekday, subtitle =
-  the guide's summary) and **fit_in_week off**: a one-day routine repeats its day on
-  every date, so the app always shows it (no rest-day padding; with the weekly schedule
-  on, wger restarts at each Monday and the day would only show on Mondays). One slot per
-  guide step, supersets as one slot with two exercises, sets × reps / seconds / minutes /
-  10-ft lengths from the dose text, weights blank (you fill them in). **Per side:** a dose
-  with "/ leg", "/ side", "/ arm", "/ hand", "/ direction" or "each way" doubles the sets,
-  and each logged set is one side (odd = left, even = right; "2 × 15–30 / leg" → 4 sets).
-  The slot line says "each set one side (L, R)" and the log page says it again; the
-  exercise description keeps the dose as written. **Rest:** "rest 60–90 s" in a dose
-  (Rachel's plan) becomes the rest config, so gym mode's rest timer counts that down;
-  Jacob's doses name no rest, so his timer counts up. **"2–3× a day"** (Rachel's desk
-  breaks) is one break's worth of sets: log the first break in gym mode, a later break by
-  opening the day again. The description
-  ends with `[kdk:mon]` .. `[kdk:sun]`: the generator finds its routines by that tag
-  (the retired HA treadmill auto-log used it too). wger lists routines by start
-  date (newest first), so the starts are staggered a day apart (Monday's routine starts
-  on this week's Monday, Sunday's six days earlier) with one shared end 16 weeks later:
-  that is what keeps the list in Mon..Sun order;
-- per person, one **public template** per weekday routine, owned by that person, with
-  the same day, slots and doses, so a day can be copied from the web UI (Routines →
-  Templates: `/routine/templates/overview/private` lists your own, `…/overview/public`
-  everyone's; open one → Copy makes it an ordinary routine of yours, starting today).
-  Names: "Mon · Lower A (template)" when that fits 25 characters, else
-  "Tpl · Wed · Walk + flow" (jmack: Wed and Sat use the short form, rach: all but Tue and
-  Fri). Tag `[kdk:tpl:mon]` .. `[kdk:tpl:sun]`, found among the person's own templates.
-  The iOS app (2.1.x) does not sync templates, so they never show in its list. wger
-  keeps no link from a copy to its template: copies are never touched, and deleting a
-  template never deletes a copy; a duplicate template is deleted only without logs or
-  sessions.
+  Each slot carries sets, reps (or seconds / minutes / 10-ft lengths) and max, the
+  planned start weight (lb, `weight-config`) and the rest range (`rest-config` /
+  `max-rest-config`: gym mode's timer counts it down). A per-side slot doubles the sets,
+  one logged set per side (odd = left, even = right). No templates any more.
+- **Never deletes a routine.** Slots are matched by exercise; a slot with logs is moved to
+  the end as `[retired]`. Old kdk routines not in the plan are listed as a warning for
+  `--purge-kdk` (step 9b).
 
-It is idempotent: a second run with nothing changed makes no writes. It never deletes
-a routine, a slot or a day that has logs or sessions (a wger log is deleted with its
-slot, a session with its day or routine), so it is safe to re-run after people have
-logged. A generated routine that is no longer in the plan and has neither is deleted.
-
-**Migration to weekday routines (once, after the block routines of #413).** The block
-routines are reused, not deleted. A routine with logs or sessions becomes the weekday of
-its first logs; each other logged day of it moves (the same day row with its slots; its
-logs and sessions are re-pointed) into that weekday's routine. The block routines without
-logs take the free weekdays whose exercises they already hold most of, their other days
-are deleted (no logs, no sessions), and the missing weekdays are created. Live on the
-evening of 2026-11-07:
-
-| Old routine | History | Becomes |
-|---|---|---|
-| jmack 1 Daily · walk + stretches | Friday: the two 2026-11-06 walks (slot 64) + 1 session; Saturday: 2 walk sessions, walk + PT-stretch logs (7) | **Fri · Upper B** (keeps day 5 and slot 64); its Saturday day (id 6) moves to the new **Sat · Walk + flow + PT** with its 2 sessions and 7 logs |
-| jmack 4 Flow + yoga | 11 flow logs + 1 session on its Wednesday day (id 18) | **Wed · Treadmill + flow** (keeps day 18) |
-| jmack 5 PT + hands, 6 Lifts | none | Mon · Lower A, Tue · Upper A; Thu and Sun are new |
-| rach 3 Daily, 7 Cardio, 8 Strength | none | Mon · Strength A, Tue · Cardio, Thu · Strength B; Wed, Fri, Sat, Sun are new |
-
-No log, session or routine is deleted. The dry run then listed 950 routine writes for
-jmack (440 for the routines including the 10 moves, 510 for the 7 new templates) and 476
-for rach (230 + 246), plus any exercise image writes; no `DELETE routine/`. Re-run the dry
-run right before the `--apply`: a new log on another weekday changes the mapping.
-
-Needs steps 7 and 8 done, Python 3 with `requests` on the laptop, and the guide output.
+Idempotent: a second `--apply` makes no writes. Needs steps 7 and 8 and Python 3 with
+`requests`.
 
 **Laptop, repo root, as jmack (`op` signed in)**
 
 ```bash
-G=/tmp/workout-guide
-python3 stacks/home-assistant/tools/gen-workout-guide.py --out "$G"   # skip if $G is fresh
-ls "$G/workout.json" && ls "$G/exercise" | grep -c -- '-rom\.png$'  # 56 posters
-ls "$G/exercise" | grep -c -- '-step[0-9]*\.png$'                   # step photos (0 until they are made)
+T=stacks/home-assistant/tools
 python3 -c 'import requests' || python3 -m pip install --user requests
+python3 $T/gen_wger.py --check-videos        # "47/47 video(s) answer oEmbed"; no keys needed
 export WGER_URL=https://wger.kmkdp.com
 export WGER_API_KEY_JMACK="$(op read op://kdk-cluster/wger-api-jmack/credential)"
 export WGER_API_KEY_RACH="$(op read op://kdk-cluster/wger-api-rach/credential)"
 printf '%s %s bytes\n' JMACK ${#WGER_API_KEY_JMACK} RACH ${#WGER_API_KEY_RACH}   # 40 each; never echo the value
-python3 stacks/home-assistant/tools/gen_wger.py --posters "$G"     # dry run: prints every write it would make
+python3 $T/gen_wger.py              # dry run: every write it would make
+python3 $T/gen_wger.py --apply      # "... write(s) made"
+python3 $T/gen_wger.py --apply      # "0 write(s) made"
+python3 $T/gen_wger.py --check      # "wger matches the plan", exit 0
 unset WGER_API_KEY_JMACK WGER_API_KEY_RACH
 ```
 
-The keys travel in the environment only; the script reads `WGER_API_KEY_<LOGIN>` and
-takes no key on the command line (the curl below reads its header from stdin for the
-same reason). The first dry run on an empty wger lists about 1,200 writes (57
-exercises + images, seven routines, ~150 slots). On the install loaded before the
-template change (2026-11-06) the dry run listed 106 writes for jmack (2026-11-07,
-before steps 12 and 13): 57 description PATCHes (new template, marker moved into the
-comment) and 49 exercise PATCHes (muscles, equipment). There are no image uploads until
-step photos exist. Run step 12 (and step 13) first: until then the dry run warns
-`wger has no equipment …` / `wger has no muscle …` and leaves those out.
+Without keys the dry run still checks every exercise (the exercise endpoints are public)
+and skips the routines with a warning; `--apply`, `--check` and `--purge-kdk` need both
+keys (or `--person <login>` for one; exercise writes need jmack).
 
-If the dry run printed an **ADMIN STEP** for the `10-ft lengths` unit (the REST API
-cannot create units; a fresh wger has Repetitions, Seconds, Minutes, Miles, Kilometers,
-Meters, but no lengths), create it once:
+If the dry run printed an **ADMIN STEP** for the `10-ft lengths` unit (REST cannot create
+units), run the printed `manage.py shell` one-liner on kdk-dkr-01 and re-run.
 
-**Laptop → kdk-dkr-01**
+Verify on both phones (pull to refresh): jmack's list reads Mon · Lower A, Wed · Upper A,
+Fri · Lower B, Sat · Upper B; gym mode pre-fills weight and reps and counts the rest down;
+an exercise page shows How / Safety / `Video:` and no `kdk-plan` line. Rachel's seven
+routines open with the built-in exercises and their wger images.
 
-```bash
-H=kdkadmin@10.1.20.20
-printf '%s\n' \
-  "from wger.core.models import RepetitionUnit" \
-  "print(RepetitionUnit.objects.get_or_create(name='10-ft lengths', defaults={'unit_type': 'DISTANCE', 'multiplier': 3}))" \
-  | ssh $H 'sudo docker exec -i wger-web python3 manage.py shell'
-# (<RepetitionUnit: 10-ft lengths>, True) the first time, False after
-```
+**Renewal.** `--check` fails (exit 1) once the window ends within 28 days; `--apply` then
+moves it to this week's Monday (logs stay).
 
-Then write it, and check it:
+### 9b. Purge the old kdk data (once, owner present)
 
-**Laptop, repo root, as jmack (`op` signed in)**
+`--purge-kdk` deletes every routine and template tagged `[kdk:…]` that is not one of the
+plan's routines (**logs and sessions included**: owner-approved 2026-11-14, no export), then
+every exercise whose `license_author` is exactly `kdk-lab` (their images, translations, slot
+entries and logs cascade, including old slots inside the kept plan routines). It never
+touches a plan routine, an untagged routine or a built-in, refuses to run if a plan uuid is
+a `kdk-lab` exercise, and is a dry run unless `--apply` is given. The previous night's
+`wger-YYYY-MM-DD.sql.gz` ([[backups]]) is the fallback.
+
+**Laptop, repo root, as jmack (`op` signed in; keys exported as above)**
 
 ```bash
-G=/tmp/workout-guide
-export WGER_URL=https://wger.kmkdp.com
-export WGER_API_KEY_JMACK="$(op read op://kdk-cluster/wger-api-jmack/credential)"
-export WGER_API_KEY_RACH="$(op read op://kdk-cluster/wger-api-rach/credential)"
-python3 stacks/home-assistant/tools/gen_wger.py --posters "$G" --apply    # "... write(s) made"; a few minutes
-python3 stacks/home-assistant/tools/gen_wger.py --posters "$G" --apply    # "0 write(s) made"
-python3 stacks/home-assistant/tools/gen_wger.py --posters "$G" --check    # "wger matches the catalog", exit 0
-for who in JMACK RACH; do
-  k=WGER_API_KEY_$who
-  printf 'Authorization: Token %s\n' "${!k}" | curl -s -H @- "$WGER_URL/api/v2/routine/" \
-    | python3 -c 'import json,sys; [print(r["id"], r["name"], r["start"], r["end"], r["fit_in_week"], r["is_template"]) for r in json.load(sys.stdin)["results"]]'
-done        # per person: 7 routines Mon..Sun (template False) + 7 templates (True), starts a day apart
-            # (Mon = this week's Monday), one end, fit_in_week False; each list also shows the
-            # other person's 7 public templates (wger lists public templates to everyone)
-unset WGER_API_KEY_JMACK WGER_API_KEY_RACH
+T=stacks/home-assistant/tools
+python3 $T/gen_wger.py --purge-kdk            # per-routine lines + "SUMMARY: N routine(s)/template(s) with L log(s) ... M kdk-lab exercise(s)"
+# owner confirms the counts, then:
+python3 $T/gen_wger.py --purge-kdk --apply    # ends "clean: 0 kdk routines ..." (exit 0) or "NOT CLEAN" (exit 1)
 ```
 
-`--person rach` limits the run to one person's routines (exercises are only written
-when jmack is selected). Rachel's routine comes from her own catalog plan
-(`plans.rach` in `workout_catalog.json`: desk breaks + evening mobility every day,
-Strength A Monday, the pool walk Tuesday and Friday, Strength B Thursday), not from `workout.json`; her 14
-exercises have no posters yet. Until her key exists, run `--person jmack` (that also
-writes her exercises, which are global) and leave `WGER_API_KEY_RACH` unset. Warnings go to stderr: a name too close to a wger.de exercise
-gets a ` · kdk plan` suffix (11 names today, e.g. Hammer Curl; wger's rule is 0.85 trigram similarity against every English exercise), a slug without a PNG poster gets no image
-(`shoulder-press` has only an SVG, `flat-press` none).
-
-Verify in the app, both phones: Routines lists seven routines, Mon..Sun, named as in
-the table above. Open today's: one day card (the weekday, the guide summary under it,
-the calendar icon), its list is the vault day note for today in order (jmack: walk, PT,
-hands, lifts or flow/yoga, PT stretches); the play button opens Gym mode on that day.
-Every routine shows the calendar icon (its one day repeats daily), so go by the name.
-Open **Fri · Upper B** → Logs: the 2026-11-06 walks are still there. Open one
-exercise (e.g. Romanian Deadlift): equipment chip(s) at the top, the image carousel
-(step 1 first once step photos exist), the description with **Dose / How / Safety**
-and no `kdk:` line, and the body map with the hamstrings + glutes red and the lower
-back + trapezius orange.
-
-To change an exercise's muscles or equipment, edit its line in
-`tools/wger_exercises.json` (names exactly as wger spells them: the `MUSCLES` tuple in
-`gen_wger.py`), run the tests, open a PR, and after the merge re-run the `--apply`
-above. A new catalog slug needs a line there too: `--check` reports one that is
-missing.
-
-**Renewal.** The routine window is 17 weeks. `--check` fails (exit 1) once the end is
-less than 28 days away; `--apply` then moves the start to that week's Monday (logs
-stay). Re-run whenever the catalog or the guide changes
-([exercise plan update](workout-tracking-update.md), steps 4–5).
+The API cannot see an exercise without a translation, so the run always prints a
+`manage.py shell` **FALLBACK** that deletes every `license_author='kdk-lab'` exercise
+directly; run it once after the `--apply` (it prints the count it deleted; `(0, {})` when
+the API already got them all). Then step 9's `--apply` and `--check`.
 
 ## 10. iOS app login (both phones)
 
@@ -461,18 +361,15 @@ ssh $H 'f=$(ls -t /mnt/backup/dkr/kdk-dkr-01/pgdump/wger-*.sql.gz | head -1); gz
 
 No Pushover from `backup-verify` that morning means the wger dump passed its check too.
 
-## 12. Household equipment list (admin, once; after the merge that turned the sync off)
+## 12. Household equipment list (admin; after the merge that turned the sync off)
 
-wger's equipment rows are global and admin-only (the REST API cannot add or delete
-them). This trims the list to what the house owns, adds local rows for the props the
-plan uses (`Treadmill`, `Finger stretcher`, `Strap`, `Towel`, `Pillow`, `Door frame`,
-`Wall`; they show as chips), and rebuilds the exercise API cache. Deleting a row only removes it from the upstream exercises that
-listed it (about 160 links for the set below, counted 2026-11-06); no exercise is deleted. It is idempotent.
-
-The lists are the owner's (2026-11-07): keep Dumbbell, Gym mat, none (bodyweight),
-Bench and Incline bench (the Bowflex adjustable bench; upstream exercises link to them
-too), add the local rows, delete the seven rows nothing here uses. `Wall` is for the
-three slugs that cannot be done without one (wall sit, tibialis raise, legs up the wall).
+wger's equipment rows are global and admin-only (the REST API cannot add or delete them).
+The list is trimmed to what the house owns. Since the built-in plan (2026-11-14) that is
+Bench, Dumbbell, Gym mat, Incline bench (the Bowflex adjustable bench),
+none (bodyweight), Treadmill and Resistance band (Rachel's Pallof press and seated row).
+The local prop rows of the old plan (Finger stretcher, Strap, Towel, Pillow, Door frame,
+Wall, Pool, Recumbent bike) go. Deleting a row only removes it from the exercises that list
+it; no exercise is deleted. Idempotent.
 
 Check first that the sync is off (it would bring the rows back within a week):
 
@@ -481,134 +378,46 @@ Check first that the sync is off (it would bring the rows back within a week):
 ```bash
 H=kdkadmin@10.1.20.20
 ssh $H 'sudo docker exec wger-celery-beat printenv SYNC_EXERCISES_CELERY'    # False
-```
-
-Then:
-
-**Laptop → kdk-dkr-01**
-
-```bash
-H=kdkadmin@10.1.20.20
 printf '%s\n' \
   "from wger.exercises.models import Equipment, Exercise" \
-  "DROP = ['Barbell', 'Cable machine', 'Kettlebell', 'Pull-up bar', 'SZ-Bar', 'Swiss Ball', 'Resistance band']" \
-  "ADD = ['Treadmill', 'Finger stretcher', 'Strap', 'Towel', 'Pillow', 'Door frame', 'Wall']" \
+  "DROP = ['Barbell', 'Cable machine', 'Kettlebell', 'Pull-up bar', 'SZ-Bar', 'Swiss Ball', 'Finger stretcher', 'Strap', 'Towel', 'Pillow', 'Door frame', 'Wall', 'Pool', 'Recumbent bike']" \
+  "ADD = ['Treadmill', 'Resistance band']" \
   "for n in ADD: print('add', n, Equipment.objects.get_or_create(name=n)[1])" \
   "for e in Equipment.objects.filter(name__in=DROP): print('delete', e.id, e.name, Exercise.objects.filter(equipment=e).count(), 'links', e.delete()[0])" \
   "print(sorted(Equipment.objects.values_list('name', flat=True)))" \
   | ssh $H 'sudo docker exec -i wger-web python3 manage.py shell'
-# first run: "add <name> True" x7, one "delete ..." line per dropped row (7), then the list:
-# ['Bench', 'Door frame', 'Dumbbell', 'Finger stretcher', 'Gym mat', 'Incline bench', 'Pillow',
-#  'Strap', 'Towel', 'Treadmill', 'Wall', 'none (bodyweight exercise)']
-# second run: "add <name> False" x7, no delete lines, same list
+# want: ['Bench', 'Dumbbell', 'Gym mat', 'Incline bench', 'Resistance band', 'Treadmill', 'none (bodyweight exercise)']
 printf '%s\n' "from django.core.cache import cache" "cache.clear()" "print('cache cleared')" | ssh $H 'sudo docker exec -i wger-web python3 manage.py shell'   # equipment/ and muscle/ lists are cached 28 days per content type; the warmup only rebuilds exercises
 ssh $H 'sudo docker exec wger-web python3 manage.py warmup-exercise-api-cache --force'
 curl -s 'https://wger.kmkdp.com/api/v2/equipment/?limit=50' | python3 -c 'import json,sys; print(sorted(e["name"] for e in json.load(sys.stdin)["results"]))'
 ```
 
-Then re-run step 9's `--apply` so the slugs pick up the new rows (the dry run's
-`wger has no equipment …` warnings are gone), and pull to refresh the exercise list in
-the app (Exercises → filter: only the kept equipment).
+Then re-run step 9's `--apply`: the `wger has no equipment 'Resistance band'` warning is
+gone and the row is linked to the two band exercises.
 
 To undo: `sudo docker exec wger-celery-worker python3 manage.py sync-exercises` on
-kdk-dkr-01 re-creates the wger.de rows with their original ids and re-links the
-upstream exercises; delete the local rows in the Django admin
-(`/admin/exercises/equipment/`) if they should go too.
+kdk-dkr-01 re-creates the wger.de rows with their original ids and re-links the upstream
+exercises.
 
-### 12b. Equipment for Rachel's plan (admin, once the owner has decided)
+## 13. Custom muscles (retired 2026-11-14)
 
-Her plan names `Pool` and `Recumbent bike` (local rows, add them) and two built-ins that
-step 12 deletes: `Resistance band` (Pallof press, seated band row) and `Swiss Ball`
-(optional for wall slides). Keep or re-add a built-in only if the house has one, and then
-take it out of step 12's `DROP` list first (step 12 is re-runnable and would delete it
-again). Until a row exists, gen_wger warns and leaves it off that exercise.
+The old plan's five local muscles (Forearm flexors, Forearm extensors, Hand intrinsics,
+Adductors, Tibialis anterior; ids 17-21) were never linked after 2026-11-09 (the iOS app
+errors on muscle ids above 16) and the built-in plan does not use them. Delete them once,
+after step 9b:
 
 **Laptop → kdk-dkr-01**
 
 ```bash
 H=kdkadmin@10.1.20.20
 printf '%s\n' \
-  "from wger.exercises.models import Equipment" \
-  "ADD = ['Pool', 'Recumbent bike']            # + 'Resistance band' / 'Swiss Ball' if bought" \
-  "for n in ADD: print('add', n, Equipment.objects.get_or_create(name=n)[1])" \
-  | ssh $H 'sudo docker exec -i wger-web python3 manage.py shell'
-printf '%s\n' "from django.core.cache import cache" "cache.clear()" "print('cache cleared')" | ssh $H 'sudo docker exec -i wger-web python3 manage.py shell'   # equipment/ and muscle/ lists are cached 28 days per content type; the warmup only rebuilds exercises
-ssh $H 'sudo docker exec wger-web python3 manage.py warmup-exercise-api-cache --force'
-```
-
-Then step 9's `--apply` links them (the `wger has no equipment 'Pool'` warnings are gone).
-
-## 13. Custom muscles (admin, staged; after step 12)
-
-> **Not linked since 2026-11-09.** The iOS app raises `Unable to load asset … muscle-<id>.svg` for any muscle id above 16, so `LINK_CUSTOM_MUSCLES = False` in `gen_wger.py` keeps these rows off the exercises. The five rows still exist on the server and the descriptions still name the muscles. Set the constant to `True` and re-run step 9 only once the app skips muscles it has no image for.
-
-wger's 16 built-in muscles have no hands, forearms, adductors or shins.
-`tools/wger_exercises.json` already names five local muscles for those slugs:
-
-| Muscle | `is_front` | Used by |
-|---|---|---|
-| Forearm flexors | True | wrist curl, towel wring, farmer (secondary), tendon glides, wrist flexor + prayer stretches |
-| Forearm extensors | False | reverse wrist curl, towel wring, finger extension, wrist extensor + reverse prayer stretches |
-| Hand intrinsics | True | warm-up, tendon glides, finger extension (secondary), thumb opposition |
-| Adductors | True | adductor squeeze |
-| Tibialis anterior | True | tibialis raise |
-
-Until a row exists, `gen_wger.py` warns `wger has no muscle …` and leaves it out. A
-name that is neither on the server nor in that list is a typo and stops the run.
-
-**Limit: a custom muscle is listed by name under the app's body map and never
-coloured.** The app draws the map from SVGs bundled per built-in muscle id, so a new id
-has no drawing. A missing drawing could also break the map on that exercise. So create
-**one** muscle first and check it on a phone before adding the rest.
-
-**13a. One muscle. Laptop → kdk-dkr-01**
-
-```bash
-H=kdkadmin@10.1.20.20
-printf '%s\n' \
   "from wger.exercises.models import Muscle" \
-  "print(Muscle.objects.get_or_create(name='Forearm flexors', defaults={'name_en': 'Forearm flexors', 'is_front': True}))" \
+  "qs = Muscle.objects.filter(id__gt=16, name__in=['Forearm flexors', 'Forearm extensors', 'Hand intrinsics', 'Adductors', 'Tibialis anterior'])" \
+  "print(list(qs.values_list('id', 'name'))); print(qs.delete())" \
   | ssh $H 'sudo docker exec -i wger-web python3 manage.py shell'
-# (<Muscle: Forearm flexors>, True) the first time, False after
-printf '%s\n' "from django.core.cache import cache" "cache.clear()" "print('cache cleared')" | ssh $H 'sudo docker exec -i wger-web python3 manage.py shell'   # equipment/ and muscle/ lists are cached 28 days per content type; the warmup only rebuilds exercises
+printf '%s\n' "from django.core.cache import cache" "cache.clear()" "print('cache cleared')" | ssh $H 'sudo docker exec -i wger-web python3 manage.py shell'
 ssh $H 'sudo docker exec wger-web python3 manage.py warmup-exercise-api-cache --force'
 ```
-
-Then step 9 with `--person jmack` (dry run, then `--apply`): it links Forearm flexors
-to its slugs. On jmack's phone, pull to refresh, then open two exercises:
-
-- **Tendon glides**: the body map still draws (an empty figure), and "Forearm flexors" is listed under the red key.
-- **Wrist Curl**: brachialis is still orange on the map, and "Forearm flexors" is listed.
-
-If both are fine, go to 13b. If the map is blank, the page errors, or the app crashes:
-delete the row, re-apply, and drop the custom names from the sidecar in a follow-up PR.
-
-**Laptop → kdk-dkr-01 (only if 13a failed)**
-
-```bash
-H=kdkadmin@10.1.20.20
-printf '%s\n' \
-  "from wger.exercises.models import Muscle" \
-  "print(Muscle.objects.filter(name='Forearm flexors').delete())" \
-  | ssh $H 'sudo docker exec -i wger-web python3 manage.py shell'
-printf '%s\n' "from django.core.cache import cache" "cache.clear()" "print('cache cleared')" | ssh $H 'sudo docker exec -i wger-web python3 manage.py shell'   # equipment/ and muscle/ lists are cached 28 days per content type; the warmup only rebuilds exercises
-ssh $H 'sudo docker exec wger-web python3 manage.py warmup-exercise-api-cache --force'
-```
-
-**13b. The other four (only after 13a passed). Laptop → kdk-dkr-01**
-
-```bash
-H=kdkadmin@10.1.20.20
-printf '%s\n' \
-  "from wger.exercises.models import Muscle" \
-  "for n, f in [('Forearm extensors', False), ('Hand intrinsics', True), ('Adductors', True), ('Tibialis anterior', True)]: print(Muscle.objects.get_or_create(name=n, defaults={'name_en': n, 'is_front': f}))" \
-  | ssh $H 'sudo docker exec -i wger-web python3 manage.py shell'
-printf '%s\n' "from django.core.cache import cache" "cache.clear()" "print('cache cleared')" | ssh $H 'sudo docker exec -i wger-web python3 manage.py shell'   # equipment/ and muscle/ lists are cached 28 days per content type; the warmup only rebuilds exercises
-ssh $H 'sudo docker exec wger-web python3 manage.py warmup-exercise-api-cache --force'
-```
-
-Then run step 9 in full (`--apply`, `--apply` again to see 0 writes, then `--check`). The
-`wger has no muscle` warnings should be gone.
 
 ## 14. Treadmill auto-log (retired)
 
@@ -619,10 +428,11 @@ twice). The `wger-api-*` keys stay: `gen_wger.py` uses them.
 
 ## Rollback
 
-The catalog load (step 9) is data, not config: to undo it, delete the generated
-routines (description ends `[kdk:…]`) in each person's app (this deletes that person's
-logs for them, too) and the
-`kdk:` exercises in the Django admin (`/admin/exercises/exercise/`, superuser).
+The plan load (step 9) is data, not config: revert the plan PR and re-run step 9's
+`--apply` (slots with logs stay as `[retired]`). The exercise descriptions are wger's
+upstream text otherwise; restore one from the nightly `wger-*.sql.gz` or a manual
+`sync-exercises` (that also re-runs the equipment sync: redo step 12 after it). The purge
+(step 9b) has no undo but the nightly dump.
 
 For the stack itself: `git revert` the merge commit. Komodo then removes nothing on its own: destroy the
 `wger` stack in Komodo (DestroyStack) **after** the revert has reached `backup-dkr-01`
