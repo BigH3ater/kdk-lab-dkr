@@ -41,9 +41,55 @@ Tdarr's two libraries are `/data/media/movies` and `/data/media/tv`. Trailarr on
 Radarr/Sonarr titles, and its path mappings cover only `tv/` and `movies/`. If either ever
 gets a library on `/data/media` itself, add `exercise` to its ignore list.
 
-## 0. Before the first run: Jellyfin API key → 1Password
+## First install: order
 
-This step needs a **dedicated key** for this tool, following the per-consumer pattern
+**Merging the PR that adds the mount deploys it.** The jellyfin stack in
+`komodo/resources.toml` has `deploy = true` and `webhook_enabled = true`, so the merge
+recreates the container with the new bind mount right away. The DMZ mount of the share is
+read-only, so docker cannot create a missing bind source there, and the deploy fails if
+`/mnt/media/exercise` does not exist yet. The directory therefore has to exist **before**
+the merge (step 0). The steps:
+
+0. Before the merge: the directory exists on the share.
+1. Merge (auto-deploy), then check that the container sees `/data/media/exercise`.
+2. Jellyfin API key → 1Password.
+3. Download the videos.
+4. Create the library.
+5. Restrict access.
+6. Scan, playlists, mapping.
+7. Third-account check.
+
+## 0. Before merging: the directory exists
+
+The share is read-write on kdk-dkr-01 only. Create the directory there as kdkadmin
+(uid 1000, the share's owner and the media stack's PUID). Then check it from the DMZ host,
+which is where the bind mount needs it.
+
+**Laptop (SSH agent)**
+
+```bash
+ssh kdkadmin@10.1.20.20 'mkdir -p /mnt/media/exercise && ls -ldn /mnt/media/exercise'   # drwxr-xr-x ... 1000 1000
+ssh kdkadmin@192.168.191.20 'ls -ld /mnt/media/exercise'                                # must exist BEFORE the merge
+```
+
+Do not merge while the second command answers `No such file or directory`.
+
+## 1. Merge (= deploy), check the mount
+
+Merging deploys the stack. This restarts Jellyfin and drops active streams for about a
+minute, so merge in a quiet moment. If the webhook did not fire, run **DeployStack
+`jellyfin`** in Komodo; RunSync alone does not redeploy a compose change.
+
+**Laptop (SSH agent)**
+
+```bash
+ssh kdkadmin@192.168.191.20 'sudo docker inspect jellyfin --format "{{range .Mounts}}{{.Source}} -> {{.Destination}}{{println}}{{end}}" | grep exercise'   # /mnt/media/exercise -> /data/media/exercise
+ssh kdkadmin@192.168.191.20 'sudo docker exec jellyfin ls -ld /data/media/exercise'
+```
+
+## 2. Jellyfin API key → 1Password
+
+The tool needs a **dedicated key** for this tool, following the per-consumer pattern
 (see `wizarr-sync`). Do not reuse `kdk-cluster/jellyfin`.
 
 1. In **Jellyfin → Dashboard → API Keys → +**, set App name `exercise-videos`, then copy
@@ -63,7 +109,7 @@ K="$(op read op://kdk-cluster/jellyfin-api-exercise-videos/api-key)"; echo "${#K
 To rotate: create a new key, run `op item edit` on the field, then delete the old key in
 the dashboard. The tool only reads the key when it runs, so nothing else changes.
 
-## 1. Download the videos (kdk-dkr-01)
+## 3. Download the videos (kdk-dkr-01)
 
 Run this from the laptop. The tool reads the plan locally and runs every command on
 kdk-dkr-01 over SSH (agent socket only). `sudo -n docker` needs kdkadmin's NOPASSWD.
@@ -78,28 +124,19 @@ python3 $T/exercise_videos.py download --host kdkadmin@10.1.20.20            # "
 ssh kdkadmin@10.1.20.20 'ls -ln /mnt/media/exercise | head -3; du -sh /mnt/media/exercise'   # 1000 1000
 ```
 
-`--apply` creates `/mnt/media/exercise` as kdkadmin (1000:1000), the owner of the share.
+The directory already exists from step 0 (`--apply` would create it as kdkadmin otherwise).
 The download skips files that already exist, so a re-run after a failure only fetches
 what is missing. A file that did not appear is reported and the command exits 1.
 `.incoming/` holds yt-dlp's partial files and stays empty after a good run. Jellyfin
 skips dot folders.
 
-## 2. Mount the folder in Jellyfin (deploy)
-
-The DMZ mount of the share is read-only. Docker cannot create a missing bind source there,
-so step 1 must come first. Deploying the stack restarts Jellyfin, which drops active
-streams for about a minute, so do it in a quiet moment.
-
-**Komodo:** run **DeployStack `jellyfin`**. RunSync alone does not redeploy a compose
-change.
-
-**Laptop (SSH agent)**
+Then check that Jellyfin sees the files:
 
 ```bash
-ssh kdkadmin@192.168.191.20 'sudo docker exec jellyfin ls /data/media/exercise | wc -l'   # 47 (+ .incoming not listed)
+ssh kdkadmin@192.168.191.20 'sudo docker exec jellyfin ls /data/media/exercise | wc -l'   # 47 (.incoming not listed)
 ```
 
-## 3. Create the library (Jellyfin dashboard, as an admin)
+## 4. Create the library (Jellyfin dashboard, as an admin)
 
 Go to **Dashboard → Libraries → Libraries → Add Media Library**:
 
@@ -113,7 +150,7 @@ Go to **Dashboard → Libraries → Libraries → Add Media Library**:
 | Save trickplay images next to media | ☐ (the mount is read-only) |
 | Chapter image extraction | ☐ |
 
-## 4. Make the library visible to jmack and rach only
+## 5. Make the library visible to jmack and rach only
 
 Jellyfin is reachable from the internet, so check this step on every account. Three
 things can grant library access:
@@ -126,7 +163,7 @@ things can grant library access:
 2. **The SSO Authentication plugin** (*Enable Authorization by Plugin* is on, see
    [jellyfin-sso](jellyfin-sso.md)). It rewrites a user's folders on **every** SSO login.
    With *Enable All Folders* ✅ (verified 2026-11-14), the first SSO login would undo
-   step 1. Change the plugin form:
+   item 1. Change the plugin form:
    - **Enable All Folders**: ☐. Under **Enabled Folders**, tick every library except
      Exercise.
    - **Enable Role-Based Folder Access**: ✅. Add a mapping from the LLDAP group
@@ -141,10 +178,10 @@ Then sign in to jellyfin.kmkdp.com once as jmack **through SSO** and check that 
 still on that user's Access tab. That confirms the plugin mapping works. The plugin's
 role-folder behaviour was not tested here, so this check is the proof.
 
-The `jellyfin` step (5) checks this on every run. It stops before any write if an account
+The `jellyfin` step (6) checks this on every run. It stops before any write if an account
 other than jmack/rach can see the library, or if either of them cannot.
 
-## 5. Scan, playlists, mapping
+## 6. Scan, playlists, mapping
 
 **Laptop, repo root (`op` signed in; LAN or tailnet: the Cloudflare WAF blocks the admin
 API paths from the internet)**
@@ -168,7 +205,7 @@ The tool resolves the users by username (`jmack`, `rach`: the plan's people logi
 every run, so no user id is stored. It finds a playlist by the id it recorded, or else by
 its exact name in that person's list. It never deletes a playlist it did not make.
 
-## 6. Check it
+## 7. Check it
 
 - jmack's Jellyfin home shows **Exercise** and four playlists, each in workout order (the
   walk first, core last). Rachel sees her four.
@@ -191,8 +228,8 @@ its exact name in that person's list. It never deletes a playlist it did not mak
 Use this when an exercise was added, a video replaced, or a routine changed:
 
 1. Edit `wger_plan.json`, test, PR, merge ([exercise plan update](workout-tracking-update.md)).
-2. Run `download` (step 1). It fetches the new files and lists the old ones as `EXTRA`.
-3. Run `jellyfin --apply` (step 5), then commit `wger_videos.json`.
+2. Run `download` (step 3). It fetches the new files and lists the old ones as `EXTRA`.
+3. Run `jellyfin --apply` (step 6), then commit `wger_videos.json`.
 4. Run `gen_wger.py --apply` and then `--check`.
 5. Once everything works, delete the leftovers: `download --apply --prune` removes files
    that match the `<key> [<id>].mp4` pattern and are no longer in the plan (any other file
@@ -206,7 +243,8 @@ those descriptions alone. It never writes a YouTube or empty `Video:` line.
 ## Rollback
 
 1. Revert the merged PR (the compose mount, the tools, and `gen_wger.py` back to YouTube
-   links), then run **DeployStack `jellyfin`** and `gen_wger.py --apply`.
+   links). Merging the revert redeploys jellyfin (DeployStack if the webhook did not fire);
+   then run `gen_wger.py --apply`. Remove the directory (step 3) only after that deploy.
 2. In the dashboard, delete the Exercise library and the eight playlists.
 3. Optional: `ssh kdkadmin@10.1.20.20 'rm -r /mnt/media/exercise'`.
 4. Delete the API key in the dashboard and archive `kdk-cluster/jellyfin-api-exercise-videos`.

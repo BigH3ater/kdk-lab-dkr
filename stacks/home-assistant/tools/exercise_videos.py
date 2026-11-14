@@ -286,7 +286,7 @@ def find_library(jf: Jellyfin, name: str) -> dict:
     libs = [v for v in jf.get("/Library/VirtualFolders") or [] if v.get("Name") == name]
     if len(libs) != 1:
         raise VideoError(f"Jellyfin has {len(libs)} libraries named {name!r}; create it first "
-                         "(docs/runbooks/exercise-videos.md step 3)")
+                         "(docs/runbooks/exercise-videos.md step 4)")
     lib = libs[0]
     if (lib.get("CollectionType") or "").lower() != COLLECTION_TYPE:
         raise VideoError(f"library {name!r} is {lib.get('CollectionType')!r}; it must be Home videos")
@@ -425,7 +425,7 @@ def cmd_jellyfin(args, plan: dict, out, sleep=time.sleep, videos_path: Path | No
     if probs:
         for p in probs:
             out(f"ACCESS {p}")
-        raise VideoError("fix the library access first (runbook step 4); nothing written")
+        raise VideoError("fix the library access first (runbook step 5); nothing written")
     opts = lib.get("LibraryOptions") or {}
     if opts and not opts.get("EnableEmbeddedTitles"):
         out("WARN library option 'Prefer embedded titles over filenames' is off: items show the file name")
