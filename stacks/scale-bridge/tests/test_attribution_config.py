@@ -91,6 +91,7 @@ def test_committed_example_env_parses():
     s = from_env(env)
     assert [x.name for x in s.people] == ["person-a", "person-b"]
     assert s.dry_run is True
+    assert [x.profile.birth_date is not None for x in s.people] == [True, False]     # engine profiles, both forms
 
 
 # --- bands in pounds (min_lb/max_lb), the documented default -----------------

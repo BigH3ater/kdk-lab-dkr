@@ -36,18 +36,26 @@
 # `capture_unavailable` ERROR and runs on without capturing. Files are 0640,
 # pruned after SCALE_BRIDGE_CAPTURE_KEEP_DAYS, never logged, never in git.
 #
+# Body-composition engine (0.2.0): Lefu's 8-electrode library runs in the SAME
+# image as a child program, once per weigh-in with a profile (README "Engine").
+# Needs LEFU_SECRET_8 in secrets.env; without it the engine switches itself off
+# (one `engine_config` warning) and everything else works as before. Dry-run
+# phase: results go ONLY to /captures/<capture>.engine.json, never to wger.
+# No extra mount, capability or network: the engine needs none at run time.
+#
 # Image is built locally (kdk/scale-bridge) -> the stack sets auto_pull=false +
-# run_build=true in komodo/resources.toml.
+# run_build=true in komodo/resources.toml. The build downloads the engine inputs
+# from repo1.maven.org and raw.githubusercontent.com (sha256-pinned, engine/*.lock).
 name: scale-bridge
 
 x-hardened: &hardened
   security_opt: ["no-new-privileges:true"]
   cap_drop: [ALL]
   read_only: true
-  tmpfs: [/tmp]
+  tmpfs: [/tmp]              # noexec by default; the engine keeps only data there
   restart: unless-stopped
   pids_limit: 128
-  mem_limit: 256m
+  mem_limit: 256m            # bridge + one engine run: ~80 MiB peak measured (amd64 test, 0.2.0)
   logging:
     driver: json-file
     options: { max-size: "10m", max-file: "3" }
@@ -60,7 +68,7 @@ services:
     build:
       context: .
       provenance: false
-    image: kdk/scale-bridge:0.1.3
+    image: kdk/scale-bridge:0.2.0
     container_name: scale-bridge
     user: "65534:65534"        # host nobody:nogroup; dbus-daemon resets unknown uids
     init: true                 # python is PID 1 otherwise: SIGTERM, zombie reaping
@@ -73,8 +81,8 @@ services:
       WGER_URL: "https://wger.kmkdp.com"
       SCALE_NAME: "Body Pod 2"
       # Placeholder profile written to FFF1 to trigger the impedance measurement.
-      # NOT anyone's data: the scale only sends raw ohms, which the bridge stores
-      # as-is; it computes no body composition from these.
+      # NOT anyone's data and NOT the engine's input: the engine uses each person's
+      # own profile from SCALE_BRIDGE_PEOPLE (host file).
       SCALE_PROFILE_SEX: "1"
       SCALE_PROFILE_ACTIVITY: "1"
       SCALE_PROFILE_HEIGHT_CM: "170"
@@ -89,6 +97,16 @@ services:
       # Heart rate to wger ("Heart rate (scale)", bpm): off, because byte 1 of the
       # end marker = heart rate is confirmed on ONE capture so far.
       SCALE_BRIDGE_WRITE_HEART_RATE: "false"
+      # Body-composition engine: "on" | "off" (off = the rollback switch).
+      # Self-disables when LEFU_SECRET_8 is missing. Results to /captures only.
+      SCALE_BRIDGE_ENGINE: "on"
+      SCALE_BRIDGE_ENGINE_TIMEOUT_S: "60"
+      # Engine inputs, the prototype's known-good configuration. DO NOT CHANGE
+      # unless testing: variant 8_4; frame position per library slot LeftArm,
+      # RightArm, LeftLeg, RightLeg, Trunk = 1,0,4,3,2; DF x=0 = the 20 kHz input.
+      LEFU_VARIANT: "8_4"
+      LEFU_LIMB_ORDER: "10432"
+      LEFU_DF_X0: "20k"
     volumes:
       # D-Bus system bus -> host bluetoothd. Directory, not the socket file, so a
       # dbus restart (new socket inode) does not leave a stale bind.

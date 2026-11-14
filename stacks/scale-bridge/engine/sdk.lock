@@ -1,0 +1,10 @@
+# Lefu SDK artefacts, fetched at build time from Lefu's public Maven-on-GitHub repo (MIT licence).
+# Never commit the .aar/.so files themselves. To bump: change COMMIT, run
+# `sh fetch.sh sdk sdk.lock <tmpdir> --print-hashes`, review, paste the hashes, then rerun the
+# acceptance check from the prototype (values compared against the emulator harness).
+REPO=https://raw.githubusercontent.com/LefuHengqi/PPBaseKit-Android
+COMMIT=c1eb5ab488368cdd9836d88c80f6de0daf27dd9d
+# sha256  path-in-repo
+943bae42b6420dcf5395cb8e0b1a25a99798a153742f75bc830e769c18d03b2b  com/lefu/ppbasekit/ppbasekit/4.6.28/ppbasekit-4.6.28.aar
+fc3f89729279e4132cccf1586595998a0d87eb967d7f22ce8e4c0ffdd71181f9  com/lefu/ppcalculatekit/ppcalculatekit/4.6.28/ppcalculatekit-4.6.28.aar
+a7c4fce96f875f1ea398f6af1e6f28380eb8924f0afd80e69d327a01104f3807  com/lefu/ppbasiccalculatekit/ppbasiccalculatekit/1.1.1/ppbasiccalculatekit-1.1.1.aar

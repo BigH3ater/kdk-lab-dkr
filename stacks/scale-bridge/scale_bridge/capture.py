@@ -19,6 +19,11 @@ The files are health data (weight, impedance, heart rate in the hex): mode
 0640, never logged (the log line names the file and the frame count only),
 never in git. A missing or unwritable directory logs ONE error and capture
 stays off until it works again; the weigh-in itself is never affected.
+
+Engine result (engine.py), when the body-composition engine produced one for this
+session: `<yyyymmddThhmmssZ>-<session>.engine.json` next to the capture, one JSON
+document (engine output, input provenance, timings), same mode, same pruning. It is
+written before the capture so the footer's `engine_result` says whether it exists.
 """
 from __future__ import annotations
 
@@ -38,7 +43,7 @@ from .session import SessionLog
 
 log = logging.getLogger("scale_bridge.capture")
 SCHEMA = 1
-NAME = re.compile(r"^(\d{8}T\d{6}Z)-[A-Za-z0-9_-]+\.jsonl$")
+NAME = re.compile(r"^(\d{8}T\d{6}Z)-[A-Za-z0-9_-]+\.(jsonl|engine\.json)$")
 PRUNE_EVERY_S = 24 * 3600
 
 
@@ -46,8 +51,21 @@ def _iso(t: datetime) -> str:
     return t.astimezone(timezone.utc).isoformat(timespec="milliseconds")
 
 
-def file_name(started: datetime, session_id: str) -> str:
-    return f"{started.astimezone(timezone.utc):%Y%m%dT%H%M%SZ}-{session_id}.jsonl"
+def file_name(started: datetime, session_id: str, suffix: str = ".jsonl") -> str:
+    return f"{started.astimezone(timezone.utc):%Y%m%dT%H%M%SZ}-{session_id}{suffix}"
+
+
+ENGINE_SUFFIX = ".engine.json"
+
+
+def _write_new(path: Path, body: bytes) -> None:
+    """Create (never overwrite) a 0640 file, whatever the umask."""
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o640)
+    try:
+        os.fchmod(fd, 0o640)
+        os.write(fd, body)
+    finally:
+        os.close(fd)
 
 
 def frame_record(t: datetime, char: str, data: bytes) -> dict[str, Any]:
@@ -112,14 +130,28 @@ class Captures:
         self.maybe_prune()
 
     def write(self, rec: SessionLog, session_id: str, header: dict[str, Any],
-              footer: dict[str, Any]) -> Path | None:
-        """One file per session with at least one notification; None if skipped or failed."""
+              footer: dict[str, Any], engine: dict[str, Any] | None = None) -> Path | None:
+        """One file per session with at least one notification; None if skipped or failed.
+
+        `engine`: the engine result document for this session, written first as
+        `<same name>.engine.json`; the footer gets `engine_result` (whether that file exists).
+        """
         if self.dir is None or not rec.notifications:
             return None
         if not self.check():
             return None
         started = rec.started_at or rec.notifications[0][0]
         path = self.dir / file_name(started, session_id)
+        engine_path = None
+        if engine is not None:
+            engine_path = self.dir / file_name(started, session_id, ENGINE_SUFFIX)
+            try:
+                _write_new(engine_path, (json.dumps({**engine, "capture": path.name}, separators=(",", ":"))
+                                         + "\n").encode())
+            except OSError as e:
+                emit(log, logging.ERROR, "engine_file_failed", file=engine_path.name, error=type(e).__name__)
+                engine_path = None
+        footer = {**footer, "engine_result": engine_path is not None}
         lines = [{"t": _iso(started), "kind": "header", "schema": SCHEMA, "session": session_id,
                   "started": _iso(started), "profile_hex": rec.profile_hex,
                   "profile_written": rec.profile_written, "app_version": __version__, **header}]
@@ -128,17 +160,13 @@ class Captures:
                       "end_marker_byte2": end_marker_byte2(rec.notifications), **footer})
         body = "".join(json.dumps(x, separators=(",", ":")) + "\n" for x in lines).encode()
         try:
-            fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o640)
-            try:
-                os.fchmod(fd, 0o640)     # whatever the umask
-                os.write(fd, body)
-            finally:
-                os.close(fd)
+            _write_new(path, body)
         except OSError as e:
             self._fail("write_failed", type(e).__name__)
             return None
         self._broken = False
-        emit(log, logging.INFO, "capture_written", file=path.name, frames=len(rec.notifications))
+        extra = {"engine_file": engine_path.name} if engine_path else {}
+        emit(log, logging.INFO, "capture_written", file=path.name, frames=len(rec.notifications), **extra)
         return path
 
     def maybe_prune(self, mono: float | None = None) -> int:
