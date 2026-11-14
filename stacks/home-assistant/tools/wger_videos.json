@@ -1,6 +1,310 @@
 {
   "_comment": "Written by exercise_videos.py jellyfin --apply; do not edit by hand. Plan key -> Jellyfin item id (gen_wger.py builds the Video: line from it) and the playlists the tool manages.",
   "base_url": "https://jellyfin.kmkdp.com",
-  "items": {},
-  "playlists": []
+  "items": {
+    "biceps-curl": {
+      "id": "74cc660dcea882e39f7fe50044871a9b",
+      "youtube": "Nr-sPLLOIwE",
+      "file": "biceps-curl [Nr-sPLLOIwE].mp4"
+    },
+    "bird-dog": {
+      "id": "da64aad74284ec9b22945911fe323e03",
+      "youtube": "xEDnlOxeJH4",
+      "file": "bird-dog [xEDnlOxeJH4].mp4"
+    },
+    "box-squat": {
+      "id": "0235c5edde9e857777bc451ce322f3e1",
+      "youtube": "qveKmiXEkIQ",
+      "file": "box-squat [qveKmiXEkIQ].mp4"
+    },
+    "calf-raise": {
+      "id": "8abb3760d5d66a9e445f662882812d5b",
+      "youtube": "Mjkh9vBfm_E",
+      "file": "calf-raise [Mjkh9vBfm_E].mp4"
+    },
+    "chest-supported-row": {
+      "id": "2613dd4281d25d6216d885fe363c459d",
+      "youtube": "tZUYS7X50so",
+      "file": "chest-supported-row [tZUYS7X50so].mp4"
+    },
+    "cow-cat": {
+      "id": "7acb60f9d8069c701701ac8efc17859d",
+      "youtube": "1Y0YjXS9sKI",
+      "file": "cow-cat [1Y0YjXS9sKI].mp4"
+    },
+    "db-bench-press": {
+      "id": "90353be38dc520525aee892dcdf08a6c",
+      "youtube": "AuNRCrdhquE",
+      "file": "db-bench-press [AuNRCrdhquE].mp4"
+    },
+    "db-hip-thrust": {
+      "id": "1c06d5e7a15bb95bab08ae023ccc7b4f",
+      "youtube": "lvcvlJbg2Ak",
+      "file": "db-hip-thrust [lvcvlJbg2Ak].mp4"
+    },
+    "db-pullover": {
+      "id": "06c68f9f2ca457c959f3b56503b923d6",
+      "youtube": "jQjWlIwG4sI",
+      "file": "db-pullover [jQjWlIwG4sI].mp4"
+    },
+    "db-rdl": {
+      "id": "dc3bf23935aa7d89f56fc1fe87608c49",
+      "youtube": "gvN6TRHli0g",
+      "file": "db-rdl [gvN6TRHli0g].mp4"
+    },
+    "db-shoulder-press": {
+      "id": "0b48730b3f3a27ecce5cc92082d4761a",
+      "youtube": "HzIiNhHhhtA",
+      "file": "db-shoulder-press [HzIiNhHhhtA].mp4"
+    },
+    "dead-bug": {
+      "id": "eb1112ec1c32da4ffa9fb737e30b0e7f",
+      "youtube": "GbSC02oU3To",
+      "file": "dead-bug [GbSC02oU3To].mp4"
+    },
+    "double-calf-raise": {
+      "id": "598ae6001bc9aa8af968679a21ff378c",
+      "youtube": "aZh9tCFh46o",
+      "file": "double-calf-raise [aZh9tCFh46o].mp4"
+    },
+    "farmer-carry": {
+      "id": "4e7c21c9c31fa2ff2aa17e7b413162f9",
+      "youtube": "E2mpouWZVzo",
+      "file": "farmer-carry [E2mpouWZVzo].mp4"
+    },
+    "glute-bridge": {
+      "id": "ef13c8840e3fe29ed47ab59352b21325",
+      "youtube": "PhTDzR0TpZs",
+      "file": "glute-bridge [PhTDzR0TpZs].mp4"
+    },
+    "goblet-squat": {
+      "id": "f766c5a0b9c108fc0ded0ee4567d8322",
+      "youtube": "D1IEI-lfLxU",
+      "file": "goblet-squat [D1IEI-lfLxU].mp4"
+    },
+    "hammer-curl": {
+      "id": "01d3693cf84359a6412f128dc944b1fe",
+      "youtube": "nL3SedGG7X0",
+      "file": "hammer-curl [nL3SedGG7X0].mp4"
+    },
+    "hip-flexor-stretch": {
+      "id": "ffc941813a497b04baae8bdfb29e0be1",
+      "youtube": "SDsjnuCf90U",
+      "file": "hip-flexor-stretch [SDsjnuCf90U].mp4"
+    },
+    "hollow-hold": {
+      "id": "a1f0017b45af68ebb7fad7b6e59dff0d",
+      "youtube": "jLxtFNO0r50",
+      "file": "hollow-hold [jLxtFNO0r50].mp4"
+    },
+    "incline-db-press": {
+      "id": "9992735969819a8f63e9764739bd8d5e",
+      "youtube": "JKnpHchOWPU",
+      "file": "incline-db-press [JKnpHchOWPU].mp4"
+    },
+    "incline-push-up": {
+      "id": "5c3dca505b58c58cf27620cbf523fafd",
+      "youtube": "wIPJvBQs7RA",
+      "file": "incline-push-up [wIPJvBQs7RA].mp4"
+    },
+    "lateral-raise": {
+      "id": "e510afe0f9b5b7bf9ff4c75093a237ae",
+      "youtube": "XPPfnSEATJA",
+      "file": "lateral-raise [XPPfnSEATJA].mp4"
+    },
+    "lying-leg-raise": {
+      "id": "a1f92db4a35df7506e2877d21a9e64c9",
+      "youtube": "3oIpxsn6FxQ",
+      "file": "lying-leg-raise [3oIpxsn6FxQ].mp4"
+    },
+    "one-arm-row": {
+      "id": "6a3565621023e1026bb3f318c61b7f9d",
+      "youtube": "QynrQpOAOsw",
+      "file": "one-arm-row [QynrQpOAOsw].mp4"
+    },
+    "overhead-triceps": {
+      "id": "46bf6a6bc6a9a6e0d86d2ba28935bf9b",
+      "youtube": "7h3lG2WnLXg",
+      "file": "overhead-triceps [7h3lG2WnLXg].mp4"
+    },
+    "pallof-press": {
+      "id": "8375c192085b9ccea132cb987e49c649",
+      "youtube": "n8ZZG9gElhs",
+      "file": "pallof-press [n8ZZG9gElhs].mp4"
+    },
+    "plank": {
+      "id": "45191389d2833e5f657287a752e82ee9",
+      "youtube": "3QZlgJ40LfU",
+      "file": "plank [3QZlgJ40LfU].mp4"
+    },
+    "plank-shoulder-tap": {
+      "id": "4839fded433842a365bf76949065f5f0",
+      "youtube": "_zzqDNRJOxM",
+      "file": "plank-shoulder-tap [_zzqDNRJOxM].mp4"
+    },
+    "push-up": {
+      "id": "e90f25d5cabfdc1aba10908ee3c0e13e",
+      "youtube": "ZR1QBUtC1GY",
+      "file": "push-up [ZR1QBUtC1GY].mp4"
+    },
+    "rear-delt-raise": {
+      "id": "4f399c5e9a0af12b65a0100ce45536da",
+      "youtube": "XIJTt_Czqmc",
+      "file": "rear-delt-raise [XIJTt_Czqmc].mp4"
+    },
+    "reverse-crunch": {
+      "id": "a3c0a8ff8dd3ea2acbb7b018ccf6602d",
+      "youtube": "tz1J8DJ5Ypc",
+      "file": "reverse-crunch [tz1J8DJ5Ypc].mp4"
+    },
+    "russian-twist": {
+      "id": "00a4c064c3a0292a8f165f2306dd71af",
+      "youtube": "s0kT80JLCfA",
+      "file": "russian-twist [s0kT80JLCfA].mp4"
+    },
+    "seated-band-row": {
+      "id": "ab131c0ef6f657aeb0c81cc605a1ac54",
+      "youtube": "ZIAQvUA_wbs",
+      "file": "seated-band-row [ZIAQvUA_wbs].mp4"
+    },
+    "side-lying-abduction": {
+      "id": "febfebbe814b813ae45adf1d3c6b7366",
+      "youtube": "-rDiQXjeXO0",
+      "file": "side-lying-abduction [-rDiQXjeXO0].mp4"
+    },
+    "side-plank": {
+      "id": "1e31158e75d1ee004bf229e4fc886f1f",
+      "youtube": "ohaXbjftkYc",
+      "file": "side-plank [ohaXbjftkYc].mp4"
+    },
+    "sl-calf-raise": {
+      "id": "50f25678288ac84e10c5f9ded09f3b6e",
+      "youtube": "qPd73snQfUs",
+      "file": "sl-calf-raise [qPd73snQfUs].mp4"
+    },
+    "sl-glute-bridge": {
+      "id": "29f616b9ddad22c3e8f0c4ce8a700ca0",
+      "youtube": "fUOB9VcyvYo",
+      "file": "sl-glute-bridge [fUOB9VcyvYo].mp4"
+    },
+    "sl-rdl": {
+      "id": "e6d25f3f31eed2957ed123b2f820c614",
+      "youtube": "Y3F2eVkpfL8",
+      "file": "sl-rdl [Y3F2eVkpfL8].mp4"
+    },
+    "split-squat": {
+      "id": "10f801d748ac139f77d9b509032e37a5",
+      "youtube": "qW5OGJ62ZjY",
+      "file": "split-squat [qW5OGJ62ZjY].mp4"
+    },
+    "step-up": {
+      "id": "ad536f71af272768007659773db5e209",
+      "youtube": "ORE0cd7k85c",
+      "file": "step-up [ORE0cd7k85c].mp4"
+    },
+    "suitcase-carry": {
+      "id": "c8b4729a6d22af0b97f2b6ca86537f0c",
+      "youtube": "QX6jSs_1M2Q",
+      "file": "suitcase-carry [QX6jSs_1M2Q].mp4"
+    },
+    "tib-raise": {
+      "id": "10effca05e2b29900187ec23dc469c79",
+      "youtube": "KKfEOow1kgA",
+      "file": "tib-raise [KKfEOow1kgA].mp4"
+    },
+    "treadmill-walk": {
+      "id": "968352745564a4f138789d2e31410cdd",
+      "youtube": "jkJkmy8IHXU",
+      "file": "treadmill-walk [jkJkmy8IHXU].mp4"
+    },
+    "triceps-kickback": {
+      "id": "870f53cf561011eb4db0147d486b53a2",
+      "youtube": "WxmkqZ2gKFo",
+      "file": "triceps-kickback [WxmkqZ2gKFo].mp4"
+    },
+    "walking": {
+      "id": "26a5521f93f99842ac6f9d2374db7324",
+      "youtube": "ZgxniVfKT4I",
+      "file": "walking [ZgxniVfKT4I].mp4"
+    },
+    "wall-sit": {
+      "id": "7d180d87f71e4ac663becdfc8c47a8be",
+      "youtube": "RG7z0P9qrLk",
+      "file": "wall-sit [RG7z0P9qrLk].mp4"
+    },
+    "wall-squat": {
+      "id": "371ba011bf65af48386baba69bc266f3",
+      "youtube": "YZqrRImJywM",
+      "file": "wall-squat [YZqrRImJywM].mp4"
+    }
+  },
+  "playlists": [
+    {
+      "login": "jmack",
+      "days": [
+        "mon"
+      ],
+      "name": "Jacob · Mon Lower A",
+      "id": "149d6a5fe1ad9dded863c4ade2095567"
+    },
+    {
+      "login": "jmack",
+      "days": [
+        "wed"
+      ],
+      "name": "Jacob · Wed Upper A",
+      "id": "ccc02d5c5f0e9ffc19fdd6372acf695a"
+    },
+    {
+      "login": "jmack",
+      "days": [
+        "fri"
+      ],
+      "name": "Jacob · Fri Lower B",
+      "id": "1c808e496244d57c2a9480017e879bf6"
+    },
+    {
+      "login": "jmack",
+      "days": [
+        "sat"
+      ],
+      "name": "Jacob · Sat Upper B",
+      "id": "b2d8d6ccf223f70207bf06660fa63099"
+    },
+    {
+      "login": "rach",
+      "days": [
+        "mon"
+      ],
+      "name": "Rachel · Mon Strength A",
+      "id": "0526dc8adc5708473cb946a196d78729"
+    },
+    {
+      "login": "rach",
+      "days": [
+        "tue",
+        "fri"
+      ],
+      "name": "Rachel · Tue/Fri Cardio",
+      "id": "1b06374812eb4dd989f893ba4c44dda2"
+    },
+    {
+      "login": "rach",
+      "days": [
+        "wed",
+        "sat",
+        "sun"
+      ],
+      "name": "Rachel · Wed/Sat/Sun Daily parts",
+      "id": "2a49a7c00316f3c9a4fc6119f96956ad"
+    },
+    {
+      "login": "rach",
+      "days": [
+        "thu"
+      ],
+      "name": "Rachel · Thu Strength B",
+      "id": "6a1a538dad131ce0e7ed3deb3756384f"
+    }
+  ]
 }
