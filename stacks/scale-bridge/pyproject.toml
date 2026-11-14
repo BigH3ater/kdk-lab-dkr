@@ -1,0 +1,25 @@
+[project]
+name = "scale-bridge"
+version = "0.1.0"
+description = "kdk-lab scale-bridge: Body Pod 2 BLE scale -> wger body weight + raw impedance"
+requires-python = "==3.12.*"
+dependencies = [
+    "bleak==3.1.0",
+    "bleak-retry-connector==4.7.1",
+    # Relay mode only (ESPHome Bluetooth proxy); imported lazily, so the local
+    # adapter path never touches it.
+    "bleak-esphome==4.1.0",
+    "httpx==0.28.1",
+]
+
+[dependency-groups]
+dev = ["pytest>=8"]
+
+[tool.uv]
+package = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+faulthandler_timeout = 60          # a hung test dumps every thread and exits (CI fails fast)
+faulthandler_exit_on_timeout = true
+pythonpath = ["."]
