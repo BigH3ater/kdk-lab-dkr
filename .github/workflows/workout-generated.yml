@@ -1,14 +1,11 @@
 # Exercise-plan tools for wger (docs/runbooks/workout-tracking-update.md):
-#   - tools/workout_catalog.json loads and validates (workout_catalog.py) and gen_wger.py
-#     turns it + a guide output into wger 2.7 writes (fake API, tools/tests/test_gen_wger.py);
-#   - gen-workout-guide.py (laptop-only, the --posters input of gen_wger.py) still prefers
-#     the range-of-motion PNG and writes workout.json (fake vault; the real one is private);
+#   - tools/wger_plan.json (both people's plan, wger built-in exercises by uuid) loads and
+#     validates, and gen_wger.py turns it into wger 2.7 writes and the --purge-kdk clean-up
+#     (fake API, tools/tests/test_gen_wger.py);
 #   - the shipped HA config dirs hold no *.bak and no retired helper (tools/tests/test_ha_shipped_config.py).
-# The in-house HA helper generator (gen_workout.py) and the /workout/ Today page were
-# retired 2026-11-06 when wger won the tracking pilot; the treadmill -> wger auto-log
-# (treadmill_wger.yaml) was retired 2026-11-08 (walks are logged in the app), and the
-# whole treadmill HA integration (treadmill.yaml, the Treadmill dashboard and their
-# tests) the same day.
+# Retired: gen_workout.py and the /workout/ Today page (2026-11-06), the treadmill HA
+# integration (2026-11-08), gen-workout-guide.py, workout_catalog.* and wger_exercises.json
+# (2026-11-14, replaced by wger_plan.json).
 name: workout-generated
 
 on:
