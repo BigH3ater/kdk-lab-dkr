@@ -6,13 +6,22 @@ has are used: start_notify, write_gatt_char.
 
 Rules (vault capture note 2026-11-14):
 * the settled weight is the first CF frame with the stable bit AND a non-zero
-  weight. About 5 s after the lock, as the load comes off, the scale sends a
-  second stable-flagged frame with weight 0: ignored, as is every CF after the
-  settled one;
+  weight. Every weight CF after it is ignored;
 * BE x2 and DF x4 follow the lock within ~0.6 s. After the lock the session
   waits up to `impedance_wait` for both BE frames, then up to `df_grace` for the
-  DF frames, then ends. A settled weight without impedance is still a reading;
+  DF frames. A settled weight without impedance is still a reading (and ends
+  the session there: no handle, no end marker);
+* with the impedance in, the session stays open up to `end_marker_wait` for the
+  scale's end-of-measurement marker (protocol.EndMarkerFrame: stable, weight 0,
+  state 00, ~5 s after the lock, handle held only), which carries the heart
+  rate. It ends early on the marker or a disconnect; without the marker the
+  reading is still complete, heart rate None (`ended_by` says which way);
+* a marker before any settled frame (a step-off with no lock) is counted and
+  changes nothing: no reading, the session keeps listening;
 * no settled weight before disconnect / timeout = no reading.
+
+Every notification (both characteristics, bad frames included) can be recorded
+byte for byte into a caller-owned SessionLog for the capture file (capture.py).
 """
 from __future__ import annotations
 
@@ -33,6 +42,7 @@ class Timeouts:
     session: float = 90.0         # watchdog for the whole connection
     impedance_wait: float = 5.0   # after the lock, for both BE frames
     df_grace: float = 1.0         # after both BE, for the DF frames
+    end_marker_wait: float = 20.0  # after the DF frames, for the end-of-measurement marker
 
 
 @dataclass(frozen=True)
@@ -42,6 +52,7 @@ class Reading:
     z50_deci: tuple[int, ...] | None              # five values, protocol.SEGMENTS order
     z250_deci: tuple[int, ...] | None
     df_raw: tuple[str, ...] = ()                  # hex, undecoded
+    heart_rate_bpm: int | None = None             # from the end marker; None = no marker or 0
 
     @property
     def weight_kg(self) -> float:
@@ -77,7 +88,8 @@ class Collector:
     frames: int = 0
     bad_frames: int = 0
     live_weight_frames: int = 0
-    zero_stable_frames: int = 0
+    zero_stable_frames: int = 0         # stable, weight 0, state not 00 (not the end marker)
+    early_end_markers: int = 0          # end marker before any settled frame: step-off, no lock
     ignored_after_lock: int = 0
     settled: p.WeightFrame | None = None
     settled_at: datetime | None = None
@@ -85,6 +97,8 @@ class Collector:
     impedance: dict[int, p.ImpedanceFrame] = field(default_factory=dict)
     impedance_mono: float | None = None
     extended: dict[tuple[int, int], p.ExtendedFrame] = field(default_factory=dict)
+    extended_mono: float | None = None
+    end_marker: p.EndMarkerFrame | None = None
     unknown: int = 0
 
     def feed(self, data: bytes, now: float) -> None:
@@ -101,9 +115,14 @@ class Collector:
             elif f.stable and f.weight_cg > 0:
                 self.settled, self.settled_at, self.settled_mono = f, self.clock(), now
             elif f.stable:
-                self.zero_stable_frames += 1     # the step-off trap
+                self.zero_stable_frames += 1
             else:
                 self.live_weight_frames += 1
+        elif isinstance(f, p.EndMarkerFrame):
+            if self.settled is None:
+                self.early_end_markers += 1      # step-off without a lock: not a reading
+            elif self.end_marker is None:
+                self.end_marker = f
         elif isinstance(f, p.ImpedanceFrame):
             if f.index in p.FREQUENCIES and f.index not in self.impedance:
                 self.impedance[f.index] = f
@@ -111,6 +130,8 @@ class Collector:
                     self.impedance_mono = now
         elif isinstance(f, p.ExtendedFrame):
             self.extended.setdefault(f.index, f)
+            if self.extended_complete and self.extended_mono is None:
+                self.extended_mono = now
         else:
             self.unknown += 1
 
@@ -127,11 +148,15 @@ class Collector:
         hard = started + t.session
         if self.settled_mono is None:
             return hard
+        if self.end_marker is not None:
+            return None
         if not self.impedance_complete:
             return min(hard, self.settled_mono + t.impedance_wait)
-        if not self.extended_complete:
-            return min(hard, (self.impedance_mono or self.settled_mono) + t.df_grace)
-        return None
+        if self.extended_complete and self.extended_mono is not None:
+            phase = self.extended_mono
+        else:   # DF frames still missing: their grace, then the marker wait
+            phase = (self.impedance_mono or self.settled_mono) + t.df_grace
+        return min(hard, phase + t.end_marker_wait)
 
     def reading(self) -> Reading | None:
         if self.settled is None or self.settled_at is None:
@@ -143,16 +168,20 @@ class Collector:
             z50_deci=z[0].deci_ohms if self.impedance_complete else None,
             z250_deci=z[1].deci_ohms if self.impedance_complete else None,
             df_raw=tuple(self.extended[k].raw.hex() for k in sorted(self.extended)),
+            heart_rate_bpm=self.end_marker.heart_rate_bpm if self.end_marker else None,
         )
 
     def summary(self) -> dict[str, Any]:
-        """Counts only: no weight or impedance values (they never leave the dry-run line)."""
+        """Counts and flags only: no weight, impedance or heart-rate values."""
         return {
             "frames": self.frames, "bad_frames": self.bad_frames,
             "live_weight_frames": self.live_weight_frames,
             "settled": self.settled is not None,
             "settled_state": f"{self.settled.state:02x}" if self.settled else None,
             "zero_stable_frames": self.zero_stable_frames,
+            "end_marker": self.end_marker is not None,
+            "early_end_markers": self.early_end_markers,
+            "heart_rate": bool(self.end_marker and self.end_marker.heart_rate_bpm),
             "ignored_after_lock": self.ignored_after_lock,
             "impedance_frames": len(self.impedance), "extended_frames": len(self.extended),
             "unknown_frames": self.unknown,
@@ -165,52 +194,80 @@ class GattClient(Protocol):
 
 
 @dataclass
+class SessionLog:
+    """Caller-owned record of one connection, filled as it happens (survives a hung session).
+
+    `notifications`: (UTC arrival time, short char uuid "fff4"/"fff2", exact bytes),
+    in arrival order, bad frames included. Health data: only capture.py writes it out.
+    """
+    started_at: datetime | None = None
+    profile_hex: str | None = None
+    profile_written: bool | None = None
+    notifications: list[tuple[datetime, str, bytes]] = field(default_factory=list)
+
+
+@dataclass
 class SessionResult:
     reading: Reading | None
     summary: dict[str, Any]
-    ended_by: str               # complete | disconnect | timeout | impedance_timeout | df_timeout
+    # end_marker | end_marker_timeout | disconnect | timeout | impedance_timeout
+    ended_by: str
+
+
+def _ended_by(col: Collector) -> str:
+    """Why the deadline expired (the phase the session was in)."""
+    if col.settled is None:
+        return "timeout"
+    if not col.impedance_complete:
+        return "impedance_timeout"
+    return "end_marker_timeout"
 
 
 async def run_session(client: GattClient, profile: bytes, gone: asyncio.Event,
                       timeouts: Timeouts = Timeouts(),
-                      clock: Callable[[], datetime] | None = None) -> SessionResult:
+                      clock: Callable[[], datetime] | None = None,
+                      record: SessionLog | None = None) -> SessionResult:
     """Subscribe, write the profile, collect until done. The caller disconnects."""
     loop = asyncio.get_running_loop()
-    col = Collector(clock=clock) if clock else Collector()
+    now_utc = clock or (lambda: datetime.now(timezone.utc))
+    col = Collector(clock=now_utc)
     changed = asyncio.Event()
     started = loop.time()
+    rec = record if record is not None else SessionLog()
+    rec.started_at = rec.started_at or now_utc()
+    rec.profile_hex = profile.hex()
 
-    def on_notify(_char: Any, data: bytearray) -> None:
-        col.feed(bytes(data), loop.time())
-        changed.set()
+    def handler(short: str) -> Callable[[Any, bytearray], None]:
+        def on_notify(_char: Any, data: bytearray) -> None:
+            b = bytes(data)
+            rec.notifications.append((now_utc(), short, b))
+            col.feed(b, loop.time())
+            changed.set()
+        return on_notify
 
-    await client.start_notify(p.NOTIFY_UUID, on_notify)
+    await client.start_notify(p.NOTIFY_UUID, handler("fff4"))
     try:
         await client.write_gatt_char(p.WRITE_UUID, profile, response=True)
+        rec.profile_written = True
     except Exception as e:  # noqa: BLE001 - weight still arrives without it
+        rec.profile_written = False
         emit(log, logging.WARNING, "profile_write_failed", error=type(e).__name__)
     try:  # after the profile write, like the capture script: saves ~1 s before the trigger
-        await client.start_notify(p.NOTIFY_ALT_UUID, on_notify)
+        await client.start_notify(p.NOTIFY_ALT_UUID, handler("fff2"))
     except Exception as e:  # noqa: BLE001
         emit(log, logging.DEBUG, "subscribe_failed", char="fff2", error=type(e).__name__)
 
-    ended_by = "timeout"
     while True:
+        deadline = col.deadline(started, timeouts)
+        if deadline is None:            # the end marker came (checked first: it may race the disconnect)
+            ended_by = "end_marker"
+            break
         if gone.is_set():
             ended_by = "disconnect"
             break
-        deadline = col.deadline(started, timeouts)
-        if deadline is None:
-            ended_by = "complete"
-            break
         remaining = deadline - loop.time()
         if remaining <= 0:
-            if col.settled is None:
-                ended_by = "timeout"
-            elif not col.impedance_complete:
-                ended_by = "impedance_timeout"
-            else:
-                ended_by = "df_timeout"
+            ended_by = _ended_by(col)
             break
         changed.clear()
         waiters = [asyncio.ensure_future(changed.wait()), asyncio.ensure_future(gone.wait())]

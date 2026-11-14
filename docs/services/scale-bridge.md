@@ -4,7 +4,7 @@ host: kdk-dkr-02
 stack: scale-bridge
 tier: internal
 status: planned
-storage: no
+storage: yes
 secrets: [wger-api-jmack, wger-api-rach]
 updated: 2026-11-14
 tags: [homelab/stack, tier/internal, status/planned, exercise]
@@ -15,7 +15,8 @@ tags: [homelab/stack, tier/internal, status/planned, exercise]
 A small Python service on kdk-dkr-02 that listens for the household scale (Hume
 **Body Pod 2**, a Lefu OEM unit) over Bluetooth LE, decodes a weigh-in, works out whose
 it is from a weight band, and writes it to that person's [wger](wger.md): body weight
-plus the ten raw impedance values. It ships in **dry-run**: it logs what it would write
+plus the ten raw impedance values (and, behind a switch, the heart rate). It also keeps a
+**raw capture file per weigh-in** for paired tests against the vendor app. It ships in **dry-run**: it logs what it would write
 and posts nothing until the owner switches it on ([runbook](../runbooks/scale-bridge.md)).
 
 No port, no UI, no Traefik router. It computes no body composition: the scale sends
@@ -27,6 +28,7 @@ flowchart LR
   BZ -->|"D-Bus system bus (ro bind)"| SB["scale-bridge<br/>(container, uid 65534 nobody)"]
   P["ESPHome BT proxy<br/>(optional relay, untested)"] -.->|"TCP 6053"| SB
   SB -->|"Token per person, HTTPS"| W["wger.kmkdp.com /api/v2"]
+  SB -->|"one JSONL per session (rw bind)"| C["/opt/kdk-lab/scale-bridge/captures<br/>65534:root 0750"]
 ```
 
 ## At a glance
@@ -35,11 +37,11 @@ flowchart LR
 |---|---|
 | Purpose | Body Pod 2 weigh-ins → wger body weight + raw impedance, per person |
 | Host | kdk-dkr-02 (10.1.30.21), Komodo stack `scale-bridge` |
-| Image | `kdk/scale-bridge:0.1.2`, built on the host from `stacks/scale-bridge` (python 3.12-slim, bleak, bleak-retry-connector, bleak-esphome, httpx from `uv.lock`) |
+| Image | `kdk/scale-bridge:0.1.3`, built on the host from `stacks/scale-bridge` (python 3.12-slim, bleak, bleak-retry-connector, bleak-esphome, httpx from `uv.lock`) |
 | Mode | `SCALE_BRIDGE_DRY_RUN: "true"` in compose until the owner flips it |
 | Bluetooth | `/run/dbus:/run/dbus:ro` → host bluetoothd, as uid `65534:65534` (host `nobody:nogroup`). No privileged, no capabilities, no `/dev`, bridge network |
 | Host files | `/opt/kdk-lab/scale-bridge/scale-bridge.env` (people bands, optional address/proxies), `/opt/kdk-lab/scale-bridge/secrets.env` (wger keys, noise keys). Both root 600, host-managed |
-| Storage | None. Nothing is spooled: a reading that cannot reach wger after 6 tries (waits 30+60+120+240+480 s = 15.5 min) is logged as lost (`write_gave_up`) |
+| Storage | `/opt/kdk-lab/scale-bridge/captures` → `/captures` (rw), `65534:root 0750`, created by the runbook before the deploy: raw capture files (health data, 0640, pruned after 60 days). Readings are not spooled: one that cannot reach wger after 6 tries (waits 30+60+120+240+480 s = 15.5 min) is logged as lost (`write_gave_up`) |
 | Blast radius | Down: weigh-ins are not recorded (weigh again later, or enter in the wger app). wger and HA are unaffected |
 
 ## How a weigh-in flows
@@ -55,13 +57,21 @@ flowchart LR
 3. Collect frames. Every frame's last byte is the XOR of the others; a bad frame is
    counted and dropped.
    - **Settled weight** = the first `CF` frame with the stable bit and a non-zero weight.
-     About 5 s later, as the load comes off, the scale sends another stable-flagged
-     frame with weight 0: ignored, as is every `CF` after the lock.
+     Every weight `CF` after it is ignored.
    - Then up to 5 s for both `BE` frames (≈50 kHz, ≈250 kHz; five values each, order
      right arm, left arm, trunk, right leg, left leg per the protocol reference), then
      up to 1 s for the four `DF` frames (kept raw).
-   - A lock without `BE` frames is still a reading (weight only). No lock = no reading.
-     The handle must be held to the end for a lock (~20 s).
+   - Then up to 20 s (`SCALE_END_MARKER_WAIT_S`) for the **end-of-measurement marker**:
+     a `CF` frame with the stable bit, weight 0 and state byte `00`, sent about 5 s after
+     the lock as the load comes off, only when the handle was held. Byte 1 is the heart
+     rate in BPM (0 = none). The session ends on the marker (`ended_by: end_marker`), a
+     disconnect, or the wait (`end_marker_timeout`, heart rate none); either way the
+     reading is complete. The vendor app appears to need this frame before it accepts a
+     replayed weigh-in.
+   - A lock without `BE` frames is still a reading (weight only, `impedance_timeout`, no
+     marker wait). No lock = no reading; a marker before any lock (a step-off) is
+     counted (`early_end_markers`) and changes nothing. The handle must be held to the
+     end for a lock (~20 s). The 90 s session watchdog still caps everything.
 4. Disconnect, then ignore the scale for 60 s: on a second connection it replays the
    same weight (and impedance). The cooldown is in memory only; after a restart the
    replay rule below is what keeps a replay from being written twice.
@@ -70,7 +80,8 @@ flowchart LR
    (`min_lb`/`max_lb`) or, still accepted, kilograms (`min_kg`/`max_kg`): one pair per
    person. Pounds are converted to kg once at startup; the comparison is in kg.
 6. Dry-run: one `would_write` log line (`weight_kg` plus `weight_lb` to 0.1, to compare
-   with the scale display). Live: written to wger in the background; a failed attempt
+   with the scale display; `heart_rate: true/false` = whether one was captured, never the
+   value). Live: written to wger in the background; a failed attempt
    (wger error, timeout, a non-JSON or unexpected body, or any other exception) is
    retried after 30 s, doubling, 6 tries in all (15.5 min of waits).
 
@@ -80,6 +91,7 @@ flowchart LR
 |---|---|
 | Official **Body weight** category (`metric_type=body_weight`) | weight in kg, `extra_data.unit=kg` (correct even if the profile is in lb), `extra_data.df_raw` = the four `DF` frames as hex |
 | 10 custom categories `Impedance 50 kHz right arm` … `Impedance 250 kHz left leg`, unit `ohm` | raw ohms, created by name on first use |
+| custom category `Heart rate (scale)`, unit `bpm` — **only with `SCALE_BRIDGE_WRITE_HEART_RATE: "true"`** (default `"false"`) | the end marker's heart rate, same idempotence path as the impedance categories; nothing when the scale sent none |
 
 Every entry carries `source=user`, `notes="Body Pod 2 via scale-bridge"` and one
 `external_id` per reading: uuid5 of scale address + person + weight + the four `DF`
@@ -103,10 +115,52 @@ endpoint runs `get_or_create` on the official category and saves an ordinary mea
 at the posted time in the same request, so a retry after a timeout finds both and does
 not post again (test `test_timeout_after_an_accepted_weightentry_post_does_not_duplicate`).
 
+## Heart rate
+
+**Status: confirmed on one capture (2026-11-14).** Byte 1 of the end-of-measurement marker
+equalled the heart rate the vendor app displayed for a replay of that weigh-in. Byte 2 was
+`0xc0` there (the stable bit plus a flag of unknown meaning); only the stable bit is used, and
+each capture file's footer records byte 2 raw (`end_marker_byte2`). Because it rests on one
+capture, writing it to wger is off by default (`SCALE_BRIDGE_WRITE_HEART_RATE`); the paired
+tests below are meant to confirm it before it is switched on.
+
+## Raw capture files
+
+**What for:** paired tests. Each real weigh-in is saved exactly as the scale sent it, then
+replayed byte for byte to the vendor phone app from an emulator, so the bridge's decoding can
+be compared with what the app shows.
+
+**What:** one JSONL file per session that received at least one frame (reading or not), in
+`SCALE_BRIDGE_CAPTURE_DIR` (`/captures` in compose; empty = off), named
+`<UTC yyyymmddThhmmssZ>-<session id>.jsonl`:
+
+| Record | Fields |
+|---|---|
+| header (first line) | `kind: "header"`, `schema: 1`, `session`, `started` (UTC), `scale` (masked `..:XX:YY`), `rssi`, `profile_hex` + `profile_written` (the placeholder profile sent to `FFF1`), `app_version` |
+| one per notification, in arrival order | `t` (UTC ISO, milliseconds), `kind: "frame"`, `char` (`fff4` / `fff2`), `hex` (the exact bytes), `valid` (false + `error` for a bad length/checksum frame, which is kept) |
+| footer (last line) | `ended_by`, `result`, `counts` (the `session` log counts), `frames`, `attribution` + `decision` + `person` (if matched), `heart_rate` (present or not), `end_marker_byte2` |
+
+The frame records have the shape of the capture script's (`t`, `kind: "frame"`, `char`,
+`hex`), which the emulator replays; it ignores the header and footer.
+
+**Privacy:** the files are health data (weight, impedance and heart rate are in the hex, and
+the footer names the person). Mode 0640 in a 0750 directory owned by 65534:root, so only root
+and the container uid read them; never logged (the log line `capture_written` carries the
+file name and frame count only), never in git (the repo is public). Kept
+`SCALE_BRIDGE_CAPTURE_KEEP_DAYS` days (60; 0 = forever), pruned at startup and once a day.
+Listing, copying and deleting: [runbook](../runbooks/scale-bridge.md#7-raw-capture-files).
+
+**Directory missing or not writable:** Docker creates a missing bind source as an empty
+`root:root 0755` directory on deploy (the deploy succeeds), which uid 65534 cannot write. The
+bridge then logs **one** `capture_unavailable` error (`problem: missing` / `not_writable`),
+runs on without capturing, and starts writing again by itself once the directory is fixed.
+
 ## Logs
 
-One JSON line per event: `config`, `token_check` (status only), `scanning`, `session`
-(counts, end reason, RSSI, masked address `..:XX:YY`), `attribution` (person or
+One JSON line per event: `config`, `token_check` (status only), `capture` (on/off at
+startup), `scanning`, `session` (counts, end reason, RSSI, masked address `..:XX:YY`,
+`end_marker` / `heart_rate` as true/false), `capture_written` (file name, frame count),
+`capture_pruned`, `capture_unavailable` (error, once), `attribution` (person or
 candidates, never the weight), `would_write` (dry-run only: **the only line with the
 weight**; impedances as a count), `wrote` / `write_failed` (warning) / `write_crashed`
 (error: an unexpected exception, type only; retried like a failure) / `write_gave_up`
@@ -162,6 +216,8 @@ sudo docker logs --since 10m scale-bridge 2>&1 | grep -E '"event":"(config|token
 | No `session` lines when someone weighs in | out of range (basement), a phone with the Hume app holds the scale, or wrong `SCALE_ADDRESS` | Bluetooth off on the phones; relay mode |
 | `session` with `result: connect_failed` | weak signal or a phone connected first | as above |
 | `session` with `settled: false` | handle released before the lock | hold the handle until the display locks |
+| `session` `ended_by: end_marker_timeout` | impedance came but no end marker within 20 s (handle released early, or the scale did not send it) | a complete reading without heart rate; nothing to fix unless it is every time |
+| `capture_unavailable` at startup | `/opt/kdk-lab/scale-bridge/captures` missing (Docker made it root 0755) or wrong owner | [runbook step 1](../runbooks/scale-bridge.md#1-host-directories); no restart needed |
 | `attribution` `no_match` / `ambiguous` | bands miss the weight or overlap | widen/narrow the bands in `scale-bridge.env` |
 | `token_check` `rejected` / `missing` | key revoked, or not in `secrets.env` | runbook step 2 |
 | `write_gave_up` | wger failing for all 6 tries (15.5 min of waits) | enter that weight in the wger app |
@@ -177,5 +233,6 @@ sudo docker logs --since 10m scale-bridge 2>&1 | grep -E '"event":"(config|token
 | 1Password `wger-api-jmack`, `wger-api-rach` | per-person keys, copied into `secrets.env` by the runbook |
 
 Sources: vault capture note `1. Projects/exercise/scale-sniff-2026-11-14.md`, design note
-`scale-integration-options-2026-11-09.md` section (c); the public Blue2Scale
+`scale-integration-options-2026-11-09.md` section (c), `hume-app-results-2026-11-14.md` (heart
+rate, end marker); the public Blue2Scale
 `BLE_SCALE_PROTOCOL.md`; wger 2.7 source (`wger/measurements`, `wger/weight`).

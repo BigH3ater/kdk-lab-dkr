@@ -126,7 +126,7 @@ def bridge_run(e, reading=READING, wger=None):
     async def go():
         async with api.client() as http:
             b = Bridge(from_env(e), http, sleep=fake_sleep)
-            out = await b.handle(reading, SCALE, "s1")
+            out = (await b.handle(reading, SCALE, "s1")).outcome
             await b.drain()
             return out
     try:
@@ -222,3 +222,57 @@ def test_startup_token_check_reports_status_not_token():
     assert checks == {"alice": "ok", "bob": "rejected"}
     assert TOKEN_A not in buf.getvalue() and TOKEN_B not in buf.getvalue()
     assert all(r.method == "GET" for r in api.requests)
+
+
+# --- heart rate (end-of-measurement marker; behind SCALE_BRIDGE_WRITE_HEART_RATE) --------------
+
+HR = 77                                                   # synthetic
+READING_HR = Reading(measured_at=WHEN, weight_cg=7000, z50_deci=READING.z50_deci, z250_deci=READING.z250_deci,
+                     df_raw=READING.df_raw, heart_rate_bpm=HR)
+
+
+def numbers_in(obj):
+    if isinstance(obj, dict):
+        for v in obj.values():
+            yield from numbers_in(v)
+    elif isinstance(obj, list):
+        for v in obj:
+            yield from numbers_in(v)
+    elif isinstance(obj, (int, float)) and not isinstance(obj, bool):
+        yield obj
+
+
+def test_would_write_says_whether_a_heart_rate_came_never_the_value():
+    for reading, flag in ((READING_HR, True), (READING, False)):
+        for switch in ("false", "true"):
+            out, api, lines, _ = bridge_run(env(SCALE_BRIDGE_WRITE_HEART_RATE=switch), reading=reading)
+            ww = [x for x in lines if x["event"] == "would_write"]
+            assert out == "dry_run" and api.requests == [] and ww[0]["heart_rate"] is flag
+            assert HR not in list(numbers_in(lines)) and "heart_rate_bpm" not in json.dumps(lines)
+            assert len(ww[0]["categories"]) == (12 if flag and switch == "true" else 11)
+
+
+def test_heart_rate_is_not_written_with_the_switch_off():
+    out, api, lines, _ = bridge_run(env(SCALE_BRIDGE_DRY_RUN="false"), reading=READING_HR)
+    assert out == "queued" and "Heart rate (scale)" not in api.values("alice")
+    assert [x for x in lines if x["event"] == "wrote"][0]["created"] == 11
+
+
+def test_heart_rate_is_written_with_the_switch_on_and_is_idempotent():
+    api = FakeWger({"alice": TOKEN_A, "bob": TOKEN_B})
+    live = env(SCALE_BRIDGE_DRY_RUN="false", SCALE_BRIDGE_WRITE_HEART_RATE="true")
+    _, api, first, _ = bridge_run(live, reading=READING_HR, wger=api)
+    _, api, again, _ = bridge_run(live, reading=READING_HR, wger=api)           # replay / retry
+    assert api.values("alice")["Heart rate (scale)"] == [float(HR)]
+    cat = next(c for c in api.categories if c["name"] == "Heart rate (scale)")
+    assert cat["unit"] == "bpm" and cat["metric_type"] == "custom"
+    wrote = [x for x in first + again if x["event"] == "wrote"]
+    assert (wrote[0]["created"], wrote[1]["created"], wrote[1]["exists"]) == (12, 0, 12)
+    assert plan(READING_HR, heart_rate=True)[-1] == {"category": "Heart rate (scale)", "value": 77.0, "unit": "bpm"}
+    assert HR not in list(numbers_in(first + again))
+
+
+def test_no_heart_rate_nothing_extra_even_with_the_switch_on():
+    out, api, _, _ = bridge_run(env(SCALE_BRIDGE_DRY_RUN="false", SCALE_BRIDGE_WRITE_HEART_RATE="true"))
+    assert out == "queued" and "Heart rate (scale)" not in api.values("alice")
+    assert plan(READING, heart_rate=True) == plan(READING)

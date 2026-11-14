@@ -27,6 +27,15 @@
 #       the 1Password items wger-api-jmack / wger-api-rach), relay noise keys
 # Examples with made-up values: scale-bridge.env.example, secrets.env.example.
 #
+# Raw captures (health data): one JSONL file per weigh-in session in
+# /opt/kdk-lab/scale-bridge/captures (-> /captures, rw), every notification byte
+# for byte, for replaying to the vendor app in paired tests. The directory must
+# be created BEFORE the deploy owned by 65534:root, mode 0750 (runbook step 1).
+# If it is missing, Docker creates it root:root 0755 on deploy (short-syntax
+# bind), the deploy succeeds, the bridge cannot write there: it logs one
+# `capture_unavailable` ERROR and runs on without capturing. Files are 0640,
+# pruned after SCALE_BRIDGE_CAPTURE_KEEP_DAYS, never logged, never in git.
+#
 # Image is built locally (kdk/scale-bridge) -> the stack sets auto_pull=false +
 # run_build=true in komodo/resources.toml.
 name: scale-bridge
@@ -51,7 +60,7 @@ services:
     build:
       context: .
       provenance: false
-    image: kdk/scale-bridge:0.1.2
+    image: kdk/scale-bridge:0.1.3
     container_name: scale-bridge
     user: "65534:65534"        # host nobody:nogroup; dbus-daemon resets unknown uids
     init: true                 # python is PID 1 otherwise: SIGTERM, zombie reaping
@@ -70,10 +79,22 @@ services:
       SCALE_PROFILE_ACTIVITY: "1"
       SCALE_PROFILE_HEIGHT_CM: "170"
       SCALE_PROFILE_AGE: "30"
+      # Raw capture per session (empty = off); files older than KEEP_DAYS are
+      # deleted at startup and daily (0 = keep forever).
+      SCALE_BRIDGE_CAPTURE_DIR: "/captures"
+      SCALE_BRIDGE_CAPTURE_KEEP_DAYS: "60"
+      # After the impedance/DF frames, wait this long for the end-of-measurement
+      # marker (it carries the heart rate, ~5 s after the lock, handle held).
+      SCALE_END_MARKER_WAIT_S: "20"
+      # Heart rate to wger ("Heart rate (scale)", bpm): off, because byte 1 of the
+      # end marker = heart rate is confirmed on ONE capture so far.
+      SCALE_BRIDGE_WRITE_HEART_RATE: "false"
     volumes:
       # D-Bus system bus -> host bluetoothd. Directory, not the socket file, so a
       # dbus restart (new socket inode) does not leave a stale bind.
       - /run/dbus:/run/dbus:ro
+      # Raw weigh-in captures (health data), 65534:root 0750 on the host.
+      - /opt/kdk-lab/scale-bridge/captures:/captures:rw
     healthcheck:
       # The main loop touches /tmp/scale-bridge.alive at least every 30 s.
       test: ["CMD", "python", "-I", "-c", "import os,sys,time; sys.exit(0 if time.time() - os.path.getmtime('/tmp/scale-bridge.alive') < 300 else 1)"]

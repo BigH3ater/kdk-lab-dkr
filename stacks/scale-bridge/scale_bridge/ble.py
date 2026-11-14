@@ -22,9 +22,10 @@ import bleak
 import bleak_retry_connector
 
 from . import protocol as p
+from .capture import Captures
 from .config import Proxy, Settings
 from .logs import emit
-from .session import SessionResult, run_session
+from .session import SessionLog, SessionResult, run_session
 
 log = logging.getLogger("scale_bridge.ble")
 
@@ -88,9 +89,12 @@ class Watcher:
         self.queue.put_nowait((device, getattr(adv, "rssi", None)))
 
 
-async def connect_and_run(settings: Settings, device: Any,
-                          profile: bytes) -> tuple[SessionResult | None, dict[str, Any]]:
-    """Connect (bounded, retried), run one session, always disconnect."""
+async def connect_and_run(settings: Settings, device: Any, profile: bytes,
+                          record: SessionLog | None = None) -> tuple[SessionResult | None, dict[str, Any]]:
+    """Connect (bounded, retried), run one session, always disconnect.
+
+    `record` (caller-owned) collects every notification, also when the session hangs or errors.
+    """
     loop = asyncio.get_running_loop()
     gone = asyncio.Event()
     t0 = loop.time()
@@ -108,7 +112,7 @@ async def connect_and_run(settings: Settings, device: Any,
     info["connect_s"] = round(loop.time() - t0, 1)
     try:
         async with asyncio.timeout(settings.timeouts.session + 15):
-            result = await run_session(client, profile, gone, settings.timeouts)
+            result = await run_session(client, profile, gone, settings.timeouts, record=record)
     except TimeoutError:
         info.update(result="session_hung")
         return None, info
@@ -131,8 +135,36 @@ def touch(path: str) -> None:
         pass
 
 
-async def run(settings: Settings, on_reading: Callable[[Any, str, str], Awaitable[None]]) -> None:
-    """Forever: wait for the scale's advert, run a session, pass the reading on."""
+def footer(result: SessionResult | None, info: dict[str, Any], decision: Any) -> dict[str, Any]:
+    """Capture-file footer: end reason, counts, attribution. No weight/impedance/heart-rate values."""
+    outcome = getattr(decision, "outcome", None)
+    reading = result.reading if result else None
+    return {
+        "ended_by": result.ended_by if result else None,
+        "result": info.get("result"), "error": info.get("error"),
+        "counts": result.summary if result else {},
+        "attribution": None if outcome is None else (outcome if outcome in ("no_match", "ambiguous") else "matched"),
+        "decision": outcome,
+        "person": getattr(decision, "person", None),
+        "heart_rate": bool(reading and reading.heart_rate_bpm is not None),
+    }
+
+
+def write_capture(captures: Captures, record: SessionLog, session_id: str, device: Any, rssi: int | None,
+                  result: SessionResult | None, info: dict[str, Any], decision: Any) -> None:
+    try:
+        captures.write(record, session_id, {"scale": mask(device.address), "rssi": rssi},
+                       footer(result, info, decision))
+    except Exception as e:  # noqa: BLE001 - a capture must never stop the bridge
+        emit(log, logging.ERROR, "capture_failed", session=session_id, error=type(e).__name__)
+
+
+async def run(settings: Settings, on_reading: Callable[[Any, str, str], Awaitable[Any]],
+              captures: Captures | None = None) -> None:
+    """Forever: wait for the scale's advert, run a session, pass the reading on, save the capture."""
+    if captures is None:
+        captures = Captures(settings.capture_dir, settings.capture_keep_days)
+    captures.startup()
     stop_relays = await start_relays(settings.proxies)
     watcher = Watcher(settings)
     profile = p.profile_frame(settings.profile_sex, settings.profile_activity,
@@ -146,6 +178,7 @@ async def run(settings: Settings, on_reading: Callable[[Any, str, str], Awaitabl
     try:
         while True:
             touch(settings.heartbeat_path)
+            captures.maybe_prune()
             try:
                 device, rssi = await asyncio.wait_for(watcher.queue.get(), timeout=30)
             except TimeoutError:
@@ -154,8 +187,9 @@ async def run(settings: Settings, on_reading: Callable[[Any, str, str], Awaitabl
             session_id = f"{int(time.time())}-{n}"
             watcher.busy = True
             started = time.monotonic()
+            record = SessionLog()
             try:
-                result, info = await connect_and_run(settings, device, profile)
+                result, info = await connect_and_run(settings, device, profile, record)
             finally:
                 watcher.busy = False
             summary = result.summary if result else {}
@@ -163,11 +197,13 @@ async def run(settings: Settings, on_reading: Callable[[Any, str, str], Awaitabl
                  session=session_id, scale=mask(device.address), rssi=rssi,
                  ended_by=result.ended_by if result else None,
                  duration_s=round(time.monotonic() - started, 1), **info, **summary)
+            decision = None
             if result and result.reading:
                 watcher.quiet_until = time.monotonic() + settings.cooldown
-                await on_reading(result.reading, device.address, session_id)
+                decision = await on_reading(result.reading, device.address, session_id)
             else:
                 watcher.quiet_until = time.monotonic() + settings.retry_backoff
+            write_capture(captures, record, session_id, device, rssi, result, info, decision)
             touch(settings.heartbeat_path)
     finally:
         await scanner.stop()

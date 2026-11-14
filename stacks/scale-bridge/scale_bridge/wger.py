@@ -20,7 +20,7 @@ Replay rule (the scale re-sends the settled weight on a reconnect, and the
 bridge keeps no state across a restart): a reading is the same weigh-in as a
 body-weight entry of the same person with the same weight (to 5 g) dated within
 REPLAY_WINDOW of it; it is then written at that entry's time, and each
-impedance category counts as done when it has an entry within 1 s of that time.
+impedance (and heart-rate) category counts as done when it has an entry within 1 s of that time.
 The external_id (DF bytes when the scale sent all four DF frames, else lock
 time) is a second net: the unique constraint turns a repeat into "exists".
 
@@ -41,6 +41,8 @@ from .session import Reading
 API = "/api/v2"
 NAMESPACE = uuid.UUID("6f1f3c52-3a7e-4c1e-9f0a-5ad1e0b5ca1e")   # scale-bridge's own uuid5 namespace
 IMPEDANCE_UNIT = "ohm"
+HEART_RATE_CATEGORY = "Heart rate (scale)"   # only with SCALE_BRIDGE_WRITE_HEART_RATE (one-capture confirmation)
+HEART_RATE_UNIT = "bpm"
 LB_PER_KG = 2.20462262185
 NOTE = "Body Pod 2 via scale-bridge"
 REPLAY_WINDOW = timedelta(minutes=10)
@@ -63,10 +65,18 @@ def external_id(scale_id: str, reading: Reading, person: str) -> uuid.UUID:
     return uuid.uuid5(NAMESPACE, f"{scale_id.upper()}|{person}|{reading.weight_cg}|{key}")
 
 
-def plan(reading: Reading) -> list[dict[str, Any]]:
-    """What a write would post, in order: body weight, then the impedances."""
+def custom_rows(reading: Reading, heart_rate: bool = False) -> list[tuple[str, float, str]]:
+    """(category, value, unit) for the custom categories: impedances, then the heart rate if enabled."""
+    rows = [(name, v, IMPEDANCE_UNIT) for name, v in reading.impedances()]
+    if heart_rate and reading.heart_rate_bpm:
+        rows.append((HEART_RATE_CATEGORY, float(reading.heart_rate_bpm), HEART_RATE_UNIT))
+    return rows
+
+
+def plan(reading: Reading, heart_rate: bool = False) -> list[dict[str, Any]]:
+    """What a write would post, in order: body weight, the impedances, the heart rate (if enabled)."""
     rows: list[dict[str, Any]] = [{"category": "Body weight", "value": reading.weight_kg, "unit": "kg"}]
-    rows += [{"category": name, "value": v, "unit": IMPEDANCE_UNIT} for name, v in reading.impedances()]
+    rows += [{"category": n, "value": v, "unit": u} for n, v, u in custom_rows(reading, heart_rate)]
     return rows
 
 
@@ -245,7 +255,7 @@ class WgerClient:
         return await self._post(category, when, value, ext, extra)
 
     async def write_reading(self, reading: Reading, ext: uuid.UUID,
-                            window: timedelta = REPLAY_WINDOW) -> dict[str, int]:
+                            window: timedelta = REPLAY_WINDOW, heart_rate: bool = False) -> dict[str, int]:
         """Write everything; safe to call again for the same reading, or for a replay of it."""
         async with self._write_lock:
             counts = {"created": 0, "exists": 0, "categories_created": 0}
@@ -272,9 +282,9 @@ class WgerClient:
                     counts["exists"] += 1
                 else:
                     counts[await self._post(cat, when, reading.weight_kg, ext, extra)] += 1
-            for name, ohms in reading.impedances():
-                cid, created = await self.custom_category(name, IMPEDANCE_UNIT)
+            for name, value, unit in custom_rows(reading, heart_rate):
+                cid, created = await self.custom_category(name, unit)
                 counts["categories_created"] += int(created)
-                counts[await self.ensure_measurement(cid, when, ohms, ext,
-                                                     {"unit": IMPEDANCE_UNIT, "device": "Body Pod 2"})] += 1
+                counts[await self.ensure_measurement(cid, when, value, ext,
+                                                     {"unit": unit, "device": "Body Pod 2"})] += 1
             return counts
