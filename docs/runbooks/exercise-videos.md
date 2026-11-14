@@ -102,19 +102,20 @@ The tool needs a **dedicated key** for this tool, following the per-consumer pat
 
 1. In **Jellyfin → Dashboard → API Keys → +**, set App name `exercise-videos`, then copy
    the key.
-2. Store it without echoing it. The key travels in JSON on stdin, so it never appears in
-   argv:
+2. Store it without echoing it, as an **API Credential** item with the standard
+   `credential` field (the owner's convention). The key travels in JSON on stdin, so it
+   never appears in argv:
 
 **Laptop (`op` signed in, key on the clipboard)**
 
 ```bash
-wl-paste -n | python3 -c 'import json,sys; print(json.dumps({"title":"jellyfin-api-exercise-videos","category":"API_CREDENTIAL","fields":[{"id":"api-key","label":"api-key","type":"CONCEALED","value":sys.stdin.read().strip()}]}))' \
+wl-paste -n | python3 -c 'import json,sys; print(json.dumps({"title":"jellyfin-api-exercise-videos","category":"API_CREDENTIAL","fields":[{"id":"credential","label":"credential","type":"CONCEALED","value":sys.stdin.read().strip()}]}))' \
   | op item create --vault kdk-cluster -
 wl-copy --clear
-K="$(op read op://kdk-cluster/jellyfin-api-exercise-videos/api-key)"; echo "${#K} bytes"; unset K   # 32 bytes
+K="$(op read op://kdk-cluster/jellyfin-api-exercise-videos/credential)"; echo "${#K} bytes"; unset K   # 32 bytes
 ```
 
-To rotate: create a new key, run `op item edit` on the field, then delete the old key in
+To rotate: create a new key, run `op item edit` on the `credential` field, then delete the old key in
 the dashboard. The tool only reads the key when it runs, so nothing else changes.
 
 ## 3. Download the videos (kdk-dkr-01)
@@ -189,7 +190,7 @@ API paths from the internet)**
 
 ```bash
 T=stacks/home-assistant/tools
-export JELLYFIN_API_KEY="$(op read op://kdk-cluster/jellyfin-api-exercise-videos/api-key)"
+export JELLYFIN_API_KEY="$(op read op://kdk-cluster/jellyfin-api-exercise-videos/credential)"
 printf '%s bytes\n' ${#JELLYFIN_API_KEY}                   # 32; never echo the value
 python3 $T/exercise_videos.py jellyfin                    # dry run: access check (+ NOTE line), 8 "would: create playlist"
 python3 $T/exercise_videos.py jellyfin --apply            # scan (waits up to 10 min), playlists, wger_videos.json
@@ -204,7 +205,33 @@ every exercise description gets its Jellyfin `Video:` line.
 
 The tool resolves the users by username (`jmack`, `rach`: the plan's people logins) on
 every run, so no user id is stored. It finds a playlist by the id it recorded, or else by
-its exact name in that person's list. It never deletes a playlist it did not make.
+its exact name in that person's list.
+
+**API key limits (Jellyfin 12.4).** An API key has no user behind it. Every
+`/Playlists/{id}` call that works on "the calling user" answers `400 Error processing
+request.`: read, users, update, remove item and move item. So the tool:
+
+- creates a playlist with `POST /Playlists` and the owner in the body (`UserId`,
+  `IsPublic: false`, no `Users`);
+- never updates one in place. A recorded or same-named playlist whose name or order is
+  wrong is deleted with `DELETE /Items/{id}` and created again. That gives it a new id;
+  nothing links to playlist ids except `wger_videos.json`;
+- verifies each playlist after the write, as the owner and as every other account:
+  - `GET /Playlists/{id}/Items?userId=<owner>` gives the plan's videos in workout order;
+  - for each other account (the other plan person and admins included), the playlist is
+    not in `GET /Items?userId=<them>&IncludeItemTypes=Playlist`, and
+    `GET /Items/{id}?userId=<them>` is a 404.
+
+  If any other account can see a playlist, the run stops with exit 2 and names it.
+
+It never deletes a playlist it did not make: only one it recorded (with `--prune`) or one
+it is re-creating because it carries the plan's exact name.
+
+**A run that stops midway** (a failed check, an HTTP error) still writes
+`wger_videos.json`. The file gets all item ids, since by then every plan file is an item,
+and only the playlists verified so far. `gen_wger.py` can run on it, and the next
+`jellyfin --apply` resumes: it finds the playlists already made by id or name and creates
+the rest.
 
 ## 6. Check it
 
@@ -278,6 +305,8 @@ those descriptions alone. It never writes a YouTube or empty `Video:` line.
 |---|---|
 | `retry ... HTTP Error 403: Forbidden`, then `FAILED <file> after 4 attempts` | YouTube refuses the video data now and then; the same video usually works a few minutes later. The rest of the run still downloads. Re-run step 3 (`--apply`) later; it fetches only the listed files. If the same video fails across several runs, open it in a browser: it may be private, removed or region-locked. Replace it in `wger_plan.json` (see *After a plan change*). |
 | `ERROR n of 47 video(s) not created`, a file marked `yt-dlp exited 0 but the file is not there` | yt-dlp wrote it under a different name or not at all. Check the run's output for that file and `ls -la /mnt/media/exercise/.incoming` on kdk-dkr-01. |
+| `jellyfin`: `ERROR GET /Playlists/<id>: HTTP 400 Error processing request.` | An older tool version. With an API key that call has no user and always fails; the current tool never calls it. Update the checkout and run again. The first playlist it made is reused, not duplicated. |
+| `jellyfin`: `playlist '...' (<id>) is visible to <user> (...)`, exit 2 | The playlist is public or shared. As the owner in Jellyfin, open the playlist, remove the shares and make it private. Or delete it; the next run creates it again. `wger_videos.json` has already been written with the item ids and the playlists that passed. |
 | `jellyfin`: `ACCESS jmack cannot see the library`, exit 2, nothing written | That plan person has neither *all libraries* nor Exercise ticked. Fix it as in step 4, then run again. A `NOTE other accounts can see the library` line is expected and does not stop the run. |
 | `WARN .incoming/ holds finished video(s), left alone` | A run stopped after the file was done but before yt-dlp moved it. Move it up: `ssh kdkadmin@10.1.20.20 'mv "/mnt/media/exercise/.incoming/<file>" /mnt/media/exercise/'`, then run step 3 again; it removes the empty folder. |
 
