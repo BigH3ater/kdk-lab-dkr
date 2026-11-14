@@ -47,7 +47,10 @@ owner's 2026-11-14 decision). No pain notes, no medical history.
   `curl -s https://wger.kmkdp.com/api/v2/exerciseinfo/<id>/ | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d["uuid"], [t["name"] for t in d["translations"] if t["language"] == 2])'`.
 - `how` 3-5 short lines, `safety` one line, `video` a `https://www.youtube.com/watch?v=<id>`
   address from a physical therapist or certified coach channel (verify with
-  `--check-videos`). They become the description of the built-in, which **everyone** using
+  `--check-videos`), available at 1080 on the short side as H.264 (the format check in
+  [exercise-videos, Troubleshooting](exercise-videos.md#troubleshooting)). `"video": null`
+  means no video by design (`treadmill-walk`, owner decision 2026-11-14): How / Safety only,
+  no file, no playlist entry; a missing or empty `video` is an error. They become the description of the built-in, which **everyone** using
   that exercise sees; a person-specific note goes in the slot `comment` (160 characters).
   `equipment` names are added to the exercise (never removed).
 - A slot has exactly one of `reps`, `seconds`, `minutes`, `lengths` (10-ft lengths), each a

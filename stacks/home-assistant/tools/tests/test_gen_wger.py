@@ -223,7 +223,7 @@ def full_videos(plan=PLAN):
     """A wger_videos.json as exercise_videos.py jellyfin --apply writes it, every plan key mapped."""
     return {"base_url": "https://jellyfin.test", "playlists": [],
             "items": {k: {"id": jf_id(k), "youtube": ex["video"][-11:], "file": f"{k} [{ex['video'][-11:]}].mp4"}
-                      for k, ex in plan["exercises"].items()}}
+                      for k, ex in plan["exercises"].items() if ex["video"] is not None}}
 
 
 def write_videos(path, doc):
@@ -287,7 +287,34 @@ def test_plan_shape_four_days_for_jmack_seven_for_rach():
 def test_plan_exercises_carry_how_safety_and_a_youtube_video():
     for key, ex in PLAN["exercises"].items():
         assert 3 <= len(ex["how"]) <= 5 and ex["safety"], key
-        assert gw.VIDEO_RE.match(ex["video"]), key
+        if key == "treadmill-walk":                  # owner 2026-11-14: logged, but no video
+            assert ex["video"] is None
+        else:
+            assert gw.VIDEO_RE.match(ex["video"]), key
+
+
+def test_only_an_explicit_null_means_no_video(tmp_path):
+    bad = copy.deepcopy(PLAN)
+    del bad["exercises"]["plank"]["video"]
+    bad["exercises"]["goblet-squat"]["video"] = ""
+    with pytest.raises(gw.WgerError) as e:
+        gw.load_plan(write_plan(tmp_path, bad))
+    msg = str(e.value)
+    assert "exercises.plank: video missing" in msg and "exercises.goblet-squat: video must be" in msg
+    assert "treadmill-walk" not in msg
+
+
+def test_no_video_exercise_gets_how_and_safety_without_a_video_line(fake, videos, capsys):
+    tm = PLAN["exercises"]["treadmill-walk"]
+    assert "treadmill-walk" not in gw.load_videos(videos)["ids"]
+    text = gw.describe("treadmill-walk", tm, gw.load_videos(videos))
+    assert "**Safety:**" in text and "Video:" not in text
+    assert gw.missing_videos(PLAN, gw.load_videos(videos)) == []        # not "missing" a video
+    assert run("--apply") == 0
+    tr = next(t for t in fake.t["exercise-translation"].values() if t["exercise"] == fake.ex_of["treadmill-walk"])
+    assert tr["description_source"] == text
+    assert "no Jellyfin item id" not in capsys.readouterr().err
+    assert run("--check") == 0
 
 
 def test_plan_validation_catches_mistakes(tmp_path):
@@ -375,7 +402,9 @@ def test_empty_mapping_apply_stops_before_any_write(fake, videos, capsys):
     write_videos(videos, {"base_url": "https://jellyfin.kmkdp.com", "items": {}, "playlists": []})
     assert run("--apply") == 2
     assert fake.writes == []
-    assert "47 plan exercise(s) have no Jellyfin item id" in capsys.readouterr().err
+    err = capsys.readouterr().err
+    assert "46 plan exercise(s) have no Jellyfin item id" in err     # 47 exercises, treadmill-walk has none
+    assert "treadmill-walk" not in err
 
 
 def test_empty_mapping_check_fails_and_names_the_exercises(fake, videos, capsys):
@@ -443,7 +472,10 @@ def test_descriptions_patched_with_the_owner_key_only(fake, videos):
     for key, eid in fake.ex_of.items():
         (tr,) = [t for t in fake.t["exercise-translation"].values() if t["exercise"] == eid]
         assert tr["description_source"] == gw.describe(key, PLAN["exercises"][key], v)
-        assert f"Video: https://jellyfin.test/web/#/details?id={jf_id(key)}" in tr["description_source"]
+        if key == "treadmill-walk":                                         # no video by design
+            assert "Video:" not in tr["description_source"]
+        else:
+            assert f"Video: https://jellyfin.test/web/#/details?id={jf_id(key)}" in tr["description_source"]
     assert {u for m, t, u in fake.writes if t in EXERCISE_WRITE} == {"jmack"}
     other = fake.t["exercise-translation"][900]
     assert other["description_source"] == "Upstream text."                  # not in the plan: untouched
@@ -680,17 +712,19 @@ def test_check_videos(monkeypatch, capsys, tmp_path):
         return OResp(200, {"title": "t", "author_name": "a"})
     monkeypatch.setattr(gw.requests, "get", get)
     assert run("--check-videos") == 0
-    assert len(seen) == len(PLAN["exercises"])
+    assert len(seen) == len(PLAN["exercises"]) - 1                       # treadmill-walk: no video
+    out = capsys.readouterr().out
+    assert "none treadmill-walk" in out and f"{len(seen)}/{len(seen)} video(s) answer oEmbed" in out
     plank = PLAN["exercises"]["plank"]["video"]
     monkeypatch.setattr(gw.requests, "get", lambda url, params=None, timeout=None:
                         OResp(404 if params["url"] == plank else 200))
     assert run("--check-videos") == 1
     assert "FAIL plank" in capsys.readouterr().out
     plan = copy.deepcopy(PLAN)
-    plan["exercises"]["plank"]["video"] = ""
+    plan["exercises"]["plank"]["video"] = ""                            # empty is a plan error, not "none"
     monkeypatch.setattr(gw.requests, "get", get)
-    assert run("--check-videos", plan_path=write_plan(tmp_path, plan)) == 1
-    assert "MISSING plank" in capsys.readouterr().out
+    assert run("--check-videos", plan_path=write_plan(tmp_path, plan)) == 2
+    assert "exercises.plank: video must be" in capsys.readouterr().err
 
 
 def test_no_retired_files_left():

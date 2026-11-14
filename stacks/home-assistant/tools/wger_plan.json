@@ -12,7 +12,7 @@
         "Finish with 2-3 easy minutes."
       ],
       "safety": "Clip on the safety key; stand on the side rails while the belt starts or stops. Walking only: no running, no intervals.",
-      "video": "https://www.youtube.com/watch?v=jkJkmy8IHXU"
+      "video": null
     },
     "goblet-squat": {
       "uuid": "b7c6a444-90ea-4f5b-9fea-748311606eaa", "name": "Dumbbell Goblet Squat",
@@ -122,7 +122,7 @@
         "Lower under control to the sides of the chest."
       ],
       "safety": "Keep the feet planted and the elbows about 45 degrees from the body; lower the weights to the thighs to finish.",
-      "video": "https://www.youtube.com/watch?v=JKnpHchOWPU"
+      "video": "https://www.youtube.com/watch?v=1GfPDAON8tA"
     },
     "chest-supported-row": {
       "uuid": "51a2d520-b510-4b6e-bd65-9fc40365e8de", "name": "Incline Chest-Supported Dumbbell Row",
@@ -320,7 +320,7 @@
         "Lower under control to the sides of the chest."
       ],
       "safety": "Keep the elbows about 45 degrees from the body; lower the weights to the thighs to finish.",
-      "video": "https://www.youtube.com/watch?v=AuNRCrdhquE"
+      "video": "https://www.youtube.com/watch?v=EipJ3n7934s"
     },
     "one-arm-row": {
       "uuid": "94a5c406-7bcd-47f3-9687-bdf92a763932", "name": "Bent Over Dumbbell Rows",

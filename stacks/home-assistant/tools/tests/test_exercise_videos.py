@@ -23,6 +23,7 @@ sys.path.insert(0, str(TOOLS))
 import exercise_videos as ev  # noqa: E402
 
 PLAN = ev.load_plan()
+VIDEO_KEYS = {k for k, ex in PLAN["exercises"].items() if ex["video"] is not None}   # treadmill-walk has none
 LOC = "/data/media/exercise"
 LIB = "a" * 32
 JMACK, RACH, OTHER, ADMIN = "1" * 32, "2" * 32, "3" * 32, "4" * 32
@@ -48,7 +49,8 @@ def test_file_names_come_from_key_and_youtube_id_only():
     assert ev.FILE_RE.match(ev.file_name("plank", ex))
     renamed = {**ex, "name": "Something else entirely"}
     assert ev.file_name("plank", renamed) == ev.file_name("plank", ex)
-    assert len(names()) == len(PLAN["exercises"])
+    assert len(names()) == len(PLAN["exercises"]) - 1 == 46      # treadmill-walk: no video, no file
+    assert not [n for n in names() if n.startswith("treadmill-walk")]
 
 
 def test_playlists_one_per_person_and_day_in_workout_order():
@@ -58,7 +60,11 @@ def test_playlists_one_per_person_and_day_in_workout_order():
                          "Rachel · 4 Thu Strength B"]
     mon = pls["Jacob · 1 Mon Lower A"]
     assert mon["login"] == "jmack" and mon["days"] == ["mon"]
-    assert mon["keys"][:3] == ["treadmill-walk", "goblet-squat", "db-rdl"] and mon["keys"][-1] == "bird-dog"
+    assert mon["keys"][:3] == ["goblet-squat", "db-rdl", "step-up"] and mon["keys"][-1] == "bird-dog"
+    for p in pls.values():                                      # treadmill-walk has no video: in no playlist
+        assert "treadmill-walk" not in p["keys"]
+        if p["login"] == "jmack":
+            assert len(p["keys"]) == 9, p["name"]
     assert pls["Rachel · 1 Mon Strength A"]["keys"] == ["double-calf-raise", "hip-flexor-stretch", "box-squat",
                                                        "pallof-press", "incline-push-up", "wall-squat", "cow-cat"]
     assert pls["Rachel · 3 Wed/Sat/Sun Daily parts"]["days"] == ["wed", "sat", "sun"]
@@ -93,6 +99,36 @@ def test_bad_plan_key_or_video_is_rejected(tmp_path):
     assert "Bad Key" in str(e.value) and "exercises.walking: video" in str(e.value)
 
 
+def test_only_an_explicit_null_means_no_video(tmp_path):
+    assert PLAN["exercises"]["treadmill-walk"]["video"] is None          # owner 2026-11-14
+    plan = copy.deepcopy(PLAN)
+    del plan["exercises"]["plank"]["video"]
+    plan["exercises"]["goblet-squat"]["video"] = ""
+    p = tmp_path / "plan.json"
+    p.write_text(json.dumps(plan))
+    with pytest.raises(ev.VideoError) as e:
+        ev.load_plan(p)
+    msg = str(e.value)
+    assert "exercises.plank: video" in msg and "exercises.goblet-squat: video" in msg and "treadmill" not in msg
+
+
+def test_a_day_of_no_video_exercises_gets_no_playlist():
+    plan = copy.deepcopy(PLAN)
+    person = plan["people"]["jmack"]
+    person["routines"].append({"day": "sun", "name": "Sun · Walk", "slots": [{"exercise": "treadmill-walk"}]})
+    names_ = [p["name"] for p in ev.plan_playlists(plan) if p["login"] == "jmack"]
+    assert len(names_) == 4 and not [n for n in names_ if "Sun" in n]
+
+
+def test_the_old_treadmill_file_is_extra_and_prune_removes_it(capsys):
+    old = "treadmill-walk [jkJkmy8IHXU].mp4"
+    sh = FakeShell(files=[*names(), old])
+    assert dl(shell=sh) == 0
+    assert f"EXTRA {old}: no longer in the plan" in capsys.readouterr().out
+    assert dl("--apply", "--prune", shell=sh) == 0
+    assert old not in sh.files and sh.files == set(names()) and sh.runs() == []
+
+
 def test_image_is_pinned_by_digest():
     assert "@sha256:" in ev.image_ref()
 
@@ -106,7 +142,8 @@ class FakeShell:
 
     TMP = f"/mnt/media/exercise/{ev.INCOMING}"
 
-    def __init__(self, files=None, exists=True, fail=None, silent=(), incoming=None, link=False):
+    def __init__(self, files=None, exists=True, fail=None, silent=(), incoming=None, link=False,
+                 sizes=None, mv_fails=False):
         self.files = set(files or [])
         self.exists = exists
         self.calls = []
@@ -114,11 +151,15 @@ class FakeShell:
         self.silent = set(silent)
         self.incoming = None if incoming is None else set(incoming)     # None = no temp dir
         self.link = link
+        self.sizes = dict(sizes or {})                                  # file -> "WxH" for --probe
+        self.mv_fails = mv_fails
+        self.replaced = []                                              # files a mv overwrote
 
     def __call__(self, argv, check=True):
         self.calls.append(argv)
         rc, out, err = 0, "", ""
         tmp = len(argv) > 1 and argv[-1] == self.TMP
+        in_tmp = len(argv) > 1 and argv[-1].startswith(self.TMP + "/")
         if argv[0] == "find" and argv[1] == self.TMP:
             rc = 0 if self.incoming is not None else 1
             out = "".join(f + "\n" for f in sorted(self.incoming or ()))
@@ -130,8 +171,22 @@ class FakeShell:
             rc = {"-L": 0 if self.link else 1,
                   "-e": 0 if self.link or self.incoming is not None else 1,
                   "-d": 0 if self.incoming is not None else 1}[argv[1]]
+        elif argv[0] == "test" and in_tmp:
+            here = Path(argv[-1]).name in (self.incoming or ())
+            rc = 0 if here and argv[1] in ("-e", "-s") else 1
         elif argv[0] == "test":
             rc = 0 if self.exists else 1
+        elif argv[0] == "mv":
+            src, dst = argv[-2], argv[-1]
+            assert argv[:3] == ["mv", "-f", "--"] and src.startswith(self.TMP + "/"), argv
+            assert Path(src).name == Path(dst).name and str(Path(dst).parent) == "/mnt/media/exercise", argv
+            if self.mv_fails:
+                rc, err = 1, "mv: cannot move: Permission denied"
+            else:
+                self.incoming.discard(Path(src).name)
+                if Path(dst).name in self.files:
+                    self.replaced.append(Path(dst).name)
+                self.files.add(Path(dst).name)
         elif argv[0] == "mkdir":
             self.exists = True
         elif argv[0] == "rm" and argv[1] == "-rf":
@@ -139,8 +194,11 @@ class FakeShell:
             self.incoming = None
         elif argv[0] == "rm":
             self.files.discard(Path(argv[-1]).name)
+        elif "run" in argv and "--entrypoint" in argv:                   # download --probe
+            out = "".join(f"{self.sizes.get(f, '1920x1080')}\t{f}\n" for f in sorted(self.files) if f.endswith(".mp4"))
         elif "run" in argv:
             out_tpl, url = argv[-2], argv[-1]
+            home = argv[argv.index("-P") + 1]
             name = out_tpl.replace("%(id)s", url[-11:]).replace("%(ext)s", "mp4")
             key = name.split(" ")[0]
             self.incoming = self.incoming if self.incoming is not None else set()
@@ -150,7 +208,11 @@ class FakeShell:
                 rc, err = 1, "[youtube] x: Downloading\nERROR: unable to download video data: HTTP Error 403: Forbidden\n"
             elif key not in self.silent:
                 self.incoming = {x for x in self.incoming if not x.startswith(key + " ")}
-                self.files.add(name)
+                if home == f"/downloads/{ev.INCOMING}":                 # --refetch: lands in the temp dir
+                    self.incoming.add(name)
+                else:
+                    assert home == "/downloads", argv
+                    self.files.add(name)
         else:
             raise AssertionError(argv)
         p = subprocess.CompletedProcess(argv, rc, out, err)
@@ -159,7 +221,7 @@ class FakeShell:
         return p
 
     def writes(self):
-        return [c for c in self.calls if c[0] in ("mkdir", "rm") or "run" in c]
+        return [c for c in self.calls if c[0] in ("mkdir", "rm", "mv") or ("run" in c and "--entrypoint" not in c)]
 
     def runs(self, key=None):
         return [c for c in self.calls if "run" in c and (key is None or c[-2].startswith(key + " "))]
@@ -175,7 +237,7 @@ def test_download_dry_run_writes_nothing(capsys):
     assert dl(shell=sh) == 0
     assert sh.writes() == []
     out = capsys.readouterr().out
-    assert f"{len(PLAN['exercises'])} missing" in out and "dry run:" in out
+    assert f"{len(names())} missing" in out and "dry run:" in out
 
 
 def test_download_apply_fetches_only_missing_files_as_1000_with_the_pinned_image(capsys):
@@ -183,7 +245,7 @@ def test_download_apply_fetches_only_missing_files_as_1000_with_the_pinned_image
     sh = FakeShell(files=have)
     assert dl("--apply", shell=sh) == 0
     runs = [c for c in sh.calls if "run" in c]
-    assert len(runs) == len(PLAN["exercises"]) - 5
+    assert len(runs) == len(names()) - 5
     r = runs[0]
     assert r[:3] == ["sudo", "-n", "docker"] and r[r.index("--user") + 1] == "1000:1000"
     assert ev.image_ref() in r and "/mnt/media/exercise:/downloads" in r
@@ -286,6 +348,119 @@ def test_prune_only_deletes_plan_pattern_files_and_only_with_apply(capsys):
     assert old not in sh.files and set(foreign) <= sh.files
     rms = [c for c in sh.calls if c[0] == "rm"]
     assert rms == [["rm", "-f", "--", f"/mnt/media/exercise/{old}"]]
+
+
+def test_format_caps_the_short_side_not_the_height():
+    # [height<=1080] dropped portrait 720x1280 / 1080x1920 streams (goblet-squat, suitcase-carry
+    # came down at 480x854); the cap is -S res:1080 (res = the smaller dimension)
+    argv = ev.ytdlp_argv("plank", PLAN["exercises"]["plank"])
+    f = argv[argv.index("-f") + 1]
+    assert "height" not in f and "width" not in f
+    assert f.split("/") == ["bv*[vcodec^=avc1]+ba[acodec^=mp4a]", "b[vcodec^=avc1][acodec^=mp4a]"]
+    assert argv[argv.index("-S") + 1] == "res:1080"
+    assert argv[argv.index("--merge-output-format") + 1] == "mp4"
+    assert argv[argv.index("-P") + 1] == "/downloads"
+
+
+GOBLET = ev.file_name("goblet-squat", PLAN["exercises"]["goblet-squat"])
+SUITCASE = ev.file_name("suitcase-carry", PLAN["exercises"]["suitcase-carry"])
+TMPF = f"{FakeShell.TMP}/{GOBLET}"
+
+
+def test_refetch_dry_run_names_the_file_and_writes_nothing(capsys):
+    sh = FakeShell(files=names())
+    assert dl("--refetch", "goblet-squat", "--refetch", "suitcase-carry", shell=sh) == 0
+    out = capsys.readouterr().out
+    assert sh.writes() == []
+    assert f"would replace {GOBLET} <- {PLAN['exercises']['goblet-squat']['video']}" in out
+    assert f"would replace {SUITCASE}" in out and "0 download(s), 2 replace(s)" in out
+
+
+def test_refetch_downloads_into_the_temp_dir_then_moves_over_the_same_path(capsys):
+    sh = FakeShell(files=names())
+    assert dl("--apply", "--refetch", "goblet-squat", shell=sh) == 0
+    run, = sh.runs()
+    assert run[run.index("-P") + 1] == f"/downloads/{ev.INCOMING}"     # never written over in place
+    assert run[run.index("-S") + 1] == "res:1080"
+    i = sh.calls.index(run)
+    assert ["test", "-e", TMPF] in sh.calls[:i]                          # nothing stale in the way
+    assert sh.calls[i + 1:i + 3] == [["test", "-s", TMPF], ["mv", "-f", "--", TMPF, f"/mnt/media/exercise/{GOBLET}"]]
+    assert sh.replaced == [GOBLET] and sh.files == set(names())          # same name: same Jellyfin item
+    assert sh.incoming is None                                           # temp dir cleaned afterwards
+    out = capsys.readouterr().out
+    assert f"replaced {GOBLET}" in out and "next: exercise_videos.py jellyfin --apply" in out
+
+
+def test_a_failed_refetch_keeps_the_old_file(capsys):
+    sh = FakeShell(files=names(), fail={"goblet-squat": -1})
+    assert dl("--apply", "--refetch", "goblet-squat", shell=sh) == 1
+    assert len(sh.runs()) == ev.ATTEMPTS and not [c for c in sh.calls if c[0] == "mv"]
+    assert GOBLET in sh.files and not sh.replaced
+    out = capsys.readouterr().out
+    assert "1 of 1 refetch(es) failed; the old file is still in place" in out and "  --refetch goblet-squat" in out
+
+
+def test_a_refetch_whose_move_fails_keeps_the_new_file_in_the_temp_dir(capsys):
+    sh = FakeShell(files=names(), mv_fails=True)
+    assert dl("--apply", "--refetch", "goblet-squat", shell=sh) == 1
+    assert sh.incoming == {GOBLET} and not sh.replaced                   # finished video: never auto-deleted
+    out = capsys.readouterr().out
+    assert "could not move the new file into place" in out and "holds finished video(s), left alone" in out
+
+
+def test_a_leftover_in_the_temp_dir_blocks_the_refetch(capsys):
+    sh = FakeShell(files=names(), incoming={GOBLET})
+    assert dl("--apply", "--refetch", "goblet-squat", shell=sh) == 1
+    assert sh.runs() == [] and not [c for c in sh.calls if c[0] == "mv"]
+    assert f"{ev.INCOMING}/{GOBLET} already exists" in capsys.readouterr().out
+
+
+def test_refetch_of_a_missing_file_is_a_plain_download_and_unknown_keys_fail(capsys):
+    sh = FakeShell(files=[n for n in names() if n != GOBLET])
+    assert dl("--apply", "--refetch", "goblet-squat", shell=sh) == 0
+    run, = sh.runs()
+    assert run[run.index("-P") + 1] == "/downloads" and not sh.replaced
+    assert "is not on the share yet; it is a normal download" in capsys.readouterr().out
+    assert dl("--refetch", "no-such-move", shell=FakeShell(files=names())) == 2
+    assert "--refetch no-such-move: not a plan exercise key with a video" in capsys.readouterr().err
+    assert dl("--refetch", "treadmill-walk", shell=FakeShell(files=names())) == 2   # no video by design
+
+
+def test_probe_flags_files_below_1080_on_the_short_side(capsys):
+    sizes = {GOBLET: "480x854", SUITCASE: "1080x1920", "plank [3QZlgJ40LfU].mp4": "1280x720"}
+    sh = FakeShell(files=names(), sizes=sizes)
+    assert dl("--probe", shell=sh) == 0
+    run, = [c for c in sh.calls if "run" in c]
+    assert run[run.index("--network") + 1] == "none" and "/mnt/media/exercise:/downloads:ro" in run
+    assert run[run.index("--entrypoint") + 1] == "sh" and ev.image_ref() in run and sh.writes() == []
+    out = capsys.readouterr().out
+    assert f"LOW 480x854 {GOBLET} <- {PLAN['exercises']['goblet-squat']['video']}" in out
+    assert "LOW 1280x720 plank [" in out and f"ok  1080x1920 {SUITCASE}" in out
+    assert f"probe: {len(names())} plan video(s), 2 below 1080 on the short side" in out
+
+
+def test_probe_reports_missing_files_and_only_reads(capsys):
+    sh = FakeShell(files=names()[1:])
+    assert dl("--probe", shell=sh) == 0
+    assert f"MISSING {names()[0]}" in capsys.readouterr().out
+    assert dl("--probe", "--apply", shell=sh) == 2
+
+
+def test_probe_script_runs_in_a_real_shell(tmp_path):
+    # the sh -c script itself, with a stub ffprobe: tab-separated "WxH<TAB>name" per mp4, odd names fine
+    (tmp_path / "bin").mkdir()
+    stub = tmp_path / "bin" / "ffprobe"
+    stub.write_text("#!/bin/sh\nfor a; do f=$a; done\ncase $f in *goblet*) echo 480x854;; *) echo 1920x1080;; esac\n")
+    stub.chmod(0o755)
+    d = tmp_path / "downloads"
+    d.mkdir()
+    for n in (GOBLET, "plank [3QZlgJ40LfU].mp4", "notes.txt"):
+        (d / n).write_text("x")
+    script = ev.PROBE_SH.replace("cd /downloads", f"cd {d}")
+    p = subprocess.run(["sh", "-c", script], capture_output=True, text=True,
+                       env={"PATH": f"{tmp_path / 'bin'}:/usr/bin:/bin"})
+    assert p.returncode == 0, p.stderr
+    assert sorted(p.stdout.splitlines()) == [f"1920x1080\tplank [3QZlgJ40LfU].mp4", f"480x854\t{GOBLET}"]
 
 
 def test_shell_wraps_commands_for_ssh():
@@ -471,7 +646,8 @@ def test_apply_scans_makes_private_ordered_playlists_and_writes_the_mapping(jf, 
         assert got["owner"] == {"jmack": JMACK, "rach": RACH}[pl["login"]]
     doc = json.loads(videos.read_text())
     assert doc["base_url"] == "https://jellyfin.kmkdp.com"
-    assert set(doc["items"]) == set(PLAN["exercises"])
+    assert set(doc["items"]) == VIDEO_KEYS and "treadmill-walk" not in doc["items"]
+    assert [len(p["ids"]) for p in jf.playlists.values() if p["owner"] == JMACK] == [9, 9, 9, 9]
     assert doc["items"]["plank"]["id"] == iid(f"{LOC}/{ev.file_name('plank', PLAN['exercises']['plank'])}")
     assert doc["items"]["plank"]["youtube"] == PLAN["exercises"]["plank"]["video"][-11:]
     assert len(doc["playlists"]) == 8
@@ -584,7 +760,7 @@ def test_a_new_playlist_the_server_shares_fails_and_is_not_recorded(jf, videos, 
     assert jrun("--apply", videos=videos) == 2
     assert "is visible to kdkadmin (in their playlists; GET /Items/" in capsys.readouterr().err
     doc = json.loads(videos.read_text())
-    assert len(doc["items"]) == len(PLAN["exercises"]) and doc["playlists"] == []
+    assert len(doc["items"]) == len(VIDEO_KEYS) and doc["playlists"] == []
 
 
 def test_a_failure_midway_writes_the_items_and_resumes(jf, videos, capsys):
@@ -592,9 +768,9 @@ def test_a_failure_midway_writes_the_items_and_resumes(jf, videos, capsys):
     jf.fail_create = {second}
     assert jrun("--apply", videos=videos) == 2
     out, err = capsys.readouterr()
-    assert "HTTP 500" in err and "wrote wger_videos.json before stopping: 47 item id(s), 1 verified" in out
+    assert "HTTP 500" in err and "wrote wger_videos.json before stopping: 46 item id(s), 1 verified" in out
     doc = json.loads(videos.read_text())
-    assert set(doc["items"]) == set(PLAN["exercises"])                   # gen_wger.py can already run
+    assert set(doc["items"]) == VIDEO_KEYS                               # gen_wger.py can already run
     assert [p["name"] for p in doc["playlists"]] == ["Jacob · 1 Mon Lower A"]
     first_id = doc["playlists"][0]["id"]
     jf.writes.clear()
@@ -616,7 +792,7 @@ def test_resume_when_the_mapping_was_never_written(jf, videos):
     assert jrun("--apply", videos=videos) == 0
     doc = json.loads(videos.read_text())
     assert next(p for p in doc["playlists"] if p["name"] == pl0["name"])["id"] == "149d6a5fe1ad9dded863c4ade2095567"
-    assert len(jf.playlists) == 8 and len(doc["items"]) == len(PLAN["exercises"])
+    assert len(jf.playlists) == 8 and len(doc["items"]) == len(VIDEO_KEYS)
 
 
 def test_plan_person_without_access_is_an_error(jf, videos, capsys):

@@ -7,7 +7,11 @@ updated: 2026-11-14
 
 Every video in the exercise plan (`stacks/home-assistant/tools/wger_plan.json`, one
 YouTube address per exercise) is kept as **one file** in a flat Jellyfin library
-**Exercise**. Each person (**jmack**, **rach**) gets one playlist per training day, with the
+**Exercise**: 46 files for 47 exercises. `treadmill-walk` (Treadmill Cardio) has
+`"video": null` (owner decision 2026-11-14: not needed). It stays in the plan and in jmack's
+routines, so the walk is still logged in wger, but it has no file, no playlist entry, no
+mapping entry and no `Video:` line. Only an explicit `null` means "no video"; a missing or
+empty `video` is a plan error. Each person (**jmack**, **rach**) gets one playlist per training day, with the
 videos in workout order, private to that person. Days with the same list share a playlist:
 
 | jmack | rach |
@@ -36,7 +40,7 @@ Nothing here is scheduled and no service is added. After a plan change, run the 
 
 | Piece | What it does |
 |---|---|
-| `tools/exercise_videos.py download` | yt-dlp, one-shot container on **kdk-dkr-01** (the only host with the media share read-write), into `/mnt/media/exercise/<plan key> [<youtube id>].mp4`, as uid:gid 1000:1000 like the media stack. Output is H.264 + AAC mp4, at most 1080p, with the plan's exercise name as the embedded title |
+| `tools/exercise_videos.py download` | yt-dlp, one-shot container on **kdk-dkr-01** (the only host with the media share read-write), into `/mnt/media/exercise/<plan key> [<youtube id>].mp4`, as uid:gid 1000:1000 like the media stack. Output is H.264 + AAC mp4, the largest YouTube has up to 1080 on the **short** side (see [Resolution](#resolution)), with the plan's exercise name as the embedded title. `--refetch <key>` replaces a file in place, `--probe` reports each file's resolution |
 | `tools/yt-dlp/Dockerfile` | not built; its `FROM` line pins the yt-dlp image (tag + digest), which Renovate updates |
 | `tools/exercise_videos.py jellyfin` | checks that jmack and rach can see the library (names any other account that can, without stopping), scans the Exercise library only, creates/updates the playlists (owned by the person, not public, no shares), writes `tools/wger_videos.json` |
 | `tools/wger_videos.json` | committed: plan key → Jellyfin item id (+ the YouTube id it was made for) and the playlists the tool manages. `gen_wger.py` builds the `Video:` line from it |
@@ -133,9 +137,9 @@ kdk-dkr-01 over SSH (agent socket only). `sudo -n docker` needs kdkadmin's NOPAS
 
 ```bash
 T=stacks/home-assistant/tools
-python3 $T/exercise_videos.py download --host kdkadmin@10.1.20.20            # dry run: "47 missing"
-python3 $T/exercise_videos.py download --host kdkadmin@10.1.20.20 --apply    # about 47 one-shot containers
-python3 $T/exercise_videos.py download --host kdkadmin@10.1.20.20            # "47 present, 0 missing"
+python3 $T/exercise_videos.py download --host kdkadmin@10.1.20.20            # dry run: "46 missing"
+python3 $T/exercise_videos.py download --host kdkadmin@10.1.20.20 --apply    # about 46 one-shot containers
+python3 $T/exercise_videos.py download --host kdkadmin@10.1.20.20            # "46 present, 0 missing"
 ssh kdkadmin@10.1.20.20 'ls -ln /mnt/media/exercise | head -3; du -sh /mnt/media/exercise'   # 1000 1000
 ```
 
@@ -152,7 +156,7 @@ try. The tool handles that itself:
   60 s, then 90 s (lines `retry <file> (n/4 failed: ...)`).
 - A video that fails all 4 attempts is logged as `FAILED` and the run goes on with the
   rest. There is a 5 s pause between videos.
-- At the end every video still missing is listed under `ERROR n of 47 video(s) not
+- At the end every video still missing is listed under `ERROR n of 46 video(s) not
   created`, and the command exits 1. Run the same command again later; it fetches only
   those.
 
@@ -166,8 +170,57 @@ same time: one run's cleanup would delete the other's partial files.
 Then check that Jellyfin sees the files:
 
 ```bash
-ssh kdkadmin@192.168.191.20 'sudo docker exec jellyfin ls /data/media/exercise | wc -l'   # 47 (.incoming not listed)
+ssh kdkadmin@192.168.191.20 'sudo docker exec jellyfin ls /data/media/exercise | wc -l'   # 46 (.incoming not listed)
 ```
+
+### Resolution
+
+The format rule: H.264 video + AAC audio merged into mp4 (the Apple TV client direct-plays
+that), the largest stream YouTube has **up to 1080 on the short side**: 1920x1080 for a
+landscape video, 1080x1920 for a portrait one. In yt-dlp terms:
+`-f "bv*[vcodec^=avc1]+ba[acodec^=mp4a]/b[vcodec^=avc1][acodec^=mp4a]" -S res:1080`. The
+cap is the sort field `res`, which yt-dlp computes as the smaller dimension (README,
+*Sorting Formats*); a `[height<=1080]` filter would drop every portrait stream taller than
+1080. Until 2026-11-14 the tool used that filter, so the portrait videos goblet-squat and
+suitcase-carry came down at 480x854.
+
+Some videos only exist at 720 on the short side as H.264 (2026-11-14: plank, farmer-carry,
+hammer-curl, rear-delt-raise, lateral-raise, plank-shoulder-tap at 1280x720, and the
+portrait goblet-squat at 720x1280). They stay; `--probe` lists them as `LOW`, which is
+expected for those seven.
+
+**Check the files** (read-only: one container, no network, the share mounted read-only,
+ffprobe from the pinned yt-dlp image):
+
+```bash
+python3 $T/exercise_videos.py download --host kdkadmin@10.1.20.20 --probe   # "ok  1920x1080 ..." / "LOW 480x854 ... <- <url>"
+```
+
+**Check what YouTube has for a `LOW` one** (laptop, any recent yt-dlp; nothing is
+downloaded). It prints the stream the tool would take:
+
+```bash
+yt-dlp -f "bv*[vcodec^=avc1]+ba[acodec^=mp4a]/b[vcodec^=avc1][acodec^=mp4a]" -S res:1080 \
+  --print "%(width)sx%(height)s %(vcodec)s" "https://www.youtube.com/watch?v=<id>"
+```
+
+If that is larger than the file, refetch it. If it is the same, YouTube has nothing better:
+keep it, or replace the video in the plan (*After a plan change*).
+
+### Replace a file in place (`--refetch`)
+
+```bash
+python3 $T/exercise_videos.py download --host kdkadmin@10.1.20.20 --refetch goblet-squat --refetch suitcase-carry           # dry run: "would replace ..."
+python3 $T/exercise_videos.py download --host kdkadmin@10.1.20.20 --refetch goblet-squat --refetch suitcase-carry --apply
+python3 $T/exercise_videos.py download --host kdkadmin@10.1.20.20 --probe
+```
+
+The new copy downloads into `.incoming/` (same retries as a normal download). Only when
+yt-dlp has finished and the file is there and not empty does the tool `mv` it over
+`<key> [<id>].mp4`. The path does not change, so the Jellyfin item id, the playlists and the
+wger links stay. A failed refetch leaves the old file in place and exits 1. Then run
+`jellyfin --apply` (step 5): the scan picks up the changed file, and `wger_videos.json`
+stays unchanged.
 
 ## 4. Create the library (Jellyfin dashboard, as an admin)
 
@@ -202,7 +255,7 @@ python3 $T/exercise_videos.py jellyfin                    # dry run: access chec
 python3 $T/exercise_videos.py jellyfin --apply            # scan (waits up to 10 min), playlists, wger_videos.json
 python3 $T/exercise_videos.py jellyfin --apply            # second run: only the scan, "wger_videos.json unchanged"
 unset JELLYFIN_API_KEY
-git diff --stat $T/wger_videos.json                       # 47 items, 8 playlists
+git diff --stat $T/wger_videos.json                       # 46 items (no treadmill-walk), 8 playlists
 ```
 
 Commit `wger_videos.json` in a small PR. After it merges, run `gen_wger.py --apply`
@@ -272,8 +325,9 @@ the rest.
 
 ## 6. Check it
 
-- jmack's Jellyfin home shows **Exercise** and four playlists, each in workout order (the
-  walk first, core last). Rachel sees her four.
+- jmack's Jellyfin home shows **Exercise** and four playlists of 9 videos each, in workout
+  order (the first lift first, core last; the treadmill walk has no video). Rachel sees her
+  four.
 - Tap a `Video:` address in wger on the phone, once on Wi-Fi and once on cellular (through
   the tunnel). It opens the video in the browser after the Jellyfin login.
 - **Third account (required):** open a private window, sign in as an account that is
@@ -321,7 +375,8 @@ error, and after the SSO login the account's Access tab still has Exercise untic
 
 ## After a plan change
 
-Use this when an exercise was added, a video replaced, or a routine changed:
+Use this when an exercise was added, a video replaced or removed (`"video": null`), or a
+routine changed:
 
 1. Edit `wger_plan.json`, test, PR, merge ([exercise plan update](workout-tracking-update.md)).
 2. Run `download` (step 3). It fetches the new files and lists the old ones as `EXTRA`.
@@ -341,7 +396,9 @@ those descriptions alone. It never writes a YouTube or empty `Video:` line.
 | Symptom | Cause and fix |
 |---|---|
 | `retry ... HTTP Error 403: Forbidden`, then `FAILED <file> after 4 attempts` | YouTube refuses the video data now and then; the same video usually works a few minutes later. The rest of the run still downloads. Re-run step 3 (`--apply`) later; it fetches only the listed files. If the same video fails across several runs, open it in a browser: it may be private, removed or region-locked. Replace it in `wger_plan.json` (see *After a plan change*). |
-| `ERROR n of 47 video(s) not created`, a file marked `yt-dlp exited 0 but the file is not there` | yt-dlp wrote it under a different name or not at all. Check the run's output for that file and `ls -la /mnt/media/exercise/.incoming` on kdk-dkr-01. |
+| A video plays at low resolution (480p or less), or `--probe` prints `LOW` | Run the format check in [Resolution](#resolution) for its YouTube id. Larger available: `download --refetch <key> --apply`, then `jellyfin --apply`. Same size: YouTube has nothing better; keep it (the seven 720-only videos listed there) or replace the video in the plan. If Jellyfin still shows the old size after the scan, open the item → ⋯ → **Refresh metadata** (*Replace all metadata*). |
+| `--refetch`: `FAILED <file>: .incoming/<file> already exists` | An earlier refetch finished but was not moved. Check that file (`ls -la /mnt/media/exercise/.incoming` on kdk-dkr-01), delete it or move it over the old one by hand, then run again. |
+| `ERROR n of 46 video(s) not created`, a file marked `yt-dlp exited 0 but the file is not there` | yt-dlp wrote it under a different name or not at all. Check the run's output for that file and `ls -la /mnt/media/exercise/.incoming` on kdk-dkr-01. |
 | `jellyfin`: `ERROR GET /Playlists/<id>: HTTP 400 Error processing request.` | An older tool version. With an API key that call has no user and always fails; the current tool never calls it. Update the checkout and run again. The first playlist it made is reused, not duplicated. |
 | `jellyfin`: `playlist '...' (<id>) is visible to <user> (...)`, exit 2 | The playlist is public or shared. As the owner in Jellyfin, open the playlist, remove the shares and make it private. Or delete it; the next run creates it again. `wger_videos.json` has already been written with the item ids and the playlists that passed. |
 | `jellyfin`: `ERROR could not delete playlist '<old name>' (<id>) ...`, exit 1 | The new playlist was made and recorded; only the old one is left. Run `jellyfin --apply` again (it retries the delete by exact name), or delete it by hand as its owner in Jellyfin. |

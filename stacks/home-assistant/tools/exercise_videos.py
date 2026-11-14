@@ -5,6 +5,8 @@
     python3 exercise_videos.py download                       # dry run: what is missing / extra
     python3 exercise_videos.py download --apply               # yt-dlp the missing files
     python3 exercise_videos.py download --apply --prune       # ... and delete files no longer in the plan
+    python3 exercise_videos.py download --apply --refetch goblet-squat   # replace one file in place
+    python3 exercise_videos.py download --probe               # each file's resolution (read-only)
     python3 exercise_videos.py download --host kdkadmin@10.1.20.20 --apply
 
     # anywhere that reaches Jellyfin (key from the environment only):
@@ -12,7 +14,8 @@
     JELLYFIN_API_KEY=... python3 exercise_videos.py jellyfin --apply    # scan, playlists, wger_videos.json
     ... jellyfin --apply --prune                              # also delete playlists it made that left the plan
 
-The source is wger_plan.json (each exercise's YouTube `video`). Runbook:
+The source is wger_plan.json (each exercise's YouTube `video`; "video": null = no video by
+design, e.g. treadmill-walk: no file, not in any playlist or the mapping). Runbook:
 docs/runbooks/exercise-videos.md.
 
 download: one flat directory (default /mnt/media/exercise), one file per plan exercise named
@@ -20,8 +23,12 @@ download: one flat directory (default /mnt/media/exercise), one file per plan ex
 never renamed: Jellyfin derives the item id from the path, so a changed name would break the
 wger links. A replaced video has a new YouTube id, so it is a new file (the old one is listed
 as extra, deleted only with --prune). yt-dlp runs as a one-shot container (image pinned in
-yt-dlp/Dockerfile) as uid:gid 1000:1000 (the media stack's PUID/PGID): H.264 + AAC in mp4, at
-most 1080p, the plan's exercise name as the embedded title. --prune only ever deletes files
+yt-dlp/Dockerfile) as uid:gid 1000:1000 (the media stack's PUID/PGID): H.264 + AAC in mp4, the
+largest up to 1080 on the SHORT side (1920x1080 landscape, 1080x1920 portrait), the plan's
+exercise name as the embedded title. --refetch <key> downloads an existing file again into the
+temp dir and moves it over the old one only once it is complete (same path, so the Jellyfin item
+id stays). --probe reports each file's resolution (ffprobe in the same image, no network, share
+read-only). --prune only ever deletes files
 whose name matches the pattern above; anything else in the directory is reported, not touched.
 A failed video (YouTube's intermittent HTTP 403) is retried (ATTEMPTS runs, growing pause) and
 never stops the run: the rest still download, then every video still missing is listed and the
@@ -81,8 +88,14 @@ ID_RE = re.compile(r"^[0-9a-f]{32}$")
 FROM_RE = re.compile(r"^FROM\s+(\S+@sha256:[0-9a-f]{64})\s*$", re.M)
 DAY_TAGS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
 DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
-# H.264 video + AAC audio (merged into mp4), else one progressive H.264/AAC stream; <= 1080p.
-FORMAT = "bv*[vcodec^=avc1][height<=1080]+ba[acodec^=mp4a]/b[vcodec^=avc1][height<=1080][acodec^=mp4a]"
+# H.264 video + AAC audio (merged into mp4), else one progressive H.264/AAC stream. The size cap
+# is the sort, not a filter: yt-dlp's `res` is the SHORT side, so -S res:1080 takes the largest
+# stream up to 1080 on the short side for landscape (1920x1080) and portrait (1080x1920) alike
+# (README "Sorting Formats"). The old [height<=1080] filter dropped every portrait stream taller
+# than 1080, so portrait videos came down at 480x854.
+FORMAT = "bv*[vcodec^=avc1]+ba[acodec^=mp4a]/b[vcodec^=avc1][acodec^=mp4a]"
+SORT = "res:1080"
+MIN_SHORT = 1080                   # download --probe flags a file whose short side is below this
 INCOMING = ".incoming"             # yt-dlp's temp dir inside the library dir (Jellyfin skips dot dirs)
 # YouTube answers an intermittent "HTTP Error 403: Forbidden" on the video data; the same video
 # usually works on the next try. Each video gets ATTEMPTS container runs, RETRY_PAUSE * n seconds
@@ -109,8 +122,10 @@ def load_plan(path: Path = PLAN) -> dict:
     for key, ex in (plan.get("exercises") or {}).items():
         if not KEY_RE.match(key):
             errs.append(f"exercises.{key}: key must be lower-case words joined by '-' (it is the file name)")
-        if not YT_RE.match(ex.get("video") or ""):
-            errs.append(f"exercises.{key}: video must be https://www.youtube.com/watch?v=<id>")
+        if "video" in ex and ex["video"] is None:
+            continue                          # no video by design: no file, no playlist entry
+        if not YT_RE.match(str(ex.get("video") or "")):
+            errs.append(f"exercises.{key}: video must be https://www.youtube.com/watch?v=<id> (or null for none)")
     if not plan.get("exercises"):
         errs.append("no exercises")
     if errs:
@@ -127,9 +142,14 @@ def file_name(key: str, ex: dict) -> str:
     return f"{key} [{youtube_id(ex)}].mp4"
 
 
+def has_video(ex: dict) -> bool:
+    """False for an exercise with "video": null (no video by design, e.g. treadmill-walk)."""
+    return ex.get("video") is not None
+
+
 def wanted_files(plan: dict) -> dict[str, str]:
-    """file name -> plan key."""
-    return {file_name(k, ex): k for k, ex in plan["exercises"].items()}
+    """file name -> plan key, for every exercise that has a video."""
+    return {file_name(k, ex): k for k, ex in plan["exercises"].items() if has_video(ex)}
 
 
 def routine_keys(person: dict, routine: dict) -> list[str]:
@@ -155,7 +175,9 @@ def plan_playlists(plan: dict) -> list[dict]:
     for login, person in plan["people"].items():
         groups: dict[tuple, dict] = {}
         for r in sorted(person["routines"], key=lambda r: DAY_TAGS.index(r["day"])):
-            keys = tuple(routine_keys(person, r))
+            keys = tuple(k for k in routine_keys(person, r) if has_video(plan["exercises"][k]))
+            if not keys:                      # a day of no-video exercises only: no playlist
+                continue
             label = r["name"].split(" · ", 1)[1] if " · " in r["name"] else r["name"]
             g = groups.setdefault(keys, {"login": login, "person": person.get("name") or login,
                                          "days": [], "labels": [], "keys": list(keys)})
@@ -204,21 +226,70 @@ def list_dir(sh: Shell, directory: str) -> list[str] | None:
     return sorted(x for x in p.stdout.splitlines() if x)
 
 
-def ytdlp_argv(key: str, ex: dict) -> list[str]:
-    """yt-dlp arguments for one plan exercise (output relative to /downloads)."""
+def ytdlp_argv(key: str, ex: dict, refetch: bool = False) -> list[str]:
+    """yt-dlp arguments for one plan exercise (output relative to /downloads). A refetch puts the
+    finished file in the temp dir (/downloads/.incoming) instead; the tool then moves it over the
+    old one, so the old file stays in place until the new one is complete."""
+    home = f"/downloads/{INCOMING}" if refetch else "/downloads"
     return ["--no-playlist", "--no-progress", "--no-mtime", "--no-cache-dir", "--no-overwrites",
-            *YTDLP_RETRY, "-f", FORMAT, "--merge-output-format", "mp4",
+            *YTDLP_RETRY, "-f", FORMAT, "-S", SORT, "--merge-output-format", "mp4",
             "--replace-in-metadata", "title", "(?s).+", ex["name"].replace("\\", "\\\\"),
             "--parse-metadata", "%(webpage_url)s:%(meta_comment)s", "--embed-metadata",
-            "-P", "/downloads", "-P", f"temp:/downloads/{INCOMING}",
+            "-P", home, "-P", f"temp:/downloads/{INCOMING}",
             "-o", f"{key} [%(id)s].%(ext)s", ex["video"]]
 
 
-def docker_argv(docker: list[str], image: str, directory: str, key: str, ex: dict) -> list[str]:
-    return [*docker, "run", "--rm", "--network", "bridge", "--user", MEDIA_UID,
+def container(docker: list[str], network: str, mount: str) -> list[str]:
+    """`docker run` with the hardening every one-shot container here gets, up to the image."""
+    return [*docker, "run", "--rm", "--network", network, "--user", MEDIA_UID,
             "--cap-drop", "ALL", "--security-opt", "no-new-privileges:true", "--read-only",
-            "--tmpfs", "/tmp", "-e", "HOME=/tmp", "--pids-limit", "512", "--memory", "2g",
-            "-v", f"{directory}:/downloads", image, *ytdlp_argv(key, ex)]
+            "--tmpfs", "/tmp", "-e", "HOME=/tmp", "--pids-limit", "512", "--memory", "2g", "-v", mount]
+
+
+def docker_argv(docker: list[str], image: str, directory: str, key: str, ex: dict,
+                refetch: bool = False) -> list[str]:
+    return [*container(docker, "bridge", f"{directory}:/downloads"), image, *ytdlp_argv(key, ex, refetch)]
+
+
+# One container, no network, the share mounted read-only: the first video stream's size per mp4.
+PROBE_SH = ('cd /downloads && for f in *.mp4; do [ -f "$f" ] || continue; printf \'%s\\t%s\\n\' '
+            '"$(ffprobe -v error -select_streams v:0 -show_entries stream=width,height -of csv=p=0:s=x "./$f")" '
+            '"$f"; done')
+SIZE_RE = re.compile(r"^(\d+)x(\d+)")
+
+
+def probe_argv(docker: list[str], image: str, directory: str) -> list[str]:
+    return [*container(docker, "none", f"{directory}:/downloads:ro"), "--entrypoint", "sh", image, "-c", PROBE_SH]
+
+
+def cmd_probe(args, plan: dict, sh: Shell, out) -> int:
+    """download --probe: every plan file's resolution, the ones below MIN_SHORT on the short side
+    flagged LOW. Read-only and offline; whether YouTube has better for a LOW one is the runbook's
+    format check (some videos only exist at 720p)."""
+    want = wanted_files(plan)
+    p = sh(probe_argv(shlex.split(args.docker), image_ref(), args.dir))
+    sizes = {}
+    for line in p.stdout.splitlines():
+        size, _, name = line.partition("\t")
+        m = SIZE_RE.match(size.strip())
+        sizes[name] = (int(m.group(1)), int(m.group(2))) if m else None
+    low = 0
+    for f in sorted(want):
+        url = plan["exercises"][want[f]]["video"]
+        if f not in sizes:
+            out(f"MISSING {f}")
+        elif sizes[f] is None:
+            low += 1
+            out(f"LOW ? (ffprobe found no video stream) {f} <- {url}")
+        elif min(sizes[f]) < MIN_SHORT:
+            low += 1
+            out(f"LOW {sizes[f][0]}x{sizes[f][1]} {f} <- {url}")
+        else:
+            out(f"ok  {sizes[f][0]}x{sizes[f][1]} {f}")
+    out(f"probe: {len(want)} plan video(s), {low} below {MIN_SHORT} on the short side (LOW). For each LOW one "
+        "check what YouTube has (runbook, Troubleshooting: low resolution), then download --refetch <key> "
+        "or replace the video in the plan")
+    return 0
 
 
 def fetch(sh: Shell, argv: list[str], name: str, out, sleep) -> bool:
@@ -235,6 +306,29 @@ def fetch(sh: Shell, argv: list[str], name: str, out, sleep) -> bool:
         out(f"retry {name} ({n}/{ATTEMPTS} failed: {why}); waiting {RETRY_PAUSE * n}s")
         sleep(RETRY_PAUSE * n)
     return False
+
+
+def replace(sh: Shell, argv: list[str], directory: str, name: str, out, sleep) -> bool:
+    """--refetch: download into <dir>/.incoming/<name>, then mv it over <dir>/<name>. The old file
+    is untouched until the new one is complete (yt-dlp exited 0, the file is there and not empty);
+    the path stays the same, so the Jellyfin item id and the wger links stay too."""
+    new = str(PurePosixPath(directory) / INCOMING / name)
+    if sh(["test", "-e", new], check=False).returncode == 0 or sh(["test", "-L", new], check=False).returncode == 0:
+        out(f"FAILED {name}: {INCOMING}/{name} already exists (an earlier refetch that was not moved?); "
+            "check it, delete it, run again")
+        return False
+    if not fetch(sh, argv, name, out, sleep):
+        return False
+    if sh(["test", "-s", new], check=False).returncode != 0:
+        out(f"FAILED {name}: yt-dlp exited 0 but {INCOMING}/{name} is not there; the old file is kept")
+        return False
+    p = sh(["mv", "-f", "--", new, str(PurePosixPath(directory) / name)], check=False)
+    if p.returncode != 0:
+        out(f"FAILED {name}: could not move the new file into place ({(p.stderr or '').strip()[-200:]}); "
+            f"the old file is kept, the new one is in {INCOMING}/")
+        return False
+    out(f"replaced {name}")
+    return True
 
 
 def clean_incoming(sh: Shell, directory: str, apply: bool, out) -> None:
@@ -283,21 +377,37 @@ def cmd_download(args, plan: dict, sh: Shell, out, sleep=time.sleep) -> int:
         f"{len(missing)} missing, {len(extra)} no longer in the plan, {len(foreign)} other file(s)")
     for f in foreign:
         out(f"OTHER {f} (not a plan file name; never touched)")
+    by_key = {k: f for f, k in want.items()}
+    refetch = []
+    for key in dict.fromkeys(args.refetch or []):
+        if key not in by_key:
+            raise VideoError(f"--refetch {key}: not a plan exercise key with a video")
+        if by_key[key] in missing:
+            out(f"NOTE --refetch {key}: {by_key[key]} is not on the share yet; it is a normal download")
+        else:
+            refetch.append(by_key[key])
+    jobs = [(f, False) for f in missing] + [(f, True) for f in refetch]
     image = image_ref()
     docker = shlex.split(args.docker)
     if missing and args.apply:
         sh(["mkdir", "-p", directory])          # as the login user (uid 1000 = the share's owner)
     failed = []
     try:
-        for i, f in enumerate(missing):
+        for i, (f, again) in enumerate(jobs):
             key = want[f]
+            url = plan["exercises"][key]["video"]
             if not args.apply:
-                out(f"would download {f} <- {plan['exercises'][key]['video']}")
+                out(f"would {'replace' if again else 'download'} {f} <- {url}"
+                    + (" (re-download into .incoming/, then move over the existing file)" if again else ""))
                 continue
             if i:
                 sleep(BETWEEN)
-            out(f"download {f} <- {plan['exercises'][key]['video']} ({i + 1}/{len(missing)})")
-            if not fetch(sh, docker_argv(docker, image, directory, key, plan["exercises"][key]), f, out, sleep):
+            out(f"{'refetch' if again else 'download'} {f} <- {url} ({i + 1}/{len(jobs)})")
+            if not again:
+                if not fetch(sh, docker_argv(docker, image, directory, key, plan["exercises"][key]), f, out, sleep):
+                    failed.append(f)
+            elif not replace(sh, docker_argv(docker, image, directory, key, plan["exercises"][key], refetch=True),
+                             directory, f, out, sleep):
                 failed.append(f)
     finally:
         if existed or args.apply:
@@ -309,6 +419,7 @@ def cmd_download(args, plan: dict, sh: Shell, out, sleep=time.sleep) -> int:
             out(f"deleted {f} (no longer in the plan)")
         else:
             out(f"EXTRA {f}: no longer in the plan" + ("; would delete" if args.prune else "; --prune deletes it"))
+    rc = 0
     if args.apply and missing:
         after = list_dir(sh, directory) or []
         still = [f for f in missing if f not in after]
@@ -317,12 +428,19 @@ def cmd_download(args, plan: dict, sh: Shell, out, sleep=time.sleep) -> int:
             for f in still:
                 out(f"  {f} <- {plan['exercises'][want[f]]['video']}"
                     + ("" if f in failed else " (yt-dlp exited 0 but the file is not there)"))
-            return 1
+            rc = 1
+    not_replaced = [f for f in refetch if f in failed]
+    if args.apply and not_replaced:
+        out(f"ERROR {len(not_replaced)} of {len(refetch)} refetch(es) failed; the old file is still in place:")
+        for f in not_replaced:
+            out(f"  --refetch {want[f]}")
+        rc = 1
     if not args.apply:
-        out(f"dry run: {len(missing)} download(s), {len(extra) if args.prune else 0} delete(s) planned; add --apply")
-    else:
+        out(f"dry run: {len(missing)} download(s), {len(refetch)} replace(s), "
+            f"{len(extra) if args.prune else 0} delete(s) planned; add --apply")
+    elif rc == 0:
         out("next: exercise_videos.py jellyfin --apply")
-    return 0
+    return rc
 
 
 # ---------------------------------------------------------------- Jellyfin
@@ -664,6 +782,10 @@ def main(argv: list[str] | None = None, plan_path: Path = PLAN, shell: Shell | N
     d.add_argument("--dir", default=MEDIA_DIR, help=f"library directory on the media host (default {MEDIA_DIR})")
     d.add_argument("--host", help="run on this ssh host (e.g. kdkadmin@10.1.20.20) instead of locally")
     d.add_argument("--docker", default="sudo -n docker", help="docker command (default 'sudo -n docker')")
+    d.add_argument("--refetch", action="append", metavar="KEY",
+                   help="download this plan key again and replace its file in place (same name; repeatable)")
+    d.add_argument("--probe", action="store_true",
+                   help=f"only report each file's resolution (ffprobe, read-only); LOW = short side < {MIN_SHORT}")
     j = sub.add_parser("jellyfin", help="scan the library, sync the playlists, write wger_videos.json")
     j.add_argument("--library", default=LIBRARY)
     j.add_argument("--wait", type=int, default=SCAN_WAIT, help="seconds to wait for the scan (default 600)")
@@ -673,6 +795,10 @@ def main(argv: list[str] | None = None, plan_path: Path = PLAN, shell: Shell | N
     args = ap.parse_args(argv)
     try:
         plan = load_plan(plan_path)
+        if args.cmd == "download" and args.probe:
+            if args.apply or args.prune or args.refetch:
+                raise VideoError("--probe only reads; it does not combine with --apply / --prune / --refetch")
+            return cmd_probe(args, plan, shell or Shell(args.host), print)
         if args.cmd == "download":
             return cmd_download(args, plan, shell or Shell(args.host), print, sleep)
         return cmd_jellyfin(args, plan, print, sleep, videos_path)

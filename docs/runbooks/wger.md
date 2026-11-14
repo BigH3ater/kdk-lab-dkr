@@ -274,7 +274,7 @@ Idempotent: a second `--apply` makes no writes. Needs steps 7 and 8 and Python 3
 ```bash
 T=stacks/home-assistant/tools
 python3 -c 'import requests' || python3 -m pip install --user requests
-python3 $T/gen_wger.py --check-videos        # "47/47 video(s) answer oEmbed"; no keys needed
+python3 $T/gen_wger.py --check-videos        # "46/46 video(s) answer oEmbed" (+ "none treadmill-walk"); no keys needed
 export WGER_URL=https://wger.kmkdp.com
 export WGER_API_KEY_JMACK="$(op read op://kdk-cluster/wger-api-jmack/credential)"
 export WGER_API_KEY_RACH="$(op read op://kdk-cluster/wger-api-rach/credential)"

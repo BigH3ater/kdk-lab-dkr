@@ -27,7 +27,9 @@ What a normal run writes:
      exercise_videos.py jellyfin writes; the plan's YouTube address is only the download source.
      While an exercise has no item id there (or the id is for another YouTube video than the
      plan's), --apply stops before any write, --check reports it as a difference, and a dry
-     run warns and leaves that description alone: a run never writes a YouTube or empty line. Plan `equipment` names are added to the exercise (never
+     run warns and leaves that description alone: a run never writes a YouTube or empty line.
+     An exercise with "video": null (no video by design, e.g. treadmill-walk) gets How /
+     Safety only, no Video: line, and is never reported as missing one. Plan `equipment` names are added to the exercise (never
      removed); a name the server lacks is a warning. Exercise writes use the first
      person's key (jmack, a wger superuser) and only when that person is selected.
   2. Units: looked up by name (Repetitions, Seconds, Minutes, "10-ft lengths"; lb). REST
@@ -147,9 +149,12 @@ def load_plan(path: Path = PLAN) -> dict:
             errs.append(f"{where}: how needs 3-5 lines")
         if not (ex.get("safety") or "").strip():
             errs.append(f"{where}: safety line missing")
-        v = ex.get("video", "")
-        if v and not VIDEO_RE.match(v):
-            errs.append(f"{where}: video must be https://www.youtube.com/watch?v=<id> (or empty)")
+        # "video": null = deliberately no video (owner decision 2026-11-14: treadmill-walk); a
+        # missing or empty video is a mistake, not a way to say "none"
+        if "video" not in ex:
+            errs.append(f"{where}: video missing (https://www.youtube.com/watch?v=<id>, or null for none)")
+        elif ex["video"] is not None and not VIDEO_RE.match(str(ex["video"])):
+            errs.append(f"{where}: video must be https://www.youtube.com/watch?v=<id> (or null for none)")
     used = set()
     for login, person in (plan.get("people") or {}).items():
         parts = person.get("parts", {})
@@ -234,8 +239,9 @@ def video_url(key: str, ex: dict, videos: dict | None = None) -> str:
 
 
 def missing_videos(plan: dict, videos: dict) -> list[str]:
-    """Plan keys whose Video: line cannot be built yet."""
-    return [k for k, ex in plan["exercises"].items() if not video_url(k, ex, videos)]
+    """Plan keys whose Video: line cannot be built yet (an exercise with "video": null has none
+    to build: its description simply has no Video: line)."""
+    return [k for k, ex in plan["exercises"].items() if ex.get("video", "") is not None and not video_url(k, ex, videos)]
 
 
 def describe(key: str, ex: dict, videos: dict | None = None) -> str:
@@ -710,14 +716,15 @@ def purge_kdk(apis: dict[str, Api], owner: Api | None, plan: dict, apply: bool, 
 
 # ---------------------------------------------------------------- videos
 def check_videos(plan: dict, out) -> int:
-    """Every exercise's video answers YouTube oEmbed with 200 (prints the title to compare)."""
-    bad = 0
+    """Every exercise's video answers YouTube oEmbed with 200 (prints the title to compare).
+    An exercise with "video": null is listed as having none, not counted."""
+    bad = total = 0
     for key, ex in plan["exercises"].items():
-        url = ex.get("video") or ""
-        if not url:
-            out(f"MISSING {key} ({ex['name']}): no video in the plan")
-            bad += 1
+        url = ex.get("video")
+        if url is None:
+            out(f"none {key} ({ex['name']}): no video by design (\"video\": null)")
             continue
+        total += 1
         try:
             r = requests.get(OEMBED, params={"url": url, "format": "json"}, timeout=TIMEOUT)
         except requests.RequestException as e:
@@ -730,7 +737,7 @@ def check_videos(plan: dict, out) -> int:
             continue
         j = r.json()
         out(f"ok   {key}: {url} | {j.get('author_name')} | {j.get('title')}")
-    out(f"{len(plan['exercises']) - bad}/{len(plan['exercises'])} video(s) answer oEmbed")
+    out(f"{total - bad}/{total} video(s) answer oEmbed")
     return 1 if bad else 0
 
 
