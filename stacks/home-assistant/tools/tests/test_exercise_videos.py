@@ -32,6 +32,15 @@ def names(plan=PLAN):
     return sorted(ev.wanted_files(plan))
 
 
+# the names the tool made before 2026-11-14 (live on the server, ids as in wger_videos.json then)
+OLD_NAMES = ["Jacob · Mon Lower A", "Jacob · Wed Upper A", "Jacob · Fri Lower B", "Jacob · Sat Upper B",
+             "Rachel · Mon Strength A", "Rachel · Tue/Fri Cardio", "Rachel · Wed/Sat/Sun Daily parts",
+             "Rachel · Thu Strength B"]
+OLD_IDS = ["149d6a5fe1ad9dded863c4ade2095567", "ccc02d5c5f0e9ffc19fdd6372acf695a", "1c808e496244d57c2a9480017e879bf6",
+           "b2d8d6ccf223f70207bf06660fa63099", "0526dc8adc5708473cb946a196d78729", "1b06374812eb4dd989f893ba4c44dda2",
+           "2a49a7c00316f3c9a4fc6119f96956ad", "6a1a538dad131ce0e7ed3deb3756384f"]
+
+
 # ---------------------------------------------------------------- the plan side
 def test_file_names_come_from_key_and_youtube_id_only():
     ex = PLAN["exercises"]["plank"]
@@ -44,15 +53,33 @@ def test_file_names_come_from_key_and_youtube_id_only():
 
 def test_playlists_one_per_person_and_day_in_workout_order():
     pls = {p["name"]: p for p in ev.plan_playlists(PLAN)}
-    assert list(pls) == ["Jacob · Mon Lower A", "Jacob · Wed Upper A", "Jacob · Fri Lower B", "Jacob · Sat Upper B",
-                         "Rachel · Mon Strength A", "Rachel · Tue/Fri Cardio", "Rachel · Wed/Sat/Sun Daily parts",
-                         "Rachel · Thu Strength B"]
-    mon = pls["Jacob · Mon Lower A"]
+    assert list(pls) == ["Jacob · 1 Mon Lower A", "Jacob · 2 Wed Upper A", "Jacob · 3 Fri Lower B", "Jacob · 4 Sat Upper B",
+                         "Rachel · 1 Mon Strength A", "Rachel · 2 Tue/Fri Cardio", "Rachel · 3 Wed/Sat/Sun Daily parts",
+                         "Rachel · 4 Thu Strength B"]
+    mon = pls["Jacob · 1 Mon Lower A"]
     assert mon["login"] == "jmack" and mon["days"] == ["mon"]
     assert mon["keys"][:3] == ["treadmill-walk", "goblet-squat", "db-rdl"] and mon["keys"][-1] == "bird-dog"
-    assert pls["Rachel · Mon Strength A"]["keys"] == ["double-calf-raise", "hip-flexor-stretch", "box-squat",
+    assert pls["Rachel · 1 Mon Strength A"]["keys"] == ["double-calf-raise", "hip-flexor-stretch", "box-squat",
                                                        "pallof-press", "incline-push-up", "wall-squat", "cow-cat"]
-    assert pls["Rachel · Wed/Sat/Sun Daily parts"]["days"] == ["wed", "sat", "sun"]
+    assert pls["Rachel · 3 Wed/Sat/Sun Daily parts"]["days"] == ["wed", "sat", "sun"]
+
+
+def test_names_sort_in_week_order_per_person():
+    pls = ev.plan_playlists(PLAN)
+    for login in ("jmack", "rach"):
+        mine = [p["name"] for p in pls if p["login"] == login]
+        assert sorted(mine) == mine, login                              # plain name sort = week order
+    assert [p["old_name"] for p in pls] == OLD_NAMES
+
+
+def test_ten_or_more_playlists_are_zero_padded():
+    ex = {f"move-{i}": {"name": f"Move {i}", "video": f"https://www.youtube.com/watch?v={i:011d}"} for i in range(11)}
+    routines = [{"day": ev.DAY_TAGS[min(i, 6)], "name": f"R{i}", "slots": [{"exercise": f"move-{i}"}]}
+                for i in range(11)]
+    plan = {"exercises": ex, "people": {"x": {"name": "X", "routines": routines}}}
+    got = [p["name"] for p in ev.plan_playlists(plan)]
+    assert got[0] == "X · 01 Mon R0" and got[9].startswith("X · 10 ") and len(got) == 11
+    assert sorted(got) == got
 
 
 def test_bad_plan_key_or_video_is_rejected(tmp_path):
@@ -304,6 +331,7 @@ class FakeJellyfin:
         self.n = 0
         self.share_on_create = None    # a user id the server adds as a share on create (a bad server)
         self.fail_create = set()       # playlist names whose create answers 500 once
+        self.fail_delete = set()       # item ids whose DELETE /Items/{id} answers 500
 
     def scan(self):
         self.items = {iid(f"{LOC}/{f}"): f"{LOC}/{f}" for f in self.disk}
@@ -362,6 +390,10 @@ class FakeJellyfin:
                 return Resp(200, {"Items": [{"Id": i} for i in pl["ids"]]})
             return self.no_user()                   # GET /Playlists/{id}, /Users, update, remove, move
         if method == "DELETE" and parts[0] == "Items":
+            if parts[1] in self.fail_delete:
+                return Resp(500, {"detail": "delete boom"})
+            if parts[1] not in self.playlists:
+                return Resp(404, {"detail": "nf"})
             self.playlists.pop(parts[1])
             return Resp(204)
         raise AssertionError((method, path, params))
@@ -413,7 +445,7 @@ def test_jellyfin_offline_dry_run_without_key(monkeypatch, videos, capsys):
     monkeypatch.delenv("JELLYFIN_API_KEY", raising=False)
     assert jrun(videos=videos) == 0
     out = capsys.readouterr().out
-    assert "offline dry run" in out and "Rachel · Tue/Fri Cardio" in out
+    assert "offline dry run" in out and "Rachel · 2 Tue/Fri Cardio" in out
     assert jrun("--apply", videos=videos) == 2
     assert "JELLYFIN_API_KEY is not set" in capsys.readouterr().err
 
@@ -424,7 +456,7 @@ def test_jellyfin_dry_run_writes_nothing(jf, videos, capsys):
     assert jrun(videos=videos) == 0
     assert jf.writes == [] and videos.read_text() == before
     out = capsys.readouterr().out
-    assert "would: create playlist 'Jacob · Mon Lower A'" in out and "would change" in out
+    assert "would: create playlist 'Jacob · 1 Mon Lower A'" in out and "would change" in out
 
 
 def test_apply_scans_makes_private_ordered_playlists_and_writes_the_mapping(jf, videos, capsys):
@@ -448,8 +480,8 @@ def test_apply_scans_makes_private_ordered_playlists_and_writes_the_mapping(jf, 
 def test_shared_days_get_one_playlist(jf, videos):
     assert jrun("--apply", videos=videos) == 0
     rach = [p["name"] for p in jf.playlists.values() if p["owner"] == RACH]
-    assert sorted(rach) == sorted(["Rachel · Mon Strength A", "Rachel · Tue/Fri Cardio",
-                                   "Rachel · Wed/Sat/Sun Daily parts", "Rachel · Thu Strength B"])
+    assert sorted(rach) == sorted(["Rachel · 1 Mon Strength A", "Rachel · 2 Tue/Fri Cardio",
+                                   "Rachel · 3 Wed/Sat/Sun Daily parts", "Rachel · 4 Thu Strength B"])
 
 
 def test_second_run_writes_nothing_but_the_scan(jf, videos, capsys):
@@ -471,18 +503,18 @@ def test_item_ids_stay_put_for_an_unchanged_path(jf, videos):
 
 def test_drifted_playlist_is_recreated_not_updated(jf, videos, capsys):
     assert jrun("--apply", videos=videos) == 0
-    (pid, pl), = [(k, p) for k, p in jf.playlists.items() if p["name"] == "Jacob · Wed Upper A"]
+    (pid, pl), = [(k, p) for k, p in jf.playlists.items() if p["name"] == "Jacob · 2 Wed Upper A"]
     want = list(pl["ids"])
     pl["ids"].reverse()
     jf.writes.clear()
     assert jrun("--apply", videos=videos) == 0
-    assert "delete playlist 'Jacob · Wed Upper A' (" + pid + ") to re-create it (order differ" in capsys.readouterr().out
+    assert "delete playlist 'Jacob · 2 Wed Upper A' (" + pid + ") to re-create it (order differ" in capsys.readouterr().out
     assert pid not in jf.playlists
-    (new, npl), = [(k, p) for k, p in jf.playlists.items() if p["name"] == "Jacob · Wed Upper A"]
+    (new, npl), = [(k, p) for k, p in jf.playlists.items() if p["name"] == "Jacob · 2 Wed Upper A"]
     assert npl["ids"] == want and npl["owner"] == JMACK and not npl["public"] and npl["shares"] == []
     pw = [(w[0], w[1]) for w in jf.writes if w[1] != f"/Items/{LIB}/Refresh"]
     assert pw == [("DELETE", f"/Items/{pid}"), ("POST", "/Playlists")]          # never POST /Playlists/{id}
-    rec = next(x for x in json.loads(videos.read_text())["playlists"] if x["name"] == "Jacob · Wed Upper A")
+    rec = next(x for x in json.loads(videos.read_text())["playlists"] if x["name"] == "Jacob · 2 Wed Upper A")
     assert rec["id"] == new
 
 
@@ -503,7 +535,7 @@ def test_a_new_video_in_the_plan_updates_the_mapping_and_playlist(jf, videos, tm
     doc = json.loads(videos.read_text())
     assert doc["items"]["plank"] == {"id": iid(f"{LOC}/plank [BBBBBBBBBBB].mp4"), "youtube": "BBBBBBBBBBB",
                                      "file": "plank [BBBBBBBBBBB].mp4"}
-    mon = next(x for x in jf.playlists.values() if x["name"] == "Jacob · Mon Lower A")
+    mon = next(x for x in jf.playlists.values() if x["name"] == "Jacob · 1 Mon Lower A")
     assert doc["items"]["plank"]["id"] in mon["ids"]
     assert len(jf.playlists) == 8
 
@@ -529,14 +561,14 @@ def test_no_note_when_only_the_plan_people_see_it(jf, videos, capsys):
 @pytest.mark.parametrize("how", ["shared", "public"])
 def test_a_playlist_another_user_can_see_is_a_hard_failure(jf, videos, capsys, how):
     assert jrun("--apply", videos=videos) == 0
-    (pid, pl), = [(k, p) for k, p in jf.playlists.items() if p["name"] == "Jacob · Wed Upper A"]
+    (pid, pl), = [(k, p) for k, p in jf.playlists.items() if p["name"] == "Jacob · 2 Wed Upper A"]
     if how == "shared":
         pl["shares"] = [{"UserId": OTHER, "CanEdit": False}]
     else:
         pl["public"] = True
     assert jrun("--apply", videos=videos) == 2
     err = capsys.readouterr().err
-    assert f"playlist 'Jacob · Wed Upper A' ({pid}) is visible to " in err
+    assert f"playlist 'Jacob · 2 Wed Upper A' ({pid}) is visible to " in err
     assert f"guest (in their playlists; GET /Items/{pid} as them: HTTP 200)" in err
     if how == "public":
         assert "rach (" in err and "kdkadmin (" in err                     # everyone, the other plan person too
@@ -544,7 +576,7 @@ def test_a_playlist_another_user_can_see_is_a_hard_failure(jf, videos, capsys, h
         assert "rach (" not in err
     assert pid in jf.playlists                                            # nothing deleted
     rec = [x["name"] for x in json.loads(videos.read_text())["playlists"]]
-    assert "Jacob · Wed Upper A" not in rec and "Jacob · Mon Lower A" in rec  # only verified ones recorded
+    assert "Jacob · 2 Wed Upper A" not in rec and "Jacob · 1 Mon Lower A" in rec  # only verified ones recorded
 
 
 def test_a_new_playlist_the_server_shares_fails_and_is_not_recorded(jf, videos, capsys):
@@ -563,13 +595,13 @@ def test_a_failure_midway_writes_the_items_and_resumes(jf, videos, capsys):
     assert "HTTP 500" in err and "wrote wger_videos.json before stopping: 47 item id(s), 1 verified" in out
     doc = json.loads(videos.read_text())
     assert set(doc["items"]) == set(PLAN["exercises"])                   # gen_wger.py can already run
-    assert [p["name"] for p in doc["playlists"]] == ["Jacob · Mon Lower A"]
+    assert [p["name"] for p in doc["playlists"]] == ["Jacob · 1 Mon Lower A"]
     first_id = doc["playlists"][0]["id"]
     jf.writes.clear()
     assert jrun("--apply", videos=videos) == 0                           # resume
     doc = json.loads(videos.read_text())
     assert len(doc["playlists"]) == 8 and len(jf.playlists) == 8
-    assert next(p for p in doc["playlists"] if p["name"] == "Jacob · Mon Lower A")["id"] == first_id
+    assert next(p for p in doc["playlists"] if p["name"] == "Jacob · 1 Mon Lower A")["id"] == first_id
     creates = [w for w in jf.writes if w[:2] == ("POST", "/Playlists")]
     assert len(creates) == 7 and not [w for w in jf.writes if w[0] == "DELETE"]
 
@@ -625,12 +657,12 @@ def test_prune_deletes_a_managed_playlist_that_left_the_plan(jf, videos, tmp_pat
     p.write_text(json.dumps(plan))
     run = lambda *a: ev.main(["jellyfin", *a], plan_path=p, sleep=lambda s: None, videos_path=videos)  # noqa: E731
     assert run("--apply") == 0                                            # no --prune: kept, still recorded
-    assert any(x["name"] == "Jacob · Sat Upper B" for x in jf.playlists.values())
-    assert "EXTRA playlist 'Jacob · Sat Upper B'" in capsys.readouterr().out
-    assert any(x["name"] == "Jacob · Sat Upper B" for x in json.loads(videos.read_text())["playlists"])
+    assert any(x["name"] == "Jacob · 4 Sat Upper B" for x in jf.playlists.values())
+    assert "EXTRA playlist 'Jacob · 4 Sat Upper B'" in capsys.readouterr().out
+    assert any(x["name"] == "Jacob · 4 Sat Upper B" for x in json.loads(videos.read_text())["playlists"])
     assert run("--apply", "--prune") == 0
-    assert not any(x["name"] == "Jacob · Sat Upper B" for x in jf.playlists.values())
-    assert not any(x["name"] == "Jacob · Sat Upper B" for x in json.loads(videos.read_text())["playlists"])
+    assert not any(x["name"] == "Jacob · 4 Sat Upper B" for x in jf.playlists.values())
+    assert not any(x["name"] == "Jacob · 4 Sat Upper B" for x in json.loads(videos.read_text())["playlists"])
 
 
 def test_lost_mapping_adopts_playlists_by_name(jf, videos):
@@ -648,3 +680,116 @@ def test_mapping_written_by_the_tool_is_what_gen_wger_reads(jf, videos):
     assert gw.missing_videos(json.loads((TOOLS / "wger_plan.json").read_text()), v) == []
     url = gw.video_url("plank", PLAN["exercises"]["plank"], v)
     assert url == f"https://jellyfin.kmkdp.com/web/#/details?id={json.loads(videos.read_text())['items']['plank']['id']}"
+
+
+# ---------------------------------------------------------------- 2026-11-14 rename to "<person> · <n> ..."
+HAND = {"e" * 32: "Jacob favourites",                 # hand-made by jmack
+        "d" * 32: "Jacob · Mon Lower A (copy)",       # merely starts like a generated name
+        "c" * 32: "Jacob · 1 Mon Lower A copy"}
+
+
+def seed_old(jf, videos, filled):
+    """The server as on 2026-11-14: the 8 old-named playlists (private, right order) plus jmack's own
+    hand-made ones; wger_videos.json empty (main before #517) or recording the 8 old ones."""
+    jf.scan()
+    item = {ev.wanted_files(PLAN)[Path(p).name]: i for i, p in jf.items.items()}
+    rec = []
+    for pl, pid in zip(ev.plan_playlists(PLAN), OLD_IDS):
+        owner = {"jmack": JMACK, "rach": RACH}[pl["login"]]
+        jf.playlists[pid] = {"name": pl["old_name"], "owner": owner, "public": False, "shares": [],
+                             "ids": [item[k] for k in pl["keys"]]}
+        rec.append({"login": pl["login"], "days": pl["days"], "name": pl["old_name"], "id": pid})
+    for pid, name in HAND.items():
+        jf.playlists[pid] = {"name": name, "owner": JMACK, "public": False, "shares": [], "ids": []}
+    if filled:
+        ev.write_videos(videos, {}, rec, ev.LINK_BASE)
+    return item
+
+
+def deletes(jf):
+    return [w[1].rsplit("/", 1)[1] for w in jf.writes if w[0] == "DELETE"]
+
+
+@pytest.mark.parametrize("filled", [False, True], ids=["empty-mapping", "filled-mapping"])
+def test_old_named_playlists_are_replaced(jf, videos, capsys, filled):
+    item = seed_old(jf, videos, filled)
+    assert jrun("--apply", videos=videos) == 0
+    new = {p["name"]: (k, p) for k, p in jf.playlists.items() if p["name"] not in HAND.values()}
+    assert sorted(new) == sorted(p["name"] for p in ev.plan_playlists(PLAN))   # 8 new, 0 old
+    assert not set(OLD_IDS) & set(jf.playlists)
+    assert {k: jf.playlists[k]["name"] for k in HAND} == HAND                  # nothing else deleted
+    assert sorted(deletes(jf)) == sorted(OLD_IDS)
+    for pl in ev.plan_playlists(PLAN):
+        k, got = new[pl["name"]]
+        assert got["ids"] == [item[x] for x in pl["keys"]] and not got["public"] and got["shares"] == []
+    # each old one is deleted only after its replacement was created
+    seq = [(w[0], (w[2] or {}).get("Name") or w[1].rsplit("/", 1)[1]) for w in jf.writes if w[0] in ("POST", "DELETE")]
+    for pl, oid in zip(ev.plan_playlists(PLAN), OLD_IDS):
+        assert seq.index(("POST", pl["name"])) < seq.index(("DELETE", oid))
+    doc = json.loads(videos.read_text())
+    assert [p["name"] for p in doc["playlists"]] == [p["name"] for p in ev.plan_playlists(PLAN)]
+    assert {p["id"] for p in doc["playlists"]} == {k for k, _ in new.values()}
+    out = capsys.readouterr().out
+    assert "did: delete playlist 'Jacob · Mon Lower A' (149d6a5fe1ad9dded863c4ade2095567) of jmack: replaced by " \
+           "'Jacob · 1 Mon Lower A'" in out
+    jf.writes.clear()                                                          # second run: no writes
+    assert jrun("--apply", videos=videos) == 0
+    assert [w[1] for w in jf.writes] == [f"/Items/{LIB}/Refresh"]
+    assert "unchanged" in capsys.readouterr().out
+
+
+def test_migration_dry_run_lists_every_create_and_delete(jf, videos, capsys):
+    seed_old(jf, videos, filled=True)
+    before, pls = videos.read_text(), dict(jf.playlists)
+    assert jrun(videos=videos) == 0
+    assert jf.writes == [] and videos.read_text() == before and jf.playlists.keys() == pls.keys()
+    out = capsys.readouterr().out
+    would = [x for x in out.splitlines() if x.startswith("would: ") and "playlist" in x]
+    assert len(would) == 16
+    for pl, oid in zip(ev.plan_playlists(PLAN), OLD_IDS):
+        assert f"would: create playlist {pl['name']!r} for {pl['login']}" in out
+        assert f"would: delete playlist {pl['old_name']!r} ({oid}) of {pl['login']}: replaced by {pl['name']!r}" in out
+    assert not [x for x in would if "Jacob favourites" in x or "(copy)" in x or " copy'" in x]
+
+
+def test_a_failed_delete_is_reported_and_the_next_run_retries(jf, videos, capsys):
+    seed_old(jf, videos, filled=True)
+    jf.fail_delete = {OLD_IDS[1]}
+    assert jrun("--apply", videos=videos) == 1
+    out = capsys.readouterr().out
+    assert f"ERROR could not delete playlist 'Jacob · Wed Upper A' ({OLD_IDS[1]}) of jmack" in out
+    assert f"did: delete playlist 'Jacob · Wed Upper A' ({OLD_IDS[1]}) of jmack: replaced by " \
+           "'Jacob · 2 Wed Upper A' -- FAILED" in out
+    assert "ERROR 1 old playlist(s) not removed" in out
+    assert OLD_IDS[1] in jf.playlists and not (set(OLD_IDS) - {OLD_IDS[1]}) & set(jf.playlists)  # the rest went on
+    doc = json.loads(videos.read_text())
+    assert [p["name"] for p in doc["playlists"]] == [p["name"] for p in ev.plan_playlists(PLAN)]  # only verified ones
+    assert OLD_IDS[1] not in {p["id"] for p in doc["playlists"]}
+    jf.fail_delete.clear()
+    jf.writes.clear()
+    assert jrun("--apply", videos=videos) == 0                                 # found by its exact old name
+    assert [(w[0], w[1]) for w in jf.writes if w[0] != "POST" or w[1] == "/Playlists"] == \
+           [("DELETE", f"/Items/{OLD_IDS[1]}")]
+    assert {k: jf.playlists[k]["name"] for k in HAND} == HAND and len(jf.playlists) == 8 + len(HAND)
+
+
+def test_an_old_name_that_is_not_provably_theirs_is_never_deleted(jf, videos, capsys):
+    """An exact old name in jmack's list, but rach owns it and shares it with him: not his."""
+    jf.scan()
+    jf.playlists["9" * 32] = {"name": "Jacob · Mon Lower A", "owner": RACH, "public": False,
+                              "shares": [{"UserId": JMACK, "CanEdit": False}], "ids": []}
+    jf.playlists["8" * 32] = {"name": "Jacob · Wed Upper A", "owner": OTHER, "public": False, "shares": [], "ids": []}
+    assert jrun("--apply", videos=videos) == 1
+    assert "9" * 32 in jf.playlists and "8" * 32 in jf.playlists and deletes(jf) == []
+    out = capsys.readouterr().out
+    assert f"WARN playlist 'Jacob · Mon Lower A' ({'9' * 32}) is visible to rach" in out
+    assert len(json.loads(videos.read_text())["playlists"]) == 8
+
+
+def test_a_recorded_playlist_renamed_by_hand_is_left_alone(jf, videos, capsys):
+    seed_old(jf, videos, filled=True)
+    jf.playlists[OLD_IDS[0]]["name"] = "My Monday"
+    assert jrun("--apply", videos=videos) == 0
+    assert jf.playlists[OLD_IDS[0]]["name"] == "My Monday" and OLD_IDS[0] not in deletes(jf)
+    assert f"NOTE recorded playlist {OLD_IDS[0]} of jmack is now named 'My Monday'" in capsys.readouterr().out
+    assert OLD_IDS[0] not in {p["id"] for p in json.loads(videos.read_text())["playlists"]}
