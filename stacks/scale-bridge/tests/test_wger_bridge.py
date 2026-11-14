@@ -78,7 +78,7 @@ def test_unique_constraint_400_counts_as_present():
     async def go():
         async with api.client() as http:
             c = WgerClient(http, TOKEN_A)
-            cat = await c.body_weight_category()
+            cat, _ = await c.body_weight_category()
             await c.ensure_measurement(cat, WHEN, 70.0, ext, {"unit": "kg"})
             # the GET window misses (a different date), the POST hits the constraint
             return await c.ensure_measurement(cat, WHEN.replace(hour=9), 70.0, ext, {"unit": "kg"})

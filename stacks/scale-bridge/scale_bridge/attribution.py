@@ -104,3 +104,9 @@ def attribute(people: list[Person], weight_kg: float) -> Attribution:
     hits = [x for x in people if x.contains(weight_kg)]
     return Attribution(person=hits[0] if len(hits) == 1 else None,
                        candidates=tuple(x.name for x in hits))
+
+
+def overlaps(people: list[Person]) -> list[tuple[str, str]]:
+    """Name pairs whose (inclusive) bands share at least one weight."""
+    return [(a.name, b.name) for i, a in enumerate(people) for b in people[i + 1:]
+            if a.min_kg <= b.max_kg and b.min_kg <= a.max_kg]

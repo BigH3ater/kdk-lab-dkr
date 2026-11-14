@@ -51,7 +51,7 @@ services:
     build:
       context: .
       provenance: false
-    image: kdk/scale-bridge:0.1.1
+    image: kdk/scale-bridge:0.1.2
     container_name: scale-bridge
     user: "65534:65534"        # host nobody:nogroup; dbus-daemon resets unknown uids
     init: true                 # python is PID 1 otherwise: SIGTERM, zombie reaping

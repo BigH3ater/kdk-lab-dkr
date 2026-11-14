@@ -39,7 +39,8 @@ class Settings:
     retry_backoff: float = 2.0                  # after a failed connect
     wger_url: str = "https://wger.kmkdp.com"
     wger_timeout: float = 15.0
-    write_retries: int = 6                      # per reading, backoff doubling from 30 s
+    write_retries: int = 6                      # per reading, waits 30 s doubling: 15.5 min in all
+    replay_window: float = 600.0                # same weight within this = the same weigh-in (wger.py)
     people: tuple[Person, ...] = ()
     tokens: dict[str, str] = field(default_factory=dict, repr=False)   # token_env -> token
     proxies: tuple[Proxy, ...] = ()
@@ -98,6 +99,7 @@ def from_env(env: dict[str, str] | None = None) -> Settings:
         cooldown=float(e.get("SCALE_COOLDOWN_S", "60")),
         wger_url=e.get("WGER_URL", "https://wger.kmkdp.com").rstrip("/"),
         write_retries=int(e.get("SCALE_BRIDGE_WRITE_RETRIES", "6")),
+        replay_window=float(e.get("SCALE_BRIDGE_REPLAY_WINDOW_S", "600")),
         people=people,
         tokens={x.token_env: e.get(x.token_env, "") for x in people},
         proxies=parse_proxies(e.get("SCALE_BRIDGE_ESPHOME_PROXIES", ""), e),

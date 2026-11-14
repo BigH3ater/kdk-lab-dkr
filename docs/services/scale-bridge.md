@@ -35,18 +35,20 @@ flowchart LR
 |---|---|
 | Purpose | Body Pod 2 weigh-ins → wger body weight + raw impedance, per person |
 | Host | kdk-dkr-02 (10.1.30.21), Komodo stack `scale-bridge` |
-| Image | `kdk/scale-bridge:0.1.1`, built on the host from `stacks/scale-bridge` (python 3.12-slim, bleak, bleak-retry-connector, bleak-esphome, httpx from `uv.lock`) |
+| Image | `kdk/scale-bridge:0.1.2`, built on the host from `stacks/scale-bridge` (python 3.12-slim, bleak, bleak-retry-connector, bleak-esphome, httpx from `uv.lock`) |
 | Mode | `SCALE_BRIDGE_DRY_RUN: "true"` in compose until the owner flips it |
 | Bluetooth | `/run/dbus:/run/dbus:ro` → host bluetoothd, as uid `65534:65534` (host `nobody:nogroup`). No privileged, no capabilities, no `/dev`, bridge network |
 | Host files | `/opt/kdk-lab/scale-bridge/scale-bridge.env` (people bands, optional address/proxies), `/opt/kdk-lab/scale-bridge/secrets.env` (wger keys, noise keys). Both root 600, host-managed |
-| Storage | None. Nothing is spooled: a reading that cannot reach wger after 6 tries (about 30 min) is logged as lost |
+| Storage | None. Nothing is spooled: a reading that cannot reach wger after 6 tries (waits 30+60+120+240+480 s = 15.5 min) is logged as lost (`write_gave_up`) |
 | Blast radius | Down: weigh-ins are not recorded (weigh again later, or enter in the wger app). wger and HA are unaffected |
 
 ## How a weigh-in flows
 
 1. The scale wakes when someone steps on and advertises as `Body Pod 2` with service
    `FFF0`. The bridge scans all the time and matches on that name (or, for a nameless
-   passive advert, on `FFF0`), plus `SCALE_ADDRESS` if set.
+   passive advert, on `FFF0`), plus `SCALE_ADDRESS` if set. Without `SCALE_ADDRESS` any
+   nearby device with that name is accepted (startup logs `config_address_filter_off`);
+   pinning it is a go-live step in the runbook.
 2. Connect (bleak-retry-connector, 3 attempts, 30 s cap), subscribe `FFF4`, write the
    placeholder profile `FE 01 <sex> <activity> <height> <age> 01 <xor>` to `FFF1`, then
    subscribe `FFF2` (silent on our unit).
@@ -61,14 +63,16 @@ flowchart LR
    - A lock without `BE` frames is still a reading (weight only). No lock = no reading.
      The handle must be held to the end for a lock (~20 s).
 4. Disconnect, then ignore the scale for 60 s: on a second connection it replays the
-   same weight.
+   same weight (and impedance). The cooldown is in memory only; after a restart the
+   replay rule below is what keeps a replay from being written twice.
 5. Attribution: exactly one band containing the weight = that person. No band or two
    bands = warning, nothing written. Bands are inclusive and given in pounds
    (`min_lb`/`max_lb`) or, still accepted, kilograms (`min_kg`/`max_kg`): one pair per
    person. Pounds are converted to kg once at startup; the comparison is in kg.
 6. Dry-run: one `would_write` log line (`weight_kg` plus `weight_lb` to 0.1, to compare
-   with the scale display). Live: written to wger in the background, retried
-   with backoff.
+   with the scale display). Live: written to wger in the background; a failed attempt
+   (wger error, timeout, a non-JSON or unexpected body, or any other exception) is
+   retried after 30 s, doubling, 6 tries in all (15.5 min of waits).
 
 ## What lands in wger (per person, their own token)
 
@@ -78,19 +82,53 @@ flowchart LR
 | 10 custom categories `Impedance 50 kHz right arm` … `Impedance 250 kHz left leg`, unit `ohm` | raw ohms, created by name on first use |
 
 Every entry carries `source=user`, `notes="Body Pod 2 via scale-bridge"` and one
-`external_id` per reading (uuid5 of scale address + lock time + person). wger keeps
-`external_id` unique per category + source, and the bridge checks for it before posting,
-so a retry never duplicates. If a person has never logged a weight (no official
-category yet), the first weight goes through the legacy `weightentry/` endpoint (in the
-profile's unit), which creates the category.
+`external_id` per reading: uuid5 of scale address + person + weight + the four `DF`
+frames, or the lock time when the `DF` frames are missing. wger keeps `external_id`
+unique per category + source, so posting the same id again is a 400 the bridge counts as
+"exists".
+
+**Same weigh-in, same entries (no state kept).** A reading whose weight (to 5 g) already
+has a body-weight entry within 10 minutes is that weigh-in again: nothing new is posted
+for the weight, and each impedance value is posted only if its category has no entry at
+that entry's time. Covered by this rule: a retry after a timeout, and a replay after a
+restart within 10 min (weight-only or with impedance, whether or not the `DF` bytes
+repeat). Covered only if the scale re-sends identical `DF` bytes (not verified): a replay
+more than 10 min later. Cost: a genuine second weigh-in by the same person within 10 min
+at exactly the same weight is not written (after a weight-only lock it still gets the
+missing impedance). `SCALE_BRIDGE_REPLAY_WINDOW_S` (600) sets the window.
+
+If a person has never logged a weight (no official category yet), the first weight goes
+through the legacy `weightentry/` endpoint (in the profile's unit). In wger 2.7 that
+endpoint runs `get_or_create` on the official category and saves an ordinary measurement
+at the posted time in the same request, so a retry after a timeout finds both and does
+not post again (test `test_timeout_after_an_accepted_weightentry_post_does_not_duplicate`).
 
 ## Logs
 
 One JSON line per event: `config`, `token_check` (status only), `scanning`, `session`
 (counts, end reason, RSSI, masked address `..:XX:YY`), `attribution` (person or
 candidates, never the weight), `would_write` (dry-run only: **the only line with the
-weight**; impedances as a count), `wrote` / `write_failed` / `write_gave_up`. Tokens and
-noise keys are never logged. Loki: `{container="scale-bridge"}`.
+weight**; impedances as a count), `wrote` / `write_failed` (warning) / `write_crashed`
+(error: an unexpected exception, type only; retried like a failure) / `write_gave_up`
+(error). Startup warnings: `config_bands_overlap` (names the overlapping people, never the
+bands; not fatal, an ambiguous weight is still written nowhere), `config_address_filter_off`.
+Tokens, noise keys and response bodies are never logged. Loki: `{container="scale-bridge"}`.
+
+## Security notes
+
+- Runs as uid/gid `65534` (host `nobody:nogroup`), non-root, `cap_drop: ALL`,
+  `no-new-privileges`, read-only root, `/tmp` tmpfs, no `/dev`, no host network, no port.
+- **D-Bus:** `/run/dbus:/run/dbus:ro` hands the container the host's whole **system bus**
+  socket, not just BlueZ. `:ro` only stops writes to the directory; connecting to the
+  socket still works. What the container can do there is whatever the host's D-Bus
+  policy allows an unprivileged uid: BlueZ's `bluetooth.conf` lets any uid call
+  `org.bluez` (so it can drive the adapter: scan, connect, pair, power, for any nearby
+  device), and other system services answer the calls their own policy allows any user
+  (typically reads and introspection; privileged methods behind polkit are refused for
+  `nobody`, which has no session). Not audited per service on kdk-dkr-02.
+- Why accepted: it is the same mount Home Assistant uses, the uid is unprivileged, and
+  the code only talks to `org.bluez` through bleak. Narrowing it would need a filtering
+  proxy (e.g. `xdg-dbus-proxy` with `--talk=org.bluez`), left for a later change.
 
 ## Relay mode (optional, untested on hardware)
 
@@ -126,7 +164,9 @@ sudo docker logs --since 10m scale-bridge 2>&1 | grep -E '"event":"(config|token
 | `session` with `settled: false` | handle released before the lock | hold the handle until the display locks |
 | `attribution` `no_match` / `ambiguous` | bands miss the weight or overlap | widen/narrow the bands in `scale-bridge.env` |
 | `token_check` `rejected` / `missing` | key revoked, or not in `secrets.env` | runbook step 2 |
-| `write_gave_up` | wger unreachable for ~30 min | enter that weight in the wger app |
+| `write_gave_up` | wger failing for all 6 tries (15.5 min of waits) | enter that weight in the wger app |
+| `write_crashed` | an unexpected exception in a write attempt (bug or an odd wger response) | it retries by itself; if it repeats, open an issue with the `error` type |
+| `config_bands_overlap` at startup | two people's bands share a weight | fix the bands in `scale-bridge.env`; until then such a weight is written nowhere |
 
 ## Dependencies
 
