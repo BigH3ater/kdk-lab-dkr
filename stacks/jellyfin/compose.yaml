@@ -59,7 +59,8 @@ services:
       - /mnt/appdata/jellyfin/metadata:/config/data/metadata
       - /mnt/media/tv:/data/media/tv:ro
       - /mnt/media/movies:/data/media/movies:ro
-      # Exercise videos (library "Exercise", Home videos, jmack + rach only), filled by
+      # Exercise videos (library "Exercise", Home videos; visible to all accounts for now,
+      # per-person playlists private: owner decision 2026-11-14), filled by
       # stacks/home-assistant/tools/exercise_videos.py on kdk-dkr-01. The source dir must
       # exist on the share BEFORE the PR that adds this mount is merged: merge = deploy
       # (deploy + webhook_enabled in komodo/resources.toml), the DMZ mount is read-only and

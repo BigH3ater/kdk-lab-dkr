@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Plan videos as files in a private Jellyfin "Exercise" library, plus one playlist per person and day.
+"""Plan videos as files in a Jellyfin "Exercise" library, plus one private playlist per person and day.
 
     # on kdk-dkr-01 (the media share is rw there), or from the laptop with --host:
     python3 exercise_videos.py download                       # dry run: what is missing / extra
@@ -23,9 +23,14 @@ as extra, deleted only with --prune). yt-dlp runs as a one-shot container (image
 yt-dlp/Dockerfile) as uid:gid 1000:1000 (the media stack's PUID/PGID): H.264 + AAC in mp4, at
 most 1080p, the plan's exercise name as the embedded title. --prune only ever deletes files
 whose name matches the pattern above; anything else in the directory is reported, not touched.
+A failed video (YouTube's intermittent HTTP 403) is retried (ATTEMPTS runs, growing pause) and
+never stops the run: the rest still download, then every video still missing is listed and the
+exit code is 1. Afterwards the tool removes its own temp dir <dir>/.incoming (that path only,
+and only when it holds no finished video).
 
 jellyfin: finds the library by name (default "Exercise", type Home videos), refuses to go on
-when any account other than the plan's people can see it, starts a scan of that library only
+when one of the plan's people cannot see it (other accounts that can see it are only named in
+a NOTE line: owner decision 2026-11-14, the library is not private), starts a scan of that library only
 and waits until every plan file is an item, then creates or updates one playlist per person
 and day: "<name> · <day> <label>" (e.g. "Jacob · Mon Lower A"), items in workout order, owned
 by that person, not public, no shares. Days with the same video list share one playlist
@@ -73,6 +78,16 @@ DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 # H.264 video + AAC audio (merged into mp4), else one progressive H.264/AAC stream; <= 1080p.
 FORMAT = "bv*[vcodec^=avc1][height<=1080]+ba[acodec^=mp4a]/b[vcodec^=avc1][height<=1080][acodec^=mp4a]"
 INCOMING = ".incoming"             # yt-dlp's temp dir inside the library dir (Jellyfin skips dot dirs)
+# YouTube answers an intermittent "HTTP Error 403: Forbidden" on the video data; the same video
+# usually works on the next try. Each video gets ATTEMPTS container runs, RETRY_PAUSE * n seconds
+# after failed attempt n; a failed video never stops the run. BETWEEN: pause between videos.
+ATTEMPTS = 4
+RETRY_PAUSE = 30
+BETWEEN = 5
+# yt-dlp's own retries (README "Download Options"): keep its default counts (--retries 10,
+# --fragment-retries 10) but back off between them instead of retrying at once.
+YTDLP_RETRY = ["--extractor-retries", "5", "--retry-sleep", "http:exp=1:30",
+               "--retry-sleep", "fragment:exp=1:30", "--retry-sleep", "extractor:5"]
 HEADER = ("Written by exercise_videos.py jellyfin --apply; do not edit by hand. Plan key -> Jellyfin "
           "item id (gen_wger.py builds the Video: line from it) and the playlists the tool manages.")
 
@@ -179,7 +194,7 @@ def list_dir(sh: Shell, directory: str) -> list[str] | None:
 def ytdlp_argv(key: str, ex: dict) -> list[str]:
     """yt-dlp arguments for one plan exercise (output relative to /downloads)."""
     return ["--no-playlist", "--no-progress", "--no-mtime", "--no-cache-dir", "--no-overwrites",
-            "-f", FORMAT, "--merge-output-format", "mp4",
+            *YTDLP_RETRY, "-f", FORMAT, "--merge-output-format", "mp4",
             "--replace-in-metadata", "title", "(?s).+", ex["name"].replace("\\", "\\\\"),
             "--parse-metadata", "%(webpage_url)s:%(meta_comment)s", "--embed-metadata",
             "-P", "/downloads", "-P", f"temp:/downloads/{INCOMING}",
@@ -193,16 +208,62 @@ def docker_argv(docker: list[str], image: str, directory: str, key: str, ex: dic
             "-v", f"{directory}:/downloads", image, *ytdlp_argv(key, ex)]
 
 
-def cmd_download(args, plan: dict, sh: Shell, out) -> int:
+def fetch(sh: Shell, argv: list[str], name: str, out, sleep) -> bool:
+    """Run one video's container up to ATTEMPTS times; True when an attempt exited 0."""
+    for n in range(1, ATTEMPTS + 1):
+        p = sh(argv, check=False)
+        if p.returncode == 0:
+            return True
+        lines = [x for x in (p.stderr or p.stdout or "").strip().splitlines() if x.strip()]
+        why = lines[-1][-300:] if lines else f"exit {p.returncode}"
+        if n == ATTEMPTS:
+            out(f"FAILED {name} after {ATTEMPTS} attempts: {why}")
+            return False
+        out(f"retry {name} ({n}/{ATTEMPTS} failed: {why}); waiting {RETRY_PAUSE * n}s")
+        sleep(RETRY_PAUSE * n)
+    return False
+
+
+def clean_incoming(sh: Shell, directory: str, apply: bool, out) -> None:
+    """Remove the tool's own yt-dlp temp dir (<dir>/.incoming) and nothing else: only that one
+    path, only a real directory (not a symlink), only when it holds no finished plan video."""
+    tmp = str(PurePosixPath(directory) / INCOMING)
+    link = sh(["test", "-L", tmp], check=False).returncode == 0
+    if not link and sh(["test", "-e", tmp], check=False).returncode != 0:
+        return
+    if link or sh(["test", "-d", tmp], check=False).returncode != 0:
+        out(f"WARN {INCOMING} is not a plain directory; left alone")
+        return
+    p = sh(["find", tmp, "-mindepth", "1", "-printf", "%P\\n"], check=False)
+    if p.returncode != 0:
+        out(f"WARN cannot list {INCOMING}/; left alone: {(p.stderr or '').strip()[-200:]}")
+        return
+    left = [x for x in p.stdout.splitlines() if x]
+    done = [x for x in left if FILE_RE.match(PurePosixPath(x).name)]
+    if done:
+        out(f"WARN {INCOMING}/ holds finished video(s), left alone: " + ", ".join(done))
+        return
+    if not apply:
+        out(f"{INCOMING}/ (yt-dlp temp dir, {len(left)} leftover file(s)): --apply removes it")
+        return
+    r = sh(["rm", "-rf", "--", tmp], check=False)
+    if r.returncode != 0:
+        out(f"WARN could not remove {INCOMING}/: {(r.stderr or '').strip()[-200:]}")
+    else:
+        out(f"removed {INCOMING}/ (yt-dlp temp dir, {len(left)} leftover file(s))")
+
+
+def cmd_download(args, plan: dict, sh: Shell, out, sleep=time.sleep) -> int:
     directory = args.dir
     want = wanted_files(plan)
     have = list_dir(sh, directory)
     where = f"{args.host}:{directory}" if args.host else directory
+    existed = have is not None
     if have is None:
         out(f"{where} does not exist yet" + (" (created by --apply)" if not args.apply else ""))
         have = []
     ours = [f for f in have if FILE_RE.match(f)]
-    foreign = [f for f in have if not FILE_RE.match(f)]
+    foreign = [f for f in have if not FILE_RE.match(f) and f != INCOMING]   # the temp dir is ours
     missing = [f for f in want if f not in have]
     extra = [f for f in ours if f not in want]
     out(f"plan: {len(want)} video(s); on the share: {len(set(want) & set(have))} present, "
@@ -213,13 +274,21 @@ def cmd_download(args, plan: dict, sh: Shell, out) -> int:
     docker = shlex.split(args.docker)
     if missing and args.apply:
         sh(["mkdir", "-p", directory])          # as the login user (uid 1000 = the share's owner)
-    for f in missing:
-        key = want[f]
-        if not args.apply:
-            out(f"would download {f} <- {plan['exercises'][key]['video']}")
-            continue
-        out(f"download {f} <- {plan['exercises'][key]['video']}")
-        sh(docker_argv(docker, image, directory, key, plan["exercises"][key]))
+    failed = []
+    try:
+        for i, f in enumerate(missing):
+            key = want[f]
+            if not args.apply:
+                out(f"would download {f} <- {plan['exercises'][key]['video']}")
+                continue
+            if i:
+                sleep(BETWEEN)
+            out(f"download {f} <- {plan['exercises'][key]['video']} ({i + 1}/{len(missing)})")
+            if not fetch(sh, docker_argv(docker, image, directory, key, plan["exercises"][key]), f, out, sleep):
+                failed.append(f)
+    finally:
+        if existed or args.apply:
+            clean_incoming(sh, directory, args.apply, out)
     for f in extra:
         if args.prune and args.apply:
             path = str(PurePosixPath(directory) / f)
@@ -231,7 +300,10 @@ def cmd_download(args, plan: dict, sh: Shell, out) -> int:
         after = list_dir(sh, directory) or []
         still = [f for f in missing if f not in after]
         if still:
-            out("ERROR not created: " + ", ".join(still))
+            out(f"ERROR {len(still)} of {len(missing)} video(s) not created (re-run to fetch only these):")
+            for f in still:
+                out(f"  {f} <- {plan['exercises'][want[f]]['video']}"
+                    + ("" if f in failed else " (yt-dlp exited 0 but the file is not there)"))
             return 1
     if not args.apply:
         out(f"dry run: {len(missing)} download(s), {len(extra) if args.prune else 0} delete(s) planned; add --apply")
@@ -295,9 +367,10 @@ def find_library(jf: Jellyfin, name: str) -> dict:
     return lib
 
 
-def access_problems(users: list[dict], allowed: dict, lib_id: str) -> list[str]:
-    """Who can see the library that should not, and who should but cannot."""
-    probs = []
+def library_access(users: list[dict], allowed: dict, lib_id: str) -> tuple[list[str], list[str]]:
+    """(problems, others): plan people who cannot see the library (a hard stop), and the other
+    accounts who can (allowed since the owner decision of 2026-11-14; only reported)."""
+    probs, others = [], []
     ok_ids = {norm(u["Id"]) for u in allowed.values()}
     for u in users:
         pol = u.get("Policy") or {}
@@ -305,9 +378,8 @@ def access_problems(users: list[dict], allowed: dict, lib_id: str) -> list[str]:
         if norm(u["Id"]) in ok_ids and not sees:
             probs.append(f"{u['Name']} cannot see the library (tick it under the user's Library access)")
         elif norm(u["Id"]) not in ok_ids and sees:
-            why = "'Enable access to all libraries' is on" if pol.get("EnableAllFolders") else "the library is ticked"
-            probs.append(f"{u['Name']} can see the library ({why}); it must be the plan's people only")
-    return probs
+            others.append(f"{u['Name']} ({'all libraries' if pol.get('EnableAllFolders') else 'ticked'})")
+    return probs, others
 
 
 def library_items(jf: Jellyfin, lib_id: str, location: str) -> dict[str, str]:
@@ -421,11 +493,13 @@ def cmd_jellyfin(args, plan: dict, out, sleep=time.sleep, videos_path: Path | No
     people, users = find_users(jf, list(plan["people"]))
     lib = find_library(jf, args.library)
     lib_id, location = norm(lib.get("ItemId")), lib["Locations"][0]
-    probs = access_problems(users, people, lib_id)
+    probs, others = library_access(users, people, lib_id)
     if probs:
         for p in probs:
             out(f"ACCESS {p}")
-        raise VideoError("fix the library access first (runbook step 5); nothing written")
+        raise VideoError("fix the library access first (runbook step 4); nothing written")
+    if others:
+        out(f"NOTE other accounts can see the library (allowed; the playlists stay private): {', '.join(others)}")
     opts = lib.get("LibraryOptions") or {}
     if opts and not opts.get("EnableEmbeddedTitles"):
         out("WARN library option 'Prefer embedded titles over filenames' is off: items show the file name")
@@ -481,7 +555,7 @@ def main(argv: list[str] | None = None, plan_path: Path = PLAN, shell: Shell | N
     try:
         plan = load_plan(plan_path)
         if args.cmd == "download":
-            return cmd_download(args, plan, shell or Shell(args.host), print)
+            return cmd_download(args, plan, shell or Shell(args.host), print, sleep)
         return cmd_jellyfin(args, plan, print, sleep, videos_path)
     except VideoError as e:
         print(f"ERROR {e}", file=sys.stderr)
