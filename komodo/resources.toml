@@ -1695,6 +1695,25 @@ run_build = true    # docker compose build (roborock-map) before up
 pre_deploy.command = "sh -c 'cp -f traefik-dynamic/*.yml /opt/kdk-lab/home-assistant/traefik/dynamic/ && mkdir -p /opt/kdk-lab/home-assistant/config/dashboards /opt/kdk-lab/home-assistant/config/themes /opt/kdk-lab/home-assistant/config/packages && cp -f config/dashboards/*.yaml /opt/kdk-lab/home-assistant/config/dashboards/ && cp -f config/themes/*.yaml /opt/kdk-lab/home-assistant/config/themes/ && cp -f config/packages/*.yaml /opt/kdk-lab/home-assistant/config/packages/ && { [ -e /opt/kdk-lab/home-assistant/node-red/settings.js.pre-gitops ] || [ ! -e /opt/kdk-lab/home-assistant/node-red/settings.js ] || cp -p /opt/kdk-lab/home-assistant/node-red/settings.js /opt/kdk-lab/home-assistant/node-red/settings.js.pre-gitops; } && cp -f node-red/settings.js /opt/kdk-lab/home-assistant/node-red/settings.js'"
 webhook_enabled = true
 
+# scale-bridge on kdk-dkr-02 (2026-11): Body Pod 2 BLE scale -> wger (body weight +
+# raw impedance). Locally built image (kdk/scale-bridge), so run_build + no compose
+# pull. Both env files are host-managed (no op CLI on the Pi) and must exist before
+# the first deploy: /opt/kdk-lab/scale-bridge/{scale-bridge,secrets}.env, root 600
+# (docs/runbooks/scale-bridge.md). Ships in dry-run (compose SCALE_BRIDGE_DRY_RUN).
+[[stack]]
+tags = ["kdk-lab"]
+name = "scale-bridge"
+deploy = true
+[stack.config]
+compose_cmd_wrapper = "/usr/local/sbin/kdk-compose-config-redact [[COMPOSE_COMMAND]]"   # redact env values from the stored Compose Config log (komodo#1636)
+compose_cmd_wrapper_include = ["config"]
+server = "kdk-dkr-02"
+repo = "BigH3ater/kdk-lab-dkr"
+run_directory = "stacks/scale-bridge"
+auto_pull = false   # kdk/scale-bridge is built locally -> skip compose pull
+run_build = true    # docker compose build before up
+webhook_enabled = true
+
 # GitOps-owned since 2026-09-20 (was files-on-host). Data dir stays at
 # /opt/kdk-lab/scrypted; network_mode: host (HomeKit mDNS). No secrets.
 # Homebridge was removed 2026-10-28 (zero accessories, setup never claimed); the

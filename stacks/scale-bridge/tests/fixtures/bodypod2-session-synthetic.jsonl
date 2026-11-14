@@ -1,0 +1,81 @@
+{"t": "2026-11-14T20:12:27.856+00:00", "kind": "start", "window": 570, "profile": true}
+{"t": "2026-11-14T20:13:12.707+00:00", "kind": "advert", "address": "AA:BB:CC:DD:EE:01", "name": "Body Pod 2", "rssi": -69, "services": ["0000fff0-0000-1000-8000-00805f9b34fb", "00001812-0000-1000-8000-00805f9b34fb"], "mfr": {"0064": "aabbccddee010000000000000000000000"}}
+{"t": "2026-11-14T20:13:12.707+00:00", "kind": "adv_seen", "rssi": -69}
+{"t": "2026-11-14T20:13:14.240+00:00", "kind": "connected", "address": "AA:BB:CC:DD:EE:01", "took_s": 1.5}
+{"t": "2026-11-14T20:13:14.240+00:00", "kind": "gatt", "services": {"0000180a-0000-1000-8000-00805f9b34fb": {"00002a27-0000-1000-8000-00805f9b34fb": ["read"], "00002a26-0000-1000-8000-00805f9b34fb": ["read"], "00002a25-0000-1000-8000-00805f9b34fb": ["read"], "00002a24-0000-1000-8000-00805f9b34fb": ["read"], "00002a29-0000-1000-8000-00805f9b34fb": ["read"]}, "00001801-0000-1000-8000-00805f9b34fb": {"00002a05-0000-1000-8000-00805f9b34fb": ["indicate"]}, "0000fff0-0000-1000-8000-00805f9b34fb": {"0000fff1-0000-1000-8000-00805f9b34fb": ["write"], "0000fff2-0000-1000-8000-00805f9b34fb": ["read", "write-without-response", "write", "notify"], "0000fff4-0000-1000-8000-00805f9b34fb": ["notify"]}, "0000180f-0000-1000-8000-00805f9b34fb": {"00002a19-0000-1000-8000-00805f9b34fb": ["read", "notify"]}, "00001800-0000-1000-8000-00805f9b34fb": {"00002a00-0000-1000-8000-00805f9b34fb": ["read"], "00002a01-0000-1000-8000-00805f9b34fb": ["read"]}}}
+{"t": "2026-11-14T20:13:14.823+00:00", "kind": "subscribed", "char": "fff4"}
+{"t": "2026-11-14T20:13:14.920+00:00", "kind": "frame", "char": "fff4", "hex": "cf0000081b0000000101dc", "type": "weight", "stable": false, "kg": 69.2}
+{"t": "2026-11-14T20:13:15.066+00:00", "kind": "profile_written", "hex": "fe010101aa1e01b4"}
+{"t": "2026-11-14T20:13:15.212+00:00", "kind": "subscribed", "char": "fff2"}
+{"t": "2026-11-14T20:13:15.261+00:00", "kind": "frame", "char": "fff4", "hex": "cf0000eb1a00000001013e", "type": "weight", "stable": false, "kg": 68.91}
+{"t": "2026-11-14T20:13:15.359+00:00", "kind": "frame", "char": "fff4", "hex": "cf0000ed1b000000010139", "type": "weight", "stable": false, "kg": 71.49}
+{"t": "2026-11-14T20:13:15.652+00:00", "kind": "frame", "char": "fff4", "hex": "cf00005b1c000000010188", "type": "weight", "stable": false, "kg": 72.59}
+{"t": "2026-11-14T20:13:15.846+00:00", "kind": "frame", "char": "fff4", "hex": "cf0000151c0000000101c6", "type": "weight", "stable": false, "kg": 71.89}
+{"t": "2026-11-14T20:13:16.187+00:00", "kind": "frame", "char": "fff4", "hex": "cf0000011c0000000101d2", "type": "weight", "stable": false, "kg": 71.69}
+{"t": "2026-11-14T20:13:16.285+00:00", "kind": "frame", "char": "fff4", "hex": "cf0000d91b00000001010d", "type": "weight", "stable": false, "kg": 71.29}
+{"t": "2026-11-14T20:13:16.577+00:00", "kind": "frame", "char": "fff4", "hex": "cf0000d91b00000001010d", "type": "weight", "stable": false, "kg": 71.29}
+{"t": "2026-11-14T20:13:16.870+00:00", "kind": "frame", "char": "fff4", "hex": "cf0000cf1b00000001011b", "type": "weight", "stable": false, "kg": 71.19}
+{"t": "2026-11-14T20:13:17.065+00:00", "kind": "frame", "char": "fff4", "hex": "cf0000bb1b00000001016f", "type": "weight", "stable": false, "kg": 70.99}
+{"t": "2026-11-14T20:13:17.357+00:00", "kind": "frame", "char": "fff4", "hex": "cf0000bb1b00000001016f", "type": "weight", "stable": false, "kg": 70.99}
+{"t": "2026-11-14T20:13:17.601+00:00", "kind": "frame", "char": "fff4", "hex": "cf0000c51b000000010111", "type": "weight", "stable": false, "kg": 71.09}
+{"t": "2026-11-14T20:13:17.894+00:00", "kind": "frame", "char": "fff4", "hex": "cf0000d91b00000001010d", "type": "weight", "stable": false, "kg": 71.29}
+{"t": "2026-11-14T20:13:17.991+00:00", "kind": "frame", "char": "fff4", "hex": "cf0000e31b000000010137", "type": "weight", "stable": false, "kg": 71.39}
+{"t": "2026-11-14T20:13:18.284+00:00", "kind": "frame", "char": "fff4", "hex": "cf0000cf1b00000001011b", "type": "weight", "stable": false, "kg": 71.19}
+{"t": "2026-11-14T20:13:18.576+00:00", "kind": "frame", "char": "fff4", "hex": "cf0000bb1b00000001016f", "type": "weight", "stable": false, "kg": 70.99}
+{"t": "2026-11-14T20:13:18.722+00:00", "kind": "frame", "char": "fff4", "hex": "cf00009e1b00000001014a", "type": "weight", "stable": false, "kg": 70.7}
+{"t": "2026-11-14T20:13:19.112+00:00", "kind": "frame", "char": "fff4", "hex": "cf00009e1b00000001014a", "type": "weight", "stable": false, "kg": 70.7}
+{"t": "2026-11-14T20:13:19.210+00:00", "kind": "frame", "char": "fff4", "hex": "cf0000a81b00000001017c", "type": "weight", "stable": false, "kg": 70.8}
+{"t": "2026-11-14T20:13:19.502+00:00", "kind": "frame", "char": "fff4", "hex": "cf0000a81b00000001017c", "type": "weight", "stable": false, "kg": 70.8}
+{"t": "2026-11-14T20:13:19.844+00:00", "kind": "frame", "char": "fff4", "hex": "cf00009e1b00000001014a", "type": "weight", "stable": false, "kg": 70.7}
+{"t": "2026-11-14T20:13:19.941+00:00", "kind": "frame", "char": "fff4", "hex": "cf00008a1b00000001015e", "type": "weight", "stable": false, "kg": 70.5}
+{"t": "2026-11-14T20:13:20.233+00:00", "kind": "frame", "char": "fff4", "hex": "cf0000801b000000010154", "type": "weight", "stable": false, "kg": 70.4}
+{"t": "2026-11-14T20:13:20.477+00:00", "kind": "frame", "char": "fff4", "hex": "cf00008a1b00000001015e", "type": "weight", "stable": false, "kg": 70.5}
+{"t": "2026-11-14T20:13:20.770+00:00", "kind": "frame", "char": "fff4", "hex": "cf0000941b000000010140", "type": "weight", "stable": false, "kg": 70.6}
+{"t": "2026-11-14T20:13:20.917+00:00", "kind": "frame", "char": "fff4", "hex": "cf0000941b000000010140", "type": "weight", "stable": false, "kg": 70.6}
+{"t": "2026-11-14T20:13:21.306+00:00", "kind": "frame", "char": "fff4", "hex": "cf00008a1b00000001015e", "type": "weight", "stable": false, "kg": 70.5}
+{"t": "2026-11-14T20:13:21.452+00:00", "kind": "frame", "char": "fff4", "hex": "cf0000801b000000010154", "type": "weight", "stable": false, "kg": 70.4}
+{"t": "2026-11-14T20:13:21.647+00:00", "kind": "frame", "char": "fff4", "hex": "cf00006c1b0000000101b8", "type": "weight", "stable": false, "kg": 70.2}
+{"t": "2026-11-14T20:13:21.989+00:00", "kind": "frame", "char": "fff4", "hex": "cf0000581b00000001018c", "type": "weight", "stable": false, "kg": 70.0}
+{"t": "2026-11-14T20:13:22.135+00:00", "kind": "frame", "char": "fff4", "hex": "cf00004e1b00000001019a", "type": "weight", "stable": false, "kg": 69.9}
+{"t": "2026-11-14T20:13:22.427+00:00", "kind": "frame", "char": "fff4", "hex": "cf0000441b000000010190", "type": "weight", "stable": false, "kg": 69.8}
+{"t": "2026-11-14T20:13:22.720+00:00", "kind": "frame", "char": "fff4", "hex": "cf0000441b000000010190", "type": "weight", "stable": false, "kg": 69.8}
+{"t": "2026-11-14T20:13:22.915+00:00", "kind": "frame", "char": "fff4", "hex": "cf00004e1b00000001019a", "type": "weight", "stable": false, "kg": 69.9}
+{"t": "2026-11-14T20:13:23.159+00:00", "kind": "frame", "char": "fff4", "hex": "cf0000581b00000001018c", "type": "weight", "stable": false, "kg": 70.0}
+{"t": "2026-11-14T20:13:23.354+00:00", "kind": "frame", "char": "fff4", "hex": "cf0000581b00000001018c", "type": "weight", "stable": false, "kg": 70.0}
+{"t": "2026-11-14T20:13:23.597+00:00", "kind": "frame", "char": "fff4", "hex": "cf0000581b00000001018c", "type": "weight", "stable": false, "kg": 70.0}
+{"t": "2026-11-14T20:13:23.792+00:00", "kind": "frame", "char": "fff4", "hex": "cf0000581b00000001018c", "type": "weight", "stable": false, "kg": 70.0}
+{"t": "2026-11-14T20:13:23.988+00:00", "kind": "frame", "char": "fff4", "hex": "cf0000581b00000001018c", "type": "weight", "stable": false, "kg": 70.0}
+{"t": "2026-11-14T20:13:26.912+00:00", "kind": "frame", "char": "fff4", "hex": "cf0000581b000000010885", "type": "weight", "stable": false, "kg": 70.0}
+{"t": "2026-11-14T20:13:34.615+00:00", "kind": "frame", "char": "fff4", "hex": "cf0080581b000000010508", "type": "weight", "stable": true, "kg": 70.0}
+{"t": "2026-11-14T20:13:34.762+00:00", "kind": "frame", "char": "fff4", "hex": "be00b80bea0bfa00540b220b60", "type": "impedance"}
+{"t": "2026-11-14T20:13:34.810+00:00", "kind": "frame", "char": "fff4", "hex": "be018c0abe0adc00140aec09aa", "type": "impedance"}
+{"t": "2026-11-14T20:13:34.908+00:00", "kind": "frame", "char": "fff4", "hex": "df020000d348f91f213ef4e94a6bcb672f", "type": "0xdf"}
+{"t": "2026-11-14T20:13:35.054+00:00", "kind": "frame", "char": "fff4", "hex": "df020100bf02cd405b516efc91db348c86", "type": "0xdf"}
+{"t": "2026-11-14T20:13:35.055+00:00", "kind": "frame", "char": "fff4", "hex": "df020001c55916106f86b906a2c7071a68", "type": "0xdf"}
+{"t": "2026-11-14T20:13:35.152+00:00", "kind": "frame", "char": "fff4", "hex": "df020101b09c647bae7e8ce63732bd9579", "type": "0xdf"}
+{"t": "2026-11-14T20:13:39.831+00:00", "kind": "frame", "char": "fff4", "hex": "cf6cc00000000000000063", "type": "weight", "stable": true, "kg": 0.0}
+{"t": "2026-11-14T20:14:01.428+00:00", "kind": "frame", "char": "fff4", "hex": "cf000000000000000101cf", "type": "weight", "stable": false, "kg": 0.0}
+{"t": "2026-11-14T20:14:01.672+00:00", "kind": "frame", "char": "fff4", "hex": "cf000000000000000101cf", "type": "weight", "stable": false, "kg": 0.0}
+{"t": "2026-11-14T20:14:01.818+00:00", "kind": "frame", "char": "fff4", "hex": "cf000000000000000101cf", "type": "weight", "stable": false, "kg": 0.0}
+{"t": "2026-11-14T20:14:03.183+00:00", "kind": "frame", "char": "fff4", "hex": "cf000028040000000101e3", "type": "weight", "stable": false, "kg": 10.64}
+{"t": "2026-11-14T20:14:03.475+00:00", "kind": "frame", "char": "fff4", "hex": "cf0000d41100000001010a", "type": "weight", "stable": false, "kg": 45.64}
+{"t": "2026-11-14T20:14:03.670+00:00", "kind": "frame", "char": "fff4", "hex": "cf0000d41100000001010a", "type": "weight", "stable": false, "kg": 45.64}
+{"t": "2026-11-14T20:14:04.061+00:00", "kind": "frame", "char": "fff4", "hex": "cf0000871a000000010152", "type": "weight", "stable": false, "kg": 67.91}
+{"t": "2026-11-14T20:14:04.256+00:00", "kind": "frame", "char": "fff4", "hex": "cf00001a1a0000000101cf", "type": "weight", "stable": false, "kg": 66.82}
+{"t": "2026-11-14T20:14:04.597+00:00", "kind": "frame", "char": "fff4", "hex": "cf00002b190000000101fd", "type": "weight", "stable": false, "kg": 64.43}
+{"t": "2026-11-14T20:14:04.987+00:00", "kind": "frame", "char": "fff4", "hex": "cf00007b190000000101ad", "type": "weight", "stable": false, "kg": 65.23}
+{"t": "2026-11-14T20:14:04.987+00:00", "kind": "frame", "char": "fff4", "hex": "cf0000b619000000010160", "type": "weight", "stable": false, "kg": 65.82}
+{"t": "2026-11-14T20:14:05.279+00:00", "kind": "frame", "char": "fff4", "hex": "cf0000101a0000000101c5", "type": "weight", "stable": false, "kg": 66.72}
+{"t": "2026-11-14T20:14:05.377+00:00", "kind": "frame", "char": "fff4", "hex": "cf0000381a0000000101ed", "type": "weight", "stable": false, "kg": 67.12}
+{"t": "2026-11-14T20:14:05.620+00:00", "kind": "frame", "char": "fff4", "hex": "cf0000551a000000010180", "type": "weight", "stable": false, "kg": 67.41}
+{"t": "2026-11-14T20:14:05.913+00:00", "kind": "frame", "char": "fff4", "hex": "cf0000691a0000000101bc", "type": "weight", "stable": false, "kg": 67.61}
+{"t": "2026-11-14T20:14:06.108+00:00", "kind": "frame", "char": "fff4", "hex": "cf0000911a000000010144", "type": "weight", "stable": false, "kg": 68.01}
+{"t": "2026-11-14T20:14:06.449+00:00", "kind": "frame", "char": "fff4", "hex": "cf0000a51a000000010170", "type": "weight", "stable": false, "kg": 68.21}
+{"t": "2026-11-14T20:14:06.644+00:00", "kind": "frame", "char": "fff4", "hex": "cf0000af1a00000001017a", "type": "weight", "stable": false, "kg": 68.31}
+{"t": "2026-11-14T20:14:06.840+00:00", "kind": "frame", "char": "fff4", "hex": "cf0000de19000000010108", "type": "weight", "stable": false, "kg": 66.22}
+{"t": "2026-11-14T20:14:07.132+00:00", "kind": "frame", "char": "fff4", "hex": "cf0000c019000000010116", "type": "weight", "stable": false, "kg": 65.92}
+{"t": "2026-11-14T20:14:07.327+00:00", "kind": "frame", "char": "fff4", "hex": "cf0000f412000000010129", "type": "weight", "stable": false, "kg": 48.52}
+{"t": "2026-11-14T20:14:07.619+00:00", "kind": "frame", "char": "fff4", "hex": "cf00004801000000010186", "type": "weight", "stable": false, "kg": 3.28}
+{"t": "2026-11-14T20:14:07.814+00:00", "kind": "frame", "char": "fff4", "hex": "cf000000000000000101cf", "type": "weight", "stable": false, "kg": 0.0}
+{"t": "2026-11-14T20:14:08.058+00:00", "kind": "frame", "char": "fff4", "hex": "cf000000000000000101cf", "type": "weight", "stable": false, "kg": 0.0}
+{"t": "2026-11-14T20:14:08.253+00:00", "kind": "frame", "char": "fff4", "hex": "cf000000000000000101cf", "type": "weight", "stable": false, "kg": 0.0}

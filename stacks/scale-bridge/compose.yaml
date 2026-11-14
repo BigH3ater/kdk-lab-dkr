@@ -1,0 +1,82 @@
+# scale-bridge on kdk-dkr-02 (10.1.30.21): listens for the household Body Pod 2
+# scale over Bluetooth LE, decodes a weigh-in (weight + ten raw impedance values),
+# works out whose it is from a weight band, and writes it to that person's wger
+# (https://wger.kmkdp.com, /api/ is not behind Authelia; token auth per person).
+# No inbound port, no Traefik router, no UI. docs/services/scale-bridge.md.
+#
+# DRY RUN by default (SCALE_BRIDGE_DRY_RUN below): decode, attribute and log a
+# `would_write` line, post nothing. The owner flips it after the first live
+# weigh-in (runbook docs/runbooks/scale-bridge.md).
+#
+# Bluetooth: the host's bluetoothd owns hci0; bleak talks to it over the D-Bus
+# system bus, bind-mounted read-only (the same /run/dbus mount Home Assistant
+# uses). BlueZ's policy (/usr/share/dbus-1/system.d/bluetooth.conf) lets any uid
+# send to org.bluez, so the container runs non-root with no capabilities: no
+# privileged, no NET_ADMIN, no /dev, no host network. The scale takes one
+# central at a time: phones with the Hume app open take it first.
+#
+# Secrets + health data: two host-managed env files (dkr-02 has no op CLI), both
+# root:root 600, created by the runbook hand steps BEFORE the first deploy (a
+# missing env_file fails the deploy):
+#   /opt/kdk-lab/scale-bridge/scale-bridge.env  SCALE_BRIDGE_PEOPLE (weight bands,
+#       one JSON line), optional SCALE_ADDRESS, SCALE_BRIDGE_ESPHOME_PROXIES
+#   /opt/kdk-lab/scale-bridge/secrets.env       WGER_API_KEY_JMACK / _RACH (from
+#       the 1Password items wger-api-jmack / wger-api-rach), relay noise keys
+# Examples with made-up values: scale-bridge.env.example, secrets.env.example.
+#
+# Image is built locally (kdk/scale-bridge) -> the stack sets auto_pull=false +
+# run_build=true in komodo/resources.toml.
+name: scale-bridge
+
+x-hardened: &hardened
+  security_opt: ["no-new-privileges:true"]
+  cap_drop: [ALL]
+  read_only: true
+  tmpfs: [/tmp]
+  restart: unless-stopped
+  pids_limit: 128
+  mem_limit: 256m
+  logging:
+    driver: json-file
+    options: { max-size: "10m", max-file: "3" }
+
+services:
+  scale-bridge:
+    <<: *hardened
+    # Local build (Komodo run_build, auto_pull off). Bump the tag with the code.
+    # provenance off: stable image ID, so a cached rebuild does not recreate it.
+    build:
+      context: .
+      provenance: false
+    image: kdk/scale-bridge:0.1.0
+    container_name: scale-bridge
+    user: "65532:65532"
+    init: true                 # python is PID 1 otherwise: SIGTERM, zombie reaping
+    env_file:
+      - /opt/kdk-lab/scale-bridge/scale-bridge.env
+      - /opt/kdk-lab/scale-bridge/secrets.env
+    environment:
+      TZ: America/Chicago
+      SCALE_BRIDGE_DRY_RUN: "true"          # owner sets "false" after the first live weigh-in
+      WGER_URL: "https://wger.kmkdp.com"
+      SCALE_NAME: "Body Pod 2"
+      # Placeholder profile written to FFF1 to trigger the impedance measurement.
+      # NOT anyone's data: the scale only sends raw ohms, which the bridge stores
+      # as-is; it computes no body composition from these.
+      SCALE_PROFILE_SEX: "1"
+      SCALE_PROFILE_ACTIVITY: "1"
+      SCALE_PROFILE_HEIGHT_CM: "170"
+      SCALE_PROFILE_AGE: "30"
+    volumes:
+      # D-Bus system bus -> host bluetoothd. Directory, not the socket file, so a
+      # dbus restart (new socket inode) does not leave a stale bind.
+      - /run/dbus:/run/dbus:ro
+    healthcheck:
+      # The main loop touches /tmp/scale-bridge.alive at least every 30 s.
+      test: ["CMD", "python", "-I", "-c", "import os,sys,time; sys.exit(0 if time.time() - os.path.getmtime('/tmp/scale-bridge.alive') < 300 else 1)"]
+      interval: 60s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+    # Default bridge network: egress to wger.kmkdp.com (and, in relay mode, the
+    # proxies' TCP 6053) only. Nothing connects in.

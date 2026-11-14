@@ -268,6 +268,11 @@
       "base": "python",
       "note": "built from stacks/grocery-planner/Dockerfile (python:3.12-slim + requests + pyyaml)"
     },
+    "kdk/scale-bridge": {
+      "local": true,
+      "base": "python",
+      "note": "built from stacks/scale-bridge/Dockerfile (python:3.12-slim + bleak, bleak-retry-connector, bleak-esphome, httpx from uv.lock)"
+    },
     "kdk/koreader-highlights": {
       "local": true,
       "base": "python"

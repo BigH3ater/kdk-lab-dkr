@@ -123,6 +123,8 @@ wger: AUTH_PROXY_HEADER=HTTP_REMOTE_USER, trusted IP = nginx; acts ONLY on /user
 Retired 2026-11-08; walks are logged in the app (the Home Assistant auto-log
 double-counted a walk the owner also logged by hand).
 
+Scale weigh-ins (body weight + ten raw impedance categories) come from [scale-bridge](scale-bridge.md), with each person's API key.
+
 ## Verify
 
 **Laptop (LAN or tailnet)**
