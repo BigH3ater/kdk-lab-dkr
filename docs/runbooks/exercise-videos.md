@@ -126,9 +126,27 @@ ssh kdkadmin@10.1.20.20 'ls -ln /mnt/media/exercise | head -3; du -sh /mnt/media
 
 The directory already exists from step 0 (`--apply` would create it as kdkadmin otherwise).
 The download skips files that already exist, so a re-run after a failure only fetches
-what is missing. A file that did not appear is reported and the command exits 1.
-`.incoming/` holds yt-dlp's partial files and stays empty after a good run. Jellyfin
-skips dot folders.
+what is missing.
+
+YouTube sometimes answers `HTTP Error 403: Forbidden` for a video that works on the next
+try. The tool handles that itself:
+
+- yt-dlp gets `--extractor-retries 5` and backs off between its own retries
+  (`--retry-sleep http:exp=1:30`, `fragment:exp=1:30`, `extractor:5`).
+- A video whose container still fails is run again, up to 4 attempts, waiting 30 s,
+  60 s, then 90 s (lines `retry <file> (n/4 failed: ...)`).
+- A video that fails all 4 attempts is logged as `FAILED` and the run goes on with the
+  rest. There is a 5 s pause between videos.
+- At the end every video still missing is listed under `ERROR n of 47 video(s) not
+  created`, and the command exits 1. Run the same command again later; it fetches only
+  those.
+
+`.incoming/` holds yt-dlp's partial files. After every run (also a failed one) the tool
+deletes `/mnt/media/exercise/.incoming` and nothing else. It skips that only if the
+folder is a symlink or holds a finished `<key> [<id>].mp4`; then it prints a `WARN` and
+you move that file up by hand. A dry run only reports it. Jellyfin skips dot folders, and
+the `other file(s)` count does not include `.incoming`. Do not run two downloads at the
+same time: one run's cleanup would delete the other's partial files.
 
 Then check that Jellyfin sees the files:
 
@@ -239,6 +257,14 @@ Use this when an exercise was added, a video replaced, or a routine changed:
 `gen_wger.py` refuses `--apply` (exit 2, nothing written) and fails `--check` while any
 plan exercise lacks an item id for its current YouTube video. A dry run warns and leaves
 those descriptions alone. It never writes a YouTube or empty `Video:` line.
+
+## Troubleshooting
+
+| Symptom | Cause and fix |
+|---|---|
+| `retry ... HTTP Error 403: Forbidden`, then `FAILED <file> after 4 attempts` | YouTube refuses the video data now and then; the same video usually works a few minutes later. The rest of the run still downloads. Re-run step 3 (`--apply`) later; it fetches only the listed files. If the same video fails across several runs, open it in a browser: it may be private, removed or region-locked. Replace it in `wger_plan.json` (see *After a plan change*). |
+| `ERROR n of 47 video(s) not created`, a file marked `yt-dlp exited 0 but the file is not there` | yt-dlp wrote it under a different name or not at all. Check the run's output for that file and `ls -la /mnt/media/exercise/.incoming` on kdk-dkr-01. |
+| `WARN .incoming/ holds finished video(s), left alone` | A run stopped after the file was done but before yt-dlp moved it. Move it up: `ssh kdkadmin@10.1.20.20 'mv "/mnt/media/exercise/.incoming/<file>" /mnt/media/exercise/'`, then run step 3 again; it removes the empty folder. |
 
 ## Rollback
 

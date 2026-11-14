@@ -67,35 +67,61 @@ def test_image_is_pinned_by_digest():
 
 # ---------------------------------------------------------------- download (fake shell)
 class FakeShell:
-    """Plays find/test/mkdir/rm/docker against a dict-based directory."""
+    """Plays find/test/mkdir/rm/docker against a dict-based directory and its .incoming temp dir.
 
-    def __init__(self, files=None, exists=True, fail_download=()):
+    fail: {plan key: number of failing attempts} (-1 = always) -> yt-dlp exits 1 with YouTube's 403
+    and leaves a .part file in .incoming. silent: keys whose run exits 0 without a file."""
+
+    TMP = f"/mnt/media/exercise/{ev.INCOMING}"
+
+    def __init__(self, files=None, exists=True, fail=None, silent=(), incoming=None, link=False):
         self.files = set(files or [])
         self.exists = exists
         self.calls = []
-        self.fail = set(fail_download)
+        self.fail = dict(fail or {})
+        self.silent = set(silent)
+        self.incoming = None if incoming is None else set(incoming)     # None = no temp dir
+        self.link = link
 
     def __call__(self, argv, check=True):
         self.calls.append(argv)
-        rc, out = 0, ""
-        if argv[0] == "find":
+        rc, out, err = 0, "", ""
+        tmp = len(argv) > 1 and argv[-1] == self.TMP
+        if argv[0] == "find" and argv[1] == self.TMP:
+            rc = 0 if self.incoming is not None else 1
+            out = "".join(f + "\n" for f in sorted(self.incoming or ()))
+        elif argv[0] == "find":
             if not self.exists:
                 rc = 1
             out = "".join(f + "\n" for f in sorted(self.files))
+        elif argv[0] == "test" and tmp:
+            rc = {"-L": 0 if self.link else 1,
+                  "-e": 0 if self.link or self.incoming is not None else 1,
+                  "-d": 0 if self.incoming is not None else 1}[argv[1]]
         elif argv[0] == "test":
             rc = 0 if self.exists else 1
         elif argv[0] == "mkdir":
             self.exists = True
+        elif argv[0] == "rm" and argv[1] == "-rf":
+            assert argv[-1] == self.TMP, argv                          # never anything but the temp dir
+            self.incoming = None
         elif argv[0] == "rm":
             self.files.discard(Path(argv[-1]).name)
         elif "run" in argv:
             out_tpl, url = argv[-2], argv[-1]
             name = out_tpl.replace("%(id)s", url[-11:]).replace("%(ext)s", "mp4")
-            if name.split(" ")[0] not in self.fail:
+            key = name.split(" ")[0]
+            self.incoming = self.incoming if self.incoming is not None else set()
+            if self.fail.get(key, 0):
+                self.fail[key] -= 1
+                self.incoming.add(name.replace(".mp4", ".f137.mp4.part"))
+                rc, err = 1, "[youtube] x: Downloading\nERROR: unable to download video data: HTTP Error 403: Forbidden\n"
+            elif key not in self.silent:
+                self.incoming = {x for x in self.incoming if not x.startswith(key + " ")}
                 self.files.add(name)
         else:
             raise AssertionError(argv)
-        p = subprocess.CompletedProcess(argv, rc, out, "")
+        p = subprocess.CompletedProcess(argv, rc, out, err)
         if check and rc:
             raise ev.VideoError("failed")
         return p
@@ -103,9 +129,13 @@ class FakeShell:
     def writes(self):
         return [c for c in self.calls if c[0] in ("mkdir", "rm") or "run" in c]
 
+    def runs(self, key=None):
+        return [c for c in self.calls if "run" in c and (key is None or c[-2].startswith(key + " "))]
 
-def dl(*args, shell):
-    return ev.main(["download", *args], shell=shell)
+
+def dl(*args, shell, sleeps=None):
+    return ev.main(["download", *args], shell=shell,
+                   sleep=(sleeps.append if sleeps is not None else lambda s: None))
 
 
 def test_download_dry_run_writes_nothing(capsys):
@@ -139,14 +169,81 @@ def test_download_embeds_the_plan_name_as_title():
 
 
 def test_download_reports_a_file_that_did_not_appear(capsys):
-    sh = FakeShell(fail_download={"plank"})
+    sh = FakeShell(silent={"plank"})
     assert dl("--apply", shell=sh) == 1
-    assert "not created: plank [" in capsys.readouterr().out
+    out = capsys.readouterr().out
+    assert f"1 of {len(names())} video(s) not created" in out and "  plank [" in out
+    assert "exited 0 but the file is not there" in out
+
+
+def test_download_passes_yt_dlp_retry_options():
+    argv = ev.ytdlp_argv("plank", PLAN["exercises"]["plank"])
+    assert argv[argv.index("--extractor-retries") + 1] == "5"
+    sleeps = [argv[i + 1] for i, a in enumerate(argv) if a == "--retry-sleep"]
+    assert sleeps == ["http:exp=1:30", "fragment:exp=1:30", "extractor:5"]
+    assert argv[-1] == PLAN["exercises"]["plank"]["video"]          # url stays last
+
+
+def test_a_403_is_retried_and_the_retry_succeeds(capsys):
+    sleeps = []
+    sh = FakeShell(fail={"plank": 2})
+    assert dl("--apply", shell=sh, sleeps=sleeps) == 0
+    assert len(sh.runs("plank")) == 3 and sh.files == set(names())
+    out = capsys.readouterr().out
+    assert "retry plank [" in out and "(1/4 failed: ERROR: unable to download video data: HTTP Error 403" in out
+    assert "FAILED" not in out and "not created" not in out
+    assert [s for s in sleeps if s != ev.BETWEEN] == [ev.RETRY_PAUSE, 2 * ev.RETRY_PAUSE]
+    assert sleeps.count(ev.BETWEEN) == len(names()) - 1                 # a pause between videos
+    assert sh.incoming is None and "removed .incoming/" in out          # the .part leftover is gone
+
+
+def test_a_permanent_failure_does_not_stop_the_run(capsys):
+    order = names()
+    first = ev.wanted_files(PLAN)[order[0]]
+    sh = FakeShell(fail={first: -1})
+    assert dl("--apply", shell=sh) == 1
+    assert len(sh.runs(first)) == ev.ATTEMPTS
+    assert sh.files == set(order[1:])                                  # every later video still came
+    out = capsys.readouterr().out
+    assert f"FAILED {order[0]} after {ev.ATTEMPTS} attempts" in out
+    assert f"1 of {len(order)} video(s) not created" in out
+    assert f"  {order[0]} <- {PLAN['exercises'][first]['video']}" in out
+    # only the failed video's .part was there, no finished video: the temp dir is removed
+    assert sh.incoming is None
+    assert [c for c in sh.calls if c[0] == "rm"] == [["rm", "-rf", "--", FakeShell.TMP]]
+    sh.calls.clear()
+    sh.fail.clear()
+    assert dl("--apply", shell=sh) == 0 and len(sh.runs()) == 1        # the re-run fetches only that one
+
+
+def test_temp_dir_with_a_finished_video_is_kept(capsys):
+    done = names()[0]
+    sh = FakeShell(files=names(), incoming={done, "x.part"})
+    assert dl("--apply", shell=sh) == 0
+    assert sh.incoming == {done, "x.part"} and not [c for c in sh.calls if c[0] == "rm"]
+    assert "holds finished video(s), left alone" in capsys.readouterr().out
+
+
+def test_temp_dir_symlink_is_never_followed_or_removed(capsys):
+    sh = FakeShell(files=names(), link=True)
+    assert dl("--apply", shell=sh) == 0
+    assert not [c for c in sh.calls if c[0] == "rm" or (c[0] == "find" and c[1] == FakeShell.TMP)]
+    assert "not a plain directory" in capsys.readouterr().out
+
+
+def test_temp_dir_cleanup_only_with_apply_and_not_reported_as_other(capsys):
+    sh = FakeShell(files=[*names(), ev.INCOMING], incoming={"a [AAAAAAAAAAA].f137.mp4.part"})
+    assert dl(shell=sh) == 0
+    out = capsys.readouterr().out
+    assert sh.writes() == [] and sh.incoming
+    assert "0 other file(s)" in out and "OTHER" not in out and "--apply removes it" in out
+    assert dl("--apply", shell=sh) == 0
+    assert sh.incoming is None and [c for c in sh.calls if c[0] == "rm"] == [["rm", "-rf", "--", FakeShell.TMP]]
 
 
 def test_prune_only_deletes_plan_pattern_files_and_only_with_apply(capsys):
     old = "old-move [AAAAAAAAAAA].mp4"
-    foreign = ["notes.txt", "Some Movie (2020).mp4", ".incoming"]
+    foreign = ["notes.txt", "Some Movie (2020).mp4", ".hidden"]
     sh = FakeShell(files=[*names(), old, *foreign])
     assert dl("--prune", shell=sh) == 0                      # dry run
     assert sh.writes() == [] and old in sh.files
