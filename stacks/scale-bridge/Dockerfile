@@ -17,8 +17,11 @@ RUN echo /app > /app/.venv/lib/python3.12/site-packages/kdk-scale-bridge.pth \
     && python -I -c "import scale_bridge.ble, scale_bridge.app"
 ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1
 # Non-root; nothing in the image is writable by this uid (compose adds read_only).
-# BlueZ's D-Bus policy lets any uid send to org.bluez (default context).
-USER 65532:65532
+# BlueZ's D-Bus policy lets any uid send to org.bluez (default context), but the
+# host's dbus-daemon only accepts a connection from a uid that resolves on the
+# host: 65534 (nobody:nogroup on Debian). 65532 has no host entry -> the bus
+# resets the connection (ConnectionResetError, Errno 104).
+USER 65534:65534
 # The main loop touches this file at least every 30 s (and around every session).
 HEALTHCHECK --interval=60s --timeout=5s --start-period=60s --retries=3 \
     CMD ["python", "-I", "-c", "import os,sys,time; sys.exit(0 if time.time() - os.path.getmtime('/tmp/scale-bridge.alive') < 300 else 1)"]

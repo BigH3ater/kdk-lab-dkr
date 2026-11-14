@@ -24,7 +24,7 @@ weight and raw ohms only, and Hume's formulas are closed.
 ```mermaid
 flowchart LR
   S["Body Pod 2<br/>(advertises only while awake)"] -->|"BLE GATT FFF0"| BZ["bluetoothd + hci0<br/>kdk-dkr-02"]
-  BZ -->|"D-Bus system bus (ro bind)"| SB["scale-bridge<br/>(container, uid 65532)"]
+  BZ -->|"D-Bus system bus (ro bind)"| SB["scale-bridge<br/>(container, uid 65534 nobody)"]
   P["ESPHome BT proxy<br/>(optional relay, untested)"] -.->|"TCP 6053"| SB
   SB -->|"Token per person, HTTPS"| W["wger.kmkdp.com /api/v2"]
 ```
@@ -35,9 +35,9 @@ flowchart LR
 |---|---|
 | Purpose | Body Pod 2 weigh-ins → wger body weight + raw impedance, per person |
 | Host | kdk-dkr-02 (10.1.30.21), Komodo stack `scale-bridge` |
-| Image | `kdk/scale-bridge:0.1.0`, built on the host from `stacks/scale-bridge` (python 3.12-slim, bleak, bleak-retry-connector, bleak-esphome, httpx from `uv.lock`) |
+| Image | `kdk/scale-bridge:0.1.1`, built on the host from `stacks/scale-bridge` (python 3.12-slim, bleak, bleak-retry-connector, bleak-esphome, httpx from `uv.lock`) |
 | Mode | `SCALE_BRIDGE_DRY_RUN: "true"` in compose until the owner flips it |
-| Bluetooth | `/run/dbus:/run/dbus:ro` → host bluetoothd. No privileged, no capabilities, no `/dev`, bridge network |
+| Bluetooth | `/run/dbus:/run/dbus:ro` → host bluetoothd, as uid `65534:65534` (host `nobody:nogroup`). No privileged, no capabilities, no `/dev`, bridge network |
 | Host files | `/opt/kdk-lab/scale-bridge/scale-bridge.env` (people bands, optional address/proxies), `/opt/kdk-lab/scale-bridge/secrets.env` (wger keys, noise keys). Both root 600, host-managed |
 | Storage | None. Nothing is spooled: a reading that cannot reach wger after 6 tries (about 30 min) is logged as lost |
 | Blast radius | Down: weigh-ins are not recorded (weigh again later, or enter in the wger app). wger and HA are unaffected |
@@ -63,8 +63,11 @@ flowchart LR
 4. Disconnect, then ignore the scale for 60 s: on a second connection it replays the
    same weight.
 5. Attribution: exactly one band containing the weight = that person. No band or two
-   bands = warning, nothing written.
-6. Dry-run: one `would_write` log line. Live: written to wger in the background, retried
+   bands = warning, nothing written. Bands are inclusive and given in pounds
+   (`min_lb`/`max_lb`) or, still accepted, kilograms (`min_kg`/`max_kg`): one pair per
+   person. Pounds are converted to kg once at startup; the comparison is in kg.
+6. Dry-run: one `would_write` log line (`weight_kg` plus `weight_lb` to 0.1, to compare
+   with the scale display). Live: written to wger in the background, retried
    with backoff.
 
 ## What lands in wger (per person, their own token)
@@ -116,6 +119,8 @@ sudo docker logs --since 10m scale-bridge 2>&1 | grep -E '"event":"(config|token
 |---|---|---|
 | `config_invalid` and the container restarts | bad JSON in `SCALE_BRIDGE_PEOPLE` or a malformed `SCALE_ADDRESS` | fix `scale-bridge.env` (one line, single quotes), redeploy |
 | Exits at start with a D-Bus error | `/run/dbus` socket missing or bluetoothd down | `systemctl status bluetooth` on dkr-02 |
+| `fatal` `ConnectionResetError` `[Errno 104]` right after `config` | the container uid has no passwd entry on the host, so dbus-daemon drops the connection (seen with 65532 on the first deploy) | run as a uid that exists on the host: compose `user: "65534:65534"` (`getent passwd 65534` = `nobody`) |
+| `config_invalid` naming `min_lb`/`min_kg` | a person has both pairs, a mixed pair (`min_lb` + `max_kg`) or half a pair | one pair per person, both ends in the same unit |
 | No `session` lines when someone weighs in | out of range (basement), a phone with the Hume app holds the scale, or wrong `SCALE_ADDRESS` | Bluetooth off on the phones; relay mode |
 | `session` with `result: connect_failed` | weak signal or a phone connected first | as above |
 | `session` with `settled: false` | handle released before the lock | hold the handle until the display locks |
@@ -127,7 +132,7 @@ sudo docker logs --since 10m scale-bridge 2>&1 | grep -E '"event":"(config|token
 
 | Needs | Why |
 |---|---|
-| bluetoothd on kdk-dkr-02 (BlueZ 5.82) | the radio; policy `bluetooth.conf` lets any uid send to `org.bluez` |
+| bluetoothd on kdk-dkr-02 (BlueZ 5.82) | the radio; policy `bluetooth.conf` lets any uid send to `org.bluez`, but dbus-daemon only accepts a connection from a uid that resolves on the host (hence `nobody` 65534) |
 | [wger](wger.md) API (`/api/` has no Authelia) | where readings go |
 | 1Password `wger-api-jmack`, `wger-api-rach` | per-person keys, copied into `secrets.env` by the runbook |
 

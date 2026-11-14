@@ -11,8 +11,11 @@
 # Bluetooth: the host's bluetoothd owns hci0; bleak talks to it over the D-Bus
 # system bus, bind-mounted read-only (the same /run/dbus mount Home Assistant
 # uses). BlueZ's policy (/usr/share/dbus-1/system.d/bluetooth.conf) lets any uid
-# send to org.bluez, so the container runs non-root with no capabilities: no
-# privileged, no NET_ADMIN, no /dev, no host network. The scale takes one
+# send to org.bluez, but dbus-daemon only accepts a connection from a uid that
+# resolves on the HOST: a uid with no host passwd entry (65532) gets
+# ConnectionResetError [Errno 104] at startup (first deploy, 2026-11-14). So the
+# container runs as nobody:nogroup (65534, present on Debian), non-root with no
+# capabilities: no privileged, no NET_ADMIN, no /dev, no host network. The scale takes one
 # central at a time: phones with the Hume app open take it first.
 #
 # Secrets + health data: two host-managed env files (dkr-02 has no op CLI), both
@@ -48,9 +51,9 @@ services:
     build:
       context: .
       provenance: false
-    image: kdk/scale-bridge:0.1.0
+    image: kdk/scale-bridge:0.1.1
     container_name: scale-bridge
-    user: "65532:65532"
+    user: "65534:65534"        # host nobody:nogroup; dbus-daemon resets unknown uids
     init: true                 # python is PID 1 otherwise: SIGTERM, zombie reaping
     env_file:
       - /opt/kdk-lab/scale-bridge/scale-bridge.env

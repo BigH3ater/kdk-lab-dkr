@@ -12,7 +12,7 @@ from .attribution import attribute
 from .config import Settings
 from .logs import emit
 from .session import Reading
-from .wger import WgerClient, WgerError, external_id, plan
+from .wger import LB_PER_KG, WgerClient, WgerError, external_id, plan
 
 log = logging.getLogger("scale_bridge.app")
 
@@ -58,7 +58,8 @@ class Bridge:
         if self.s.dry_run:
             # The only line that carries the weight (rule: logs.py).
             emit(log, logging.INFO, "would_write", session=session_id, person=person.name,
-                 weight_kg=reading.weight_kg, measured_at=reading.measured_at.isoformat(timespec="seconds"),
+                 weight_kg=reading.weight_kg, weight_lb=round(reading.weight_kg * LB_PER_KG, 1),
+                 measured_at=reading.measured_at.isoformat(timespec="seconds"),
                  impedance_values=len(reading.impedances()), extended_frames=len(reading.df_raw),
                  categories=[r["category"] for r in plan(reading)], external_id=ext)
             return "dry_run"
