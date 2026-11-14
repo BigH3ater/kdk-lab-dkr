@@ -44,7 +44,8 @@ Nothing here is scheduled and no service is added. After a plan change, run the 
 | `tools/yt-dlp/Dockerfile` | not built; its `FROM` line pins the yt-dlp image (tag + digest), which Renovate updates |
 | `tools/exercise_videos.py jellyfin` | checks that jmack and rach can see the library (names any other account that can, without stopping), scans the Exercise library only, creates/updates the playlists (owned by the person, not public, no shares), writes `tools/wger_videos.json` |
 | `tools/wger_videos.json` | committed: plan key → Jellyfin item id (+ the YouTube id it was made for) and the playlists the tool manages. `gen_wger.py` builds the `Video:` line from it |
-| `stacks/jellyfin/compose.yaml` | mounts `/mnt/media/exercise` read-only at `/data/media/exercise` |
+| `stacks/jellyfin/compose.yaml` | mounts `/mnt/media/exercise` read-only at `/data/media/exercise`, and `/mnt/media/exercise-days` at `/data/media/exercise-days` |
+| `/mnt/media/exercise-days/<day>/` | since 2026-11-14: one folder of hardlinks per playlist, one Jellyfin library each, for the Apple TV. See [Day libraries](#day-libraries-for-the-apple-tv-option-b-2026-11-14) |
 
 **File names never change.** Jellyfin derives an item id from the file path, so the wger
 links stay valid only while the path stays the same. Names come from the plan key and the
@@ -340,6 +341,120 @@ the rest.
   3. Paste a playlist address of jmack's (`/web/#/details?id=<playlist id>` from
      `wger_videos.json`). The page shows an error or nothing, not the playlist.
 
+## Day libraries for the Apple TV (option B, 2026-11-14)
+
+**Why.** The Apple TV client, Neptune 1.4.3, cannot use the playlists or a folder (tested
+2026-11-14):
+
+- **Playlists do not play.** Neptune requests PlaybackInfo for the playlist item itself,
+  and the server answers "has no media sources".
+- **Folders are not shown.** Neptune flattens a library into one grid sorted by name. A
+  subfolder of hardlinks inside Exercise showed as a folder in the web client, but Neptune
+  showed its ten copies as duplicates in the flat grid.
+
+What Neptune does handle is a library shown as one flat grid sorted by name, and playing a
+single video from it. So the owner chose one library per person and day (option B). The
+Exercise library, the 8 playlists and the wger links stay exactly as they are.
+
+**What the tool builds.**
+
+- **Day folders** on the share (`download`, kdk-dkr-01): `/mnt/media/exercise-days/<name>/`,
+  one per playlist and grouped the same way, so Rachel's identical days share one. Each holds
+  **hardlinks** `<NN> <exercise name>.mp4` to the Exercise files. They are on the same NFS
+  filesystem (`findmnt`: one `/mnt/media` mount, verified 2026-11-14), so they take no extra
+  space. NN is the position in the day's workout order among the exercises that have a
+  video (the treadmill walk has none, so jmack's days have 9).
+- **Day libraries** (`jellyfin`): one Home videos library per folder, with the same name and
+  the folder `/data/media/exercise-days/<name>`. The tool sets the library options:
+  - every metadata downloader and image fetcher off;
+  - *Prefer embedded titles* **off**, so the item name is the file name
+    (`01 Dumbbell Goblet Squat`) and the name sort equals the workout order. The embedded
+    title is the plain exercise name and would lose the order;
+  - no trickplay, chapter images or real-time monitoring.
+
+| Library (= folder) | Videos |
+|---|---|
+| Jacob · 1 Mon Lower A, Jacob · 2 Wed Upper A, Jacob · 3 Fri Lower B, Jacob · 4 Sat Upper B | 9 each |
+| Rachel · 1 Mon Strength A, Rachel · 2 Tue-Fri Cardio, Rachel · 3 Wed-Sat-Sun Daily parts, Rachel · 4 Thu Strength B | 7, 5, 4, 7 |
+
+Names are made file-system safe: `/` becomes `-`, and `\ : * ? " < > | [ ]` are dropped
+(`Yoga exercise: Cow-cat` → `05 Yoga exercise Cow-cat.mp4`).
+
+**Access** stays as it is (owner decision): jmack, rach and the admin have *all libraries*,
+so they see all 8 day libraries; the SSO and LDAP plugin settings are not touched. Each run
+prints `NOTE library '<name>' is visible to: ...`. If a plan person cannot see their own day
+library, it prints `WARN <login> cannot see library ...`.
+
+**What the tool may touch.**
+
+- **On the share:** only inside `/mnt/media/exercise-days`, only folder names of the
+  generated shape (`<Person> · <n> ...`) and file names `<NN> <name>.mp4`. Symlinks are
+  never followed. Anything else there is listed as `OTHER` and never touched.
+- **In Jellyfin:** a library is deleted only with `--prune`, and only when all of these
+  hold: its name left the plan, `wger_videos.json` records it with origin `api` (the tool
+  created it), and the server's library of that exact name still has the recorded id.
+  Exercise, Movies, Shows and Collections are never deleted. A library made by hand
+  (origin `hand`) is never deleted.
+
+### Pre-merge check (the compose mount)
+
+Merging the PR deploys jellyfin with the new read-only bind mount (`deploy = true`, webhook).
+Docker cannot create a missing bind source on the read-only DMZ mount, so the folder must
+exist first. The owner created the empty `/mnt/media/exercise-days` on 2026-11-14 and
+checked that kdk-dkr-dmz-01 sees it. Check it again just before the merge:
+
+```bash
+ssh kdkadmin@10.1.20.20 'ls -ldn /mnt/media/exercise-days'        # drwxrwxr-x ... 1000 1000
+ssh kdkadmin@192.168.191.20 'ls -ld /mnt/media/exercise-days'     # must exist BEFORE the merge
+```
+
+### Steps after the merge
+
+**Laptop, repo root (SSH agent; `op` signed in; LAN or tailnet)**
+
+```bash
+T=stacks/home-assistant/tools
+# 1. the mount is in the container
+ssh kdkadmin@192.168.191.20 'sudo docker exec jellyfin ls -ld /data/media/exercise-days'
+# 2. day folders (dry run, then apply, then a no-op run)
+python3 $T/exercise_videos.py download --host kdkadmin@10.1.20.20            # "would link ...", "59 new (planned)"
+python3 $T/exercise_videos.py download --host kdkadmin@10.1.20.20 --apply    # 8 folders, 59 hardlinks
+python3 $T/exercise_videos.py download --host kdkadmin@10.1.20.20            # "links 59 ok, 0 new, 0 re-linked, 0 removed"
+ssh kdkadmin@10.1.20.20 'stat -c "%h %i %n" "/mnt/media/exercise/goblet-squat [D1IEI-lfLxU].mp4" "/mnt/media/exercise-days/Jacob · 1 Mon Lower A/01 Dumbbell Goblet Squat.mp4"'   # same inode, link count 2
+ssh kdkadmin@192.168.191.20 'sudo docker exec jellyfin ls "/data/media/exercise-days/Jacob · 1 Mon Lower A"'
+# 3. libraries: dry run, apply, second run
+export JELLYFIN_API_KEY="$(op read op://kdk-cluster/jellyfin-api-exercise-videos/credential)"
+python3 $T/exercise_videos.py jellyfin            # 8 "would: create library ...", 8 "would: scan library ..."
+python3 $T/exercise_videos.py jellyfin --apply    # creates, scans, "ok library '<name>': n item(s) in workout order" x8
+python3 $T/exercise_videos.py jellyfin --apply    # only scans; "wger_videos.json unchanged"
+unset JELLYFIN_API_KEY
+git diff $T/wger_videos.json                      # new "libraries": 8 entries, origin api (or hand)
+```
+
+Commit `wger_videos.json` in a small PR. Then check on the Apple TV, as jmack and as rach:
+each day library shows its videos in workout order (`01 …` first), and a video plays.
+
+**If the server refuses the create** (`could not create library ...: HTTP 401/403`), the run
+prints `HAND STEPS` and exits 1. For each library, in **Dashboard → Libraries → Add Media
+Library**:
+
+| Field | Value |
+|---|---|
+| Content type | Home videos and photos |
+| Display name | exactly the printed name |
+| Folders | `/data/media/exercise-days/<name>` (one folder) |
+| Metadata downloaders / image fetchers | all unticked |
+| Prefer embedded titles over filenames | ☐ **off** |
+| Real-time monitoring, trickplay, chapter images | ☐ |
+
+Then run `jellyfin --apply` again. It finds each library by exact name, type and folder,
+records it with origin `hand`, re-applies drifted options and verifies the order.
+
+**After a re-fetch or a plan change.** `download --refetch` moves a new file over the old
+name, which breaks the old hardlink. The same run then re-links it (the inode differs), and
+so do `download --apply` and `--apply --prune`. The day libraries keep their item ids (same
+path). Run `jellyfin --apply` afterwards so the libraries are scanned.
+
 ## Hide the library from other accounts (optional, later)
 
 Not done now (owner decision 2026-11-14): every account can see Exercise and the SSO and
@@ -380,12 +495,19 @@ routine changed:
 
 1. Edit `wger_plan.json`, test, PR, merge ([exercise plan update](workout-tracking-update.md)).
 2. Run `download` (step 3). It fetches the new files and lists the old ones as `EXTRA`.
-3. Run `jellyfin --apply` (step 5), then commit `wger_videos.json`.
+   The same run brings the day folders up to date: new and re-linked links, and removed
+   links for exercises a day no longer has. A whole folder whose day left the plan is
+   listed as `EXTRA day folder`.
+3. Run `jellyfin --apply` (step 5), then commit `wger_videos.json`. This creates and
+   verifies any new day library.
 4. Run `gen_wger.py --apply` and then `--check`.
-5. Once everything works, delete the leftovers: `download --apply --prune` removes files
-   that match the `<key> [<id>].mp4` pattern and are no longer in the plan (any other file
-   in the folder is reported and never touched). `jellyfin --apply --prune` deletes
-   playlists the tool made whose day left the plan.
+5. Once everything works, delete the leftovers, `jellyfin` first:
+   - `jellyfin --apply --prune` deletes the playlists the tool made whose day left the
+     plan, and the day libraries it created (origin `api`) whose name left the plan.
+   - `download --apply --prune` removes files that match the `<key> [<id>].mp4` pattern
+     and are no longer in the plan (any other file in the folder is reported and never
+     touched). It also empties and removes day folders that left the plan; a folder that
+     still holds a foreign file keeps it, and the run exits 1.
 
 `gen_wger.py` refuses `--apply` (exit 2, nothing written) and fails `--check` while any
 plan exercise lacks an item id for its current YouTube video. A dry run warns and leaves
@@ -404,9 +526,27 @@ those descriptions alone. It never writes a YouTube or empty `Video:` line.
 | `jellyfin`: `ERROR could not delete playlist '<old name>' (<id>) ...`, exit 1 | The new playlist was made and recorded; only the old one is left. Run `jellyfin --apply` again (it retries the delete by exact name), or delete it by hand as its owner in Jellyfin. |
 | `jellyfin`: `WARN playlist '<old name>' (<id>) is visible to <user>, so it may not be <login>'s own; not deleted`, exit 1 | A playlist with an old generated name that another account can see (shared, public, or someone else's shared with this person). Check it in Jellyfin; delete it by hand if it is the old tool playlist. |
 | `jellyfin`: `ACCESS jmack cannot see the library`, exit 2, nothing written | That plan person has neither *all libraries* nor Exercise ticked. Fix it as in step 4, then run again. A `NOTE other accounts can see the library` line is expected and does not stop the run. |
+| `jellyfin`: `library '<day>': n item(s) in name order, not the day's m file(s) in workout order` | Count differs: the folder on the share is incomplete (run `download --apply`) or the scan is not done (run again). `(the right files, wrong order ...)`: Jellyfin named the items by their embedded title. Check the library's *Prefer embedded titles* (off), then **Scan → Replace all metadata** on that library and run again. |
+| `jellyfin`: `could not create library ...` + `HAND STEPS` | The API key may not create libraries. Make them by hand as printed ([Day libraries](#day-libraries-for-the-apple-tv-option-b-2026-11-14)), then run again. |
+| `download`: `SKIP <day>/<NN> ...: source ... is not on the share`, exit 1 | That video failed to download; the link follows on the run that fetches it. |
+| `download`: `WARN day folder '<day>' is not a plain directory` / `OTHER ...` | Something else sits at that path (a symlink, a file, a folder that is not a day name). The tool never touches it; move it out of `/mnt/media/exercise-days` by hand. |
 | `WARN .incoming/ holds finished video(s), left alone` | A run stopped after the file was done but before yt-dlp moved it. Move it up: `ssh kdkadmin@10.1.20.20 'mv "/mnt/media/exercise/.incoming/<file>" /mnt/media/exercise/'`, then run step 3 again; it removes the empty folder. |
 
 ## Rollback
+
+**Day libraries only** (keeps Exercise, the playlists and the wger links):
+
+1. In the dashboard, delete the 8 day libraries (Dashboard → Libraries → ⋯ → Remove). This
+   removes the library, never the files.
+2. Revert the day-libraries PR. Merging the revert redeploys jellyfin without the
+   `exercise-days` mount (DeployStack if the webhook did not fire). Then drop the
+   `libraries` block from `wger_videos.json` (or run `jellyfin --apply` from the reverted
+   tool, which ignores it).
+3. After that deploy: `ssh kdkadmin@10.1.20.20 'rm -r /mnt/media/exercise-days/*'`. These are
+   hardlinks only, so the Exercise files stay. Keep the empty folder, or remove it after the
+   deploy.
+
+**Everything:**
 
 1. Revert the merged PR (the compose mount, the tools, and `gen_wger.py` back to YouTube
    links). Merging the revert redeploys jellyfin (DeployStack if the webhook did not fire);
