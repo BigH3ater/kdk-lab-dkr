@@ -325,6 +325,18 @@
       "groupName": "docker compose (CI)",
       "groupSlug": "docker-compose-ci",
       "minimumReleaseAge": "7 days"
+    },
+    {
+      "description": "Tdarr server + node (stacks/media): one PR for every update type. The node must run the same version as the server, so a server-only bump (#512, 2026-11-14, with the node PR held back by the hourly limit) would leave the node behind and stall transcoding. Overrides the internal patch group; majors still wait for the dashboard tick. Merge when no transcode is running: the tdarr-node recreate kills the current job.",
+      "matchDatasources": [
+        "docker"
+      ],
+      "matchPackageNames": [
+        "ghcr.io/haveagitgat/tdarr",
+        "ghcr.io/haveagitgat/tdarr_node"
+      ],
+      "groupName": "tdarr",
+      "groupSlug": "tdarr"
     }
   ]
 }
