@@ -77,8 +77,9 @@ SCALE_BRIDGE_ESPHOME_PROXIES=
   (`min_kg`/`max_kg` instead): one pair per person, both ends in the same unit; both
   pairs, or a mixed pair, is `config_invalid`. A file written with kg bands before
   0.1.1 keeps working unchanged.
-- `SCALE_ADDRESS`: optional, the scale's address from the vault capture note. Empty =
-  any device named `Body Pod 2`.
+- `SCALE_ADDRESS`: the scale's address from the vault capture note. Empty = any device
+  named `Body Pod 2` (fine for the dry-run; startup logs `config_address_filter_off`).
+  **Required before step 6.**
 - `SCALE_BRIDGE_ESPHOME_PROXIES`: empty until a proxy exists (`<ip>=ESPHOME_NOISE_SCALE_PROXY`).
 
 Save, then hand the file back to root:
@@ -92,7 +93,7 @@ ssh kdkadmin@10.1.30.21 'sudo chown root:root /opt/kdk-lab/scale-bridge/scale-br
 
 Merge the PR. The `gitops-sync` procedure (every 15 min) creates the stack and deploys
 it; to go now: **komodo.kmkdp.com → Procedures → gitops-sync → Run**, or **Stacks →
-scale-bridge → Deploy**. The deploy builds `kdk/scale-bridge:0.1.1` on the Pi (a few
+scale-bridge → Deploy**. The deploy builds `kdk/scale-bridge:0.1.2` on the Pi (a few
 minutes the first time).
 
 **Laptop (SSH agent)**
@@ -136,8 +137,23 @@ weight is logged.
 
 ## 6. Switch dry-run off
 
-A one-line PR: `stacks/scale-bridge/compose.yaml`, `SCALE_BRIDGE_DRY_RUN: "false"`. Merge,
-deploy (step 4), weigh in once.
+Before the PR, on the host (step 3, VS Code), both required:
+
+1. **Pin the scale:** `SCALE_ADDRESS=<address from the vault capture note>`. Otherwise any
+   nearby device named `Body Pod 2` is accepted and its weight is written to someone's
+   wger.
+2. **Real bands:** replace any placeholder band with each person's real one (a few lb
+   either side, not overlapping).
+
+Redeploy (Komodo → Stacks → scale-bridge → Deploy) and check the startup lines:
+
+```bash
+ssh kdkadmin@10.1.30.21 'sudo docker logs --since 5m scale-bridge 2>&1 | grep -E "\"event\":\"(config|config_address_filter_off|config_bands_overlap)\""'
+#   config ... "address_filter":true      and NO config_address_filter_off / config_bands_overlap line
+```
+
+Then a one-line PR: `stacks/scale-bridge/compose.yaml`, `SCALE_BRIDGE_DRY_RUN: "false"`.
+Merge, deploy (step 4), weigh in once.
 
 ```bash
 ssh kdkadmin@10.1.30.21 'sudo docker logs --since 5m scale-bridge 2>&1 | grep -E "\"event\":\"(wrote|write_failed)\""'
@@ -147,13 +163,16 @@ ssh kdkadmin@10.1.30.21 'sudo docker logs --since 5m scale-bridge 2>&1 | grep -E
 
 **wger web (`https://wger.kmkdp.com`, as that person) → Measurements:** Body weight has the
 new entry; ten `Impedance … kHz …` categories exist, unit `ohm`. A `write_failed` line
-retries by itself (30 s, doubling, 6 tries); `write_gave_up` = enter that weight in the app.
+retries by itself (6 tries, waits 30 s doubling = 15.5 min); `write_crashed` (an unexpected
+error) retries the same way; `write_gave_up` = enter that weight in the app. A replay of the
+same weigh-in (the scale re-sends it on a reconnect, also after a container restart) logs
+`wrote` with `created: 0` and `exists` counting the rows already there.
 
 ## Troubleshooting
 
 - `fatal` `ConnectionResetError` `[Errno 104]` right after the `config` line: the
   container uid has no passwd entry on kdk-dkr-02, and dbus-daemon resets the system-bus
-  connection (0.1.0 ran as 65532 and hit this on the first deploy). 0.1.1 runs as
+  connection (0.1.0 ran as 65532 and hit this on the first deploy). 0.1.1 and later run as
   `65534:65534` (`nobody:nogroup`); check with `getent passwd 65534` on the host.
 - Ad-hoc `docker run --env-file /opt/kdk-lab/scale-bridge/scale-bridge.env ...` test
   containers: `docker run` keeps the single quotes around the `SCALE_BRIDGE_PEOPLE` JSON
@@ -168,6 +187,6 @@ retries by itself (30 s, doubling, 6 tries); `write_gave_up` = enter that weight
 - **Back to dry-run only:** revert the step 6 PR, deploy.
 - **Left behind:** `/opt/kdk-lab/scale-bridge/` (remove with
   `ssh kdkadmin@10.1.30.21 'sudo rm -r /opt/kdk-lab/scale-bridge'`), the image
-  (`sudo docker image rm kdk/scale-bridge:0.1.1`, plus `:0.1.0` if it is still there), and in wger the written entries and the
+  (`sudo docker image rm kdk/scale-bridge:0.1.2`, plus `:0.1.1` / `:0.1.0` if still there), and in wger the written entries and the
   ten impedance categories (delete per person in the web UI; deleting a category deletes
   its entries). The wger keys stay: other tools use them.

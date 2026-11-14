@@ -27,6 +27,7 @@ Env (compose `environment` unless noted; defaults in `scale_bridge/config.py`):
 `SCALE_BRIDGE_DRY_RUN` (true), `WGER_URL`, `SCALE_NAME`, `SCALE_PROFILE_*` (placeholders,
 not anyone's data), `SCALE_SESSION_TIMEOUT_S` (90), `SCALE_IMPEDANCE_WAIT_S` (5),
 `SCALE_DF_GRACE_S` (1), `SCALE_CONNECT_ATTEMPTS` (3), `SCALE_CONNECT_TIMEOUT_S` (30),
-`SCALE_COOLDOWN_S` (60), `SCALE_BRIDGE_WRITE_RETRIES` (6), `SCALE_BRIDGE_LOG_LEVEL` (INFO);
+`SCALE_COOLDOWN_S` (60), `SCALE_BRIDGE_WRITE_RETRIES` (6: waits 30 s doubling, 15.5 min),
+`SCALE_BRIDGE_REPLAY_WINDOW_S` (600: same weight within this = the same weigh-in), `SCALE_BRIDGE_LOG_LEVEL` (INFO);
 host env files: `SCALE_BRIDGE_PEOPLE`, `SCALE_ADDRESS`, `SCALE_BRIDGE_ESPHOME_PROXIES`, the
 `WGER_API_KEY_*` named by each person's `token_env`, proxy noise keys.

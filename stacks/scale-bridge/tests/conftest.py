@@ -74,10 +74,20 @@ class FakeClient:
 
 
 class FakeWger:
-    """Just enough of wger 2.7's measurement API, with its unique external_id rule."""
+    """Just enough of wger 2.7's measurement API, with its unique external_id rule.
+
+    Failure knobs: `fail_next` (502s), `html_next` (200 with an HTML page, as a
+    proxy or maintenance page would), `timeout_after` ({"METHOD path": n}: the
+    next n such requests are processed server-side, then the client sees a
+    ReadTimeout), `name_contains` (the category name filter matches substrings).
+    List endpoints page with limit/offset like DRF's LimitOffsetPagination.
+    """
+
+    HTML = "<html><body>maintenance page MARKER-NOT-FOR-LOGS</body></html>"
 
     def __init__(self, tokens: dict[str, str], official: dict[str, bool] | None = None,
-                 weight_unit: dict[str, str] | None = None, fail_next: int = 0) -> None:
+                 weight_unit: dict[str, str] | None = None, fail_next: int = 0, html_next: int = 0,
+                 timeout_after: dict[str, int] | None = None, name_contains: bool = False) -> None:
         self.users = {v: k for k, v in tokens.items()}          # token -> user
         self.categories: list[dict[str, Any]] = []
         self.measurements: list[dict[str, Any]] = []
@@ -85,6 +95,9 @@ class FakeWger:
         self.weight_unit = weight_unit or {}
         self.requests: list[httpx.Request] = []
         self.fail_next = fail_next
+        self.html_next = html_next
+        self.timeout_after = dict(timeout_after or {})
+        self.name_contains = name_contains
         for user, has in (official or {u: True for u in tokens}).items():
             if has:
                 self._add_cat(user, "Body weight", self.weight_unit.get(user, "kg"), "body_weight", True)
@@ -96,10 +109,22 @@ class FakeWger:
         return c
 
     @staticmethod
-    def _page(rows: list[dict[str, Any]]) -> httpx.Response:
-        return httpx.Response(200, json={"count": len(rows), "next": None, "previous": None, "results": rows})
+    def _page(rows: list[dict[str, Any]], q: dict[str, str] | None = None) -> httpx.Response:
+        q = q or {}
+        limit, offset = int(q.get("limit", 20)), int(q.get("offset", 0))
+        page = rows[offset:offset + limit]
+        nxt = f"https://wger.test/more?offset={offset + limit}" if offset + limit < len(rows) else None
+        return httpx.Response(200, json={"count": len(rows), "next": nxt, "previous": None, "results": page})
 
     def handler(self, req: httpx.Request) -> httpx.Response:
+        resp = self._handle(req)
+        key = f"{req.method} {req.url.path.removeprefix('/api/v2/').rstrip('/')}"
+        if self.timeout_after.get(key):
+            self.timeout_after[key] -= 1
+            raise httpx.ReadTimeout("timed out", request=req)     # wger did the work, the client never knew
+        return resp
+
+    def _handle(self, req: httpx.Request) -> httpx.Response:
         self.requests.append(req)
         m = re.match(r"Token (\w+)$", req.headers.get("authorization", ""))
         user = self.users.get(m.group(1)) if m else None
@@ -108,6 +133,9 @@ class FakeWger:
         if self.fail_next:
             self.fail_next -= 1
             return httpx.Response(502, text="bad gateway")
+        if self.html_next:
+            self.html_next -= 1
+            return httpx.Response(200, text=self.HTML, headers={"content-type": "text/html"})
         path = req.url.path.removeprefix("/api/v2/").rstrip("/")
         q = {k: v[0] for k, v in parse_qs(req.url.query.decode()).items()}
         body = json.loads(req.content) if req.content else {}
@@ -116,12 +144,14 @@ class FakeWger:
             return httpx.Response(200, json={"username": user, "weight_unit": self.weight_unit.get(user, "kg")})
         if path == "measurement-category" and req.method == "GET":
             rows = mine
-            for k in ("name", "metric_type"):
-                if k in q:
-                    rows = [c for c in rows if c[k] == q[k]]
+            if "name" in q:
+                rows = [c for c in rows if (q["name"].lower() in c["name"].lower() if self.name_contains
+                                            else c["name"] == q["name"])]
+            if "metric_type" in q:
+                rows = [c for c in rows if c["metric_type"] == q["metric_type"]]
             if "is_official" in q:
                 rows = [c for c in rows if c["is_official"] == (q["is_official"] == "true")]
-            return self._page(rows)
+            return self._page(rows, q)
         if path == "measurement-category" and req.method == "POST":
             return httpx.Response(201, json=self._add_cat(user, body["name"], body.get("unit", ""),
                                                           body.get("metric_type", "custom"), False))
@@ -129,7 +159,7 @@ class FakeWger:
             ids = {c["id"] for c in mine}
             rows = [x for x in self.measurements if x["category"] in ids and x["category"] == q.get("category")]
             lo, hi = datetime.fromisoformat(q["date__gte"]), datetime.fromisoformat(q["date__lte"])
-            return self._page([x for x in rows if lo <= datetime.fromisoformat(x["date"]) <= hi])
+            return self._page([x for x in rows if lo <= datetime.fromisoformat(x["date"]) <= hi], q)
         if path == "measurement" and req.method == "POST":
             if body["category"] not in {c["id"] for c in mine}:
                 return httpx.Response(400, json={"category": ["Invalid pk"]})
