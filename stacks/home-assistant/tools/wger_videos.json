@@ -1,0 +1,6 @@
+{
+  "_comment": "Written by exercise_videos.py jellyfin --apply; do not edit by hand. Plan key -> Jellyfin item id (gen_wger.py builds the Video: line from it) and the playlists the tool manages.",
+  "base_url": "https://jellyfin.kmkdp.com",
+  "items": {},
+  "playlists": []
+}

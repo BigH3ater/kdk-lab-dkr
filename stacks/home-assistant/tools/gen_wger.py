@@ -22,7 +22,12 @@ What a normal run writes:
      Its English description_source is replaced by the How / Safety / "Video: <address>"
      text from describe(), ending in a hidden "<!-- kdk-plan v:<hash> -->" comment (wger
      renders Markdown to HTML and drops the comment). Patched only when it differs, so a
-     second run writes nothing. Plan `equipment` names are added to the exercise (never
+     second run writes nothing. The address is the video's Jellyfin page
+     (https://jellyfin.kmkdp.com/web/#/details?id=<item id>), read from wger_videos.json, which
+     exercise_videos.py jellyfin writes; the plan's YouTube address is only the download source.
+     While an exercise has no item id there (or the id is for another YouTube video than the
+     plan's), --apply stops before any write, --check reports it as a difference, and a dry
+     run warns and leaves that description alone: a run never writes a YouTube or empty line. Plan `equipment` names are added to the exercise (never
      removed); a name the server lacks is a warning. Exercise writes use the first
      person's key (jmack, a wger superuser) and only when that person is selected.
   2. Units: looked up by name (Repetitions, Seconds, Minutes, "10-ft lengths"; lb). REST
@@ -63,6 +68,7 @@ import requests
 
 TOOLS = Path(__file__).resolve().parent
 PLAN = TOOLS / "wger_plan.json"
+VIDEOS = TOOLS / "wger_videos.json"      # plan key -> Jellyfin item id, written by exercise_videos.py
 
 ROUTINE_NAME_MAX = 25           # wger Routine.name max_length
 TAG_RE = re.compile(r"\[kdk:([a-z_]+)\]")
@@ -80,6 +86,8 @@ TIMEOUT = 30
 OEMBED = "https://www.youtube.com/oembed"
 VIDEO_RE = re.compile(r"^https://www\.youtube\.com/watch\?v=[A-Za-z0-9_-]{11}$")
 MARKER_RE = re.compile(r"<!-- kdk-plan v:([0-9a-f]{12}) -->")
+JF_ID_RE = re.compile(r"^[0-9a-f]{32}$")
+JF_DETAILS = "{base}/web/#/details?id={id}"
 
 UNIT_NAMES = {"reps": "Repetitions", "seconds": "Seconds", "minutes": "Minutes", "lengths": "10-ft lengths"}
 UNIT_SHORT = {"reps": "", "seconds": " s", "minutes": " min", "lengths": " lengths"}
@@ -197,22 +205,50 @@ def expand_slots(slots: list[dict], parts: dict, where: str, errs: list) -> list
     return out
 
 
-def video_url(key: str, ex: dict) -> str:
-    """The address on the description's Video: line. PR 2 switches this to the Jellyfin page."""
-    return ex.get("video") or ""
+def load_videos(path: Path | None = None) -> dict:
+    """wger_videos.json -> {"base": https base, "ids": {plan key: {"id", "youtube", ...}}}."""
+    path = path or VIDEOS
+    if not path.exists():
+        return {"base": "", "ids": {}}
+    doc = json.loads(path.read_text(encoding="utf-8"))
+    base = (doc.get("base_url") or "").rstrip("/")
+    if not base.startswith("https://"):
+        raise WgerError(f"{path.name}: base_url must be an https:// address")
+    ids = {}
+    for key, it in (doc.get("items") or {}).items():
+        if not JF_ID_RE.match(str(it.get("id", ""))) or not re.fullmatch(r"[A-Za-z0-9_-]{11}", str(it.get("youtube", ""))):
+            raise WgerError(f"{path.name}: items.{key} needs a 32-hex id and an 11-character youtube id")
+        ids[key] = it
+    return {"base": base, "ids": ids}
 
 
-def describe(key: str, ex: dict) -> str:
+def video_url(key: str, ex: dict, videos: dict | None = None) -> str:
+    """The address on the description's Video: line: the video's Jellyfin details page, from
+    wger_videos.json. "" when the mapping has no item id for this key, or the id belongs to
+    another YouTube video than the plan's (the plan changed: re-run exercise_videos.py)."""
+    it = (videos or {}).get("ids", {}).get(key)
+    m = VIDEO_RE.match(ex.get("video") or "")
+    if not it or not m or it["youtube"] != ex["video"][-11:]:
+        return ""
+    return JF_DETAILS.format(base=videos["base"], id=it["id"])
+
+
+def missing_videos(plan: dict, videos: dict) -> list[str]:
+    """Plan keys whose Video: line cannot be built yet."""
+    return [k for k, ex in plan["exercises"].items() if not video_url(k, ex, videos)]
+
+
+def describe(key: str, ex: dict, videos: dict | None = None) -> str:
     """The description_source (Markdown; wger keeps p/strong/em/ul/ol/li, so every block is its
     own paragraph or list), then the hidden marker:
 
         **How**  - <line> ...
         **Safety:** <line>
-        Video: <address>              (left out while the plan has none)
+        Video: <Jellyfin details page>  (left out without an item id; runs never write that)
         <!-- kdk-plan v:<hash> -->
     """
     blocks = ["**How**\n\n" + "\n".join(f"- {x}" for x in ex["how"]), f"**Safety:** {ex['safety']}"]
-    url = video_url(key, ex)
+    url = video_url(key, ex, videos)
     if url:
         blocks.append(f"Video: {url}")
     text = "\n\n".join(blocks)
@@ -350,9 +386,13 @@ def resolve_exercise(api: Api, key: str, ex: dict, en: int) -> dict:
             "exercise": api.get(f"exercise/{info['id']}/")}
 
 
-def sync_exercises(reader: Api, writer: Api | None, plan: dict, ref: dict, warn) -> dict[str, int]:
+def sync_exercises(reader: Api, writer: Api | None, plan: dict, ref: dict, warn,
+                   videos: dict | None = None) -> dict[str, int]:
     """Returns plan key -> wger exercise id. writer None = the exercise owner is not selected:
-    differences are only reported (and --apply stops on them)."""
+    differences are only reported (and --apply stops on them). An exercise without a Jellyfin
+    item id keeps its current description (main() stops --apply and fails --check first)."""
+    videos = videos or {"base": "", "ids": {}}
+    no_video = set(missing_videos(plan, videos))
     ids = {}
     missing_eq: dict[str, list[str]] = {}
     found = {key: resolve_exercise(reader, key, ex, ref["en"]) for key, ex in plan["exercises"].items()}
@@ -360,9 +400,9 @@ def sync_exercises(reader: Api, writer: Api | None, plan: dict, ref: dict, warn)
         cur = found[key]
         ids[key] = cur["id"]
         api = writer or reader
-        want_src = describe(key, ex)
+        want_src = describe(key, ex, videos)
         tr = cur["translation"]
-        if (tr.get("description_source") or "") != want_src:
+        if key not in no_video and (tr.get("description_source") or "") != want_src:
             need_owner(writer, reader, f"description of {key}")
             api.write("PATCH", f"exercise-translation/{tr['id']}/", f"{key} description (How / Safety / Video)",
                       {"description_source": want_src})
@@ -699,7 +739,8 @@ def env_key(login: str) -> str:
     return "WGER_API_KEY_" + re.sub(r"[^A-Z0-9]", "_", login.upper())
 
 
-def main(argv: list[str] | None = None, today: dt.date | None = None, plan_path: Path = PLAN) -> int:
+def main(argv: list[str] | None = None, today: dt.date | None = None, plan_path: Path = PLAN,
+         videos_path: Path | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     mode = ap.add_mutually_exclusive_group()
     mode.add_argument("--check", action="store_true", help="exit 1 if wger differs from the plan")
@@ -722,6 +763,8 @@ def main(argv: list[str] | None = None, today: dt.date | None = None, plan_path:
         plan = load_plan(plan_path)
         if args.check_videos:
             return check_videos(plan, print)
+        videos = load_videos(videos_path)
+        no_video = missing_videos(plan, videos)
         base = os.environ.get("WGER_URL")
         if not base:
             raise WgerError("WGER_URL is not set (e.g. https://wger.kmkdp.com)")
@@ -758,9 +801,20 @@ def main(argv: list[str] | None = None, today: dt.date | None = None, plan_path:
             print(f"{len(actions)} delete(s) {'made' if apply else 'planned (dry run)'}")
             return rc
 
+        if no_video and owner_sel:
+            msg = (f"{len(no_video)} plan exercise(s) have no Jellyfin item id in {VIDEOS.name} "
+                   f"({', '.join(no_video[:5])}{' ...' if len(no_video) > 5 else ''}); run "
+                   "exercise_videos.py download + jellyfin --apply and commit the file first "
+                   "(docs/runbooks/exercise-videos.md)")
+            if apply:
+                raise WgerError(msg + ". Nothing written")
+            if args.check:
+                actions.extend(f"{k}: no Jellyfin item id for the Video: line" for k in no_video)
+            else:
+                warn(msg + ". Their descriptions stay as they are")
         reader = writer or Api(base, keys.get(sel[0]), sel[0], apply, actions)
         ref = reference(reader)
-        ex_ids = sync_exercises(reader, writer, plan, ref, warn)
+        ex_ids = sync_exercises(reader, writer, plan, ref, warn, videos)
 
         weeks = {x: plan_routines(plan, x) for x in sel}
         needed = {e["unit"] for w in weeks.values() for b in w for d in b["days"] for s in d["slots"]

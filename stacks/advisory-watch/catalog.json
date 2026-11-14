@@ -140,6 +140,14 @@
       "note": "Postgres 14 + VectorChord, digest-pinned",
       "tag_is_version": false
     },
+    "ghcr.io/jauderho/yt-dlp": {
+      "github": "yt-dlp/yt-dlp",
+      "osv": {
+        "ecosystem": "PyPI",
+        "package": "yt-dlp"
+      },
+      "note": "stacks/home-assistant/tools/yt-dlp/Dockerfile (not built; exercise_videos.py runs it one-shot by hand); tag = the yt-dlp release"
+    },
     "ghcr.io/koenkk/zigbee2mqtt": {
       "github": "Koenkk/zigbee2mqtt",
       "osv": {

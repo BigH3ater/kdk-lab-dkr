@@ -29,8 +29,12 @@ exercise names, sets, reps, start weights, rest and movement cues (owner, 2026-1
 ([runbook step 9](../runbooks/wger.md#9-load-the-plan-built-in-exercises--weekday-routines),
 [plan update](../runbooks/workout-tracking-update.md)). It uses **wger's built-in exercises
 only**, each named by uuid. The generator replaces each used built-in's English description
-with How / Safety cues and a `Video:` line (plain address: wger has no link field; today a
-YouTube video from a physical therapist or certified coach channel) and adds the
+with How / Safety cues and a `Video:` line (plain address: wger has no link field). The
+address is the video's page in the private Jellyfin **Exercise** library
+(`https://jellyfin.kmkdp.com/web/#/details?id=<item id>`, from the committed
+`tools/wger_videos.json`); the plan keeps the YouTube address (a physical therapist or
+certified coach channel) as the download source ([exercise-videos runbook](../runbooks/exercise-videos.md)).
+`gen_wger.py --apply` stops while an exercise has no item id. The generator also adds the
 Treadmill / Resistance band equipment rows. The old 71 custom `kdk-lab` exercises, their
 generated images, the custom muscles and the old routines and templates are removed once
 with `gen_wger.py --purge-kdk` (step 9b).
@@ -209,6 +213,7 @@ log, video sync/upload and the ingredient dump (nutrition is a later phase).
 | `SYNC_INGREDIENTS_CELERY=False`, `DOWNLOAD_INGREDIENTS_FROM=None` | no ingredient dump until the nutrition phase |
 | `SYNC_EXERCISES_CELERY=False` | no weekly wger.de exercise sync: its `sync_equipment` would re-create the equipment rows removed in runbook step 12 (and can rename local ones by id) |
 | `stacks/home-assistant/tools/wger_plan.json` | the plan: built-ins by uuid with How / Safety / video, both people's routines (`gen_wger.py`) |
+| `stacks/home-assistant/tools/wger_videos.json` | plan key → Jellyfin item id for the `Video:` line; written by `exercise_videos.py jellyfin --apply`, committed ([exercise-videos](../runbooks/exercise-videos.md)) |
 
 ## Secret Rotation
 

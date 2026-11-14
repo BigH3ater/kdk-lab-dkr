@@ -109,12 +109,12 @@ Fill the form (a new name creates a provider, the same name updates it):
 | OpenID client secret | paste from the clipboard | |
 | Enabled | ✅ | |
 | Enable Authorization by Plugin | ✅ | needed for the admin-role mapping. The plugin then sets admin/folders/Live TV on every SSO login |
-| Enable All Folders | ✅ | household policy: every SSO user sees all libraries (TV + Movies). Untick and pick *Enabled Folders* if a user must be restricted |
+| Enable All Folders | ✅ until the Exercise library exists, then ☐ | household policy: every SSO user sees TV + Movies. With the private Exercise library: ☐, tick every library except Exercise under *Enabled Folders*, and map the LLDAP group `exercise-users` → Exercise under *Role-Based Folder Access* ([exercise-videos step 5](exercise-videos.md#5-make-the-library-visible-to-jmack-and-rach-only)) |
 | Content Download Permission | *Leave unchanged* | keeps each user's current flag (Wizarr invites start with downloads off) |
 | Roles | `jellyfin-users` and `lldap_admin` (one per line) | second check after Authelia's `jellyfin_access`. Exact, case-sensitive |
 | Admin Roles | `lldap_admin` | the same group the LDAP plugin's admin filter uses |
 | Preserve Existing Admin Permissions | ✅ | SSO can grant admin but never takes it away |
-| Enable Role-Based Folder Access / Live TV RBAC | ☐ | |
+| Enable Role-Based Folder Access / Live TV RBAC | ☐ (folder access ✅ once the Exercise library exists, see above) | |
 | Enable Live TV Access / Management By Default | ☐ (☑ Access only if Dashboard → Live TV has a tuner) | the plugin writes these on **every** SSO login, even with authorization off |
 | Role Claim | `groups` | Authelia's groups claim, from UserInfo |
 | OIDC Scopes | `groups` and `email` (one per line) | added to the default `openid profile`. All four are allowed on the client |

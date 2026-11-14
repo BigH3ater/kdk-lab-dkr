@@ -55,7 +55,10 @@ owner's 2026-11-14 decision). No pain notes, no medical history.
   the comment says one dumbbell); `per_side: true` doubles the sets (one logged set per
   side). `parts` are reusable slot lists (Rachel's daily desk and evening parts).
 - Every exercise must be used by some routine; routine names fit wger's 25 characters.
-- Address on the `Video:` line: `video_url()` in `gen_wger.py` (the YouTube address today).
+- Address on the `Video:` line: `video_url()` in `gen_wger.py`: the video's Jellyfin page from
+  `wger_videos.json`. A new or replaced video needs [exercise-videos](exercise-videos.md)
+  `download` + `jellyfin --apply` (and the committed mapping) before `gen_wger.py --apply`, which
+  otherwise stops without writing.
 
 ## Procedure
 
