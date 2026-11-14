@@ -12,7 +12,13 @@ videos in workout order, private to that person. Days with the same list share a
 
 | jmack | rach |
 |---|---|
-| Jacob · Mon Lower A, Jacob · Wed Upper A, Jacob · Fri Lower B, Jacob · Sat Upper B | Rachel · Mon Strength A, Rachel · Tue/Fri Cardio, Rachel · Wed/Sat/Sun Daily parts, Rachel · Thu Strength B |
+| Jacob · 1 Mon Lower A, Jacob · 2 Wed Upper A, Jacob · 3 Fri Lower B, Jacob · 4 Sat Upper B | Rachel · 1 Mon Strength A, Rachel · 2 Tue/Fri Cardio, Rachel · 3 Wed/Sat/Sun Daily parts, Rachel · 4 Thu Strength B |
+
+The number after the person is the playlist's place in that person's week (a shared playlist
+takes the place of its first day). Jellyfin lists playlists by name, so the number keeps
+them in week order; with 10 or more for one person the tool zero-pads it (`01`, `02`, …).
+Until 2026-11-14 the names had no number (`Jacob · Mon Lower A`); see
+[Migration from the unnumbered names](#migration-from-the-unnumbered-names-2026-11-14).
 
 **Who sees what (owner decision 2026-11-14).** The library stays visible to every Jellyfin
 account for now. The SSO and LDAP plugin folder settings are not changed. Only the
@@ -192,7 +198,7 @@ API paths from the internet)**
 T=stacks/home-assistant/tools
 export JELLYFIN_API_KEY="$(op read op://kdk-cluster/jellyfin-api-exercise-videos/credential)"
 printf '%s bytes\n' ${#JELLYFIN_API_KEY}                   # 32; never echo the value
-python3 $T/exercise_videos.py jellyfin                    # dry run: access check (+ NOTE line), 8 "would: create playlist"
+python3 $T/exercise_videos.py jellyfin                    # dry run: access check (+ NOTE line), 8 "would: create playlist" (+ 8 "would: delete" once, see Migration)
 python3 $T/exercise_videos.py jellyfin --apply            # scan (waits up to 10 min), playlists, wger_videos.json
 python3 $T/exercise_videos.py jellyfin --apply            # second run: only the scan, "wger_videos.json unchanged"
 unset JELLYFIN_API_KEY
@@ -213,9 +219,15 @@ request.`: read, users, update, remove item and move item. So the tool:
 
 - creates a playlist with `POST /Playlists` and the owner in the body (`UserId`,
   `IsPublic: false`, no `Users`);
-- never updates one in place. A recorded or same-named playlist whose name or order is
-  wrong is deleted with `DELETE /Items/{id}` and created again. That gives it a new id;
-  nothing links to playlist ids except `wger_videos.json`;
+- never updates or renames one in place. A recorded or same-named playlist whose order is
+  wrong is deleted with `DELETE /Items/{id}` and created again. A playlist with the old
+  (unnumbered) name is replaced the other way round: the new-named one is created and
+  verified first, then the old one is deleted. Either way it gets a new id; nothing links
+  to playlist ids except `wger_videos.json`;
+- does not set a Sort Name (`ForcedSortName`). `POST /Playlists` has no field for it
+  (the 12.x OpenAPI `CreatePlaylistDto` is Name, Ids, UserId, MediaType, Users, IsPublic),
+  and `POST /Items/{id}` would mean writing back a whole item record with an API key,
+  untested here. The number in the name is enough for the name sort;
 - verifies each playlist after the write, as the owner and as every other account:
   - `GET /Playlists/{id}/Items?userId=<owner>` gives the plan's videos in workout order;
   - for each other account (the other plan person and admins included), the playlist is
@@ -224,8 +236,33 @@ request.`: read, users, update, remove item and move item. So the tool:
 
   If any other account can see a playlist, the run stops with exit 2 and names it.
 
-It never deletes a playlist it did not make: only one it recorded (with `--prune`) or one
-it is re-creating because it carries the plan's exact name.
+It never deletes a playlist it did not make. Besides `--prune` (only playlists it recorded
+whose day left the plan), it deletes only a playlist in that person's list with an exact
+generated name (current or old scheme), and only when no other account can see it, so it is
+that person's own and not a share. A playlist someone made by hand (`Jacob favourites`,
+`Jacob · Mon Lower A (copy)`) is never touched. A recorded playlist the person renamed by
+hand is left alone with a `NOTE` line and dropped from `wger_videos.json`.
+
+### Migration from the unnumbered names (2026-11-14)
+
+The first `jellyfin --apply` after this change replaces the eight old playlists. It finds
+them by the ids in `wger_videos.json`, or (with an empty mapping) by their exact old name in
+that person's list. For each plan playlist, in order:
+
+1. `POST /Playlists` creates `Jacob · 1 Mon Lower A` (etc.);
+2. the usual checks: `GET /Playlists/{new id}/Items?userId=<owner>` and, for every other
+   account, `GET /Items?userId=<them>&IncludeItemTypes=Playlist` and
+   `GET /Items/{new id}?userId=<them>`;
+3. the same visibility checks on the old playlist (it must be the owner's only), then
+   `DELETE /Items/{old id}`.
+
+The dry run lists all of it: 8 `would: create playlist '<new name>'` and 8
+`would: delete playlist '<old name>' (<id>) of <login>: replaced by '<new name>'` lines.
+A failed delete prints `ERROR could not delete playlist ...`, marks that `did:` line
+`-- FAILED`, carries on with the rest, records only the new (verified) playlists and exits 1.
+The next run finds the leftover by its exact old name and deletes it again (or delete it
+by hand in Jellyfin as its owner). After a clean run, the next one writes nothing but the
+scan.
 
 **A run that stops midway** (a failed check, an HTTP error) still writes
 `wger_videos.json`. The file gets all item ids, since by then every plan file is an item,
@@ -307,6 +344,8 @@ those descriptions alone. It never writes a YouTube or empty `Video:` line.
 | `ERROR n of 47 video(s) not created`, a file marked `yt-dlp exited 0 but the file is not there` | yt-dlp wrote it under a different name or not at all. Check the run's output for that file and `ls -la /mnt/media/exercise/.incoming` on kdk-dkr-01. |
 | `jellyfin`: `ERROR GET /Playlists/<id>: HTTP 400 Error processing request.` | An older tool version. With an API key that call has no user and always fails; the current tool never calls it. Update the checkout and run again. The first playlist it made is reused, not duplicated. |
 | `jellyfin`: `playlist '...' (<id>) is visible to <user> (...)`, exit 2 | The playlist is public or shared. As the owner in Jellyfin, open the playlist, remove the shares and make it private. Or delete it; the next run creates it again. `wger_videos.json` has already been written with the item ids and the playlists that passed. |
+| `jellyfin`: `ERROR could not delete playlist '<old name>' (<id>) ...`, exit 1 | The new playlist was made and recorded; only the old one is left. Run `jellyfin --apply` again (it retries the delete by exact name), or delete it by hand as its owner in Jellyfin. |
+| `jellyfin`: `WARN playlist '<old name>' (<id>) is visible to <user>, so it may not be <login>'s own; not deleted`, exit 1 | A playlist with an old generated name that another account can see (shared, public, or someone else's shared with this person). Check it in Jellyfin; delete it by hand if it is the old tool playlist. |
 | `jellyfin`: `ACCESS jmack cannot see the library`, exit 2, nothing written | That plan person has neither *all libraries* nor Exercise ticked. Fix it as in step 4, then run again. A `NOTE other accounts can see the library` line is expected and does not stop the run. |
 | `WARN .incoming/ holds finished video(s), left alone` | A run stopped after the file was done but before yt-dlp moved it. Move it up: `ssh kdkadmin@10.1.20.20 'mv "/mnt/media/exercise/.incoming/<file>" /mnt/media/exercise/'`, then run step 3 again; it removes the empty folder. |
 

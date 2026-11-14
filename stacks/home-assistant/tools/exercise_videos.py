@@ -32,11 +32,14 @@ jellyfin: finds the library by name (default "Exercise", type Home videos), refu
 when one of the plan's people cannot see it (other accounts that can see it are only named in
 a NOTE line: owner decision 2026-11-14, the library is not private), starts a scan of that library only
 and waits until every plan file is an item, then creates or updates one playlist per person
-and day: "<name> · <day> <label>" (e.g. "Jacob · Mon Lower A"), items in workout order, owned
+and day: "<name> · <n> <day> <label>" (e.g. "Jacob · 1 Mon Lower A"; n = position in that
+person's week, so Jellyfin's name sort shows week order), items in workout order, owned
 by that person, not public, no shares; a wrong one is deleted and created again (an API key
-cannot update a playlist in place), and each one is verified as every other account (it must
+cannot update or rename a playlist in place), and each one is verified as every other account (it must
 not see it). Days with the same video list share one playlist
-("Rachel · Wed/Sat/Sun Daily parts"). Writes wger_videos.json (plan key -> item id, plus the
+("Rachel · 3 Wed/Sat/Sun Daily parts"). A playlist with the pre-2026-11-14 name (no number, e.g.
+"Jacob · Mon Lower A") is replaced: the new one is created and verified, then the old one is
+deleted (only that person's own, exact generated name; a failed delete exits 1). Writes wger_videos.json (plan key -> item id, plus the
 playlist ids it manages and verified) so gen_wger.py can build the Video: line without a
 Jellyfin key; a run that stops at a playlist still writes the item ids, and the next run resumes.
 Users are looked up by username at run time (the plan's people logins).
@@ -141,8 +144,13 @@ def routine_keys(person: dict, routine: dict) -> list[str]:
 
 
 def plan_playlists(plan: dict) -> list[dict]:
-    """[{login, person, name, days: [tags], keys: [...]}]: one per person and distinct video list,
-    in weekday order of the first day using it."""
+    """[{login, person, name, old_name, days: [tags], keys: [...]}]: one per person and distinct
+    video list, in weekday order of the first day using it.
+
+    name = "<person> · <n> <days> <labels>": n is the playlist's position in that person's week
+    (1, 2, ... by first day; zero-padded when a person has 10 or more), so Jellyfin's plain name
+    sort lists them in week order. old_name is the scheme before 2026-11-14 (no number); the
+    jellyfin step replaces playlists that still carry it."""
     out = []
     for login, person in plan["people"].items():
         groups: dict[tuple, dict] = {}
@@ -154,9 +162,11 @@ def plan_playlists(plan: dict) -> list[dict]:
             g["days"].append(r["day"])
             if label not in g["labels"]:
                 g["labels"].append(label)
-        for g in groups.values():
-            days = "/".join(DAY_NAMES[DAY_TAGS.index(d)] for d in g["days"])
-            g["name"] = f"{g['person']} · {days} {' / '.join(g.pop('labels'))}"
+        width = len(str(len(groups)))
+        for n, g in enumerate(groups.values(), 1):
+            rest = "/".join(DAY_NAMES[DAY_TAGS.index(d)] for d in g["days"]) + " " + " / ".join(g.pop("labels"))
+            g["name"] = f"{g['person']} · {n:0{width}d} {rest}"
+            g["old_name"] = f"{g['person']} · {rest}"
             out.append(g)
     return out
 
@@ -462,32 +472,65 @@ def verify_playlist(jf: Jellyfin, pl: dict, pid: str, uid: str, ids: list[str], 
                          "it: the next run creates it again)")
 
 
+def delete_replaced(jf: Jellyfin, pl: dict, pid: str, name: str, why: str, problems: list[str], out) -> None:
+    """DELETE /Items/{pid} for a replaced playlist; a failure is reported and the run goes on."""
+    try:
+        jf.write("DELETE", f"/Items/{pid}", f"delete playlist {name!r} ({pid}) of {pl['login']}: {why}")
+    except VideoError as e:
+        jf.actions[-1] += " -- FAILED"
+        problems.append(f"could not delete playlist {name!r} ({pid}) of {pl['login']}: {e}. It is no longer "
+                        "recorded; the next run finds it by its exact name and tries again (or delete it by hand)")
+        out(f"ERROR {problems[-1]}")
+
+
 def sync_playlists(jf: Jellyfin, plan_pls: list[dict], people: dict, users: list[dict], item_of: dict,
-                   old: list[dict], prune: bool, out, managed: list[dict] | None = None) -> list[dict]:
+                   old: list[dict], prune: bool, out, managed: list[dict] | None = None,
+                   problems: list[str] | None = None) -> list[dict]:
     """Create/re-create each plan playlist; returns the managed list for wger_videos.json.
 
+    Only a playlist of the plan person with an exact generated name (pl["name"], or the
+    pre-2026-11-14 pl["old_name"]) is ever adopted, replaced or deleted, and before a delete the
+    tool checks that no other account can see it (so it is that person's own, not a share or a
+    public playlist). Anything else, a hand-made playlist included, is never touched.
+
     A plan playlist is matched to the one recorded for that person and days in wger_videos.json
-    (if the person still has it), else to the one playlist of the person with exactly its name,
-    else created. A matched playlist whose name or order differs is deleted and created again
-    (an API key cannot update one in place). Every playlist is then verified: the owner sees the
-    plan's videos in order and no other account can see it at all; a failure stops the run.
-    Only verified playlists are appended to `managed` (pass a list to keep them on a failure).
-    Only recorded playlists are ever deleted by --prune, never one a person made."""
+    (if the person still has it under its current name), else to the one playlist of the person
+    with exactly its name, else created. A matched one with the wrong order is deleted and created
+    again (an API key cannot update one in place). Every playlist of the person with exactly the
+    old name (recorded or not) is deleted only after the new-named one is verified. A failed DELETE is
+    appended to `problems` (the caller exits non-zero) and the run goes on. Every kept/created
+    playlist is verified: the owner sees the plan's videos in order and no other account can see
+    it at all; a failure stops the run. Only verified playlists are appended to `managed` (pass a
+    list to keep them on a failure). --prune deletes only recorded playlists whose days left the plan."""
     managed = [] if managed is None else managed
+    problems = [] if problems is None else problems
+    in_plan = {(pl["login"], tuple(pl["days"])) for pl in plan_pls}
     for pl in plan_pls:
         uid = people[pl["login"]]["Id"]
         ids = [item_of[k] for k in pl["keys"]]
         mine = {norm(p["Id"]): p for p in user_playlists(jf, uid)}
-        rec = [p["id"] for p in old if p["login"] == pl["login"] and p["days"] == pl["days"] and p["id"] in mine]
+        generated = (pl["name"], pl["old_name"])
+        rec = []
+        for p in old:
+            if p["login"] == pl["login"] and p["days"] == pl["days"] and p["id"] in mine:
+                if mine[p["id"]].get("Name") in generated:
+                    rec.append(p["id"])
+                else:
+                    out(f"NOTE recorded playlist {p['id']} of {pl['login']} is now named "
+                        f"{mine[p['id']].get('Name')!r} (renamed by hand?): left alone, no longer managed")
+        rec = [i for i in rec if mine[i].get("Name") == pl["name"]]   # an old-named record is in named_old
         named = [i for i, p in mine.items() if p.get("Name") == pl["name"]]
+        # old-named playlists (recorded or not) are deleted once the new-named one is verified
+        replace = [i for i, p in mine.items() if p.get("Name") == pl["old_name"]]
         pid = rec[0] if rec else (named[0] if len(named) == 1 else None)
-        if pid is not None:
-            diff = [w for w, bad in (("name", mine[pid].get("Name") != pl["name"]),
-                                     ("order", playlist_items(jf, pid, uid) != ids)) if bad]
-            if diff:
-                jf.write("DELETE", f"/Items/{pid}", f"delete playlist {mine[pid].get('Name')!r} ({pid}) to "
-                         f"re-create it ({', '.join(diff)} differ)")
-                pid = None
+        if pid is not None and playlist_items(jf, pid, uid) != ids:
+            others = who_else_sees(jf, pid, uid, users)
+            if others:                        # not provably this person's own: never delete it
+                raise VideoError(f"playlist {pl['name']!r} ({pid}) has the wrong order and is visible to "
+                                 f"{', '.join(others)}; not deleted. As {pl['login']}, delete it by hand; "
+                                 "the next run creates it again")
+            jf.write("DELETE", f"/Items/{pid}", f"delete playlist {pl['name']!r} ({pid}) to re-create it (order differs)")
+            pid = None
         if pid is None:
             body = {"Name": pl["name"], "Ids": ids, "UserId": uid, "MediaType": "Video", "IsPublic": False, "Users": []}
             res = jf.write("POST", "/Playlists", f"create playlist {pl['name']!r} for {pl['login']} ({len(ids)} videos)", body)
@@ -499,10 +542,18 @@ def sync_playlists(jf: Jellyfin, plan_pls: list[dict], people: dict, users: list
         else:
             verify_playlist(jf, pl, pid, uid, ids, users)
         managed.append({"login": pl["login"], "days": pl["days"], "name": pl["name"], "id": pid})
+        for rid in replace:                   # only after the new one is verified
+            others = who_else_sees(jf, rid, uid, users)
+            if others:
+                problems.append(f"playlist {pl['old_name']!r} ({rid}) is visible to {', '.join(others)}, so it "
+                                f"may not be {pl['login']}'s own; not deleted. Delete it by hand if it is")
+                out(f"WARN {problems[-1]}")
+                continue
+            delete_replaced(jf, pl, rid, pl["old_name"], f"replaced by {pl['name']!r}", problems, out)
     keep = {p["id"] for p in managed}
     for p in old:
-        if p["id"] in keep:
-            continue
+        if p["id"] in keep or (p["login"], tuple(p["days"])) in in_plan:
+            continue                          # still in the plan: handled (kept, replaced or dropped) above
         if prune:
             jf.write("DELETE", f"/Items/{p['id']}", f"delete playlist {p['name']!r} ({p['login']}): no longer in the plan")
         else:
@@ -568,8 +619,10 @@ def cmd_jellyfin(args, plan: dict, out, sleep=time.sleep, videos_path: Path | No
     mapping = {k: {"id": item_of[k], "youtube": youtube_id(plan["exercises"][k]), "file": file_name(k, plan["exercises"][k])}
                for k in item_of}
     managed: list[dict] = []
+    problems: list[str] = []
     try:
-        sync_playlists(jf, ready, people, users, item_of, old.get("playlists") or [], args.prune, out, managed)
+        sync_playlists(jf, ready, people, users, item_of, old.get("playlists") or [], args.prune, out, managed,
+                       problems)
     except VideoError:
         # Every plan file is an item by now, so the item ids are good: write them (gen_wger.py needs
         # only those) with just the playlists verified so far. The next run resumes: it finds the
@@ -594,6 +647,11 @@ def cmd_jellyfin(args, plan: dict, out, sleep=time.sleep, videos_path: Path | No
     else:
         out(f"{len(actions)} write(s) planned (dry run; add --apply)"
             + (f"; {videos_path.name} would change" if changed else ""))
+    if problems:
+        out(f"ERROR {len(problems)} old playlist(s) not removed (the new ones are made and recorded):")
+        for p in problems:
+            out(f"  {p}")
+        return 1
     return 0
 
 
