@@ -165,7 +165,7 @@ services:
 
   nginx:
     <<: *hardened
-    image: nginx:1.31.8-alpine@sha256:713fc2ebfd92e8217db451477182ee91944b123d2b1ee9fd5a8c6e91ca6c3a11
+    image: nginx:1.31.8-alpine@sha256:fed7e14be83cbd2661a75cdc5b872d936cf155d46c327084d30b8df19ae88d72
     container_name: wger-nginx
     # master runs as root and drops workers to `nginx`; creates its temp dirs under
     # /var/cache/nginx owned by the worker user.
@@ -266,7 +266,7 @@ services:
 
   cache:
     <<: *hardened
-    image: redis:8.10.3-alpine@sha256:71885d8cc6e42f2bc0aa2eb853bfc4be200b5108a46ac50e117ae1df0531fb80
+    image: redis:8.10.3-alpine@sha256:7958cfbb9d152f87dadfbc89f1b0b15938f0b81ff8982feb327476f4911935c3
     container_name: wger-cache
     # image's redis user: the entrypoint skips its chown/su-exec step when not root
     user: "999:1000"
@@ -353,7 +353,7 @@ services:
 
   powersync:
     <<: *hardened
-    image: docker.io/journeyapps/powersync-service:1.28.2@sha256:2f156289e30f3da496ba604f279929ae1bb9a0fffb930ce925633072a1a44512
+    image: docker.io/journeyapps/powersync-service:1.28.3@sha256:effc8cfae91dcb2d4b5767b3b0a795d933701aa957a81af2bfce7fb15c2f47b4
     container_name: wger-powersync
     init: true                 # node service
     mem_limit: 512m
