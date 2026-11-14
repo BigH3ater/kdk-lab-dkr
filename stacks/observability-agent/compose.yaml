@@ -95,7 +95,7 @@ services:
   # non-graceful exit) or unhealthy health status. Uses the Docker API, so it
   # works despite the containerd-snapshotter driver that breaks cAdvisor names.
   docker-event-watch:
-    image: docker:29.9.3-cli@sha256:2357639ad1ea7d0194134bf3292622fd4e562483966ed674e5d7c945b5f3b28d
+    image: docker:29.9.3-cli@sha256:5a7af0dcb0e46c803efe9b45371dd21cb500e5b4453250394ac6f06d49b6e6f1
     container_name: docker-event-watch
     # Recreate on config change: compose does not hash single-file bind mounts;
     # the Komodo pre_deploy writes AGENT_CONFIG_SHA (alloy/config.alloy +
