@@ -2,7 +2,12 @@
 
 The fake Jellyfin keeps users with library policies, one "Exercise" Home videos library, a
 "disk" of files that a library refresh turns into items (id = md5 of the path, as stable as
-Jellyfin's), and playlists with owner, OpenAccess, shares and ordered entries."""
+Jellyfin's), and playlists with owner, OpenAccess, shares and ordered entries.
+
+It answers like Jellyfin 12.4 does for an API key (a token with no user behind it, observed on the
+real server 2026-11-14 and in PlaylistsController.cs at v12.4): every /Playlists/{id} call that uses
+the calling user (GET /Playlists/{id}, /Users, POST /Playlists/{id}, DELETE .../Items, .../Move)
+is a 400; the user-scoped reads take ?userId= and give a non-owner 404."""
 import copy
 import hashlib
 import json
@@ -297,6 +302,8 @@ class FakeJellyfin:
         self.playlists = {}        # id -> {name, owner, public, shares, ids}
         self.writes = []
         self.n = 0
+        self.share_on_create = None    # a user id the server adds as a share on create (a bad server)
+        self.fail_create = set()       # playlist names whose create answers 500 once
 
     def scan(self):
         self.items = {iid(f"{LOC}/{f}"): f"{LOC}/{f}" for f in self.disk}
@@ -320,31 +327,56 @@ class FakeJellyfin:
         if (method, path) == ("GET", "/Items"):
             if params.get("IncludeItemTypes") == "Playlist":
                 return Resp(200, {"Items": [{"Id": k, "Name": p["name"]} for k, p in self.playlists.items()
-                                            if p["owner"] == params["userId"] or p["public"]]})
+                                            if self.visible(p, params["userId"])]})
             assert params["ParentId"] == LIB
             return Resp(200, {"Items": [{"Id": k, "Path": v, "Type": "Video"} for k, v in sorted(self.items.items())]})
+        if method == "GET" and parts[0] == "Items" and len(parts) == 2:
+            uid = params.get("userId")
+            assert uid, "GET /Items/{id} without userId"
+            pl = self.playlists.get(parts[1])
+            if pl is not None:
+                return Resp(200, {"Id": parts[1]}) if self.visible(pl, uid) else Resp(404, {"detail": "nf"})
+            return Resp(200, {"Id": parts[1]}) if parts[1] in self.items else Resp(404, {"detail": "nf"})
         if method == "POST" and path == "/Playlists":
+            if not json.get("UserId"):
+                return self.no_user()
             assert set(json["Ids"]) <= set(self.items)
+            if json["Name"] in self.fail_create:
+                self.fail_create.discard(json["Name"])
+                return Resp(500, {"detail": "boom"})
             self.n += 1
             pid = f"{self.n:032x}"
+            shares = list(json["Users"]) + ([{"UserId": self.share_on_create, "CanEdit": False}]
+                                            if self.share_on_create else [])
             self.playlists[pid] = {"name": json["Name"], "owner": json["UserId"], "public": json["IsPublic"],
-                                   "shares": json["Users"], "ids": list(json["Ids"])}
+                                   "shares": shares, "ids": list(json["Ids"])}
             return Resp(200, {"Id": pid})
         if parts[0] == "Playlists":
-            pl = self.playlists.get(parts[1])
-            if pl is None:
-                return Resp(404, {"detail": "nf"})
-            if method == "GET" and len(parts) == 2:
-                return Resp(200, {"OpenAccess": pl["public"], "Shares": pl["shares"], "ItemIds": pl["ids"]})
             if method == "GET" and parts[2:] == ["Items"]:
+                uid = params.get("userId")
+                if not uid:
+                    return self.no_user()
+                pl = self.playlists.get(parts[1])
+                if pl is None or not self.visible(pl, uid):
+                    return Resp(404, {"detail": "Playlist not found"})
                 return Resp(200, {"Items": [{"Id": i} for i in pl["ids"]]})
-            if method == "POST" and len(parts) == 2:
-                pl.update(name=json["Name"], ids=list(json["Ids"]), public=json["IsPublic"], shares=json["Users"])
-                return Resp(204)
+            return self.no_user()                   # GET /Playlists/{id}, /Users, update, remove, move
         if method == "DELETE" and parts[0] == "Items":
             self.playlists.pop(parts[1])
             return Resp(204)
         raise AssertionError((method, path, params))
+
+
+def _visible(self, pl, uid):
+    return pl["owner"] == uid or pl["public"] or any(x["UserId"] == uid for x in pl["shares"])
+
+
+def _no_user(self):
+    return Resp(400, "Error processing request.")
+
+
+FakeJellyfin.visible = _visible
+FakeJellyfin.no_user = _no_user
 
 
 class FakeSession:
@@ -437,17 +469,27 @@ def test_item_ids_stay_put_for_an_unchanged_path(jf, videos):
     assert json.loads(videos.read_text())["items"] == ids
 
 
-def test_drifted_playlist_is_put_back_in_order_and_private(jf, videos, capsys):
+def test_drifted_playlist_is_recreated_not_updated(jf, videos, capsys):
     assert jrun("--apply", videos=videos) == 0
     (pid, pl), = [(k, p) for k, p in jf.playlists.items() if p["name"] == "Jacob · Wed Upper A"]
+    want = list(pl["ids"])
     pl["ids"].reverse()
-    pl["public"] = True
-    pl["shares"] = [{"UserId": OTHER, "CanEdit": False}]
     jf.writes.clear()
     assert jrun("--apply", videos=videos) == 0
-    assert "update playlist 'Jacob · Wed Upper A' (order, public, shares)" in capsys.readouterr().out
-    assert pl["public"] is False and pl["shares"] == [] and pl["ids"][0] != pl["ids"][-1]
-    assert [w[1] for w in jf.writes if w[1].startswith("/Playlists")] == [f"/Playlists/{pid}"]
+    assert "delete playlist 'Jacob · Wed Upper A' (" + pid + ") to re-create it (order differ" in capsys.readouterr().out
+    assert pid not in jf.playlists
+    (new, npl), = [(k, p) for k, p in jf.playlists.items() if p["name"] == "Jacob · Wed Upper A"]
+    assert npl["ids"] == want and npl["owner"] == JMACK and not npl["public"] and npl["shares"] == []
+    pw = [(w[0], w[1]) for w in jf.writes if w[1] != f"/Items/{LIB}/Refresh"]
+    assert pw == [("DELETE", f"/Items/{pid}"), ("POST", "/Playlists")]          # never POST /Playlists/{id}
+    rec = next(x for x in json.loads(videos.read_text())["playlists"] if x["name"] == "Jacob · Wed Upper A")
+    assert rec["id"] == new
+
+
+def test_never_calls_the_user_session_playlist_endpoints(jf, videos):
+    assert jrun("--apply", videos=videos) == 0
+    assert jrun("--apply", videos=videos) == 0
+    assert not [w for w in jf.writes if w[1].startswith("/Playlists/")]
 
 
 def test_a_new_video_in_the_plan_updates_the_mapping_and_playlist(jf, videos, tmp_path):
@@ -484,20 +526,65 @@ def test_no_note_when_only_the_plan_people_see_it(jf, videos, capsys):
     assert "NOTE other accounts" not in capsys.readouterr().out
 
 
-def test_a_playlist_that_stays_public_is_a_hard_failure(jf, videos, capsys, monkeypatch):
+@pytest.mark.parametrize("how", ["shared", "public"])
+def test_a_playlist_another_user_can_see_is_a_hard_failure(jf, videos, capsys, how):
     assert jrun("--apply", videos=videos) == 0
     (pid, pl), = [(k, p) for k, p in jf.playlists.items() if p["name"] == "Jacob · Wed Upper A"]
-    pl["public"] = True
-    real = jf.handle
-
-    def sticky(method, url, headers, params=None, json=None):          # the update does not take
-        r = real(method, url, headers, params=params, json=json)
-        if method == "POST" and url.endswith(f"/Playlists/{pid}"):
-            pl["public"] = True
-        return r
-    monkeypatch.setattr(jf, "handle", sticky)
+    if how == "shared":
+        pl["shares"] = [{"UserId": OTHER, "CanEdit": False}]
+    else:
+        pl["public"] = True
     assert jrun("--apply", videos=videos) == 2
-    assert "did not take" in capsys.readouterr().err
+    err = capsys.readouterr().err
+    assert f"playlist 'Jacob · Wed Upper A' ({pid}) is visible to " in err
+    assert f"guest (in their playlists; GET /Items/{pid} as them: HTTP 200)" in err
+    if how == "public":
+        assert "rach (" in err and "kdkadmin (" in err                     # everyone, the other plan person too
+    else:
+        assert "rach (" not in err
+    assert pid in jf.playlists                                            # nothing deleted
+    rec = [x["name"] for x in json.loads(videos.read_text())["playlists"]]
+    assert "Jacob · Wed Upper A" not in rec and "Jacob · Mon Lower A" in rec  # only verified ones recorded
+
+
+def test_a_new_playlist_the_server_shares_fails_and_is_not_recorded(jf, videos, capsys):
+    jf.share_on_create = ADMIN
+    assert jrun("--apply", videos=videos) == 2
+    assert "is visible to kdkadmin (in their playlists; GET /Items/" in capsys.readouterr().err
+    doc = json.loads(videos.read_text())
+    assert len(doc["items"]) == len(PLAN["exercises"]) and doc["playlists"] == []
+
+
+def test_a_failure_midway_writes_the_items_and_resumes(jf, videos, capsys):
+    second = ev.plan_playlists(PLAN)[1]["name"]
+    jf.fail_create = {second}
+    assert jrun("--apply", videos=videos) == 2
+    out, err = capsys.readouterr()
+    assert "HTTP 500" in err and "wrote wger_videos.json before stopping: 47 item id(s), 1 verified" in out
+    doc = json.loads(videos.read_text())
+    assert set(doc["items"]) == set(PLAN["exercises"])                   # gen_wger.py can already run
+    assert [p["name"] for p in doc["playlists"]] == ["Jacob · Mon Lower A"]
+    first_id = doc["playlists"][0]["id"]
+    jf.writes.clear()
+    assert jrun("--apply", videos=videos) == 0                           # resume
+    doc = json.loads(videos.read_text())
+    assert len(doc["playlists"]) == 8 and len(jf.playlists) == 8
+    assert next(p for p in doc["playlists"] if p["name"] == "Jacob · Mon Lower A")["id"] == first_id
+    creates = [w for w in jf.writes if w[:2] == ("POST", "/Playlists")]
+    assert len(creates) == 7 and not [w for w in jf.writes if w[0] == "DELETE"]
+
+
+def test_resume_when_the_mapping_was_never_written(jf, videos):
+    """The real first run: one playlist made, then the tool died; wger_videos.json still empty."""
+    pl0 = ev.plan_playlists(PLAN)[0]
+    jf.scan()
+    item = {ev.wanted_files(PLAN)[Path(p).name]: i for i, p in jf.items.items()}
+    jf.playlists["149d6a5fe1ad9dded863c4ade2095567"] = {"name": pl0["name"], "owner": JMACK, "public": False,
+                                                        "shares": [], "ids": [item[k] for k in pl0["keys"]]}
+    assert jrun("--apply", videos=videos) == 0
+    doc = json.loads(videos.read_text())
+    assert next(p for p in doc["playlists"] if p["name"] == pl0["name"])["id"] == "149d6a5fe1ad9dded863c4ade2095567"
+    assert len(jf.playlists) == 8 and len(doc["items"]) == len(PLAN["exercises"])
 
 
 def test_plan_person_without_access_is_an_error(jf, videos, capsys):

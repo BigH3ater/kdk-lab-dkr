@@ -33,9 +33,12 @@ when one of the plan's people cannot see it (other accounts that can see it are 
 a NOTE line: owner decision 2026-11-14, the library is not private), starts a scan of that library only
 and waits until every plan file is an item, then creates or updates one playlist per person
 and day: "<name> · <day> <label>" (e.g. "Jacob · Mon Lower A"), items in workout order, owned
-by that person, not public, no shares. Days with the same video list share one playlist
+by that person, not public, no shares; a wrong one is deleted and created again (an API key
+cannot update a playlist in place), and each one is verified as every other account (it must
+not see it). Days with the same video list share one playlist
 ("Rachel · Wed/Sat/Sun Daily parts"). Writes wger_videos.json (plan key -> item id, plus the
-playlist ids it manages) so gen_wger.py can build the Video: line without a Jellyfin key.
+playlist ids it manages and verified) so gen_wger.py can build the Video: line without a
+Jellyfin key; a run that stops at a playlist still writes the item ids, and the next run resumes.
 Users are looked up by username at run time (the plan's people logins).
 
 Dry run by default for both. Config from the environment only: JELLYFIN_API_KEY (never argv),
@@ -338,6 +341,10 @@ class Jellyfin:
     def get(self, path: str, **params):
         return self.req("GET", path, params=params)
 
+    def status(self, path: str, **params) -> int:
+        """HTTP status of a GET, for checks where 404 is the expected answer."""
+        return self.s.request("GET", self.base + path, timeout=TIMEOUT, params=params).status_code
+
     def write(self, method: str, path: str, what: str, body=None, params=None):
         self.actions.append(what)
         if not self.apply:
@@ -413,21 +420,60 @@ def user_playlists(jf: Jellyfin, uid: str) -> list[dict]:
     return (res or {}).get("Items", [])
 
 
-def playlist_state(jf: Jellyfin, pid: str, uid: str) -> dict:
-    info = jf.get(f"/Playlists/{pid}") or {}
-    items = jf.get(f"/Playlists/{pid}/Items", userId=uid) or {}
-    return {"public": bool(info.get("OpenAccess")), "shares": info.get("Shares") or [],
-            "ids": [norm(i["Id"]) for i in items.get("Items", [])]}
+# Jellyfin 12 with an API key (no user session): GET /Playlists/{id}, GET /Playlists/{id}/Users,
+# POST /Playlists/{id} (update), DELETE /Playlists/{id}/Items and .../Move all use the calling
+# user and answer 400. What works: POST /Playlists with UserId in the body, the user-scoped reads
+# /Playlists/{id}/Items?userId=, /Items?userId=&IncludeItemTypes=Playlist, /Items/{id}?userId=,
+# and DELETE /Items/{id}. So a playlist is never updated in place: a wrong one is deleted and
+# created again, and privacy is checked from every other user's point of view.
+def playlist_items(jf: Jellyfin, pid: str, uid: str) -> list[str]:
+    """The playlist's item ids in order, as its owner sees them."""
+    res = jf.get(f"/Playlists/{pid}/Items", userId=uid) or {}
+    return [norm(i["Id"]) for i in res.get("Items", [])]
 
 
-def sync_playlists(jf: Jellyfin, plan_pls: list[dict], people: dict, item_of: dict, old: list[dict],
-                   prune: bool, out) -> list[dict]:
-    """Create/update each plan playlist; returns the managed list for wger_videos.json.
+def who_else_sees(jf: Jellyfin, pid: str, owner: str, users: list[dict]) -> list[str]:
+    """Every account other than the owner that can see the playlist (should be none): it is in
+    that user's playlist list, or GET /Items/{id} as that user is not a 404."""
+    seen = []
+    for u in users:
+        if norm(u["Id"]) == norm(owner):
+            continue
+        why = []
+        if pid in {norm(p["Id"]) for p in user_playlists(jf, u["Id"])}:
+            why.append("in their playlists")
+        code = jf.status(f"/Items/{pid}", userId=u["Id"])
+        if code != 404:
+            why.append(f"GET /Items/{pid} as them: HTTP {code}")
+        if why:
+            seen.append(f"{u['Name']} ({'; '.join(why)})")
+    return seen
+
+
+def verify_playlist(jf: Jellyfin, pl: dict, pid: str, uid: str, ids: list[str], users: list[dict]) -> None:
+    got = playlist_items(jf, pid, uid)
+    if got != ids:
+        raise VideoError(f"playlist {pl['name']!r} ({pid}): {len(got)} item(s) as {pl['login']} sees it, "
+                         "not the plan's videos in workout order")
+    others = who_else_sees(jf, pid, uid, users)
+    if others:
+        raise VideoError(f"playlist {pl['name']!r} ({pid}) is visible to {', '.join(others)}; it must be "
+                         f"{pl['login']}'s only. As {pl['login']}, remove the shares / make it private (or delete "
+                         "it: the next run creates it again)")
+
+
+def sync_playlists(jf: Jellyfin, plan_pls: list[dict], people: dict, users: list[dict], item_of: dict,
+                   old: list[dict], prune: bool, out, managed: list[dict] | None = None) -> list[dict]:
+    """Create/re-create each plan playlist; returns the managed list for wger_videos.json.
 
     A plan playlist is matched to the one recorded for that person and days in wger_videos.json
     (if the person still has it), else to the one playlist of the person with exactly its name,
-    else created. Only recorded playlists are ever deleted (--prune), never one a person made."""
-    managed = []
+    else created. A matched playlist whose name or order differs is deleted and created again
+    (an API key cannot update one in place). Every playlist is then verified: the owner sees the
+    plan's videos in order and no other account can see it at all; a failure stops the run.
+    Only verified playlists are appended to `managed` (pass a list to keep them on a failure).
+    Only recorded playlists are ever deleted by --prune, never one a person made."""
+    managed = [] if managed is None else managed
     for pl in plan_pls:
         uid = people[pl["login"]]["Id"]
         ids = [item_of[k] for k in pl["keys"]]
@@ -435,21 +481,23 @@ def sync_playlists(jf: Jellyfin, plan_pls: list[dict], people: dict, item_of: di
         rec = [p["id"] for p in old if p["login"] == pl["login"] and p["days"] == pl["days"] and p["id"] in mine]
         named = [i for i, p in mine.items() if p.get("Name") == pl["name"]]
         pid = rec[0] if rec else (named[0] if len(named) == 1 else None)
-        body = {"Name": pl["name"], "Ids": ids, "IsPublic": False, "Users": []}
-        if pid is None:
-            res = jf.write("POST", "/Playlists", f"create playlist {pl['name']!r} for {pl['login']} ({len(ids)} videos)",
-                           {**body, "UserId": uid, "MediaType": "Video"})
-            pid = norm((res or {}).get("Id")) or f"dry-{pl['login']}-{'-'.join(pl['days'])}"
-        else:
-            st = playlist_state(jf, pid, uid)
-            diff = [w for w, bad in (("name", mine[pid].get("Name") != pl["name"]), ("order", st["ids"] != ids),
-                                     ("public", st["public"]), ("shares", bool(st["shares"]))) if bad]
+        if pid is not None:
+            diff = [w for w, bad in (("name", mine[pid].get("Name") != pl["name"]),
+                                     ("order", playlist_items(jf, pid, uid) != ids)) if bad]
             if diff:
-                jf.write("POST", f"/Playlists/{pid}", f"update playlist {pl['name']!r} ({', '.join(diff)})", body)
-        if jf.apply:
-            st = playlist_state(jf, pid, uid)
-            if st["ids"] != ids or st["public"] or st["shares"]:
-                raise VideoError(f"playlist {pl['name']!r} did not take: order/public/shares still differ")
+                jf.write("DELETE", f"/Items/{pid}", f"delete playlist {mine[pid].get('Name')!r} ({pid}) to "
+                         f"re-create it ({', '.join(diff)} differ)")
+                pid = None
+        if pid is None:
+            body = {"Name": pl["name"], "Ids": ids, "UserId": uid, "MediaType": "Video", "IsPublic": False, "Users": []}
+            res = jf.write("POST", "/Playlists", f"create playlist {pl['name']!r} for {pl['login']} ({len(ids)} videos)", body)
+            pid = norm((res or {}).get("Id")) or None
+            if pid is None and jf.apply:
+                raise VideoError(f"create playlist {pl['name']!r}: the answer has no Id")
+        if pid is None:                       # dry run: nothing created, nothing to verify
+            pid = f"dry-{pl['login']}-{'-'.join(pl['days'])}"
+        else:
+            verify_playlist(jf, pl, pid, uid, ids, users)
         managed.append({"login": pl["login"], "days": pl["days"], "name": pl["name"], "id": pid})
     keep = {p["id"] for p in managed}
     for p in old:
@@ -517,9 +565,22 @@ def cmd_jellyfin(args, plan: dict, out, sleep=time.sleep, videos_path: Path | No
     for pl in pls:
         if pl not in ready:
             out(f"SKIP playlist {pl['name']!r}: missing video(s)")
-    managed = sync_playlists(jf, ready, people, item_of, old.get("playlists") or [], args.prune, out)
     mapping = {k: {"id": item_of[k], "youtube": youtube_id(plan["exercises"][k]), "file": file_name(k, plan["exercises"][k])}
                for k in item_of}
+    managed: list[dict] = []
+    try:
+        sync_playlists(jf, ready, people, users, item_of, old.get("playlists") or [], args.prune, out, managed)
+    except VideoError:
+        # Every plan file is an item by now, so the item ids are good: write them (gen_wger.py needs
+        # only those) with just the playlists verified so far. The next run resumes: it finds the
+        # rest by name or creates them.
+        for a in actions:
+            out(f"{'did' if args.apply else 'would'}: {a}")
+        if args.apply:
+            write_videos(videos_path, mapping, managed, LINK_BASE)
+            out(f"wrote {videos_path.name} before stopping: {len(mapping)} item id(s), {len(managed)} verified "
+                "playlist(s); fix the error below and run again")
+        raise
     changed = mapping != old.get("items") or managed != old.get("playlists") or old.get("base_url") != LINK_BASE
     for a in actions:
         out(f"{'did' if args.apply else 'would'}: {a}")
