@@ -241,7 +241,9 @@ exercises, no images, no custom muscles.
   report for it; the run stops before any write when a uuid is missing, is a `kdk-lab`
   exercise, or has another name (several built-ins share a name, e.g. two "Side Plank").
   The English description is replaced by **How** (3-5 lines), **Safety** (one line) and
-  `Video: <address>` (plain text: wger has no link field), ending in a hidden
+  `Video: <address>` (plain text: wger has no link field; the video's Jellyfin page from
+  `wger_videos.json`, see [exercise-videos](exercise-videos.md): `--apply` stops while an
+  exercise has no item id there), ending in a hidden
   `<!-- kdk-plan v:<hash> -->` comment. Plan `equipment` names are added, never removed
   (Treadmill on Treadmill Cardio, Resistance band on Rachel's two band moves once step 12
   has the row). Exercises are global: they are written with **jmack's** key (superuser,

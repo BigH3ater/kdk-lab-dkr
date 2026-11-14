@@ -59,6 +59,11 @@ services:
       - /mnt/appdata/jellyfin/metadata:/config/data/metadata
       - /mnt/media/tv:/data/media/tv:ro
       - /mnt/media/movies:/data/media/movies:ro
+      # Exercise videos (library "Exercise", Home videos, jmack + rach only), filled by
+      # stacks/home-assistant/tools/exercise_videos.py on kdk-dkr-01. The source dir must
+      # exist on the share before this deploys (the DMZ mount is read-only, docker cannot
+      # create it). docs/runbooks/exercise-videos.md.
+      - /mnt/media/exercise:/data/media/exercise:ro
     # Transcode scratch on a RAM disk. Mounted AT Jellyfin's real transcode temp
     # path (this version defaults TranscodingTempPath to <cache>/transcodes =
     # /config/cache/transcodes -- verified from the FFmpeg.Transcode logs), so it

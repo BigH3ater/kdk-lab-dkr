@@ -5,6 +5,7 @@ says), a few kdk-lab custom exercises and old kdk routines, so the tests cover t
 lookup, the description patch, the routines and --purge-kdk without a live server."""
 import copy
 import datetime as dt
+import hashlib
 import json
 import re
 import sys
@@ -214,6 +215,30 @@ def fake(monkeypatch):
     return f
 
 
+def jf_id(key):
+    return hashlib.md5(key.encode()).hexdigest()
+
+
+def full_videos(plan=PLAN):
+    """A wger_videos.json as exercise_videos.py jellyfin --apply writes it, every plan key mapped."""
+    return {"base_url": "https://jellyfin.test", "playlists": [],
+            "items": {k: {"id": jf_id(k), "youtube": ex["video"][-11:], "file": f"{k} [{ex['video'][-11:]}].mp4"}
+                      for k, ex in plan["exercises"].items()}}
+
+
+def write_videos(path, doc):
+    path.write_text(json.dumps(doc), encoding="utf-8")
+    return path
+
+
+@pytest.fixture(autouse=True)
+def videos(tmp_path, monkeypatch):
+    """Every test runs against a complete mapping unless it writes its own."""
+    path = write_videos(tmp_path / "wger_videos.json", full_videos())
+    monkeypatch.setattr(gw, "VIDEOS", path)
+    return path
+
+
 def run(*args, plan_path=gw.PLAN):
     return gw.main(list(args), today=TODAY, plan_path=plan_path)
 
@@ -308,20 +333,76 @@ def test_rach_doses_carried_over():
     assert (rdl["key"], rdl["sets"], rdl["reps"], rdl["rest"], rdl["weight"]) == ("db-rdl", 3, 8, 90, None)
 
 
-def test_describe_how_safety_video_and_hidden_marker():
+def test_describe_how_safety_video_and_hidden_marker(videos):
     ex = PLAN["exercises"]["plank"]
-    text = gw.describe("plank", ex)
+    text = gw.describe("plank", ex, gw.load_videos(videos))
     assert text.startswith("**How**\n\n- ")
     assert f"**Safety:** {ex['safety']}" in text
-    assert f"\n\nVideo: {ex['video']}\n\n" in text
+    assert f"\n\nVideo: https://jellyfin.test/web/#/details?id={jf_id('plank')}\n\n" in text
+    assert "youtube" not in text
     m = gw.MARKER_RE.search(text)
     assert m and text.endswith(m.group(0)) and m.group(1) == gw.h12(text[:m.start()].rstrip("\n"))
-    assert "Video:" not in gw.describe("plank", {**ex, "video": ""})
+    assert "Video:" not in gw.describe("plank", ex)            # no mapping: no line (never YouTube)
 
 
 def test_video_url_is_the_single_address_source(monkeypatch):
-    monkeypatch.setattr(gw, "video_url", lambda key, ex: f"https://jellyfin.test/{key}")
+    monkeypatch.setattr(gw, "video_url", lambda key, ex, videos=None: f"https://jellyfin.test/{key}")
     assert "Video: https://jellyfin.test/plank" in gw.describe("plank", PLAN["exercises"]["plank"])
+
+
+def test_video_url_needs_the_id_made_for_the_plans_youtube_video(videos):
+    v = gw.load_videos(videos)
+    ex = PLAN["exercises"]["plank"]
+    assert gw.video_url("plank", ex, v) == f"https://jellyfin.test/web/#/details?id={jf_id('plank')}"
+    assert gw.video_url("plank", {**ex, "video": "https://www.youtube.com/watch?v=AAAAAAAAAAA"}, v) == ""
+    assert gw.missing_videos(PLAN, v) == []
+
+
+@pytest.mark.parametrize("bad", [{"base_url": "http://jellyfin.test", "items": {}},
+                                 {"base_url": "https://j.test", "items": {"plank": {"id": "x", "youtube": "y"}}}])
+def test_bad_mapping_file_is_an_error(fake, videos, capsys, bad):
+    write_videos(videos, bad)
+    assert run() == 2
+    assert "wger_videos.json" in capsys.readouterr().err
+
+
+def test_committed_mapping_file_loads():
+    gw.load_videos(gw.TOOLS / "wger_videos.json")
+
+
+# ---------------------------------------------------------------- empty / partial mapping
+def test_empty_mapping_apply_stops_before_any_write(fake, videos, capsys):
+    write_videos(videos, {"base_url": "https://jellyfin.kmkdp.com", "items": {}, "playlists": []})
+    assert run("--apply") == 2
+    assert fake.writes == []
+    assert "47 plan exercise(s) have no Jellyfin item id" in capsys.readouterr().err
+
+
+def test_empty_mapping_check_fails_and_names_the_exercises(fake, videos, capsys):
+    doc = full_videos()
+    del doc["items"]["plank"]
+    write_videos(videos, doc)
+    assert run("--check") == 1
+    out = capsys.readouterr().out
+    assert "plank: no Jellyfin item id" in out and "goblet-squat: no Jellyfin item id" not in out
+
+
+def test_empty_mapping_dry_run_warns_and_never_plans_a_youtube_or_blank_line(fake, videos, capsys):
+    doc = full_videos()
+    del doc["items"]["plank"]
+    write_videos(videos, doc)
+    assert run() == 0
+    out, err = capsys.readouterr()
+    assert "1 plan exercise(s) have no Jellyfin item id" in err
+    assert " plank description" not in out and " goblet-squat description" in out
+    assert fake.writes == []
+
+
+def test_stale_mapping_after_a_video_change_counts_as_missing(fake, videos, tmp_path, capsys):
+    plan = copy.deepcopy(PLAN)
+    plan["exercises"]["plank"]["video"] = "https://www.youtube.com/watch?v=AAAAAAAAAAA"
+    assert run("--apply", plan_path=write_plan(tmp_path, plan)) == 2
+    assert "(plank)" in capsys.readouterr().err and fake.writes == []
 
 
 # ---------------------------------------------------------------- built-in exercises
@@ -356,23 +437,26 @@ def test_apply_then_second_run_makes_no_writes_and_check_passes(fake, capsys):
     assert "wger matches the plan" in capsys.readouterr().out
 
 
-def test_descriptions_patched_with_the_owner_key_only(fake):
+def test_descriptions_patched_with_the_owner_key_only(fake, videos):
     assert run("--apply") == 0
+    v = gw.load_videos(videos)
     for key, eid in fake.ex_of.items():
         (tr,) = [t for t in fake.t["exercise-translation"].values() if t["exercise"] == eid]
-        assert tr["description_source"] == gw.describe(key, PLAN["exercises"][key])
+        assert tr["description_source"] == gw.describe(key, PLAN["exercises"][key], v)
+        assert f"Video: https://jellyfin.test/web/#/details?id={jf_id(key)}" in tr["description_source"]
     assert {u for m, t, u in fake.writes if t in EXERCISE_WRITE} == {"jmack"}
     other = fake.t["exercise-translation"][900]
     assert other["description_source"] == "Upstream text."                  # not in the plan: untouched
     assert fake.t["exercise-translation"][10]["description_source"] == "Upstream text."
 
 
-def test_hand_edited_description_is_restored(fake):
+def test_hand_edited_description_is_restored(fake, videos):
     assert run("--apply") == 0
     tr = next(t for t in fake.t["exercise-translation"].values() if t["exercise"] == fake.ex_of["plank"])
     tr["description_source"] = "edited in the web UI"
     assert run("--check") == 1
-    assert run("--apply") == 0 and tr["description_source"] == gw.describe("plank", PLAN["exercises"]["plank"])
+    assert run("--apply") == 0
+    assert tr["description_source"] == gw.describe("plank", PLAN["exercises"]["plank"], gw.load_videos(videos))
 
 
 def test_name_mismatch_stops_the_run(fake, capsys):

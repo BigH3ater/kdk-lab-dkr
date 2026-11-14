@@ -6,7 +6,7 @@ tier: dmz
 status: live
 storage: yes
 secrets: [jellyfin-oidc]
-updated: 2026-11-07
+updated: 2026-11-14
 tags: [homelab/stack, tier/dmz, status/live]
 ---
 
@@ -28,7 +28,7 @@ Media server on the DMZ node with Intel Arc A380 QSV transcode; **public again s
 | Image | `ghcr.io/linuxserver/jellyfin:12.3ubu2604-ls56` — 12.x line, pinned; server and plugins move together |
 | Hardening | compose baseline: `cap_drop: [ALL]` + `cap_add` CHOWN/SETUID/SETGID/DAC_OVERRIDE/FOWNER/KILL (s6 init), `no-new-privileges`, `mem_limit 10g` (includes the 6G transcode tmpfs), `pids_limit 2048`, `/health` healthcheck; exceptions `devices` (/dev/dri) and skip `read_only` (s6) |
 | Deploy | Komodo stack `jellyfin` (git-linked) |
-| Storage | `/opt/kdk-lab/jellyfin/config` on local disk (DB, cache, plugins; byte-for-byte from k3s); images/metadata on NFS `/mnt/appdata/jellyfin/metadata` → `/config/data/metadata`; library RO from `/mnt/media` |
+| Storage | `/opt/kdk-lab/jellyfin/config` on local disk (DB, cache, plugins; byte-for-byte from k3s); images/metadata on NFS `/mnt/appdata/jellyfin/metadata` → `/config/data/metadata`; library RO from `/mnt/media` (`tv`, `movies`, and since 2026-11-14 `exercise` → `/data/media/exercise`) |
 | Blast radius | No streaming; requests via Seerr still queue |
 
 ## Verify
@@ -65,6 +65,7 @@ In the dashboard, an active transcode shows `(hw)`, watched state is present, al
 | Needs | [[dmz-proxy]] (websecure entrypoint) | LAN/tailnet ingress |
 | Needs | A380 `/dev/dri` | hardware transcode (falls back to CPU) |
 | Needs | `/mnt/media` (NFS, RO) | no library content |
+| Needed by | [[wger]] (`Video:` lines → Exercise items) | exercise video links in wger open nothing |
 | Needed by | [[seerr]] | request fulfilment + user auth |
 
 ## Observability
@@ -88,6 +89,10 @@ Listens on `8096`, joins `proxy-dmz`. `/dev/dri` gives QSV. Library mounted read
 | `tmpfs /config/cache/transcodes` | 6G RAM-disk scratch (`mode=1777`), excluded from backup — see [[jellyfin-transcoding]] |
 | `/opt/kdk-lab/jellyfin/config/encoding.xml` | Arc QSV/HDR encoding settings (host state, not in git) |
 
+## Exercise library
+
+Since 2026-11-14 there is an **Exercise** library (Home videos, metadata fetchers off, embedded titles preferred) on `/data/media/exercise`, one flat folder of the exercise-plan videos. It is visible to **jmack and rach only**. Each has one playlist per training day (private, owned by that person), and the wger `Video:` lines link to its items. The files are downloaded with yt-dlp on kdk-dkr-01 and the playlists are made by `stacks/home-assistant/tools/exercise_videos.py`, with its own API key `kdk-cluster/jellyfin-api-exercise-videos` (`api-key`). Every run checks that no other account can see the library. Keeping it private depends on per-user *Access* settings **and** on the SSO and LDAP plugins no longer granting *all folders* (the SSO plugin maps the LLDAP group `exercise-users` to the folder). Setup, the third-account check and rollback: [exercise-videos runbook](../runbooks/exercise-videos.md).
+
 ## SSO
 
 Added in batch 5b (2026-10-28). Install and settings: [[jellyfin-sso]].
@@ -104,6 +109,7 @@ Added in batch 5b (2026-10-28). Install and settings: [[jellyfin-sso]].
 
 | Secret (1P item) | Used for | Class | Rotate live? |
 |---|---|---|---|
+| `kdk-cluster/jellyfin-api-exercise-videos` (`api-key`) | `exercise_videos.py jellyfin` (scan, playlists), read only when run by hand | 🟢 self-service | yes: new key in Dashboard → API Keys, `op item edit`, delete the old key |
 | `kdk-cluster/jellyfin-oidc` (`password`) | SSO plugin client secret (plaintext in the plugin config; pbkdf2 digest in Authelia's `jellyfin_client_secret`) | 🟡 SSO breaks until both sides match | yes: regenerate in 1P, re-run the hash step in [[jellyfin-sso]], `RestartStack identity services=[authelia]`, paste the new plaintext into the plugin. Password and Quick Connect logins are unaffected meanwhile |
 
 User passwords are LLDAP's (LDAP plugin).
