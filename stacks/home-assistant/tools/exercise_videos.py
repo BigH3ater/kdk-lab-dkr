@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Plan videos as files in a private Jellyfin "Exercise" library, plus one playlist per person and day.
+"""Plan videos as files in a Jellyfin "Exercise" library, plus one private playlist per person and day.
 
     # on kdk-dkr-01 (the media share is rw there), or from the laptop with --host:
     python3 exercise_videos.py download                       # dry run: what is missing / extra
@@ -29,7 +29,8 @@ exit code is 1. Afterwards the tool removes its own temp dir <dir>/.incoming (th
 and only when it holds no finished video).
 
 jellyfin: finds the library by name (default "Exercise", type Home videos), refuses to go on
-when any account other than the plan's people can see it, starts a scan of that library only
+when one of the plan's people cannot see it (other accounts that can see it are only named in
+a NOTE line: owner decision 2026-11-14, the library is not private), starts a scan of that library only
 and waits until every plan file is an item, then creates or updates one playlist per person
 and day: "<name> · <day> <label>" (e.g. "Jacob · Mon Lower A"), items in workout order, owned
 by that person, not public, no shares. Days with the same video list share one playlist
@@ -366,9 +367,10 @@ def find_library(jf: Jellyfin, name: str) -> dict:
     return lib
 
 
-def access_problems(users: list[dict], allowed: dict, lib_id: str) -> list[str]:
-    """Who can see the library that should not, and who should but cannot."""
-    probs = []
+def library_access(users: list[dict], allowed: dict, lib_id: str) -> tuple[list[str], list[str]]:
+    """(problems, others): plan people who cannot see the library (a hard stop), and the other
+    accounts who can (allowed since the owner decision of 2026-11-14; only reported)."""
+    probs, others = [], []
     ok_ids = {norm(u["Id"]) for u in allowed.values()}
     for u in users:
         pol = u.get("Policy") or {}
@@ -376,9 +378,8 @@ def access_problems(users: list[dict], allowed: dict, lib_id: str) -> list[str]:
         if norm(u["Id"]) in ok_ids and not sees:
             probs.append(f"{u['Name']} cannot see the library (tick it under the user's Library access)")
         elif norm(u["Id"]) not in ok_ids and sees:
-            why = "'Enable access to all libraries' is on" if pol.get("EnableAllFolders") else "the library is ticked"
-            probs.append(f"{u['Name']} can see the library ({why}); it must be the plan's people only")
-    return probs
+            others.append(f"{u['Name']} ({'all libraries' if pol.get('EnableAllFolders') else 'ticked'})")
+    return probs, others
 
 
 def library_items(jf: Jellyfin, lib_id: str, location: str) -> dict[str, str]:
@@ -492,11 +493,13 @@ def cmd_jellyfin(args, plan: dict, out, sleep=time.sleep, videos_path: Path | No
     people, users = find_users(jf, list(plan["people"]))
     lib = find_library(jf, args.library)
     lib_id, location = norm(lib.get("ItemId")), lib["Locations"][0]
-    probs = access_problems(users, people, lib_id)
+    probs, others = library_access(users, people, lib_id)
     if probs:
         for p in probs:
             out(f"ACCESS {p}")
-        raise VideoError("fix the library access first (runbook step 5); nothing written")
+        raise VideoError("fix the library access first (runbook step 4); nothing written")
+    if others:
+        out(f"NOTE other accounts can see the library (allowed; the playlists stay private): {', '.join(others)}")
     opts = lib.get("LibraryOptions") or {}
     if opts and not opts.get("EnableEmbeddedTitles"):
         out("WARN library option 'Prefer embedded titles over filenames' is off: items show the file name")

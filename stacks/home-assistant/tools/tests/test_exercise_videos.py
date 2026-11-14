@@ -466,16 +466,38 @@ def test_a_new_video_in_the_plan_updates_the_mapping_and_playlist(jf, videos, tm
     assert len(jf.playlists) == 8
 
 
-def test_another_account_with_access_stops_everything(jf, videos, capsys):
-    jf.users[2]["Policy"]["EnableAllFolders"] = True
+def test_other_accounts_seeing_the_library_is_only_a_note(jf, videos, capsys):
+    jf.users[2]["Policy"]["EnableAllFolders"] = True                   # guest: all libraries
+    jf.users[3]["Policy"]["EnabledFolders"].append(LIB)                # admin: ticked
+    assert jrun("--apply", videos=videos) == 0
+    out = capsys.readouterr().out
+    notes = [x for x in out.splitlines() if x.startswith("NOTE other accounts")]
+    assert notes == ["NOTE other accounts can see the library (allowed; the playlists stay private): "
+                     "guest (all libraries), kdkadmin (ticked)"]
+    assert "ACCESS" not in out and len(jf.playlists) == 8
+    for pl in jf.playlists.values():                                   # still private to the owner
+        assert pl["public"] is False and pl["shares"] == [] and pl["owner"] in (JMACK, RACH)
+
+
+def test_no_note_when_only_the_plan_people_see_it(jf, videos, capsys):
+    assert jrun(videos=videos) == 0
+    assert "NOTE other accounts" not in capsys.readouterr().out
+
+
+def test_a_playlist_that_stays_public_is_a_hard_failure(jf, videos, capsys, monkeypatch):
+    assert jrun("--apply", videos=videos) == 0
+    (pid, pl), = [(k, p) for k, p in jf.playlists.items() if p["name"] == "Jacob · Wed Upper A"]
+    pl["public"] = True
+    real = jf.handle
+
+    def sticky(method, url, headers, params=None, json=None):          # the update does not take
+        r = real(method, url, headers, params=params, json=json)
+        if method == "POST" and url.endswith(f"/Playlists/{pid}"):
+            pl["public"] = True
+        return r
+    monkeypatch.setattr(jf, "handle", sticky)
     assert jrun("--apply", videos=videos) == 2
-    out, err = capsys.readouterr()
-    assert "ACCESS guest can see the library ('Enable access to all libraries' is on)" in out
-    assert jf.writes == [] and "nothing written" in err
-    jf.users[2]["Policy"]["EnableAllFolders"] = False
-    jf.users[3]["Policy"]["EnabledFolders"].append(LIB)                # an admin is not exempt
-    assert jrun(videos=videos) == 2
-    assert "ACCESS kdkadmin can see the library (the library is ticked)" in capsys.readouterr().out
+    assert "did not take" in capsys.readouterr().err
 
 
 def test_plan_person_without_access_is_an_error(jf, videos, capsys):

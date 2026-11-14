@@ -30,7 +30,7 @@ exercise names, sets, reps, start weights, rest and movement cues (owner, 2026-1
 [plan update](../runbooks/workout-tracking-update.md)). It uses **wger's built-in exercises
 only**, each named by uuid. The generator replaces each used built-in's English description
 with How / Safety cues and a `Video:` line (plain address: wger has no link field). The
-address is the video's page in the private Jellyfin **Exercise** library
+address is the video's page in the Jellyfin **Exercise** library (visible to every Jellyfin account for now; the per-day playlists are private)
 (`https://jellyfin.kmkdp.com/web/#/details?id=<item id>`, from the committed
 `tools/wger_videos.json`); the plan keeps the YouTube address (a physical therapist or
 certified coach channel) as the download source ([exercise-videos runbook](../runbooks/exercise-videos.md)).
