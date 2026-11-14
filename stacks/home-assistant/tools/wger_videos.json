@@ -33,9 +33,9 @@
       "file": "cow-cat [1Y0YjXS9sKI].mp4"
     },
     "db-bench-press": {
-      "id": "90353be38dc520525aee892dcdf08a6c",
-      "youtube": "AuNRCrdhquE",
-      "file": "db-bench-press [AuNRCrdhquE].mp4"
+      "id": "8d525ee79397d46fb7732d8ac3e1fe25",
+      "youtube": "EipJ3n7934s",
+      "file": "db-bench-press [EipJ3n7934s].mp4"
     },
     "db-hip-thrust": {
       "id": "1c06d5e7a15bb95bab08ae023ccc7b4f",
@@ -98,9 +98,9 @@
       "file": "hollow-hold [jLxtFNO0r50].mp4"
     },
     "incline-db-press": {
-      "id": "9992735969819a8f63e9764739bd8d5e",
-      "youtube": "JKnpHchOWPU",
-      "file": "incline-db-press [JKnpHchOWPU].mp4"
+      "id": "d01ea85ab99c4b9ec6a0da252352e7a2",
+      "youtube": "1GfPDAON8tA",
+      "file": "incline-db-press [1GfPDAON8tA].mp4"
     },
     "incline-push-up": {
       "id": "5c3dca505b58c58cf27620cbf523fafd",
@@ -212,11 +212,6 @@
       "youtube": "KKfEOow1kgA",
       "file": "tib-raise [KKfEOow1kgA].mp4"
     },
-    "treadmill-walk": {
-      "id": "968352745564a4f138789d2e31410cdd",
-      "youtube": "jkJkmy8IHXU",
-      "file": "treadmill-walk [jkJkmy8IHXU].mp4"
-    },
     "triceps-kickback": {
       "id": "870f53cf561011eb4db0147d486b53a2",
       "youtube": "WxmkqZ2gKFo",
@@ -244,40 +239,40 @@
       "days": [
         "mon"
       ],
-      "name": "Jacob · Mon Lower A",
-      "id": "149d6a5fe1ad9dded863c4ade2095567"
+      "name": "Jacob · 1 Mon Lower A",
+      "id": "feed41a0e58d6d896a3d70b256f7f77a"
     },
     {
       "login": "jmack",
       "days": [
         "wed"
       ],
-      "name": "Jacob · Wed Upper A",
-      "id": "ccc02d5c5f0e9ffc19fdd6372acf695a"
+      "name": "Jacob · 2 Wed Upper A",
+      "id": "8ee8b1259c92aa89144d299bb4e64a14"
     },
     {
       "login": "jmack",
       "days": [
         "fri"
       ],
-      "name": "Jacob · Fri Lower B",
-      "id": "1c808e496244d57c2a9480017e879bf6"
+      "name": "Jacob · 3 Fri Lower B",
+      "id": "de1482b2373da07a3a9d8959a40cee24"
     },
     {
       "login": "jmack",
       "days": [
         "sat"
       ],
-      "name": "Jacob · Sat Upper B",
-      "id": "b2d8d6ccf223f70207bf06660fa63099"
+      "name": "Jacob · 4 Sat Upper B",
+      "id": "ca0ecb691043dead7c68b59eb7486307"
     },
     {
       "login": "rach",
       "days": [
         "mon"
       ],
-      "name": "Rachel · Mon Strength A",
-      "id": "0526dc8adc5708473cb946a196d78729"
+      "name": "Rachel · 1 Mon Strength A",
+      "id": "f73a0f07f2a8921fff97e45ed7a10e78"
     },
     {
       "login": "rach",
@@ -285,8 +280,8 @@
         "tue",
         "fri"
       ],
-      "name": "Rachel · Tue/Fri Cardio",
-      "id": "1b06374812eb4dd989f893ba4c44dda2"
+      "name": "Rachel · 2 Tue/Fri Cardio",
+      "id": "27d3c056fc556262e40c58e4d08a8e54"
     },
     {
       "login": "rach",
@@ -295,16 +290,16 @@
         "sat",
         "sun"
       ],
-      "name": "Rachel · Wed/Sat/Sun Daily parts",
-      "id": "2a49a7c00316f3c9a4fc6119f96956ad"
+      "name": "Rachel · 3 Wed/Sat/Sun Daily parts",
+      "id": "2ac1422a22782e700c3174d43d9bf5ed"
     },
     {
       "login": "rach",
       "days": [
         "thu"
       ],
-      "name": "Rachel · Thu Strength B",
-      "id": "6a1a538dad131ce0e7ed3deb3756384f"
+      "name": "Rachel · 4 Thu Strength B",
+      "id": "9dd7bb4ff76fd9cb4e57a288a91b66cc"
     }
   ]
 }
