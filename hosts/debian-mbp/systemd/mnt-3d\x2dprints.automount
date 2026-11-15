@@ -1,0 +1,12 @@
+# Laptop debian-mbp: mount the 3d-prints share on first access, unmount after
+# 10 idle minutes (the unit-file form of x-systemd.idle-timeout). Away from
+# home nothing touches it, so nothing waits. Install: /etc/systemd/system/
+# (root 0644), then `systemctl enable --now 'mnt-3d\x2dprints.automount'`.
+# docs/runbooks/cad-library.md
+[Unit]
+Description=Automount kdk-nas-01 3d-prints (CAD library)
+[Automount]
+Where=/mnt/3d-prints
+TimeoutIdleSec=10min
+[Install]
+WantedBy=multi-user.target

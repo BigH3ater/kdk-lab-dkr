@@ -1,7 +1,8 @@
 # Nightly one-shot on kdk-dkr-04: ship application state to Proton Drive,
 # encrypted. Runs AFTER the staging stages (backup-dkr-01 / backup-dmz /
 # backup-collect) in the nightly procedure. Two services, in order:
-#   pack    -- writes one tar.zst per host into /data/offsite/ (pack.sh), so the
+#   pack    -- writes one tar.zst per host (plus one for the CAD library from
+#              /src/3d-prints) into /data/offsite/ (pack.sh), so the
 #              upload is a handful of large objects, not thousands of small files
 #              (the Proton API choked on small-file volume and no pass ever
 #              finished). Runs first.
@@ -29,6 +30,10 @@ services:
     volumes:
       - /mnt/backup/dkr:/data
       - ./pack.sh:/pack.sh:ro
+      # CAD library (kdk-nas-01 tankz3/3d-prints, read-only NFS on dkr-04, unit
+      # hosts/kdk-dkr-04/systemd/mnt-3d\x2dprints.mount). Packed as its own
+      # archive; see docs/runbooks/cad-library.md.
+      - /mnt/3d-prints:/src/3d-prints:ro
   offsite:
     image: rclone/rclone:1.76.0@sha256:7cbeec24a44f206067597c0368be4de90ae19a64d5113c7d1938bd737a81e466
     restart: "no"

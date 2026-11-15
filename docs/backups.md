@@ -1,7 +1,7 @@
 ---
 title: Backups
 tags: [homelab/process, backups, komodo, proton]
-updated: 2026-10-30
+updated: 2026-11-15
 ---
 
 # Backups
@@ -28,6 +28,13 @@ offsite stage runs in two steps (`stacks/backup-offsite/`):
    dropped (see below). GNU tar + zstd (`-T0`, level 3) are `apk`-added at
    runtime (same pattern as `backup-verify`'s `curl`). The newest **3** archives
    per host are kept locally; older ones are deleted.
+   The same step packs the owner's **CAD library** (laptop `~/cad` → SMB
+   `tankz3/3d-prints` → read-only NFS `/mnt/3d-prints` on kdk-dkr-04, bound into
+   `pack` at `/src/3d-prints`) as `offsite/3d-prints-YYYY-MM-DD.tar.zst`, newest 3
+   kept, with its **own** exclude list (`*.log`, `__pycache__`, `.~lock*`): the host
+   list below would drop CAD folders that happen to be named `backup`, `cache` or
+   `logs`. An empty source (mount down) is skipped so it never rotates good archives
+   out. See [CAD library](runbooks/cad-library.md).
 2. **offsite** (`offsite.sh`) — `rclone sync` ships **only** `offsite/**`,
    `pve-templates/**` and each host's `*/pgdump/**` to the crypt remote.
 

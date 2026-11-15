@@ -209,6 +209,18 @@ write_files:
       Options=nfsvers=4.1,noatime,_netdev
       [Install]
       WantedBy=multi-user.target
+  - path: /etc/systemd/system/mnt-3d\x2dprints.mount
+    content: |
+      [Unit]
+      Description=tankz3/3d-prints over storage net (read-only, backup-offsite)
+      After=network-online.target
+      [Mount]
+      What=172.16.30.2:/mnt/tankz3/3d-prints
+      Where=/mnt/3d-prints
+      Type=nfs
+      Options=nfsvers=4.1,ro,noatime,_netdev
+      [Install]
+      WantedBy=multi-user.target
   - path: /etc/ssh/sshd_config.d/98-kdk-admin.conf
     content: |
       # kdk-lab SSH baseline, every host. Install: /etc/ssh/sshd_config.d/98-kdk-admin.conf
@@ -677,6 +689,9 @@ runcmd:
   # linux-tools share (docs/runbooks/linux-tools-share.md): its own line so a
   # missing vmpool/linux-tools export cannot fail the media/backup step above.
   - systemctl enable --now 'mnt-linux\x2dtools.mount' || true
+  # CAD library, read-only for backup-offsite (docs/runbooks/cad-library.md): own
+  # line for the same reason (a missing tankz3/3d-prints export must not fail boot).
+  - systemctl enable --now 'mnt-3d\x2dprints.mount' || true
   # rpcbind not needed (NFS is v4.1 only); mask it (hosts report M-07).
   - systemctl mask --now rpcbind.socket rpcbind.service || true
   # Periphery pinned to Core's release line (docs/services/komodo.md: 2.3.4).

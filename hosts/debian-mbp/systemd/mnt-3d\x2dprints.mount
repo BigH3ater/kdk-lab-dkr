@@ -1,0 +1,18 @@
+# Laptop debian-mbp: kdk-nas-01 SMB share 3d-prints (the CAD library) as the
+# cad-sync user. Started only by mnt-3d\x2dprints.automount (no [Install] here),
+# so boot never waits for the NAS. Install: /etc/systemd/system/ (root 0644).
+# Credentials: /etc/cifs/3d-prints.cred (root 0600, from 1Password
+# kdk-ops/kdk-nas-01-cad-sync-smb). docs/runbooks/cad-library.md
+[Unit]
+Description=kdk-nas-01 3d-prints SMB share (CAD library)
+Wants=network-online.target
+After=network-online.target
+[Mount]
+What=//10.1.3.5/3d-prints
+Where=/mnt/3d-prints
+Type=cifs
+# uid/gid 1000 = jmack on this laptop (`id`). seal = SMB3 encryption on the
+# wire (wifi). soft is the cifs default: a dead server returns EIO, never hangs.
+Options=vers=3.1.1,seal,credentials=/etc/cifs/3d-prints.cred,uid=1000,gid=1000,file_mode=0640,dir_mode=0750,soft,_netdev,nofail
+# Give up on an unreachable NAS after 20 s instead of the 90 s default.
+TimeoutSec=20

@@ -47,7 +47,7 @@ def per_host(host):
     ]
 
 
-# kdk-dkr-04's NFS mount units (media, backup, linux-tools) are the one storage-specific host file tracked in
+# kdk-dkr-04's NFS mount units (media, backup, linux-tools, 3d-prints) are the one storage-specific host file tracked in
 # hosts/ (kdk-dkr-01 keeps its mounts hand-written in cloud-init). Tracking them
 # here keeps the hosts/ source of truth and the cloud-init rebuild copy from
 # drifting. runcmd in the cloud-init file enables them (systemctl enable --now).
@@ -55,6 +55,7 @@ MOUNTS_DKR04 = [
     ("/etc/systemd/system/mnt-media.mount", "hosts/kdk-dkr-04/systemd/mnt-media.mount", None),
     ("/etc/systemd/system/mnt-backup.mount", "hosts/kdk-dkr-04/systemd/mnt-backup.mount", None),
     ("/etc/systemd/system/mnt-linux\\x2dtools.mount", "hosts/kdk-dkr-04/systemd/mnt-linux\\x2dtools.mount", None),
+    ("/etc/systemd/system/mnt-3d\\x2dprints.mount", "hosts/kdk-dkr-04/systemd/mnt-3d\\x2dprints.mount", None),
 ]
 
 

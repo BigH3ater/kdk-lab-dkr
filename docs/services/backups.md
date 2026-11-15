@@ -6,7 +6,7 @@ tier: infra
 status: live
 storage: yes
 secrets: [proton-mirror-crypt, authelia-postgres, immich-postgres, jellystat, wger-postgres, authelia-app-secrets]
-updated: 2026-10-30
+updated: 2026-11-15
 tags: [homelab/stack, tier/infra, status/live]
 ---
 
@@ -21,7 +21,7 @@ Nightly app-state backups run as one-shot stacks that a Komodo Procedure redeplo
 | Field | Value |
 |---|---|
 | Purpose | pg dumps + `/opt/kdk-lab` rsync to the NAS, then selected sets offsite |
-| Status | 🟢 Local NAS live (nightly 03:20) · 🟢 offsite packs per-host `tar.zst` then syncs `offsite/` + `pve-templates/` + `*/pgdump/` to Proton |
+| Status | 🟢 Local NAS live (nightly 03:20) · 🟢 offsite packs per-host `tar.zst` (+ the CAD library `3d-prints-*.tar.zst`) then syncs `offsite/` + `pve-templates/` + `*/pgdump/` to Proton |
 | Hosts | [[kdk-dkr-01]] (`backup-dkr-01`), [[kdk-dkr-dmz-01]] (`backup-dmz`) |
 | Deploy | Komodo Procedure `nightly-backups` redeploys both stacks (`deploy = false` otherwise) |
 | Destinations | `/mnt/backup/dkr/<host>` (NFS tankz3) → Proton Drive (crypt) |
@@ -34,6 +34,9 @@ ssh kdkadmin@10.1.20.20 'ls -t /mnt/backup/dkr/kdk-dkr-01 | head'               
 ssh kdkadmin@10.1.20.20 'ls -t /mnt/backup/dkr/kdk-dkr-01/pgdump | head'             # jellystat + wger .sql.gz
 ssh kdkadmin@10.1.20.20 'ls -t /mnt/backup/dkr/kdk-dkr-dmz-01/pgdump | head'         # dated .sql.gz
 ```
+```bash
+ssh kdkadmin@10.1.20.22 'sudo ls -la /mnt/backup/dkr/offsite/ | grep 3d-prints'   # CAD library archive, newest 3
+```
 In Komodo, Procedure `nightly-backups` shows a recent successful run.
 
 ## Troubleshooting
@@ -43,6 +46,8 @@ In Komodo, Procedure `nightly-backups` shows a recent successful run.
 | No new dumps | Procedure didn't run / stack failed | Komodo Procedure history; `docker logs <backup-container>` |
 | Offsite pass exits `rc=10` | the pass hit `--max-duration 25m` before the (now much smaller) delta synced | the next pass resumes; with per-host archives a clean night should reach `rc=0` in one or two passes. `rc=0` in `/mnt/backup/dkr/.offsite-status` means fully in sync |
 | Offsite pack wrote nothing / `tar` failed | `apk add tar zstd` could not reach the Alpine CDN, or a host dir was absent | `docker logs` the `backup-offsite-pack-*` container; `sudo ls -la /mnt/backup/dkr/offsite/` shows today's `<host>-*.tar.zst` |
+| `3d-prints archive missing/empty` | `/mnt/3d-prints` not mounted on kdk-dkr-04 (pack skips an empty source) | `ssh kdkadmin@10.1.20.22 findmnt /mnt/3d-prints`; [[cad-library]] step 2 |
+| WARN `laptop cad-sync last ran Nd ago` | the laptop has been away/asleep, or its timer is off | on the laptop: `systemctl --user list-timers cad-sync.timer`, `journalctl --user -u cad-sync -n 20` ([[cad-library]]) |
 | Offsite accumulates dead objects | crypt password changed without a purge | `rclone purge proton:kdk-lab-backup` before the first sync under a new password |
 | rclone can't read cached tokens | image newer than the login version | pin `rclone/rclone:1.75.2` (the version that did the interactive login) |
 
@@ -53,6 +58,7 @@ In Komodo, Procedure `nightly-backups` shows a recent successful run.
 | Needs | `/mnt/backup` (NFS tankz3) | nowhere to write |
 | Needs | [[identity]] + [[immich]] + Tandoor Postgres | pg dumps |
 | Needs | Proton Drive (offsite only) | offsite tier |
+| Needs | `/mnt/3d-prints` on kdk-dkr-04 (ro NFS of `tankz3/3d-prints`) | CAD library archive; `backup-verify` fails the night |
 
 ## Observability
 
@@ -60,7 +66,7 @@ No dashboard. Success is visible in the Komodo Procedure run history.
 
 ## Architecture
 
-Three layers: (1) ZFS snapshots — vmpool covers the DMZ VM zvol, tankz3 covers bulk + backup datasets; (2) VM-level — vzdump of VM 300 and VM 320 (kdk-log-01: Loki data lives on its disk, no app-level backup) to PBS, TrueNAS zvol replication of the DMZ VM; (3) app-level — the two backup stacks. `backup-dmz` runs `pg_dump` for Authelia, Immich and Tandoor (keeps 15) then rsyncs state; `backup-dkr-01` runs `pg_dump` for Jellystat and wger (keeps 15 each, into `kdk-dkr-01/pgdump`; wger without PowerSync's derived `powersync` schema) then rsyncs `/opt/kdk-lab` (excluding scratch, the live Postgres cluster dirs `komodo/postgres`, `jellystat/postgres` and `wger/postgres`, and the regenerable `wger/static`), then the separate `backup-offsite` stage first **packs one `tar.zst` per host** (`pack.sh`: GNU tar + zstd, excluding caches/logs/clones/creds, newest 3 kept locally) into `/mnt/backup/dkr/offsite/`, then runs `rclone sync` of only `offsite/` + `pve-templates/` + each host's `pgdump/` to Proton (encrypted, in ≤25-min passes). Packing first turns thousands of small files into a few large objects, which the Proton API handles without the 502/422/empty-upload churn that stopped the old whole-tree sync from finishing. `backup-verify` checks all five pg dumps are present + gzip-valid for the day.
+Three layers: (1) ZFS snapshots — vmpool covers the DMZ VM zvol, tankz3 covers bulk + backup datasets; (2) VM-level — vzdump of VM 300 and VM 320 (kdk-log-01: Loki data lives on its disk, no app-level backup) to PBS, TrueNAS zvol replication of the DMZ VM; (3) app-level — the two backup stacks. `backup-dmz` runs `pg_dump` for Authelia, Immich and Tandoor (keeps 15) then rsyncs state; `backup-dkr-01` runs `pg_dump` for Jellystat and wger (keeps 15 each, into `kdk-dkr-01/pgdump`; wger without PowerSync's derived `powersync` schema) then rsyncs `/opt/kdk-lab` (excluding scratch, the live Postgres cluster dirs `komodo/postgres`, `jellystat/postgres` and `wger/postgres`, and the regenerable `wger/static`), then the separate `backup-offsite` stage first **packs one `tar.zst` per host** (`pack.sh`: GNU tar + zstd, excluding caches/logs/clones/creds, newest 3 kept locally) into `/mnt/backup/dkr/offsite/`, then runs `rclone sync` of only `offsite/` + `pve-templates/` + each host's `pgdump/` to Proton (encrypted, in ≤25-min passes). Packing first turns thousands of small files into a few large objects, which the Proton API handles without the 502/422/empty-upload churn that stopped the old whole-tree sync from finishing. The same `pack` step also archives the owner's CAD library (laptop `~/cad`, synced every 15 min to `tankz3/3d-prints`, mounted read-only on kdk-dkr-04 at `/mnt/3d-prints`) as `offsite/3d-prints-YYYY-MM-DD.tar.zst` with its own small exclude list (`*.log`, `__pycache__`, `.~lock*`), so it ships with the host archives ([[cad-library]]). `backup-verify` checks all five pg dumps are present + gzip-valid for the day, that tonight's `3d-prints` archive exists and passes `zstd -t`, and warns if the laptop's last sync (`.3d-prints-last-sync`, copied by `pack`) is older than 14 days.
 
 DMZ data that lives on `/mnt/appdata` instead of `/opt/kdk-lab` (Seerr, Wizarr, Libreseerr, Jellyfin metadata, Audiobookshelf podcasts) is **not** in the nightly rsync or offsite: it is covered by tankz3 snapshots only. The Jellyfin metadata and podcasts are regenerable (re-scan / re-download from the feeds), so that is deliberate.
 
@@ -70,7 +76,7 @@ DMZ data that lives on `/mnt/appdata` instead of `/opt/kdk-lab` (Seerr, Wizarr, 
 |---|---|
 | `stacks/backup-dkr-01/compose.yaml` | Jellystat + wger pg dumps + rsync of `/opt/kdk-lab` to the NAS. `pgdump-wger` joins the external `wger_backend` network: if the wger stack is down, the whole dkr-01 stage fails |
 | `stacks/backup-offsite/compose.yaml` | separate stage: `pack` service builds per-host `tar.zst`, then `offsite` service `rclone sync`s `offsite/` + `pve-templates/` + `*/pgdump/` to Proton (crypt), `--max-duration 25m` per pass, writes `.offsite-status` |
-| `stacks/backup-offsite/pack.sh` | builds `/mnt/backup/dkr/offsite/<host>-YYYY-MM-DD.tar.zst` per host (excludes caches/logs/clones/creds/pgdump), keeps newest 3 |
+| `stacks/backup-offsite/pack.sh` | builds `/mnt/backup/dkr/offsite/<host>-YYYY-MM-DD.tar.zst` per host (excludes caches/logs/clones/creds/pgdump), plus `3d-prints-YYYY-MM-DD.tar.zst` from `/src/3d-prints` (ro bind of dkr-04 `/mnt/3d-prints`), keeps newest 3 of each |
 | `stacks/backup-dmz/compose.yaml` | Authelia + Immich + Tandoor pg dumps + rsync of `/opt/kdk-lab` (excludes live Postgres dirs, certs, clones, Jellyfin metadata/cache/transcodes, `audiobookshelf/podcasts`) |
 | `/opt/kdk-lab/backup/rclone/rclone.conf` | `proton` + `proton-crypt` remotes |
 | Procedure `nightly-backups` | schedule `0 20 3 * * *` (03:20 daily, `Cron` format) |

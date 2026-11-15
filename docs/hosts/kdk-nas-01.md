@@ -12,7 +12,7 @@ vmid: none
 console: TrueNAS UI; iDRAC/physical
 standards: out-of-scope (not a Komodo compose host)
 secrets: []
-updated: 2026-10-30
+updated: 2026-11-15
 tags: [homelab/host, role/storage, status/live, tier/infra]
 ---
 
@@ -31,8 +31,8 @@ datasets.
 | Purpose | Bulk storage, NFS server, SMB shares, TrueNAS VM host |
 | Host | Dell PowerEdge R730xd (bare metal) |
 | Address | `10.1.3.5` (VLAN 1); storage NIC `br0` alias at `172.16.30.2` (NFS net) |
-| NFS | server for `172.16.30.0/24` (jumbo MTU 9000); per-host backup datasets `tankz3/backup/dkr/<host>`; clients `172.16.30.50` (dkr-01), `.51` (dmz-01), `.52` (dkr-04: `media` + `backup` only, added 2026-10-30) |
-| SMB | bound to `10.1.3.5` (not offered on the storage bridge) — e.g. `\\10.1.3.5\dee-exchange` for [[kdk-dee-01]] |
+| NFS | server for `172.16.30.0/24` (jumbo MTU 9000); per-host backup datasets `tankz3/backup/dkr/<host>`; clients `172.16.30.50` (dkr-01), `.51` (dmz-01), `.52` (dkr-04: `media` + `backup` since 2026-10-30, `vmpool/linux-tools`, and `3d-prints` read-only) |
+| SMB | bound to `10.1.3.5` (not offered on the storage bridge) — e.g. `\\10.1.3.5\dee-exchange` for [[kdk-dee-01]], `\\10.1.3.5\3d-prints` for the laptop CAD library ([[cad-library]]) |
 | Guests | TrueNAS VMs: [[kdk-dkr-dmz-01]] and `kdk-pbs-01` |
 | Fan/BMC | R730xd BMC steered over IPMI by the `fanctl-nas` controller on [[kdk-mon-01]]; drive-temp watchdog `/root/kdk-temp-watch.sh` |
 | Blast radius | NFS/SMB offline lab-wide; backup targets unreachable |
@@ -43,6 +43,16 @@ This page is a reference stub for the facts the repo already knows. The NFS and
 SMB server configuration lives in TrueNAS (`nfs.config`, `sharing.nfs`,
 `sharing.smb`), not in this repo. See [[network]] for the storage-network layout
 and [[backups]] for the backup datasets.
+
+## CAD library (`tankz3/3d-prints`)
+
+The owner's laptop `~/cad` lands here every 15 min over SMB share `3d-prints` as the
+SMB-only user `cad-sync` (uid/gid 3011, password in 1Password
+`kdk-ops/kdk-nas-01-cad-sync-smb`). NFSv4 ACL: `owner@` FULL, `group@` MODIFY,
+`USER 3003` (jmack) FULL, `USER 3011` (cad-sync) MODIFY, all inherit. Snapshot tasks
+hourly 2 DAY + daily 03:00 2 WEEK. NFS export to `172.16.30.52` (kdk-dkr-04) only,
+read-only, `mapall` = `cad-sync`, for the nightly offsite pack. Setup, verify and
+restore: [[cad-library]].
 
 ## ACME / web certificate
 
