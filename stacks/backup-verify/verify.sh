@@ -7,8 +7,10 @@
 #   * DMZ pg dumps present, non-empty, gzip-valid for today
 #   * offsite rclone exit==0 and its status is fresh (< 6h)
 #   * Proxmox cloud-init template (VM 9000) vzdump present < 40d  [WARN only]
+#   * CAD library archive offsite/3d-prints-<today>.tar.zst present + zstd -t
+#   * CAD laptop sync marker (.3d-prints-last-sync, copied by pack) < 14d  [WARN only]
 # FAIL -> Pushover priority 1. WARN -> priority 0. All-clear -> quiet (-1).
-apk add --no-cache curl >/dev/null 2>&1 || true
+apk add --no-cache curl zstd >/dev/null 2>&1 || true
 . /pushover.env
 PROB=""; WARN=""; now=$(date +%s)
 add_prob() { PROB="$PROB\n- $1"; }
@@ -51,6 +53,23 @@ if [ -z "$(find /dest/pve-templates -type f -mtime -40 2>/dev/null | head -1)" ]
   add_warn "pve-template: no VM 9000 vzdump < 40d (see /var/log/kdk-template-backup.log on kdk-hyp-01)"
 fi
 
+# 5. CAD library (docs/runbooks/cad-library.md). The archive is built by
+#    backup-offsite's pack on kdk-dkr-04 from /mnt/3d-prints; this host cannot
+#    see that mount, so pack also copies the laptop's .last-sync marker (with
+#    its mtime) to /dest/.3d-prints-last-sync. Missing/corrupt archive = FAIL
+#    (same class as a pg dump); a stale laptop sync = WARN (the laptop may just
+#    be away from home).
+f="/dest/offsite/3d-prints-$today.tar.zst"
+if [ ! -s "$f" ]; then add_prob "3d-prints archive missing/empty ($today)"
+elif ! command -v zstd >/dev/null 2>&1; then add_warn "3d-prints archive not tested (apk add zstd failed)"
+elif ! zstd -t -q "$f" 2>/dev/null; then add_prob "3d-prints archive corrupt (zstd -t failed)"; fi
+m=/dest/.3d-prints-last-sync
+if [ ! -f "$m" ]; then add_warn "3d-prints: no laptop .last-sync marker (cad-sync never ran?)"
+else
+  sage=$(( now - $(date -r "$m" +%s) ))
+  [ "$sage" -gt 1209600 ] && add_warn "3d-prints: laptop cad-sync last ran $(( sage / 86400 ))d ago ($(cat "$m" 2>/dev/null))"
+fi
+
 push() {
   curl -s --max-time 25 \
     --form-string "token=$PUSHOVER_TOKEN" --form-string "user=$PUSHOVER_USER" \
@@ -67,6 +86,6 @@ elif [ -n "$WARN" ]; then
   printf 'BACKUP OK with warnings:%b\n' "$WARN"
   push 0 "kdk-lab backup: warnings" "Warnings:$WARN"
 else
-  echo "BACKUP OK -- all hosts fresh, pg dumps valid, offsite clean"
-  push -1 "kdk-lab backup OK" "All 5 hosts staged, pg dumps valid, offsite rclone exit=0, template present."
+  echo "BACKUP OK -- all hosts fresh, pg dumps valid, 3d-prints archive valid, offsite clean"
+  push -1 "kdk-lab backup OK" "All 6 hosts staged, pg dumps valid, 3d-prints archive valid, offsite rclone exit=0, template present."
 fi

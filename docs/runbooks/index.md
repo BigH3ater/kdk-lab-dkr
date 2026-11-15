@@ -25,6 +25,7 @@ illustrative.
 - [PostgreSQL major upgrade (16 → 18)](postgres-major-upgrade.md) — per-stack logical dump/restore for identity, jellystat and tandoor; the PG18 PGDATA gotcha; order, rollback, re-enabling the Renovate rule.
 - [Post-merge validation](post-merge-validation.md) — the reviewer's read-only checks and the table posted on every PR.
 - [linux-tools share](linux-tools-share.md) — `vmpool/linux-tools` NFS share on kdk-dkr-04 for portable build kits (thud): NAS create steps, mount, seed, verify, rollback.
+- [CAD library (laptop → NAS → offsite)](cad-library.md) — laptop `~/cad` → SMB `3d-prints` every 15 min, NAS snapshots, read-only NFS to kdk-dkr-04, nightly `3d-prints-*.tar.zst` offsite: hand steps, verify, restore, rollback.
 - [Storage network & NFS](storage-network.md) — the `172.16.30.0/24` storage plane, the Tailscale-CGNAT collision that broke NFS, renumber + hung-mount procedures.
 - [Host kernel crash, watchdog reset and pending kernels](host-kernel-crash.md) — the ICH9 TCO watchdog as the recovery path, crash signatures, triage after an unexpected reboot, the `panic_on_oops` baseline, the weekly pending-kernel check, crash-evidence options.
 - [Host firewall (storage fence + DOCKER-USER)](host-firewall.md) — the nft storage-net fence and the DOCKER-USER egress policy on the two VMs: install, verify, log -> enforce, rollback.

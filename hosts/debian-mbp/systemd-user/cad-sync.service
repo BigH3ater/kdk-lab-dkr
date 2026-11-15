@@ -1,0 +1,11 @@
+# Laptop debian-mbp, user unit: one push of ~/cad to the NAS 3d-prints share.
+# Install: ~/.config/systemd/user/ (0644); script at ~/.local/bin/cad-sync.sh.
+# docs/runbooks/cad-library.md
+[Unit]
+Description=Push ~/cad to kdk-nas-01 3d-prints (CAD library)
+[Service]
+Type=oneshot
+ExecStart=%h/.local/bin/cad-sync.sh
+Nice=10
+IOSchedulingClass=idle
+TimeoutStartSec=20min

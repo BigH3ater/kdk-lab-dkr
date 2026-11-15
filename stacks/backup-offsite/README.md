@@ -11,7 +11,9 @@ exclude list.
 
 ## What goes to Proton
 
-Only `offsite/**` (the per-host archives) + `pve-templates/**` (the Proxmox
+Only `offsite/**` (the per-host archives and the CAD library archive
+`3d-prints-*.tar.zst`, built from the read-only `/mnt/3d-prints` bind,
+[docs/runbooks/cad-library.md](../../docs/runbooks/cad-library.md)) + `pve-templates/**` (the Proxmox
 template vzdump) + every host's `*/pgdump/**`. The scope is set by `--filter`
 rules in `offsite.sh` (all `--filter`, never mixed `--include`/`--exclude`, so
 their order is deterministic).

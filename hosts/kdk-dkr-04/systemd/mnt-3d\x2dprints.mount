@@ -1,0 +1,10 @@
+[Unit]
+Description=tankz3/3d-prints over storage net (read-only, backup-offsite)
+After=network-online.target
+[Mount]
+What=172.16.30.2:/mnt/tankz3/3d-prints
+Where=/mnt/3d-prints
+Type=nfs
+Options=nfsvers=4.1,ro,noatime,_netdev
+[Install]
+WantedBy=multi-user.target
