@@ -25,7 +25,7 @@ x-logging: &logging
 
 services:
   db:
-    image: docker.io/postgres:18.7-alpine@sha256:75dcac3dfb1cd01ca3536910bbc84128759362f8b118bf8c55b38a94f68f3b73   # PG16->18 major: dump/restore per docs/runbooks/postgres-major-upgrade.md; attended window only
+    image: docker.io/postgres:18.7-alpine@sha256:b6972e1115a4ff8eba5d7f7d19184926d1e16d7d1136ae1e1a7ebf286da0f015   # PG16->18 major: dump/restore per docs/runbooks/postgres-major-upgrade.md; attended window only
     container_name: tandoor-db
     restart: unless-stopped
     # Data dir /opt/kdk-lab/tandoor/postgres is already owned by uid 70 (the image's
@@ -73,7 +73,7 @@ services:
     networks: [default]
 
   web:
-    image: ghcr.io/tandoorrecipes/recipes:2.7.2@sha256:1b6d43c3c0f5d2888aa564d9daf29883212b79ad496f59f3c684c099eb1a57b9
+    image: ghcr.io/tandoorrecipes/recipes:2.7.3@sha256:73bb55c3096b9badd901717e298e025015ae3a264fecfb21a2a9fff72109f4f6
     container_name: tandoor-web
     restart: unless-stopped
     env_file: [.env]
