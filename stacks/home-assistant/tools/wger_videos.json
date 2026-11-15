@@ -1,5 +1,5 @@
 {
-  "_comment": "Written by exercise_videos.py jellyfin --apply; do not edit by hand. Plan key -> Jellyfin item id (gen_wger.py builds the Video: line from it) and the playlists the tool manages.",
+  "_comment": "Written by exercise_videos.py jellyfin --apply; do not edit by hand. Plan key -> Jellyfin item id (gen_wger.py builds the Video: line from it), the playlists and the day libraries the tool manages (a library is deleted only when recorded here with origin api).",
   "base_url": "https://jellyfin.kmkdp.com",
   "items": {
     "biceps-curl": {
@@ -300,6 +300,83 @@
       ],
       "name": "Rachel · 4 Thu Strength B",
       "id": "9dd7bb4ff76fd9cb4e57a288a91b66cc"
+    }
+  ],
+  "libraries": [
+    {
+      "login": "jmack",
+      "days": [
+        "mon"
+      ],
+      "name": "Jacob · 1 Mon Lower A",
+      "id": "b417ec105a927e36140ede658f323132",
+      "origin": "api"
+    },
+    {
+      "login": "jmack",
+      "days": [
+        "wed"
+      ],
+      "name": "Jacob · 2 Wed Upper A",
+      "id": "8f7a42a81d9f159602aa48c2939fdf33",
+      "origin": "api"
+    },
+    {
+      "login": "jmack",
+      "days": [
+        "fri"
+      ],
+      "name": "Jacob · 3 Fri Lower B",
+      "id": "ff262f80f92a2d37b7f8adde968aea88",
+      "origin": "api"
+    },
+    {
+      "login": "jmack",
+      "days": [
+        "sat"
+      ],
+      "name": "Jacob · 4 Sat Upper B",
+      "id": "027507c90a711f8c9618b0a72408fbec",
+      "origin": "api"
+    },
+    {
+      "login": "rach",
+      "days": [
+        "mon"
+      ],
+      "name": "Rachel · 1 Mon Strength A",
+      "id": "555407d899ac080c4710670052510698",
+      "origin": "api"
+    },
+    {
+      "login": "rach",
+      "days": [
+        "tue",
+        "fri"
+      ],
+      "name": "Rachel · 2 Tue-Fri Cardio",
+      "id": "e37ce885dc80bc7e89249fdd6ae76028",
+      "origin": "api"
+    },
+    {
+      "login": "rach",
+      "days": [
+        "wed",
+        "sat",
+        "sun"
+      ],
+      "name": "Rachel · 3 Wed-Sat-Sun Daily parts",
+      "id": "bae0fb2bd3d8652bb53b1747bbe38a1b",
+      "origin": "api"
+    },
+    {
+      "login": "rach",
+      "days": [
+        "thu"
+      ],
+      "name": "Rachel · 4 Thu Strength B",
+      "id": "c02d36c9ba310d8488c5db4161817261",
+      "origin": "api"
     }
   ]
 }
