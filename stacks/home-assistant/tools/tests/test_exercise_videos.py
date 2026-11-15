@@ -1,8 +1,9 @@
 """exercise_videos.py against a fake shell (download) and an in-memory fake Jellyfin 12 API (jellyfin).
 
-The fake Jellyfin keeps users with library policies, one "Exercise" Home videos library, a
-"disk" of files that a library refresh turns into items (id = md5 of the path, as stable as
-Jellyfin's), and playlists with owner, OpenAccess, shares and ordered entries.
+The fake Jellyfin keeps users with library policies, the old main "Exercise" Home videos library
+(on the download dir, which the tool no longer uses but may delete with --remove-main-library), the
+day libraries and their folders, a library refresh that turns files into items (id = md5 of the
+path, as stable as Jellyfin's), and playlists with owner, OpenAccess, shares and ordered entries.
 
 It answers like Jellyfin 12.4 does for an API key (a token with no user behind it, observed on the
 real server 2026-11-14 and in PlaylistsController.cs at v12.4): every /Playlists/{id} call that uses
@@ -581,6 +582,7 @@ class FakeJellyfin:
         self.vlibs = {}                # name -> VirtualFolderInfo (beside Exercise and Movies)
         self.day_items = {}            # library id -> [paths] (after a scan)
         self.deny_create = None        # HTTP status POST /Library/VirtualFolders answers (an API key refused)
+        self.deny_delete = None        # HTTP status DELETE /Library/VirtualFolders answers
         self.drop_options = False      # the server ignores the LibraryOptions of a create
         self.embedded_override = False  # the server names items by embedded title whatever the option says
 
@@ -593,6 +595,20 @@ class FakeJellyfin:
                             "Locations": [location or f"{DAYS_LOC}/{name}"],
                             "LibraryOptions": {**ev.DAY_OPTIONS, **opts}}
         return lid
+
+    def make_days(self):
+        """The server as since PR #526: the 8 day libraries exist and are scanned."""
+        for name, files in self.day_disk.items():
+            lid = self.add_vlib(name)
+            self.day_items[lid] = [f"{DAYS_LOC}/{name}/{f}" for f in files]
+
+    def known_ids(self):
+        return set(self.items) | {iid(p) for paths in self.day_items.values() for p in paths}
+
+    def all_vlibs(self):
+        return ([self.lib] if self.lib else []) + [
+            {"Name": "Movies", "CollectionType": "movies", "ItemId": "b" * 32, "Locations": ["/data/media/movies"]},
+            *copy.deepcopy(list(self.vlibs.values()))]
 
     def day_lib(self, lid):
         return next((v for v in self.vlibs.values() if v["ItemId"] == lid), None)
@@ -619,8 +635,7 @@ class FakeJellyfin:
         if (method, path) == ("GET", "/Users"):
             return Resp(200, self.users)
         if (method, path) == ("GET", "/Library/VirtualFolders"):
-            return Resp(200, [self.lib, {"Name": "Movies", "CollectionType": "movies", "ItemId": "b" * 32,
-                                         "Locations": ["/data/media/movies"]}, *copy.deepcopy(list(self.vlibs.values()))])
+            return Resp(200, copy.deepcopy(self.all_vlibs()))
         if (method, path) == ("POST", "/Library/VirtualFolders"):
             name, paths = params["name"], params["paths"]
             assert params["collectionType"] == "homevideos" and params["refreshLibrary"] == "false"
@@ -635,7 +650,14 @@ class FakeJellyfin:
             self.vlibs[name]["LibraryOptions"] = {} if self.drop_options else copy.deepcopy(json["LibraryOptions"])
             return Resp(204)
         if (method, path) == ("DELETE", "/Library/VirtualFolders"):
-            assert params["refreshLibrary"] == "false" and params["name"] in self.vlibs, params
+            assert params["refreshLibrary"] == "false", params
+            if self.deny_delete:
+                return Resp(self.deny_delete, {"detail": "Forbidden"})
+            if self.lib and params["name"] == self.lib["Name"]:
+                self.lib = None                 # the library only: self.disk (the files) stays
+                self.items = {}
+                return Resp(204)
+            assert params["name"] in self.vlibs, params
             lid = self.vlibs.pop(params["name"])["ItemId"]
             self.day_items.pop(lid, None)
             return Resp(204)
@@ -669,11 +691,11 @@ class FakeJellyfin:
             pl = self.playlists.get(parts[1])
             if pl is not None:
                 return Resp(200, {"Id": parts[1]}) if self.visible(pl, uid) else Resp(404, {"detail": "nf"})
-            return Resp(200, {"Id": parts[1]}) if parts[1] in self.items else Resp(404, {"detail": "nf"})
+            return Resp(200, {"Id": parts[1]}) if parts[1] in self.known_ids() else Resp(404, {"detail": "nf"})
         if method == "POST" and path == "/Playlists":
             if not json.get("UserId"):
                 return self.no_user()
-            assert set(json["Ids"]) <= set(self.items)
+            assert set(json["Ids"]) <= self.known_ids()
             if json["Name"] in self.fail_create:
                 self.fail_create.discard(json["Name"])
                 return Resp(500, {"detail": "boom"})
@@ -747,9 +769,32 @@ def jrun(*args, videos):
 
 
 def scans_only(jf):
-    """True when every write was a library scan (Exercise + the day libraries): an idempotent run."""
-    return all(w[0] == "POST" and w[1].endswith("/Refresh") for w in jf.writes) and \
-        [w[1] for w in jf.writes][:1] == [f"/Items/{LIB}/Refresh"]
+    """True when every write was a day-library scan (8, never the main library): an idempotent run."""
+    return all(w[0] == "POST" and w[1].endswith("/Refresh") for w in jf.writes) and len(jf.writes) == 8 \
+        and f"/Items/{LIB}/Refresh" not in [w[1] for w in jf.writes]
+
+
+def day_ids(pl, plan=PLAN):
+    """The item ids a plan playlist must hold: its own day library's items, in workout order."""
+    lib = next(x for x in ev.day_libraries(plan) if x["name"] == ev.safe_name(pl["name"]))
+    return [iid(f"{DAYS_LOC}/{lib['name']}/{x['name']}") for x in lib["links"]]
+
+
+def first_library(key, plan=PLAN):
+    """(library, link file) of the first day library that has the exercise: people in plan order,
+    then weekday order (written out here, not taken from the tool)."""
+    for login, person in plan["people"].items():
+        for r in sorted(person["routines"], key=lambda r: ev.DAY_TAGS.index(r["day"])):
+            if key in ev.routine_keys(person, r):
+                pl = next(p for p in ev.plan_playlists(plan) if p["login"] == login and r["day"] in p["days"])
+                lib = next(x for x in ev.day_libraries(plan) if x["name"] == ev.safe_name(pl["name"]))
+                return lib["name"], next(x["name"] for x in lib["links"] if x["key"] == key)
+    return None
+
+
+def want_id(key, plan=PLAN):
+    lib, f = first_library(key, plan)
+    return iid(f"{DAYS_LOC}/{lib}/{f}")
 
 
 def test_jellyfin_offline_dry_run_without_key(monkeypatch, videos, capsys):
@@ -763,30 +808,32 @@ def test_jellyfin_offline_dry_run_without_key(monkeypatch, videos, capsys):
 
 def test_jellyfin_dry_run_writes_nothing(jf, videos, capsys):
     before = videos.read_text()
-    jf.scan()
+    jf.make_days()
     assert jrun(videos=videos) == 0
     assert jf.writes == [] and videos.read_text() == before
     out = capsys.readouterr().out
     assert "would: create playlist 'Jacob · 1 Mon Lower A'" in out and "would change" in out
+    assert "MISSING" not in out
 
 
-def test_apply_scans_makes_private_ordered_playlists_and_writes_the_mapping(jf, videos, capsys):
+def test_apply_makes_private_playlists_from_the_day_libraries_and_writes_the_mapping(jf, videos, capsys):
     assert jrun("--apply", videos=videos) == 0
     by_name = {p["name"]: p for p in jf.playlists.values()}
     assert len(by_name) == 8
-    item = {ev.wanted_files(PLAN)[Path(p).name]: i for i, p in jf.items.items()}
     for pl in ev.plan_playlists(PLAN):
         got = by_name[pl["name"]]
-        assert got["ids"] == [item[k] for k in pl["keys"]], pl["name"]          # workout order
+        assert got["ids"] == day_ids(pl), pl["name"]                           # own day library, workout order
         assert got["public"] is False and got["shares"] == []
         assert got["owner"] == {"jmack": JMACK, "rach": RACH}[pl["login"]]
     doc = json.loads(videos.read_text())
     assert doc["base_url"] == "https://jellyfin.kmkdp.com"
     assert set(doc["items"]) == VIDEO_KEYS and "treadmill-walk" not in doc["items"]
     assert [len(p["ids"]) for p in jf.playlists.values() if p["owner"] == JMACK] == [9, 9, 9, 9]
-    assert doc["items"]["plank"]["id"] == iid(f"{LOC}/{ev.file_name('plank', PLAN['exercises']['plank'])}")
-    assert doc["items"]["plank"]["youtube"] == PLAN["exercises"]["plank"]["video"][-11:]
+    assert doc["items"]["plank"] == {"id": want_id("plank"), "youtube": PLAN["exercises"]["plank"]["video"][-11:],
+                                     "library": first_library("plank")[0], "file": first_library("plank")[1]}
+    assert all(it["id"] not in jf.items for it in doc["items"].values())      # nothing from the main library
     assert len(doc["playlists"]) == 8
+    assert not [w for w in jf.writes if w[1] == f"/Items/{LIB}/Refresh"]       # the main library is never scanned
 
 
 def test_shared_days_get_one_playlist(jf, videos):
@@ -801,15 +848,14 @@ def test_second_run_writes_nothing_but_the_scan(jf, videos, capsys):
     first = videos.read_text()
     jf.writes.clear()
     assert jrun("--apply", videos=videos) == 0
-    assert scans_only(jf) and len(jf.writes) == 1 + 8
-    assert videos.read_text() == first and "unchanged" in capsys.readouterr().out
+    assert scans_only(jf)
+    assert videos.read_text() == first and "wger_videos.json unchanged" in capsys.readouterr().out
 
 
 def test_item_ids_stay_put_for_an_unchanged_path(jf, videos):
     assert jrun("--apply", videos=videos) == 0
     ids = json.loads(videos.read_text())["items"]
-    jf.scan()                                            # a rescan: same paths, same ids
-    assert jrun("--apply", videos=videos) == 0
+    assert jrun("--apply", videos=videos) == 0          # rescans: same paths, same ids
     assert json.loads(videos.read_text())["items"] == ids
 
 
@@ -820,7 +866,7 @@ def test_drifted_playlist_is_recreated_not_updated(jf, videos, capsys):
     pl["ids"].reverse()
     jf.writes.clear()
     assert jrun("--apply", videos=videos) == 0
-    assert "delete playlist 'Jacob · 2 Wed Upper A' (" + pid + ") to re-create it (order differ" in capsys.readouterr().out
+    assert "delete playlist 'Jacob · 2 Wed Upper A' (" + pid + ") to re-create it (items or order differ" in capsys.readouterr().out
     assert pid not in jf.playlists
     (new, npl), = [(k, p) for k, p in jf.playlists.items() if p["name"] == "Jacob · 2 Wed Upper A"]
     assert npl["ids"] == want and npl["owner"] == JMACK and not npl["public"] and npl["shares"] == []
@@ -842,32 +888,29 @@ def test_a_new_video_in_the_plan_updates_the_mapping_and_playlist(jf, videos, tm
     plan["exercises"]["plank"]["video"] = "https://www.youtube.com/watch?v=BBBBBBBBBBB"
     p = tmp_path / "plan.json"
     p.write_text(json.dumps(plan))
-    jf.disk.add("plank [BBBBBBBBBBB].mp4")
+    # the day link keeps its name ("NN Plank.mp4"; download re-links it to the new file), so the
+    # item id stays and only the YouTube id the mapping was made for changes
+    old = json.loads(videos.read_text())["items"]["plank"]
     assert ev.main(["jellyfin", "--apply"], plan_path=p, sleep=lambda s: None, videos_path=videos) == 0
     doc = json.loads(videos.read_text())
-    assert doc["items"]["plank"] == {"id": iid(f"{LOC}/plank [BBBBBBBBBBB].mp4"), "youtube": "BBBBBBBBBBB",
-                                     "file": "plank [BBBBBBBBBBB].mp4"}
+    assert doc["items"]["plank"] == {**old, "youtube": "BBBBBBBBBBB"}
     mon = next(x for x in jf.playlists.values() if x["name"] == "Jacob · 1 Mon Lower A")
     assert doc["items"]["plank"]["id"] in mon["ids"]
     assert len(jf.playlists) == 8
 
 
-def test_other_accounts_seeing_the_library_is_only_a_note(jf, videos, capsys):
-    jf.users[2]["Policy"]["EnableAllFolders"] = True                   # guest: all libraries
-    jf.users[3]["Policy"]["EnabledFolders"].append(LIB)                # admin: ticked
+def test_a_plan_person_who_cannot_see_the_linked_library_is_warned(jf, videos, capsys):
+    """db-rdl is done by both; its link is in jmack's library. rach without access gets a WARN."""
+    for u in jf.users[:2]:
+        u["Policy"]["EnableAllFolders"] = False
     assert jrun("--apply", videos=videos) == 0
     out = capsys.readouterr().out
-    notes = [x for x in out.splitlines() if x.startswith("NOTE other accounts")]
-    assert notes == ["NOTE other accounts can see the library (allowed; the playlists stay private): "
-                     "guest (all libraries), kdkadmin (ticked)"]
-    assert "ACCESS" not in out and len(jf.playlists) == 8
-    for pl in jf.playlists.values():                                   # still private to the owner
-        assert pl["public"] is False and pl["shares"] == [] and pl["owner"] in (JMACK, RACH)
-
-
-def test_no_note_when_only_the_plan_people_see_it(jf, videos, capsys):
-    assert jrun(videos=videos) == 0
-    assert "NOTE other accounts" not in capsys.readouterr().out
+    lib = first_library("db-rdl")[0]
+    assert lib.startswith("Jacob · ")
+    assert f"WARN rach does db-rdl but cannot see library {lib!r}" in out
+    jf.users[1]["Policy"]["EnableAllFolders"] = True
+    assert jrun("--apply", videos=videos) == 0
+    assert "WARN rach does" not in capsys.readouterr().out
 
 
 @pytest.mark.parametrize("how", ["shared", "public"])
@@ -921,37 +964,38 @@ def test_a_failure_midway_writes_the_items_and_resumes(jf, videos, capsys):
 def test_resume_when_the_mapping_was_never_written(jf, videos):
     """The real first run: one playlist made, then the tool died; wger_videos.json still empty."""
     pl0 = ev.plan_playlists(PLAN)[0]
-    jf.scan()
-    item = {ev.wanted_files(PLAN)[Path(p).name]: i for i, p in jf.items.items()}
+    jf.make_days()
     jf.playlists["149d6a5fe1ad9dded863c4ade2095567"] = {"name": pl0["name"], "owner": JMACK, "public": False,
-                                                        "shares": [], "ids": [item[k] for k in pl0["keys"]]}
+                                                        "shares": [], "ids": day_ids(pl0)}
     assert jrun("--apply", videos=videos) == 0
     doc = json.loads(videos.read_text())
     assert next(p for p in doc["playlists"] if p["name"] == pl0["name"])["id"] == "149d6a5fe1ad9dded863c4ade2095567"
     assert len(jf.playlists) == 8 and len(doc["items"]) == len(VIDEO_KEYS)
 
 
-def test_plan_person_without_access_is_an_error(jf, videos, capsys):
-    jf.users[1]["Policy"]["EnabledFolders"] = []
-    assert jrun("--apply", videos=videos) == 2
-    assert "rach cannot see the library" in capsys.readouterr().out and jf.writes == []
-
-
-def test_missing_user_or_library_or_wrong_type(jf, videos, capsys):
+def test_missing_user(jf, videos, capsys):
     jf.users[0]["Name"] = "jacob"
     assert jrun(videos=videos) == 2
-    assert "no Jellyfin user named ['jmack']" in capsys.readouterr().err
-    jf.users[0]["Name"] = "jmack"
-    jf.lib["CollectionType"] = "movies"
-    assert jrun(videos=videos) == 2
-    assert "must be Home videos" in capsys.readouterr().err
+    assert "no Jellyfin user named ['jmack']" in capsys.readouterr().err and jf.writes == []
 
 
-def test_missing_file_stops_apply_before_playlists(jf, videos, capsys):
-    jf.disk.discard(names()[0])
+def test_the_main_library_is_not_needed(jf, videos, capsys):
+    jf.lib = None                                                     # after --remove-main-library
+    assert jrun("--apply", videos=videos) == 0
+    assert len(jf.playlists) == 8 and len(json.loads(videos.read_text())["items"]) == len(VIDEO_KEYS)
+    assert "Exercise" not in capsys.readouterr().out.replace("exercise-days", "")
+
+
+def test_missing_day_link_stops_apply_before_playlists(jf, videos, capsys):
+    jf.day_disk["Jacob · 1 Mon Lower A"].pop(0)                       # 01 Dumbbell Goblet Squat not on the share
     assert jrun("--apply", videos=videos) == 2
-    assert jf.playlists == {} and "MISSING" in capsys.readouterr().out
-    assert json.loads(videos.read_text())["items"] == {}
+    out, err = capsys.readouterr()
+    assert "MISSING goblet-squat: Jacob · 1 Mon Lower A/01 Dumbbell Goblet Squat.mp4 is not an item" in out
+    assert "have no day-library item; run download --apply" in err
+    assert jf.playlists == {}
+    doc = json.loads(videos.read_text())
+    assert doc["items"] == {} and len(doc["libraries"]) == 8          # old ids kept, the libraries recorded (api)
+    assert {x["origin"] for x in doc["libraries"]} == {"api"}
 
 
 def test_playlists_the_tool_did_not_make_are_never_deleted(jf, videos, tmp_path, capsys):
@@ -1003,13 +1047,13 @@ HAND = {"e" * 32: "Jacob favourites",                 # hand-made by jmack
 def seed_old(jf, videos, filled):
     """The server as on 2026-11-14: the 8 old-named playlists (private, right order) plus jmack's own
     hand-made ones; wger_videos.json empty (main before #517) or recording the 8 old ones."""
-    jf.scan()
-    item = {ev.wanted_files(PLAN)[Path(p).name]: i for i, p in jf.items.items()}
+    jf.make_days()
+    item = {pl["name"]: day_ids(pl) for pl in ev.plan_playlists(PLAN)}
     rec = []
     for pl, pid in zip(ev.plan_playlists(PLAN), OLD_IDS):
         owner = {"jmack": JMACK, "rach": RACH}[pl["login"]]
         jf.playlists[pid] = {"name": pl["old_name"], "owner": owner, "public": False, "shares": [],
-                             "ids": [item[k] for k in pl["keys"]]}
+                             "ids": item[pl["name"]]}
         rec.append({"login": pl["login"], "days": pl["days"], "name": pl["old_name"], "id": pid})
     for pid, name in HAND.items():
         jf.playlists[pid] = {"name": name, "owner": JMACK, "public": False, "shares": [], "ids": []}
@@ -1033,7 +1077,7 @@ def test_old_named_playlists_are_replaced(jf, videos, capsys, filled):
     assert sorted(deletes(jf)) == sorted(OLD_IDS)
     for pl in ev.plan_playlists(PLAN):
         k, got = new[pl["name"]]
-        assert got["ids"] == [item[x] for x in pl["keys"]] and not got["public"] and got["shares"] == []
+        assert got["ids"] == item[pl["name"]] and not got["public"] and got["shares"] == []
     # each old one is deleted only after its replacement was created
     seq = [(w[0], (w[2] or {}).get("Name") or w[1].rsplit("/", 1)[1]) for w in jf.writes if w[0] in ("POST", "DELETE")]
     for pl, oid in zip(ev.plan_playlists(PLAN), OLD_IDS):
@@ -1105,3 +1149,288 @@ def test_a_recorded_playlist_renamed_by_hand_is_left_alone(jf, videos, capsys):
     assert jf.playlists[OLD_IDS[0]]["name"] == "My Monday" and OLD_IDS[0] not in deletes(jf)
     assert f"NOTE recorded playlist {OLD_IDS[0]} of jmack is now named 'My Monday'" in capsys.readouterr().out
     assert OLD_IDS[0] not in {p["id"] for p in json.loads(videos.read_text())["playlists"]}
+
+
+# ---------------------------------------------------------------- 2026-11-14: item ids from the day libraries
+def test_item_id_is_the_first_day_library_people_in_plan_order_then_weekday(jf, videos):
+    assert jrun("--apply", videos=videos) == 0
+    items = json.loads(videos.read_text())["items"]
+    for key in VIDEO_KEYS:
+        lib, f = first_library(key)
+        assert items[key] == {"id": iid(f"{DAYS_LOC}/{lib}/{f}"), "youtube": PLAN["exercises"][key]["video"][-11:],
+                              "library": lib, "file": f}, key
+    # db-rdl: both people do it; the link is jmack's (first person), in his first day that has it
+    assert items["db-rdl"]["library"].startswith("Jacob · ")
+    # an exercise rach does on several days links to her first one
+    libs = {x["name"]: {y["key"] for y in x["links"]} for x in ev.day_libraries(PLAN)}
+    rach_libs = [x["name"] for x in ev.day_libraries(PLAN) if x["login"] == "rach"]
+    for key, it in items.items():
+        if it["library"] in rach_libs:
+            assert it["library"] == next(n for n in rach_libs if key in libs[n]), key
+
+
+def test_each_playlist_holds_its_own_day_library_items(jf, videos):
+    """rach's db-rdl playlist entry is her own library's item, not the wger link in jmack's."""
+    assert jrun("--apply", videos=videos) == 0
+    items = json.loads(videos.read_text())["items"]
+    by_name = {p["name"]: p for p in jf.playlists.values()}
+    for pl in ev.plan_playlists(PLAN):
+        lib = ev.safe_name(pl["name"])
+        assert by_name[pl["name"]]["ids"] == day_ids(pl)
+        assert set(by_name[pl["name"]]["ids"]) <= {iid(p) for p in jf.day_items[jf.vlibs[lib]["ItemId"]]}
+    rach_rdl = next(p for p in ev.plan_playlists(PLAN) if p["login"] == "rach" and "db-rdl" in p["keys"])
+    own = day_ids(rach_rdl)[rach_rdl["keys"].index("db-rdl")]
+    assert own in by_name[rach_rdl["name"]]["ids"] and own != items["db-rdl"]["id"]
+
+
+def test_no_fallback_to_a_later_library_when_the_first_lacks_the_item(jf, videos, capsys):
+    lib, f = first_library("db-rdl")
+    jf.day_disk[lib].remove(f)                                        # rach's library still has it
+    assert jrun("--apply", videos=videos) == 2
+    assert f"MISSING db-rdl: {lib}/{f} is not an item in that day library" in capsys.readouterr().out
+    assert json.loads(videos.read_text())["items"] == {}
+
+
+def test_an_exercise_no_day_uses_is_warned_and_has_no_item_id(jf, videos, tmp_path, capsys):
+    import gen_wger as gw
+    plan = copy.deepcopy(PLAN)
+    plan["people"]["jmack"]["routines"] = [r for r in plan["people"]["jmack"]["routines"] if r["day"] != "sat"]
+    p = tmp_path / "plan.json"
+    p.write_text(json.dumps(plan))
+    jf.day_disk = {lib["name"]: [x["name"] for x in lib["links"]] for lib in ev.day_libraries(plan)}
+    assert ev.main(["jellyfin", "--apply"], plan_path=p, sleep=lambda s: None, videos_path=videos) == 0
+    out = capsys.readouterr().out
+    used = {x["key"] for lib in ev.day_libraries(plan) for x in lib["links"]}
+    unused = sorted(set(ev.wanted_files(plan).values()) - used)
+    assert unused and all(f"WARN {k} has a video but no day uses it" in out for k in unused)
+    assert sorted(gw.missing_videos(plan, gw.load_videos(videos))) == unused   # gen_wger.py --check still fails
+
+
+def test_the_pre_2026_11_14_file_is_read_and_rewritten(jf, videos, capsys):
+    """The committed wger_videos.json (main-library ids, no "library") is read without a crash; the
+    next --apply rewrites every item from the day libraries, re-creates the playlists (their items
+    changed), and a second --apply leaves the file unchanged."""
+    videos.write_text((TOOLS / "wger_videos.json").read_text())
+    old = json.loads(videos.read_text())
+    jf.make_days()
+    for r in old["libraries"]:                                        # the live ids, as recorded
+        old_id = jf.vlibs[r["name"]]["ItemId"]
+        jf.vlibs[r["name"]]["ItemId"] = r["id"]
+        jf.day_items[r["id"]] = jf.day_items.pop(old_id)
+    for pl in old["playlists"]:                                       # the live playlists (main-library items)
+        jf.playlists[pl["id"]] = {"name": pl["name"], "owner": {"jmack": JMACK, "rach": RACH}[pl["login"]],
+                                  "public": False, "shares": [], "ids": [old["items"]["plank"]["id"]]}
+    assert jrun("--apply", videos=videos) == 0
+    doc = json.loads(videos.read_text())
+    assert set(doc["items"]) == set(old["items"]) == VIDEO_KEYS
+    assert all(doc["items"][k]["id"] != old["items"][k]["id"] and "library" in doc["items"][k] for k in VIDEO_KEYS)
+    assert doc["libraries"] == old["libraries"]                       # adopted as recorded (origin api)
+    assert not {p["id"] for p in old["playlists"]} & set(jf.playlists)
+    capsys.readouterr()
+    jf.writes.clear()
+    assert jrun("--apply", videos=videos) == 0
+    assert scans_only(jf) and "wger_videos.json unchanged" in capsys.readouterr().out
+
+
+# ---------------------------------------------------------------- --remove-main-library
+def lib_deletes(jf):
+    return [w for w in jf.writes if w[:2] == ("DELETE", "/Library/VirtualFolders")]
+
+
+def test_without_the_flag_the_main_library_is_only_a_note(jf, videos, capsys):
+    assert jrun("--apply", videos=videos) == 0
+    out = capsys.readouterr().out
+    assert f"NOTE the old library 'Exercise' ({LIB} on ['{LOC}']) still exists; nothing links to it" in out
+    assert "--remove-main-library deletes it" in out and jf.lib is not None and lib_deletes(jf) == []
+
+
+def test_remove_main_library_dry_run_deletes_nothing(jf, videos, capsys):
+    jf.make_days()
+    before = videos.read_text()
+    assert jrun("--remove-main-library", videos=videos) == 0
+    assert jf.writes == [] and jf.lib is not None and videos.read_text() == before
+    assert f"would: delete library 'Exercise' ({LIB} on ['{LOC}']; the library only, the files stay)" in \
+        capsys.readouterr().out
+
+
+def test_remove_main_library_deletes_only_the_library_then_a_second_run_is_unchanged(jf, videos, capsys):
+    disk = set(jf.disk)
+    seen = []
+    orig = jf.handle
+
+    def spy(method, url, headers, params=None, json=None):
+        if method == "DELETE" and url.endswith("/Library/VirtualFolders"):
+            seen.append(dict(params))
+        return orig(method, url, headers, params=params, json=json)
+    jf.handle = spy
+    assert jrun("--apply", "--remove-main-library", videos=videos) == 0
+    assert seen == [{"name": "Exercise", "refreshLibrary": "false"}] and len(lib_deletes(jf)) == 1
+    assert jf.lib is None and jf.disk == disk                         # the files stay
+    out = capsys.readouterr().out
+    assert "deleted library 'Exercise'" in out and "the files in /mnt/media/exercise stay" in out
+    first = videos.read_text()
+    assert len(json.loads(first)["items"]) == len(VIDEO_KEYS)
+    jf.writes.clear()
+    assert jrun("--apply", videos=videos) == 0
+    out = capsys.readouterr().out
+    assert scans_only(jf) and videos.read_text() == first and "wger_videos.json unchanged" in out
+    assert "NOTE the old library" not in out
+    assert jrun("--apply", "--remove-main-library", videos=videos) == 0
+    assert "NOTE no library named 'Exercise': nothing to remove" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("change", ["path", "two-paths", "name"])
+def test_remove_main_library_refuses_another_path_or_name(jf, videos, capsys, change):
+    if change == "path":
+        jf.lib["Locations"] = ["/data/media/exercise-old"]
+    elif change == "two-paths":
+        jf.lib["Locations"] = [LOC, "/data/media/movies"]
+    else:
+        jf.lib["Name"] = "Exercise videos"
+    keep = copy.deepcopy(jf.lib)
+    rc = jrun("--apply", "--remove-main-library", videos=videos)
+    out = capsys.readouterr().out
+    assert lib_deletes(jf) == [] and jf.lib == keep
+    if change == "name":                                              # not exactly "Exercise": never the tool's
+        assert rc == 0 and "NOTE no library named 'Exercise': nothing to remove" in out
+    else:
+        assert rc == 1 and "ERROR not removing library 'Exercise': its folders are" in out
+
+
+def test_remove_main_library_refuses_while_an_exercise_is_unresolved(jf, videos, capsys):
+    jf.make_days()
+    lib, f = first_library("plank")
+    jf.day_items[jf.vlibs[lib]["ItemId"]].remove(f"{DAYS_LOC}/{lib}/{f}")   # not an item yet (a dry run never scans)
+    assert jrun("--remove-main-library", videos=videos) == 1
+    out = capsys.readouterr().out
+    assert "ERROR not removing library 'Exercise': 1 plan exercise(s) with a video have no day-library item (plank" \
+        in out
+    assert jf.writes == [] and "would: delete library 'Exercise'" not in out
+    jf.day_disk[lib].remove(f)                                                 # gone from the share: apply stops
+    assert jrun("--apply", "--remove-main-library", videos=videos) == 2
+    assert lib_deletes(jf) == [] and jf.lib is not None
+
+
+def test_remove_main_library_refuses_while_a_video_is_in_no_day(jf, videos, tmp_path, capsys):
+    plan = copy.deepcopy(PLAN)
+    plan["people"]["jmack"]["routines"] = [r for r in plan["people"]["jmack"]["routines"] if r["day"] != "sat"]
+    p = tmp_path / "plan.json"
+    p.write_text(json.dumps(plan))
+    jf.day_disk = {lib["name"]: [x["name"] for x in lib["links"]] for lib in ev.day_libraries(plan)}
+    assert ev.main(["jellyfin", "--apply", "--remove-main-library"], plan_path=p, sleep=lambda s: None,
+                   videos_path=videos) == 1
+    assert lib_deletes(jf) == [] and jf.lib is not None
+    assert "ERROR not removing library 'Exercise'" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("code", [401, 403])
+def test_remove_main_library_refused_key_prints_hand_steps(jf, videos, capsys, code):
+    jf.deny_delete = code
+    assert jrun("--apply", "--remove-main-library", videos=videos) == 1
+    out = capsys.readouterr().out
+    assert "HAND STEPS" in out and "Dashboard -> Libraries -> Libraries -> 'Exercise' -> menu -> Remove" in out
+    assert "-- FAILED" in out and "ERROR could not delete library 'Exercise'" in out and jf.lib is not None
+    assert len(json.loads(videos.read_text())["items"]) == len(VIDEO_KEYS)    # the rest of the run is recorded
+
+
+def test_prune_never_deletes_the_main_library(jf, videos):
+    assert jrun("--apply", "--prune", videos=videos) == 0
+    assert lib_deletes(jf) == [] and jf.lib is not None
+
+
+def test_download_and_probe_never_talk_to_jellyfin(monkeypatch, capsys):
+    import requests
+    monkeypatch.setattr(requests, "Session", lambda: (_ for _ in ()).throw(AssertionError("no Jellyfin")))
+    assert dl(shell=FakeShell(files=names())) == 0
+    assert dl("--probe", shell=FakeShell(files=names())) == 0
+
+
+# ---------------------------------------------------------------- the link library: visible to everyone who does it
+def lib_id(name):
+    return hashlib.md5(f"lib:{name}".encode()).hexdigest()       # FakeJellyfin.add_vlib's id
+
+
+def libs_with(key, login=None):
+    return [x["name"] for x in ev.day_libraries(PLAN)
+            if key in {y["key"] for y in x["links"]} and (login is None or x["login"] == login)]
+
+
+def live_access(jf):
+    """As on the live server: jmack all libraries, rach only her own four day libraries ticked."""
+    jf.users[0]["Policy"]["EnableAllFolders"] = True
+    jf.users[1]["Policy"]["EnabledFolders"] = [lib_id(n) for n in libs_with_login("rach")] + ["b" * 32]
+
+
+def libs_with_login(login):
+    return [x["name"] for x in ev.day_libraries(PLAN) if x["login"] == login]
+
+
+def doers(key):
+    return {x["login"] for x in ev.day_libraries(PLAN) if key in {y["key"] for y in x["links"]}}
+
+
+def test_a_shared_exercise_links_to_the_library_both_can_see(jf, videos, capsys):
+    live_access(jf)
+    assert jrun("--apply", videos=videos) == 0
+    out = capsys.readouterr().out
+    items = json.loads(videos.read_text())["items"]
+    shared = sorted(k for k in VIDEO_KEYS if doers(k) == {"jmack", "rach"})
+    assert shared == ["db-rdl"]
+    want = libs_with("db-rdl", "rach")[0]                          # jmack sees all, rach only hers
+    assert items["db-rdl"]["library"] == want and want.startswith("Rachel · ")
+    lib = next(x for x in ev.day_libraries(PLAN) if x["name"] == want)
+    f = next(y["name"] for y in lib["links"] if y["key"] == "db-rdl")
+    assert items["db-rdl"]["id"] == iid(f"{DAYS_LOC}/{want}/{f}")
+    assert "WARN rach does db-rdl" not in out and "cannot see library" not in out
+
+
+def test_no_library_visible_to_all_falls_back_to_the_first_and_warns(jf, videos, capsys):
+    jf.users[0]["Policy"]["EnabledFolders"] = [lib_id(n) for n in libs_with_login("jmack")]   # each only their own
+    jf.users[1]["Policy"]["EnabledFolders"] = [lib_id(n) for n in libs_with_login("rach")]
+    assert jrun("--apply", videos=videos) == 0
+    out = capsys.readouterr().out
+    items = json.loads(videos.read_text())["items"]
+    assert items["db-rdl"]["library"] == libs_with("db-rdl")[0] == first_library("db-rdl")[0]
+    assert f"WARN rach does db-rdl but cannot see library {libs_with('db-rdl')[0]!r}" in out
+    assert "WARN jmack does" not in out
+
+
+def test_one_person_exercises_ignore_the_other_persons_access(jf, videos):
+    runs = []
+    for other_sees_all in (False, True):
+        jf.users[0]["Policy"]["EnableAllFolders"] = True
+        jf.users[1]["Policy"]["EnableAllFolders"] = other_sees_all
+        jf.users[1]["Policy"]["EnabledFolders"] = [lib_id(n) for n in libs_with_login("rach")]
+        assert jrun("--apply", videos=videos) == 0
+        runs.append(json.loads(videos.read_text())["items"])
+    single = [k for k in VIDEO_KEYS if len(doers(k)) == 1]
+    assert single and all(runs[0][k] == runs[1][k] for k in single)
+    for k in single:                                              # their own first library, plan order
+        assert runs[0][k]["library"] == libs_with(k)[0]
+    # rach-only exercises also ignore jmack's access
+    jf.users[0]["Policy"]["EnableAllFolders"] = False
+    jf.users[0]["Policy"]["EnabledFolders"] = []
+    assert jrun("--apply", videos=videos) == 0
+    after = json.loads(videos.read_text())["items"]
+    assert all(after[k] == runs[0][k] for k in single if doers(k) == {"rach"})
+
+
+def test_a_link_that_moves_library_is_shown(jf, videos, capsys):
+    assert jrun("--apply", videos=videos) == 0                    # fake default: nobody sees the day libraries
+    old = json.loads(videos.read_text())["items"]["db-rdl"]["library"]
+    assert old.startswith("Jacob · ")
+    capsys.readouterr()
+    live_access(jf)
+    before = videos.read_text()
+    jf.writes.clear()
+    assert jrun(videos=videos) == 0                               # dry run: shown, nothing written
+    out = capsys.readouterr().out
+    new = libs_with("db-rdl", "rach")[0]
+    assert f"NOTE db-rdl: wger link moves from library {old!r} to {new!r}" in out
+    assert jf.writes == [] and videos.read_text() == before
+    assert jrun("--apply", videos=videos) == 0
+    assert json.loads(videos.read_text())["items"]["db-rdl"]["library"] == new
+    capsys.readouterr()
+    assert jrun("--apply", videos=videos) == 0                    # settled: no move, unchanged
+    out = capsys.readouterr().out
+    assert "moves from" not in out and "wger_videos.json unchanged" in out

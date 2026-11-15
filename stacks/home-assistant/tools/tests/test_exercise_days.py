@@ -230,12 +230,12 @@ def test_offline_dry_run_lists_the_day_libraries(monkeypatch, videos, capsys):
 
 def test_refused_create_prints_hand_steps_then_adopts_the_hand_made_library(jf, videos, capsys):
     jf.deny_create = 403
-    assert jrun("--apply", videos=videos) == 1
+    assert jrun("--apply", videos=videos) == 2                   # no day library, so no item ids: stops
     out = capsys.readouterr().out
     assert "HAND STEPS" in out
     assert f"Display name {MON!r} | Content type Home videos and photos | Folder {DAYS_LOC}/{MON}" in out
-    assert "'Prefer embedded titles over filenames' OFF" in out and "8 day-library problem(s)" in out
-    assert jf.vlibs == {} and json.loads(videos.read_text())["libraries"] == []
+    assert "'Prefer embedded titles over filenames' OFF" in out and "ERROR could not create library" in out
+    assert jf.vlibs == {} and json.loads(videos.read_text())["libraries"] == [] and jf.playlists == {}
     for name in DAY_NAMES:                                       # the owner makes them by hand
         jf.add_vlib(name)
     assert jrun("--apply", videos=videos) == 0
@@ -274,7 +274,7 @@ def test_a_same_named_library_of_another_kind_is_left_alone(jf, videos, capsys):
     jf.add_vlib(MON, location="/data/media/movies")
     jf.add_vlib("Rachel · 1 Mon Strength A", ctype="movies")
     before = copy.deepcopy(jf.vlibs)
-    assert jrun("--apply", "--prune", videos=videos) == 1
+    assert jrun("--apply", "--prune", videos=videos) == 2       # their days' videos have no item id: stops
     assert {k: jf.vlibs[k] for k in before} == before
     ids = {v["ItemId"] for v in before.values()}
     assert not [w for w in jf.writes if (w[2] or {}).get("Id") in ids or any(i in w[1] for i in ids)]

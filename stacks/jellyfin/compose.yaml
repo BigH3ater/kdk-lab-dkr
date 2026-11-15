@@ -59,20 +59,15 @@ services:
       - /mnt/appdata/jellyfin/metadata:/config/data/metadata
       - /mnt/media/tv:/data/media/tv:ro
       - /mnt/media/movies:/data/media/movies:ro
-      # Exercise videos (library "Exercise", Home videos; visible to all accounts for now,
-      # per-person playlists private: owner decision 2026-11-14), filled by
-      # stacks/home-assistant/tools/exercise_videos.py on kdk-dkr-01. The source dir must
-      # exist on the share BEFORE the PR that adds this mount is merged: merge = deploy
-      # (deploy + webhook_enabled in komodo/resources.toml), the DMZ mount is read-only and
-      # docker cannot create it. Check: ssh kdkadmin@192.168.191.20 'ls -ld /mnt/media/exercise'.
-      # docs/runbooks/exercise-videos.md step 0.
-      - /mnt/media/exercise:/data/media/exercise:ro
       # Exercise day folders (owner decision 2026-11-14, "option B"): one folder of HARDLINKS
       # "<NN> <exercise>.mp4" per person and day, one Jellyfin library each, because the Apple TV
       # client (Neptune) plays neither playlists nor folders, only a flat library sorted by name.
-      # Made by exercise_videos.py download on kdk-dkr-01. Same rule as above: the source dir must
-      # exist BEFORE the merge (it does since 2026-11-14). Check:
-      # ssh kdkadmin@192.168.191.20 'ls -ld /mnt/media/exercise-days'. Runbook "Day libraries".
+      # They are the only exercise libraries: the wger links and the playlists use their items.
+      # Made by stacks/home-assistant/tools/exercise_videos.py download on kdk-dkr-01 from the
+      # downloads in /mnt/media/exercise, which Jellyfin does not mount (since 2026-11-14; the
+      # old flat "Exercise" library is gone). The source dir must exist on the share before a
+      # merge (merge = deploy; the DMZ mount is read-only and docker cannot create it). Check:
+      # ssh kdkadmin@192.168.191.20 'ls -ld /mnt/media/exercise-days'. docs/runbooks/exercise-videos.md.
       - /mnt/media/exercise-days:/data/media/exercise-days:ro
     # Transcode scratch on a RAM disk. Mounted AT Jellyfin's real transcode temp
     # path (this version defaults TranscodingTempPath to <cache>/transcodes =
