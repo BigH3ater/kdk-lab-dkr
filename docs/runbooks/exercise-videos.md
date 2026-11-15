@@ -1,94 +1,106 @@
 ---
-title: Exercise videos — Jellyfin library, playlists, wger links
-updated: 2026-11-14
+title: Exercise videos — Jellyfin day libraries, playlists, wger links
+updated: 2026-11-15
 ---
 
 # Exercise videos in Jellyfin
 
 Every video in the exercise plan (`stacks/home-assistant/tools/wger_plan.json`, one
-YouTube address per exercise) is kept as **one file** in a flat Jellyfin library
-**Exercise**: 46 files for 47 exercises. `treadmill-walk` (Treadmill Cardio) has
-`"video": null` (owner decision 2026-11-14: not needed). It stays in the plan and in jmack's
-routines, so the walk is still logged in wger, but it has no file, no playlist entry, no
-mapping entry and no `Video:` line. Only an explicit `null` means "no video"; a missing or
-empty `video` is a plan error. Each person (**jmack**, **rach**) gets one playlist per training day, with the
-videos in workout order, private to that person. Days with the same list share a playlist:
+YouTube address per exercise) is downloaded once, as **one file** in
+`/mnt/media/exercise` on the media share: 46 files for 47 exercises. `treadmill-walk`
+(Treadmill Cardio) has `"video": null` (owner decision 2026-11-14: not needed). It stays in
+the plan and in jmack's routines, so the walk is still logged in wger, but it has no file,
+no day link, no playlist entry, no mapping entry and no `Video:` line. Only an explicit
+`null` means "no video"; a missing or empty `video` is a plan error.
+
+Jellyfin shows the videos as **one library per person and training day** (the *day
+libraries*). Each one is a folder of hardlinks to the downloads, numbered in workout
+order. Since 2026-11-14 they are the **only** Jellyfin libraries for exercise videos. The
+old flat library **Exercise** on `/data/media/exercise` is removed (see
+[Removing the old Exercise library](#removing-the-old-exercise-library-2026-11-14)).
+Jellyfin no longer mounts the download folder at all.
 
 | jmack | rach |
 |---|---|
-| Jacob · 1 Mon Lower A, Jacob · 2 Wed Upper A, Jacob · 3 Fri Lower B, Jacob · 4 Sat Upper B | Rachel · 1 Mon Strength A, Rachel · 2 Tue/Fri Cardio, Rachel · 3 Wed/Sat/Sun Daily parts, Rachel · 4 Thu Strength B |
+| Jacob · 1 Mon Lower A, Jacob · 2 Wed Upper A, Jacob · 3 Fri Lower B, Jacob · 4 Sat Upper B (9 videos each) | Rachel · 1 Mon Strength A, Rachel · 2 Tue-Fri Cardio, Rachel · 3 Wed-Sat-Sun Daily parts, Rachel · 4 Thu Strength B (7, 5, 4, 7) |
 
-The number after the person is the playlist's place in that person's week (a shared playlist
-takes the place of its first day). Jellyfin lists playlists by name, so the number keeps
-them in week order; with 10 or more for one person the tool zero-pads it (`01`, `02`, …).
-Until 2026-11-14 the names had no number (`Jacob · Mon Lower A`); see
-[Migration from the unnumbered names](#migration-from-the-unnumbered-names-2026-11-14).
+Each person also has one **private playlist** per day with the same videos, from that
+person's own day library, in workout order (`Jacob · 1 Mon Lower A`,
+`Rachel · 2 Tue/Fri Cardio`, …). Days with the same list share one library and one
+playlist. The number after the person is the place in that person's week, so Jellyfin's
+name sort shows week order; with 10 or more the tool zero-pads it (`01`, `02`, …).
 
-**Who sees what (owner decision 2026-11-14).** The library stays visible to every Jellyfin
-account for now. The SSO and LDAP plugin folder settings are not changed. Only the
-playlists are private: each one is owned by its person, not public, with no shares. The
-owner may later hide the library per user; see
-[Hide the library from other accounts](#hide-the-library-from-other-accounts-optional-later).
+**The wger link.** The `Video:` line in each wger exercise description points at one
+Jellyfin item: `https://jellyfin.kmkdp.com/web/#/details?id=<item id>`. A wger
+description is shared by both people, so there is **one link per exercise**. It is the
+exercise's item in the **first** day library that has it: people in plan order (jmack,
+then rach), then weekday order. The same hostname works on the LAN, on the tailnet and
+through the Cloudflare tunnel. The YouTube address stays in the plan file as the download
+source.
 
-The `Video:` line in each wger exercise description points at the video's Jellyfin page,
-`https://jellyfin.kmkdp.com/web/#/details?id=<item id>`. The same hostname works on the
-LAN, on the tailnet and through the Cloudflare tunnel. The YouTube address stays in the
-plan file as the download source.
+**Known limit.** An exercise both people do (today only the dumbbell Romanian deadlift,
+`db-rdl`) links to jmack's day library. The link works for Rachel only while she can see
+that library. Today she cannot (she has only her own day libraries ticked), so each
+`jellyfin` run prints `WARN rach does db-rdl but cannot see library 'Jacob · 1 Mon Lower A' ...`.
+Her playlist and her own day library still have the video. To fix the link for her, tick
+that library under her Library access.
 
 Nothing here is scheduled and no service is added. After a plan change, run the steps in
 [After a plan change](#after-a-plan-change) by hand.
 
 | Piece | What it does |
 |---|---|
-| `tools/exercise_videos.py download` | yt-dlp, one-shot container on **kdk-dkr-01** (the only host with the media share read-write), into `/mnt/media/exercise/<plan key> [<youtube id>].mp4`, as uid:gid 1000:1000 like the media stack. Output is H.264 + AAC mp4, the largest YouTube has up to 1080 on the **short** side (see [Resolution](#resolution)), with the plan's exercise name as the embedded title. `--refetch <key>` replaces a file in place, `--probe` reports each file's resolution |
+| `tools/exercise_videos.py download` | yt-dlp, one-shot container on **kdk-dkr-01** (the only host with the media share read-write), into `/mnt/media/exercise/<plan key> [<youtube id>].mp4`, as uid:gid 1000:1000 like the media stack. H.264 + AAC mp4, the largest YouTube has up to 1080 on the **short** side (see [Resolution](#resolution)), the plan's exercise name as the embedded title. Then it keeps the day folders (hardlinks) in `/mnt/media/exercise-days`. `--refetch <key>` replaces a file in place, `--probe` reports each file's resolution |
 | `tools/yt-dlp/Dockerfile` | not built; its `FROM` line pins the yt-dlp image (tag + digest), which Renovate updates |
-| `tools/exercise_videos.py jellyfin` | checks that jmack and rach can see the library (names any other account that can, without stopping), scans the Exercise library only, creates/updates the playlists (owned by the person, not public, no shares), writes `tools/wger_videos.json` |
-| `tools/wger_videos.json` | committed: plan key → Jellyfin item id (+ the YouTube id it was made for) and the playlists the tool manages. `gen_wger.py` builds the `Video:` line from it |
-| `stacks/jellyfin/compose.yaml` | mounts `/mnt/media/exercise` read-only at `/data/media/exercise`, and `/mnt/media/exercise-days` at `/data/media/exercise-days` |
-| `/mnt/media/exercise-days/<day>/` | since 2026-11-14: one folder of hardlinks per playlist, one Jellyfin library each, for the Apple TV. See [Day libraries](#day-libraries-for-the-apple-tv-option-b-2026-11-14) |
+| `tools/exercise_videos.py jellyfin` | creates, scans and checks the 8 day libraries, takes each exercise's item id from them, creates/updates the playlists (owned by the person, not public, no shares), writes `tools/wger_videos.json`. `--remove-main-library` deletes the old Exercise library once |
+| `tools/wger_videos.json` | committed, written only by the tool: plan key → item id, the day library it is in, the YouTube id it was made for; the playlists and day libraries the tool manages. `gen_wger.py` builds the `Video:` line from it |
+| `stacks/jellyfin/compose.yaml` | mounts `/mnt/media/exercise-days` read-only at `/data/media/exercise-days`. Not `/mnt/media/exercise` |
 
-**File names never change.** Jellyfin derives an item id from the file path, so the wger
-links stay valid only while the path stays the same. Names come from the plan key and the
-YouTube id, never the video title. A replaced video has a new YouTube id, so it becomes a
-new file and gets a new id. `gen_wger.py` refuses to write while the mapping still holds
-the old video's id.
+**Names never change by themselves.** Jellyfin derives an item id from the file path.
+The day-link path is `<library>/<NN> <exercise name>.mp4`, so the wger link stays valid as
+long as the day, the position and the exercise name stay the same. The download names come
+from the plan key and the YouTube id, never the video title. A replaced video (new YouTube
+id) is a new download, but its day link keeps its name: `download` re-links it, the item id
+stays, and the next `jellyfin --apply` records the new YouTube id. A renamed exercise or a
+changed workout order gives a new link name and so a new item id. `jellyfin --apply`
+records it and `gen_wger.py --apply` updates the description. `gen_wger.py` refuses to
+write while the mapping still holds an id made for another YouTube video.
 
-**Tdarr and Trailarr leave the folder alone, with no config change.** Verified 2026-11-14:
-Tdarr's two libraries are `/data/media/movies` and `/data/media/tv`. Trailarr only follows
-Radarr/Sonarr titles, and its path mappings cover only `tv/` and `movies/`. If either ever
-gets a library on `/data/media` itself, add `exercise` to its ignore list.
+**Tdarr and Trailarr leave both folders alone, with no config change.** Verified
+2026-11-14: Tdarr's two libraries are `/data/media/movies` and `/data/media/tv`. Trailarr
+only follows Radarr/Sonarr titles, and its path mappings cover only `tv/` and `movies/`. If
+either ever gets a library on `/data/media` itself, add `exercise` and `exercise-days` to
+its ignore list.
 
-## First install: order
+## Fresh install: order
 
-**Merging the PR that adds the mount deploys it.** The jellyfin stack in
-`komodo/resources.toml` has `deploy = true` and `webhook_enabled = true`, so the merge
-recreates the container with the new bind mount right away. The DMZ mount of the share is
-read-only, so docker cannot create a missing bind source there, and the deploy fails if
-`/mnt/media/exercise` does not exist yet. The directory therefore has to exist **before**
-the merge (step 0). The steps:
+Use this only to rebuild from nothing. The live setup is already done.
 
-0. Before the merge: the directory exists on the share.
-1. Merge (auto-deploy), then check that the container sees `/data/media/exercise`.
+**Merging a PR that adds a mount deploys it.** The jellyfin stack in
+`komodo/resources.toml` has `deploy = true` and `webhook_enabled = true`, so a merge
+recreates the container right away. The DMZ mount of the share is read-only, so docker
+cannot create a missing bind source there, and the deploy fails if
+`/mnt/media/exercise-days` does not exist. The steps:
+
+0. Before the merge: the folders exist on the share.
+1. Merge (auto-deploy), then check that the container sees `/data/media/exercise-days`.
 2. Jellyfin API key → 1Password.
-3. Download the videos.
-4. Create the library; jmack and rach can see it.
-5. Scan, playlists, mapping.
+3. Download the videos and make the day folders.
+4. Day libraries, item ids, playlists, mapping (`jellyfin --apply`).
+5. Load the wger descriptions (`gen_wger.py --apply`).
 6. Check it, including the third-account check.
 
-Hiding the library from other accounts is not part of the install; it is an
-[optional later step](#hide-the-library-from-other-accounts-optional-later).
+## 0. Before merging: the folders exist
 
-## 0. Before merging: the directory exists
-
-The share is read-write on kdk-dkr-01 only. Create the directory there as kdkadmin
-(uid 1000, the share's owner and the media stack's PUID). Then check it from the DMZ host,
-which is where the bind mount needs it.
+The share is read-write on kdk-dkr-01 only. Create the folders there as kdkadmin (uid
+1000, the share's owner and the media stack's PUID). Then check them from the DMZ host,
+which is where the bind mount needs them.
 
 **Laptop (SSH agent)**
 
 ```bash
-ssh kdkadmin@10.1.20.20 'mkdir -p /mnt/media/exercise && ls -ldn /mnt/media/exercise'   # drwxr-xr-x ... 1000 1000
-ssh kdkadmin@192.168.191.20 'ls -ld /mnt/media/exercise'                                # must exist BEFORE the merge
+ssh kdkadmin@10.1.20.20 'mkdir -p /mnt/media/exercise /mnt/media/exercise-days && ls -ldn /mnt/media/exercise /mnt/media/exercise-days'   # 1000 1000
+ssh kdkadmin@192.168.191.20 'ls -ld /mnt/media/exercise-days'                                   # must exist BEFORE the merge
 ```
 
 Do not merge while the second command answers `No such file or directory`.
@@ -102,14 +114,14 @@ minute, so merge in a quiet moment. If the webhook did not fire, run **DeploySta
 **Laptop (SSH agent)**
 
 ```bash
-ssh kdkadmin@192.168.191.20 'sudo docker inspect jellyfin --format "{{range .Mounts}}{{.Source}} -> {{.Destination}}{{println}}{{end}}" | grep exercise'   # /mnt/media/exercise -> /data/media/exercise
-ssh kdkadmin@192.168.191.20 'sudo docker exec jellyfin ls -ld /data/media/exercise'
+ssh kdkadmin@192.168.191.20 'sudo docker inspect jellyfin --format "{{range .Mounts}}{{.Source}} -> {{.Destination}}{{println}}{{end}}" | grep exercise'   # only /mnt/media/exercise-days -> /data/media/exercise-days
+ssh kdkadmin@192.168.191.20 'sudo docker exec jellyfin ls -ld /data/media/exercise-days'
 ```
 
 ## 2. Jellyfin API key → 1Password
 
-The tool needs a **dedicated key** for this tool, following the per-consumer pattern
-(see `wizarr-sync`). Do not reuse `kdk-cluster/jellyfin`.
+The tool needs a **dedicated key**, following the per-consumer pattern (see
+`wizarr-sync`). Do not reuse `kdk-cluster/jellyfin`.
 
 1. In **Jellyfin → Dashboard → API Keys → +**, set App name `exercise-videos`, then copy
    the key.
@@ -126,10 +138,11 @@ wl-copy --clear
 K="$(op read op://kdk-cluster/jellyfin-api-exercise-videos/credential)"; echo "${#K} bytes"; unset K   # 32 bytes
 ```
 
-To rotate: create a new key, run `op item edit` on the `credential` field, then delete the old key in
-the dashboard. The tool only reads the key when it runs, so nothing else changes.
+To rotate: create a new key, run `op item edit` on the `credential` field, then delete the
+old key in the dashboard. The tool only reads the key when it runs, so nothing else
+changes.
 
-## 3. Download the videos (kdk-dkr-01)
+## 3. Download the videos and make the day folders (kdk-dkr-01)
 
 Run this from the laptop. The tool reads the plan locally and runs every command on
 kdk-dkr-01 over SSH (agent socket only). `sudo -n docker` needs kdkadmin's NOPASSWD.
@@ -138,15 +151,15 @@ kdk-dkr-01 over SSH (agent socket only). `sudo -n docker` needs kdkadmin's NOPAS
 
 ```bash
 T=stacks/home-assistant/tools
-python3 $T/exercise_videos.py download --host kdkadmin@10.1.20.20            # dry run: "46 missing"
-python3 $T/exercise_videos.py download --host kdkadmin@10.1.20.20 --apply    # about 46 one-shot containers
-python3 $T/exercise_videos.py download --host kdkadmin@10.1.20.20            # "46 present, 0 missing"
-ssh kdkadmin@10.1.20.20 'ls -ln /mnt/media/exercise | head -3; du -sh /mnt/media/exercise'   # 1000 1000
+python3 $T/exercise_videos.py download --host kdkadmin@10.1.20.20            # dry run: "46 missing", "would link ..."
+python3 $T/exercise_videos.py download --host kdkadmin@10.1.20.20 --apply    # about 46 one-shot containers, then 59 hardlinks
+python3 $T/exercise_videos.py download --host kdkadmin@10.1.20.20            # "46 present, 0 missing"; "links 59 ok, 0 new, 0 re-linked, 0 removed"
+ssh kdkadmin@10.1.20.20 'stat -c "%h %i %n" "/mnt/media/exercise/goblet-squat [D1IEI-lfLxU].mp4" "/mnt/media/exercise-days/Jacob · 1 Mon Lower A/01 Dumbbell Goblet Squat.mp4"'   # same inode, link count 2
+ssh kdkadmin@192.168.191.20 'sudo docker exec jellyfin ls "/data/media/exercise-days/Jacob · 1 Mon Lower A"'
 ```
 
-The directory already exists from step 0 (`--apply` would create it as kdkadmin otherwise).
-The download skips files that already exist, so a re-run after a failure only fetches
-what is missing.
+The download skips files that already exist, so a re-run after a failure only fetches what
+is missing.
 
 YouTube sometimes answers `HTTP Error 403: Forbidden` for a video that works on the next
 try. The tool handles that itself:
@@ -164,15 +177,26 @@ try. The tool handles that itself:
 `.incoming/` holds yt-dlp's partial files. After every run (also a failed one) the tool
 deletes `/mnt/media/exercise/.incoming` and nothing else. It skips that only if the
 folder is a symlink or holds a finished `<key> [<id>].mp4`; then it prints a `WARN` and
-you move that file up by hand. A dry run only reports it. Jellyfin skips dot folders, and
-the `other file(s)` count does not include `.incoming`. Do not run two downloads at the
-same time: one run's cleanup would delete the other's partial files.
+you move that file up by hand. A dry run only reports it. The `other file(s)` count does
+not include `.incoming`. Do not run two downloads at the same time: one run's cleanup
+would delete the other's partial files.
 
-Then check that Jellyfin sees the files:
+### Day folders
 
-```bash
-ssh kdkadmin@192.168.191.20 'sudo docker exec jellyfin ls /data/media/exercise | wc -l'   # 46 (.incoming not listed)
-```
+One folder per playlist (grouped the same way, so Rachel's identical days share one), in
+`/mnt/media/exercise-days/<name>/`. Each holds **hardlinks** `<NN> <exercise name>.mp4` to
+the downloads. They are on the same NFS filesystem (`findmnt`: one `/mnt/media` mount,
+verified 2026-11-14), so they take no extra space. NN is the position in the day's workout
+order among the exercises that have a video (the treadmill walk has none, so jmack's days
+have 9). Names are made file-system safe: `/` becomes `-`, and `\ : * ? " < > | [ ]` are
+dropped (`Yoga exercise: Cow-cat` → `05 Yoga exercise Cow-cat.mp4`).
+
+Every `download` run checks the links by inode: a missing link is made, a link to an old
+file (a `--refetch` moves a new file over the old name, which breaks the hardlink) is made
+again, and a link the day no longer has is removed. The tool only works inside
+`/mnt/media/exercise-days`, only on folder names of the generated shape
+(`<Person> · <n> ...`) and file names `<NN> <name>.mp4`. Symlinks are never followed.
+Anything else there is listed as `OTHER` and never touched.
 
 ### Resolution
 
@@ -218,32 +242,12 @@ python3 $T/exercise_videos.py download --host kdkadmin@10.1.20.20 --probe
 
 The new copy downloads into `.incoming/` (same retries as a normal download). Only when
 yt-dlp has finished and the file is there and not empty does the tool `mv` it over
-`<key> [<id>].mp4`. The path does not change, so the Jellyfin item id, the playlists and the
-wger links stay. A failed refetch leaves the old file in place and exits 1. Then run
-`jellyfin --apply` (step 5): the scan picks up the changed file, and `wger_videos.json`
-stays unchanged.
+`<key> [<id>].mp4`. The same run then re-links the day folders (the inode changed). The day
+link paths stay, so the Jellyfin item ids, the playlists and the wger links stay. A failed
+refetch leaves the old file in place and exits 1. Then run `jellyfin --apply` (step 4) so
+the day libraries are scanned; `wger_videos.json` stays unchanged.
 
-## 4. Create the library (Jellyfin dashboard, as an admin)
-
-Go to **Dashboard → Libraries → Libraries → Add Media Library**:
-
-| Field | Value |
-|---|---|
-| Content type | **Home videos and photos** |
-| Display name | `Exercise` (exactly: the tool finds the library by this name) |
-| Folders | `/data/media/exercise` (one folder only) |
-| Metadata downloaders / image fetchers | **all unticked** |
-| Prefer embedded titles over filenames | ✅ (the files carry the plan's exercise name as title) |
-| Save trickplay images next to media | ☐ (the mount is read-only) |
-| Chapter image extraction | ☐ |
-
-Then check that **jmack** and **rach** can see it: **Dashboard → Users → <user> → Access**
-has either *Enable access to all libraries* on or Exercise ticked. The `jellyfin` step (5)
-stops before any write when one of them cannot see the library. Other accounts seeing it is
-fine (owner decision 2026-11-14): the run prints one `NOTE other accounts can see the
-library ...` line naming them and goes on.
-
-## 5. Scan, playlists, mapping
+## 4. Day libraries, item ids, playlists, mapping
 
 **Laptop, repo root (`op` signed in; LAN or tailnet: the Cloudflare WAF blocks the admin
 API paths from the internet)**
@@ -252,191 +256,51 @@ API paths from the internet)**
 T=stacks/home-assistant/tools
 export JELLYFIN_API_KEY="$(op read op://kdk-cluster/jellyfin-api-exercise-videos/credential)"
 printf '%s bytes\n' ${#JELLYFIN_API_KEY}                   # 32; never echo the value
-python3 $T/exercise_videos.py jellyfin                    # dry run: access check (+ NOTE line), 8 "would: create playlist" (+ 8 "would: delete" once, see Migration)
-python3 $T/exercise_videos.py jellyfin --apply            # scan (waits up to 10 min), playlists, wger_videos.json
-python3 $T/exercise_videos.py jellyfin --apply            # second run: only the scan, "wger_videos.json unchanged"
+python3 $T/exercise_videos.py jellyfin                    # dry run: 8 "would: create library", 8 "would: create playlist"
+python3 $T/exercise_videos.py jellyfin --apply            # creates + scans the libraries (waits up to 10 min), playlists, wger_videos.json
+python3 $T/exercise_videos.py jellyfin --apply            # second run: only the 8 scans, "wger_videos.json unchanged"
 unset JELLYFIN_API_KEY
-git diff --stat $T/wger_videos.json                       # 46 items (no treadmill-walk), 8 playlists
+git diff --stat $T/wger_videos.json                       # 46 items (no treadmill-walk), 8 playlists, 8 libraries
 ```
 
-Commit `wger_videos.json` in a small PR. After it merges, run `gen_wger.py --apply`
+Commit `wger_videos.json` in a small PR. Then run `gen_wger.py --apply`
 ([wger runbook step 9](wger.md#9-load-the-plan-built-in-exercises--weekday-routines)) so
 every exercise description gets its Jellyfin `Video:` line.
 
-The tool resolves the users by username (`jmack`, `rach`: the plan's people logins) on
-every run, so no user id is stored. It finds a playlist by the id it recorded, or else by
-its exact name in that person's list.
+What one run does, in order:
 
-**API key limits (Jellyfin 12.4).** An API key has no user behind it. Every
-`/Playlists/{id}` call that works on "the calling user" answers `400 Error processing
-request.`: read, users, update, remove item and move item. So the tool:
+1. **Day libraries.** One Home videos library per day folder, with the same name and the
+   folder `/data/media/exercise-days/<name>`. Created with
+   `POST /Library/VirtualFolders`. The tool sets the library options:
+   - every metadata downloader and image fetcher off;
+   - *Prefer embedded titles* **off**, so the item name is the file name
+     (`01 Dumbbell Goblet Squat`) and the name sort equals the workout order (the embedded
+     title is the plain exercise name and would lose the order);
+   - no trickplay, chapter images or real-time monitoring.
 
-- creates a playlist with `POST /Playlists` and the owner in the body (`UserId`,
-  `IsPublic: false`, no `Users`);
-- never updates or renames one in place. A recorded or same-named playlist whose order is
-  wrong is deleted with `DELETE /Items/{id}` and created again. A playlist with the old
-  (unnumbered) name is replaced the other way round: the new-named one is created and
-  verified first, then the old one is deleted. Either way it gets a new id; nothing links
-  to playlist ids except `wger_videos.json`;
-- does not set a Sort Name (`ForcedSortName`). `POST /Playlists` has no field for it
-  (the 12.x OpenAPI `CreatePlaylistDto` is Name, Ids, UserId, MediaType, Users, IsPublic),
-  and `POST /Items/{id}` would mean writing back a whole item record with an API key,
-  untested here. The number in the name is enough for the name sort;
-- verifies each playlist after the write, as the owner and as every other account:
-  - `GET /Playlists/{id}/Items?userId=<owner>` gives the plan's videos in workout order;
-  - for each other account (the other plan person and admins included), the playlist is
-    not in `GET /Items?userId=<them>&IncludeItemTypes=Playlist`, and
-    `GET /Items/{id}?userId=<them>` is a 404.
+   Drifted options are set again. Each library is scanned and checked: its items, sorted
+   by name, must be exactly the day's files in workout order (`ok library '<name>': n
+   item(s) in workout order`).
+2. **Item ids.** Each exercise's id is its item in the first day library that has it
+   (people in plan order, then weekday order). If that library does not list the item,
+   the exercise is `MISSING`. There is no fallback to a later library, so the link never
+   moves between runs. With `--apply`, a `MISSING` exercise stops the run before the
+   playlists: `wger_videos.json` keeps its old item ids and records the day libraries.
+3. **Playlists.** Each playlist holds the items of that person's own day library, in
+   workout order.
+4. **`wger_videos.json`**, then the note or the removal of the old Exercise library
+   (below).
 
-  If any other account can see a playlist, the run stops with exit 2 and names it.
+**Access** stays as it is (owner decision): jmack and the admin have *all libraries*;
+rach has her four day libraries ticked. The SSO and LDAP plugin settings are not touched.
+Each run prints `NOTE library '<name>' is visible to: ...`. If a plan person cannot see
+their own day library, it prints `WARN <login> cannot see library ...`. If a person does
+an exercise whose link is in a library they cannot see, it prints
+`WARN <login> does <key> but cannot see library ...` (see *Known limit*).
 
-It never deletes a playlist it did not make. Besides `--prune` (only playlists it recorded
-whose day left the plan), it deletes only a playlist in that person's list with an exact
-generated name (current or old scheme), and only when no other account can see it, so it is
-that person's own and not a share. A playlist someone made by hand (`Jacob favourites`,
-`Jacob · Mon Lower A (copy)`) is never touched. A recorded playlist the person renamed by
-hand is left alone with a `NOTE` line and dropped from `wger_videos.json`.
-
-### Migration from the unnumbered names (2026-11-14)
-
-The first `jellyfin --apply` after this change replaces the eight old playlists. It finds
-them by the ids in `wger_videos.json`, or (with an empty mapping) by their exact old name in
-that person's list. For each plan playlist, in order:
-
-1. `POST /Playlists` creates `Jacob · 1 Mon Lower A` (etc.);
-2. the usual checks: `GET /Playlists/{new id}/Items?userId=<owner>` and, for every other
-   account, `GET /Items?userId=<them>&IncludeItemTypes=Playlist` and
-   `GET /Items/{new id}?userId=<them>`;
-3. the same visibility checks on the old playlist (it must be the owner's only), then
-   `DELETE /Items/{old id}`.
-
-The dry run lists all of it: 8 `would: create playlist '<new name>'` and 8
-`would: delete playlist '<old name>' (<id>) of <login>: replaced by '<new name>'` lines.
-A failed delete prints `ERROR could not delete playlist ...`, marks that `did:` line
-`-- FAILED`, carries on with the rest, records only the new (verified) playlists and exits 1.
-The next run finds the leftover by its exact old name and deletes it again (or delete it
-by hand in Jellyfin as its owner). After a clean run, the next one writes nothing but the
-scan.
-
-**A run that stops midway** (a failed check, an HTTP error) still writes
-`wger_videos.json`. The file gets all item ids, since by then every plan file is an item,
-and only the playlists verified so far. `gen_wger.py` can run on it, and the next
-`jellyfin --apply` resumes: it finds the playlists already made by id or name and creates
-the rest.
-
-## 6. Check it
-
-- jmack's Jellyfin home shows **Exercise** and four playlists of 9 videos each, in workout
-  order (the first lift first, core last; the treadmill walk has no video). Rachel sees her
-  four.
-- Tap a `Video:` address in wger on the phone, once on Wi-Fi and once on cellular (through
-  the tunnel). It opens the video in the browser after the Jellyfin login.
-- **Third account (required):** open a private window, sign in as an account that is
-  neither jmack nor rach (a Wizarr invitee or a test account), first with the password
-  form and then once with **Sign in with SSO**. Do it on the LAN and through the tunnel
-  (phone on cellular). Then check:
-  1. Home shows the Exercise library (expected while it is not hidden).
-  2. *Playlists* lists none of the Jacob/Rachel playlists, and searching for `Jacob` or
-     `Rachel` finds no playlist.
-  3. Paste a playlist address of jmack's (`/web/#/details?id=<playlist id>` from
-     `wger_videos.json`). The page shows an error or nothing, not the playlist.
-
-## Day libraries for the Apple TV (option B, 2026-11-14)
-
-**Why.** The Apple TV client, Neptune 1.4.3, cannot use the playlists or a folder (tested
-2026-11-14):
-
-- **Playlists do not play.** Neptune requests PlaybackInfo for the playlist item itself,
-  and the server answers "has no media sources".
-- **Folders are not shown.** Neptune flattens a library into one grid sorted by name. A
-  subfolder of hardlinks inside Exercise showed as a folder in the web client, but Neptune
-  showed its ten copies as duplicates in the flat grid.
-
-What Neptune does handle is a library shown as one flat grid sorted by name, and playing a
-single video from it. So the owner chose one library per person and day (option B). The
-Exercise library, the 8 playlists and the wger links stay exactly as they are.
-
-**What the tool builds.**
-
-- **Day folders** on the share (`download`, kdk-dkr-01): `/mnt/media/exercise-days/<name>/`,
-  one per playlist and grouped the same way, so Rachel's identical days share one. Each holds
-  **hardlinks** `<NN> <exercise name>.mp4` to the Exercise files. They are on the same NFS
-  filesystem (`findmnt`: one `/mnt/media` mount, verified 2026-11-14), so they take no extra
-  space. NN is the position in the day's workout order among the exercises that have a
-  video (the treadmill walk has none, so jmack's days have 9).
-- **Day libraries** (`jellyfin`): one Home videos library per folder, with the same name and
-  the folder `/data/media/exercise-days/<name>`. The tool sets the library options:
-  - every metadata downloader and image fetcher off;
-  - *Prefer embedded titles* **off**, so the item name is the file name
-    (`01 Dumbbell Goblet Squat`) and the name sort equals the workout order. The embedded
-    title is the plain exercise name and would lose the order;
-  - no trickplay, chapter images or real-time monitoring.
-
-| Library (= folder) | Videos |
-|---|---|
-| Jacob · 1 Mon Lower A, Jacob · 2 Wed Upper A, Jacob · 3 Fri Lower B, Jacob · 4 Sat Upper B | 9 each |
-| Rachel · 1 Mon Strength A, Rachel · 2 Tue-Fri Cardio, Rachel · 3 Wed-Sat-Sun Daily parts, Rachel · 4 Thu Strength B | 7, 5, 4, 7 |
-
-Names are made file-system safe: `/` becomes `-`, and `\ : * ? " < > | [ ]` are dropped
-(`Yoga exercise: Cow-cat` → `05 Yoga exercise Cow-cat.mp4`).
-
-**Access** stays as it is (owner decision): jmack, rach and the admin have *all libraries*,
-so they see all 8 day libraries; the SSO and LDAP plugin settings are not touched. Each run
-prints `NOTE library '<name>' is visible to: ...`. If a plan person cannot see their own day
-library, it prints `WARN <login> cannot see library ...`.
-
-**What the tool may touch.**
-
-- **On the share:** only inside `/mnt/media/exercise-days`, only folder names of the
-  generated shape (`<Person> · <n> ...`) and file names `<NN> <name>.mp4`. Symlinks are
-  never followed. Anything else there is listed as `OTHER` and never touched.
-- **In Jellyfin:** a library is deleted only with `--prune`, and only when all of these
-  hold: its name left the plan, `wger_videos.json` records it with origin `api` (the tool
-  created it), and the server's library of that exact name still has the recorded id.
-  Exercise, Movies, Shows and Collections are never deleted. A library made by hand
-  (origin `hand`) is never deleted.
-
-### Pre-merge check (the compose mount)
-
-Merging the PR deploys jellyfin with the new read-only bind mount (`deploy = true`, webhook).
-Docker cannot create a missing bind source on the read-only DMZ mount, so the folder must
-exist first. The owner created the empty `/mnt/media/exercise-days` on 2026-11-14 and
-checked that kdk-dkr-dmz-01 sees it. Check it again just before the merge:
-
-```bash
-ssh kdkadmin@10.1.20.20 'ls -ldn /mnt/media/exercise-days'        # drwxrwxr-x ... 1000 1000
-ssh kdkadmin@192.168.191.20 'ls -ld /mnt/media/exercise-days'     # must exist BEFORE the merge
-```
-
-### Steps after the merge
-
-**Laptop, repo root (SSH agent; `op` signed in; LAN or tailnet)**
-
-```bash
-T=stacks/home-assistant/tools
-# 1. the mount is in the container
-ssh kdkadmin@192.168.191.20 'sudo docker exec jellyfin ls -ld /data/media/exercise-days'
-# 2. day folders (dry run, then apply, then a no-op run)
-python3 $T/exercise_videos.py download --host kdkadmin@10.1.20.20            # "would link ...", "59 new (planned)"
-python3 $T/exercise_videos.py download --host kdkadmin@10.1.20.20 --apply    # 8 folders, 59 hardlinks
-python3 $T/exercise_videos.py download --host kdkadmin@10.1.20.20            # "links 59 ok, 0 new, 0 re-linked, 0 removed"
-ssh kdkadmin@10.1.20.20 'stat -c "%h %i %n" "/mnt/media/exercise/goblet-squat [D1IEI-lfLxU].mp4" "/mnt/media/exercise-days/Jacob · 1 Mon Lower A/01 Dumbbell Goblet Squat.mp4"'   # same inode, link count 2
-ssh kdkadmin@192.168.191.20 'sudo docker exec jellyfin ls "/data/media/exercise-days/Jacob · 1 Mon Lower A"'
-# 3. libraries: dry run, apply, second run
-export JELLYFIN_API_KEY="$(op read op://kdk-cluster/jellyfin-api-exercise-videos/credential)"
-python3 $T/exercise_videos.py jellyfin            # 8 "would: create library ...", 8 "would: scan library ..."
-python3 $T/exercise_videos.py jellyfin --apply    # creates, scans, "ok library '<name>': n item(s) in workout order" x8
-python3 $T/exercise_videos.py jellyfin --apply    # only scans; "wger_videos.json unchanged"
-unset JELLYFIN_API_KEY
-git diff $T/wger_videos.json                      # new "libraries": 8 entries, origin api (or hand)
-```
-
-Commit `wger_videos.json` in a small PR. Then check on the Apple TV, as jmack and as rach:
-each day library shows its videos in workout order (`01 …` first), and a video plays.
-
-**If the server refuses the create** (`could not create library ...: HTTP 401/403`), the run
-prints `HAND STEPS` and exits 1. For each library, in **Dashboard → Libraries → Add Media
-Library**:
+**If the server refuses to create a library** (`could not create library ...: HTTP
+401/403`), the run prints `HAND STEPS` and stops. For each library, in **Dashboard →
+Libraries → Add Media Library**:
 
 | Field | Value |
 |---|---|
@@ -448,45 +312,171 @@ Library**:
 | Real-time monitoring, trickplay, chapter images | ☐ |
 
 Then run `jellyfin --apply` again. It finds each library by exact name, type and folder,
-records it with origin `hand`, re-applies drifted options and verifies the order.
+records it with origin `hand`, sets drifted options and checks the order.
 
-**After a re-fetch or a plan change.** `download --refetch` moves a new file over the old
-name, which breaks the old hardlink. The same run then re-links it (the inode differs), and
-so do `download --apply` and `--apply --prune`. The day libraries keep their item ids (same
-path). Run `jellyfin --apply` afterwards so the libraries are scanned.
+The tool resolves the users by username (`jmack`, `rach`: the plan's people logins) on
+every run, so no user id is stored. It finds a playlist by the id it recorded, or else by
+its exact name in that person's list.
 
-## Hide the library from other accounts (optional, later)
+**API key limits (Jellyfin 12.4).** An API key has no user behind it. Every
+`/Playlists/{id}` call that works on "the calling user" answers `400 Error processing
+request.`: read, users, update, remove item and move item. So the tool:
 
-Not done now (owner decision 2026-11-14): every account can see Exercise and the SSO and
-LDAP plugin settings stay as they are. If the owner later wants the library hidden, three
-things grant library access, and all three must change:
+- creates a playlist with `POST /Playlists` and the owner in the body (`UserId`,
+  `IsPublic: false`, no `Users`);
+- never updates or renames one in place. A recorded or same-named playlist whose items or
+  order are wrong is deleted with `DELETE /Items/{id}` and created again. A playlist with
+  the old (unnumbered) name is replaced the other way round: the new-named one is created
+  and checked first, then the old one is deleted. Either way it gets a new id; nothing
+  links to playlist ids except `wger_videos.json`;
+- does not set a Sort Name (`ForcedSortName`). `POST /Playlists` has no field for it, and
+  the number in the name is enough for the name sort;
+- checks each playlist after the write, as the owner and as every other account:
+  - `GET /Playlists/{id}/Items?userId=<owner>` gives the day library's items in workout
+    order;
+  - for each other account (the other plan person and admins included), the playlist is
+    not in `GET /Items?userId=<them>&IncludeItemTypes=Playlist`, and
+    `GET /Items/{id}?userId=<them>` is a 404.
 
-1. **Each user's policy.** Go to **Dashboard → Users → <user> → Access**. For each
-   account except jmack and rach (kdkadmin and Wizarr invitees included), untick
-   **Enable access to all libraries** and tick only that user's libraries (Movies, Shows,
-   …), leaving Exercise off. For jmack and rach, tick Exercise as well. An administrator
-   is not exempt: with *all libraries* on, the admin sees Exercise too.
-2. **The SSO Authentication plugin** (*Enable Authorization by Plugin* is on, see
-   [jellyfin-sso](jellyfin-sso.md)). It rewrites a user's folders on **every** SSO login.
-   With *Enable All Folders* ✅ (verified 2026-11-14), each SSO login grants every library
-   again, so a per-user untick alone does not hold for anyone who signs in with SSO. To
-   hide it, change the plugin form:
-   - **Enable All Folders**: ☐. Under **Enabled Folders**, tick every library except
-     Exercise.
-   - **Enable Role-Based Folder Access**: ✅. Add a mapping from the LLDAP group
-     `exercise-users` to the folder Exercise. First create the group in
-     `users.kmkdp.com` and add jmack and rach to it.
-3. **The LDAP-Auth plugin** creates users from LDAP with *Enable All Folders* ✅ (verified
-   2026-11-14), so every new LDAP or Wizarr account starts with Exercise. Untick it and
-   tick every library except Exercise. Check Wizarr's invitation library choice too
-   (Wizarr → Settings → the Jellyfin server's libraries).
+  If any other account can see a playlist, the run stops with exit 2 and names it.
 
-Afterwards, sign in once as jmack **through SSO** and check that Exercise is still on that
-user's Access tab. That proves the role mapping works; the plugin's role-folder behaviour
-has not been tested here. Then repeat the third-account check (step 6): the library is now
-gone from Home, a search for `plank` finds no exercise video, a `Video:` address shows an
-error, and after the SSO login the account's Access tab still has Exercise unticked. The
-`jellyfin` run's `NOTE other accounts` line should then be gone.
+**What the tool may delete in Jellyfin.**
+
+- A playlist only if it made it: with `--prune`, a recorded playlist whose day left the
+  plan; otherwise only a playlist in that person's list with an exact generated name
+  (current or old scheme), and only when no other account can see it. A hand-made one
+  (`Jacob favourites`, `Jacob · Mon Lower A (copy)`) is never touched. A recorded playlist
+  the person renamed by hand is left alone with a `NOTE` and dropped from the record.
+- A day library only with `--prune`, and only when its name left the plan,
+  `wger_videos.json` records it with origin `api` (the tool created it), and the server's
+  library of that exact name still has the recorded id. A hand-made one (origin `hand`) is
+  never deleted. `--prune` never deletes Exercise, Movies, Shows or Collections.
+- The old library `Exercise` only with `--remove-main-library` (next section).
+
+**A run that stops midway** (a failed check, an HTTP error) after the item ids are known
+still writes `wger_videos.json`: all item ids, the day libraries, and only the playlists
+checked so far. `gen_wger.py` can run on it, and the next `jellyfin --apply` resumes.
+
+### Migration from the unnumbered playlist names (2026-11-14)
+
+Done on the live server. The first `jellyfin --apply` after that change found the eight
+old playlists (`Jacob · Mon Lower A`, …) by recorded id or exact old name, created and
+checked each new one, then deleted the old one. A failed delete prints `ERROR could not
+delete playlist ...`, marks that `did:` line `-- FAILED`, and exits 1; the next run finds
+the leftover by its exact old name and tries again.
+
+## Removing the old Exercise library (2026-11-14)
+
+Until this change the wger links and the playlists used the items of a flat library
+**Exercise** (id `3c29806b1097f5e2b21f4cec073309f1`) on `/data/media/exercise`. The owner
+wants it gone. The PR that makes the day libraries the only source does three things:
+
+- `exercise_videos.py jellyfin` takes every item id from the day libraries and never
+  scans or needs Exercise. Without a flag it only prints
+  `NOTE the old library 'Exercise' (...) still exists; nothing links to it any more`.
+- `--remove-main-library` deletes it, but only when it is the one library named exactly
+  `Exercise`, its single folder is `/data/media/exercise`, and every plan exercise with a
+  video got a day-library item in the same run. Otherwise it prints
+  `ERROR not removing library 'Exercise': ...` and deletes nothing. A dry run prints
+  `would: delete library 'Exercise' (...)`.
+- `stacks/jellyfin/compose.yaml` no longer mounts `/mnt/media/exercise`.
+
+**The files stay.** `DELETE /Library/VirtualFolders?name=Exercise` (Jellyfin's
+`LibraryManager.RemoveVirtualFolder`) deletes only the library's own folder in Jellyfin's
+config, `/config/data/root/default/Exercise`. Read on the live host 2026-11-14, that folder
+holds `exercise.mblink` (a text file with the path `/data/media/exercise`),
+`homevideos.collection`, `options.xml` and `folder.png` (the library's cover image). The
+media folder is never opened. The downloads in `/mnt/media/exercise` stay, and the day
+links that point at them stay. Besides, the share is mounted read-only on the DMZ host,
+and after this merge Jellyfin does not mount the folder at all.
+
+**Merging restarts Jellyfin** (about a minute; active streams drop). Until the steps below
+are run:
+
+- the Exercise library still shows, but empty (its folder is no longer mounted);
+- the wger `Video:` links still point at Exercise items, so they open nothing;
+- the playlists still hold Exercise items, so they show empty.
+
+The day libraries keep working the whole time. Run the steps soon after the merge.
+
+### Steps after the merge
+
+Run them in this order. Stop at the first step that does not show what is expected.
+
+**Laptop, repo root (SSH agent; `op` signed in; LAN or tailnet)**
+
+```bash
+T=stacks/home-assistant/tools
+# 0. the old mount is gone, the day folders are still there
+ssh kdkadmin@192.168.191.20 'sudo docker inspect jellyfin --format "{{range .Mounts}}{{.Source}} -> {{.Destination}}{{println}}{{end}}" | grep exercise'   # only /mnt/media/exercise-days -> /data/media/exercise-days
+
+export JELLYFIN_API_KEY="$(op read op://kdk-cluster/jellyfin-api-exercise-videos/credential)"
+printf '%s bytes\n' ${#JELLYFIN_API_KEY}                                    # 32
+
+# 1. dry run: 8 "ok library", no MISSING, 8 playlists to re-create,
+#    "would: delete library 'Exercise' (3c29806b1097f5e2b21f4cec073309f1 on ['/data/media/exercise']; ...)"
+python3 $T/exercise_videos.py jellyfin --remove-main-library
+
+# 2. apply: re-creates the 8 playlists from the day libraries, deletes Exercise, writes wger_videos.json
+python3 $T/exercise_videos.py jellyfin --apply --remove-main-library        # "deleted library 'Exercise'", "wrote wger_videos.json: 46 item id(s), 8 playlist(s), 8 day librar(ies)"
+
+# 3. second run: only the 8 scans, no NOTE about Exercise
+python3 $T/exercise_videos.py jellyfin --apply                              # "wger_videos.json unchanged"
+unset JELLYFIN_API_KEY
+
+# 4. commit the mapping (small PR, merge it)
+git diff --stat $T/wger_videos.json                                         # 46 items, each with "library"
+
+# 5. wger: dry run, apply, check
+export WGER_URL=https://wger.kmkdp.com
+export WGER_API_KEY_JMACK="$(op read op://kdk-cluster/wger-api-jmack/credential)"
+export WGER_API_KEY_RACH="$(op read op://kdk-cluster/wger-api-rach/credential)"
+printf '%s %s bytes\n' JMACK ${#WGER_API_KEY_JMACK} RACH ${#WGER_API_KEY_RACH}   # 40 each
+python3 $T/gen_wger.py                  # dry run: about 46 "description (How / Safety / Video)" writes, nothing else
+python3 $T/gen_wger.py --apply
+python3 $T/gen_wger.py --check          # "wger matches the plan", exit 0
+unset WGER_URL WGER_API_KEY_JMACK WGER_API_KEY_RACH
+```
+
+Then check by hand:
+
+- **Dashboard → Libraries**: no Exercise; the 8 day libraries are there.
+- `ssh kdkadmin@10.1.20.20 'ls /mnt/media/exercise | wc -l'` still says 46.
+- In wger, tap two `Video:` addresses (one of jmack's exercises, one of Rachel's). Each
+  opens the video's page in a day library after the Jellyfin login.
+- Each person's playlists show their videos in workout order.
+
+**If the key may not delete the library** (`could not delete library 'Exercise': HTTP
+401/403`), the run prints `HAND STEPS` and exits 1. Everything else is done and recorded.
+In Jellyfin as an admin: **Dashboard → Libraries → Libraries → Exercise → ⋯ → Remove**.
+This removes the library only; the files stay. Then go on with step 3.
+
+## 5. Load the wger descriptions
+
+See [wger runbook step 9](wger.md#9-load-the-plan-built-in-exercises--weekday-routines).
+`gen_wger.py` refuses `--apply` (exit 2, nothing written) and fails `--check` while any
+plan exercise with a video lacks an item id for its current YouTube video. A dry run warns
+and leaves those descriptions alone. It never writes a YouTube or empty `Video:` line.
+
+## 6. Check it
+
+- jmack's Jellyfin home shows his four day libraries and four playlists of 9 videos each,
+  in workout order (the first lift first, core last; the treadmill walk has no video).
+  Rachel sees her four of each.
+- On the Apple TV, as jmack and as rach: each day library shows its videos in workout order
+  (`01 …` first), and a video plays.
+- Tap a `Video:` address in wger on the phone, once on Wi-Fi and once on cellular (through
+  the tunnel). It opens the video in the browser after the Jellyfin login.
+- **Third account (required):** open a private window, sign in as an account that is
+  neither jmack nor rach (a Wizarr invitee or a test account), first with the password
+  form and then once with **Sign in with SSO**. Do it on the LAN and through the tunnel
+  (phone on cellular). Then check:
+  1. Home shows the day libraries only if that account has *all libraries* (expected
+     while access is left as it is).
+  2. *Playlists* lists none of the Jacob/Rachel playlists, and searching for `Jacob` or
+     `Rachel` finds no playlist.
+  3. Paste a playlist address of jmack's (`/web/#/details?id=<playlist id>` from
+     `wger_videos.json`). The page shows an error or nothing, not the playlist.
 
 ## After a plan change
 
@@ -498,20 +488,20 @@ routine changed:
    The same run brings the day folders up to date: new and re-linked links, and removed
    links for exercises a day no longer has. A whole folder whose day left the plan is
    listed as `EXTRA day folder`.
-3. Run `jellyfin --apply` (step 5), then commit `wger_videos.json`. This creates and
-   verifies any new day library.
+3. Run `jellyfin --apply` (step 4), then commit `wger_videos.json`. This creates and checks
+   any new day library and records the new item ids.
 4. Run `gen_wger.py --apply` and then `--check`.
 5. Once everything works, delete the leftovers, `jellyfin` first:
    - `jellyfin --apply --prune` deletes the playlists the tool made whose day left the
      plan, and the day libraries it created (origin `api`) whose name left the plan.
-   - `download --apply --prune` removes files that match the `<key> [<id>].mp4` pattern
-     and are no longer in the plan (any other file in the folder is reported and never
-     touched). It also empties and removes day folders that left the plan; a folder that
-     still holds a foreign file keeps it, and the run exits 1.
+   - `download --apply --prune` removes downloads that match the `<key> [<id>].mp4`
+     pattern and are no longer in the plan (any other file in the folder is reported and
+     never touched). It also empties and removes day folders that left the plan; a folder
+     that still holds a foreign file keeps it, and the run exits 1.
 
-`gen_wger.py` refuses `--apply` (exit 2, nothing written) and fails `--check` while any
-plan exercise lacks an item id for its current YouTube video. A dry run warns and leaves
-those descriptions alone. It never writes a YouTube or empty `Video:` line.
+An exercise with a video that **no day uses** has no day-library item, so it has no item
+id and no `Video:` line. `jellyfin` prints `WARN <key> has a video but no day uses it`,
+and `gen_wger.py --check` fails on it. Use it in a routine, or set its `video` to `null`.
 
 ## Troubleshooting
 
@@ -521,36 +511,50 @@ those descriptions alone. It never writes a YouTube or empty `Video:` line.
 | A video plays at low resolution (480p or less), or `--probe` prints `LOW` | Run the format check in [Resolution](#resolution) for its YouTube id. Larger available: `download --refetch <key> --apply`, then `jellyfin --apply`. Same size: YouTube has nothing better; keep it (the seven 720-only videos listed there) or replace the video in the plan. If Jellyfin still shows the old size after the scan, open the item → ⋯ → **Refresh metadata** (*Replace all metadata*). |
 | `--refetch`: `FAILED <file>: .incoming/<file> already exists` | An earlier refetch finished but was not moved. Check that file (`ls -la /mnt/media/exercise/.incoming` on kdk-dkr-01), delete it or move it over the old one by hand, then run again. |
 | `ERROR n of 46 video(s) not created`, a file marked `yt-dlp exited 0 but the file is not there` | yt-dlp wrote it under a different name or not at all. Check the run's output for that file and `ls -la /mnt/media/exercise/.incoming` on kdk-dkr-01. |
-| `jellyfin`: `ERROR GET /Playlists/<id>: HTTP 400 Error processing request.` | An older tool version. With an API key that call has no user and always fails; the current tool never calls it. Update the checkout and run again. The first playlist it made is reused, not duplicated. |
+| `jellyfin`: `MISSING <key>: <library>/<NN> <name>.mp4 is not an item in that day library`, exit 2 | The day link is not on the share (run `download --apply`) or the scan has not finished (run `jellyfin --apply` again). `wger_videos.json` keeps its old item ids. |
+| `jellyfin`: `WARN <key> has a video but no day uses it` | See the end of *After a plan change*. |
+| `jellyfin`: `WARN rach does db-rdl but cannot see library 'Jacob · …'` | Expected (*Known limit*). Tick that library under rach's Library access if her wger link should work. |
+| `jellyfin`: `ERROR not removing library 'Exercise': ...`, exit 1 | `--remove-main-library` refused: its folder is not exactly `/data/media/exercise`, there are two libraries of that name, or an exercise has no day-library item. Nothing was deleted. Fix the cause (or remove it by hand in the dashboard if it really is the old library), then run again. |
+| `jellyfin`: `could not delete library 'Exercise'` + `HAND STEPS` | The key may not delete libraries. Remove it in the dashboard as printed; the files stay. |
+| `jellyfin`: `ERROR GET /Playlists/<id>: HTTP 400 Error processing request.` | An older tool version. With an API key that call has no user and always fails; the current tool never calls it. Update the checkout and run again. |
 | `jellyfin`: `playlist '...' (<id>) is visible to <user> (...)`, exit 2 | The playlist is public or shared. As the owner in Jellyfin, open the playlist, remove the shares and make it private. Or delete it; the next run creates it again. `wger_videos.json` has already been written with the item ids and the playlists that passed. |
 | `jellyfin`: `ERROR could not delete playlist '<old name>' (<id>) ...`, exit 1 | The new playlist was made and recorded; only the old one is left. Run `jellyfin --apply` again (it retries the delete by exact name), or delete it by hand as its owner in Jellyfin. |
 | `jellyfin`: `WARN playlist '<old name>' (<id>) is visible to <user>, so it may not be <login>'s own; not deleted`, exit 1 | A playlist with an old generated name that another account can see (shared, public, or someone else's shared with this person). Check it in Jellyfin; delete it by hand if it is the old tool playlist. |
-| `jellyfin`: `ACCESS jmack cannot see the library`, exit 2, nothing written | That plan person has neither *all libraries* nor Exercise ticked. Fix it as in step 4, then run again. A `NOTE other accounts can see the library` line is expected and does not stop the run. |
 | `jellyfin`: `library '<day>': n item(s) in name order, not the day's m file(s) in workout order` | Count differs: the folder on the share is incomplete (run `download --apply`) or the scan is not done (run again). `(the right files, wrong order ...)`: Jellyfin named the items by their embedded title. Check the library's *Prefer embedded titles* (off), then **Scan → Replace all metadata** on that library and run again. |
-| `jellyfin`: `could not create library ...` + `HAND STEPS` | The API key may not create libraries. Make them by hand as printed ([Day libraries](#day-libraries-for-the-apple-tv-option-b-2026-11-14)), then run again. |
+| `jellyfin`: `could not create library ...` + `HAND STEPS` | The API key may not create libraries. Make them by hand as printed (step 4), then run again. |
 | `download`: `SKIP <day>/<NN> ...: source ... is not on the share`, exit 1 | That video failed to download; the link follows on the run that fetches it. |
 | `download`: `WARN day folder '<day>' is not a plain directory` / `OTHER ...` | Something else sits at that path (a symlink, a file, a folder that is not a day name). The tool never touches it; move it out of `/mnt/media/exercise-days` by hand. |
 | `WARN .incoming/ holds finished video(s), left alone` | A run stopped after the file was done but before yt-dlp moved it. Move it up: `ssh kdkadmin@10.1.20.20 'mv "/mnt/media/exercise/.incoming/<file>" /mnt/media/exercise/'`, then run step 3 again; it removes the empty folder. |
 
 ## Rollback
 
-**Day libraries only** (keeps Exercise, the playlists and the wger links):
+**Bring the old Exercise library back** (undo the 2026-11-14 removal):
+
+1. Revert the removal PR. Merging the revert restarts Jellyfin with the
+   `/mnt/media/exercise` mount again (DeployStack if the webhook did not fire).
+2. In the dashboard, **Add Media Library**: Home videos and photos, name `Exercise`,
+   folder `/data/media/exercise`, every metadata downloader and image fetcher off,
+   *Prefer embedded titles* on. It gets a new id.
+3. Run `jellyfin --apply` from the reverted tool. It scans Exercise, re-creates the
+   playlists from its items and writes the old-style `wger_videos.json`. Commit it, then
+   `gen_wger.py --apply`. The day libraries keep working throughout.
+
+**Day libraries only** (needs the Exercise library first, see above; the tool now takes
+every item id from the day libraries):
 
 1. In the dashboard, delete the 8 day libraries (Dashboard → Libraries → ⋯ → Remove). This
    removes the library, never the files.
 2. Revert the day-libraries PR. Merging the revert redeploys jellyfin without the
-   `exercise-days` mount (DeployStack if the webhook did not fire). Then drop the
-   `libraries` block from `wger_videos.json` (or run `jellyfin --apply` from the reverted
-   tool, which ignores it).
+   `exercise-days` mount.
 3. After that deploy: `ssh kdkadmin@10.1.20.20 'rm -r /mnt/media/exercise-days/*'`. These are
-   hardlinks only, so the Exercise files stay. Keep the empty folder, or remove it after the
-   deploy.
+   hardlinks only, so the downloads stay.
 
 **Everything:**
 
-1. Revert the merged PR (the compose mount, the tools, and `gen_wger.py` back to YouTube
+1. Revert the merged PRs (the compose mounts, the tools, and `gen_wger.py` back to YouTube
    links). Merging the revert redeploys jellyfin (DeployStack if the webhook did not fire);
-   then run `gen_wger.py --apply`. Remove the directory (step 3) only after that deploy.
-2. In the dashboard, delete the Exercise library and the eight playlists.
-3. Optional: `ssh kdkadmin@10.1.20.20 'rm -r /mnt/media/exercise'`.
+   then run `gen_wger.py --apply`.
+2. In the dashboard, delete the day libraries (and Exercise, if it is back) and the eight
+   playlists.
+3. Optional, after that deploy: `ssh kdkadmin@10.1.20.20 'rm -r /mnt/media/exercise-days /mnt/media/exercise'`.
 4. Delete the API key in the dashboard and archive `kdk-cluster/jellyfin-api-exercise-videos`.

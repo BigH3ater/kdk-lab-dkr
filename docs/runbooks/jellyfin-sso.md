@@ -109,7 +109,7 @@ Fill the form (a new name creates a provider, the same name updates it):
 | OpenID client secret | paste from the clipboard | |
 | Enabled | ✅ | |
 | Enable Authorization by Plugin | ✅ | needed for the admin-role mapping. The plugin then sets admin/folders/Live TV on every SSO login |
-| Enable All Folders | ✅ | household policy: every SSO user sees every library, Exercise included (owner decision 2026-11-14). It grants all folders again on every SSO login, so a per-user untick does not hold for SSO users. Only to hide Exercise later: ☐, tick every library except Exercise under *Enabled Folders*, and map the LLDAP group `exercise-users` → Exercise under *Role-Based Folder Access* ([exercise-videos: hide the library](exercise-videos.md#hide-the-library-from-other-accounts-optional-later)) |
+| Enable All Folders | ✅ | household policy: every SSO user sees every library, the exercise day libraries included (owner decision 2026-11-14). It grants all folders again on every SSO login, so a per-user untick does not hold for SSO users. To hide a library later: ☐, tick the libraries to keep under *Enabled Folders*, and map an LLDAP group to the hidden ones under *Role-Based Folder Access* (untested here) |
 | Content Download Permission | *Leave unchanged* | keeps each user's current flag (Wizarr invites start with downloads off) |
 | Roles | `jellyfin-users` and `lldap_admin` (one per line) | second check after Authelia's `jellyfin_access`. Exact, case-sensitive |
 | Admin Roles | `lldap_admin` | the same group the LDAP plugin's admin filter uses |

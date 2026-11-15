@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Plan videos as files in a Jellyfin "Exercise" library, plus one private playlist per person and day.
+"""Plan videos as files on the media share, one Jellyfin library per person and day, plus one private playlist each.
 
     # on kdk-dkr-01 (the media share is rw there), or from the laptop with --host:
     python3 exercise_videos.py download                       # dry run: what is missing / extra
-    python3 exercise_videos.py download --apply               # yt-dlp the missing files
+    python3 exercise_videos.py download --apply               # yt-dlp the missing files, hardlink the day folders
     python3 exercise_videos.py download --apply --prune       # ... and delete files no longer in the plan
     python3 exercise_videos.py download --apply --refetch goblet-squat   # replace one file in place
     python3 exercise_videos.py download --probe               # each file's resolution (read-only)
@@ -11,33 +11,34 @@
 
     # anywhere that reaches Jellyfin (key from the environment only):
     JELLYFIN_API_KEY=... python3 exercise_videos.py jellyfin            # dry run
-    JELLYFIN_API_KEY=... python3 exercise_videos.py jellyfin --apply    # scan, playlists, wger_videos.json
-    ... jellyfin --apply --prune                              # also delete playlists it made that left the plan
+    JELLYFIN_API_KEY=... python3 exercise_videos.py jellyfin --apply    # day libraries, playlists, wger_videos.json
+    ... jellyfin --apply --prune                              # also delete playlists/libraries it made that left the plan
+    ... jellyfin --apply --remove-main-library                # once: delete the old "Exercise" library (not the files)
 
 The source is wger_plan.json (each exercise's YouTube `video`; "video": null = no video by
-design, e.g. treadmill-walk: no file, not in any playlist or the mapping). Runbook:
+design, e.g. treadmill-walk: no file, not in any day, playlist or the mapping). Runbook:
 docs/runbooks/exercise-videos.md.
 
-download: one flat directory (default /mnt/media/exercise), one file per plan exercise named
-"<plan key> [<youtube id>].mp4". The name never depends on the YouTube title, and a file is
-never renamed: Jellyfin derives the item id from the path, so a changed name would break the
-wger links. A replaced video has a new YouTube id, so it is a new file (the old one is listed
-as extra, deleted only with --prune). yt-dlp runs as a one-shot container (image pinned in
-yt-dlp/Dockerfile) as uid:gid 1000:1000 (the media stack's PUID/PGID): H.264 + AAC in mp4, the
-largest up to 1080 on the SHORT side (1920x1080 landscape, 1080x1920 portrait), the plan's
-exercise name as the embedded title. --refetch <key> downloads an existing file again into the
-temp dir and moves it over the old one only once it is complete (same path, so the Jellyfin item
-id stays). --probe reports each file's resolution (ffprobe in the same image, no network, share
-read-only). --prune only ever deletes files
-whose name matches the pattern above; anything else in the directory is reported, not touched.
-A failed video (YouTube's intermittent HTTP 403) is retried (ATTEMPTS runs, growing pause) and
-never stops the run: the rest still download, then every video still missing is listed and the
-exit code is 1. Afterwards the tool removes its own temp dir <dir>/.incoming (that path only,
-and only when it holds no finished video).
+download: one flat DOWNLOAD directory (default /mnt/media/exercise), one file per plan exercise
+named "<plan key> [<youtube id>].mp4". No Jellyfin library points at it (since 2026-11-14 the day
+libraries are the only exercise libraries); it is the hardlink source of the day folders. The name
+never depends on the YouTube title and a file is never renamed. A replaced video has a new YouTube
+id, so it is a new file (the old one is listed as extra, deleted only with --prune). yt-dlp runs as
+a one-shot container (image pinned in yt-dlp/Dockerfile) as uid:gid 1000:1000 (the media stack's
+PUID/PGID): H.264 + AAC in mp4, the largest up to 1080 on the SHORT side (1920x1080 landscape,
+1080x1920 portrait), the plan's exercise name as the embedded title. --refetch <key> downloads an
+existing file again into the temp dir and moves it over the old one only once it is complete (same
+name; the day links are re-made in the same run, so their Jellyfin item ids stay). --probe reports
+each file's resolution (ffprobe in the same image, no network, share read-only). --prune only ever
+deletes files whose name matches the pattern above; anything else in the directory is reported, not
+touched. A failed video (YouTube's intermittent HTTP 403) is retried (ATTEMPTS runs, growing pause)
+and never stops the run: the rest still download, then every video still missing is listed and the
+exit code is 1. Afterwards the tool removes its own temp dir <dir>/.incoming (that path only, and
+only when it holds no finished video).
 
 download also keeps the DAY FOLDERS (default /mnt/media/exercise-days, --days-dir): one folder per
 playlist (same grouping, the playlist name made file-system safe: "Rachel · 2 Tue-Fri Cardio"),
-holding HARDLINKS "<NN> <exercise name>.mp4" to the plan files, NN = position in the day's workout
+holding HARDLINKS "<NN> <exercise name>.mp4" to the downloads, NN = position in the day's workout
 order among the exercises with a video (01, 02, ...). Why: the Apple TV client (Neptune) can play
 neither a playlist nor a folder, only a flat library sorted by name, so each day is its own
 Jellyfin library (jellyfin step below). Same NFS filesystem, so no extra space. Every run
@@ -47,33 +48,41 @@ a link the day no longer has is removed. Only ever inside --days-dir, only folde
 it generates (anything else there is reported, never touched, symlinks never followed); a folder of
 a day that left the plan is emptied and removed only with --prune.
 
-jellyfin: finds the library by name (default "Exercise", type Home videos), refuses to go on
-when one of the plan's people cannot see it (other accounts that can see it are only named in
-a NOTE line: owner decision 2026-11-14, the library is not private), starts a scan of that library only
-and waits until every plan file is an item, then creates or updates one playlist per person
-and day: "<name> · <n> <day> <label>" (e.g. "Jacob · 1 Mon Lower A"; n = position in that
-person's week, so Jellyfin's name sort shows week order), items in workout order, owned
-by that person, not public, no shares; a wrong one is deleted and created again (an API key
-cannot update or rename a playlist in place), and each one is verified as every other account (it must
-not see it). Days with the same video list share one playlist
-("Rachel · 3 Wed/Sat/Sun Daily parts"). A playlist with the pre-2026-11-14 name (no number, e.g.
-"Jacob · Mon Lower A") is replaced: the new one is created and verified, then the old one is
-deleted (only that person's own, exact generated name; a failed delete exits 1). Writes wger_videos.json (plan key -> item id, plus the
-playlist ids it manages and verified) so gen_wger.py can build the Video: line without a
-Jellyfin key; a run that stops at a playlist still writes the item ids, and the next run resumes.
-Users are looked up by username at run time (the plan's people logins).
-
-jellyfin then makes one DAY LIBRARY per day folder (owner decision 2026-11-14, "option B"): name =
-the folder name, Home videos, folder /data/media/exercise-days/<name>, every metadata and image
-fetcher off, "prefer embedded titles" OFF (the item name is the file name "01 Dumbbell Goblet
-Squat", so the name sort is the workout order), no trickplay, chapter images or real-time
-monitoring. Created with POST /Library/VirtualFolders; if the server refuses that for the API key,
-the tool prints the hand steps and adopts the library on the next run (exact name, type and
-folder). Each one is scanned and verified: its items sorted by name are exactly the day's files in
-plan order. Access is left as it is (owner decision): a NOTE names who can see each library.
-wger_videos.json records them ("libraries": name, id, origin api|hand); --prune deletes only a
-library the tool created (recorded id AND exact generated name, origin api), never Exercise,
-Movies, Shows or Collections.
+jellyfin, in this order:
+1. DAY LIBRARIES (owner decision 2026-11-14, "option B"): one per day folder, name = the folder
+   name, Home videos, folder /data/media/exercise-days/<name>, every metadata and image fetcher
+   off, "prefer embedded titles" OFF (the item name is the file name "01 Dumbbell Goblet Squat", so
+   the name sort is the workout order), no trickplay, chapter images or real-time monitoring.
+   Created with POST /Library/VirtualFolders; if the server refuses that for the API key, the tool
+   prints the hand steps and adopts the library on the next run (exact name, type and folder).
+   Each one is scanned and verified: its items sorted by name are exactly the day's files in plan
+   order. Access is left as it is (owner decision): a NOTE names who can see each library.
+2. ITEM IDS: an exercise's item id (the wger Video: line) is its item in the FIRST day library
+   that has it, people in plan order, then weekday order (a wger description is shared by both
+   people, so there is one link per exercise). The library is recorded with the id. A WARN names
+   a plan person who uses the exercise but cannot see that library.
+3. PLAYLISTS: one per person and day, "<name> · <n> <day> <label>" (e.g. "Jacob · 1 Mon Lower A";
+   n = position in that person's week, so Jellyfin's name sort shows week order), the items of
+   that person's own day library in workout order, owned by that person, not public, no shares; a
+   wrong one is deleted and created again (an API key cannot update or rename a playlist in place),
+   and each one is verified as every other account (it must not see it). Days with the same video
+   list share one playlist ("Rachel · 3 Wed/Sat/Sun Daily parts"). A playlist with the
+   pre-2026-11-14 name (no number, e.g. "Jacob · Mon Lower A") is replaced: the new one is created
+   and verified, then the old one is deleted (only that person's own, exact generated name; a
+   failed delete exits 1).
+4. wger_videos.json: plan key -> {id, youtube, library, file}, the playlists and the day libraries
+   ("libraries": name, id, origin api|hand). gen_wger.py builds the Video: line from it without a
+   Jellyfin key. A run that stops early still writes what it verified; the next run resumes.
+5. The old main library "Exercise" (on /data/media/exercise, nothing links to it any more): left
+   alone with a NOTE, deleted only with --remove-main-library, and then only when it is the one
+   library of that exact name, its single folder is /data/media/exercise, and every plan exercise
+   with a video resolved to a day-library item in this run. DELETE /Library/VirtualFolders removes
+   the library's own entry under Jellyfin's config (root/default/Exercise: the .mblink path file,
+   options, cover image), never the media files (and the share is read-only on the DMZ host). A
+   refused key prints HAND STEPS for the dashboard.
+--prune deletes only a day library the tool created (recorded id AND exact generated name, origin
+api), never Exercise, Movies, Shows or Collections. Users are looked up by username at run time
+(the plan's people logins).
 
 Dry run by default for both. Config from the environment only: JELLYFIN_API_KEY (never argv),
 JELLYFIN_URL (API address, default https://jellyfin.kmkdp.com).
@@ -99,10 +108,11 @@ MEDIA_DIR = "/mnt/media/exercise"
 MEDIA_UID = "1000:1000"            # PUID:PGID of the media stack (stacks/media/compose.yaml)
 DEFAULT_URL = "https://jellyfin.kmkdp.com"
 LINK_BASE = "https://jellyfin.kmkdp.com"   # what the wger Video: line points at (LAN + tunnel)
-LIBRARY = "Exercise"
+MAIN_LIBRARY = "Exercise"           # the old flat library on the download dir; removed with --remove-main-library
+MAIN_LOCATION = "/data/media/exercise"
 COLLECTION_TYPE = "homevideos"
 TIMEOUT = 30
-SCAN_WAIT = 600                    # seconds to wait for a scan to show every plan file
+SCAN_WAIT = 600                    # seconds to wait for the day-library scans
 POLL = 5
 
 YT_RE = re.compile(r"^https://www\.youtube\.com/watch\?v=([A-Za-z0-9_-]{11})$")
@@ -120,7 +130,7 @@ DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 FORMAT = "bv*[vcodec^=avc1]+ba[acodec^=mp4a]/b[vcodec^=avc1][acodec^=mp4a]"
 SORT = "res:1080"
 MIN_SHORT = 1080                   # download --probe flags a file whose short side is below this
-INCOMING = ".incoming"             # yt-dlp's temp dir inside the library dir (Jellyfin skips dot dirs)
+INCOMING = ".incoming"             # yt-dlp's temp dir inside the download dir
 # YouTube answers an intermittent "HTTP Error 403: Forbidden" on the video data; the same video
 # usually works on the next try. Each video gets ATTEMPTS container runs, RETRY_PAUSE * n seconds
 # after failed attempt n; a failed video never stops the run. BETWEEN: pause between videos.
@@ -132,8 +142,9 @@ BETWEEN = 5
 YTDLP_RETRY = ["--extractor-retries", "5", "--retry-sleep", "http:exp=1:30",
                "--retry-sleep", "fragment:exp=1:30", "--retry-sleep", "extractor:5"]
 HEADER = ("Written by exercise_videos.py jellyfin --apply; do not edit by hand. Plan key -> Jellyfin "
-          "item id (gen_wger.py builds the Video: line from it), the playlists and the day libraries "
-          "the tool manages (a library is deleted only when recorded here with origin api).")
+          "item id in the first day library that has the exercise (gen_wger.py builds the Video: line "
+          "from it), the playlists and the day libraries the tool manages (a library is deleted only "
+          "when recorded here with origin api).")
 
 # Day folders / day libraries (owner decision 2026-11-14, option B: Neptune plays only a flat library)
 DAYS_DIR = "/mnt/media/exercise-days"          # on the share (kdk-dkr-01 rw)
@@ -385,7 +396,8 @@ def fetch(sh: Shell, argv: list[str], name: str, out, sleep) -> bool:
 def replace(sh: Shell, argv: list[str], directory: str, name: str, out, sleep) -> bool:
     """--refetch: download into <dir>/.incoming/<name>, then mv it over <dir>/<name>. The old file
     is untouched until the new one is complete (yt-dlp exited 0, the file is there and not empty);
-    the path stays the same, so the Jellyfin item id and the wger links stay too."""
+    the name stays the same, and the same run re-makes the day links (same path, so the day-library
+    item ids and the wger links stay)."""
     new = str(PurePosixPath(directory) / INCOMING / name)
     if sh(["test", "-e", new], check=False).returncode == 0 or sh(["test", "-L", new], check=False).returncode == 0:
         out(f"FAILED {name}: {INCOMING}/{name} already exists (an earlier refetch that was not moved?); "
@@ -692,58 +704,10 @@ def find_users(jf: Jellyfin, logins: list[str]) -> tuple[dict, list[dict]]:
     return {x: by_name[x.lower()] for x in logins}, users
 
 
-def find_library(jf: Jellyfin, name: str) -> dict:
-    libs = [v for v in jf.get("/Library/VirtualFolders") or [] if v.get("Name") == name]
-    if len(libs) != 1:
-        raise VideoError(f"Jellyfin has {len(libs)} libraries named {name!r}; create it first "
-                         "(docs/runbooks/exercise-videos.md step 4)")
-    lib = libs[0]
-    if (lib.get("CollectionType") or "").lower() != COLLECTION_TYPE:
-        raise VideoError(f"library {name!r} is {lib.get('CollectionType')!r}; it must be Home videos")
-    if len(lib.get("Locations") or []) != 1:
-        raise VideoError(f"library {name!r} must have exactly one folder, has {lib.get('Locations')}")
-    return lib
-
-
-def library_access(users: list[dict], allowed: dict, lib_id: str) -> tuple[list[str], list[str]]:
-    """(problems, others): plan people who cannot see the library (a hard stop), and the other
-    accounts who can (allowed since the owner decision of 2026-11-14; only reported)."""
-    probs, others = [], []
-    ok_ids = {norm(u["Id"]) for u in allowed.values()}
-    for u in users:
-        pol = u.get("Policy") or {}
-        sees = bool(pol.get("EnableAllFolders")) or lib_id in {norm(x) for x in pol.get("EnabledFolders") or []}
-        if norm(u["Id"]) in ok_ids and not sees:
-            probs.append(f"{u['Name']} cannot see the library (tick it under the user's Library access)")
-        elif norm(u["Id"]) not in ok_ids and sees:
-            others.append(f"{u['Name']} ({'all libraries' if pol.get('EnableAllFolders') else 'ticked'})")
-    return probs, others
-
-
-def library_items(jf: Jellyfin, lib_id: str, location: str) -> dict[str, str]:
-    """file name -> item id for the videos directly in the library folder."""
-    res = jf.get("/Items", ParentId=lib_id, Recursive="true", IncludeItemTypes="Video", Fields="Path",
-                 EnableImages="false", EnableUserData="false", Limit="5000")
-    out = {}
-    for it in (res or {}).get("Items", []):
-        p = PurePosixPath(it.get("Path") or "")
-        if str(p.parent) == location.rstrip("/"):
-            out[p.name] = norm(it["Id"])
-    return out
-
-
-def scan(jf: Jellyfin, lib_id: str, location: str, want: list[str], wait: int, sleep=time.sleep) -> dict:
-    """Start a scan of this library only, then poll until every wanted file is an item."""
-    jf.write("POST", f"/Items/{lib_id}/Refresh", f"scan library {LIBRARY}",
-             params={"Recursive": "true", "MetadataRefreshMode": "Default", "ImageRefreshMode": "Default",
-                     "ReplaceAllMetadata": "false", "ReplaceAllImages": "false"})
-    polls = max(1, wait // POLL)
-    for n in range(polls + 1):
-        items = library_items(jf, lib_id, location)
-        if not jf.apply or all(f in items for f in want) or n == polls:
-            return items
-        sleep(POLL)
-    return items
+def sees(user: dict, lib_id: str) -> bool:
+    """The account can see the library: "all libraries", or the library ticked."""
+    pol = user.get("Policy") or {}
+    return bool(pol.get("EnableAllFolders")) or lib_id in {norm(x) for x in pol.get("EnabledFolders") or []}
 
 
 def user_playlists(jf: Jellyfin, uid: str) -> list[dict]:
@@ -804,10 +768,11 @@ def delete_replaced(jf: Jellyfin, pl: dict, pid: str, name: str, why: str, probl
         out(f"ERROR {problems[-1]}")
 
 
-def sync_playlists(jf: Jellyfin, plan_pls: list[dict], people: dict, users: list[dict], item_of: dict,
+def sync_playlists(jf: Jellyfin, plan_pls: list[dict], people: dict, users: list[dict],
                    old: list[dict], prune: bool, out, managed: list[dict] | None = None,
                    problems: list[str] | None = None) -> list[dict]:
     """Create/re-create each plan playlist; returns the managed list for wger_videos.json.
+    Each plan playlist carries its item ids in "ids" (its person's day library, workout order).
 
     Only a playlist of the plan person with an exact generated name (pl["name"], or the
     pre-2026-11-14 pl["old_name"]) is ever adopted, replaced or deleted, and before a delete the
@@ -828,7 +793,7 @@ def sync_playlists(jf: Jellyfin, plan_pls: list[dict], people: dict, users: list
     in_plan = {(pl["login"], tuple(pl["days"])) for pl in plan_pls}
     for pl in plan_pls:
         uid = people[pl["login"]]["Id"]
-        ids = [item_of[k] for k in pl["keys"]]
+        ids = pl["ids"]
         mine = {norm(p["Id"]): p for p in user_playlists(jf, uid)}
         generated = (pl["name"], pl["old_name"])
         rec = []
@@ -850,7 +815,7 @@ def sync_playlists(jf: Jellyfin, plan_pls: list[dict], people: dict, users: list
                 raise VideoError(f"playlist {pl['name']!r} ({pid}) has the wrong order and is visible to "
                                  f"{', '.join(others)}; not deleted. As {pl['login']}, delete it by hand; "
                                  "the next run creates it again")
-            jf.write("DELETE", f"/Items/{pid}", f"delete playlist {pl['name']!r} ({pid}) to re-create it (order differs)")
+            jf.write("DELETE", f"/Items/{pid}", f"delete playlist {pl['name']!r} ({pid}) to re-create it (items or order differ)")
             pid = None
         if pid is None:
             body = {"Name": pl["name"], "Ids": ids, "UserId": uid, "MediaType": "Video", "IsPublic": False, "Users": []}
@@ -894,12 +859,12 @@ def options_drift(opts: dict) -> list[str]:
     return bad
 
 
-def day_items(jf: Jellyfin, lib_id: str) -> list[tuple[str, str]]:
-    """(path, name) of the library's videos in the server's name sort (what the clients show)."""
+def day_items(jf: Jellyfin, lib_id: str) -> list[tuple[str, str, str]]:
+    """(path, name, item id) of the library's videos in the server's name sort (what the clients show)."""
     res = jf.get("/Items", ParentId=lib_id, Recursive="true", IncludeItemTypes="Video", Fields="Path,SortName",
                  SortBy="SortName", SortOrder="Ascending", EnableImages="false", EnableUserData="false",
                  Limit="5000")
-    return [(it.get("Path") or "", it.get("Name") or "") for it in (res or {}).get("Items", [])]
+    return [(it.get("Path") or "", it.get("Name") or "", norm(it.get("Id"))) for it in (res or {}).get("Items", [])]
 
 
 def hand_steps(libs: list[dict], out) -> None:
@@ -914,8 +879,9 @@ def hand_steps(libs: list[dict], out) -> None:
 
 
 def sync_day_libraries(jf: Jellyfin, plan: dict, users: list[dict], people: dict, old: list[dict],
-                       prune: bool, wait: int, protected: set, out, sleep=time.sleep) -> tuple[list, list]:
-    """One Home videos library per day folder; returns (managed records, problems).
+                       prune: bool, wait: int, out, sleep=time.sleep) -> tuple[list, list, dict]:
+    """One Home videos library per day folder; returns (managed records, problems, found) with
+    found = {library name: {item path: item id}} as the server listed the items this run.
 
     A plan library is matched by exact name; a match must be Home videos with exactly the day's
     folder, else it is a problem and left alone. Not there: POST /Library/VirtualFolders (refused
@@ -987,14 +953,13 @@ def sync_day_libraries(jf: Jellyfin, plan: dict, users: list[dict], people: dict
                                 "the dashboard as in the hand steps")
         managed.append(entry)
         todo.append((entry, [f"{path}/{x['name']}" for x in lib["links"]]))
-        sees = [f"{u['Name']} ({'all libraries' if (u.get('Policy') or {}).get('EnableAllFolders') else 'ticked'})"
-                for u in users if (u.get("Policy") or {}).get("EnableAllFolders")
-                or entry["id"] in {norm(x) for x in (u.get("Policy") or {}).get("EnabledFolders") or []}]
+        who = [f"{u['Name']} ({'all libraries' if (u.get('Policy') or {}).get('EnableAllFolders') else 'ticked'})"
+               for u in users if sees(u, entry["id"])]
         owner = people[lib["login"]]["Name"]
-        if not any(s.startswith(owner + " (") for s in sees) and jf.apply:
+        if not sees(people[lib["login"]], entry["id"]) and jf.apply:
             out(f"WARN {owner} cannot see library {name!r} (not 'all libraries'); tick it under the user's Library "
                 "access (owner decision: access is otherwise left as it is)")
-        out(f"NOTE library {name!r} is visible to: {', '.join(sees) or 'no account'}")
+        out(f"NOTE library {name!r} is visible to: {', '.join(who) or 'no account'}")
     if refused:
         hand_steps(refused, out)
     # scan every library, then wait until each holds exactly its day's files
@@ -1007,16 +972,16 @@ def sync_day_libraries(jf: Jellyfin, plan: dict, users: list[dict], people: dict
     for n in range(max(1, wait // POLL) + 1):
         for e, w in pending:
             got[e["id"]] = day_items(jf, e["id"])
-        if not jf.apply or all(sorted(p for p, _ in got[e["id"]]) == sorted(w) for e, w in pending):
+        if not jf.apply or all(sorted(p for p, _, _ in got[e["id"]]) == sorted(w) for e, w in pending):
             break
         if n < max(1, wait // POLL):
             sleep(POLL)
     for e, w in pending:
         items = got.get(e["id"], [])
-        paths = [p for p, _ in items]
+        paths = [p for p, _, _ in items]
         if paths == w:
             stems = [PurePosixPath(p).stem for p in w]
-            odd = [f"{nm!r} (file {s!r})" for (_, nm), s in zip(items, stems) if nm != s]
+            odd = [f"{nm!r} (file {s!r})" for (_, nm, _), s in zip(items, stems) if nm != s]
             if odd:
                 out(f"WARN library {e['name']!r}: the order is right, but item name(s) differ from the file name: "
                     + ", ".join(odd[:3]) + (" ..." if len(odd) > 3 else ""))
@@ -1045,7 +1010,7 @@ def sync_day_libraries(jf: Jellyfin, plan: dict, users: list[dict], people: dict
         if len(found) != 1 or norm(found[0].get("ItemId")) != r.get("id"):
             out(f"NOTE library {r['name']!r} no longer has the recorded id {r.get('id')}; not ours, never deleted, dropped")
             continue
-        safe = (r.get("origin") == "api" and r["name"].lower() not in protected | PROTECTED
+        safe = (r.get("origin") == "api" and r["name"].lower() not in PROTECTED
                 and DAY_LIB_RE.match(r["name"]))
         if prune and safe:
             try:
@@ -1063,10 +1028,125 @@ def sync_day_libraries(jf: Jellyfin, plan: dict, users: list[dict], people: dict
         else:
             out(f"EXTRA library {r['name']!r} is no longer in the plan; --prune deletes it")
         managed.append(r)
-    return managed, problems
+    found = {e["name"]: {p: i for p, _, i in got.get(e["id"], [])} for e, _ in pending}
+    return managed, problems, found
+
+
+# ---------------------------------------------------------------- item ids from the day libraries
+def day_item_path(lib: dict, link: dict) -> str:
+    """Where Jellyfin sees one day link: /data/media/exercise-days/<library>/<NN> <name>.mp4."""
+    return f"{DAYS_IN_JELLYFIN}/{lib['name']}/{link['name']}"
+
+
+def resolve_items(plan: dict, found: dict) -> tuple[dict, list[str], list[str]]:
+    """(mapping, missing, unused). mapping = plan key -> {id, youtube, library, file}: the
+    exercise's item in the FIRST day library whose day has it (day_libraries order = people in plan
+    order, then weekday order), so the choice depends on the plan only, never on what a scan found.
+    missing: an exercise whose first library does not list it (yet); no fallback to a later one,
+    the link would move between runs. unused: plan keys with a video that no day uses, so no day
+    library has them (gen_wger.py --check fails on them until a day uses them or video is null)."""
+    mapping, missing, seen = {}, [], set()
+    for lib in day_libraries(plan):
+        have = found.get(lib["name"], {})
+        for x in lib["links"]:
+            if x["key"] in seen:
+                continue
+            seen.add(x["key"])
+            iid = have.get(day_item_path(lib, x))
+            if iid:
+                mapping[x["key"]] = {"id": iid, "youtube": youtube_id(plan["exercises"][x["key"]]),
+                                     "library": lib["name"], "file": x["name"]}
+            else:
+                missing.append(f"{x['key']}: {lib['name']}/{x['name']} is not an item in that day library")
+    return mapping, missing, sorted(set(wanted_files(plan).values()) - seen)
+
+
+def playlists_with_ids(plan: dict, found: dict, out) -> list[dict]:
+    """The plan playlists whose own day library (same person, same days) lists every video, each
+    with "ids" = those items in workout order. The others are skipped with a SKIP line."""
+    ready = []
+    for pl, lib in zip(plan_playlists(plan), day_libraries(plan)):   # one day library per playlist, same order
+        have = found.get(lib["name"], {})
+        ids = [have.get(day_item_path(lib, x)) for x in lib["links"]]
+        if all(ids):
+            ready.append({**pl, "ids": ids})
+        else:
+            out(f"SKIP playlist {pl['name']!r}: day library {lib['name']!r} lacks {ids.count(None)} of its "
+                f"{len(ids)} video(s)")
+    return ready
+
+
+def link_access(plan: dict, mapping: dict, people: dict, libraries: list[dict]) -> list[str]:
+    """A plan person who does a day's exercise whose Video: link is in a library they cannot see
+    (the link is in the first person's library; owner-accepted limit, only warned)."""
+    lib_id = {r["name"]: r.get("id", "") for r in libraries}
+    warns = []
+    for lib in day_libraries(plan):
+        user = people[lib["login"]]
+        for x in lib["links"]:
+            it = mapping.get(x["key"])
+            if not it or it["library"] == lib["name"] or sees(user, lib_id.get(it["library"], "")):
+                continue
+            w = (f"{lib['login']} does {x['key']} but cannot see library {it['library']!r}, where its wger "
+                 "Video: link points (tick that library under the user's Library access)")
+            if w not in warns:
+                warns.append(w)
+    return warns
+
+
+# ---------------------------------------------------------------- the old main library
+def main_library_hand_steps(out) -> None:
+    out(f"HAND STEPS: the server did not let the API key delete the library {MAIN_LIBRARY!r}. In Jellyfin as an "
+        f"admin: Dashboard -> Libraries -> Libraries -> {MAIN_LIBRARY!r} -> menu -> Remove. This removes the "
+        "library only; the files stay. Then run jellyfin --apply again: the NOTE about it is gone")
+
+
+def remove_main_library(jf: Jellyfin, remove: bool, unresolved: list[str], out) -> list[str]:
+    """Report (default) or delete (--remove-main-library) the old flat "Exercise" library. Deleted
+    only when it is the one library of exactly that name, its single folder is MAIN_LOCATION, and
+    every plan exercise with a video resolved to a day-library item this run. Returns problems.
+
+    DELETE /Library/VirtualFolders?name= (LibraryStructureController.RemoveVirtualFolder ->
+    LibraryManager.RemoveVirtualFolder, Jellyfin 12) deletes the library's directory under
+    Jellyfin's config, root/default/<name> (its .mblink path file, options.xml, cover image); it
+    never walks the media folder. refreshLibrary=false: no full-library scan."""
+    found = [v for v in jf.get("/Library/VirtualFolders") or [] if v.get("Name") == MAIN_LIBRARY]
+    if not found:
+        if remove:
+            out(f"NOTE no library named {MAIN_LIBRARY!r}: nothing to remove")
+        return []
+    desc = ", ".join(f"{norm(v.get('ItemId'))} on {v.get('Locations')}" for v in found)
+    if not remove:
+        out(f"NOTE the old library {MAIN_LIBRARY!r} ({desc}) still exists; nothing links to it any more. "
+            "--remove-main-library deletes it (the library only, never the files)")
+        return []
+    why = None
+    if len(found) != 1:
+        why = f"Jellyfin has {len(found)} libraries named {MAIN_LIBRARY!r} ({desc})"
+    elif list(found[0].get("Locations") or []) != [MAIN_LOCATION]:
+        why = f"its folders are {found[0].get('Locations')}, not [{MAIN_LOCATION!r}]"
+    elif unresolved:
+        why = (f"{len(unresolved)} plan exercise(s) with a video have no day-library item "
+               f"({', '.join(unresolved[:5])}{' ...' if len(unresolved) > 5 else ''}; MISSING/WARN above)")
+    if why:
+        return [f"not removing library {MAIN_LIBRARY!r}: {why}. Nothing deleted"]
+    try:
+        jf.write("DELETE", "/Library/VirtualFolders",
+                 f"delete library {MAIN_LIBRARY!r} ({desc}; the library only, the files stay)",
+                 params={"name": MAIN_LIBRARY, "refreshLibrary": "false"})
+    except VideoError as e:
+        jf.actions[-1] += " -- FAILED"
+        if re.search(r": HTTP 40[13]\b", str(e)):
+            main_library_hand_steps(out)
+        return [f"could not delete library {MAIN_LIBRARY!r}: {e}"]
+    if jf.apply:
+        out(f"deleted library {MAIN_LIBRARY!r} ({desc}); the files in /mnt/media/exercise stay")
+    return []
 
 
 def load_videos(path: Path = VIDEOS) -> dict:
+    """wger_videos.json as written, older shapes included (items without "library", from the
+    main library): only read here, rewritten in the current shape by the next jellyfin --apply."""
     if not path.exists():
         return {"items": {}, "playlists": [], "libraries": []}
     return json.loads(path.read_text(encoding="utf-8"))
@@ -1093,61 +1173,60 @@ def cmd_jellyfin(args, plan: dict, out, sleep=time.sleep, videos_path: Path | No
         out("Planned day libraries (Home videos, one per day folder):")
         for lib in day_libraries(plan):
             out(f"  {lib['name']} -> {DAYS_IN_JELLYFIN}/{lib['name']}: " + ", ".join(x["name"] for x in lib["links"]))
-        out(f"{len(want)} file(s) expected in the library, {len(pls)} playlist(s), {len(pls)} day librar(ies)")
+        out(f"{len(want)} video(s) to resolve from the day libraries, {len(pls)} playlist(s), "
+            f"{len(pls)} day librar(ies)" + ("; --remove-main-library needs the server" if args.remove_main_library else ""))
         return 0
     actions: list[str] = []
     jf = Jellyfin(os.environ.get("JELLYFIN_URL") or DEFAULT_URL, key, args.apply, actions)
     people, users = find_users(jf, list(plan["people"]))
-    lib = find_library(jf, args.library)
-    lib_id, location = norm(lib.get("ItemId")), lib["Locations"][0]
-    probs, others = library_access(users, people, lib_id)
-    if probs:
-        for p in probs:
-            out(f"ACCESS {p}")
-        raise VideoError("fix the library access first (runbook step 4); nothing written")
-    if others:
-        out(f"NOTE other accounts can see the library (allowed; the playlists stay private): {', '.join(others)}")
-    opts = lib.get("LibraryOptions") or {}
-    if opts and not opts.get("EnableEmbeddedTitles"):
-        out("WARN library option 'Prefer embedded titles over filenames' is off: items show the file name")
-    items = scan(jf, lib_id, location, list(want), args.wait, sleep)
-    missing = [f for f in want if f not in items]
-    if missing:
-        for f in missing:
-            out(f"MISSING {f}: not an item in {args.library!r} ({location})")
-        if args.apply:
-            raise VideoError(f"{len(missing)} plan file(s) not in the library; run download --apply, then retry")
-        out("dry run: the playlists below skip missing videos")
-    item_of = {want[f]: items[f] for f in want if f in items}
     old = load_videos(videos_path)
-    ready = [pl for pl in pls if all(k in item_of for k in pl["keys"])]
-    for pl in pls:
-        if pl not in ready:
-            out(f"SKIP playlist {pl['name']!r}: missing video(s)")
-    mapping = {k: {"id": item_of[k], "youtube": youtube_id(plan["exercises"][k]), "file": file_name(k, plan["exercises"][k])}
-               for k in item_of}
+    old_items, old_pls = old.get("items") or {}, old.get("playlists") or []
+
+    def dump() -> None:
+        for a in actions:
+            out(f"{'did' if args.apply else 'would'}: {a}")
+
+    libraries, lib_problems, found = sync_day_libraries(jf, plan, users, people, old.get("libraries") or [],
+                                                        args.prune, args.wait, out, sleep)
+    mapping, missing, unused = resolve_items(plan, found)
+    for m in missing:
+        out(f"MISSING {m}")
+    for k in unused:
+        out(f"WARN {k} has a video but no day uses it, so it has no day-library item and no wger Video: line "
+            "(gen_wger.py --check fails on it): use it in a routine, or set its video to null")
+    for w in link_access(plan, mapping, people, libraries):
+        out(f"WARN {w}")
+    if missing and args.apply:
+        # the item ids stay as they were (gen_wger.py keeps working on them); the day libraries made
+        # so far are recorded, so their origin api survives. The next run resumes.
+        dump()
+        write_videos(videos_path, old_items, old_pls, LINK_BASE, libraries)
+        for p in lib_problems:
+            out(f"ERROR {p}")
+        raise VideoError(f"{len(missing)} plan exercise(s) have no day-library item; run download --apply (the day "
+                         f"folders), then jellyfin --apply again. {videos_path.name} keeps its item ids, playlists untouched")
+    if missing:
+        out("dry run: the playlists below skip missing videos")
+    ready = playlists_with_ids(plan, found, out)
     managed: list[dict] = []
     problems: list[str] = []
     try:
-        sync_playlists(jf, ready, people, users, item_of, old.get("playlists") or [], args.prune, out, managed,
-                       problems)
+        sync_playlists(jf, ready, people, users, old_pls, args.prune, out, managed, problems)
     except VideoError:
-        # Every plan file is an item by now, so the item ids are good: write them (gen_wger.py needs
-        # only those) with just the playlists verified so far. The next run resumes: it finds the
-        # rest by name or creates them.
-        for a in actions:
-            out(f"{'did' if args.apply else 'would'}: {a}")
+        # Every plan video is a day-library item by now, so the item ids are good: write them
+        # (gen_wger.py needs only those) with just the playlists verified so far. The next run
+        # resumes: it finds the rest by name or creates them.
+        dump()
         if args.apply:
-            write_videos(videos_path, mapping, managed, LINK_BASE, old.get("libraries") or [])
+            write_videos(videos_path, mapping, managed, LINK_BASE, libraries)
             out(f"wrote {videos_path.name} before stopping: {len(mapping)} item id(s), {len(managed)} verified "
                 "playlist(s); fix the error below and run again")
         raise
-    libraries, lib_problems = sync_day_libraries(jf, plan, users, people, old.get("libraries") or [], args.prune,
-                                                 args.wait, {args.library.lower()}, out, sleep)
-    changed = (mapping != old.get("items") or managed != old.get("playlists") or old.get("base_url") != LINK_BASE
+    unresolved = [m.split(":", 1)[0] for m in missing] + unused
+    main_problems = remove_main_library(jf, args.remove_main_library, unresolved, out)
+    changed = (mapping != old_items or managed != old_pls or old.get("base_url") != LINK_BASE
                or libraries != (old.get("libraries") or []))
-    for a in actions:
-        out(f"{'did' if args.apply else 'would'}: {a}")
+    dump()
     if args.apply:
         if changed:
             write_videos(videos_path, mapping, managed, LINK_BASE, libraries)
@@ -1169,6 +1248,10 @@ def cmd_jellyfin(args, plan: dict, out, sleep=time.sleep, videos_path: Path | No
         for p in lib_problems:
             out(f"  {p}")
         rc = 1
+    if main_problems:
+        for p in main_problems:
+            out(f"ERROR {p}")
+        rc = 1
     return rc
 
 
@@ -1178,7 +1261,7 @@ def main(argv: list[str] | None = None, plan_path: Path = PLAN, shell: Shell | N
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     sub = ap.add_subparsers(dest="cmd", required=True)
     d = sub.add_parser("download", help="yt-dlp the plan videos onto the media share")
-    d.add_argument("--dir", default=MEDIA_DIR, help=f"library directory on the media host (default {MEDIA_DIR})")
+    d.add_argument("--dir", default=MEDIA_DIR, help=f"download directory on the media host (default {MEDIA_DIR})")
     d.add_argument("--days-dir", default=DAYS_DIR,
                    help=f"day folders of hardlinks on the media host (default {DAYS_DIR})")
     d.add_argument("--host", help="run on this ssh host (e.g. kdkadmin@10.1.20.20) instead of locally")
@@ -1187,9 +1270,11 @@ def main(argv: list[str] | None = None, plan_path: Path = PLAN, shell: Shell | N
                    help="download this plan key again and replace its file in place (same name; repeatable)")
     d.add_argument("--probe", action="store_true",
                    help=f"only report each file's resolution (ffprobe, read-only); LOW = short side < {MIN_SHORT}")
-    j = sub.add_parser("jellyfin", help="scan the library, sync the playlists, write wger_videos.json")
-    j.add_argument("--library", default=LIBRARY)
-    j.add_argument("--wait", type=int, default=SCAN_WAIT, help="seconds to wait for the scan (default 600)")
+    j = sub.add_parser("jellyfin", help="day libraries, playlists, wger_videos.json")
+    j.add_argument("--wait", type=int, default=SCAN_WAIT, help="seconds to wait for the scans (default 600)")
+    j.add_argument("--remove-main-library", action="store_true",
+                   help=f"delete the old library {MAIN_LIBRARY!r} (only on {MAIN_LOCATION}, only when every plan "
+                        "video resolved to a day-library item; the library only, never the files)")
     for p in (d, j):
         p.add_argument("--apply", action="store_true", help="make the changes (default: dry run)")
         p.add_argument("--prune", action="store_true", help="also delete what left the plan (with --apply)")

@@ -6,7 +6,7 @@ tier: internal
 status: live
 storage: yes
 secrets: [wger-secret-key, wger-postgres, wger-powersync-storage, wger-jwt-keys, wger-admin, wger-api-jmack, wger-api-rach]
-updated: 2026-11-14
+updated: 2026-11-15
 tags: [homelab/stack, tier/internal, status/live]
 ---
 
@@ -30,7 +30,8 @@ exercise names, sets, reps, start weights, rest and movement cues (owner, 2026-1
 [plan update](../runbooks/workout-tracking-update.md)). It uses **wger's built-in exercises
 only**, each named by uuid. The generator replaces each used built-in's English description
 with How / Safety cues and a `Video:` line (plain address: wger has no link field). The
-address is the video's page in the Jellyfin **Exercise** library (visible to every Jellyfin account for now; the per-day playlists are private)
+address is the video's page in a Jellyfin **day library** (one per person and training day; one link per
+exercise, to the first day library that has it: jmack's before rach's, then weekday order)
 (`https://jellyfin.kmkdp.com/web/#/details?id=<item id>`, from the committed
 `tools/wger_videos.json`); the plan keeps the YouTube address (a physical therapist or
 certified coach channel) as the download source ([exercise-videos runbook](../runbooks/exercise-videos.md)).
@@ -213,7 +214,7 @@ log, video sync/upload and the ingredient dump (nutrition is a later phase).
 | `SYNC_INGREDIENTS_CELERY=False`, `DOWNLOAD_INGREDIENTS_FROM=None` | no ingredient dump until the nutrition phase |
 | `SYNC_EXERCISES_CELERY=False` | no weekly wger.de exercise sync: its `sync_equipment` would re-create the equipment rows removed in runbook step 12 (and can rename local ones by id) |
 | `stacks/home-assistant/tools/wger_plan.json` | the plan: built-ins by uuid with How / Safety / video, both people's routines (`gen_wger.py`) |
-| `stacks/home-assistant/tools/wger_videos.json` | plan key → Jellyfin item id for the `Video:` line; written by `exercise_videos.py jellyfin --apply`, committed ([exercise-videos](../runbooks/exercise-videos.md)) |
+| `stacks/home-assistant/tools/wger_videos.json` | plan key → Jellyfin day-library item id (+ which library) for the `Video:` line; written by `exercise_videos.py jellyfin --apply`, committed ([exercise-videos](../runbooks/exercise-videos.md)) |
 
 ## Secret Rotation
 
