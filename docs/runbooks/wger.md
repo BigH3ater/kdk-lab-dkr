@@ -448,8 +448,8 @@ curl -s -o /dev/null -w '%{http_code}\n' https://wger.kmkdp.com/ps/probes/livene
 ```
 
 **Permanent fix:** `nginx.conf` now looks the upstream names up again at run time
-(`resolver 127.0.0.11 valid=10s` + `resolve` on both upstream servers, PR
-"fix(wger): nginx re-resolves web/powersync after a recreate"). After that PR a recreated
+(`resolver 127.0.0.11 valid=10s` + `resolve` on both upstream servers, PR #530).
+Since then a recreated
 `web` or `powersync` is reached again within about 10 s with no reload. If the 502 still
 comes back, check the deployed file has the `resolve` lines:
 `ssh $H 'sudo docker exec wger-nginx grep -c " resolve;" /etc/nginx/conf.d/default.conf'`
