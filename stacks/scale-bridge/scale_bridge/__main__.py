@@ -28,7 +28,7 @@ async def amain() -> int:
         await bridge.startup_checks()
         from . import ble                 # imports bleak; after config so a bad env fails fast
         try:
-            await ble.run(settings, bridge.handle)
+            await ble.run(settings, bridge.handle, on_engine=bridge.compute)
         except Exception as e:  # noqa: BLE001 - e.g. no D-Bus / bluetoothd: one line, then restart
             logs.emit(log, logging.ERROR, "fatal", error=type(e).__name__, detail=str(e)[:200])
             return 1

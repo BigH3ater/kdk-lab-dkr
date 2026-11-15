@@ -1,5 +1,5 @@
 ---
-title: scale-bridge — host files, deploy, first weigh-in, go live, raw captures, rollback
+title: scale-bridge — host files, deploy, first weigh-in, engine, go live, raw captures, rollback
 updated: 2026-11-14
 ---
 
@@ -10,6 +10,12 @@ kdk-dkr-02. Steps 1–3 come **before** the PR is merged: the deploy fails while
 env file is missing. The captures directory in step 1 (new in 0.1.3) also comes before the
 merge: without it the deploy still succeeds, but nothing is captured (see step 1). Nothing here prints a key: values travel from 1Password over SSH
 stdin and are checked by byte length.
+
+**Upgrading to 0.2.0 (body-composition engine), in this order:** 2a (key into 1Password),
+2b (`LEFU_SECRET_8` into `secrets.env`), 3 (profiles into `scale-bridge.env`), then merge and
+4 (deploy), then [5b](#5b-attended-first-engine-run) (the attended first engine run). Steps
+2a–3 are optional for the deploy: without the key the engine switches itself off and the
+bridge works exactly as 0.1.3.
 
 ## 1. Host directories
 
@@ -66,6 +72,52 @@ does, never as a command argument), then add a third line
 `printf 'ESPHOME_NOISE_SCALE_PROXY=%s\n' "$(op read op://kdk-cluster/esphome-scale-proxy-noise/password)"`
 inside the braces above and rerun the step.
 
+## 2a. Engine key into 1Password (owner, once)
+
+The engine needs Lefu's 8-electrode secret. The one used is Lefu's published **demo** key
+(owner decision 2026-11-14: personal, non-commercial use). It is in Lefu's public demo repo
+`LefuHengqi/BluetoothKit-AndroidDemo`, file
+`app/src/main/java/com/lefu/ppblutoothkit/SecretManager.kt`: the 8-electrode secret string
+(the vault note `hume-metrics-reproduction-2026-11-14.md`, section "Running the Lefu
+calculation library locally", names which one the prototype used). It is deliberately not
+copied into this repo, the PR or any log.
+
+**Laptop (`op` signed in, `jq`)**
+
+```bash
+read -rs LEFU_V        # paste the value from that file, Enter (nothing is echoed)
+op item template get Password \
+  | LEFU_V="$LEFU_V" jq '.title = "lefu-engine-secret" | (.fields[] | select(.id == "password") | .value) = env.LEFU_V' \
+  | op item create --vault kdk-cluster -  >/dev/null
+unset LEFU_V
+op read op://kdk-cluster/lefu-engine-secret/password | wc -c      # value length + 1 (newline), not 1
+```
+
+The value goes from stdin into the item template; it is never a command argument. If the
+item exists already (a re-run), use `op item edit lefu-engine-secret --vault kdk-cluster -`
+with the same template, or delete it in the app and run the block again.
+
+## 2b. Engine secret (`LEFU_SECRET_8`)
+
+Same pattern as step 2: rewrite the whole `secrets.env` with a third line.
+
+**Laptop (`op` signed in, SSH agent)**
+
+```bash
+{
+  printf 'WGER_API_KEY_JMACK=%s\n' "$(op read op://kdk-cluster/wger-api-jmack/credential)"
+  printf 'WGER_API_KEY_RACH=%s\n'  "$(op read op://kdk-cluster/wger-api-rach/credential)"
+  printf 'LEFU_SECRET_8=%s\n'      "$(op read op://kdk-cluster/lefu-engine-secret/password)"
+} | ssh kdkadmin@10.1.30.21 'sudo install -m 600 -o root -g root /dev/stdin /opt/kdk-lab/scale-bridge/secrets.env'
+ssh kdkadmin@10.1.30.21 'sudo awk -F= "{print \$1, length(\$2)}" /opt/kdk-lab/scale-bridge/secrets.env; sudo stat -c "%U:%G %a" /opt/kdk-lab/scale-bridge/secrets.env'
+#   WGER_API_KEY_JMACK <n> / WGER_API_KEY_RACH <n> / LEFU_SECRET_8 <m> / root:root 600
+op read op://kdk-cluster/lefu-engine-secret/password | wc -c     # = <m> + 1
+```
+
+Keep any relay-mode line (step 2) inside the braces too. Without this line the bridge logs
+`engine_config` `enabled: false`, `reason: no_secret` at startup and runs on without the
+engine.
+
 ## 3. `scale-bridge.env` (people bands)
 
 The bands are health data: this file is the only place they live (plus the vault if you
@@ -81,7 +133,7 @@ code --remote ssh-remote+kdkadmin@10.1.30.21 /opt/kdk-lab/scale-bridge/scale-bri
 In VS Code, write (one line for the JSON, in single quotes):
 
 ```text
-SCALE_BRIDGE_PEOPLE='[{"name":"jmack","min_lb":<lo>,"max_lb":<hi>,"token_env":"WGER_API_KEY_JMACK"},{"name":"rach","min_lb":<lo>,"max_lb":<hi>,"token_env":"WGER_API_KEY_RACH"}]'
+SCALE_BRIDGE_PEOPLE='[{"name":"jmack","min_lb":<lo>,"max_lb":<hi>,"token_env":"WGER_API_KEY_JMACK","height_cm":<cm>,"sex":"male","birth_date":"<YYYY-MM-DD>"},{"name":"rach","min_lb":<lo>,"max_lb":<hi>,"token_env":"WGER_API_KEY_RACH","height_cm":<cm>,"sex":"female","birth_date":"<YYYY-MM-DD>"}]'
 SCALE_ADDRESS=
 SCALE_BRIDGE_ESPHOME_PROXIES=
 ```
@@ -91,6 +143,14 @@ SCALE_BRIDGE_ESPHOME_PROXIES=
   (`min_kg`/`max_kg` instead): one pair per person, both ends in the same unit; both
   pairs, or a mixed pair, is `config_invalid`. A file written with kg bands before
   0.1.1 keeps working unchanged.
+- **Engine profile (0.2.0, optional per person):** `height_cm` (a number; the engine uses
+  whole cm, truncated), `sex` (`"male"` / `"female"`) and either `birth_date`
+  (`"YYYY-MM-DD"`, preferred: the age is worked out on each weigh-in's date) or `age` (whole
+  years, if you would rather not store a birth date; it then has to be bumped by hand). All
+  or nothing per person: a person without these keys is weighed as before, with no engine
+  run (`engine_skipped` `no_profile`); half a profile, both `birth_date` and `age`, or a bad
+  value is `config_invalid` naming the field (never the value). Health data, like the bands:
+  this file only.
 - `SCALE_ADDRESS`: the scale's address from the vault capture note. Empty = any device
   named `Body Pod 2` (fine for the dry-run; startup logs `config_address_filter_off`).
   **Required before step 6.**
@@ -107,8 +167,13 @@ ssh kdkadmin@10.1.30.21 'sudo chown root:root /opt/kdk-lab/scale-bridge/scale-br
 
 Merge the PR. The `gitops-sync` procedure (every 15 min) creates the stack and deploys
 it; to go now: **komodo.kmkdp.com → Procedures → gitops-sync → Run**, or **Stacks →
-scale-bridge → Deploy**. The deploy builds `kdk/scale-bridge:0.1.3` on the Pi (a few
-minutes the first time).
+scale-bridge → Deploy**. The deploy builds `kdk/scale-bridge:0.2.0` on the Pi. Since 0.2.0
+the build also downloads the engine inputs (about 40 MB from `raw.githubusercontent.com` and
+`repo1.maven.org`, every file sha256-checked, plus the Temurin JDK base image from Docker
+Hub) and compiles/jlinks the engine: expect a few minutes the first time (laptop: 1 min
+natively, 5 min 20 s for arm64 under qemu; the Pi natively is not measured yet), about
+600 MiB of memory at the peak. Later deploys reuse the cached engine stage unless `engine/`
+changes. Note the Pi's build time from the Komodo deploy log for the vault.
 
 **Laptop (SSH agent)**
 
@@ -116,8 +181,9 @@ minutes the first time).
 ssh kdkadmin@10.1.30.21 'sudo docker ps --filter name=scale-bridge --format "{{.Names}} {{.Status}}"'
 #   scale-bridge Up ... (healthy)          (health starts after ~1 min)
 ssh kdkadmin@10.1.30.21 'sudo docker logs scale-bridge 2>&1 | head -5'
-#   {"event":"config","version":"0.1.3","dry_run":true,"write_heart_rate":false,"people":["jmack","rach"],...}
+#   {"event":"config","version":"0.2.0","dry_run":true,"write_heart_rate":false,"people":["jmack","rach"],...}
 #   {"event":"token_check","person":"jmack","result":"ok","status":200}   (and rach)
+#   {"event":"engine_config","enabled":true,"reason":"on","variant":"PPDeviceCalcuteTypeAlternate8_4","limb_order":"10432","df_x0":"20k","profiles":["jmack","rach"],"sdk_commit":"c1eb5ab4..."}
 #   {"event":"capture","enabled":true,"dir":"/captures","keep_days":60}
 #   {"event":"scanning","transport":"local","dry_run":true,...}
 ```
@@ -157,6 +223,56 @@ reading, but the end marker (heart rate) did not come within 20 s; `end_marker: 
 about 5 s longer than before 0.1.3 (it waits for the marker): stay on until the display
 shows the result. The `would_write` line is the only place the
 weight is logged.
+
+## 5b. Attended first engine run
+
+The first run on kdk-dkr-02 is the real test of the two untested parts: Unicorn 2 on a real
+arm64 host, and the Pi's 16 KiB-page kernel. Stay at the laptop for it.
+
+1. **Startup:** `engine_config` `enabled: true` (step 4). `reason: no_secret` = step 2b;
+   `profiles` lists who has a profile (step 3).
+2. **Weigh in** as in step 5 (one person with a profile), then:
+
+```bash
+ssh kdkadmin@10.1.30.21 'sudo docker logs --since 5m scale-bridge 2>&1 | grep -E "\"event\":\"(session|would_write|engine|engine_skipped|capture_written)\""'
+```
+
+| Line | Good | Bad and what it means |
+|---|---|---|
+| `engine` | `result: ok`, `error_type: PP_ERROR_TYPE_NONE`, `fields` > 100, `duration_s` a few seconds | `engine_error` + `PP_ERROR_TYPE_SECRET` = wrong key (2a/2b); `timeout`, `nonzero_exit`, `calc_exception`, `crashed` = the engine failed on the Pi: note the reason code, `exit_code`, `duration_s` |
+| `engine_skipped` | absent | `no_profile` (step 3) or `df_incomplete` (the scale sent fewer than four `DF` frames; `extended_frames` in `session`) |
+| `capture_written` | has `engine_file: <name>.engine.json` | missing = no result to write (see the `engine` line) |
+
+3. **The result file exists** (names and sizes only; the content is health data):
+
+```bash
+ssh kdkadmin@10.1.30.21 'sudo ls -l /opt/kdk-lab/scale-bridge/captures | tail -4'
+#   -rw-r----- 1 nobody root ... <stamp>-<session>.jsonl
+#   -rw-r----- 1 nobody root ... <stamp>-<session>.engine.json
+ssh kdkadmin@10.1.30.21 'sudo tail -n1 /opt/kdk-lab/scale-bridge/captures/<stamp>-<session>.jsonl | python3 -c "import json,sys; f=json.load(sys.stdin); print(f[\"engine\"], f[\"engine_result\"])"'
+#   ok True
+```
+
+4. **Timings** (no values): compare with the prototype (x86_64: ~1.3 s cold per weigh-in;
+   arm64 under qemu: ~1.1 s init + ~0.85 s per calculation; Pi expected a few seconds):
+
+```bash
+ssh kdkadmin@10.1.30.21 'sudo docker logs --since 5m scale-bridge 2>&1 | grep "\"event\":\"engine\"" | python3 -c "import json,sys; [print({k: json.loads(l).get(k) for k in (\"result\",\"duration_s\",\"init_ms\",\"calc_ms\")}) for l in sys.stdin]"'
+ssh kdkadmin@10.1.30.21 'sudo docker stats --no-stream --format "{{.Name}} {{.MemUsage}}" scale-bridge'
+```
+
+   `duration_s` is the whole child run (JVM start + init + calculation); `init_ms` +
+   `calc_ms` is the engine's own share. Note all three and the memory in the vault note, as
+   the Pi's first measurements. Memory well under the 256 MiB limit is expected (~80 MiB peak
+   for the bridge + one engine run on amd64).
+5. **Values:** to compare with the Hume app, copy the `.engine.json` to the laptop the way
+   step 7 copies captures (vault only, never a git checkout) and read it there.
+6. **If it fails repeatedly** (`timeout`, `crashed`, or the container restarts): set
+   `SCALE_BRIDGE_ENGINE: "off"` (rollback below). Weigh-ins, captures and the wger write are
+   unaffected either way.
+
+The results stay in the captures directory (dry-run phase). Writing them to wger is a later,
+separate change after about a week of data ([planned mapping](../services/scale-bridge.md#body-composition-engine)).
 
 ## 6. Switch dry-run off
 
@@ -220,6 +336,7 @@ Delete (they also expire by themselves after `SCALE_BRIDGE_CAPTURE_KEEP_DAYS`, 6
 ```bash
 ssh kdkadmin@10.1.30.21 'sudo rm /opt/kdk-lab/scale-bridge/captures/<file>.jsonl'       # one
 ssh kdkadmin@10.1.30.21 'sudo find /opt/kdk-lab/scale-bridge/captures -name "*.jsonl" -delete'   # all
+ssh kdkadmin@10.1.30.21 'sudo find /opt/kdk-lab/scale-bridge/captures -name "*.engine.json" -delete'   # all engine results
 ```
 
 Capturing off: set `SCALE_BRIDGE_CAPTURE_DIR: ""` in `stacks/scale-bridge/compose.yaml` (a
@@ -247,10 +364,17 @@ one-line PR sets it to `"true"`; the next live weigh-in creates the custom categ
 - **Stop it:** Komodo → Stacks → scale-bridge → Destroy. To keep it gone, revert the PR
   (the `[[stack]]` entry) so the next sync does not redeploy it.
 - **Back to dry-run only:** revert the step 6 PR, deploy.
+- **Engine off (0.2.0), keep everything else:** a one-line PR,
+  `SCALE_BRIDGE_ENGINE: "off"` in `stacks/scale-bridge/compose.yaml`, deploy. Or remove the
+  `LEFU_SECRET_8` line from `secrets.env` (step 2 without it) and redeploy: same effect.
+- **Back to 0.1.3 (no engine):** revert the 0.2.0 PR, deploy. The profile keys in
+  `scale-bridge.env` can stay (0.1.3 ignores keys it does not know). The `.engine.json`
+  files stay: 0.1.3's pruning only matches `.jsonl`, so delete them as in step 7. The
+  1Password item `lefu-engine-secret` and the `LEFU_SECRET_8` line can stay or go.
 - **Back to 0.1.2 (no end-marker wait, no captures):** revert the 0.1.3 PR, deploy. The
   captures directory and its files stay; delete them as in step 7 if not wanted.
 - **Left behind:** `/opt/kdk-lab/scale-bridge/` including `captures/` (health data; remove with
   `ssh kdkadmin@10.1.30.21 'sudo rm -r /opt/kdk-lab/scale-bridge'`), the image
-  (`sudo docker image rm kdk/scale-bridge:0.1.3`, plus `:0.1.2` / `:0.1.1` / `:0.1.0` if still there), and in wger the written entries and the
+  (`sudo docker image rm kdk/scale-bridge:0.2.0`, plus `:0.1.3` / `:0.1.2` / `:0.1.1` / `:0.1.0` if still there), and in wger the written entries and the
   ten impedance categories (and `Heart rate (scale)` if it was switched on) (delete per person in the web UI; deleting a category deletes
   its entries). The wger keys stay: other tools use them.

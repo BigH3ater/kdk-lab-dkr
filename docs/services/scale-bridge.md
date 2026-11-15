@@ -5,7 +5,7 @@ stack: scale-bridge
 tier: internal
 status: planned
 storage: yes
-secrets: [wger-api-jmack, wger-api-rach]
+secrets: [wger-api-jmack, wger-api-rach, lefu-engine-secret]
 updated: 2026-11-14
 tags: [homelab/stack, tier/internal, status/planned, exercise]
 ---
@@ -19,8 +19,10 @@ plus the ten raw impedance values (and, behind a switch, the heart rate). It als
 **raw capture file per weigh-in** for paired tests against the vendor app. It ships in **dry-run**: it logs what it would write
 and posts nothing until the owner switches it on ([runbook](../runbooks/scale-bridge.md)).
 
-No port, no UI, no Traefik router. It computes no body composition: the scale sends
-weight and raw ohms only, and Hume's formulas are closed.
+No port, no UI, no Traefik router. Since 0.2.0 it also runs **Lefu's own 8-electrode
+body-composition engine** once per weigh-in (the scale vendor's published calculation
+library, see [below](#body-composition-engine)); in this phase the results only go to the
+captures directory, not to wger.
 
 ```mermaid
 flowchart LR
@@ -29,6 +31,8 @@ flowchart LR
   P["ESPHome BT proxy<br/>(optional relay, untested)"] -.->|"TCP 6053"| SB
   SB -->|"Token per person, HTTPS"| W["wger.kmkdp.com /api/v2"]
   SB -->|"one JSONL per session (rw bind)"| C["/opt/kdk-lab/scale-bridge/captures<br/>65534:root 0750"]
+  SB -->|"stdin case, secret in child env"| E["lefu-engine<br/>(child process, same container)"]
+  E -->|"JSON result -> .engine.json"| C
 ```
 
 ## At a glance
@@ -37,7 +41,8 @@ flowchart LR
 |---|---|
 | Purpose | Body Pod 2 weigh-ins → wger body weight + raw impedance, per person |
 | Host | kdk-dkr-02 (10.1.30.21), Komodo stack `scale-bridge` |
-| Image | `kdk/scale-bridge:0.1.3`, built on the host from `stacks/scale-bridge` (python 3.12-slim, bleak, bleak-retry-connector, bleak-esphome, httpx from `uv.lock`) |
+| Image | `kdk/scale-bridge:0.2.0`, built on the host from `stacks/scale-bridge` (python 3.12-slim, bleak, bleak-retry-connector, bleak-esphome, httpx from `uv.lock`; plus the engine: jlink'd Temurin 21 JRE, unidbg, Lefu SDK, all sha256-pinned) |
+| Engine | `SCALE_BRIDGE_ENGINE: "on"` in compose; self-disables without `LEFU_SECRET_8`. Results to `/captures/*.engine.json` only (dry-run phase) |
 | Mode | `SCALE_BRIDGE_DRY_RUN: "true"` in compose until the owner flips it |
 | Bluetooth | `/run/dbus:/run/dbus:ro` → host bluetoothd, as uid `65534:65534` (host `nobody:nogroup`). No privileged, no capabilities, no `/dev`, bridge network |
 | Host files | `/opt/kdk-lab/scale-bridge/scale-bridge.env` (people bands, optional address/proxies), `/opt/kdk-lab/scale-bridge/secrets.env` (wger keys, noise keys). Both root 600, host-managed |
@@ -124,6 +129,111 @@ each capture file's footer records byte 2 raw (`end_marker_byte2`). Because it r
 capture, writing it to wger is off by default (`SCALE_BRIDGE_WRITE_HEART_RATE`); the paired
 tests below are meant to confirm it before it is switched on.
 
+## Body-composition engine
+
+**What:** Lefu's 8-electrode calculation library (`ppcalculatekit` 4.6.28 +
+`ppbasiccalculatekit` 1.1.1, MIT, from Lefu's public GitHub), the vendor library behind the
+Hume app's numbers. It turns weight, height, age, sex and the ten encrypted impedances in the
+scale's `DF` frames into body fat, muscle, water, BMR and so on. It runs inside the bridge's
+own container as a child program (`lefu-engine`), once per weigh-in: the vendor's Java
+wrapper on a small JRE, its arm64 native code inside unidbg (an emulated arm64 Android
+process, Unicorn 2 CPU emulator). No Android, KVM, capability, device or network.
+
+**Usage and licence:** personal, non-commercial use for the household only (owner decision
+2026-11-14). It needs a secret; the one used is Lefu's published **demo** key, which the
+library accepts because the engine reports the demo's package name. The key lives in
+1Password (`lefu-engine-secret`) and the host's `secrets.env`, never in the repo or the
+image. The image is built privately and never distributed, so its GPL-2.0 parts (Unicorn,
+Keystone) and the JRE (GPL-2.0 + Classpath Exception) raise no obligation. Full list:
+[stack README](https://github.com/BigH3ater/kdk-lab-dkr/blob/main/stacks/scale-bridge/README.md#third-party-software-in-the-image-personal-non-commercial-use).
+
+**When it runs:** after the decision, before the capture is written, if all of these hold:
+the engine is on (`SCALE_BRIDGE_ENGINE: "on"` and `LEFU_SECRET_8` set), the weight matched
+exactly one person, that person has a profile in `SCALE_BRIDGE_PEOPLE`, and all four `DF`
+frames arrived. Otherwise it is skipped (`engine_skipped`, reason `no_profile` /
+`df_incomplete`). It never changes the weigh-in, the capture or the wger write of the raw
+values: every failure is one log line with a reason code.
+
+**Inputs (known-good configuration, do not change unless testing):**
+
+| Input | Value | Env |
+|---|---|---|
+| Variant | `PPDeviceCalcuteTypeAlternate8_4` | `LEFU_VARIANT: "8_4"` |
+| `DF` decoding | per frequency index x: payload of sub-packet 0 (12 bytes) + sub-packet 1 (8 bytes) = five little-endian uint32 | fixed |
+| Frequency mapping | `DF` x=0 = the library's 20 kHz input, x=1 = 100 kHz | `LEFU_DF_X0: "20k"` |
+| Limb order | frame position per library slot LeftArm, RightArm, LeftLeg, RightLeg, Trunk = 1, 0, 4, 3, 2 (position 2 = trunk) | `LEFU_LIMB_ORDER: "10432"` |
+| Weight | the settled weight (kg, 0.01) | — |
+| Height | person's `height_cm`, truncated to whole cm | profile |
+| Age | whole years on the measurement's local date, from `birth_date` (preferred) or `age` | profile |
+| Sex | `male` / `female` | profile |
+
+The secret goes into the child's environment only (the child gets nothing else from the
+bridge's environment except `PATH`, `TZ` and the `LEFU_*` paths: no wger keys); the case goes
+on stdin, never the command line; the child's stderr is discarded. Hard timeout
+`SCALE_BRIDGE_ENGINE_TIMEOUT_S` (60 s; the child is killed).
+
+**Output:** `<capture name>.engine.json` next to the raw capture (`.jsonl` replaced), 0640,
+same pruning. One JSON document: `result` and `error_type`, `fields` (count), `input` (the
+case sent), `provenance` (variant, limb order, frequency mapping, endianness, profile fields
+used: whole-cm height, sex, age and where the age came from; weight; engine info: SDK repo +
+commit + `.aar` versions, unidbg version, backend, arch; bridge version), `timings` (wall
+time, engine init and calculation ms) and `output` (the engine's full JSON: every getter of
+the vendor's result model, `errorType`, plus `base`, the input model with the library's
+decrypted impedances). Written only when the engine returned a result (`ok`, or
+`engine_error` with the library's error type); the capture footer records `engine` (reason
+code, or null when not run) and `engine_result` (whether the file exists).
+
+**Reason codes** (`engine` log line `result`, capture footer `engine`): `ok`, `engine_error`
+(the library's `errorType` is not `PP_ERROR_TYPE_NONE`, e.g. `PP_ERROR_TYPE_SECRET`),
+`timeout`, `nonzero_exit`, `calc_exception` (the calculation threw), `malformed_output`,
+`spawn_failed`, `secret_in_output` (the output contained the secret: discarded), `crashed`.
+
+**Planned wger mapping (NOT enabled; for the owner to decide after about a week of
+`.engine.json` data):** one custom measurement category per metric per person, only when
+`errorType` is `PP_ERROR_TYPE_NONE`, same `external_id` idempotence as the impedance rows.
+
+| Planned wger category | Engine field | Unit |
+|---|---|---|
+| `Body fat (scale)` | `getPpFat` | % |
+| `Skeletal muscle (scale)` | `getPpBodySkeletalKg` | kg |
+| `Body water (scale)` | `getPpWaterPercentage` | % |
+| `Visceral fat (scale)` | `getPpVisceralFat` | index |
+| `BMR (scale)` | `getPpBMR` | kcal |
+| `Bone mineral (scale)` | `getPpBoneKg` | kg |
+| `ECW (scale)` / `ICW (scale)` | the extracellular / intracellular water fields (exact getter names to confirm from the first `.engine.json`) | kg |
+| skipped | `getPpBodyAge` (metabolic age: not comparable to the app) | — |
+| skipped | `getPpBalanceFatArmLegLevel` (not deterministic in the vendor library itself) | — |
+
+**Build:** Dockerfile stage `engine` downloads three `.aar` files from
+`raw.githubusercontent.com/LefuHengqi/PPBaseKit-Android` at the commit in `engine/sdk.lock`
+and 21 jars from `repo1.maven.org` listed in `engine/deps.lock` (the complete set, no Maven
+resolution), checks every sha256, patches, compiles and jlinks. Measured on the x86_64
+laptop: 1 min 9 s for the whole image natively, 5 min 20 s for arm64 under qemu (engine
+stage 3 min of that); the engine stage peaks at about 580 MiB. The native Pi build is not
+measured yet (expected between the two). Later builds reuse the cached stage unless `engine/`
+or the base image changes. Downloads about 40 MB; adds about 113 MB to the image (JRE 59 MB,
+engine 54 MB; image about 293 MB unpacked).
+
+**Open risks (stated plainly):**
+
+- **Unicorn 2 on a real arm64 host is untested** until the first run on kdk-dkr-02. The
+  prototype ran it on x86_64 and on arm64 under qemu-user only. Unicorn 1 crashed
+  intermittently there (SIGSEGV after 2–200 cases), which is why Unicorn 2 is the default.
+- **kdk-dkr-02's 16 KiB-page kernel is untested.** Every host-side native library in the
+  arm64 image has a 64 KiB LOAD alignment (prototype check); the Lefu `.so` is loaded into
+  emulated memory, so its alignment does not matter. The first run is the real test.
+- **Memory and time on the Pi are not measured.** On the x86_64 laptop one engine run
+  (dummy secret) took about 1 s and the container peaked at 76 MiB. The arm64 image under
+  qemu-user took 17 s and reached the 256 MiB `mem_limit` (it still finished; 272 MiB
+  without a limit), but that is qemu's own overhead on top of Unicorn, not the native
+  figure. `mem_limit` stays 256m until the first Pi run measures it ([runbook
+  5b](../runbooks/scale-bridge.md#5b-attended-first-engine-run)).
+- **Emulation correctness:** identical to the vendor library in an Android emulator on two
+  real captures, the full variant × limb-order matrix and a 2,304-case sweep (prototype);
+  not proven for every input.
+- **Vendor changes:** pinned commit and hashes mean nothing changes silently; a bump needs the
+  prototype's acceptance check again.
+
 ## Raw capture files
 
 **What for:** paired tests. Each real weigh-in is saved exactly as the scale sent it, then
@@ -138,7 +248,7 @@ be compared with what the app shows.
 |---|---|
 | header (first line) | `kind: "header"`, `schema: 1`, `session`, `started` (UTC), `scale` (masked `..:XX:YY`), `rssi`, `profile_hex` + `profile_written` (the placeholder profile sent to `FFF1`), `app_version` |
 | one per notification, in arrival order | `t` (UTC ISO, milliseconds), `kind: "frame"`, `char` (`fff4` / `fff2`), `hex` (the exact bytes), `valid` (false + `error` for a bad length/checksum frame, which is kept) |
-| footer (last line) | `ended_by`, `result`, `counts` (the `session` log counts), `frames`, `attribution` + `decision` + `person` (if matched), `heart_rate` (present or not), `end_marker_byte2` |
+| footer (last line) | `ended_by`, `result`, `counts` (the `session` log counts), `frames`, `attribution` + `decision` + `person` (if matched), `heart_rate` (present or not), `end_marker_byte2`, `engine` (reason code or null), `engine_result` (whether `<name>.engine.json` exists) |
 
 The frame records have the shape of the capture script's (`t`, `kind: "frame"`, `char`,
 `hex`), which the emulator replays; it ignores the header and footer.
@@ -160,13 +270,19 @@ runs on without capturing, and starts writing again by itself once the directory
 One JSON line per event: `config`, `token_check` (status only), `capture` (on/off at
 startup), `scanning`, `session` (counts, end reason, RSSI, masked address `..:XX:YY`,
 `end_marker` / `heart_rate` as true/false), `capture_written` (file name, frame count),
-`capture_pruned`, `capture_unavailable` (error, once), `attribution` (person or
+`capture_pruned` (captures and engine files), `capture_unavailable` (error, once),
+`engine_config` (startup: on/off and why, variant, limb order, frequency mapping, which people
+have a profile, SDK commit; a warning when it is off for lack of the secret), `engine` (per
+run: `result` reason code, `duration_s`, `error_type`, `fields` count, `exit_code`, engine
+`init_ms`/`calc_ms`; never a value), `engine_skipped` (`no_profile` / `df_incomplete`),
+`engine_file_failed` (error type), `attribution` (person or
 candidates, never the weight), `would_write` (dry-run only: **the only line with the
 weight**; impedances as a count), `wrote` / `write_failed` (warning) / `write_crashed`
 (error: an unexpected exception, type only; retried like a failure) / `write_gave_up`
 (error). Startup warnings: `config_bands_overlap` (names the overlapping people, never the
 bands; not fatal, an ambiguous weight is still written nowhere), `config_address_filter_off`.
-Tokens, noise keys and response bodies are never logged. Loki: `{container="scale-bridge"}`.
+Tokens, noise keys, the engine secret, profiles, engine inputs and engine results are
+never logged. Loki: `{container="scale-bridge"}`.
 
 ## Security notes
 
@@ -223,6 +339,11 @@ sudo docker logs --since 10m scale-bridge 2>&1 | grep -E '"event":"(config|token
 | `write_gave_up` | wger failing for all 6 tries (15.5 min of waits) | enter that weight in the wger app |
 | `write_crashed` | an unexpected exception in a write attempt (bug or an odd wger response) | it retries by itself; if it repeats, open an issue with the `error` type |
 | `config_bands_overlap` at startup | two people's bands share a weight | fix the bands in `scale-bridge.env`; until then such a weight is written nowhere |
+| `engine_config` `enabled: false`, `reason: no_secret` | `LEFU_SECRET_8` not in `secrets.env` | [runbook step 2b](../runbooks/scale-bridge.md#2b-engine-secret-lefu_secret_8); everything else works meanwhile |
+| `engine_skipped` `no_profile` | that person has no `height_cm`/`sex`/`birth_date` in `SCALE_BRIDGE_PEOPLE` | [runbook step 3](../runbooks/scale-bridge.md#3-scale-bridgeenv-people-bands) |
+| `engine` `result: engine_error`, `error_type: PP_ERROR_TYPE_SECRET` | wrong or truncated secret | redo step 2b from 1Password; check the length |
+| `engine` `result: timeout` / `nonzero_exit` / `calc_exception` | engine slow, crashed or threw (Unicorn on the Pi) | weigh-ins unaffected; `SCALE_BRIDGE_ENGINE: "off"` if it repeats, then open an issue with the reason code |
+| `config_invalid` naming a profile field | partial profile, both `birth_date` and `age`, bad date, sex not `male`/`female` | fix that person in `scale-bridge.env` |
 
 ## Dependencies
 
@@ -231,8 +352,11 @@ sudo docker logs --since 10m scale-bridge 2>&1 | grep -E '"event":"(config|token
 | bluetoothd on kdk-dkr-02 (BlueZ 5.82) | the radio; policy `bluetooth.conf` lets any uid send to `org.bluez`, but dbus-daemon only accepts a connection from a uid that resolves on the host (hence `nobody` 65534) |
 | [wger](wger.md) API (`/api/` has no Authelia) | where readings go |
 | 1Password `wger-api-jmack`, `wger-api-rach` | per-person keys, copied into `secrets.env` by the runbook |
+| 1Password `lefu-engine-secret` (optional) | the engine's `LEFU_SECRET_8`, copied into `secrets.env` by the runbook |
+| Build: `raw.githubusercontent.com`, `repo1.maven.org` (plus Docker Hub / ghcr.io for the base images) | engine inputs, sha256-pinned (`engine/sdk.lock`, `engine/deps.lock`); nothing at run time |
 
 Sources: vault capture note `1. Projects/exercise/scale-sniff-2026-11-14.md`, design note
 `scale-integration-options-2026-11-09.md` section (c), `hume-app-results-2026-11-14.md` (heart
-rate, end marker); the public Blue2Scale
+rate, end marker), `hume-metrics-reproduction-2026-11-14.md` (engine prototype and acceptance);
+the public Blue2Scale
 `BLE_SCALE_PROTOCOL.md`; wger 2.7 source (`wger/measurements`, `wger/weight`).

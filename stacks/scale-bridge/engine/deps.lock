@@ -1,0 +1,32 @@
+# Maven Central jars for the engine build stage. fetch.sh downloads each from
+#   https://repo1.maven.org/maven2/<path>
+# and checks it against the sha256 here; any difference fails the build. No Maven
+# resolution: this list IS the complete dependency set (unidbg-android 0.9.8 and
+# unidbg-unicorn2 0.9.8 with their transitive jars, kotlin-stdlib, org.json, slf4j-nop).
+# scope runtime = copied into the image; build = build stage only (ASM, bytecode patch).
+# unidbg 0.9.8 + unicorn 1.0.14, not 0.9.9 / 1.0.15: 0.9.9 pulls unicorn 1.0.15, whose
+# bundled Linux natives are broken (13 undefined helper_* symbols), and 0.9.9 is not
+# API-compatible with 1.0.14 (NoSuchMethodError hook_add).
+# Bump a jar: change its path, download it, sha256sum it, review the change, commit.
+# sha256  scope  path
+ace2a10dc8e2d5fd34925ecac03e4988b2c0f851650c94b8cef49ba1bd111478  runtime  org/jetbrains/annotations/13.0/annotations-13.0.jar
+4e07ef65005c0d7e7149f6e903828fdaa031f542ad3956f0d827197a5ccac640  runtime  net/dongliu/apk-parser/2.6.10/apk-parser-2.6.10.jar
+920e5fd1d514f146891a82cfbbfb33ef20cfca746ddcd1a6e2b54fff2a2e53dc  runtime  com/github/zhkl0228/capstone/3.1.8/capstone-3.1.8.jar
+b3e9f6d63a790109bf0d056611fbed1cf69055826defeb9894a71369d246ed63  runtime  commons-codec/commons-codec/1.15/commons-codec-1.15.jar
+1df8b9430b5c8ed143d7815e403e33ef5371b2400aadbe9bda0883762e0846d1  runtime  org/apache/commons/commons-collections4/4.4/commons-collections4-4.4.jar
+961b2f6d87dbacc5d54abf45ab7a6e2495f89b75598962d8c723cea9bc210908  runtime  commons-io/commons-io/2.11.0/commons-io-2.11.0.jar
+daddea1ea0be0f56978ab3006b8ac92834afeefbd9b7e4e6316fca57df0fa636  runtime  commons-logging/commons-logging/1.2/commons-logging-1.2.jar
+2351bff06a0a494734924f4fa2e7084c0699d7e959a0be6e85e7d9ee17ae6eb6  runtime  com/github/zhkl0228/demumble/1.0.4/demumble-1.0.4.jar
+641a4d65ab32fbfdccd9c718e3f83ebc4caabdb5e4fe5b3d51527c5fe692631d  runtime  com/alibaba/fastjson/1.2.83/fastjson-1.2.83.jar
+e335c10679f743207d822c5f7948e930319835492575a9dba6b94f8a3b96fcc8  runtime  net/java/dev/jna/jna/5.10.0/jna-5.10.0.jar
+3ea61b2a06e31edf1c91134fe9106b0ebb16628be169f3db75bc7a2b06b45796  runtime  org/json/json/20250517/json-20250517.jar
+3db2ee22fa5b3a70800bc5dfb515acf6bcb62888be0da43c311ff8304411558b  runtime  com/github/zhkl0228/keystone/0.9.7/keystone-0.9.7.jar
+858b902696da9cf585ab9d98ffc1c2712269828354dfe9107e3711b084a36468  runtime  org/jetbrains/kotlin/kotlin-stdlib/1.9.24/kotlin-stdlib-1.9.24.jar
+7db19cf3e9cfe993e725e82cd9593a8f3e2d340ed3047c98d5c54370571c759d  runtime  org/scijava/native-lib-loader/2.3.5/native-lib-loader-2.3.5.jar
+e7c2a48e8515ba1f49fa637d57b4e2f590b3f5bd97407ac699c3aa5efb1204a9  runtime  org/slf4j/slf4j-api/2.0.13/slf4j-api-2.0.13.jar
+8962a107b4a8bdf80b6c17e470cd3614ad3329643833ff5cf0c60c7dce9deaac  runtime  org/slf4j/slf4j-nop/2.0.13/slf4j-nop-2.0.13.jar
+a18596ac7a21e07b0dddaee8d7be4d70619383ecfdb217038539a679731e7fa2  runtime  com/github/zhkl0228/unicorn/1.0.14/unicorn-1.0.14.jar
+e2f71ffc5fdec4d4aaed71e7a9a2b06a9a3c7cc86316c573d1ea5bb5da8ab1fd  runtime  com/github/zhkl0228/unidbg-android/0.9.8/unidbg-android-0.9.8.jar
+972623b78dc13f8e1ab732998f89a3bdbf55e244de47df1034f11d75cfa7dbde  runtime  com/github/zhkl0228/unidbg-api/0.9.8/unidbg-api-0.9.8.jar
+d1f235d8772a5158920414771794d2255113934ccb73102b9b1925732ac27ba0  runtime  com/github/zhkl0228/unidbg-unicorn2/0.9.8/unidbg-unicorn2-0.9.8.jar
+876eab6a83daecad5ca67eb9fcabb063c97b5aeb8cf1fca7a989ecde17522051  build  org/ow2/asm/asm/9.8/asm-9.8.jar

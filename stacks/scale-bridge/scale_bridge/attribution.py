@@ -7,17 +7,38 @@ default) or kilograms (`min_kg`/`max_kg`). Pounds are converted to kg once, here
 with the wger client's LB_PER_KG; every comparison after that is in kg.
 Bands are inclusive. Exactly one band containing the weight = that person. No
 band, or more than one, = nobody: the caller logs a warning and writes nothing.
+
+Optional engine profile per person (body-composition engine, engine.py): `height_cm`,
+`sex` ("male"/"female") and either `birth_date` (YYYY-MM-DD, preferred: the age is worked
+out at each measurement) or `age`. All or nothing: a person without these keys gets no
+engine run; a partial or invalid profile is a config error. Health data: never logged.
 """
 from __future__ import annotations
 
 import json
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from datetime import date
 
 from .wger import LB_PER_KG
 
 ENV_NAME = re.compile(r"^[A-Z_][A-Z0-9_]*$")
 PERSON_NAME = re.compile(r"^[a-z0-9][a-z0-9_-]{0,31}$")
+ISO_DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+PROFILE_KEYS = frozenset({"height_cm", "sex", "birth_date", "age"})
+SEXES = ("male", "female")
+
+
+@dataclass(frozen=True)
+class Profile:
+    """Engine inputs for one person (health data: repr hides it)."""
+    height_cm: float
+    sex: str                          # male | female
+    birth_date: date | None = None    # preferred
+    age: int | None = None            # only when there is no birth_date
+
+    def __repr__(self) -> str:
+        return "Profile(<hidden>)"
 
 
 @dataclass(frozen=True)
@@ -26,6 +47,7 @@ class Person:
     min_kg: float
     max_kg: float
     token_env: str
+    profile: Profile | None = field(default=None, repr=False)
 
     def contains(self, weight_kg: float) -> bool:
         return self.min_kg <= weight_kg <= self.max_kg
@@ -78,11 +100,50 @@ def load_people(text: str | None) -> list[Person]:
             raise ConfigError(f"people[{i}] needs 0 < {lo_key} < {hi_key}")
         if unit == "lb":
             lo, hi = lo / LB_PER_KG, hi / LB_PER_KG
-        people.append(Person(name=name, min_kg=lo, max_kg=hi, token_env=env))
+        people.append(Person(name=name, min_kg=lo, max_kg=hi, token_env=env, profile=_profile(i, item)))
     names = [x.name for x in people]
     if len(set(names)) != len(names):
         raise ConfigError("people names must be unique")
     return people
+
+
+def _profile(i: int, item: dict, today: date | None = None) -> Profile | None:
+    """None without any profile key; otherwise a complete, plausible profile or ConfigError.
+
+    Error messages name the field, never its value (the value is health data).
+    """
+    keys = PROFILE_KEYS & set(item)
+    if not keys:
+        return None
+    where = f"people[{i}] profile"
+    missing = {"height_cm", "sex"} - keys
+    if missing:
+        raise ConfigError(f"{where} needs height_cm, sex and birth_date or age: missing {', '.join(sorted(missing))}")
+    if ("birth_date" in keys) == ("age" in keys):
+        raise ConfigError(f"{where} needs exactly one of birth_date (preferred) or age")
+    h = item["height_cm"]
+    if isinstance(h, bool) or not isinstance(h, (int, float)) or not 50 <= h <= 250:
+        raise ConfigError(f"{where} height_cm must be a number of cm (50-250)")
+    sex = item["sex"]
+    if sex not in SEXES:
+        raise ConfigError(f'{where} sex must be "male" or "female"')
+    birth, age = None, None
+    if "birth_date" in keys:
+        b = item["birth_date"]
+        try:
+            if not isinstance(b, str) or not ISO_DATE.match(b):
+                raise ValueError
+            birth = date.fromisoformat(b)
+        except ValueError:
+            raise ConfigError(f"{where} birth_date must be a date YYYY-MM-DD") from None
+        if not date(1900, 1, 1) <= birth < (today or date.today()):
+            raise ConfigError(f"{where} birth_date must be in the past (after 1900)")
+    else:
+        a = item["age"]
+        if isinstance(a, bool) or not isinstance(a, int) or not 1 <= a <= 120:
+            raise ConfigError(f"{where} age must be a whole number of years (1-120)")
+        age = a
+    return Profile(height_cm=float(h), sex=sex, birth_date=birth, age=age)
 
 
 def _band_unit(i: int, item: dict) -> str:

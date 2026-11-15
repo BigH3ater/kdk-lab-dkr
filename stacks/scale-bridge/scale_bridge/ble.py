@@ -135,8 +135,12 @@ def touch(path: str) -> None:
         pass
 
 
-def footer(result: SessionResult | None, info: dict[str, Any], decision: Any) -> dict[str, Any]:
-    """Capture-file footer: end reason, counts, attribution. No weight/impedance/heart-rate values."""
+def footer(result: SessionResult | None, info: dict[str, Any], decision: Any,
+           engine: Any = None) -> dict[str, Any]:
+    """Capture-file footer: end reason, counts, attribution, engine reason code.
+
+    No weight/impedance/heart-rate values.
+    """
     outcome = getattr(decision, "outcome", None)
     reading = result.reading if result else None
     return {
@@ -147,21 +151,28 @@ def footer(result: SessionResult | None, info: dict[str, Any], decision: Any) ->
         "decision": outcome,
         "person": getattr(decision, "person", None),
         "heart_rate": bool(reading and reading.heart_rate_bpm is not None),
+        "engine": getattr(engine, "result", None),          # reason code; None = not run
     }
 
 
 def write_capture(captures: Captures, record: SessionLog, session_id: str, device: Any, rssi: int | None,
-                  result: SessionResult | None, info: dict[str, Any], decision: Any) -> None:
+                  result: SessionResult | None, info: dict[str, Any], decision: Any, engine: Any = None) -> None:
     try:
+        doc = engine.document if engine is not None and engine.has_result else None
         captures.write(record, session_id, {"scale": mask(device.address), "rssi": rssi},
-                       footer(result, info, decision))
+                       footer(result, info, decision, engine), engine=doc)
     except Exception as e:  # noqa: BLE001 - a capture must never stop the bridge
         emit(log, logging.ERROR, "capture_failed", session=session_id, error=type(e).__name__)
 
 
 async def run(settings: Settings, on_reading: Callable[[Any, str, str], Awaitable[Any]],
-              captures: Captures | None = None) -> None:
-    """Forever: wait for the scale's advert, run a session, pass the reading on, save the capture."""
+              captures: Captures | None = None,
+              on_engine: Callable[[Any, Any, str], Awaitable[Any]] | None = None) -> None:
+    """Forever: wait for the scale's advert, run a session, pass the reading on, save the capture.
+
+    `on_engine(reading, decision, session_id)` (Bridge.compute) runs after the decision and
+    before the capture is written; it never raises (and is guarded here as well).
+    """
     if captures is None:
         captures = Captures(settings.capture_dir, settings.capture_keep_days)
     captures.startup()
@@ -197,13 +208,20 @@ async def run(settings: Settings, on_reading: Callable[[Any, str, str], Awaitabl
                  session=session_id, scale=mask(device.address), rssi=rssi,
                  ended_by=result.ended_by if result else None,
                  duration_s=round(time.monotonic() - started, 1), **info, **summary)
-            decision = None
+            decision = engine = None
             if result and result.reading:
                 watcher.quiet_until = time.monotonic() + settings.cooldown
                 decision = await on_reading(result.reading, device.address, session_id)
+                if on_engine is not None:
+                    touch(settings.heartbeat_path)
+                    try:
+                        engine = await on_engine(result.reading, decision, session_id)
+                    except Exception as e:  # noqa: BLE001 - the engine never stops the bridge
+                        emit(log, logging.ERROR, "engine", session=session_id, result="crashed",
+                             error=type(e).__name__)
             else:
                 watcher.quiet_until = time.monotonic() + settings.retry_backoff
-            write_capture(captures, record, session_id, device, rssi, result, info, decision)
+            write_capture(captures, record, session_id, device, rssi, result, info, decision, engine)
             touch(settings.heartbeat_path)
     finally:
         await scanner.stop()

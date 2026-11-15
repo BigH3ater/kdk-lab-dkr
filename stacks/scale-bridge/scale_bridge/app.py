@@ -12,6 +12,7 @@ import httpx
 from . import __version__
 from .attribution import attribute, overlaps
 from .config import Settings
+from .engine import Engine, EngineRun, build_case, log_run, profile_inputs, result_document
 from .logs import emit
 from .session import Reading
 from .wger import LB_PER_KG, WgerClient, WgerError, external_id, plan
@@ -38,6 +39,7 @@ class Bridge:
         self.sleep = sleep
         self.clients = {x.name: WgerClient(http, settings.token_for(x)) for x in settings.people}
         self.tasks: set[asyncio.Task[None]] = set()
+        self.engine = Engine(settings.engine)
 
     async def startup_checks(self) -> None:
         """Config summary + one authenticated GET per person (status only)."""
@@ -70,6 +72,7 @@ class Bridge:
                 continue
             emit(log, logging.INFO if status == 200 else logging.ERROR, "token_check",
                  person=x.name, result="ok" if status == 200 else "rejected", status=status)
+        self.engine.startup([x.name for x in self.s.people if x.profile is not None])
 
     async def handle(self, reading: Reading, scale_id: str, session_id: str) -> Decision:
         """Decide and (live) queue the write. Decision.outcome: no_match | ambiguous | dry_run | no_token | queued."""
@@ -99,6 +102,34 @@ class Bridge:
         self.tasks.add(task)
         task.add_done_callback(self._task_done)
         return Decision("queued", person.name)
+
+    async def compute(self, reading: Reading, decision: Decision | None, session_id: str) -> EngineRun | None:
+        """Body-composition engine for a matched person with a profile and all four DF frames.
+
+        Never raises and never touches the wger write: results only go to the capture
+        directory (`<capture>.engine.json`) in this phase. None = not run.
+        """
+        try:
+            if not self.engine.enabled or decision is None or decision.person is None:
+                return None
+            person = next((x for x in self.s.people if x.name == decision.person), None)
+            if person is None or person.profile is None:
+                emit(log, logging.INFO, "engine_skipped", session=session_id, person=decision.person,
+                     reason="no_profile")
+                return None
+            case = build_case(reading, person.profile, self.s.engine)
+            if case is None:
+                emit(log, logging.INFO, "engine_skipped", session=session_id, person=person.name,
+                     reason="df_incomplete", extended_frames=len(reading.df_raw))
+                return None
+            run = await self.engine.run(case)
+            run.profile = profile_inputs(person.profile, reading.measured_at)
+            run.document = result_document(self.engine, run, session_id, person.name, reading, __version__)
+            log_run(run, session_id, person.name)
+            return run
+        except Exception as e:  # noqa: BLE001 - type only; the weigh-in never sees it
+            emit(log, logging.ERROR, "engine", session=session_id, result="crashed", error=type(e).__name__)
+            return None
 
     def _task_done(self, task: asyncio.Task[None]) -> None:
         self.tasks.discard(task)

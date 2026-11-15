@@ -59,6 +59,12 @@
       "github": "eclipse-mosquitto/mosquitto",
       "nvd_cpe": "cpe:2.3:a:eclipse:mosquitto"
     },
+    "eclipse-temurin": {
+      "github": "adoptium/temurin-build",
+      "nvd_cpe": "cpe:2.3:a:oracle:openjdk",
+      "note": "build stage of kdk/scale-bridge (stacks/scale-bridge/Dockerfile, stage engine): jlink'd JRE copied into the image. Tag 21.0.x_y-jdk-noble = OpenJDK update + build, Ubuntu base; Java CVEs are filed against Oracle (Open)JDK",
+      "tag_is_version": false
+    },
     "ghcr.io/advplyr/audiobookshelf": {
       "github": "advplyr/audiobookshelf"
     },
@@ -279,7 +285,7 @@
     "kdk/scale-bridge": {
       "local": true,
       "base": "python",
-      "note": "built from stacks/scale-bridge/Dockerfile (python:3.12-slim + bleak, bleak-retry-connector, bleak-esphome, httpx from uv.lock)"
+      "note": "built from stacks/scale-bridge/Dockerfile (python:3.12-slim + bleak, bleak-retry-connector, bleak-esphome, httpx from uv.lock; since 0.2.0 also a jlink'd eclipse-temurin 21 JRE + unidbg/Unicorn 2 + the Lefu SDK jars, pinned in stacks/scale-bridge/engine/*.lock)"
     },
     "kdk/koreader-highlights": {
       "local": true,

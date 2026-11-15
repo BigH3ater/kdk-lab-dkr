@@ -8,9 +8,11 @@ from __future__ import annotations
 
 import os
 import re
+import shlex
 from dataclasses import dataclass, field
 
 from .attribution import Person, load_people
+from .engine import DEFAULT_DF_X0, DEFAULT_LIMB_ORDER, DEFAULT_VARIANT, EngineSettings, check_settings
 from .session import Timeouts
 
 MAC = re.compile(r"^[0-9A-Fa-f]{2}(:[0-9A-Fa-f]{2}){5}$")
@@ -49,6 +51,7 @@ class Settings:
     capture_dir: str = ""                       # raw capture JSONL per session; "" = off (compose: /captures)
     capture_keep_days: int = 60                 # 0 = keep forever
     log_level: str = "INFO"
+    engine: EngineSettings = EngineSettings()     # body-composition engine (engine.py)
 
     def token_for(self, person: Person) -> str:
         return self.tokens.get(person.token_env, "")
@@ -111,4 +114,19 @@ def from_env(env: dict[str, str] | None = None) -> Settings:
         write_heart_rate=_bool(e.get("SCALE_BRIDGE_WRITE_HEART_RATE"), False),
         capture_dir=(e.get("SCALE_BRIDGE_CAPTURE_DIR") or "").strip(),
         capture_keep_days=int(e.get("SCALE_BRIDGE_CAPTURE_KEEP_DAYS", "60")),
+        engine=engine_from_env(e),
     )
+
+
+def engine_from_env(e: dict[str, str]) -> EngineSettings:
+    s = EngineSettings(
+        switch=(e.get("SCALE_BRIDGE_ENGINE") or "on").strip().lower(),
+        command=tuple(shlex.split(e.get("SCALE_BRIDGE_ENGINE_CMD") or "/usr/local/bin/lefu-engine")),
+        timeout=float(e.get("SCALE_BRIDGE_ENGINE_TIMEOUT_S") or "60"),
+        variant=(e.get("LEFU_VARIANT") or DEFAULT_VARIANT).strip(),
+        limb_order=(e.get("LEFU_LIMB_ORDER") or DEFAULT_LIMB_ORDER).strip(),
+        df_x0=(e.get("LEFU_DF_X0") or DEFAULT_DF_X0).strip().lower(),
+        secret=(e.get("LEFU_SECRET_8") or "").strip(),
+    )
+    check_settings(s)
+    return s

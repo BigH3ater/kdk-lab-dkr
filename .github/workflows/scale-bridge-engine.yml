@@ -1,0 +1,55 @@
+# scale-bridge engine image (docs/services/scale-bridge.md#body-composition-engine):
+# builds the full image (amd64) with the engine stage, which downloads the pinned
+# Lefu SDK + Maven jars and checks every sha256, then runs engine/smoke.py INSIDE the
+# image with the compose hardening (read-only, noexec /tmp, no capabilities, uid
+# 65534, no network) on SYNTHETIC inputs and a DUMMY secret: the vendor library must
+# answer PP_ERROR_TYPE_SECRET through the bridge's own parser. Proves the whole chain
+# (bridge -> JRE -> patched vendor jars -> unidbg/Unicorn 2 -> arm64 vendor .so)
+# loads, without the real key. Path-filtered (it downloads ~30 MB from GitHub and
+# Maven Central) plus a manual trigger.
+name: scale-bridge-engine
+
+on:
+  pull_request:
+    paths:
+      - "stacks/scale-bridge/Dockerfile"
+      - "stacks/scale-bridge/engine/**"
+      - "stacks/scale-bridge/scale_bridge/engine.py"
+      - ".github/workflows/scale-bridge-engine.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: scale-bridge-engine-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  image:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Build the image (engine stage fetches + verifies the pinned inputs)
+        run: docker build -t kdk/scale-bridge:ci stacks/scale-bridge
+      - name: Engine smoke test (synthetic inputs, dummy secret, hardened)
+        env:
+          LEFU_SECRET_8: "0000000000000000000000000000000000000000000000000000000000000000"
+        run: |
+          docker run --rm -i --read-only --tmpfs /tmp:rw,noexec,nosuid,nodev \
+            --cap-drop ALL --security-opt no-new-privileges --network none \
+            --user 65534:65534 --pids-limit 128 --memory 256m \
+            -e LEFU_SECRET_8 --entrypoint python kdk/scale-bridge:ci -I - \
+            < stacks/scale-bridge/engine/smoke.py
+      - name: No secret in the image config or history
+        run: |
+          if docker image inspect kdk/scale-bridge:ci --format '{{json .Config.Env}}' | grep -q LEFU_SECRET; then
+            echo "::error::LEFU_SECRET in the image environment"; exit 1
+          fi
+          if docker history --no-trunc kdk/scale-bridge:ci | grep -q 'LEFU_SECRET_8='; then
+            echo "::error::LEFU_SECRET_8 assignment in the image history"; exit 1
+          fi
+          docker image inspect kdk/scale-bridge:ci --format 'image size {{.Size}} bytes'
