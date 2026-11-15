@@ -6,7 +6,7 @@ tier: internal
 status: live
 storage: yes
 secrets: [wger-secret-key, wger-postgres, wger-powersync-storage, wger-jwt-keys, wger-admin, wger-api-jmack, wger-api-rach]
-updated: 2026-11-14
+updated: 2026-11-15
 tags: [homelab/stack, tier/internal, status/live]
 ---
 
@@ -147,6 +147,7 @@ ls -t /mnt/backup/dkr/kdk-dkr-01/pgdump/wger-*.sql.gz | head -3                 
 | 403 from Authelia after login | the person is not in `dashboard-users`, or Authelia has not reloaded the new rule | LLDAP group; `docker inspect authelia --format '{{index .Config.Labels "kdk.config-sha"}}'` on the DMZ, else `RestartStack identity services=[authelia]` |
 | CSRF failure on a form | origin not trusted | `CSRF_TRUSTED_ORIGINS=https://wger.kmkdp.com` and `X_FORWARDED_PROTO_HEADER_SET=True` (compose) |
 | App: offline mode / sync never finishes | PowerSync storage not bootstrapped, or `/ps/` not reachable | runbook step 5 (`setup-powersync-storage`); `sudo docker logs wger-powersync --since 10m`; `curl -s -o /dev/null -w '%{http_code}\n' https://wger.kmkdp.com/ps/probes/liveness` (PowerSync's probe path; expect 200) |
+| App shows "Not connected"; `/ps/probes/liveness` gives 502 right after a redeploy | nginx still used PowerSync's old backend address (powersync recreated, nginx not; incident 2026-11-14) | fixed in `nginx.conf` (names re-resolved every 10 s); quick fix `sudo docker exec wger-nginx nginx -s reload`. [Runbook step 15](../runbooks/wger.md#15-app-shows-not-connected-after-a-redeploy-powersync-502) |
 | Exercise list empty | the upstream exercises were never loaded (the weekly sync is off) | runbook step 6 (one manual `sync-exercises`), then step 12 again |
 | Barbell, Kettlebell etc. back in the equipment filter | someone ran `sync-exercises` (or turned `SYNC_EXERCISES_CELERY` back on); its equipment step re-creates every wger.de row | runbook step 12 again (idempotent) |
 | `gen_wger.py` warns `wger has no equipment 'Resistance band'` | step 12 (Treadmill + Resistance band rows) not run yet | runbook step 12, then step 9 `--apply` |
@@ -205,7 +206,7 @@ log, video sync/upload and the ingredient dump (nutrition is a later phase).
 | Path / setting | What it is |
 |---|---|
 | `stacks/wger/compose.yaml` | services, env (non-secret settings in the `x-wger-env` anchor), Traefik labels |
-| `stacks/wger/nginx.conf` | upstream nginx config + the Remote-* gate + `/nginx-health`; recreated on change via `kdk.config-sha` |
+| `stacks/wger/nginx.conf` | upstream nginx config + the Remote-* gate + `/nginx-health`; `web` and `powersync` re-resolved through Docker DNS every 10 s (`resolve`), so a recreated upstream needs no nginx reload; recreated on change via `kdk.config-sha` |
 | `stacks/wger/powersync/` | `powersync.yaml` (adapted) + `sync_rules.yaml` (vendored verbatim, re-copy on a wger minor bump) |
 | `stacks/wger/.env.tpl` | op refs for the six secrets below |
 | `AUTH_PROXY_TRUSTED_IPS=10.208.200.10` | nginx's pinned address; keep in sync with `ipv4_address` and the `geo` block |
