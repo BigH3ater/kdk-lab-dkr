@@ -1,6 +1,6 @@
 ---
 title: wger — first deploy and onboarding
-updated: 2026-11-14
+updated: 2026-11-15
 ---
 
 # wger: first deploy and onboarding
@@ -426,6 +426,34 @@ ssh $H 'sudo docker exec wger-web python3 manage.py warmup-exercise-api-cache --
 Retired 2026-11-08; walks are logged in the app. Home Assistant no longer posts
 treadmill walks to wger (the owner logged the walk by hand too, so it was counted
 twice). The `wger-api-*` keys stay: `gen_wger.py` uses them.
+
+## 15. App shows "Not connected" after a redeploy (PowerSync 502)
+
+**Symptom:** the app shows "Not connected" and does not sync; the web UI still works.
+`curl -s -o /dev/null -w '%{http_code}\n' https://wger.kmkdp.com/ps/probes/liveness`
+gives 502 instead of 200, and `wger-nginx` logs `connect() failed (111: Connection refused)`
+to the old address of `powersync:8080`.
+
+**Cause (incident 2026-11-14):** a redeploy (that time a Renovate Postgres bump)
+recreated `wger-powersync` but not `wger-nginx`. PowerSync came back on another
+`wger_backend` address (10.208.200.5 → .2), and nginx kept the address it had looked
+up at start. The same could happen to `web`.
+
+**Quick fix** (no downtime):
+
+```bash
+H=kdkadmin@10.1.20.20
+ssh $H 'sudo docker exec wger-nginx nginx -s reload'
+curl -s -o /dev/null -w '%{http_code}\n' https://wger.kmkdp.com/ps/probes/liveness   # 200
+```
+
+**Permanent fix:** `nginx.conf` now looks the upstream names up again at run time
+(`resolver 127.0.0.11 valid=10s` + `resolve` on both upstream servers, PR
+"fix(wger): nginx re-resolves web/powersync after a recreate"). After that PR a recreated
+`web` or `powersync` is reached again within about 10 s with no reload. If the 502 still
+comes back, check the deployed file has the `resolve` lines:
+`ssh $H 'sudo docker exec wger-nginx grep -c " resolve;" /etc/nginx/conf.d/default.conf'`
+(expect 2).
 
 
 ## Rollback
