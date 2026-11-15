@@ -35,6 +35,18 @@ never stops the run: the rest still download, then every video still missing is 
 exit code is 1. Afterwards the tool removes its own temp dir <dir>/.incoming (that path only,
 and only when it holds no finished video).
 
+download also keeps the DAY FOLDERS (default /mnt/media/exercise-days, --days-dir): one folder per
+playlist (same grouping, the playlist name made file-system safe: "Rachel · 2 Tue-Fri Cardio"),
+holding HARDLINKS "<NN> <exercise name>.mp4" to the plan files, NN = position in the day's workout
+order among the exercises with a video (01, 02, ...). Why: the Apple TV client (Neptune) can play
+neither a playlist nor a folder, only a flat library sorted by name, so each day is its own
+Jellyfin library (jellyfin step below). Same NFS filesystem, so no extra space. Every run
+(after the downloads, --refetch and --prune) compares inodes: a missing link is made, a link to an
+old inode (a refetch moves a new file over the old name, which breaks the hardlink) is made again,
+a link the day no longer has is removed. Only ever inside --days-dir, only folder and file names
+it generates (anything else there is reported, never touched, symlinks never followed); a folder of
+a day that left the plan is emptied and removed only with --prune.
+
 jellyfin: finds the library by name (default "Exercise", type Home videos), refuses to go on
 when one of the plan's people cannot see it (other accounts that can see it are only named in
 a NOTE line: owner decision 2026-11-14, the library is not private), starts a scan of that library only
@@ -50,6 +62,18 @@ deleted (only that person's own, exact generated name; a failed delete exits 1).
 playlist ids it manages and verified) so gen_wger.py can build the Video: line without a
 Jellyfin key; a run that stops at a playlist still writes the item ids, and the next run resumes.
 Users are looked up by username at run time (the plan's people logins).
+
+jellyfin then makes one DAY LIBRARY per day folder (owner decision 2026-11-14, "option B"): name =
+the folder name, Home videos, folder /data/media/exercise-days/<name>, every metadata and image
+fetcher off, "prefer embedded titles" OFF (the item name is the file name "01 Dumbbell Goblet
+Squat", so the name sort is the workout order), no trickplay, chapter images or real-time
+monitoring. Created with POST /Library/VirtualFolders; if the server refuses that for the API key,
+the tool prints the hand steps and adopts the library on the next run (exact name, type and
+folder). Each one is scanned and verified: its items sorted by name are exactly the day's files in
+plan order. Access is left as it is (owner decision): a NOTE names who can see each library.
+wger_videos.json records them ("libraries": name, id, origin api|hand); --prune deletes only a
+library the tool created (recorded id AND exact generated name, origin api), never Exercise,
+Movies, Shows or Collections.
 
 Dry run by default for both. Config from the environment only: JELLYFIN_API_KEY (never argv),
 JELLYFIN_URL (API address, default https://jellyfin.kmkdp.com).
@@ -108,7 +132,29 @@ BETWEEN = 5
 YTDLP_RETRY = ["--extractor-retries", "5", "--retry-sleep", "http:exp=1:30",
                "--retry-sleep", "fragment:exp=1:30", "--retry-sleep", "extractor:5"]
 HEADER = ("Written by exercise_videos.py jellyfin --apply; do not edit by hand. Plan key -> Jellyfin "
-          "item id (gen_wger.py builds the Video: line from it) and the playlists the tool manages.")
+          "item id (gen_wger.py builds the Video: line from it), the playlists and the day libraries "
+          "the tool manages (a library is deleted only when recorded here with origin api).")
+
+# Day folders / day libraries (owner decision 2026-11-14, option B: Neptune plays only a flat library)
+DAYS_DIR = "/mnt/media/exercise-days"          # on the share (kdk-dkr-01 rw)
+DAYS_IN_JELLYFIN = "/data/media/exercise-days"  # the same, inside the jellyfin container (ro)
+LINK_RE = re.compile(r"^(\d{2,}) ([^/]+)\.mp4$")
+UNSAFE_RE = re.compile(r'[\\:*?"<>|\[\]\x00-\x1f\x7f]')   # plus "/" -> "-" (Tue/Fri -> Tue-Fri)
+DAY_LIB_RE = re.compile(r"^[^/]+ · \d+ [^/]+$")             # the shape of a generated day name
+PROTECTED = {"exercise", "movies", "shows", "collections"}   # never deleted, whatever the record says
+# Library options for a day library. The tool sends them on create and re-applies them when one
+# drifted. EnableEmbeddedTitles OFF: the item name must be the file name ("01 ..."), not the
+# embedded title (the plain exercise name), or the name sort loses the workout order.
+DAY_OPTIONS = {
+    "Enabled": True, "EnablePhotos": False, "EnableRealtimeMonitor": False, "EnableLUFSScan": False,
+    "EnableChapterImageExtraction": False, "ExtractChapterImagesDuringLibraryScan": False,
+    "EnableTrickplayImageExtraction": False, "ExtractTrickplayImagesDuringLibraryScan": False,
+    "SaveTrickplayWithMedia": False, "SaveLocalMetadata": False, "EnableInternetProviders": False,
+    "EnableEmbeddedTitles": False, "EnableEmbeddedExtrasTitles": False, "AutomaticRefreshIntervalDays": 0,
+    "MetadataSavers": [],
+    "TypeOptions": [{"Type": "Video", "MetadataFetchers": [], "MetadataFetcherOrder": [],
+                     "ImageFetchers": [], "ImageFetcherOrder": [], "ImageOptions": []}],
+}
 
 
 class VideoError(RuntimeError):
@@ -190,6 +236,34 @@ def plan_playlists(plan: dict) -> list[dict]:
             g["name"] = f"{g['person']} · {n:0{width}d} {rest}"
             g["old_name"] = f"{g['person']} · {rest}"
             out.append(g)
+    return out
+
+
+def safe_name(s: str) -> str:
+    """A file-system (and Jellyfin name parser) safe name: "/" -> "-", \\ : * ? " < > | [ ] and
+    control characters -> space, whitespace collapsed, no leading/trailing dot or space (a dot
+    file is hidden from Jellyfin)."""
+    s = UNSAFE_RE.sub(" ", s.replace("/", "-"))
+    s = re.sub(r"\s+", " ", s).strip(" .")
+    if not s or len(s.encode()) > 200:
+        raise VideoError(f"cannot make a safe file name from {s!r}")
+    return s
+
+
+def day_libraries(plan: dict) -> list[dict]:
+    """One per plan playlist: {login, days, name (folder = library name), links: [{name, key, source}]}.
+    Link name "<NN> <exercise name>.mp4", NN = workout position among the exercises with a video,
+    at least two digits, so the plain name sort is the workout order."""
+    out, seen = [], set()
+    for pl in plan_playlists(plan):
+        name = safe_name(pl["name"])
+        if name in seen:
+            raise VideoError(f"two day folders would both be named {name!r}")
+        seen.add(name)
+        width = max(2, len(str(len(pl["keys"]))))
+        links = [{"name": f"{n:0{width}d} {safe_name(plan['exercises'][k]['name'])}.mp4", "key": k,
+                  "source": file_name(k, plan["exercises"][k])} for n, k in enumerate(pl["keys"], 1)]
+        out.append({"login": pl["login"], "days": pl["days"], "name": name, "links": links})
     return out
 
 
@@ -360,8 +434,132 @@ def clean_incoming(sh: Shell, directory: str, apply: bool, out) -> None:
         out(f"removed {INCOMING}/ (yt-dlp temp dir, {len(left)} leftover file(s))")
 
 
+def list_inodes(sh: Shell, directory: str) -> dict[str, str] | None:
+    """file name -> inode for the regular files directly in the directory (None: no directory)."""
+    p = sh(["find", directory, "-mindepth", "1", "-maxdepth", "1", "-type", "f", "-printf", "%i\\t%f\\n"],
+           check=False)
+    if p.returncode != 0:
+        return None
+    return dict(reversed(x.split("\t", 1)) for x in p.stdout.splitlines() if "\t" in x)
+
+
+def list_days(sh: Shell, days_dir: str) -> tuple[dict, dict] | None:
+    """({top-level name: find type}, {folder: {file: (type, inode)}}) of the day folders dir, two
+    levels, symlinks not followed (a symlinked folder is type "l" and never entered)."""
+    p = sh(["find", days_dir, "-mindepth", "1", "-maxdepth", "2", "-printf", "%y\\t%i\\t%P\\n"], check=False)
+    if p.returncode != 0:
+        if sh(["test", "-d", days_dir], check=False).returncode != 0:
+            return None
+        raise VideoError(f"cannot list {days_dir}: {(p.stderr or '').strip()[-200:]}")
+    top, files = {}, {}
+    for line in p.stdout.splitlines():
+        typ, ino, rel = (line.split("\t", 2) + ["", ""])[:3]
+        if not rel:
+            continue
+        if "/" in rel:
+            d, f = rel.split("/", 1)
+            files.setdefault(d, {})[f] = (typ, ino)
+        else:
+            top[rel] = typ
+    return top, files
+
+
+def day_path(days_dir: str, *parts: str) -> str:
+    """A path strictly inside days_dir, one plain name per part (the tool never writes elsewhere)."""
+    for x in parts:
+        if not x or "/" in x or x in (".", "..") or "\x00" in x:
+            raise VideoError(f"refusing unsafe name {x!r} under {days_dir}")
+    return str(PurePosixPath(days_dir, *parts))
+
+
+def sync_days(sh: Shell, plan: dict, directory: str, days_dir: str, apply: bool, prune: bool, out) -> int:
+    """Make the day folders match the plan (see the module docstring). Returns the number of
+    problems (missing sources, things in the way); the caller exits 1 on any."""
+    libs = day_libraries(plan)
+    src = list_inodes(sh, directory) or {}
+    listing = list_days(sh, days_dir)
+    if listing is None:
+        out(f"{days_dir} does not exist yet" + ("; creating it" if apply else " (created by --apply)"))
+        if apply:
+            sh(["mkdir", "-p", "--", days_dir])
+        listing = ({}, {})
+    top, files = listing
+    planned = {lib["name"] for lib in libs}
+    problems, waiting = 0, 0
+    counts = {"ok": 0, "link": 0, "relink": 0, "remove": 0}
+    verb = (lambda done, todo: done) if apply else (lambda done, todo: f"would {todo}")
+    for lib in libs:
+        name = lib["name"]
+        if top.get(name, "d") != "d":
+            out(f"WARN day folder {name!r} is not a plain directory (type {top[name]}); left alone")
+            problems += 1
+            continue
+        have = files.get(name, {})
+        if name not in top and apply:
+            sh(["mkdir", "-p", "--", day_path(days_dir, name)])
+        want = {x["name"]: x for x in lib["links"]}
+        for lname, x in want.items():
+            if x["source"] not in src:
+                waiting += 1
+                if apply:
+                    out(f"SKIP {name}/{lname}: source {x['source']} is not on the share")
+                continue
+            cur = have.get(lname)
+            if cur == ("f", src[x["source"]]):
+                counts["ok"] += 1
+                continue
+            if cur is not None and cur[0] not in ("f", "l"):
+                out(f"WARN {name}/{lname} is in the way (type {cur[0]}); left alone")
+                problems += 1
+                continue
+            kind = "link" if cur is None else "relink"
+            counts[kind] += 1
+            why = "" if cur is None else (" (a symlink)" if cur[0] == "l" else " (the source was replaced: inode differs)")
+            if apply:
+                sh(["ln", "-fT", "--", str(PurePosixPath(directory) / x["source"]), day_path(days_dir, name, lname)])
+            out(f"{verb(kind + 'ed', kind)} {name}/{lname} <- {x['source']}{why}")
+        for fname, (typ, _ino) in sorted(have.items()):
+            if fname in want:
+                continue
+            if LINK_RE.match(fname) and typ in ("f", "l"):
+                counts["remove"] += 1
+                if apply:
+                    sh(["rm", "-f", "--", day_path(days_dir, name, fname)])
+                out(f"{verb('removed', 'remove')} {name}/{fname} (not in this day any more)")
+            else:
+                out(f"OTHER {name}/{fname} (not a name the tool makes; never touched)")
+    for d, typ in sorted(top.items()):
+        if d in planned:
+            continue
+        if typ != "d" or not DAY_LIB_RE.match(d):
+            out(f"OTHER {d} in {days_dir} (not a day folder the tool makes; never touched)")
+            continue
+        ours = sorted(f for f, (t, _) in files.get(d, {}).items() if LINK_RE.match(f) and t in ("f", "l"))
+        rest = sorted(f for f in files.get(d, {}) if f not in ours)
+        if not (prune and apply):
+            out(f"EXTRA day folder {d!r} ({len(ours)} link(s)): no longer in the plan"
+                + ("; would delete" if prune else "; --prune deletes it"))
+            continue
+        for f in ours:
+            sh(["rm", "-f", "--", day_path(days_dir, d, f)])
+        if rest:
+            out(f"WARN day folder {d!r}: removed {len(ours)} link(s), kept (not ours): {', '.join(rest)}")
+            problems += 1
+            continue
+        sh(["rmdir", "--", day_path(days_dir, d)])
+        out(f"deleted day folder {d!r} ({len(ours)} link(s); no longer in the plan)")
+    out(f"day folders: {len(libs)} in the plan; links {counts['ok']} ok, {counts['link']} new, "
+        f"{counts['relink']} re-linked, {counts['remove']} removed{'' if apply else ' (planned)'}"
+        + (f", {waiting} waiting for a source file" if waiting else ""))
+    return problems + (waiting if apply else 0)
+
+
 def cmd_download(args, plan: dict, sh: Shell, out, sleep=time.sleep) -> int:
     directory = args.dir
+    days = PurePosixPath(args.days_dir)
+    if not days.is_absolute() or days == PurePosixPath(directory) or PurePosixPath(directory) in days.parents \
+            or days in PurePosixPath(directory).parents:
+        raise VideoError(f"--days-dir {args.days_dir} must be an absolute path beside --dir {directory}, not in it")
     want = wanted_files(plan)
     have = list_dir(sh, directory)
     where = f"{args.host}:{directory}" if args.host else directory
@@ -419,6 +617,8 @@ def cmd_download(args, plan: dict, sh: Shell, out, sleep=time.sleep) -> int:
             out(f"deleted {f} (no longer in the plan)")
         else:
             out(f"EXTRA {f}: no longer in the plan" + ("; would delete" if args.prune else "; --prune deletes it"))
+    # after downloads, refetches (a mv breaks the old hardlink) and prunes: the day folders
+    day_problems = sync_days(sh, plan, directory, args.days_dir, args.apply, args.prune, out)
     rc = 0
     if args.apply and missing:
         after = list_dir(sh, directory) or []
@@ -434,6 +634,9 @@ def cmd_download(args, plan: dict, sh: Shell, out, sleep=time.sleep) -> int:
         out(f"ERROR {len(not_replaced)} of {len(refetch)} refetch(es) failed; the old file is still in place:")
         for f in not_replaced:
             out(f"  --refetch {want[f]}")
+        rc = 1
+    if args.apply and day_problems:
+        out(f"ERROR {day_problems} day-folder problem(s) (see SKIP/WARN above); fix and run again")
         rc = 1
     if not args.apply:
         out(f"dry run: {len(missing)} download(s), {len(refetch)} replace(s), "
@@ -680,15 +883,199 @@ def sync_playlists(jf: Jellyfin, plan_pls: list[dict], people: dict, users: list
     return managed
 
 
+# ---------------------------------------------------------------- day libraries
+def options_drift(opts: dict) -> list[str]:
+    """The DAY_OPTIONS keys a library's LibraryOptions differ in (fetchers: any non-empty list)."""
+    bad = [k for k, v in DAY_OPTIONS.items() if k != "TypeOptions" and opts.get(k, v if k == "MetadataSavers" else None) != v]
+    types = opts.get("TypeOptions") or []
+    if not any(t.get("Type") == "Video" for t in types) or any(
+            t.get(f) for t in types for f in ("MetadataFetchers", "ImageFetchers")):
+        bad.append("TypeOptions (metadata/image fetchers)")
+    return bad
+
+
+def day_items(jf: Jellyfin, lib_id: str) -> list[tuple[str, str]]:
+    """(path, name) of the library's videos in the server's name sort (what the clients show)."""
+    res = jf.get("/Items", ParentId=lib_id, Recursive="true", IncludeItemTypes="Video", Fields="Path,SortName",
+                 SortBy="SortName", SortOrder="Ascending", EnableImages="false", EnableUserData="false",
+                 Limit="5000")
+    return [(it.get("Path") or "", it.get("Name") or "") for it in (res or {}).get("Items", [])]
+
+
+def hand_steps(libs: list[dict], out) -> None:
+    out("HAND STEPS: the server did not let the API key create these libraries. In Jellyfin as an admin, "
+        "Dashboard -> Libraries -> Libraries -> Add Media Library, once per library:")
+    for lib in libs:
+        out(f"  Display name {lib['name']!r} | Content type Home videos and photos | Folder "
+            f"{DAYS_IN_JELLYFIN}/{lib['name']}")
+    out("  each: every metadata downloader and image fetcher unticked; 'Prefer embedded titles over filenames' "
+        "OFF; real-time monitoring, trickplay and chapter image extraction off. Then run jellyfin --apply "
+        "again: it finds each library by exact name, type and folder, records it (origin hand) and verifies it")
+
+
+def sync_day_libraries(jf: Jellyfin, plan: dict, users: list[dict], people: dict, old: list[dict],
+                       prune: bool, wait: int, protected: set, out, sleep=time.sleep) -> tuple[list, list]:
+    """One Home videos library per day folder; returns (managed records, problems).
+
+    A plan library is matched by exact name; a match must be Home videos with exactly the day's
+    folder, else it is a problem and left alone. Not there: POST /Library/VirtualFolders (refused
+    -> hand steps). Drifted options are re-applied (POST /Library/VirtualFolders/LibraryOptions).
+    Then each is scanned and verified: items in name order == the day's link paths in plan order.
+    --prune deletes a recorded library whose name left the plan only when the server's library of
+    that exact name has the recorded id, origin is api and the name is not protected."""
+    plan_libs = day_libraries(plan)
+    vfs = jf.get("/Library/VirtualFolders") or []
+    by_name: dict[str, list] = {}
+    for v in vfs:
+        by_name.setdefault(v.get("Name"), []).append(v)
+    recorded = {r["name"]: r for r in old}
+    managed, problems, refused, todo = [], [], [], []
+    for lib in plan_libs:
+        name, path = lib["name"], f"{DAYS_IN_JELLYFIN}/{lib['name']}"
+        found, rec = by_name.get(name, []), recorded.get(name)
+        entry = {"login": lib["login"], "days": lib["days"], "name": name}
+        if len(found) > 1:
+            problems.append(f"Jellyfin has {len(found)} libraries named {name!r}; left alone, delete the extra by hand")
+            continue
+        if found:
+            v = found[0]
+            vid = norm(v.get("ItemId"))
+            if (v.get("CollectionType") or "").lower() != COLLECTION_TYPE or list(v.get("Locations") or []) != [path]:
+                problems.append(f"library {name!r} exists as {v.get('CollectionType')!r} on {v.get('Locations')}, not "
+                                f"Home videos on [{path!r}]; left alone. Fix or delete it by hand, then run again")
+                continue
+            origin = "hand"
+            if rec and rec.get("id") == vid:
+                origin = rec.get("origin", "hand")
+            elif rec:
+                out(f"NOTE library {name!r} has id {vid}, recorded {rec.get('id')}: re-made by hand? recorded as hand")
+            entry.update(id=vid, origin=origin)
+            drift = options_drift(v.get("LibraryOptions") or {})
+            if drift:
+                merged = {**(v.get("LibraryOptions") or {}), **DAY_OPTIONS}
+                try:
+                    jf.write("POST", "/Library/VirtualFolders/LibraryOptions",
+                             f"set day-library options of {name!r} ({', '.join(drift)})", {"Id": vid, "LibraryOptions": merged})
+                except VideoError as e:
+                    jf.actions[-1] += " -- FAILED"
+                    problems.append(f"library {name!r}: could not set its options ({e}); in the dashboard set "
+                                    f"{', '.join(drift)} as in the hand steps")
+        else:
+            if rec:
+                out(f"NOTE recorded library {name!r} ({rec.get('id')}) is gone (deleted by hand?); creating it again")
+            try:
+                jf.write("POST", "/Library/VirtualFolders", f"create library {name!r} (Home videos, {path})",
+                         {"LibraryOptions": DAY_OPTIONS},
+                         params={"name": name, "collectionType": COLLECTION_TYPE, "paths": [path],
+                                 "refreshLibrary": "false"})
+            except VideoError as e:
+                jf.actions[-1] += " -- FAILED"
+                refused.append(lib)
+                problems.append(f"could not create library {name!r}: {e}")
+                continue
+            if not jf.apply:
+                managed.append({**entry, "id": f"dry-{name}", "origin": "api"})
+                continue
+            made = [v for v in jf.get("/Library/VirtualFolders") or [] if v.get("Name") == name]
+            if len(made) != 1 or not ID_RE.match(norm(made[0].get("ItemId"))):
+                problems.append(f"created library {name!r}, but it is not listed once with an id; check the dashboard")
+                continue
+            entry.update(id=norm(made[0]["ItemId"]), origin="api")
+            drift = options_drift(made[0].get("LibraryOptions") or {})
+            if drift:
+                problems.append(f"library {name!r} was created without the options {', '.join(drift)}; set them in "
+                                "the dashboard as in the hand steps")
+        managed.append(entry)
+        todo.append((entry, [f"{path}/{x['name']}" for x in lib["links"]]))
+        sees = [f"{u['Name']} ({'all libraries' if (u.get('Policy') or {}).get('EnableAllFolders') else 'ticked'})"
+                for u in users if (u.get("Policy") or {}).get("EnableAllFolders")
+                or entry["id"] in {norm(x) for x in (u.get("Policy") or {}).get("EnabledFolders") or []}]
+        owner = people[lib["login"]]["Name"]
+        if not any(s.startswith(owner + " (") for s in sees) and jf.apply:
+            out(f"WARN {owner} cannot see library {name!r} (not 'all libraries'); tick it under the user's Library "
+                "access (owner decision: access is otherwise left as it is)")
+        out(f"NOTE library {name!r} is visible to: {', '.join(sees) or 'no account'}")
+    if refused:
+        hand_steps(refused, out)
+    # scan every library, then wait until each holds exactly its day's files
+    for entry, _ in todo:
+        jf.write("POST", f"/Items/{entry['id']}/Refresh", f"scan library {entry['name']!r}",
+                 params={"Recursive": "true", "MetadataRefreshMode": "Default", "ImageRefreshMode": "Default",
+                         "ReplaceAllMetadata": "false", "ReplaceAllImages": "false"})
+    pending = [(e, w) for e, w in todo if not e["id"].startswith("dry-")]
+    got: dict[str, list] = {}
+    for n in range(max(1, wait // POLL) + 1):
+        for e, w in pending:
+            got[e["id"]] = day_items(jf, e["id"])
+        if not jf.apply or all(sorted(p for p, _ in got[e["id"]]) == sorted(w) for e, w in pending):
+            break
+        if n < max(1, wait // POLL):
+            sleep(POLL)
+    for e, w in pending:
+        items = got.get(e["id"], [])
+        paths = [p for p, _ in items]
+        if paths == w:
+            stems = [PurePosixPath(p).stem for p in w]
+            odd = [f"{nm!r} (file {s!r})" for (_, nm), s in zip(items, stems) if nm != s]
+            if odd:
+                out(f"WARN library {e['name']!r}: the order is right, but item name(s) differ from the file name: "
+                    + ", ".join(odd[:3]) + (" ..." if len(odd) > 3 else ""))
+            out(f"ok library {e['name']!r}: {len(w)} item(s) in workout order")
+            continue
+        msg = (f"library {e['name']!r}: {len(paths)} item(s) in name order, not the day's {len(w)} file(s) in "
+               "workout order")
+        if not jf.apply:
+            out(f"NOTE {msg} (yet; the --apply scan updates it)")
+        else:
+            if sorted(paths) == sorted(w):
+                msg += " (the right files, wrong order: is 'Prefer embedded titles' on?)"
+            problems.append(msg)
+    # records whose library left the plan
+    keep = {e["name"] for e in managed}
+    for r in old:
+        if r["name"] in keep:
+            continue
+        if r["name"] in {lib["name"] for lib in plan_libs}:
+            managed.append(r)                 # still planned but had a problem this run: keep the record
+            continue
+        found = by_name.get(r["name"], [])
+        if not found:
+            out(f"NOTE recorded library {r['name']!r} ({r.get('id')}) is gone; dropped from the record")
+            continue
+        if len(found) != 1 or norm(found[0].get("ItemId")) != r.get("id"):
+            out(f"NOTE library {r['name']!r} no longer has the recorded id {r.get('id')}; not ours, never deleted, dropped")
+            continue
+        safe = (r.get("origin") == "api" and r["name"].lower() not in protected | PROTECTED
+                and DAY_LIB_RE.match(r["name"]))
+        if prune and safe:
+            try:
+                jf.write("DELETE", "/Library/VirtualFolders", f"delete library {r['name']!r} ({r['id']}): no longer in the plan",
+                         params={"name": r["name"], "refreshLibrary": "false"})
+            except VideoError as e:
+                jf.actions[-1] += " -- FAILED"
+                problems.append(f"could not delete library {r['name']!r}: {e}")
+                managed.append(r)
+            continue
+        if prune:
+            why = "was made by hand" if r.get("origin") != "api" else "is not a day-library name the tool may delete"
+            out(f"EXTRA library {r['name']!r} {why}; the tool never deletes it: delete it in the dashboard if it "
+                "should go, the next run drops the record")
+        else:
+            out(f"EXTRA library {r['name']!r} is no longer in the plan; --prune deletes it")
+        managed.append(r)
+    return managed, problems
+
+
 def load_videos(path: Path = VIDEOS) -> dict:
     if not path.exists():
-        return {"items": {}, "playlists": []}
+        return {"items": {}, "playlists": [], "libraries": []}
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def write_videos(path: Path, items: dict, playlists: list, base: str) -> None:
+def write_videos(path: Path, items: dict, playlists: list, base: str, libraries: list | None = None) -> None:
     doc = {"_comment": HEADER, "base_url": base, "items": dict(sorted(items.items())),
-           "playlists": sorted(playlists, key=lambda p: (p["login"], DAY_TAGS.index(p["days"][0])))}
+           "playlists": sorted(playlists, key=lambda p: (p["login"], DAY_TAGS.index(p["days"][0]))),
+           "libraries": sorted(libraries or [], key=lambda p: p["name"])}
     path.write_text(json.dumps(doc, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 
 
@@ -703,7 +1090,10 @@ def cmd_jellyfin(args, plan: dict, out, sleep=time.sleep, videos_path: Path | No
         out("WARN JELLYFIN_API_KEY is not set: offline dry run (no server checks). Planned playlists:")
         for pl in pls:
             out(f"  {pl['name']} ({pl['login']}): " + ", ".join(pl["keys"]))
-        out(f"{len(want)} file(s) expected in the library, {len(pls)} playlist(s)")
+        out("Planned day libraries (Home videos, one per day folder):")
+        for lib in day_libraries(plan):
+            out(f"  {lib['name']} -> {DAYS_IN_JELLYFIN}/{lib['name']}: " + ", ".join(x["name"] for x in lib["links"]))
+        out(f"{len(want)} file(s) expected in the library, {len(pls)} playlist(s), {len(pls)} day librar(ies)")
         return 0
     actions: list[str] = []
     jf = Jellyfin(os.environ.get("JELLYFIN_URL") or DEFAULT_URL, key, args.apply, actions)
@@ -748,29 +1138,38 @@ def cmd_jellyfin(args, plan: dict, out, sleep=time.sleep, videos_path: Path | No
         for a in actions:
             out(f"{'did' if args.apply else 'would'}: {a}")
         if args.apply:
-            write_videos(videos_path, mapping, managed, LINK_BASE)
+            write_videos(videos_path, mapping, managed, LINK_BASE, old.get("libraries") or [])
             out(f"wrote {videos_path.name} before stopping: {len(mapping)} item id(s), {len(managed)} verified "
                 "playlist(s); fix the error below and run again")
         raise
-    changed = mapping != old.get("items") or managed != old.get("playlists") or old.get("base_url") != LINK_BASE
+    libraries, lib_problems = sync_day_libraries(jf, plan, users, people, old.get("libraries") or [], args.prune,
+                                                 args.wait, {args.library.lower()}, out, sleep)
+    changed = (mapping != old.get("items") or managed != old.get("playlists") or old.get("base_url") != LINK_BASE
+               or libraries != (old.get("libraries") or []))
     for a in actions:
         out(f"{'did' if args.apply else 'would'}: {a}")
     if args.apply:
         if changed:
-            write_videos(videos_path, mapping, managed, LINK_BASE)
-            out(f"wrote {videos_path.name}: {len(mapping)} item id(s), {len(managed)} playlist(s); commit it, "
-                "then gen_wger.py --apply")
+            write_videos(videos_path, mapping, managed, LINK_BASE, libraries)
+            out(f"wrote {videos_path.name}: {len(mapping)} item id(s), {len(managed)} playlist(s), "
+                f"{len(libraries)} day librar(ies); commit it, then gen_wger.py --apply")
         else:
             out(f"{videos_path.name} unchanged")
     else:
         out(f"{len(actions)} write(s) planned (dry run; add --apply)"
             + (f"; {videos_path.name} would change" if changed else ""))
+    rc = 0
     if problems:
         out(f"ERROR {len(problems)} old playlist(s) not removed (the new ones are made and recorded):")
         for p in problems:
             out(f"  {p}")
-        return 1
-    return 0
+        rc = 1
+    if lib_problems:
+        out(f"ERROR {len(lib_problems)} day-library problem(s):")
+        for p in lib_problems:
+            out(f"  {p}")
+        rc = 1
+    return rc
 
 
 # ---------------------------------------------------------------- main
@@ -780,6 +1179,8 @@ def main(argv: list[str] | None = None, plan_path: Path = PLAN, shell: Shell | N
     sub = ap.add_subparsers(dest="cmd", required=True)
     d = sub.add_parser("download", help="yt-dlp the plan videos onto the media share")
     d.add_argument("--dir", default=MEDIA_DIR, help=f"library directory on the media host (default {MEDIA_DIR})")
+    d.add_argument("--days-dir", default=DAYS_DIR,
+                   help=f"day folders of hardlinks on the media host (default {DAYS_DIR})")
     d.add_argument("--host", help="run on this ssh host (e.g. kdkadmin@10.1.20.20) instead of locally")
     d.add_argument("--docker", default="sudo -n docker", help="docker command (default 'sudo -n docker')")
     d.add_argument("--refetch", action="append", metavar="KEY",

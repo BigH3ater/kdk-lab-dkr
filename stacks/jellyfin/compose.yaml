@@ -67,6 +67,13 @@ services:
       # docker cannot create it. Check: ssh kdkadmin@192.168.191.20 'ls -ld /mnt/media/exercise'.
       # docs/runbooks/exercise-videos.md step 0.
       - /mnt/media/exercise:/data/media/exercise:ro
+      # Exercise day folders (owner decision 2026-11-14, "option B"): one folder of HARDLINKS
+      # "<NN> <exercise>.mp4" per person and day, one Jellyfin library each, because the Apple TV
+      # client (Neptune) plays neither playlists nor folders, only a flat library sorted by name.
+      # Made by exercise_videos.py download on kdk-dkr-01. Same rule as above: the source dir must
+      # exist BEFORE the merge (it does since 2026-11-14). Check:
+      # ssh kdkadmin@192.168.191.20 'ls -ld /mnt/media/exercise-days'. Runbook "Day libraries".
+      - /mnt/media/exercise-days:/data/media/exercise-days:ro
     # Transcode scratch on a RAM disk. Mounted AT Jellyfin's real transcode temp
     # path (this version defaults TranscodingTempPath to <cache>/transcodes =
     # /config/cache/transcodes -- verified from the FFmpeg.Transcode logs), so it

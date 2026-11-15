@@ -25,6 +25,7 @@ import exercise_videos as ev  # noqa: E402
 PLAN = ev.load_plan()
 VIDEO_KEYS = {k for k, ex in PLAN["exercises"].items() if ex["video"] is not None}   # treadmill-walk has none
 LOC = "/data/media/exercise"
+DAYS_LOC = "/data/media/exercise-days"
 LIB = "a" * 32
 JMACK, RACH, OTHER, ADMIN = "1" * 32, "2" * 32, "3" * 32, "4" * 32
 
@@ -141,10 +142,16 @@ class FakeShell:
     and leaves a .part file in .incoming. silent: keys whose run exits 0 without a file."""
 
     TMP = f"/mnt/media/exercise/{ev.INCOMING}"
+    DAYS = ev.DAYS_DIR
 
     def __init__(self, files=None, exists=True, fail=None, silent=(), incoming=None, link=False,
-                 sizes=None, mv_fails=False):
+                 sizes=None, mv_fails=False, days=None, days_exists=True):
         self.files = set(files or [])
+        self.ino = {}                                                   # file -> inode (lazy; a mv gets a new one)
+        self.next_ino = 1000
+        self.days = {k: dict(v) for k, v in (days or {}).items()}       # folder -> {file: (type, inode)}
+        self.days_top = {k: "d" for k in self.days}                     # top-level name -> find %y type
+        self.days_exists = days_exists
         self.exists = exists
         self.calls = []
         self.fail = dict(fail or {})
@@ -155,9 +162,69 @@ class FakeShell:
         self.mv_fails = mv_fails
         self.replaced = []                                              # files a mv overwrote
 
+    def inode(self, f):
+        if f not in self.ino:
+            self.next_ino += 1
+            self.ino[f] = str(self.next_ino)
+        return self.ino[f]
+
+    def links(self):
+        """{folder: [file names]} of the hardlinks (type f) in the day folders."""
+        return {d: sorted(f for f, (t, _) in fs.items() if t == "f") for d, fs in self.days.items()}
+
+    def days_call(self, argv):
+        """find/test/mkdir/ln/rm/rmdir inside the day folders dir; None when argv is not one of those."""
+        D = self.DAYS
+        if argv[0] == "find" and argv[1] == D:
+            if not self.days_exists:
+                return 1, ""
+            lines = [f"{t}\t77\t{d}" for d, t in self.days_top.items()]
+            for d, fs in self.days.items():
+                lines += [f"{t}\t{i}\t{d}/{f}" for f, (t, i) in fs.items()]
+            return 0, "".join(x + "\n" for x in sorted(lines))
+        if argv[0] == "test" and argv[-1] == D:
+            return (0 if self.days_exists else 1), ""
+        if argv[0] == "find" and argv[-1] == "%i\\t%f\\n":
+            if not self.exists:
+                return 1, ""
+            return 0, "".join(f"{self.inode(f)}\t{f}\n" for f in sorted(self.files))
+        paths = [a for a in argv[1:] if a.startswith(D)]
+        if not paths:
+            return None
+        for a in paths:                                                 # never outside the day folders dir
+            assert a == D or (a.startswith(D + "/") and ".." not in a.split("/")), argv
+        rel = paths[-1][len(D) + 1:].split("/") if paths[-1] != D else []
+        if argv[:3] == ["mkdir", "-p", "--"]:
+            if not rel:
+                self.days_exists = True
+            else:
+                assert len(rel) == 1, argv
+                self.days_top[rel[0]] = "d"
+                self.days.setdefault(rel[0], {})
+        elif argv[:3] == ["ln", "-fT", "--"]:
+            src = argv[3]
+            assert str(Path(src).parent) == "/mnt/media/exercise" and Path(src).name in self.files, argv
+            assert len(rel) == 2 and self.days_top.get(rel[0]) == "d", argv
+            self.days[rel[0]][rel[1]] = ("f", self.inode(Path(src).name))
+        elif argv[:3] == ["rm", "-f", "--"]:
+            assert len(rel) == 2, argv
+            self.days[rel[0]].pop(rel[1], None)
+        elif argv[:2] == ["rmdir", "--"]:
+            assert len(rel) == 1 and not self.days[rel[0]], argv
+            del self.days[rel[0]], self.days_top[rel[0]]
+        else:
+            raise AssertionError(argv)
+        return 0, ""
+
     def __call__(self, argv, check=True):
         self.calls.append(argv)
         rc, out, err = 0, "", ""
+        d = self.days_call(argv)
+        if d is not None:
+            p = subprocess.CompletedProcess(argv, d[0], d[1], "")
+            if check and d[0]:
+                raise ev.VideoError("failed")
+            return p
         tmp = len(argv) > 1 and argv[-1] == self.TMP
         in_tmp = len(argv) > 1 and argv[-1].startswith(self.TMP + "/")
         if argv[0] == "find" and argv[1] == self.TMP:
@@ -187,6 +254,7 @@ class FakeShell:
                 if Path(dst).name in self.files:
                     self.replaced.append(Path(dst).name)
                 self.files.add(Path(dst).name)
+                self.ino.pop(Path(dst).name, None)                      # a new file: a new inode
         elif argv[0] == "mkdir":
             self.exists = True
         elif argv[0] == "rm" and argv[1] == "-rf":
@@ -221,7 +289,8 @@ class FakeShell:
         return p
 
     def writes(self):
-        return [c for c in self.calls if c[0] in ("mkdir", "rm", "mv") or ("run" in c and "--entrypoint" not in c)]
+        return [c for c in self.calls if c[0] in ("mkdir", "rm", "mv", "ln", "rmdir")
+                or ("run" in c and "--entrypoint" not in c)]
 
     def runs(self, key=None):
         return [c for c in self.calls if "run" in c and (key is None or c[-2].startswith(key + " "))]
@@ -507,9 +576,38 @@ class FakeJellyfin:
         self.share_on_create = None    # a user id the server adds as a share on create (a bad server)
         self.fail_create = set()       # playlist names whose create answers 500 once
         self.fail_delete = set()       # item ids whose DELETE /Items/{id} answers 500
+        # day libraries: the day folders as the container sees them, the virtual folders, their items
+        self.day_disk = {lib["name"]: [x["name"] for x in lib["links"]] for lib in ev.day_libraries(PLAN)}
+        self.vlibs = {}                # name -> VirtualFolderInfo (beside Exercise and Movies)
+        self.day_items = {}            # library id -> [paths] (after a scan)
+        self.deny_create = None        # HTTP status POST /Library/VirtualFolders answers (an API key refused)
+        self.drop_options = False      # the server ignores the LibraryOptions of a create
+        self.embedded_override = False  # the server names items by embedded title whatever the option says
 
     def scan(self):
         self.items = {iid(f"{LOC}/{f}"): f"{LOC}/{f}" for f in self.disk}
+
+    def add_vlib(self, name, location=None, ctype="homevideos", **opts):
+        lid = hashlib.md5(f"lib:{name}".encode()).hexdigest()
+        self.vlibs[name] = {"Name": name, "CollectionType": ctype, "ItemId": lid,
+                            "Locations": [location or f"{DAYS_LOC}/{name}"],
+                            "LibraryOptions": {**ev.DAY_OPTIONS, **opts}}
+        return lid
+
+    def day_lib(self, lid):
+        return next((v for v in self.vlibs.values() if v["ItemId"] == lid), None)
+
+    def lib_items(self, lid):
+        """What GET /Items?ParentId= gives for a day library: name from the file name, or with
+        'prefer embedded titles' on the embedded title (the plain exercise name); name sort."""
+        v = self.day_lib(lid)
+        embedded = v["LibraryOptions"].get("EnableEmbeddedTitles") or self.embedded_override
+        out = []
+        for path in self.day_items.get(lid, []):
+            stem = Path(path).stem
+            name = stem.split(" ", 1)[1] if embedded else stem
+            out.append({"Id": iid(path), "Path": path, "Name": name, "SortName": name.lower(), "Type": "Video"})
+        return sorted(out, key=lambda x: x["SortName"])
 
     def handle(self, method, url, headers, params=None, json=None):
         assert headers.get("Authorization") == f'MediaBrowser Token="{self.KEY}"'
@@ -522,15 +620,47 @@ class FakeJellyfin:
             return Resp(200, self.users)
         if (method, path) == ("GET", "/Library/VirtualFolders"):
             return Resp(200, [self.lib, {"Name": "Movies", "CollectionType": "movies", "ItemId": "b" * 32,
-                                         "Locations": ["/data/media/movies"]}])
+                                         "Locations": ["/data/media/movies"]}, *copy.deepcopy(list(self.vlibs.values()))])
+        if (method, path) == ("POST", "/Library/VirtualFolders"):
+            name, paths = params["name"], params["paths"]
+            assert params["collectionType"] == "homevideos" and params["refreshLibrary"] == "false"
+            assert isinstance(paths, list) and len(paths) == 1 and set(json) == {"LibraryOptions"}
+            if self.deny_create:
+                return Resp(self.deny_create, {"detail": "Forbidden"})
+            if name in self.vlibs or name in ("Exercise", "Movies"):
+                return Resp(400, {"detail": "A media library with that name already exists"})
+            if not paths[0].startswith(DAYS_LOC + "/") or paths[0][len(DAYS_LOC) + 1:] not in self.day_disk:
+                return Resp(400, {"detail": "The path does not exist"})
+            lid = self.add_vlib(name, paths[0])
+            self.vlibs[name]["LibraryOptions"] = {} if self.drop_options else copy.deepcopy(json["LibraryOptions"])
+            return Resp(204)
+        if (method, path) == ("DELETE", "/Library/VirtualFolders"):
+            assert params["refreshLibrary"] == "false" and params["name"] in self.vlibs, params
+            lid = self.vlibs.pop(params["name"])["ItemId"]
+            self.day_items.pop(lid, None)
+            return Resp(204)
+        if (method, path) == ("POST", "/Library/VirtualFolders/LibraryOptions"):
+            v = self.day_lib(json["Id"])
+            assert v is not None, json
+            v["LibraryOptions"] = copy.deepcopy(json["LibraryOptions"])
+            return Resp(204)
         if method == "POST" and parts[0] == "Items" and parts[2:] == ["Refresh"]:
-            assert parts[1] == LIB and params["Recursive"] == "true"
-            self.scan()
+            assert params["Recursive"] == "true"
+            if parts[1] == LIB:
+                self.scan()
+            else:
+                v = self.day_lib(parts[1])
+                assert v is not None, parts
+                loc = v["Locations"][0]
+                self.day_items[parts[1]] = [f"{loc}/{f}" for f in self.day_disk.get(Path(loc).name, [])]
             return Resp(204)
         if (method, path) == ("GET", "/Items"):
             if params.get("IncludeItemTypes") == "Playlist":
                 return Resp(200, {"Items": [{"Id": k, "Name": p["name"]} for k, p in self.playlists.items()
                                             if self.visible(p, params["userId"])]})
+            if self.day_lib(params["ParentId"]) is not None:
+                assert params["SortBy"] == "SortName"
+                return Resp(200, {"Items": self.lib_items(params["ParentId"])})
             assert params["ParentId"] == LIB
             return Resp(200, {"Items": [{"Id": k, "Path": v, "Type": "Video"} for k, v in sorted(self.items.items())]})
         if method == "GET" and parts[0] == "Items" and len(parts) == 2:
@@ -616,6 +746,12 @@ def jrun(*args, videos):
     return ev.main(["jellyfin", *args], sleep=lambda s: None, videos_path=videos)
 
 
+def scans_only(jf):
+    """True when every write was a library scan (Exercise + the day libraries): an idempotent run."""
+    return all(w[0] == "POST" and w[1].endswith("/Refresh") for w in jf.writes) and \
+        [w[1] for w in jf.writes][:1] == [f"/Items/{LIB}/Refresh"]
+
+
 def test_jellyfin_offline_dry_run_without_key(monkeypatch, videos, capsys):
     monkeypatch.delenv("JELLYFIN_API_KEY", raising=False)
     assert jrun(videos=videos) == 0
@@ -665,7 +801,7 @@ def test_second_run_writes_nothing_but_the_scan(jf, videos, capsys):
     first = videos.read_text()
     jf.writes.clear()
     assert jrun("--apply", videos=videos) == 0
-    assert [w[1] for w in jf.writes] == [f"/Items/{LIB}/Refresh"]
+    assert scans_only(jf) and len(jf.writes) == 1 + 8
     assert videos.read_text() == first and "unchanged" in capsys.readouterr().out
 
 
@@ -688,7 +824,7 @@ def test_drifted_playlist_is_recreated_not_updated(jf, videos, capsys):
     assert pid not in jf.playlists
     (new, npl), = [(k, p) for k, p in jf.playlists.items() if p["name"] == "Jacob · 2 Wed Upper A"]
     assert npl["ids"] == want and npl["owner"] == JMACK and not npl["public"] and npl["shares"] == []
-    pw = [(w[0], w[1]) for w in jf.writes if w[1] != f"/Items/{LIB}/Refresh"]
+    pw = [(w[0], w[1]) for w in jf.writes if not w[1].endswith("/Refresh")]
     assert pw == [("DELETE", f"/Items/{pid}"), ("POST", "/Playlists")]          # never POST /Playlists/{id}
     rec = next(x for x in json.loads(videos.read_text())["playlists"] if x["name"] == "Jacob · 2 Wed Upper A")
     assert rec["id"] == new
@@ -910,7 +1046,7 @@ def test_old_named_playlists_are_replaced(jf, videos, capsys, filled):
            "'Jacob · 1 Mon Lower A'" in out
     jf.writes.clear()                                                          # second run: no writes
     assert jrun("--apply", videos=videos) == 0
-    assert [w[1] for w in jf.writes] == [f"/Items/{LIB}/Refresh"]
+    assert scans_only(jf)
     assert "unchanged" in capsys.readouterr().out
 
 

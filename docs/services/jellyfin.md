@@ -28,7 +28,7 @@ Media server on the DMZ node with Intel Arc A380 QSV transcode; **public again s
 | Image | `ghcr.io/linuxserver/jellyfin:12.3ubu2604-ls56` — 12.x line, pinned; server and plugins move together |
 | Hardening | compose baseline: `cap_drop: [ALL]` + `cap_add` CHOWN/SETUID/SETGID/DAC_OVERRIDE/FOWNER/KILL (s6 init), `no-new-privileges`, `mem_limit 10g` (includes the 6G transcode tmpfs), `pids_limit 2048`, `/health` healthcheck; exceptions `devices` (/dev/dri) and skip `read_only` (s6) |
 | Deploy | Komodo stack `jellyfin` (git-linked) |
-| Storage | `/opt/kdk-lab/jellyfin/config` on local disk (DB, cache, plugins; byte-for-byte from k3s); images/metadata on NFS `/mnt/appdata/jellyfin/metadata` → `/config/data/metadata`; library RO from `/mnt/media` (`tv`, `movies`, and since 2026-11-14 `exercise` → `/data/media/exercise`) |
+| Storage | `/opt/kdk-lab/jellyfin/config` on local disk (DB, cache, plugins; byte-for-byte from k3s); images/metadata on NFS `/mnt/appdata/jellyfin/metadata` → `/config/data/metadata`; library RO from `/mnt/media` (`tv`, `movies`, and since 2026-11-14 `exercise` → `/data/media/exercise` and `exercise-days` → `/data/media/exercise-days`) |
 | Blast radius | No streaming; requests via Seerr still queue |
 
 ## Verify
@@ -93,6 +93,8 @@ Listens on `8096`, joins `proxy-dmz`. `/dev/dri` gives QSV. Library mounted read
 
 Since 2026-11-14 there is an **Exercise** library (Home videos, metadata fetchers off, embedded titles preferred) on `/data/media/exercise`, one flat folder of the exercise-plan videos. For now it is visible to **every account** (owner decision 2026-11-14; the SSO and LDAP plugins still grant *all folders*). jmack and rach each have one playlist per training day, private: owned by that person, not public, no shares. The wger `Video:` lines link to its items. The files are downloaded with yt-dlp on kdk-dkr-01 and the playlists are made by `stacks/home-assistant/tools/exercise_videos.py`, with its own API key `kdk-cluster/jellyfin-api-exercise-videos` (`credential`). Every run stops if jmack or rach cannot see the library, names any other account that can (a note, not an error), and after each playlist write checks, as every other account, that it cannot see the playlist (an API key cannot read or update a playlist directly, so a wrong playlist is deleted and created again). Hiding the library later needs per-user *Access* settings **and** both plugins no longer granting *all folders*: the SSO plugin re-grants every library at each SSO login, and the LDAP plugin gives new accounts all folders. Setup, the third-account check and rollback: [exercise-videos runbook](../runbooks/exercise-videos.md).
 
+**Day libraries (option B, 2026-11-14).** The Apple TV client (Neptune 1.4.3) cannot play a playlist (it asks PlaybackInfo for the playlist item itself, and the server answers "has no media sources") and does not show folders (it flattens a library into one name-sorted grid). So each person's training day is also its own **Home videos library**, e.g. `Jacob · 1 Mon Lower A`, `Rachel · 2 Tue-Fri Cardio`: 8 libraries on `/data/media/exercise-days/<name>`. Each folder holds hardlinks `01 Dumbbell Goblet Squat.mp4`, … to the Exercise files (same NFS filesystem, no extra space). The libraries have metadata/image fetchers off, *Prefer embedded titles* **off** (the item name is the file name, so the name sort is the workout order), and no trickplay. The same tool makes the links (`download`) and the libraries (`jellyfin`), records the library ids in `wger_videos.json` (`libraries`), and verifies the item order. Access is unchanged: every account that has *all libraries* sees them.
+
 ## SSO
 
 Added in batch 5b (2026-10-28). Install and settings: [[jellyfin-sso]].
@@ -109,7 +111,7 @@ Added in batch 5b (2026-10-28). Install and settings: [[jellyfin-sso]].
 
 | Secret (1P item) | Used for | Class | Rotate live? |
 |---|---|---|---|
-| `kdk-cluster/jellyfin-api-exercise-videos` (`credential`) | `exercise_videos.py jellyfin` (scan, playlists), read only when run by hand | 🟢 self-service | yes: new key in Dashboard → API Keys, `op item edit`, delete the old key |
+| `kdk-cluster/jellyfin-api-exercise-videos` (`credential`) | `exercise_videos.py jellyfin` (scan, playlists, day libraries), read only when run by hand | 🟢 self-service | yes: new key in Dashboard → API Keys, `op item edit`, delete the old key |
 | `kdk-cluster/jellyfin-oidc` (`password`) | SSO plugin client secret (plaintext in the plugin config; pbkdf2 digest in Authelia's `jellyfin_client_secret`) | 🟡 SSO breaks until both sides match | yes: regenerate in 1P, re-run the hash step in [[jellyfin-sso]], `RestartStack identity services=[authelia]`, paste the new plaintext into the plugin. Password and Quick Connect logins are unaffected meanwhile |
 
 User passwords are LLDAP's (LDAP plugin).
