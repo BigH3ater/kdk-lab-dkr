@@ -1343,3 +1343,94 @@ def test_download_and_probe_never_talk_to_jellyfin(monkeypatch, capsys):
     monkeypatch.setattr(requests, "Session", lambda: (_ for _ in ()).throw(AssertionError("no Jellyfin")))
     assert dl(shell=FakeShell(files=names())) == 0
     assert dl("--probe", shell=FakeShell(files=names())) == 0
+
+
+# ---------------------------------------------------------------- the link library: visible to everyone who does it
+def lib_id(name):
+    return hashlib.md5(f"lib:{name}".encode()).hexdigest()       # FakeJellyfin.add_vlib's id
+
+
+def libs_with(key, login=None):
+    return [x["name"] for x in ev.day_libraries(PLAN)
+            if key in {y["key"] for y in x["links"]} and (login is None or x["login"] == login)]
+
+
+def live_access(jf):
+    """As on the live server: jmack all libraries, rach only her own four day libraries ticked."""
+    jf.users[0]["Policy"]["EnableAllFolders"] = True
+    jf.users[1]["Policy"]["EnabledFolders"] = [lib_id(n) for n in libs_with_login("rach")] + ["b" * 32]
+
+
+def libs_with_login(login):
+    return [x["name"] for x in ev.day_libraries(PLAN) if x["login"] == login]
+
+
+def doers(key):
+    return {x["login"] for x in ev.day_libraries(PLAN) if key in {y["key"] for y in x["links"]}}
+
+
+def test_a_shared_exercise_links_to_the_library_both_can_see(jf, videos, capsys):
+    live_access(jf)
+    assert jrun("--apply", videos=videos) == 0
+    out = capsys.readouterr().out
+    items = json.loads(videos.read_text())["items"]
+    shared = sorted(k for k in VIDEO_KEYS if doers(k) == {"jmack", "rach"})
+    assert shared == ["db-rdl"]
+    want = libs_with("db-rdl", "rach")[0]                          # jmack sees all, rach only hers
+    assert items["db-rdl"]["library"] == want and want.startswith("Rachel · ")
+    lib = next(x for x in ev.day_libraries(PLAN) if x["name"] == want)
+    f = next(y["name"] for y in lib["links"] if y["key"] == "db-rdl")
+    assert items["db-rdl"]["id"] == iid(f"{DAYS_LOC}/{want}/{f}")
+    assert "WARN rach does db-rdl" not in out and "cannot see library" not in out
+
+
+def test_no_library_visible_to_all_falls_back_to_the_first_and_warns(jf, videos, capsys):
+    jf.users[0]["Policy"]["EnabledFolders"] = [lib_id(n) for n in libs_with_login("jmack")]   # each only their own
+    jf.users[1]["Policy"]["EnabledFolders"] = [lib_id(n) for n in libs_with_login("rach")]
+    assert jrun("--apply", videos=videos) == 0
+    out = capsys.readouterr().out
+    items = json.loads(videos.read_text())["items"]
+    assert items["db-rdl"]["library"] == libs_with("db-rdl")[0] == first_library("db-rdl")[0]
+    assert f"WARN rach does db-rdl but cannot see library {libs_with('db-rdl')[0]!r}" in out
+    assert "WARN jmack does" not in out
+
+
+def test_one_person_exercises_ignore_the_other_persons_access(jf, videos):
+    runs = []
+    for other_sees_all in (False, True):
+        jf.users[0]["Policy"]["EnableAllFolders"] = True
+        jf.users[1]["Policy"]["EnableAllFolders"] = other_sees_all
+        jf.users[1]["Policy"]["EnabledFolders"] = [lib_id(n) for n in libs_with_login("rach")]
+        assert jrun("--apply", videos=videos) == 0
+        runs.append(json.loads(videos.read_text())["items"])
+    single = [k for k in VIDEO_KEYS if len(doers(k)) == 1]
+    assert single and all(runs[0][k] == runs[1][k] for k in single)
+    for k in single:                                              # their own first library, plan order
+        assert runs[0][k]["library"] == libs_with(k)[0]
+    # rach-only exercises also ignore jmack's access
+    jf.users[0]["Policy"]["EnableAllFolders"] = False
+    jf.users[0]["Policy"]["EnabledFolders"] = []
+    assert jrun("--apply", videos=videos) == 0
+    after = json.loads(videos.read_text())["items"]
+    assert all(after[k] == runs[0][k] for k in single if doers(k) == {"rach"})
+
+
+def test_a_link_that_moves_library_is_shown(jf, videos, capsys):
+    assert jrun("--apply", videos=videos) == 0                    # fake default: nobody sees the day libraries
+    old = json.loads(videos.read_text())["items"]["db-rdl"]["library"]
+    assert old.startswith("Jacob · ")
+    capsys.readouterr()
+    live_access(jf)
+    before = videos.read_text()
+    jf.writes.clear()
+    assert jrun(videos=videos) == 0                               # dry run: shown, nothing written
+    out = capsys.readouterr().out
+    new = libs_with("db-rdl", "rach")[0]
+    assert f"NOTE db-rdl: wger link moves from library {old!r} to {new!r}" in out
+    assert jf.writes == [] and videos.read_text() == before
+    assert jrun("--apply", videos=videos) == 0
+    assert json.loads(videos.read_text())["items"]["db-rdl"]["library"] == new
+    capsys.readouterr()
+    assert jrun("--apply", videos=videos) == 0                    # settled: no move, unchanged
+    out = capsys.readouterr().out
+    assert "moves from" not in out and "wger_videos.json unchanged" in out

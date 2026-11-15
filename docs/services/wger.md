@@ -31,7 +31,8 @@ exercise names, sets, reps, start weights, rest and movement cues (owner, 2026-1
 only**, each named by uuid. The generator replaces each used built-in's English description
 with How / Safety cues and a `Video:` line (plain address: wger has no link field). The
 address is the video's page in a Jellyfin **day library** (one per person and training day; one link per
-exercise, to the first day library that has it: jmack's before rach's, then weekday order)
+exercise, to the first day library that has it and that everyone who does it can see: jmack's
+before rach's, then weekday order)
 (`https://jellyfin.kmkdp.com/web/#/details?id=<item id>`, from the committed
 `tools/wger_videos.json`); the plan keeps the YouTube address (a physical therapist or
 certified coach channel) as the download source ([exercise-videos runbook](../runbooks/exercise-videos.md)).

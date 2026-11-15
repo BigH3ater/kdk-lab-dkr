@@ -32,18 +32,25 @@ name sort shows week order; with 10 or more the tool zero-pads it (`01`, `02`, �
 
 **The wger link.** The `Video:` line in each wger exercise description points at one
 Jellyfin item: `https://jellyfin.kmkdp.com/web/#/details?id=<item id>`. A wger
-description is shared by both people, so there is **one link per exercise**. It is the
-exercise's item in the **first** day library that has it: people in plan order (jmack,
-then rach), then weekday order. The same hostname works on the LAN, on the tailnet and
-through the Cloudflare tunnel. The YouTube address stays in the plan file as the download
-source.
+description is shared by both people, so there is **one link per exercise**. The tool
+looks at the day libraries that have the exercise in a fixed order: people in plan order
+(jmack, then rach), then weekday order. It takes the **first one that everyone who does
+the exercise can see** (*all libraries*, or the library ticked). If none is visible to all
+of them, it takes the first one and prints a `WARN`. The same hostname works on the LAN, on
+the tailnet and through the Cloudflare tunnel. The YouTube address stays in the plan file
+as the download source.
 
-**Known limit.** An exercise both people do (today only the dumbbell Romanian deadlift,
-`db-rdl`) links to jmack's day library. The link works for Rachel only while she can see
-that library. Today she cannot (she has only her own day libraries ticked), so each
-`jellyfin` run prints `WARN rach does db-rdl but cannot see library 'Jacob · 1 Mon Lower A' ...`.
-Her playlist and her own day library still have the video. To fix the link for her, tick
-that library under her Library access.
+Today only one exercise is done by both people: the dumbbell Romanian deadlift (`db-rdl`).
+jmack sees all libraries and Rachel sees her own four, so its link is in Rachel's day
+library. An exercise only one person does always links to that person's first day with it.
+
+**Known limit.** The choice follows account access. If access changes (for example Rachel
+loses a library), a link can move to another library. The run never does that silently:
+it prints `NOTE <key>: wger link moves from library '<old>' to '<new>'` (in the dry run
+too), and `gen_wger.py --apply` then updates the description. If no library with the
+exercise is visible to everyone who does it, the link goes to the first one and the run
+prints `WARN <login> does <key> but cannot see library ...`. That person's playlist and own
+day library still have the video.
 
 Nothing here is scheduled and no service is added. After a plan change, run the steps in
 [After a plan change](#after-a-plan-change) by hand.
@@ -281,10 +288,12 @@ What one run does, in order:
    Drifted options are set again. Each library is scanned and checked: its items, sorted
    by name, must be exactly the day's files in workout order (`ok library '<name>': n
    item(s) in workout order`).
-2. **Item ids.** Each exercise's id is its item in the first day library that has it
-   (people in plan order, then weekday order). If that library does not list the item,
-   the exercise is `MISSING`. There is no fallback to a later library, so the link never
-   moves between runs. With `--apply`, a `MISSING` exercise stops the run before the
+2. **Item ids.** Each exercise's id is its item in the first day library that has it and
+   that everyone who does it can see (people in plan order, then weekday order; none
+   visible to all: the first one, with a `WARN`). If that library does not list the item,
+   the exercise is `MISSING`. There is no fallback to another library, so a scan never
+   moves a link; only a change in access does, and that is printed as a `NOTE ... moves
+   from ... to ...`. With `--apply`, a `MISSING` exercise stops the run before the
    playlists: `wger_videos.json` keeps its old item ids and records the day libraries.
 3. **Playlists.** Each playlist holds the items of that person's own day library, in
    workout order.
@@ -513,7 +522,8 @@ and `gen_wger.py --check` fails on it. Use it in a routine, or set its `video` t
 | `ERROR n of 46 video(s) not created`, a file marked `yt-dlp exited 0 but the file is not there` | yt-dlp wrote it under a different name or not at all. Check the run's output for that file and `ls -la /mnt/media/exercise/.incoming` on kdk-dkr-01. |
 | `jellyfin`: `MISSING <key>: <library>/<NN> <name>.mp4 is not an item in that day library`, exit 2 | The day link is not on the share (run `download --apply`) or the scan has not finished (run `jellyfin --apply` again). `wger_videos.json` keeps its old item ids. |
 | `jellyfin`: `WARN <key> has a video but no day uses it` | See the end of *After a plan change*. |
-| `jellyfin`: `WARN rach does db-rdl but cannot see library 'Jacob · …'` | Expected (*Known limit*). Tick that library under rach's Library access if her wger link should work. |
+| `jellyfin`: `WARN <login> does <key> but cannot see library '…'` | No day library with that exercise is visible to everyone who does it (*Known limit*). Tick one of them for that person under Library access; the next run moves the link there (`NOTE ... moves from ...`). |
+| `jellyfin`: `NOTE <key>: wger link moves from library '<old>' to '<new>'` | Account access changed, so another library is now the first one everyone can see. Expected after an access change. Run `--apply`, commit `wger_videos.json`, then `gen_wger.py --apply`. |
 | `jellyfin`: `ERROR not removing library 'Exercise': ...`, exit 1 | `--remove-main-library` refused: its folder is not exactly `/data/media/exercise`, there are two libraries of that name, or an exercise has no day-library item. Nothing was deleted. Fix the cause (or remove it by hand in the dashboard if it really is the old library), then run again. |
 | `jellyfin`: `could not delete library 'Exercise'` + `HAND STEPS` | The key may not delete libraries. Remove it in the dashboard as printed; the files stay. |
 | `jellyfin`: `ERROR GET /Playlists/<id>: HTTP 400 Error processing request.` | An older tool version. With an API key that call has no user and always fails; the current tool never calls it. Update the checkout and run again. |

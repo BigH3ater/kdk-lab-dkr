@@ -57,10 +57,12 @@ jellyfin, in this order:
    prints the hand steps and adopts the library on the next run (exact name, type and folder).
    Each one is scanned and verified: its items sorted by name are exactly the day's files in plan
    order. Access is left as it is (owner decision): a NOTE names who can see each library.
-2. ITEM IDS: an exercise's item id (the wger Video: line) is its item in the FIRST day library
-   that has it, people in plan order, then weekday order (a wger description is shared by both
-   people, so there is one link per exercise). The library is recorded with the id. A WARN names
-   a plan person who uses the exercise but cannot see that library.
+2. ITEM IDS: an exercise's item id (the wger Video: line) is its item in the first day library
+   that has it AND that every plan person who does it can see, in a fixed order: people in plan
+   order, then weekday order (a wger description is shared by both people, so there is one link
+   per exercise). If none is visible to all of them, the first library, and a WARN names who
+   cannot open it. The library is recorded with the id; a link that moves library since the last
+   recorded run (account access changed) is printed as a NOTE "moves from ... to ...".
 3. PLAYLISTS: one per person and day, "<name> · <n> <day> <label>" (e.g. "Jacob · 1 Mon Lower A";
    n = position in that person's week, so Jellyfin's name sort shows week order), the items of
    that person's own day library in workout order, owned by that person, not public, no shares; a
@@ -1038,27 +1040,50 @@ def day_item_path(lib: dict, link: dict) -> str:
     return f"{DAYS_IN_JELLYFIN}/{lib['name']}/{link['name']}"
 
 
-def resolve_items(plan: dict, found: dict) -> tuple[dict, list[str], list[str]]:
+def link_library(plan: dict, key: str, people: dict, lib_ids: dict) -> tuple[dict, dict, bool]:
+    """(library, link, visible) the wger link of one exercise points into. Candidates: the day
+    libraries whose day has it, in day_libraries order (people in plan order, then weekday order).
+    The FIRST one that every plan person who does the exercise can see wins (a wger description is
+    shared by everyone, so there is one link); none visible to all -> the first one, visible False
+    (the caller warns). Deterministic: it depends only on the plan and the accounts' access."""
+    cands = [(lib, x) for lib in day_libraries(plan) for x in lib["links"] if x["key"] == key]
+    doers = list(dict.fromkeys(lib["login"] for lib, _ in cands))
+    for lib, x in cands:
+        lid = lib_ids.get(lib["name"], "")
+        if ID_RE.match(lid) and all(sees(people[d], lid) for d in doers):
+            return lib, x, True
+    return cands[0][0], cands[0][1], False
+
+
+def resolve_items(plan: dict, found: dict, people: dict, lib_ids: dict) -> tuple[dict, list[str], list[str]]:
     """(mapping, missing, unused). mapping = plan key -> {id, youtube, library, file}: the
-    exercise's item in the FIRST day library whose day has it (day_libraries order = people in plan
-    order, then weekday order), so the choice depends on the plan only, never on what a scan found.
-    missing: an exercise whose first library does not list it (yet); no fallback to a later one,
-    the link would move between runs. unused: plan keys with a video that no day uses, so no day
-    library has them (gen_wger.py --check fails on them until a day uses them or video is null)."""
-    mapping, missing, seen = {}, [], set()
+    exercise's item in the library link_library() picks. missing: an exercise whose picked library
+    does not list it (yet); no fallback to another one, so the link never moves because of a scan.
+    unused: plan keys with a video that no day uses, so no day library has them (gen_wger.py
+    --check fails on them until a day uses them or video is null)."""
+    mapping, missing, used = {}, [], []
     for lib in day_libraries(plan):
-        have = found.get(lib["name"], {})
         for x in lib["links"]:
-            if x["key"] in seen:
-                continue
-            seen.add(x["key"])
-            iid = have.get(day_item_path(lib, x))
-            if iid:
-                mapping[x["key"]] = {"id": iid, "youtube": youtube_id(plan["exercises"][x["key"]]),
-                                     "library": lib["name"], "file": x["name"]}
-            else:
-                missing.append(f"{x['key']}: {lib['name']}/{x['name']} is not an item in that day library")
-    return mapping, missing, sorted(set(wanted_files(plan).values()) - seen)
+            if x["key"] not in used:
+                used.append(x["key"])
+    for key in used:
+        lib, x, _ = link_library(plan, key, people, lib_ids)
+        iid = found.get(lib["name"], {}).get(day_item_path(lib, x))
+        if iid:
+            mapping[key] = {"id": iid, "youtube": youtube_id(plan["exercises"][key]),
+                            "library": lib["name"], "file": x["name"]}
+        else:
+            missing.append(f"{key}: {lib['name']}/{x['name']} is not an item in that day library")
+    return mapping, missing, sorted(set(wanted_files(plan).values()) - set(used))
+
+
+def moved_links(mapping: dict, old_items: dict) -> list[str]:
+    """Exercises whose link changed library since the recorded run (account access changed, or
+    the plan did): shown, never silent."""
+    return [f"{k}: wger link moves from library {old_items[k]['library']!r} to {it['library']!r}"
+            for k, it in sorted(mapping.items())
+            if isinstance(old_items.get(k), dict) and old_items[k].get("library")
+            and old_items[k]["library"] != it["library"]]
 
 
 def playlists_with_ids(plan: dict, found: dict, out) -> list[dict]:
@@ -1078,7 +1103,8 @@ def playlists_with_ids(plan: dict, found: dict, out) -> list[dict]:
 
 def link_access(plan: dict, mapping: dict, people: dict, libraries: list[dict]) -> list[str]:
     """A plan person who does a day's exercise whose Video: link is in a library they cannot see
-    (the link is in the first person's library; owner-accepted limit, only warned)."""
+    (no day library with it is visible to everyone who does it, so the link is in the first one;
+    only warned)."""
     lib_id = {r["name"]: r.get("id", "") for r in libraries}
     warns = []
     for lib in day_libraries(plan):
@@ -1188,7 +1214,10 @@ def cmd_jellyfin(args, plan: dict, out, sleep=time.sleep, videos_path: Path | No
 
     libraries, lib_problems, found = sync_day_libraries(jf, plan, users, people, old.get("libraries") or [],
                                                         args.prune, args.wait, out, sleep)
-    mapping, missing, unused = resolve_items(plan, found)
+    lib_ids = {r["name"]: r.get("id", "") for r in libraries}
+    mapping, missing, unused = resolve_items(plan, found, people, lib_ids)
+    for m in moved_links(mapping, old_items):
+        out(f"NOTE {m}")
     for m in missing:
         out(f"MISSING {m}")
     for k in unused:
