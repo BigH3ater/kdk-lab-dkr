@@ -22,9 +22,13 @@
 # root:root 600, created by the runbook hand steps BEFORE the first deploy (a
 # missing env_file fails the deploy):
 #   /opt/kdk-lab/scale-bridge/scale-bridge.env  SCALE_BRIDGE_PEOPLE (weight bands,
-#       one JSON line), optional SCALE_ADDRESS, SCALE_BRIDGE_ESPHOME_PROXIES
+#       one JSON line), SCALE_ADDRESS, SCALE_BRIDGE_ESPHOME_PROXIES
 #   /opt/kdk-lab/scale-bridge/secrets.env       WGER_API_KEY_JMACK / _RACH (from
-#       the 1Password items wger-api-jmack / wger-api-rach), relay noise keys
+#       the 1Password items wger-api-jmack / wger-api-rach), SCALE_RELAY_NOISE_KEY
+#       (item scale-relay-esphome, field credential)
+# Relay (live since 2026-11-15): the bridge hears the scale only through the
+# ESPHome Bluetooth proxy scale-relay at 10.1.30.240 (esphome/scale-relay.yaml),
+# not through hci0. Relay off = no weigh-ins recorded.
 # Examples with made-up values: scale-bridge.env.example, secrets.env.example.
 #
 # Raw captures (health data): one JSONL file per weigh-in session in
@@ -120,5 +124,5 @@ services:
       timeout: 5s
       retries: 3
       start_period: 60s
-    # Default bridge network: egress to wger.kmkdp.com (and, in relay mode, the
-    # proxies' TCP 6053) only. Nothing connects in.
+    # Default bridge network: egress to wger.kmkdp.com and the relay's TCP 6053
+    # (10.1.30.240) only. Nothing connects in.
