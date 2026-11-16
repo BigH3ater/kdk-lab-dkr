@@ -1,0 +1,4 @@
+# Never commit the real secrets, ESPHome's build tree or build logs.
+secrets.yaml
+.esphome/
+*.log

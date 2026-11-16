@@ -5,8 +5,8 @@ stack: scale-bridge
 tier: internal
 status: planned
 storage: yes
-secrets: [wger-api-jmack, wger-api-rach, lefu-engine-secret]
-updated: 2026-11-14
+secrets: [wger-api-jmack, wger-api-rach, lefu-engine-secret, scale-relay-esphome]
+updated: 2026-11-16
 tags: [homelab/stack, tier/internal, status/planned, exercise]
 ---
 
@@ -26,9 +26,10 @@ captures directory, not to wger.
 
 ```mermaid
 flowchart LR
-  S["Body Pod 2<br/>(advertises only while awake)"] -->|"BLE GATT FFF0"| BZ["bluetoothd + hci0<br/>kdk-dkr-02"]
-  BZ -->|"D-Bus system bus (ro bind)"| SB["scale-bridge<br/>(container, uid 65534 nobody)"]
-  P["ESPHome BT proxy<br/>(optional relay, untested)"] -.->|"TCP 6053"| SB
+  S["Body Pod 2<br/>(advertises only while awake)"] -->|"BLE GATT FFF0"| P["scale-relay<br/>ESPHome BT proxy, 10.1.30.240"]
+  P -->|"ESPHome API, TCP 6053 (encrypted)"| SB["scale-bridge<br/>(container, uid 65534 nobody)"]
+  S -.->|"local mode only (not used now)"| BZ["bluetoothd + hci0<br/>kdk-dkr-02"]
+  BZ -.->|"D-Bus system bus (ro bind)"| SB
   SB -->|"Token per person, HTTPS"| W["wger.kmkdp.com /api/v2"]
   SB -->|"one JSONL per session (rw bind)"| C["/opt/kdk-lab/scale-bridge/captures<br/>65534:root 0750"]
   SB -->|"stdin case, secret in child env"| E["lefu-engine<br/>(child process, same container)"]
@@ -45,9 +46,10 @@ flowchart LR
 | Engine | `SCALE_BRIDGE_ENGINE: "on"` in compose; self-disables without `LEFU_SECRET_8`. Results to `/captures/*.engine.json` only (dry-run phase) |
 | Mode | `SCALE_BRIDGE_DRY_RUN: "true"` in compose until the owner flips it |
 | Bluetooth | `/run/dbus:/run/dbus:ro` → host bluetoothd, as uid `65534:65534` (host `nobody:nogroup`). No privileged, no capabilities, no `/dev`, bridge network |
-| Host files | `/opt/kdk-lab/scale-bridge/scale-bridge.env` (people bands, optional address/proxies), `/opt/kdk-lab/scale-bridge/secrets.env` (wger keys, noise keys). Both root 600, host-managed |
+| Relay | the scale is heard **only** through the ESPHome Bluetooth proxy `scale-relay` (10.1.30.240), since 2026-11-15; [below](#relay-scale-relay) |
+| Host files | `/opt/kdk-lab/scale-bridge/scale-bridge.env` (people bands, `SCALE_ADDRESS`, `SCALE_BRIDGE_ESPHOME_PROXIES`), `/opt/kdk-lab/scale-bridge/secrets.env` (wger keys, `SCALE_RELAY_NOISE_KEY`). Both root 600, host-managed |
 | Storage | `/opt/kdk-lab/scale-bridge/captures` → `/captures` (rw), `65534:root 0750`, created by the runbook before the deploy: raw capture files (health data, 0640, pruned after 60 days). Readings are not spooled: one that cannot reach wger after 6 tries (waits 30+60+120+240+480 s = 15.5 min) is logged as lost (`write_gave_up`) |
-| Blast radius | Down: weigh-ins are not recorded (weigh again later, or enter in the wger app). wger and HA are unaffected |
+| Blast radius | Down, or the relay off: weigh-ins are not recorded (weigh again later, or enter in the wger app). wger and HA are unaffected |
 
 ## How a weigh-in flows
 
@@ -300,16 +302,28 @@ never logged. Loki: `{container="scale-bridge"}`.
   the code only talks to `org.bluez` through bleak. Narrowing it would need a filtering
   proxy (e.g. `xdg-dbus-proxy` with `--talk=org.bluez`), left for a later change.
 
-## Relay mode (optional, untested on hardware)
+## Relay (`scale-relay`)
 
-The scale lives in the basement, out of range of every lab host (2026-11-14 range
-check). The plan is an ESP32 running the stock ESPHome **Bluetooth proxy** near the
-scale. Set `SCALE_BRIDGE_ESPHOME_PROXIES=<ip>[=NOISE_ENV]` in `scale-bridge.env` and the
-key in `secrets.env`: the bridge brings the proxy up with `bleak-esphome`
-(`APIConnectionManager`), habluetooth routes the same bleak scanner/client through it,
-and the local adapter is no longer used. Use the proxy's IP (no mDNS on the bridge
-network); the proxy must allow active connections, and kdk-dkr-02 must reach its TCP
-6053. Not tried with a real proxy.
+The scale is out of range of every lab host (2026-11-14 range check), so since
+2026-11-15 22:11 UTC the bridge hears it **only** through an ESPHome Bluetooth proxy:
+startup logs `relay_start` `result: connected` and `scanning` `transport: esphome`,
+`proxies: 1`. The bridge depends on it: relay off = no weigh-ins recorded.
+
+| Field | Value |
+|---|---|
+| Device | Waveshare ESP32-S3-ETH with the PoE module: wired Ethernet only (W5500 over SPI), no Wi-Fi. ESPHome 2026.6.5, `bluetooth_proxy` with `active: true` (it connects, not only listens) |
+| Address | `10.1.30.240` (DHCP reservation, same VLAN as kdk-dkr-02), ESPHome API on TCP 6053, encrypted. The bridge uses the IP (no mDNS on its network) |
+| Where | for now next to the scale; final place a bracket behind the bedroom TV (not built yet) |
+| Config | [`stacks/scale-bridge/esphome/scale-relay.yaml`](https://github.com/BigH3ater/kdk-lab-dkr/blob/main/stacks/scale-bridge/esphome/scale-relay.yaml); build and flash: [runbook "Relay"](../runbooks/scale-bridge.md#relay-scale-relay) |
+| Secrets | 1Password `op://kdk-cluster/scale-relay-esphome`: `credential` = API encryption (noise) key, `ota_password` = OTA password. The key is also in the host's `secrets.env` as `SCALE_RELAY_NOISE_KEY` |
+| Bridge wiring | `scale-bridge.env`: `SCALE_BRIDGE_ESPHOME_PROXIES=10.1.30.240=SCALE_RELAY_NOISE_KEY` (format `host[=NOISE_ENV][,host2[=NOISE_ENV2]]`) and `SCALE_ADDRESS` pinned to the scale |
+
+How it works: the bridge brings the proxy up with `bleak-esphome` (`APIConnectionManager`),
+habluetooth routes the same bleak scanner and client through it, and the local adapter is
+not used. Checked with two real weigh-ins end to end (2026-11-15 and 2026-11-16: connect
+0.6 s and 0.1 s). The signal at the relay is weak in its temporary spot (RSSI about
+-75 to -79 dBm); recheck after the move. With `SCALE_ADDRESS` pinned the bridge ignored
+another device advertising the same name, through the relay too.
 
 ## Verify
 
@@ -318,7 +332,9 @@ network); the proxy must allow active connections, and kdk-dkr-02 must reach its
 ```bash
 sudo docker ps --filter name=scale-bridge --format '{{.Names}} {{.Status}}'      # Up ... (healthy)
 sudo docker logs --since 10m scale-bridge 2>&1 | grep -E '"event":"(config|token_check|scanning)"'
-#   config dry_run true, token_check result ok per person, scanning transport local
+#   config dry_run true, token_check result ok per person
+sudo docker logs scale-bridge 2>&1 | grep -E '"event":"(relay_start|scanning)"' | tail -2
+#   relay_start proxy 10.1.30.240 result connected; scanning transport esphome, proxies 1
 ```
 
 ## Troubleshooting
@@ -329,7 +345,9 @@ sudo docker logs --since 10m scale-bridge 2>&1 | grep -E '"event":"(config|token
 | Exits at start with a D-Bus error | `/run/dbus` socket missing or bluetoothd down | `systemctl status bluetooth` on dkr-02 |
 | `fatal` `ConnectionResetError` `[Errno 104]` right after `config` | the container uid has no passwd entry on the host, so dbus-daemon drops the connection (seen with 65532 on the first deploy) | run as a uid that exists on the host: compose `user: "65534:65534"` (`getent passwd 65534` = `nobody`) |
 | `config_invalid` naming `min_lb`/`min_kg` | a person has both pairs, a mixed pair (`min_lb` + `max_kg`) or half a pair | one pair per person, both ends in the same unit |
-| No `session` lines when someone weighs in | out of range (basement), a phone with the Hume app holds the scale, or wrong `SCALE_ADDRESS` | Bluetooth off on the phones; relay mode |
+| No `session` lines when someone weighs in | relay off or out of range, a phone with the Hume app holds the scale, or wrong `SCALE_ADDRESS` | check `relay_start` / `scanning` ([Verify](#verify)); Bluetooth off on the phones |
+| `relay_start` `result: waiting` or `failed` | the relay is off, unplugged, or not at 10.1.30.240; or the noise key does not match | [runbook "Relay"](../runbooks/scale-bridge.md#relay-scale-relay); the bridge keeps retrying by itself |
+| `config_invalid` naming a noise key env | `SCALE_RELAY_NOISE_KEY` missing or empty in `secrets.env` | [runbook step 2](../runbooks/scale-bridge.md#2-secretsenv-from-1password) |
 | `session` with `result: connect_failed` | weak signal or a phone connected first | as above |
 | `session` with `settled: false` | handle released before the lock | hold the handle until the display locks |
 | `session` `ended_by: end_marker_timeout` | impedance came but no end marker within 20 s (handle released early, or the scale did not send it) | a complete reading without heart rate; nothing to fix unless it is every time |

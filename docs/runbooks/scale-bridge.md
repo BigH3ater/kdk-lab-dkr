@@ -1,6 +1,6 @@
 ---
-title: scale-bridge — host files, deploy, first weigh-in, engine, go live, raw captures, rollback
-updated: 2026-11-14
+title: scale-bridge — host files, deploy, first weigh-in, engine, go live, raw captures, relay, rollback
+updated: 2026-11-16
 ---
 
 # scale-bridge
@@ -50,27 +50,28 @@ A rotated key goes into 1Password first (that step), then this step again.
 {
   printf 'WGER_API_KEY_JMACK=%s\n' "$(op read op://kdk-cluster/wger-api-jmack/credential)"
   printf 'WGER_API_KEY_RACH=%s\n'  "$(op read op://kdk-cluster/wger-api-rach/credential)"
+  printf 'SCALE_RELAY_NOISE_KEY=%s\n' "$(op read op://kdk-cluster/scale-relay-esphome/credential)"
 } | ssh kdkadmin@10.1.30.21 'sudo install -m 600 -o root -g root /dev/stdin /opt/kdk-lab/scale-bridge/secrets.env'
 # verify: prints names and lengths only
 ssh kdkadmin@10.1.30.21 'sudo awk -F= "{print \$1, length(\$2)}" /opt/kdk-lab/scale-bridge/secrets.env; sudo stat -c "%U:%G %a" /opt/kdk-lab/scale-bridge/secrets.env'
-#   WGER_API_KEY_JMACK <n> / WGER_API_KEY_RACH <n> / root:root 600
+#   WGER_API_KEY_JMACK <n> / WGER_API_KEY_RACH <n> / SCALE_RELAY_NOISE_KEY <k> / root:root 600
 # compare each <n> with the 1Password copy (op read adds a newline, so subtract 1):
 op read op://kdk-cluster/wger-api-jmack/credential | wc -c     # = <n> + 1
 op read op://kdk-cluster/wger-api-rach/credential  | wc -c     # = <n> + 1
+op read op://kdk-cluster/scale-relay-esphome/credential | wc -c   # = <k> + 1
 ```
 
-Two lines, both lengths non-zero and equal to `wc -c` minus the newline. Do not check
+Three lines, all lengths non-zero and equal to `wc -c` minus the newline. Do not check
 for a fixed length.
 
 `printf` is a shell builtin, so the keys are never in a process argument list. If
 `op read` says the field does not exist, the item stores the key under `password`: use
 `.../password` instead.
 
-Relay mode later: put the proxy's API encryption key in 1Password first (item
-`esphome-scale-proxy-noise`, created from stdin the way [Rotate a secret](rotate-a-secret.md)
-does, never as a command argument), then add a third line
-`printf 'ESPHOME_NOISE_SCALE_PROXY=%s\n' "$(op read op://kdk-cluster/esphome-scale-proxy-noise/password)"`
-inside the braces above and rerun the step.
+`SCALE_RELAY_NOISE_KEY` is the relay's API encryption key (1Password
+`scale-relay-esphome`, field `credential`; [Relay](#relay-scale-relay)). It must be there
+while `SCALE_BRIDGE_ESPHOME_PROXIES` names it (step 3): named but missing or empty is
+`config_invalid` and the container restarts.
 
 ## 2a. Engine key into 1Password (owner, once)
 
@@ -107,14 +108,15 @@ Same pattern as step 2: rewrite the whole `secrets.env` with a third line.
 {
   printf 'WGER_API_KEY_JMACK=%s\n' "$(op read op://kdk-cluster/wger-api-jmack/credential)"
   printf 'WGER_API_KEY_RACH=%s\n'  "$(op read op://kdk-cluster/wger-api-rach/credential)"
+  printf 'SCALE_RELAY_NOISE_KEY=%s\n' "$(op read op://kdk-cluster/scale-relay-esphome/credential)"
   printf 'LEFU_SECRET_8=%s\n'      "$(op read op://kdk-cluster/lefu-engine-secret/password)"
 } | ssh kdkadmin@10.1.30.21 'sudo install -m 600 -o root -g root /dev/stdin /opt/kdk-lab/scale-bridge/secrets.env'
 ssh kdkadmin@10.1.30.21 'sudo awk -F= "{print \$1, length(\$2)}" /opt/kdk-lab/scale-bridge/secrets.env; sudo stat -c "%U:%G %a" /opt/kdk-lab/scale-bridge/secrets.env'
-#   WGER_API_KEY_JMACK <n> / WGER_API_KEY_RACH <n> / LEFU_SECRET_8 <m> / root:root 600
+#   WGER_API_KEY_JMACK <n> / WGER_API_KEY_RACH <n> / SCALE_RELAY_NOISE_KEY <k> / LEFU_SECRET_8 <m> / root:root 600
 op read op://kdk-cluster/lefu-engine-secret/password | wc -c     # = <m> + 1
 ```
 
-Keep any relay-mode line (step 2) inside the braces too. Without this line the bridge logs
+Keep the relay line (step 2) inside the braces too. Without the `LEFU_SECRET_8` line the bridge logs
 `engine_config` `enabled: false`, `reason: no_secret` at startup and runs on without the
 engine.
 
@@ -134,8 +136,8 @@ In VS Code, write (one line for the JSON, in single quotes):
 
 ```text
 SCALE_BRIDGE_PEOPLE='[{"name":"jmack","min_lb":<lo>,"max_lb":<hi>,"token_env":"WGER_API_KEY_JMACK","height_cm":<cm>,"sex":"male","birth_date":"<YYYY-MM-DD>"},{"name":"rach","min_lb":<lo>,"max_lb":<hi>,"token_env":"WGER_API_KEY_RACH","height_cm":<cm>,"sex":"female","birth_date":"<YYYY-MM-DD>"}]'
-SCALE_ADDRESS=
-SCALE_BRIDGE_ESPHOME_PROXIES=
+SCALE_ADDRESS=<address from the vault capture note>
+SCALE_BRIDGE_ESPHOME_PROXIES=10.1.30.240=SCALE_RELAY_NOISE_KEY
 ```
 
 - Bands: pounds, inclusive, a few lb either side of each person's recent weight, and
@@ -154,7 +156,9 @@ SCALE_BRIDGE_ESPHOME_PROXIES=
 - `SCALE_ADDRESS`: the scale's address from the vault capture note. Empty = any device
   named `Body Pod 2` (fine for the dry-run; startup logs `config_address_filter_off`).
   **Required before step 6.**
-- `SCALE_BRIDGE_ESPHOME_PROXIES`: empty until a proxy exists (`<ip>=ESPHOME_NOISE_SCALE_PROXY`).
+- `SCALE_BRIDGE_ESPHOME_PROXIES`: the relay, `10.1.30.240=SCALE_RELAY_NOISE_KEY` (format
+  `host[=NOISE_ENV][,host2[=NOISE_ENV2]]`; the key itself is in `secrets.env`, step 2).
+  Empty = the host's own adapter, which cannot reach the scale ([Relay](#relay-scale-relay)).
 
 Save, then hand the file back to root:
 
@@ -185,8 +189,13 @@ ssh kdkadmin@10.1.30.21 'sudo docker logs scale-bridge 2>&1 | head -5'
 #   {"event":"token_check","person":"jmack","result":"ok","status":200}   (and rach)
 #   {"event":"engine_config","enabled":true,"reason":"on","variant":"PPDeviceCalcuteTypeAlternate8_4","limb_order":"10432","df_x0":"20k","profiles":["jmack","rach"],"sdk_commit":"c1eb5ab4..."}
 #   {"event":"capture","enabled":true,"dir":"/captures","keep_days":60}
-#   {"event":"scanning","transport":"local","dry_run":true,...}
+#   {"event":"relay_start","proxy":"10.1.30.240","result":"connected",...}
+#   {"event":"scanning","transport":"esphome","proxies":1,...}
 ```
+
+`relay_start` `result: waiting` or `failed` = the relay is not answering
+([Relay](#relay-scale-relay)); `transport: local` = `SCALE_BRIDGE_ESPHOME_PROXIES` is empty
+(step 3).
 
 `capture` `enabled: false` with a `capture_unavailable` error = the captures directory in
 step 1 is missing or has the wrong owner.
@@ -196,9 +205,9 @@ the field).
 
 ## 5. First dry-run weigh-in
 
-The scale must be in radio range of kdk-dkr-02 (today: carry it up from the basement, as
-for the 2026-11-14 capture, until a relay exists). Bluetooth **off** on both phones: a
-phone with the Hume app takes the scale first.
+The scale must be in radio range of the relay (`scale-relay`, [Relay](#relay-scale-relay)),
+not of kdk-dkr-02. Bluetooth **off** on both phones: a phone with the Hume app takes the
+scale first.
 
 1. **Bathroom/scale:** step on, hold the handle until the display locks (~20 s), step off.
 2. **Laptop:**
@@ -347,6 +356,62 @@ been checked against the vendor app on one capture only. After the paired tests 
 one-line PR sets it to `"true"`; the next live weigh-in creates the custom category
 `Heart rate (scale)` (bpm) per person.
 
+## Relay (`scale-relay`)
+
+The bridge hears the scale only through the ESPHome Bluetooth proxy `scale-relay`
+(Waveshare ESP32-S3-ETH, wired Ethernet, `10.1.30.240`; [service page](../services/scale-bridge.md#relay-scale-relay)).
+Config: `stacks/scale-bridge/esphome/scale-relay.yaml`. Secrets: 1Password
+`op://kdk-cluster/scale-relay-esphome` (`credential` = API encryption key, `ota_password`).
+
+**If it is off** (no power, unplugged, flashing): the bridge hears nothing, no `session`
+lines, and weigh-ins are **not recorded** until it is back (enter a missed one in the wger
+app). Nothing else breaks; the bridge keeps trying to reach it.
+
+### Build and flash an update
+
+Over the network (OTA). USB only for the first flash or a recovery (board does not come
+back on the network).
+
+**Laptop (`op` signed in, ESPHome in `~/.local/share/esphome-venv`, a checkout of this repo)**
+
+```bash
+cd stacks/scale-bridge/esphome
+ESPHOME=~/.local/share/esphome-venv/bin/esphome
+# secrets.yaml from 1Password: mode 600 from the start, values never printed (git-ignored)
+(umask 077; {
+  printf 'scale_relay_api_key: |-\n  %s\n'      "$(op read op://kdk-cluster/scale-relay-esphome/credential)"
+  printf 'scale_relay_ota_password: |-\n  %s\n' "$(op read op://kdk-cluster/scale-relay-esphome/ota_password)"
+} > secrets.yaml)
+stat -c '%a %n' secrets.yaml                        # 600 secrets.yaml
+"$ESPHOME" config scale-relay.yaml >/dev/null && echo valid     # valid (checks the key format too)
+"$ESPHOME" run scale-relay.yaml --device 10.1.30.240 --no-logs # build + OTA; the board reboots
+rm secrets.yaml
+```
+
+A wrong OTA password fails the upload and leaves the old firmware running. The block scalar
+(`|-`) keeps any character in a value safe for YAML.
+
+First flash or recovery: same `secrets.yaml`, board on the laptop's USB port, then
+`"$ESPHOME" run scale-relay.yaml --device /dev/ttyACM0` (the port name may differ: `ls
+/dev/ttyACM* /dev/ttyUSB*`). A changed API key needs the same key in
+`secrets.env` (step 2) and a bridge redeploy.
+
+### Check it is working
+
+```bash
+ssh kdkadmin@10.1.30.21 'sudo docker logs scale-bridge 2>&1 | grep -E "\"event\":\"(relay_start|scanning)\"" | tail -2'
+#   {"event":"relay_start","proxy":"10.1.30.240","result":"connected",...}
+#   {"event":"scanning","transport":"esphome","proxies":1,...}
+```
+
+`relay_start` is logged at bridge startup only. After an OTA the bridge should reconnect by
+itself (bleak-esphome retries in the background; not yet watched after an OTA): the next
+weigh-in's `session` line is the proof, or redeploy (Komodo → Stacks → scale-bridge →
+Deploy) and read `relay_start` again. The board's own log: `"$ESPHOME" logs scale-relay.yaml
+--device 10.1.30.240` (needs `secrets.yaml` as above; delete it afterwards). In the bridge's
+`session` lines the RSSI is the relay's view of the scale (about -75 to -79 dBm in the
+temporary spot).
+
 ## Troubleshooting
 
 - `fatal` `ConnectionResetError` `[Errno 104]` right after the `config` line: the
@@ -364,6 +429,9 @@ one-line PR sets it to `"true"`; the next live weigh-in creates the custom categ
 - **Stop it:** Komodo → Stacks → scale-bridge → Destroy. To keep it gone, revert the PR
   (the `[[stack]]` entry) so the next sync does not redeploy it.
 - **Back to dry-run only:** revert the step 6 PR, deploy.
+- **Relay out of use:** `SCALE_BRIDGE_ESPHOME_PROXIES=` (empty) in `scale-bridge.env`, redeploy:
+  the bridge falls back to the host adapter, which is out of range of the scale today.
+  Firmware: flash the previous `scale-relay.yaml` from git history ([Relay](#relay-scale-relay)).
 - **Engine off (0.2.0), keep everything else:** a one-line PR,
   `SCALE_BRIDGE_ENGINE: "off"` in `stacks/scale-bridge/compose.yaml`, deploy. Or remove the
   `LEFU_SECRET_8` line from `secrets.env` (step 2 without it) and redeploy: same effect.

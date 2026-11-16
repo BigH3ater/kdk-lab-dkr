@@ -19,6 +19,7 @@ Owner steps: [docs/runbooks/scale-bridge.md](../../docs/runbooks/scale-bridge.md
 | `scale_bridge/engine.py` | engine child process: DF decode, limb order, profile → case on stdin, secret in the child env only, timeout, JSON parse, reason codes |
 | `engine/` | the engine itself (Java): `deps.lock` + `sdk.lock` (sha256 pins), `fetch.sh` (build-stage download + check), `patcher/` (ASM rewrite of the vendor `native` methods), `src/` (unidbg bridge, CLI `kdk.lefu.Main`), `lefu-engine.sh` (JVM wrapper), `smoke.py` (in-image check, dummy secret) |
 | `scale-bridge.env.example`, `secrets.env.example` | shapes of the two host files (made-up values / names only) |
+| `esphome/` | `scale-relay.yaml`: ESPHome config of the Bluetooth relay board the bridge hears the scale through (10.1.30.240); `secrets.yaml.example` (key names only; the real `secrets.yaml` is git-ignored). Build and flash: runbook "Relay" |
 | `tests/` | pytest; `fixtures/bodypod2-session-synthetic.jsonl` is a SYNTHETIC session (real structure and timing, rescaled 70.00 kg, replaced impedance/DF/address, made-up heart-rate byte in the end marker, recomputed checksums) |
 
 Never commit a real capture (from the sniff script or `/captures`): they hold body weight,
@@ -41,8 +42,8 @@ never runs), `SCALE_BRIDGE_ENGINE_TIMEOUT_S` (60), `LEFU_VARIANT` (8_4), `LEFU_L
 (10432), `LEFU_DF_X0` (20k) — the last three are the known-good configuration, do not change
 unless testing; `SCALE_BRIDGE_ENGINE_CMD` (tests only);
 host env files: `SCALE_BRIDGE_PEOPLE` (bands + optional engine profile), `SCALE_ADDRESS`,
-`SCALE_BRIDGE_ESPHOME_PROXIES`, the `WGER_API_KEY_*` named by each person's `token_env`,
-proxy noise keys, `LEFU_SECRET_8` (engine; optional).
+`SCALE_BRIDGE_ESPHOME_PROXIES` (`10.1.30.240=SCALE_RELAY_NOISE_KEY`), the `WGER_API_KEY_*` named by each person's `token_env`,
+the proxy noise key `SCALE_RELAY_NOISE_KEY`, `LEFU_SECRET_8` (engine; optional).
 
 ## Engine
 
