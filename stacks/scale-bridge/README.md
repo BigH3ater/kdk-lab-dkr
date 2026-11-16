@@ -3,7 +3,8 @@
 Body Pod 2 (Lefu FFF0) BLE scale → wger body weight + ten raw impedance values, per
 person by weight band, plus Lefu's own 8-electrode body-composition engine run once per
 weigh-in (results to the captures directory only, for now). kdk-dkr-02, Komodo stack
-`scale-bridge`, dry-run by default.
+`scale-bridge`, live writes since 2026-11-16 (compose `SCALE_BRIDGE_DRY_RUN: "false"`;
+the code default is dry-run).
 Service page: [docs/services/scale-bridge.md](../../docs/services/scale-bridge.md).
 Owner steps: [docs/runbooks/scale-bridge.md](../../docs/runbooks/scale-bridge.md).
 
@@ -31,7 +32,7 @@ uv run --frozen pytest -q          # CI: .github/workflows/scale-bridge.yml
 ```
 
 Env (compose `environment` unless noted; defaults in `scale_bridge/config.py`):
-`SCALE_BRIDGE_DRY_RUN` (true), `WGER_URL`, `SCALE_NAME`, `SCALE_PROFILE_*` (placeholders,
+`SCALE_BRIDGE_DRY_RUN` (true; compose `false` = live), `WGER_URL`, `SCALE_NAME`, `SCALE_PROFILE_*` (placeholders,
 not anyone's data), `SCALE_SESSION_TIMEOUT_S` (90), `SCALE_IMPEDANCE_WAIT_S` (5),
 `SCALE_DF_GRACE_S` (1), `SCALE_END_MARKER_WAIT_S` (20), `SCALE_CONNECT_ATTEMPTS` (3), `SCALE_CONNECT_TIMEOUT_S` (30),
 `SCALE_COOLDOWN_S` (60), `SCALE_BRIDGE_WRITE_RETRIES` (6: waits 30 s doubling, 15.5 min),

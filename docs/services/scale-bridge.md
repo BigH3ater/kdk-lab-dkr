@@ -3,11 +3,11 @@ title: scale-bridge (Body Pod 2 → wger)
 host: kdk-dkr-02
 stack: scale-bridge
 tier: internal
-status: planned
+status: live
 storage: yes
 secrets: [wger-api-jmack, wger-api-rach, lefu-engine-secret, scale-relay-esphome]
 updated: 2026-11-16
-tags: [homelab/stack, tier/internal, status/planned, exercise]
+tags: [homelab/stack, tier/internal, status/live, exercise]
 ---
 
 # scale-bridge (Body Pod 2 → wger)
@@ -16,13 +16,14 @@ A small Python service on kdk-dkr-02 that listens for the household scale (Hume
 **Body Pod 2**, a Lefu OEM unit) over Bluetooth LE, decodes a weigh-in, works out whose
 it is from a weight band, and writes it to that person's [wger](wger.md): body weight
 plus the ten raw impedance values (and, behind a switch, the heart rate). It also keeps a
-**raw capture file per weigh-in** for paired tests against the vendor app. It ships in **dry-run**: it logs what it would write
-and posts nothing until the owner switches it on ([runbook](../runbooks/scale-bridge.md)).
+**raw capture file per weigh-in** for paired tests against the vendor app. **Live writes** since
+2026-11-16 (`SCALE_BRIDGE_DRY_RUN: "false"`); dry-run, which only logs what it would write, is
+the rollback ([runbook step 6](../runbooks/scale-bridge.md#6-live-writes-dry-run-off)).
 
 No port, no UI, no Traefik router. Since 0.2.0 it also runs **Lefu's own 8-electrode
 body-composition engine** once per weigh-in (the scale vendor's published calculation
-library, see [below](#body-composition-engine)); in this phase the results only go to the
-captures directory, not to wger.
+library, see [below](#body-composition-engine)); its results only go to the captures
+directory, not to wger (also in live mode).
 
 ```mermaid
 flowchart LR
@@ -43,8 +44,8 @@ flowchart LR
 | Purpose | Body Pod 2 weigh-ins → wger body weight + raw impedance, per person |
 | Host | kdk-dkr-02 (10.1.30.21), Komodo stack `scale-bridge` |
 | Image | `kdk/scale-bridge:0.2.0`, built on the host from `stacks/scale-bridge` (python 3.12-slim, bleak, bleak-retry-connector, bleak-esphome, httpx from `uv.lock`; plus the engine: jlink'd Temurin 21 JRE, unidbg, Lefu SDK, all sha256-pinned) |
-| Engine | `SCALE_BRIDGE_ENGINE: "on"` in compose; self-disables without `LEFU_SECRET_8`. Results to `/captures/*.engine.json` only (dry-run phase) |
-| Mode | `SCALE_BRIDGE_DRY_RUN: "true"` in compose until the owner flips it |
+| Engine | `SCALE_BRIDGE_ENGINE: "on"` in compose; self-disables without `LEFU_SECRET_8`. Results to `/captures/*.engine.json` only, never to wger |
+| Mode | **live**: `SCALE_BRIDGE_DRY_RUN: "false"` in compose since 2026-11-16 (`"true"` = log only, the rollback). Heart rate and engine results are not written |
 | Bluetooth | `/run/dbus:/run/dbus:ro` → host bluetoothd, as uid `65534:65534` (host `nobody:nogroup`). No privileged, no capabilities, no `/dev`, bridge network |
 | Relay | the scale is heard **only** through the ESPHome Bluetooth proxy `scale-relay` (10.1.30.240), since 2026-11-15; [below](#relay-scale-relay) |
 | Host files | `/opt/kdk-lab/scale-bridge/scale-bridge.env` (people bands, `SCALE_ADDRESS`, `SCALE_BRIDGE_ESPHOME_PROXIES`), `/opt/kdk-lab/scale-bridge/secrets.env` (wger keys, `SCALE_RELAY_NOISE_KEY`). Both root 600, host-managed |
@@ -88,7 +89,7 @@ flowchart LR
    person. Pounds are converted to kg once at startup; the comparison is in kg.
 6. Dry-run: one `would_write` log line (`weight_kg` plus `weight_lb` to 0.1, to compare
    with the scale display; `heart_rate: true/false` = whether one was captured, never the
-   value). Live: written to wger in the background; a failed attempt
+   value). Live (the current mode): written to wger in the background; a failed attempt
    (wger error, timeout, a non-JSON or unexpected body, or any other exception) is
    retried after 30 s, doubling, 6 tries in all (15.5 min of waits).
 
@@ -332,7 +333,7 @@ another device advertising the same name, through the relay too.
 ```bash
 sudo docker ps --filter name=scale-bridge --format '{{.Names}} {{.Status}}'      # Up ... (healthy)
 sudo docker logs --since 10m scale-bridge 2>&1 | grep -E '"event":"(config|token_check|scanning)"'
-#   config dry_run true, token_check result ok per person
+#   config dry_run false, address_filter true; token_check result ok per person
 sudo docker logs scale-bridge 2>&1 | grep -E '"event":"(relay_start|scanning)"' | tail -2
 #   relay_start proxy 10.1.30.240 result connected; scanning transport esphome, proxies 1
 ```

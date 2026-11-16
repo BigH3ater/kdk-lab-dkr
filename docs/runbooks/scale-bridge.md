@@ -1,5 +1,5 @@
 ---
-title: scale-bridge — host files, deploy, first weigh-in, engine, go live, raw captures, relay, rollback
+title: scale-bridge — host files, deploy, first weigh-in, engine, live writes, raw captures, relay, rollback
 updated: 2026-11-16
 ---
 
@@ -155,7 +155,8 @@ SCALE_BRIDGE_ESPHOME_PROXIES=10.1.30.240=SCALE_RELAY_NOISE_KEY
   this file only.
 - `SCALE_ADDRESS`: the scale's address from the vault capture note. Empty = any device
   named `Body Pod 2` (fine for the dry-run; startup logs `config_address_filter_off`).
-  **Required before step 6.**
+  **Required for live mode (step 6).** The bridge does not enforce it: live mode starts
+  without it, logs the warning and writes any `Body Pod 2` it hears.
 - `SCALE_BRIDGE_ESPHOME_PROXIES`: the relay, `10.1.30.240=SCALE_RELAY_NOISE_KEY` (format
   `host[=NOISE_ENV][,host2[=NOISE_ENV2]]`; the key itself is in `secrets.env`, step 2).
   Empty = the host's own adapter, which cannot reach the scale ([Relay](#relay-scale-relay)).
@@ -185,7 +186,7 @@ changes. Note the Pi's build time from the Komodo deploy log for the vault.
 ssh kdkadmin@10.1.30.21 'sudo docker ps --filter name=scale-bridge --format "{{.Names}} {{.Status}}"'
 #   scale-bridge Up ... (healthy)          (health starts after ~1 min)
 ssh kdkadmin@10.1.30.21 'sudo docker logs scale-bridge 2>&1 | head -5'
-#   {"event":"config","version":"0.2.0","dry_run":true,"write_heart_rate":false,"people":["jmack","rach"],...}
+#   {"event":"config","version":"0.2.0","dry_run":false,"write_heart_rate":false,"people":["jmack","rach"],...}
 #   {"event":"token_check","person":"jmack","result":"ok","status":200}   (and rach)
 #   {"event":"engine_config","enabled":true,"reason":"on","variant":"PPDeviceCalcuteTypeAlternate8_4","limb_order":"10432","df_x0":"20k","profiles":["jmack","rach"],"sdk_commit":"c1eb5ab4..."}
 #   {"event":"capture","enabled":true,"dir":"/captures","keep_days":60}
@@ -204,6 +205,10 @@ step 1 is missing or has the wrong owner.
 the field).
 
 ## 5. First dry-run weigh-in
+
+How the first install was checked, before live mode. Since step 6 the same weigh-in logs
+`wrote` instead of `would_write` (step 6); the `session` and `attribution` lines are the
+same. To see `would_write` again, go back to dry-run ([Rollback](#rollback)).
 
 The scale must be in radio range of the relay (`scale-relay`, [Relay](#relay-scale-relay)),
 not of kdk-dkr-02. Bluetooth **off** on both phones: a phone with the Hume app takes the
@@ -280,41 +285,89 @@ ssh kdkadmin@10.1.30.21 'sudo docker stats --no-stream --format "{{.Name}} {{.Me
    `SCALE_BRIDGE_ENGINE: "off"` (rollback below). Weigh-ins, captures and the wger write are
    unaffected either way.
 
-The results stay in the captures directory (dry-run phase). Writing them to wger is a later,
+The results stay in the captures directory, also in live mode. Writing them to wger is a later,
 separate change after about a week of data ([planned mapping](../services/scale-bridge.md#body-composition-engine)).
 
-## 6. Switch dry-run off
+## 6. Live writes (dry-run off)
 
-Before the PR, on the host (step 3, VS Code), both required:
+**Status: live** since the go-live PR (`SCALE_BRIDGE_DRY_RUN: "false"` in
+`stacks/scale-bridge/compose.yaml`, 2026-11-16). Every matched weigh-in is written to that
+person's wger. Engine results and the heart rate are still **not** written (`.engine.json`
+only; `SCALE_BRIDGE_WRITE_HEART_RATE: "false"`).
 
-1. **Pin the scale:** `SCALE_ADDRESS=<address from the vault capture note>`. Otherwise any
-   nearby device named `Body Pod 2` is accepted and its weight is written to someone's
-   wger.
-2. **Real bands:** replace any placeholder band with each person's real one (a few lb
-   either side, not overlapping).
-
-Redeploy (Komodo → Stacks → scale-bridge → Deploy) and check the startup lines:
-
-```bash
-ssh kdkadmin@10.1.30.21 'sudo docker logs --since 5m scale-bridge 2>&1 | grep -E "\"event\":\"(config|config_address_filter_off|config_bands_overlap)\""'
-#   config ... "address_filter":true      and NO config_address_filter_off / config_bands_overlap line
-```
-
-Then a one-line PR: `stacks/scale-bridge/compose.yaml`, `SCALE_BRIDGE_DRY_RUN: "false"`.
-Merge, deploy (step 4), weigh in once.
+**Before merging** (done 2026-11-16), on the host (step 3): `SCALE_ADDRESS` pinned and the
+real bands in place, not overlapping. The code does not refuse live mode without them: no
+`SCALE_ADDRESS` = a warning and any `Body Pod 2` is written to someone's wger; overlapping
+bands = a warning and such a weight is written nowhere; a missing key = `token_check`
+`missing` and each of that person's readings logs `write_skipped`. So check the startup
+lines:
 
 ```bash
-ssh kdkadmin@10.1.30.21 'sudo docker logs --since 5m scale-bridge 2>&1 | grep -E "\"event\":\"(wrote|write_failed)\""'
-#   first ever: {"event":"wrote","person":"jmack","created":11,"exists":0,"categories_created":10,...}
-#   later:      created 11, categories_created 0
+ssh kdkadmin@10.1.30.21 'sudo docker logs --since 5m scale-bridge 2>&1 | grep -E "\"event\":\"(config|config_address_filter_off|config_bands_overlap|token_check)\""'
+#   config ... "address_filter":true, token_check result ok per person
+#   and NO config_address_filter_off / config_bands_overlap line
 ```
 
-**wger web (`https://wger.kmkdp.com`, as that person) → Measurements:** Body weight has the
-new entry; ten `Impedance … kHz …` categories exist, unit `ohm`. A `write_failed` line
-retries by itself (6 tries, waits 30 s doubling = 15.5 min); `write_crashed` (an unexpected
-error) retries the same way; `write_gave_up` = enter that weight in the app. A replay of the
-same weigh-in (the scale re-sends it on a reconnect, also after a container restart) logs
-`wrote` with `created: 0` and `exists` counting the rows already there.
+**Merge = deploy.** The stack has `webhook_enabled` and `run_build` in
+`komodo/resources.toml`: the merge rebuilds the image (same tag, cached) and recreates the
+container with the new environment. A weigh-in from then on is written.
+
+**After the merge, in this order:**
+
+1. **Startup** (as step 4): `config` `dry_run: false`, `address_filter: true`;
+   `token_check` `ok` for both; `scanning` `dry_run: false`, `transport: esphome`; no
+   `config_address_filter_off` / `config_bands_overlap`.
+2. **One weigh-in** as in step 5 (barefoot, hold the handle until the display shows the
+   result, Bluetooth off on both phones), then:
+
+```bash
+ssh kdkadmin@10.1.30.21 'sudo docker logs --since 10m scale-bridge 2>&1 | grep -E "\"event\":\"(session|attribution|would_write|wrote|write_failed|write_crashed|write_gave_up|write_skipped)\""'
+```
+
+| Line | Expected |
+|---|---|
+| `session` | `result: reading`, as in step 5 |
+| `attribution` | `result: matched`, `person: <you>` |
+| `would_write` | **absent** (present = still dry-run: the deploy did not pick up the change) |
+| `wrote` | `person`, `external_id`, `created: 11`, `exists: 0`, `categories_created: 10` on that person's first live write; later `categories_created: 0`. A weight-only reading (handle let go early) = `created: 1` and no impedance categories |
+
+   The write runs in the background after the `session` line, normally within seconds.
+3. **wger web (`https://wger.kmkdp.com`, as that person) → Measurements:**
+   - **Body weight**: one new entry at the weigh-in time (kg). If that person had never
+     logged a weight, this first one also creates the official Body weight category, in the
+     profile's unit.
+   - **Ten new custom categories**, unit `ohm`, one entry each at the same time:
+     `Impedance 50 kHz right arm`, `Impedance 50 kHz left arm`, `Impedance 50 kHz trunk`,
+     `Impedance 50 kHz right leg`, `Impedance 50 kHz left leg`, and the same five with
+     `250 kHz`.
+   - **Nothing else**: no `Heart rate (scale)` category, no body-fat or other engine
+     categories.
+4. **The other person**, the same way.
+
+**Replays and duplicates.** The scale re-sends the same reading when it reconnects; the
+60 s cooldown after a reading ignores it while the container runs. After a restart, or on a
+retry, a reading whose weight (to 5 g) already has a Body weight entry within
+`SCALE_BRIDGE_REPLAY_WINDOW_S` (600 s) is the same weigh-in: `wrote` with `created: 0` and
+`exists` counting the rows already there (11 for a full reading; after a weight-only one,
+the replay adds the missing impedance: `exists: 1`, `created: 10`). Each entry also carries
+an `external_id`; wger rejects a repeat of it, counted as `exists`. Cost: a genuine second
+weigh-in by the same person at exactly the same weight within 10 min is not written.
+
+**Failures.** `write_failed` (warning: method, path and HTTP status or error type) and
+`write_crashed` (an unexpected exception, type only) retry after 30, 60, 120, 240 and
+480 s: 6 tries, 15.5 min. `write_gave_up` after the sixth = that reading is not in wger:
+enter it in the wger app. Retries are in memory only: a redeploy or restart during the waits
+drops them without a `write_gave_up` line.
+
+**Undo a wrong write** (wrong person, or a test): in that person's wger web →
+Measurements, delete the Body weight entry at that time and the ten impedance entries at the
+same time. To remove everything the bridge made for a person, delete the ten
+`Impedance …` categories (that deletes their entries) and the bridge's Body weight entries;
+**never delete the Body weight category itself** (it holds the weights logged by hand).
+
+**Back to dry-run:** revert the go-live PR and merge the revert (merge = deploy); startup
+then logs `dry_run: true` and weigh-ins log `would_write` again. Entries already written
+stay in wger (undo above).
 
 ## 7. Raw capture files
 
@@ -428,7 +481,8 @@ temporary spot).
 
 - **Stop it:** Komodo → Stacks → scale-bridge → Destroy. To keep it gone, revert the PR
   (the `[[stack]]` entry) so the next sync does not redeploy it.
-- **Back to dry-run only:** revert the step 6 PR, deploy.
+- **Back to dry-run only:** revert the go-live PR (step 6), merge the revert (that
+  deploys it). Entries already written stay in wger: [step 6 "Undo"](#6-live-writes-dry-run-off).
 - **Relay out of use:** `SCALE_BRIDGE_ESPHOME_PROXIES=` (empty) in `scale-bridge.env`, redeploy:
   the bridge falls back to the host adapter, which is out of range of the scale today.
   Firmware: flash the previous `scale-relay.yaml` from git history ([Relay](#relay-scale-relay)).

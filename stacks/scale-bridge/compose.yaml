@@ -4,9 +4,10 @@
 # (https://wger.kmkdp.com, /api/ is not behind Authelia; token auth per person).
 # No inbound port, no Traefik router, no UI. docs/services/scale-bridge.md.
 #
-# DRY RUN by default (SCALE_BRIDGE_DRY_RUN below): decode, attribute and log a
-# `would_write` line, post nothing. The owner flips it after the first live
-# weigh-in (runbook docs/runbooks/scale-bridge.md).
+# LIVE (SCALE_BRIDGE_DRY_RUN "false" below, since the go-live PR of 2026-11-16):
+# each matched weigh-in is written to that person's wger (`wrote` log line).
+# Back to dry-run (log a `would_write` line, post nothing): revert that PR and
+# deploy (runbook docs/runbooks/scale-bridge.md, step 6 and Rollback).
 #
 # Bluetooth: the host's bluetoothd owns hci0; bleak talks to it over the D-Bus
 # system bus, bind-mounted read-only (the same /run/dbus mount Home Assistant
@@ -43,8 +44,8 @@
 # Body-composition engine (0.2.0): Lefu's 8-electrode library runs in the SAME
 # image as a child program, once per weigh-in with a profile (README "Engine").
 # Needs LEFU_SECRET_8 in secrets.env; without it the engine switches itself off
-# (one `engine_config` warning) and everything else works as before. Dry-run
-# phase: results go ONLY to /captures/<capture>.engine.json, never to wger.
+# (one `engine_config` warning) and everything else works as before. Results
+# go ONLY to /captures/<capture>.engine.json, never to wger (also in live mode).
 # No extra mount, capability or network: the engine needs none at run time.
 #
 # Image is built locally (kdk/scale-bridge) -> the stack sets auto_pull=false +
@@ -81,7 +82,7 @@ services:
       - /opt/kdk-lab/scale-bridge/secrets.env
     environment:
       TZ: America/Chicago
-      SCALE_BRIDGE_DRY_RUN: "true"          # owner sets "false" after the first live weigh-in
+      SCALE_BRIDGE_DRY_RUN: "false"         # live writes to wger; "true" = log only (rollback)
       WGER_URL: "https://wger.kmkdp.com"
       SCALE_NAME: "Body Pod 2"
       # Placeholder profile written to FFF1 to trigger the impedance measurement.
