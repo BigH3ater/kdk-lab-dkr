@@ -12,7 +12,7 @@ vmid: none
 console: TrueNAS UI; iDRAC/physical
 standards: out-of-scope (not a Komodo compose host)
 secrets: []
-updated: 2026-11-15
+updated: 2026-11-16
 tags: [homelab/host, role/storage, status/live, tier/infra]
 ---
 
@@ -53,6 +53,16 @@ SMB-only user `cad-sync` (uid/gid 3011, password in 1Password
 hourly 2 DAY + daily 03:00 2 WEEK. NFS export to `172.16.30.52` (kdk-dkr-04) only,
 read-only, `mapall` = `cad-sync`, for the nightly offsite pack. Setup, verify and
 restore: [[cad-library]].
+
+## Insta360 (`tankz3/insta360-upload`, `tankz3/insta360-flat`)
+
+Raw Insta360 trips arrive over SMB share `insta360-upload` (id 8) as the SMB-only user
+`insta360-upload` (uid/gid 3012, password in 1Password `kdk-ops/kdk-nas-01-insta360-upload-smb`).
+NFS: upload → `172.16.30.52` (kdk-dkr-04) read-only, mapall 3012 (export 237); flat →
+`172.16.30.52` read-write, mapall `jmack` (238), and → `172.16.30.51` (kdk-dkr-dmz-01, Immich)
+read-only, mapall `insta360-ro` 3013 (236). Daily 03:00 snapshots kept 2 weeks (tasks 17–19,
+19 = the original `tankz3/insta360`). The nightly [[insta360-flat]] job turns raws into stills.
+Setup, ACL and verify: [[imaging]].
 
 ## ACME / web certificate
 

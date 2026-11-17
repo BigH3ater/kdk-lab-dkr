@@ -1,0 +1,51 @@
+# insta360-flat: nightly one-shot on kdk-dkr-04 that turns raw Insta360 X4 trips on the
+# NAS (/mnt/insta360-upload, read-only) into finished flat stills
+# (/mnt/insta360-flat/<YYYY-MM>-<trip>/, read-write) for the Immich external library on
+# kdk-dkr-dmz-01. flatten.py skips stills that already exist, so a night with no new
+# raws only lists files.
+#
+# deploy=false; run by the insta360-flat Procedure at 02:35 (komodo/resources.toml);
+# destroy_before_deploy recreates it fresh each run. The pre_deploy refuses to run
+# unless both NFS mounts are real mountpoints (upload ro, flat rw) and copies
+# pushover.env as 3003:3001. Any failed capture -> one Pushover + exit 1.
+# Full write-up: docs/services/insta360-flat.md, docs/runbooks/imaging.md.
+name: insta360-flat
+
+x-hardened: &hardened
+  security_opt: ["no-new-privileges:true"]
+  cap_drop: [ALL]
+  read_only: true
+  restart: "no"                 # one-shot; run nightly by the procedure
+  logging:
+    driver: json-file
+    options: { max-size: "10m", max-file: "3" }
+
+services:
+  flatten:
+    <<: *hardened
+    build: .
+    # Tag = PhotoCraft + FFmpeg versions from the Dockerfile ARGs; bump it with them.
+    image: kdk/insta360-flat:pc0.23.1-ff9.0.2-39
+    container_name: insta360-flat
+    # jmack, the owner of tankz3/insta360-flat. The rw export maps every client uid to
+    # 3003:3001 anyway (mapall); this keeps the local view the same.
+    user: "3003:3001"
+    init: true
+    # Scratch: one lossless PNG + one JPEG per view per worker (~40 MB each).
+    tmpfs: ["/tmp:size=2g,mode=1777"]
+    # 3 workers x (ffmpeg v360 + PhotoCraft threads); threads count against pids.
+    # Measured 2026-11-16, 3 workers: pids peak 102, memory peak 2.7 GiB (incl. tmpfs).
+    pids_limit: 512
+    mem_limit: 6g
+    cpus: 10                     # leave 2 of dkr-04's 12 vCPU for everything else
+    environment:
+      TZ: America/Chicago
+      WORKERS: "3"
+    volumes:
+      - ./flatten.py:/app/flatten.py:ro
+      - /mnt/insta360-upload:/upload:ro
+      - /mnt/insta360-flat:/flat
+      # 0400 3003:3001 copy made by the Komodo pre_deploy (host file is root 0600).
+      - ./pushover.env:/pushover.env:ro
+    labels:
+      kdk.baseline.skip: "healthcheck"   # one-shot

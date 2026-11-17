@@ -1375,6 +1375,56 @@ executions = [
   { execution.type = "DeployStack", execution.params.stack = "koreader-highlights", enabled = true },
 ]
 
+# insta360-flat: nightly one-shot on kdk-dkr-04 (the heavy-CPU host). Raw Insta360
+# trips from /mnt/insta360-upload (ro) -> flat stills in /mnt/insta360-flat/<YYYY-MM>-<trip>/
+# (rw), which Immich on kdk-dkr-dmz-01 indexes read-only (stacks/insta360-flat,
+# docs/services/insta360-flat.md, docs/runbooks/imaging.md). deploy=false: run by the
+# insta360-flat Procedure; destroy_before_deploy re-runs the one-shot fresh. A stopped
+# one-shot is skipped by deploy-changed (state "stopped"), like the other job stacks.
+# No run_build: compose up builds kdk/insta360-flat:<versions> only when that tag is
+# missing (flatten.py is bind-mounted, so a code change needs no rebuild), and the
+# nightly run never depends on GitHub release downloads.
+# pre_deploy: both NFS mounts must be real mountpoints with the right mode (findmnt
+# -M = exact mountpoint; without it Docker binds the bare local directory and the job
+# would write stills onto the VM disk), then the 3003:3001 pushover.env copy (the
+# immich-albums pattern; the host file is root 0600). No secrets, no .env.
+[[stack]]
+tags = ["kdk-lab"]
+name = "insta360-flat"
+deploy = false   # run nightly by the insta360-flat Procedure
+[stack.config]
+compose_cmd_wrapper = "/usr/local/sbin/kdk-compose-config-redact [[COMPOSE_COMMAND]]"   # redact env values from the stored Compose Config log (komodo#1636)
+compose_cmd_wrapper_include = ["config"]
+server = "kdk-dkr-04"
+repo = "BigH3ater/kdk-lab-dkr"
+run_directory = "stacks/insta360-flat"
+auto_pull = false   # image is built locally (kdk/insta360-flat) -> skip compose pull
+destroy_before_deploy = true   # one locked down+up so the one-shot re-runs
+pre_deploy.command = "sh -c 'findmnt -rn -M /mnt/insta360-upload -O ro >/dev/null || { echo \"pre_deploy: /mnt/insta360-upload is not mounted read-only; see docs/runbooks/imaging.md\" >&2; exit 1; }; findmnt -rn -M /mnt/insta360-flat -O rw >/dev/null || { echo \"pre_deploy: /mnt/insta360-flat is not mounted read-write; see docs/runbooks/imaging.md\" >&2; exit 1; }; if [ -d pushover.env ]; then rmdir pushover.env; fi; install -m 0400 -o 3003 -g 3001 /etc/kdk/pushover.env pushover.env'"
+
+[[procedure]]
+tags = ["kdk-lab"]
+name = "insta360-flat"
+[procedure.config]
+# schedule_format MUST be "Cron" to match the 6-field cron value below (the default
+# "English" format can't read a cron string and fires erratically, 2026-09-13/14).
+schedule_format = "Cron"
+# 02:35, not 02:30 -- gitops-sync runs on every :00/:15/:30/:45 and a concurrent
+# RunSync holds stack locks ("Resource is busy", the nightly-backups/publish-docs
+# collision). After immich-albums (02:10, dmz-01), so new stills are imported and filed
+# by the NEXT night's 02:10 run (or Immich's own 00:00 scan); clear of nightly-backups
+# at 03:20 (a fresh trip of ~300 captures takes ~25 min).
+schedule = "0 35 2 * * *"
+schedule_enabled = true
+schedule_timezone = "America/Chicago"
+failure_alert = true
+[[procedure.config.stage]]
+name = "flatten"
+enabled = true
+executions = [
+  { execution.type = "DeployStack", execution.params.stack = "insta360-flat", enabled = true },
+]
+
 # readwise-koreader REMOVED 2026-11 (owner decision, reading-sync rollout step 4):
 # Readwise Reader articles -> EPUB on the tablet had no new deliveries since 10-31.
 # The stacks/readwise-koreader/ tree, this stack + 3-hourly procedure and its

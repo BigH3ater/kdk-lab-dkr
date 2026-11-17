@@ -287,6 +287,11 @@
       "base": "python",
       "note": "built from stacks/scale-bridge/Dockerfile (python:3.12-slim + bleak, bleak-retry-connector, bleak-esphome, httpx from uv.lock; since 0.2.0 also a jlink'd eclipse-temurin 21 JRE + unidbg/Unicorn 2 + the Lefu SDK jars, pinned in stacks/scale-bridge/engine/*.lock)"
     },
+    "kdk/insta360-flat": {
+      "local": true,
+      "base": "python",
+      "note": "built from stacks/insta360-flat/Dockerfile (python:3.12-slim + BtbN static FFmpeg n9.0.2 + PhotoCraft CLI 0.23.1, both sha256-pinned; neither has an advisory feed here, bumps are by hand)"
+    },
     "kdk/koreader-highlights": {
       "local": true,
       "base": "python"
