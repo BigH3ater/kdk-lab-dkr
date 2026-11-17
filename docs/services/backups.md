@@ -1,7 +1,7 @@
 ---
 title: Backups
-host: kdk-dkr-01, kdk-dkr-dmz-01
-stack: backup-dkr-01, backup-dmz
+host: kdk-dkr-01, kdk-dkr-dmz-01, kdk-dkr-04
+stack: backup-dkr-01, backup-dmz, backup-offsite, backup-photos
 tier: infra
 status: live
 storage: yes
@@ -21,7 +21,7 @@ Nightly app-state backups run as one-shot stacks that a Komodo Procedure redeplo
 | Field | Value |
 |---|---|
 | Purpose | pg dumps + `/opt/kdk-lab` rsync to the NAS, then selected sets offsite |
-| Status | 🟢 Local NAS live (nightly 03:20) · 🟢 offsite packs per-host `tar.zst` (+ the CAD library `3d-prints-*.tar.zst`) then syncs `offsite/` + `pve-templates/` + `*/pgdump/` to Proton |
+| Status | 🟢 Local NAS live (nightly 03:20) · 🟢 offsite packs per-host `tar.zst` (+ the CAD library `3d-prints-*.tar.zst`) then syncs `offsite/` + `pve-templates/` + `*/pgdump/` to Proton · 🟡 photo originals (Immich + Insta360) synced file by file to `proton-crypt:photos/` (`backup-photos`, [[photo-offsite]]) |
 | Hosts | [[kdk-dkr-01]] (`backup-dkr-01`), [[kdk-dkr-dmz-01]] (`backup-dmz`) |
 | Deploy | Komodo Procedure `nightly-backups` redeploys both stacks (`deploy = false` otherwise) |
 | Destinations | `/mnt/backup/dkr/<host>` (NFS tankz3) → Proton Drive (crypt) |
@@ -49,6 +49,9 @@ In Komodo, Procedure `nightly-backups` shows a recent successful run.
 | `3d-prints archive missing/empty` | `/mnt/3d-prints` not mounted on kdk-dkr-04 (pack skips an empty source) | `ssh kdkadmin@10.1.20.22 findmnt /mnt/3d-prints`; [[cad-library]] step 2 |
 | WARN `laptop cad-sync last ran Nd ago` | the laptop has been away/asleep, or its timer is off | on the laptop: `systemctl --user list-timers cad-sync.timer`, `journalctl --user -u cad-sync -n 20` ([[cad-library]]) |
 | Offsite accumulates dead objects | crypt password changed without a purge | `rclone purge proton:kdk-lab-backup` before the first sync under a new password |
+| WARN `photos/proton: first upload still seeding` | normal for the first nights after the photos stage went live (4 × 25-min passes a night) | [[photo-offsite]] § Proton seeding; FAIL after 14 days |
+| FAIL `photos/proton: guard refused:...` | a photo source looked wrong (not NFS, no marker, empty, < 50 % of the last night): it was left out, its Proton copy is untouched | `ssh kdkadmin@10.1.20.22 'findmnt /mnt/immich /mnt/insta360-flat'`; [[photo-offsite]] § Overrides |
+| FAIL `photos/proton: rclone exit=7` | more than 100 deletes in one run (`--max-delete`) | check it was deliberate in Immich, then [[photo-offsite]] § Overrides |
 | rclone can't read cached tokens | image newer than the login version | pin `rclone/rclone:1.75.2` (the version that did the interactive login) |
 
 ## Dependencies
@@ -59,6 +62,7 @@ In Komodo, Procedure `nightly-backups` shows a recent successful run.
 | Needs | [[identity]] + [[immich]] + Tandoor Postgres | pg dumps |
 | Needs | Proton Drive (offsite only) | offsite tier |
 | Needs | `/mnt/3d-prints` on kdk-dkr-04 (ro NFS of `tankz3/3d-prints`) | CAD library archive; `backup-verify` fails the night |
+| Needs | `/mnt/immich` (ro NFS of `tankz3/appdata/immich`) + `/mnt/insta360-flat` on kdk-dkr-04 | photo originals offsite: the guard leaves the source out, `backup-verify` fails the night ([[photo-offsite]]) |
 
 ## Observability
 
@@ -71,6 +75,7 @@ Grafana → **Backups → Nightly backups** (`stacks/monitoring/grafana/dashboar
 | Sizes over time (30 d) | per-host archives, pg dumps per database (log scale) | `backup-manifest` |
 | CAD library changes | added/changed/removed per night, the changed paths | `backup-change` / `backup-change-summary` |
 | Upload passes | exit per pass per night (10 = 25-min cap), passes per night, upload time | `offsite pass N: rclone exit=N secs=S` |
+| Photo originals | Photos on Proton (last `photos rclone exit=`), exit per pass per night, files per source, upload time | `backup-photos` (`photos.sh`): `photos pass N: remote=proton rclone exit=N secs=S`, `photos rclone exit=N remote=proton ...`, `backup-manifest kind=photos` |
 
 The lines `pack.sh` writes after packing (stdout → Alloy on kdk-dkr-04 → Loki `{stack="backup-offsite", service="pack"}`), all logfmt:
 
@@ -84,10 +89,11 @@ backup-change-summary date=2026-11-16 added=1 changed=1 removed=0 truncated=fals
 - One `backup-manifest` per archive in `offsite/` and per `<host>/pgdump/` dump dated tonight (UTC date). `prev_bytes` = the same series' previous file (yesterday's archive, the previous dump of that DB), `none` for a first file; `pct` = bytes × 100 / prev_bytes, computed in pack because LogQL cannot compare two labels. `series` = the host for archives (`3d-prints` for the CAD library), the database for dumps.
 - `backup-change`: the newest `3d-prints` archive's file list (path, size, mtime) against the previous archive's, at most 300 lines, paths always quoted (`\` and `"` escaped; GNU tar's own escapes for odd characters stay). The summary carries the real counts and `truncated=true` past 300. With no previous archive it writes one summary line with `baseline=true`.
 - Reporting is best-effort (a subshell): it never fails or delays pack.
+- `backup-photos` (`stacks/backup-photos/photos.sh`, Loki `{stack="backup-photos", service="photos"}`) writes one `backup-manifest ... kind=photos host=kdk-nas-01 series=immich|insta360-flat name=photos/<series> bytes=N prev_bytes=N|none pct=P|none files=N prev_files=N|none guard=ok|<why>` line per photo source: bytes = the whole source tree, prev = the last night the deletion guard accepted. They show in the Files table (Proton = the final `photos rclone exit=`, `left out (guard)` for a refused source) and feed `BackupFileShrank` like the pack lines. [[photo-offsite]]
 - `offsite.sh` adds `secs=` to each `offsite pass N: rclone exit=N` line and `passes=N secs=S` to the final `offsite rclone exit=N` line (the `rclone exit=N` text is unchanged).
 - Alert `BackupFileShrank` (`stacks/loki/rules/backups.yml`, warning → Pushover like every Loki warning): a manifest line with `pct < 50`, labels `host` + `name`, fires for 2 h after the run. Check the Files table, then the previous file on kdk-dkr-04 (`sudo ls -l /mnt/backup/dkr/offsite/` or `/mnt/backup/dkr/<host>/pgdump/`) before it rotates out (archives keep 3, dumps keep 15).
 
-**Re-emit the report without a backup run** (`pack.sh --report-only [YYYY-MM-DD]`): reads the files already on disk, writes the same lines, and does not pack, rotate, copy the CAD marker or write anything under `/mnt/backup`. The date defaults to the newest archive date in `offsite/`. It then holds the container `REPORT_HOLD` seconds (90): Alloy's `discovery.docker` refreshes every 60 s and only sees running containers, so a container that exits sooner never reaches Loki. Run it from a repo checkout on kdk-dkr-04, **not** the Komodo clone, outside the nightly window (03:20 until the offsite step ends):
+**Re-emit the report without a backup run** (`pack.sh --report-only [YYYY-MM-DD]`): reads the files already on disk, writes the same lines, and does not pack, rotate, copy the CAD marker or write anything under `/mnt/backup`. The date defaults to the newest archive date in `offsite/`. It then holds the container `REPORT_HOLD` seconds (90): Alloy's `discovery.docker` refreshes every 60 s and only sees running containers, so a container that exits sooner never reaches Loki. Run it from a repo checkout on kdk-dkr-04, **not** the Komodo clone, outside the nightly window (03:20 until the photos step ends):
 
 ```bash
 ssh kdkadmin@10.1.20.22
@@ -106,7 +112,9 @@ cd / && rm -rf /tmp/kdk-report
 
 Three layers: (1) ZFS snapshots — vmpool covers the DMZ VM zvol, tankz3 covers bulk + backup datasets; (2) VM-level — vzdump of VM 300 and VM 320 (kdk-log-01: Loki data lives on its disk, no app-level backup) to PBS, TrueNAS zvol replication of the DMZ VM; (3) app-level — the two backup stacks. `backup-dmz` runs `pg_dump` for Authelia, Immich and Tandoor (keeps 15) then rsyncs state; `backup-dkr-01` runs `pg_dump` for Jellystat and wger (keeps 15 each, into `kdk-dkr-01/pgdump`; wger without PowerSync's derived `powersync` schema) then rsyncs `/opt/kdk-lab` (excluding scratch, the live Postgres cluster dirs `komodo/postgres`, `jellystat/postgres` and `wger/postgres`, and the regenerable `wger/static`), then the separate `backup-offsite` stage first **packs one `tar.zst` per host** (`pack.sh`: GNU tar + zstd, excluding caches/logs/clones/creds, newest 3 kept locally) into `/mnt/backup/dkr/offsite/`, then runs `rclone sync` of only `offsite/` + `pve-templates/` + each host's `pgdump/` to Proton (encrypted, in ≤25-min passes). Packing first turns thousands of small files into a few large objects, which the Proton API handles without the 502/422/empty-upload churn that stopped the old whole-tree sync from finishing. The same `pack` step also archives the owner's CAD library (laptop `~/cad`, synced every 15 min to `tankz3/3d-prints`, mounted read-only on kdk-dkr-04 at `/mnt/3d-prints`) as `offsite/3d-prints-YYYY-MM-DD.tar.zst` with its own small exclude list (`*.log`, `__pycache__`, `.~lock*`, `.~*.lock`), so it ships with the host archives ([[cad-library]]). `backup-verify` checks all five pg dumps are present + gzip-valid for the day, that tonight's `3d-prints` archive exists and passes `zstd -t`, and warns if the laptop's last sync (`.3d-prints-last-sync`, copied by `pack`) is older than 14 days.
 
-DMZ data that lives on `/mnt/appdata` instead of `/opt/kdk-lab` (Seerr, Wizarr, Libreseerr, Jellyfin metadata, Audiobookshelf podcasts) is **not** in the nightly rsync or offsite: it is covered by tankz3 snapshots only. The Jellyfin metadata and podcasts are regenerable (re-scan / re-download from the feeds), so that is deliberate.
+**Photo originals** (Immich `library/` + `upload/` + `profile/` on `tankz3/appdata/immich`, and the Insta360 export `tankz3/insta360-flat`) are not packed: the `photos` stage (`backup-photos`, kdk-dkr-04, after `offsite`) syncs them file by file to `proton-crypt:photos/` behind a deletion guard, and `backup-verify` checks its status ([[photo-offsite]]).
+
+Other DMZ data that lives on `/mnt/appdata` instead of `/opt/kdk-lab` (Seerr, Wizarr, Libreseerr, Jellyfin metadata, Audiobookshelf podcasts, Immich thumbs/encoded-video) is **not** in the nightly rsync or offsite: it is covered by tankz3 snapshots only. The Jellyfin metadata and podcasts are regenerable (re-scan / re-download from the feeds), so that is deliberate.
 
 ## Configuration
 
@@ -116,7 +124,8 @@ DMZ data that lives on `/mnt/appdata` instead of `/opt/kdk-lab` (Seerr, Wizarr, 
 | `stacks/backup-offsite/compose.yaml` | separate stage: `pack` service builds per-host `tar.zst`, then `offsite` service `rclone sync`s `offsite/` + `pve-templates/` + `*/pgdump/` to Proton (crypt), `--max-duration 25m` per pass, writes `.offsite-status` |
 | `stacks/backup-offsite/pack.sh` | builds `/mnt/backup/dkr/offsite/<host>-YYYY-MM-DD.tar.zst` per host (excludes caches/logs/clones/creds/pgdump), plus `3d-prints-YYYY-MM-DD.tar.zst` from `/src/3d-prints` (ro bind of dkr-04 `/mnt/3d-prints`), keeps newest 3 of each |
 | `stacks/backup-dmz/compose.yaml` | Authelia + Immich + Tandoor pg dumps + rsync of `/opt/kdk-lab` (excludes live Postgres dirs, certs, clones, Jellyfin metadata/cache/transcodes, `audiobookshelf/podcasts`) |
-| `/opt/kdk-lab/backup/rclone/rclone.conf` | `proton` + `proton-crypt` remotes |
+| `stacks/backup-photos/compose.yaml`, `photos.sh` | separate stage after offsite: guard, then `rclone sync --size-only --max-delete 100` of the photo originals to `proton-crypt:photos/`, up to 4 × 25-min passes, writes `.photos-status-proton` ([[photo-offsite]]) |
+| `/opt/kdk-lab/backup/rclone/rclone.conf` | `proton` + `proton-crypt` remotes (shared by `backup-offsite` and `backup-photos`, which never run at once) |
 | Procedure `nightly-backups` | schedule `0 20 3 * * *` (03:20 daily, `Cron` format) |
 
 Restore: rsync/untar back from `/mnt/backup`, `psql < dump`.

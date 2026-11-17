@@ -1,0 +1,73 @@
+# Nightly one-shot on kdk-dkr-04: file-by-file rclone sync of the photo
+# ORIGINALS (Immich library/upload/profile + the Insta360 export) to the Proton
+# crypt remote, under proton-crypt:photos/. Own stage of the nightly-backups
+# procedure, AFTER backup-offsite (one Proton session, single-use refresh token:
+# never two rclone runs at once) and BEFORE backup-verify. Logic, deletion guard
+# and the status file verify reads: photos.sh (mounted, so Compose interpolation
+# never touches its shell $variables). Docs: docs/runbooks/photo-offsite.md.
+name: backup-photos
+services:
+  photos:
+    image: rclone/rclone:1.76.0@sha256:7cbeec24a44f206067597c0368be4de90ae19a64d5113c7d1938bd737a81e466
+    restart: "no"
+    entrypoint: ["/bin/sh", "/photos.sh"]
+    security_opt: ["no-new-privileges:true"]
+    # Root with no capabilities: reads root-owned rclone.conf + writes the
+    # root-owned backup tree as the owner; the NFS server (not DAC) decides the
+    # source reads (immich export mapall=nobody, world-readable files).
+    cap_drop: [ALL]
+    read_only: true
+    tmpfs: [/tmp]
+    pids_limit: 128
+    mem_limit: 1g
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+    labels:
+      kdk.baseline.skip: "healthcheck"   # one-shot
+    # Knobs the Komodo stack `environment` may set (komodo/resources.toml); a
+    # by-hand `docker compose run -e ...` can set any PHOTOS_* (see photos.sh).
+    environment:
+      PHOTOS_MODE: "${PHOTOS_MODE:-sync}"             # sync | copy (copy never deletes offsite)
+      PHOTOS_MAX_DELETE: "${PHOTOS_MAX_DELETE:-100}"  # more deletes in one run = rclone exit 7, verify FAILs
+    volumes:
+      # Status files + guard state (.photos-status-<remote>, .photos-state) at the
+      # backup root, where backup-verify (dkr-01) reads them. Outside every
+      # offsite --filter, so never shipped.
+      - /mnt/backup/dkr:/data
+      # Proton session: rw, rclone rotates the cached tokens in place (offsite.sh).
+      - /opt/kdk-lab/backup/rclone:/config
+      - ./photos.sh:/photos.sh:ro
+      # Immich originals: NAS tankz3/appdata/immich, read-only NFS on dkr-04 at
+      # /mnt/immich (unit hosts/kdk-dkr-04/systemd/mnt-immich.mount). Only these
+      # three trees; thumbs/, encoded-video/ and backups/ are never bound.
+      # create_host_path false: with the mount down the subdirs do not exist and
+      # the container refuses to start (loud), instead of Docker creating empty
+      # local dirs. photos.sh also checks each bind is NFS.
+      - { type: bind, source: /mnt/immich/library, target: /src/immich/library, read_only: true, bind: { create_host_path: false } }
+      - { type: bind, source: /mnt/immich/upload, target: /src/immich/upload, read_only: true, bind: { create_host_path: false } }
+      - { type: bind, source: /mnt/immich/profile, target: /src/immich/profile, read_only: true, bind: { create_host_path: false } }
+      # Insta360 export: dkr-04's mount of tankz3/insta360-flat (rw on the host for
+      # the insta360-flat worker, unit hosts/kdk-dkr-04/systemd/mnt-insta360\x2dflat.mount), bound
+      # read-only here. The mountpoint dir exists even when unmounted, so the
+      # NFS check in photos.sh is what catches a dead mount.
+      - { type: bind, source: /mnt/insta360-flat, target: /src/insta360-flat, read_only: true }
+  # CRITICAL (same as backup-offsite): DeployStack blocks until the sync has
+  # finished, so the verify stage runs AFTER .photos-status-* is written.
+  gate:
+    image: busybox:1.38.0@sha256:a46257e06c82ad85242d0d38077d0a52d9896389ca60a1a59d3463db586e5fa4
+    restart: "no"
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: [ALL]
+    read_only: true
+    pids_limit: 16
+    mem_limit: 32m
+    network_mode: none
+    logging:
+      driver: json-file
+      options: { max-size: "1m", max-file: "2" }
+    labels:
+      kdk.baseline.skip: "healthcheck"   # one-shot
+    depends_on:
+      photos: { condition: service_completed_successfully }
+    command: ["true"]

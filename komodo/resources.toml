@@ -287,6 +287,22 @@ repo = "BigH3ater/kdk-lab-dkr"
 run_directory = "stacks/backup-offsite"
 destroy_before_deploy = true   # one locked down+up (stage execs run in parallel)
 
+# Photo originals (Immich library/upload/profile + the Insta360 export) to Proton,
+# file by file (rclone sync, never packed). Own stage AFTER offsite: same host and
+# same Proton session (rclone.conf), so the two must never run at once. Reads the
+# ro NFS mounts /mnt/immich + /mnt/insta360-flat. docs/runbooks/photo-offsite.md.
+[[stack]]
+tags = ["kdk-lab"]
+name = "backup-photos"
+deploy = false   # deployed nightly by the nightly-backups Procedure
+[stack.config]
+compose_cmd_wrapper = "/usr/local/sbin/kdk-compose-config-redact [[COMPOSE_COMMAND]]"   # redact env values from the stored Compose Config log (komodo#1636)
+compose_cmd_wrapper_include = ["config"]
+server = "kdk-dkr-04"
+repo = "BigH3ater/kdk-lab-dkr"
+run_directory = "stacks/backup-photos"
+destroy_before_deploy = true   # one locked down+up (stage execs run in parallel)
+
 # Validate the whole pass and page Pushover on any failure. Final nightly stage.
 [[stack]]
 tags = ["kdk-lab"]
@@ -647,6 +663,14 @@ name = "offsite"
 enabled = true
 executions = [
   { execution.type = "DeployStack", execution.params.stack = "backup-offsite", enabled = true },
+]
+# Photo originals, file by file. Strictly after offsite (one Proton session), before
+# verify (it reads .photos-status-proton). Up to 4 x 25-min passes a night.
+[[procedure.config.stage]]
+name = "photos"
+enabled = true
+executions = [
+  { execution.type = "DeployStack", execution.params.stack = "backup-photos", enabled = true },
 ]
 [[procedure.config.stage]]
 name = "verify"
@@ -1303,7 +1327,8 @@ run_directory = "stacks/storage-health"
 # linux-tools: NAS export + dkr-04 unit live since 2026-11-05 (docs/runbooks/linux-tools-share.md)
 # 3d-prints: merge only after the dkr-04 unit verifies (docs/runbooks/cad-library.md)
 # insta360-upload/-flat: dkr-04 units active since 2026-11-16 (docs/runbooks/imaging.md)
-environment = "NFS_MOUNTS=media backup linux-tools 3d-prints insta360-upload insta360-flat"
+# immich: merge only after the dkr-04 mnt-immich.mount verifies (docs/runbooks/photo-offsite.md)
+environment = "NFS_MOUNTS=media backup linux-tools 3d-prints insta360-upload insta360-flat immich"
 destroy_before_deploy = true   # one locked down+up so the one-shot re-runs
 
 [[procedure]]
