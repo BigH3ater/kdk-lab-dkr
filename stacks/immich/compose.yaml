@@ -1,14 +1,54 @@
 # Immich on the DMZ node -- fresh deploy (the k3s instance was unused).
 # Segmented: server/ml/db/cache on an internal network; only the server also
 # joins proxy-dmz for immich.kmkdp.com. Library on tankz3/appdata/immich (NFS).
+#
+# Hardened to docs/reference/compose-baseline.md (2026-11-16, while the instance
+# was still empty). Every service runs non-root on a read_only rootfs with no
+# capabilities. Runtime users:
+#   immich-server, immich-machine-learning  1000:1000 (== kdkadmin on the host)
+#   immich-postgres                         999:999   (the image's postgres user)
+#   immich-valkey                           999:999   (the image's valkey user)
+# The Komodo pre_deploy (komodo/resources.toml, stack `immich`) chowns
+# /mnt/appdata/immich and /opt/kdk-lab/immich/model-cache to 1000:1000 before
+# every deploy (idempotent). /opt/kdk-lab/immich/postgres is already 999-owned.
+# `docker diff` on the root-run containers (2026-11-16) showed server and ML
+# write nothing outside their mounts; postgres writes /etc/postgresql and
+# /run/postgresql, valkey writes /data. Those paths are tmpfs below.
 name: immich
+
+# Baseline for every service. A service merges it with `<<: *hardened` and only
+# overrides what it needs (a key set on the service replaces the anchor's value).
+x-hardened: &hardened
+  security_opt: ["no-new-privileges:true"]
+  cap_drop: [ALL]
+  read_only: true
+  tmpfs: [/tmp]
+  restart: unless-stopped
+  pids_limit: 256
+  mem_limit: 512m
+  logging:
+    driver: json-file
+    options: { max-size: "10m", max-file: "3" }
+
 services:
   immich-server:
+    <<: *hardened
     image: ghcr.io/immich-app/immich-server:v3.4.1@sha256:7c489add298fc2f92cda4c777de6462aa206877e04087b815f62c7664af0b53b
     container_name: immich-server
-    restart: unless-stopped
+    # The image runs as root but does not need to (Immich FAQ "run as a non-root
+    # user": the user needs rw on the upload location and nothing else). Port
+    # 2283 is unprivileged, so no capability is needed.
+    user: "1000:1000"
+    # Idle on an empty instance 2026-11-16: 695 MiB / 33 pids. Thumbnailing,
+    # ffmpeg transcodes and the sharp/libvips thread pool (UV_THREADPOOL_SIZE =
+    # 8 cores) need headroom; /tmp tmpfs is charged to this cgroup too.
+    mem_limit: 4g
+    pids_limit: 1024
     environment:
       TZ: America/Chicago
+      # No passwd entry for uid 1000 in the image; give node/ffmpeg a writable
+      # HOME on the /tmp tmpfs instead of the read_only rootfs.
+      HOME: /tmp
       DB_HOSTNAME: immich-postgres
       DB_USERNAME: immich
       DB_PASSWORD: "${IMMICH_DB_PASSWORD}"
@@ -19,8 +59,18 @@ services:
       # every proxy-dmz container); loopback stays trusted (server/src/app.common.ts).
       IMMICH_TRUSTED_PROXIES: "10.211.2.3/32"
     volumes:
-      - /mnt/appdata/immich:/data
-    depends_on: [immich-postgres, immich-valkey]
+      - /mnt/appdata/immich:/data   # rw NFS (no root squash); chowned 1000:1000 by pre_deploy
+    healthcheck:
+      # Same probe as the image's own HEALTHCHECK (curl /api/server/ping == pong),
+      # declared here so the baseline check sees it.
+      test: ["CMD-SHELL", "immich-healthcheck"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
+    depends_on:
+      immich-postgres: { condition: service_healthy }
+      immich-valkey: { condition: service_healthy }
     networks: [internal, proxy-dmz]
     labels:
       traefik.enable: "true"
@@ -30,23 +80,83 @@ services:
       traefik.http.services.immich.loadbalancer.server.port: "2283"
 
   immich-machine-learning:
+    <<: *hardened
     image: ghcr.io/immich-app/immich-machine-learning:v3.4.1@sha256:8adebf414256f6e4f837bfbb66fa94f14f4da7260e3a1d65cbba49e4e35d8764
     container_name: immich-ml
-    restart: unless-stopped
+    # Non-root per the Immich FAQ: the user needs rw on /cache (models; the image
+    # sets MACHINE_LEARNING_CACHE_FOLDER=/cache and HF_HOME=/cache/hf-cache).
+    # Port 3003 is unprivileged.
+    user: "1000:1000"
+    # Idle 197 MiB / 19 pids with no model loaded yet. CLIP + face models load
+    # into RAM on first use (~1.5-2.5 GiB on CPU); gunicorn + onnxruntime spawn
+    # a thread per core.
+    mem_limit: 4g
+    pids_limit: 512
+    environment:
+      TZ: America/Chicago
+      # No passwd entry for uid 1000; python/huggingface/onnx caches that
+      # follow $HOME land on the /tmp tmpfs, not the read_only rootfs.
+      HOME: /tmp
     volumes:
-      - /opt/kdk-lab/immich/model-cache:/cache
+      - /opt/kdk-lab/immich/model-cache:/cache   # chowned 1000:1000 by pre_deploy
+    healthcheck:
+      # Same probe as the image's own HEALTHCHECK (GET :3003/ping).
+      test: ["CMD", "python3", "healthcheck.py"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
     networks: [internal]
 
   immich-valkey:
+    <<: *hardened
     image: docker.io/valkey/valkey:9@sha256:3add1a336a920ea54770a001ab6feb3da5fceea96a40373a3a2cd469b815f0b7
     container_name: immich-valkey
-    restart: unless-stopped
+    # The image's valkey user. As non-root the entrypoint skips its chown and
+    # setpriv step and runs valkey-server directly.
+    user: "999:999"
+    # 2026-11-16: 26 MiB / 9 pids.
+    mem_limit: 256m
+    pids_limit: 128
+    # Valkey only holds Immich's job queues. The image declares no volume and
+    # snapshots dump.rdb into its workdir /data, which is unwritable under
+    # read_only (and a failed BGSAVE makes valkey refuse writes), so /data is a
+    # tmpfs: queue state is lost on restart, as it already was on every recreate.
+    tmpfs: [/tmp, "/data:size=64m"]
+    healthcheck:
+      test: ["CMD-SHELL", "valkey-cli ping | grep -q PONG"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
     networks: [internal]
 
   immich-postgres:
+    <<: *hardened
     image: ghcr.io/immich-app/postgres:14-vectorchord0.4.3-pgvectors0.2.0@sha256:bcf63357191b76a916ae5eb93464d65c07511da41e3bf7a8416db519b40b1c23
+    # Name and service are load-bearing: backup-dmz's pgdump-immich reaches
+    # `immich-postgres` over the external network `immich_internal`.
     container_name: immich-postgres
-    restart: unless-stopped
+    # The image's postgres user (Debian, uid 999). PGDATA
+    # /opt/kdk-lab/immich/postgres is already owned by 999 (checked 2026-11-16:
+    # no file with another owner), so the entrypoint needs no root step.
+    user: "999:999"
+    # No-op while user: 999:999 (non-root gets no effective caps). Kept so a
+    # rollback that only deletes `user:` still starts (root entrypoint chowns
+    # PGDATA, then drops to postgres via gosu). Same pattern as tandoor/identity.
+    cap_add:
+      - CHOWN          # entrypoint: chown PGDATA / socket dir to postgres
+      - SETUID         # gosu to postgres
+      - SETGID         # gosu to postgres
+      - DAC_OVERRIDE   # root reads PGDATA (0700, uid 999)
+      - FOWNER         # chmod of PGDATA it does not own
+    # shared_buffers is 512MB (image SSD config); 2026-11-16: 246 MiB / 11 pids.
+    mem_limit: 2g
+    pids_limit: 256
+    # immich-docker-entrypoint.sh copies the SSD/HDD config template into
+    # /etc/postgresql/postgresql.conf at every start (cp + sed -i); the socket
+    # and lock live in /run/postgresql. PGDATA is the rw bind below.
+    tmpfs: [/tmp, /run/postgresql, /etc/postgresql]
     environment:
       POSTGRES_USER: immich
       POSTGRES_PASSWORD: "${IMMICH_DB_PASSWORD}"
@@ -54,6 +164,14 @@ services:
       POSTGRES_INITDB_ARGS: "--data-checksums"
     volumes:
       - /opt/kdk-lab/immich/postgres:/var/lib/postgresql/data
+    healthcheck:
+      # The image's own check (pg_isready + zero checksum failures), on the
+      # baseline's 30s interval instead of the image's 5 min.
+      test: ["CMD-SHELL", "/usr/local/bin/healthcheck.sh"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
     networks: [internal]
 
 networks:
