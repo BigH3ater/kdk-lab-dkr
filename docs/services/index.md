@@ -38,7 +38,7 @@ Stack definitions live in `stacks/` in the repo; Komodo deploys them from git. O
 | [trivy-scan](trivy-scan.md) | all compose hosts | — (weekly, Grafana → Security) | trivy-scan |
 | [NUT (UPS)](nut.md) | kdk-dkr-03 | 10.1.30.22:3493 (NUT; 10.1.3.62 on the UPS L2) | nut |
 | [Home Assistant](home-assistant.md) | kdk-dkr-02 | http://10.1.30.21:8123 | home-assistant |
-| [scale-bridge](scale-bridge.md) | kdk-dkr-02 | — (Body Pod 2 BLE → wger; planned, dry-run first) | scale-bridge |
+| [scale-bridge](scale-bridge.md) | kdk-dkr-02 | — (Body Pod 2 BLE → wger; live writes) | scale-bridge |
 
 Formerly adopted (files-on-host) stacks, now git-linked Komodo stacks deployed from the repo (`repo` + `run_directory` in `komodo/resources.toml`): [Home Assistant](home-assistant.md) on [kdk-dkr-02](../hosts/kdk-dkr-02.md), Scrypted on [kdk-dkr-03](../hosts/kdk-dkr-03.md), monitoring (`monitoring-ext`) on [kdk-mon-01](../hosts/kdk-mon-01.md). Only host-managed secrets and a little host-rendered config still live on those boards.
 
