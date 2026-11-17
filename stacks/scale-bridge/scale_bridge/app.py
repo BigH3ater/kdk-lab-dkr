@@ -1,4 +1,11 @@
-"""Reading -> person -> wger. Dry-run (the committed default) logs and posts nothing."""
+"""Reading -> person -> wger. Dry-run (the committed default) logs and posts nothing.
+
+Engine to wger (SCALE_BRIDGE_WRITE_ENGINE, live only): `handle` queues the write at once
+with a future for this session's engine result; `compute` (run by ble.py right after
+`handle`) resolves it. The write task posts the weight and the impedances first and only
+then waits for that future (bounded: engine timeout + ENGINE_WAIT_MARGIN_S), so the engine
+never delays the weight; the engine rows go into the same attempt, retry and `wrote` line.
+"""
 from __future__ import annotations
 
 import asyncio
@@ -12,18 +19,28 @@ import httpx
 from . import __version__
 from .attribution import attribute, overlaps
 from .config import Settings
-from .engine import Engine, EngineRun, build_case, log_run, profile_inputs, result_document
+from .engine import OK, Engine, EngineRun, build_case, log_run, profile_inputs, result_document
 from .logs import emit
 from .session import Reading
-from .wger import LB_PER_KG, WgerClient, WgerError, external_id, plan
+from .wger import LB_PER_KG, EngineRows, WgerClient, WgerError, engine_rows, external_id, plan
 
 log = logging.getLogger("scale_bridge.app")
 FIRST_RETRY_S = 30.0
+ENGINE_WAIT_MARGIN_S = 30.0     # on top of the engine timeout, then the write goes on without it
 
 
 class Decision(NamedTuple):
     outcome: str                # no_match | ambiguous | dry_run | no_token | queued
     person: str | None = None   # the matched person, else None
+
+
+def rows_for(run: EngineRun | None) -> EngineRows:
+    """The engine run -> what the write gets: rows only for `ok` with errorType PP_ERROR_TYPE_NONE."""
+    if run is None:
+        return EngineRows("not_run")
+    if run.result != "ok" or run.error_type != OK or not isinstance(run.output, dict):
+        return EngineRows(run.result)
+    return engine_rows(run.output.get("out"))
 
 
 def retry_delays(tries: int, first: float = FIRST_RETRY_S) -> list[float]:
@@ -40,11 +57,13 @@ class Bridge:
         self.clients = {x.name: WgerClient(http, settings.token_for(x)) for x in settings.people}
         self.tasks: set[asyncio.Task[None]] = set()
         self.engine = Engine(settings.engine)
+        self.engine_waits: dict[str, asyncio.Future[EngineRows]] = {}    # session -> engine result
 
     async def startup_checks(self) -> None:
         """Config summary + one authenticated GET per person (status only)."""
         emit(log, logging.INFO, "config", version=__version__, dry_run=self.s.dry_run,
-             write_heart_rate=self.s.write_heart_rate, people=[x.name for x in self.s.people],
+             write_heart_rate=self.s.write_heart_rate, write_engine=self.s.write_engine,
+             people=[x.name for x in self.s.people],
              wger_url=self.s.wger_url, address_filter=bool(self.s.scale_address))
         if not self.s.people:
             emit(log, logging.WARNING, "config_no_people", hint="set SCALE_BRIDGE_PEOPLE in the host env file")
@@ -98,7 +117,16 @@ class Bridge:
             emit(log, logging.ERROR, "write_skipped", session=session_id, person=person.name,
                  reason="token missing", env=person.token_env)
             return Decision("no_token", person.name)
-        task = asyncio.create_task(self._write(person.name, reading, ext, session_id))
+        wait: asyncio.Future[EngineRows] | None = None
+        if self.s.write_engine:
+            wait = asyncio.get_running_loop().create_future()
+            if not self.engine.enabled:
+                wait.set_result(EngineRows("engine_off"))
+            elif person.profile is None:
+                wait.set_result(EngineRows("no_profile"))
+            else:
+                self.engine_waits[session_id] = wait          # compute() resolves it
+        task = asyncio.create_task(self._write(person.name, reading, ext, session_id, wait))
         self.tasks.add(task)
         task.add_done_callback(self._task_done)
         return Decision("queued", person.name)
@@ -106,9 +134,19 @@ class Bridge:
     async def compute(self, reading: Reading, decision: Decision | None, session_id: str) -> EngineRun | None:
         """Body-composition engine for a matched person with a profile and all four DF frames.
 
-        Never raises and never touches the wger write: results only go to the capture
-        directory (`<capture>.engine.json`) in this phase. None = not run.
+        Never raises. The result goes to the capture directory (`<capture>.engine.json`) and,
+        with SCALE_BRIDGE_WRITE_ENGINE, to the waiting write task. None = not run.
         """
+        run = None
+        try:
+            run = await self._compute(reading, decision, session_id)
+            return run
+        finally:
+            wait = self.engine_waits.pop(session_id, None)
+            if wait is not None and not wait.done():
+                wait.set_result(rows_for(run))
+
+    async def _compute(self, reading: Reading, decision: Decision | None, session_id: str) -> EngineRun | None:
         try:
             if not self.engine.enabled or decision is None or decision.person is None:
                 return None
@@ -136,15 +174,28 @@ class Bridge:
         if not task.cancelled() and task.exception() is not None:   # _write catches everything; belt and braces
             emit(log, logging.ERROR, "write_crashed", stage="task", error=type(task.exception()).__name__)
 
-    async def _write(self, person: str, reading: Reading, ext: str, session_id: str) -> None:
+    async def _write(self, person: str, reading: Reading, ext: str, session_id: str,
+                     wait: asyncio.Future[EngineRows] | None = None) -> None:
         """Every attempt that fails (WgerError, or anything unexpected) waits and retries."""
         client = self.clients[person]
         delays = retry_delays(self.s.write_retries)
         window = timedelta(seconds=self.s.replay_window)
+        engine = None
+        if wait is not None:
+            bound = self.s.engine.timeout + ENGINE_WAIT_MARGIN_S
+
+            async def engine() -> EngineRows:          # waits once; a retry reuses the answer
+                if not wait.done():
+                    try:
+                        await asyncio.wait_for(asyncio.shield(wait), bound)
+                    except TimeoutError:
+                        self.engine_waits.pop(session_id, None)
+                        wait.set_result(EngineRows("no_result"))
+                return wait.result()
         for attempt in range(1, self.s.write_retries + 1):
             try:
                 counts = await client.write_reading(reading, uuid.UUID(ext), window,
-                                                    heart_rate=self.s.write_heart_rate)
+                                                    heart_rate=self.s.write_heart_rate, engine=engine)
             except WgerError as e:
                 emit(log, logging.WARNING, "write_failed", session=session_id, person=person,
                      attempt=attempt, error=str(e))

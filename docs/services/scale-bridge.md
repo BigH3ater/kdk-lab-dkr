@@ -14,16 +14,18 @@ tags: [homelab/stack, tier/internal, status/live, exercise]
 
 A small Python service on kdk-dkr-02 that listens for the household scale (Hume
 **Body Pod 2**, a Lefu OEM unit) over Bluetooth LE, decodes a weigh-in, works out whose
-it is from a weight band, and writes it to that person's [wger](wger.md): body weight
-plus the ten raw impedance values (and, behind a switch, the heart rate). It also keeps a
+it is from a weight band, and writes it to that person's [wger](wger.md): body weight,
+the ten raw impedance values, the heart rate and (since 0.3.0) the body-composition
+engine's results. It also keeps a
 **raw capture file per weigh-in** for paired tests against the vendor app. **Live writes** since
 2026-11-16 (`SCALE_BRIDGE_DRY_RUN: "false"`); dry-run, which only logs what it would write, is
 the rollback ([runbook step 6](../runbooks/scale-bridge.md#6-live-writes-dry-run-off)).
 
 No port, no UI, no Traefik router. Since 0.2.0 it also runs **Lefu's own 8-electrode
 body-composition engine** once per weigh-in (the scale vendor's published calculation
-library, see [below](#body-composition-engine)); its results only go to the captures
-directory, not to wger (also in live mode).
+library, see [below](#body-composition-engine)); since 0.3.0 its results go to the captures
+directory **and** to 16 custom `… (scale)` categories in wger
+(`SCALE_BRIDGE_WRITE_ENGINE: "true"`).
 
 ```mermaid
 flowchart LR
@@ -41,11 +43,11 @@ flowchart LR
 
 | Field | Value |
 |---|---|
-| Purpose | Body Pod 2 weigh-ins → wger body weight + raw impedance, per person |
+| Purpose | Body Pod 2 weigh-ins → wger body weight, raw impedance, heart rate and engine body composition, per person |
 | Host | kdk-dkr-02 (10.1.30.21), Komodo stack `scale-bridge` |
-| Image | `kdk/scale-bridge:0.2.0`, built on the host from `stacks/scale-bridge` (python 3.12-slim, bleak, bleak-retry-connector, bleak-esphome, httpx from `uv.lock`; plus the engine: jlink'd Temurin 21 JRE, unidbg, Lefu SDK, all sha256-pinned) |
-| Engine | `SCALE_BRIDGE_ENGINE: "on"` in compose; self-disables without `LEFU_SECRET_8`. Results to `/captures/*.engine.json` only, never to wger |
-| Mode | **live**: `SCALE_BRIDGE_DRY_RUN: "false"` in compose since 2026-11-16 (`"true"` = log only, the rollback). Heart rate and engine results are not written |
+| Image | `kdk/scale-bridge:0.3.0`, built on the host from `stacks/scale-bridge` (python 3.12-slim, bleak, bleak-retry-connector, bleak-esphome, httpx from `uv.lock`; plus the engine: jlink'd Temurin 21 JRE, unidbg, Lefu SDK, all sha256-pinned) |
+| Engine | `SCALE_BRIDGE_ENGINE: "on"` in compose; self-disables without `LEFU_SECRET_8`. Results to `/captures/*.engine.json`, and with `SCALE_BRIDGE_WRITE_ENGINE: "true"` (since 0.3.0) to wger ([mapping](#engine-results-in-wger)) |
+| Mode | **live**: `SCALE_BRIDGE_DRY_RUN: "false"` in compose since 2026-11-16 (`"true"` = log only, the rollback). Since 0.3.0 also `SCALE_BRIDGE_WRITE_HEART_RATE: "true"` and `SCALE_BRIDGE_WRITE_ENGINE: "true"` (each `"false"` = off on its own; code defaults are off) |
 | Bluetooth | `/run/dbus:/run/dbus:ro` → host bluetoothd, as uid `65534:65534` (host `nobody:nogroup`). No privileged, no capabilities, no `/dev`, bridge network |
 | Relay | the scale is heard **only** through the ESPHome Bluetooth proxy `scale-relay` (10.1.30.240), since 2026-11-15; [below](#relay-scale-relay) |
 | Host files | `/opt/kdk-lab/scale-bridge/scale-bridge.env` (people bands, `SCALE_ADDRESS`, `SCALE_BRIDGE_ESPHOME_PROXIES`), `/opt/kdk-lab/scale-bridge/secrets.env` (wger keys, `SCALE_RELAY_NOISE_KEY`). Both root 600, host-managed |
@@ -99,7 +101,11 @@ flowchart LR
 |---|---|
 | Official **Body weight** category (`metric_type=body_weight`) | weight in kg, `extra_data.unit=kg` (correct even if the profile is in lb), `extra_data.df_raw` = the four `DF` frames as hex |
 | 10 custom categories `Impedance 50 kHz right arm` … `Impedance 250 kHz left leg`, unit `ohm` | raw ohms, created by name on first use |
-| custom category `Heart rate (scale)`, unit `bpm` — **only with `SCALE_BRIDGE_WRITE_HEART_RATE: "true"`** (default `"false"`) | the end marker's heart rate, same idempotence path as the impedance categories; nothing when the scale sent none |
+| custom category `Heart rate (scale)`, unit `bpm` — `SCALE_BRIDGE_WRITE_HEART_RATE: "true"` in compose since 0.3.0 (code default off) | the end marker's heart rate, same idempotence path as the impedance categories; nothing when the scale sent none. Never wger's own `Heart rate` category (Apple Health feeds that one) |
+| 16 custom categories `Body fat (scale)` … `Lean left leg (scale)` — `SCALE_BRIDGE_WRITE_ENGINE: "true"` in compose since 0.3.0 (code default off) | the engine's results for that weigh-in, at the weight's time; [table](#engine-results-in-wger) |
+
+Custom categories are looked up by exact name **and** `metric_type: custom`, so an official or
+Apple Health category (`Body fat`, `Heart rate`, …) is never reused or written into.
 
 Every entry carries `source=user`, `notes="Body Pod 2 via scale-bridge"` and one
 `external_id` per reading: uuid5 of scale address + person + weight + the four `DF`
@@ -125,12 +131,12 @@ not post again (test `test_timeout_after_an_accepted_weightentry_post_does_not_d
 
 ## Heart rate
 
-**Status: confirmed on one capture (2026-11-14).** Byte 1 of the end-of-measurement marker
-equalled the heart rate the vendor app displayed for a replay of that weigh-in. Byte 2 was
-`0xc0` there (the stable bit plus a flag of unknown meaning); only the stable bit is used, and
-each capture file's footer records byte 2 raw (`end_marker_byte2`). Because it rests on one
-capture, writing it to wger is off by default (`SCALE_BRIDGE_WRITE_HEART_RATE`); the paired
-tests below are meant to confirm it before it is switched on.
+**Status: confirmed on 6 of 6 paired weigh-ins, written to wger since 0.3.0.** Byte 1 of the
+end-of-measurement marker equalled the heart rate the vendor app displayed for each paired
+weigh-in (first one 2026-11-14). Byte 2 was `0xc0` on the first (the stable bit plus a flag of
+unknown meaning); only the stable bit is used, and each capture file's footer records byte 2 raw
+(`end_marker_byte2`). Owner approved writing it: compose `SCALE_BRIDGE_WRITE_HEART_RATE: "true"`
+(code default off; `"false"` turns it off again).
 
 ## Body-composition engine
 
@@ -155,7 +161,8 @@ the engine is on (`SCALE_BRIDGE_ENGINE: "on"` and `LEFU_SECRET_8` set), the weig
 exactly one person, that person has a profile in `SCALE_BRIDGE_PEOPLE`, and all four `DF`
 frames arrived. Otherwise it is skipped (`engine_skipped`, reason `no_profile` /
 `df_incomplete`). It never changes the weigh-in, the capture or the wger write of the raw
-values: every failure is one log line with a reason code.
+values: every failure is one log line with a reason code, and the weight is written
+without engine rows.
 
 **Inputs (known-good configuration, do not change unless testing):**
 
@@ -191,21 +198,60 @@ code, or null when not run) and `engine_result` (whether the file exists).
 `timeout`, `nonzero_exit`, `calc_exception` (the calculation threw), `malformed_output`,
 `spawn_failed`, `secret_in_output` (the output contained the secret: discarded), `crashed`.
 
-**Planned wger mapping (NOT enabled; for the owner to decide after about a week of
-`.engine.json` data):** one custom measurement category per metric per person, only when
-`errorType` is `PP_ERROR_TYPE_NONE`, same `external_id` idempotence as the impedance rows.
+### Engine results in wger
 
-| Planned wger category | Engine field | Unit |
+**Switch:** `SCALE_BRIDGE_WRITE_ENGINE` (compose `"true"` since 0.3.0, code default off;
+independent of the heart-rate switch). Rows are written only when the bridge is live, the
+weigh-in matched one person, and the engine result is `ok` with `errorType`
+`PP_ERROR_TYPE_NONE`. One custom category per metric per person, created by name on first
+use; each value gets its own row at the **same time as the weight entry** with the reading's
+`external_id` (the impedance scheme) and `extra_data` `{unit, device, engine_field}`.
+
+| wger category (custom) | Engine getter (`output.out`) | Unit |
 |---|---|---|
-| `Body fat (scale)` | `getPpFat` | % |
-| `Skeletal muscle (scale)` | `getPpBodySkeletalKg` | kg |
-| `Body water (scale)` | `getPpWaterPercentage` | % |
-| `Visceral fat (scale)` | `getPpVisceralFat` | index |
-| `BMR (scale)` | `getPpBMR` | kcal |
-| `Bone mineral (scale)` | `getPpBoneKg` | kg |
-| `ECW (scale)` / `ICW (scale)` | the extracellular / intracellular water fields (exact getter names to confirm from the first `.engine.json`) | kg |
-| skipped | `getPpBodyAge` (metabolic age: not comparable to the app) | — |
-| skipped | `getPpBalanceFatArmLegLevel` (not deterministic in the vendor library itself) | — |
+| `Body fat (scale)` | `getPpFat` | `%` |
+| `Skeletal muscle (scale)` | `getPpBodySkeletalKg` | mass |
+| `Body water (scale)` | `getPpWaterPercentage` | `%` |
+| `Visceral fat (scale)` | `getPpVisceralFat` | `index` |
+| `BMR (scale)` | `getPpBMR` | `kcal` |
+| `Bone mineral (scale)` | `getPpBoneKg` | mass |
+| `ECW (scale)` | `getPpWaterECWKg` | mass |
+| `ICW (scale)` | `getPpWaterICWKg` | mass |
+| `Lean mass (scale)` | `getPpLoseFatWeightKg` (the vendor's "LBW", lean body weight) | mass |
+| `Body cell mass (scale)` | `getPpCellMassKg` | mass |
+| `BMI (scale)` | `getPpBMI` | `index` |
+| `Lean right arm (scale)` | `getPpMuscleKgRightArm` | mass |
+| `Lean left arm (scale)` | `getPpMuscleKgLeftArm` | mass |
+| `Lean trunk (scale)` | `getPpMuscleKgTrunk` | mass |
+| `Lean right leg (scale)` | `getPpMuscleKgRightLeg` | mass |
+| `Lean left leg (scale)` | `getPpMuscleKgLeftLeg` | mass |
+| not written | `getPpBodyAge` (metabolic age: not comparable to the app), `getPpBalanceFatArmLegLevel` and the other balance levels (not deterministic in the vendor library), subcutaneous fat, per-limb fat, `getPpMineralKg`, skeletal % | — |
+
+The getters are the vendor result model's (`com.lefu.ppcalculate.PPBodyFatModel` in the pinned
+`ppcalculatekit` 4.6.28), exported by name by `engine/src/kdk/lefu/Main.java` (`scalars`); the
+units are the vendor's own (`assets/BodyParam_HT_8.json` in the same `.aar`). The table lives
+in code as `ENGINE_METRICS` (`scale_bridge/wger.py`).
+
+**Mass units.** wger does not convert a custom category's unit (it is a label), so a mass
+metric is created in the person's wger profile weight unit (`kg` or `lb`); once a category
+exists the bridge converts to **that category's** unit, so a later profile change never mixes
+units in one category. A mass category with any other unit is skipped (`engine_skipped`).
+
+**Values.** A metric whose value is missing, not a number, non-finite, zero or negative is
+skipped and counted, never logged. Paired tests against the vendor app (six weigh-ins):
+weight, visceral fat, bone mineral, ECW, ICW, body cell mass and body water % match the app
+or within rounding; BMR is close; body fat reads 1.4 to 4.7 points **below** the app (the app
+smooths toward its own history). The owner accepted the engine's own figures.
+
+**Order and failures.** The weight and impedance (and heart rate) are posted first; only then
+does the write task wait for this weigh-in's engine result (the engine takes about 1.2 s on the
+Pi and runs in parallel), bounded by `SCALE_BRIDGE_ENGINE_TIMEOUT_S` + 30 s. An engine that is
+off, has no profile, fails or times out gives no engine rows and changes nothing else
+(`engine_result` in the `wrote` line says why). The engine rows share the write's retries: a
+wger error or timeout retries the whole write, and the replay rule turns what is already there
+into `exists`, so a retry or a replay adds only the missing rows. A row wger refuses with a
+plain 400 (a value it will not store) is counted as `engine_rejected` and the others go on: the
+weight is not retried or lost for it.
 
 **Build:** Dockerfile stage `engine` downloads three `.aar` files from
 `raw.githubusercontent.com/LefuHengqi/PPBaseKit-Android` at the commit in `engine/sdk.lock`
@@ -219,18 +265,15 @@ engine 54 MB; image about 293 MB unpacked).
 
 **Open risks (stated plainly):**
 
-- **Unicorn 2 on a real arm64 host is untested** until the first run on kdk-dkr-02. The
-  prototype ran it on x86_64 and on arm64 under qemu-user only. Unicorn 1 crashed
-  intermittently there (SIGSEGV after 2–200 cases), which is why Unicorn 2 is the default.
-- **kdk-dkr-02's 16 KiB-page kernel is untested.** Every host-side native library in the
-  arm64 image has a 64 KiB LOAD alignment (prototype check); the Lefu `.so` is loaded into
-  emulated memory, so its alignment does not matter. The first run is the real test.
-- **Memory and time on the Pi are not measured.** On the x86_64 laptop one engine run
-  (dummy secret) took about 1 s and the container peaked at 76 MiB. The arm64 image under
-  qemu-user took 17 s and reached the 256 MiB `mem_limit` (it still finished; 272 MiB
-  without a limit), but that is qemu's own overhead on top of Unicorn, not the native
-  figure. `mem_limit` stays 256m until the first Pi run measures it ([runbook
-  5b](../runbooks/scale-bridge.md#5b-attended-first-engine-run)).
+- **Unicorn 2 on the Pi:** running in the deployed container on kdk-dkr-02 (arm64, its
+  16 KiB-page kernel) since 2026-11-15, `ok` results in about 1.1 to 1.2 s per weigh-in. Unicorn 1
+  crashed intermittently in the prototype (SIGSEGV after 2–200 cases), which is why Unicorn 2
+  is the default; a rare crash would show as `engine` `result: crashed` / `nonzero_exit` and
+  costs only that weigh-in's engine rows.
+- **Memory on the Pi is not recorded here.** On the x86_64 laptop one engine run (dummy
+  secret) peaked the container at 76 MiB; the arm64 image under qemu-user reached the 256 MiB
+  `mem_limit` (qemu's own overhead). `mem_limit` stays 256m; check `docker stats` against it
+  ([runbook 5b](../runbooks/scale-bridge.md#5b-attended-first-engine-run)).
 - **Emulation correctness:** identical to the vendor library in an Android emulator on two
   real captures, the full variant × limb-order matrix and a 2,304-case sweep (prototype);
   not proven for every input.
@@ -280,7 +323,11 @@ run: `result` reason code, `duration_s`, `error_type`, `fields` count, `exit_cod
 `init_ms`/`calc_ms`; never a value), `engine_skipped` (`no_profile` / `df_incomplete`),
 `engine_file_failed` (error type), `attribution` (person or
 candidates, never the weight), `would_write` (dry-run only: **the only line with the
-weight**; impedances as a count), `wrote` / `write_failed` (warning) / `write_crashed`
+weight**; impedances as a count), `wrote` (counts: `created`, `exists`, `categories_created`;
+with `SCALE_BRIDGE_WRITE_ENGINE` also `engine_result` (`ok`, or why there are no rows:
+`no_profile`, `engine_off`, `not_run`, `no_result`, or the engine reason code),
+`engine_created`, `engine_exists`, `engine_skipped`, `engine_rejected`,
+`engine_categories_created`; never a value) / `write_failed` (warning) / `write_crashed`
 (error: an unexpected exception, type only; retried like a failure) / `write_gave_up`
 (error). Startup warnings: `config_bands_overlap` (names the overlapping people, never the
 bands; not fatal, an ambiguous weight is still written nowhere), `config_address_filter_off`.
@@ -362,6 +409,8 @@ sudo docker logs scale-bridge 2>&1 | grep -E '"event":"(relay_start|scanning)"' 
 | `engine_skipped` `no_profile` | that person has no `height_cm`/`sex`/`birth_date` in `SCALE_BRIDGE_PEOPLE` | [runbook step 3](../runbooks/scale-bridge.md#3-scale-bridgeenv-people-bands) |
 | `engine` `result: engine_error`, `error_type: PP_ERROR_TYPE_SECRET` | wrong or truncated secret | redo step 2b from 1Password; check the length |
 | `engine` `result: timeout` / `nonzero_exit` / `calc_exception` | engine slow, crashed or threw (Unicorn on the Pi) | weigh-ins unaffected; `SCALE_BRIDGE_ENGINE: "off"` if it repeats, then open an issue with the reason code |
+| `wrote` with `engine_result` not `ok` | engine off, no profile, `DF` frames missing (`not_run`), engine failed (its reason code) or slower than its timeout + 30 s (`no_result`) | weight and impedance are in wger; see the `engine` / `engine_skipped` line of that session |
+| `wrote` with `engine_rejected` > 0 | wger refused one value with a 400 | the other rows are in; open an issue with the count (the value is in that capture's `.engine.json`) |
 | `config_invalid` naming a profile field | partial profile, both `birth_date` and `age`, bad date, sex not `male`/`female` | fix that person in `scale-bridge.env` |
 
 ## Dependencies

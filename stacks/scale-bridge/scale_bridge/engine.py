@@ -7,9 +7,10 @@ the child gets nothing else from the bridge's environment except the LEFU_* path
 (no wger keys). Input goes on stdin, never argv. stdout is one JSON object; stderr is
 discarded (the vendor code prints its inputs there in debug mode).
 
-Dry-run phase (2026-11): results are NOT written to wger. They go next to the raw capture as
-`<capture name>.engine.json` (capture.py), and one `engine` log line per run carries the
-duration, the error type and a count of output fields, never a value.
+Results go next to the raw capture as `<capture name>.engine.json` (capture.py) and, with
+SCALE_BRIDGE_WRITE_ENGINE (0.3.0), an `ok` result to wger (app.py, wger.ENGINE_METRICS). One
+`engine` log line per run carries the duration, the error type and a count of output fields,
+never a value.
 
 Inputs (known-good configuration, prototype 2026-11-14, do not change unless testing):
 * DF frames: four 17-byte frames, indices (sub-packet b2, frequency x b3). For each x the

@@ -44,8 +44,10 @@
 # Body-composition engine (0.2.0): Lefu's 8-electrode library runs in the SAME
 # image as a child program, once per weigh-in with a profile (README "Engine").
 # Needs LEFU_SECRET_8 in secrets.env; without it the engine switches itself off
-# (one `engine_config` warning) and everything else works as before. Results
-# go ONLY to /captures/<capture>.engine.json, never to wger (also in live mode).
+# (one `engine_config` warning) and everything else works as before. Results go
+# to /captures/<capture>.engine.json and, since 0.3.0 (SCALE_BRIDGE_WRITE_ENGINE
+# "true" below), to 16 custom "... (scale)" categories in that person's wger,
+# after the weight + impedance are written (engine trouble never holds those back).
 # No extra mount, capability or network: the engine needs none at run time.
 #
 # Image is built locally (kdk/scale-bridge) -> the stack sets auto_pull=false +
@@ -73,7 +75,7 @@ services:
     build:
       context: .
       provenance: false
-    image: kdk/scale-bridge:0.2.0
+    image: kdk/scale-bridge:0.3.0
     container_name: scale-bridge
     user: "65534:65534"        # host nobody:nogroup; dbus-daemon resets unknown uids
     init: true                 # python is PID 1 otherwise: SIGTERM, zombie reaping
@@ -99,12 +101,16 @@ services:
       # After the impedance/DF frames, wait this long for the end-of-measurement
       # marker (it carries the heart rate, ~5 s after the lock, handle held).
       SCALE_END_MARKER_WAIT_S: "20"
-      # Heart rate to wger ("Heart rate (scale)", bpm): off, because byte 1 of the
-      # end marker = heart rate is confirmed on ONE capture so far.
-      SCALE_BRIDGE_WRITE_HEART_RATE: "false"
+      # Heart rate to wger ("Heart rate (scale)", bpm, a custom category; never the
+      # Apple Health "Heart rate" one): on since 0.3.0, byte 1 of the end marker
+      # matched the vendor app on 6 of 6 paired weigh-ins. "false" = off.
+      SCALE_BRIDGE_WRITE_HEART_RATE: "true"
       # Body-composition engine: "on" | "off" (off = the rollback switch).
-      # Self-disables when LEFU_SECRET_8 is missing. Results to /captures only.
+      # Self-disables when LEFU_SECRET_8 is missing. Results to /captures always.
       SCALE_BRIDGE_ENGINE: "on"
+      # Engine results to wger ("Body fat (scale)" ... 16 custom categories), only
+      # for an `ok` run. "false" = /captures only again (weight writes unchanged).
+      SCALE_BRIDGE_WRITE_ENGINE: "true"
       SCALE_BRIDGE_ENGINE_TIMEOUT_S: "60"
       # Engine inputs, the prototype's known-good configuration. DO NOT CHANGE
       # unless testing: variant 8_4; frame position per library slot LeftArm,

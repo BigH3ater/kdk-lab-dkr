@@ -247,7 +247,7 @@ def test_custom_category_lookup_pages_and_matches_the_name_exactly():
     async def go():
         async with api.client() as http:
             return await WgerClient(http, TOKEN_A).custom_category("Impedance 50 kHz trunk", "ohm")
-    assert run(go()) == (want["id"], False) and api.posts("measurement-category") == []
+    assert run(go()) == (want["id"], "ohm", False) and api.posts("measurement-category") == []
 
 
 def test_concurrent_first_writes_create_each_category_once():

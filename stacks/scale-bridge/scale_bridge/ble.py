@@ -7,8 +7,8 @@ Two transports, same code path:
   bleak-esphome. habluetooth's manager swaps bleak.BleakScanner / BleakClient and
   bleak_retry_connector.BleakClientWithServiceCache for routing wrappers, so this
   module looks those names up at call time (never `from bleak import ...`).
-  Only the proxies are used in relay mode, not the local adapter. Untested on
-  hardware.
+  Only the proxies are used in relay mode, not the local adapter. Live since
+  2026-11-15 through one ESPHome proxy (scale-relay).
 """
 from __future__ import annotations
 
