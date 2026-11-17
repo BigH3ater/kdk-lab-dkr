@@ -47,8 +47,7 @@
 # (one `engine_config` warning) and everything else works as before. Results go
 # to /captures/<capture>.engine.json and, since 0.3.0 (SCALE_BRIDGE_WRITE_ENGINE
 # "true" below), to 16 custom "... (scale)" categories in that person's wger,
-# after the weight + impedance are written (engine trouble never holds those back);
-# since 0.3.1 (SCALE_BRIDGE_WRITE_DERIVED) also five derived "... (scale est.)" values.
+# after the weight + impedance are written (engine trouble never holds those back).
 # No extra mount, capability or network: the engine needs none at run time.
 #
 # Image is built locally (kdk/scale-bridge) -> the stack sets auto_pull=false +
@@ -76,7 +75,7 @@ services:
     build:
       context: .
       provenance: false
-    image: kdk/scale-bridge:0.3.1
+    image: kdk/scale-bridge:0.3.0
     container_name: scale-bridge
     user: "65534:65534"        # host nobody:nogroup; dbus-daemon resets unknown uids
     init: true                 # python is PID 1 otherwise: SIGTERM, zombie reaping
@@ -112,12 +111,6 @@ services:
       # Engine results to wger ("Body fat (scale)" ... 16 custom categories), only
       # for an `ok` run. "false" = /captures only again (weight writes unchanged).
       SCALE_BRIDGE_WRITE_ENGINE: "true"
-      # Since 0.3.1: five values worked out from the same engine result, the
-      # "... (scale est.)" categories (Mineral, Android fat, Gynoid fat, A/G ratio,
-      # Torso fat). Provisional constants, fitted on four paired weigh-ins of one
-      # male subject: the last four only for a male profile. Needs WRITE_ENGINE.
-      # "false" = off (the 16 engine rows unchanged). docs/services/scale-bridge.md.
-      SCALE_BRIDGE_WRITE_DERIVED: "true"
       SCALE_BRIDGE_ENGINE_TIMEOUT_S: "60"
       # Engine inputs, the prototype's known-good configuration. DO NOT CHANGE
       # unless testing: variant 8_4; frame position per library slot LeftArm,
