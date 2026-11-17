@@ -31,8 +31,10 @@ kdk-dkr-dmz-01 /mnt/insta360-flat (NFS ro, mapall 3013) -> Immich library "Insta
    compared on the capture's `HHMM` (camera clock). No file or no matching row → the trip
    slug. Example: [`imaging-maine-places.tsv`](imaging-maine-places.tsv) (Maine 2025-08).
    **Add it before the first run**: stills are never renamed later.
+   Raws still being copied are safe: anything changed in the last 15 min is deferred to
+   the next run, and a truncated `.insp` fails instead of becoming an unleveled still.
 3. **Wait for 02:35**, or run the Komodo Procedure `insta360-flat` now. A trip of ~300
-   captures takes ~25 min (3 workers).
+   captures takes ~35 min (3 workers; Maine 326 captures: 34 min on 2026-11-17).
 4. **Check**: `ssh kdkadmin@10.1.20.22 'sudo docker logs insta360-flat 2>&1 | tail -1'` →
    `failed=0`. The stills are in `tankz3/insta360-flat/<YYYY-MM>-<trip>/`.
 5. **Immich** imports them on its next scan and `immich-albums` makes the album at the next
@@ -48,9 +50,9 @@ re-made file as a new asset (old one → trash).
   prints what EXIF there is.
 - **Seam** when the camera pointed straight up or down: leveling falls back to the camera's
   top (`lens nearly straight up/down`), and the stitch line of the dual fisheye can show.
-- **Bursts collapsed**: captures in the same second keep only the lowest sequence number.
-  Maine: 019–033, 034–049 and 324–325 → 019, 034, 324 (325's stills from the laptop run stay
-  on the share; the job never deletes).
+- **Bursts collapsed**: 3 or more captures in the same second keep only the lowest sequence
+  number (Maine: 019–033 → 019, 034–049 → 034); a same-second pair is two shots (Maine 324 +
+  325, both kept).
 - **Video ignored** (`.insv`, `.lrv`, `.mp4`); stills only.
 - **PhotoCraft is early alpha**, pinned to exactly v0.23.1 by sha256; CPU only (`--no-gpu`).
 - Stills already on the share are never redone; output bytes differ slightly between
@@ -74,7 +76,7 @@ The proven originals stay on the laptop; the job is a port of them. Still useful
 |---|---|
 | Datasets | `tankz3/insta360-upload` (raws, owner 3012:3012), `tankz3/insta360-flat` (stills, owner 3003:3001), NFSv4 ACL, LZ4; the original `tankz3/insta360` (SMB share id 3) is the copy source, not used by the job |
 | Users | `insta360-upload` uid/gid **3012** (SMB, nologin, `/var/empty`; password in 1P `kdk-ops/kdk-nas-01-insta360-upload-smb`), `insta360-ro` uid/gid **3013** (no SMB, password disabled; the Immich host's NFS identity) |
-| ACL upload | `owner@` FULL, `group@` MODIFY, **`USER 3012` MODIFY** (all INHERIT; see step 1 below) |
+| ACL upload | `owner@` FULL, `group@` MODIFY, **`USER 3012` MODIFY** (all INHERIT; applied 2026-11-16, below) |
 | ACL flat | `owner@` FULL, `group@` MODIFY, `USER 3013` READ (all INHERIT) |
 | SMB | share id **8** `insta360-upload` → `/mnt/tankz3/insta360-upload` (DEFAULT_SHARE) |
 | NFS | **236** flat → `172.16.30.51` (dmz-01) ro, mapall `insta360-ro`; **237** upload → `172.16.30.52` (dkr-04) ro, mapall `insta360-upload`; **238** flat → `172.16.30.52` rw, mapall `jmack`/`jmack` |
@@ -88,7 +90,7 @@ SMB password goes in over stdin as in [CAD library](cad-library.md) step 1c):
 ```sh
 sudo midclt call pool.dataset.create '{"name":"tankz3/insta360-upload","acltype":"NFSV4","aclmode":"RESTRICTED"}'
 sudo midclt call pool.dataset.create '{"name":"tankz3/insta360-flat","acltype":"NFSV4","aclmode":"RESTRICTED"}'
-# owners + ACLs: upload 3012:3012 owner@/group@ (+ USER 3012, step 1); flat 3003:3001 owner@/group@ + USER 3013 READ
+# owners + ACLs: upload 3012:3012 owner@/group@ (+ USER 3012, see "Upload ACL" below); flat 3003:3001 owner@/group@ + USER 3013 READ
 sudo midclt call group.create '{"name":"insta360-upload","gid":3012,"smb":true}'
 sudo midclt call group.create '{"name":"insta360-ro","gid":3013,"smb":false}'
 # user insta360-upload (uid 3012, smb true, password from 1P over stdin), then:
@@ -111,7 +113,7 @@ sudo midclt call pool.snapshottask.query '[["id","in",[17,18,19]]]' | jq -c '.[]
 sudo midclt call filesystem.getacl /mnt/tankz3/insta360-upload | jq -c '[.acl[] | [.tag,.id,.perms.BASIC]]'   # includes ["USER",3012,"MODIFY"]
 ```
 
-### 1. Upload ACL: `USER 3012` (owner, once)
+### Upload ACL: `USER 3012` (done 2026-11-16)
 
 The upload export squashes every dkr-04 identity to uid/gid 3012 **with no supplementary
 groups**, and OpenZFS matches `group@` only against supplementary groups, so `group@`
@@ -127,7 +129,20 @@ sudo midclt call -j filesystem.setacl "$(jq -nc --arg p $D --argjson a "$ACL" '{
 ```
 
 Then from dkr-04 (allow ~1 min for the client's attribute cache):
-`ssh kdkadmin@10.1.20.22 'ls /mnt/insta360-upload/Maine | wc -l'` → `459` (460 with `places.tsv`).
+`ssh kdkadmin@10.1.20.22 'ls /mnt/insta360-upload/Maine | wc -l'` → `460` (with `places.tsv`).
+
+Applied on 2026-11-16 (owner-approved NAS lane) with the commands above; verified from
+dkr-04: the listing works, a raw's md5 matches the laptop copy, writes still fail with
+`Read-only file system`. The commands stay here as the rebuild record.
+
+### Maine `places.tsv` (done 2026-11-16)
+
+`insta360-upload/Maine/places.tsv` = [`imaging-maine-places.tsv`](imaging-maine-places.tsv)
+(owner 3012:3012, md5 `530c1e599fe1c4f8021b1f1609b417c6`), installed on the NAS with:
+
+```sh
+ssh kdkadmin@10.1.3.5 'sudo install -o 3012 -g 3012 -m 0660 /dev/stdin /mnt/tankz3/insta360-upload/Maine/places.tsv' < docs/runbooks/imaging-maine-places.tsv
+```
 
 ## kdk-dkr-04 mounts
 
