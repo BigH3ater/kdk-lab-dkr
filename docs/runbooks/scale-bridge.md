@@ -1,5 +1,5 @@
 ---
-title: scale-bridge — host files, deploy, first weigh-in, engine, live writes, raw captures, relay, rollback
+title: scale-bridge — host files, deploy, first weigh-in, engine, live writes, engine to wger, raw captures, relay, rollback
 updated: 2026-11-16
 ---
 
@@ -16,6 +16,9 @@ stdin and are checked by byte length.
 4 (deploy), then [5b](#5b-attended-first-engine-run) (the attended first engine run). Steps
 2a–3 are optional for the deploy: without the key the engine switches itself off and the
 bridge works exactly as 0.1.3.
+
+**Upgrading to 0.3.0 (engine results + heart rate to wger):** no host step; merge = deploy,
+then [6b](#6b-engine-results-and-heart-rate-to-wger-030).
 
 ## 1. Host directories
 
@@ -172,7 +175,7 @@ ssh kdkadmin@10.1.30.21 'sudo chown root:root /opt/kdk-lab/scale-bridge/scale-br
 
 Merge the PR. The `gitops-sync` procedure (every 15 min) creates the stack and deploys
 it; to go now: **komodo.kmkdp.com → Procedures → gitops-sync → Run**, or **Stacks →
-scale-bridge → Deploy**. The deploy builds `kdk/scale-bridge:0.2.0` on the Pi. Since 0.2.0
+scale-bridge → Deploy**. The deploy builds `kdk/scale-bridge:<tag in compose.yaml>` on the Pi. Since 0.2.0
 the build also downloads the engine inputs (about 40 MB from `raw.githubusercontent.com` and
 `repo1.maven.org`, every file sha256-checked, plus the Temurin JDK base image from Docker
 Hub) and compiles/jlinks the engine: expect a few minutes the first time (laptop: 1 min
@@ -186,7 +189,7 @@ changes. Note the Pi's build time from the Komodo deploy log for the vault.
 ssh kdkadmin@10.1.30.21 'sudo docker ps --filter name=scale-bridge --format "{{.Names}} {{.Status}}"'
 #   scale-bridge Up ... (healthy)          (health starts after ~1 min)
 ssh kdkadmin@10.1.30.21 'sudo docker logs scale-bridge 2>&1 | head -5'
-#   {"event":"config","version":"0.2.0","dry_run":false,"write_heart_rate":false,"people":["jmack","rach"],...}
+#   {"event":"config","version":"0.3.0","dry_run":false,"write_heart_rate":true,"write_engine":true,"people":["jmack","rach"],...}
 #   {"event":"token_check","person":"jmack","result":"ok","status":200}   (and rach)
 #   {"event":"engine_config","enabled":true,"reason":"on","variant":"PPDeviceCalcuteTypeAlternate8_4","limb_order":"10432","df_x0":"20k","profiles":["jmack","rach"],"sdk_commit":"c1eb5ab4..."}
 #   {"event":"capture","enabled":true,"dir":"/captures","keep_days":60}
@@ -285,15 +288,14 @@ ssh kdkadmin@10.1.30.21 'sudo docker stats --no-stream --format "{{.Name}} {{.Me
    `SCALE_BRIDGE_ENGINE: "off"` (rollback below). Weigh-ins, captures and the wger write are
    unaffected either way.
 
-The results stay in the captures directory, also in live mode. Writing them to wger is a later,
-separate change after about a week of data ([planned mapping](../services/scale-bridge.md#body-composition-engine)).
+Since 0.3.0 an `ok` result is also written to wger: [step 6b](#6b-engine-results-and-heart-rate-to-wger-030).
 
 ## 6. Live writes (dry-run off)
 
 **Status: live** since the go-live PR (`SCALE_BRIDGE_DRY_RUN: "false"` in
 `stacks/scale-bridge/compose.yaml`, 2026-11-16). Every matched weigh-in is written to that
-person's wger. Engine results and the heart rate are still **not** written (`.engine.json`
-only; `SCALE_BRIDGE_WRITE_HEART_RATE: "false"`).
+person's wger. Since 0.3.0 the heart rate and the engine results are written too
+([6b](#6b-engine-results-and-heart-rate-to-wger-030)); the checks below are the 0.2.x go-live.
 
 **Before merging** (done 2026-11-16), on the host (step 3): `SCALE_ADDRESS` pinned and the
 real bands in place, not overlapping. The code does not refuse live mode without them: no
@@ -340,8 +342,8 @@ ssh kdkadmin@10.1.30.21 'sudo docker logs --since 10m scale-bridge 2>&1 | grep -
      `Impedance 50 kHz right arm`, `Impedance 50 kHz left arm`, `Impedance 50 kHz trunk`,
      `Impedance 50 kHz right leg`, `Impedance 50 kHz left leg`, and the same five with
      `250 kHz`.
-   - **Nothing else**: no `Heart rate (scale)` category, no body-fat or other engine
-     categories.
+   - **Nothing else** (in 0.2.x): no `Heart rate (scale)` category, no engine categories.
+     From 0.3.0: [6b](#6b-engine-results-and-heart-rate-to-wger-030).
 4. **The other person**, the same way.
 
 **Replays and duplicates.** The scale re-sends the same reading when it reconnects; the
@@ -368,6 +370,45 @@ same time. To remove everything the bridge made for a person, delete the ten
 **Back to dry-run:** revert the go-live PR and merge the revert (merge = deploy); startup
 then logs `dry_run: true` and weigh-ins log `would_write` again. Entries already written
 stay in wger (undo above).
+
+## 6b. Engine results and heart rate to wger (0.3.0)
+
+**Status:** compose `SCALE_BRIDGE_WRITE_ENGINE: "true"` and `SCALE_BRIDGE_WRITE_HEART_RATE:
+"true"` since the 0.3.0 PR. No host step. Mapping and rules: [service
+page](../services/scale-bridge.md#engine-results-in-wger).
+
+**After the merge (merge = deploy):** startup `config` shows `"version":"0.3.0"`,
+`"write_heart_rate":true`, `"write_engine":true`. Then one weigh-in per person (handle held to
+the end), and:
+
+```bash
+ssh kdkadmin@10.1.30.21 'sudo docker logs --since 10m scale-bridge 2>&1 | grep -E "\"event\":\"(engine|engine_skipped|wrote|write_failed|write_gave_up)\""'
+```
+
+| Line | Expected on that person's first 0.3.0 weigh-in |
+|---|---|
+| `engine` | `result: ok`, `error_type: PP_ERROR_TYPE_NONE`, `duration_s` about 1.2 |
+| `wrote` | `created: 12` (11 + heart rate; 11 if the scale sent no heart rate), `categories_created: 1` (the heart-rate category; 0 later), `engine_result: ok`, `engine_created: 16`, `engine_categories_created: 16` (0 later), `engine_skipped: 0`, `engine_rejected: 0` |
+
+In wger (as that person → Measurements): one new custom category `Heart rate (scale)` (bpm)
+and 16 new custom categories `Body fat (scale)`, `Skeletal muscle (scale)`, `Body water
+(scale)`, `Visceral fat (scale)`, `BMR (scale)`, `Bone mineral (scale)`, `ECW (scale)`, `ICW
+(scale)`, `Lean mass (scale)`, `Body cell mass (scale)`, `BMI (scale)`, `Lean right arm
+(scale)`, `Lean left arm (scale)`, `Lean trunk (scale)`, `Lean right leg (scale)`, `Lean left
+leg (scale)`, each with one entry at the weigh-in's time. The mass ones carry the unit of that
+person's wger profile (kg or lb). wger's own `Body fat` / `Heart rate` categories (Apple Health)
+get nothing.
+
+`engine_result` other than `ok` (`no_profile`, `engine_off`, `not_run`, `no_result`, or the
+engine's reason code) = no engine rows for that weigh-in; the weight and impedance are in.
+
+**Switch off:** a one-line PR, `SCALE_BRIDGE_WRITE_ENGINE: "false"` (or
+`SCALE_BRIDGE_WRITE_HEART_RATE: "false"`) in `stacks/scale-bridge/compose.yaml`; merge =
+deploy. The engine keeps running and writing `.engine.json`; nothing else changes.
+
+**Undo:** in that person's wger web → Measurements, delete the `… (scale)` categories (that
+deletes their entries). Never delete `Body weight` or the categories without `(scale)` that
+Apple Health feeds.
 
 ## 7. Raw capture files
 
@@ -404,10 +445,8 @@ ssh kdkadmin@10.1.30.21 'sudo find /opt/kdk-lab/scale-bridge/captures -name "*.e
 Capturing off: set `SCALE_BRIDGE_CAPTURE_DIR: ""` in `stacks/scale-bridge/compose.yaml` (a
 PR), deploy, then delete the files.
 
-**Heart rate to wger:** off (`SCALE_BRIDGE_WRITE_HEART_RATE: "false"`) because the byte has
-been checked against the vendor app on one capture only. After the paired tests agree, a
-one-line PR sets it to `"true"`; the next live weigh-in creates the custom category
-`Heart rate (scale)` (bpm) per person.
+**Heart rate to wger:** on since 0.3.0 (the byte matched the vendor app on 6 of 6 paired
+weigh-ins): [step 6b](#6b-engine-results-and-heart-rate-to-wger-030).
 
 ## Relay (`scale-relay`)
 
@@ -486,6 +525,12 @@ temporary spot).
 - **Relay out of use:** `SCALE_BRIDGE_ESPHOME_PROXIES=` (empty) in `scale-bridge.env`, redeploy:
   the bridge falls back to the host adapter, which is out of range of the scale today.
   Firmware: flash the previous `scale-relay.yaml` from git history ([Relay](#relay-scale-relay)).
+- **Engine results out of wger (0.3.0), keep everything else:** a one-line PR,
+  `SCALE_BRIDGE_WRITE_ENGINE: "false"`, merge = deploy; delete the `… (scale)` categories if
+  wanted ([6b](#6b-engine-results-and-heart-rate-to-wger-030)). Heart rate the same way with
+  `SCALE_BRIDGE_WRITE_HEART_RATE: "false"`.
+- **Back to 0.2.0:** revert the 0.3.0 PR, merge = deploy. Rows already written stay in wger
+  (6b "Undo").
 - **Engine off (0.2.0), keep everything else:** a one-line PR,
   `SCALE_BRIDGE_ENGINE: "off"` in `stacks/scale-bridge/compose.yaml`, deploy. Or remove the
   `LEFU_SECRET_8` line from `secrets.env` (step 2 without it) and redeploy: same effect.
@@ -497,6 +542,6 @@ temporary spot).
   captures directory and its files stay; delete them as in step 7 if not wanted.
 - **Left behind:** `/opt/kdk-lab/scale-bridge/` including `captures/` (health data; remove with
   `ssh kdkadmin@10.1.30.21 'sudo rm -r /opt/kdk-lab/scale-bridge'`), the image
-  (`sudo docker image rm kdk/scale-bridge:0.2.0`, plus `:0.1.3` / `:0.1.2` / `:0.1.1` / `:0.1.0` if still there), and in wger the written entries and the
-  ten impedance categories (and `Heart rate (scale)` if it was switched on) (delete per person in the web UI; deleting a category deletes
+  (`sudo docker image rm kdk/scale-bridge:0.3.0`, plus `:0.2.0` / `:0.1.3` / `:0.1.2` / `:0.1.1` / `:0.1.0` if still there), and in wger the written entries and the
+  ten impedance categories, `Heart rate (scale)` and the 16 engine `… (scale)` categories (delete per person in the web UI; deleting a category deletes
   its entries). The wger keys stay: other tools use them.

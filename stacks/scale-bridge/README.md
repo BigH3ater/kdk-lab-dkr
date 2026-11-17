@@ -2,7 +2,8 @@
 
 Body Pod 2 (Lefu FFF0) BLE scale → wger body weight + ten raw impedance values, per
 person by weight band, plus Lefu's own 8-electrode body-composition engine run once per
-weigh-in (results to the captures directory only, for now). kdk-dkr-02, Komodo stack
+weigh-in (results to the captures directory and, since 0.3.0, to 16 custom
+`… (scale)` categories in wger). kdk-dkr-02, Komodo stack
 `scale-bridge`, live writes since 2026-11-16 (compose `SCALE_BRIDGE_DRY_RUN: "false"`;
 the code default is dry-run).
 Service page: [docs/services/scale-bridge.md](../../docs/services/scale-bridge.md).
@@ -15,7 +16,7 @@ Owner steps: [docs/runbooks/scale-bridge.md](../../docs/runbooks/scale-bridge.md
 | `scale_bridge/capture.py` | raw capture JSONL per session (`/captures`, 0640, pruned), for replaying to the vendor app |
 | `scale_bridge/ble.py` | scanner, discovery filter, connect (bleak-retry-connector), optional ESPHome relay |
 | `scale_bridge/attribution.py` | weight bands from `SCALE_BRIDGE_PEOPLE` |
-| `scale_bridge/wger.py` | wger 2.7 client: official body-weight category, custom impedance categories, `external_id` idempotence |
+| `scale_bridge/wger.py` | wger 2.7 client: official body-weight category, custom impedance / heart-rate / engine categories (`ENGINE_METRICS`: category, getter, unit), kg/lb for mass metrics, `external_id` idempotence |
 | `scale_bridge/app.py` | reading → person → dry-run line or background write with retries; `Bridge.compute` runs the engine |
 | `scale_bridge/engine.py` | engine child process: DF decode, limb order, profile → case on stdin, secret in the child env only, timeout, JSON parse, reason codes |
 | `engine/` | the engine itself (Java): `deps.lock` + `sdk.lock` (sha256 pins), `fetch.sh` (build-stage download + check), `patcher/` (ASM rewrite of the vendor `native` methods), `src/` (unidbg bridge, CLI `kdk.lefu.Main`), `lefu-engine.sh` (JVM wrapper), `smoke.py` (in-image check, dummy secret) |
@@ -37,7 +38,8 @@ not anyone's data), `SCALE_SESSION_TIMEOUT_S` (90), `SCALE_IMPEDANCE_WAIT_S` (5)
 `SCALE_DF_GRACE_S` (1), `SCALE_END_MARKER_WAIT_S` (20), `SCALE_CONNECT_ATTEMPTS` (3), `SCALE_CONNECT_TIMEOUT_S` (30),
 `SCALE_COOLDOWN_S` (60), `SCALE_BRIDGE_WRITE_RETRIES` (6: waits 30 s doubling, 15.5 min),
 `SCALE_BRIDGE_REPLAY_WINDOW_S` (600: same weight within this = the same weigh-in), `SCALE_BRIDGE_LOG_LEVEL` (INFO),
-`SCALE_BRIDGE_WRITE_HEART_RATE` (false), `SCALE_BRIDGE_CAPTURE_DIR` (empty = off; compose `/captures`),
+`SCALE_BRIDGE_WRITE_HEART_RATE` (false; compose `true`), `SCALE_BRIDGE_WRITE_ENGINE` (false; compose `true`:
+engine results to wger), `SCALE_BRIDGE_CAPTURE_DIR` (empty = off; compose `/captures`),
 `SCALE_BRIDGE_CAPTURE_KEEP_DAYS` (60; 0 = forever), `SCALE_BRIDGE_ENGINE` (on; off = engine
 never runs), `SCALE_BRIDGE_ENGINE_TIMEOUT_S` (60), `LEFU_VARIANT` (8_4), `LEFU_LIMB_ORDER`
 (10432), `LEFU_DF_X0` (20k) — the last three are the known-good configuration, do not change
@@ -71,7 +73,9 @@ container sidecar".
   libraries load from `/opt/lefu` in the read-only image.
 - **Output:** `<capture>.engine.json` next to the raw capture (engine output, inputs,
   provenance, timings); one `engine` log line (reason, duration, error type, field count).
-  Not written to wger in this phase.
+  With `SCALE_BRIDGE_WRITE_ENGINE` (compose `true` since 0.3.0) an `ok` result also goes to
+  wger, one custom category per metric (`ENGINE_METRICS` in `wger.py`); counts in the `wrote`
+  line, never values.
 - **Check without the key:** `engine/smoke.py` inside the image (CI
   `.github/workflows/scale-bridge-engine.yml`): a dummy secret must come back as the
   library's `PP_ERROR_TYPE_SECRET`.

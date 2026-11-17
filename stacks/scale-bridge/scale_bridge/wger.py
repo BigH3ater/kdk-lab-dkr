@@ -1,4 +1,4 @@
-"""wger 2.7 REST client: one reading -> body weight + ten raw impedance values.
+"""wger 2.7 REST client: one reading -> body weight + ten raw impedance values (+ engine metrics).
 
 API facts (wger 2.7 source, wger/measurements and wger/weight):
 * body weight is a measurement in the user's *official* `body_weight` category
@@ -11,7 +11,9 @@ API facts (wger 2.7 source, wger/measurements and wger/weight):
   Measurement (DateTimeField, the posted time as given, the value in the
   profile's unit, `extra_data.unit` = that unit, no external_id) in the same
   request, so a retry finds the category and the entry;
-* custom categories are per user, created by name (`metric_type: custom`);
+* custom categories are per user, created by name (`metric_type: custom`). The lookup
+  only reuses a `custom` one, never an official or Apple Health category (`Body fat`,
+  `Heart rate`, ...); a custom category's unit is a label, the wger apps never convert it;
 * `measurement.external_id` is unique per category + source (a POST that
   repeats one is a 400 naming the unique set). There is no external_id filter;
   `measurement/` filters on category and date (gt/gte/lt/lte).
@@ -20,7 +22,7 @@ Replay rule (the scale re-sends the settled weight on a reconnect, and the
 bridge keeps no state across a restart): a reading is the same weigh-in as a
 body-weight entry of the same person with the same weight (to 5 g) dated within
 REPLAY_WINDOW of it; it is then written at that entry's time, and each
-impedance (and heart-rate) category counts as done when it has an entry within 1 s of that time.
+impedance (heart-rate, engine) category counts as done when it has an entry within 1 s of that time.
 The external_id (DF bytes when the scale sent all four DF frames, else lock
 time) is a second net: the unique constraint turns a repeat into "exists".
 
@@ -30,9 +32,10 @@ problem; never the body, never the token), so the caller's retry handles it.
 from __future__ import annotations
 
 import asyncio
+import math
 import uuid
 from datetime import datetime, timedelta, timezone
-from typing import Any
+from typing import Any, Awaitable, Callable, NamedTuple
 
 import httpx
 
@@ -46,6 +49,30 @@ HEART_RATE_UNIT = "bpm"
 LB_PER_KG = 2.20462262185
 NOTE = "Body Pod 2 via scale-bridge"
 REPLAY_WINDOW = timedelta(minutes=10)
+MASS = "mass"                   # an engine metric in kg or lb: see _write_engine
+# Body-composition engine -> custom category (SCALE_BRIDGE_WRITE_ENGINE). The getters are
+# the vendor result model's (com.lefu.ppcalculate.PPBodyFatModel, ppcalculatekit 4.6.28),
+# which engine/src/kdk/lefu/Main.java scalars() exports by name into the result's `out`.
+# Not written (yet): getPpBodyAge (metabolic age, not comparable to the app), the balance
+# levels, subcutaneous and per-limb fat, mineral, skeletal %.
+ENGINE_METRICS: tuple[tuple[str, str, str], ...] = (
+    ("Body fat (scale)", "getPpFat", "%"),
+    ("Skeletal muscle (scale)", "getPpBodySkeletalKg", MASS),
+    ("Body water (scale)", "getPpWaterPercentage", "%"),
+    ("Visceral fat (scale)", "getPpVisceralFat", "index"),
+    ("BMR (scale)", "getPpBMR", "kcal"),
+    ("Bone mineral (scale)", "getPpBoneKg", MASS),
+    ("ECW (scale)", "getPpWaterECWKg", MASS),
+    ("ICW (scale)", "getPpWaterICWKg", MASS),
+    ("Lean mass (scale)", "getPpLoseFatWeightKg", MASS),
+    ("Body cell mass (scale)", "getPpCellMassKg", MASS),
+    ("BMI (scale)", "getPpBMI", "index"),
+    ("Lean right arm (scale)", "getPpMuscleKgRightArm", MASS),
+    ("Lean left arm (scale)", "getPpMuscleKgLeftArm", MASS),
+    ("Lean trunk (scale)", "getPpMuscleKgTrunk", MASS),
+    ("Lean right leg (scale)", "getPpMuscleKgRightLeg", MASS),
+    ("Lean left leg (scale)", "getPpMuscleKgLeftLeg", MASS),
+)
 SAME_WEIGHT_KG = 0.005          # below the scale's 10 g step; covers the lb round trip
 SAME_TIME = timedelta(seconds=1)
 PAGE = 100
@@ -54,6 +81,33 @@ MAX_PAGES = 20
 
 class WgerError(RuntimeError):
     """A wger call failed; the message carries the status, never the token."""
+
+
+class WgerRejected(WgerError):
+    """wger refused a measurement with a 400 that is not the unique constraint (permanent)."""
+
+
+class EngineRows(NamedTuple):
+    """What the engine gives a write. `result` is a reason code (safe to log); `rows` is health data."""
+    result: str                                          # ok, or why there are no rows
+    rows: tuple[tuple[str, str, float, str], ...] = ()   # (category, getter, kg or value, unit or MASS)
+    skipped: int = 0                                     # metrics missing, non-finite, zero or negative
+
+
+def engine_rows(out: Any) -> EngineRows:
+    """The engine's `out` object (output.out) -> one row per ENGINE_METRICS entry with a usable value."""
+    rows, skipped = [], 0
+    for name, getter, unit in ENGINE_METRICS:
+        v = out.get(getter) if isinstance(out, dict) else None
+        try:
+            f = float(v) if v is not None and not isinstance(v, bool) else math.nan
+        except (TypeError, ValueError):                  # e.g. "NaN" strings are fine, "abc" is not
+            f = math.nan
+        if math.isfinite(f) and f > 0:
+            rows.append((name, getter, f, unit))
+        else:
+            skipped += 1
+    return EngineRows("ok", tuple(rows), skipped)
 
 
 def external_id(scale_id: str, reading: Reading, person: str) -> uuid.UUID:
@@ -124,7 +178,7 @@ class WgerClient:
     def __init__(self, http: httpx.AsyncClient, token: str) -> None:
         self._http = http
         self._headers = {"Authorization": f"Token {token}", "Accept": "application/json"}
-        self._categories: dict[str, str] = {}
+        self._categories: dict[str, tuple[str, str]] = {}     # name -> (id, unit)
         self._write_lock = asyncio.Lock()
         self._cat_lock = asyncio.Lock()
 
@@ -197,28 +251,30 @@ class WgerClient:
             return None
         return str(_field(rows[0], "id", where)), str(rows[0].get("unit") or "kg")
 
-    async def custom_category(self, name: str, unit: str) -> tuple[str, bool]:
-        """(id, created) for the person's custom category `name`, creating it if needed.
+    async def custom_category(self, name: str, unit: str) -> tuple[str, str, bool]:
+        """(id, unit, created) for the person's custom category `name`, creating it in `unit` if needed.
 
         The lookup pages through every match and compares the name exactly here
-        (the server filter is not relied on for that); creation is serialised.
+        (the server filter is not relied on for that) and only takes a `custom`
+        category; creation is serialised. The returned unit is the category's own.
         """
         async with self._cat_lock:
             if name in self._categories:
-                return self._categories[name], False
+                cid, have = self._categories[name]
+                return cid, have, False
             rows = [x for x in await self._list("measurement-category/", {"name": name})
-                    if x.get("name") == name]
+                    if x.get("name") == name and x.get("metric_type", "custom") == "custom"]
             created = False
             if rows:
-                cid = str(_field(rows[0], "id", "GET measurement-category/"))
+                cid, unit = str(_field(rows[0], "id", "GET measurement-category/")), str(rows[0].get("unit") or "")
             else:
                 body = await self._json("POST", "measurement-category/", ok=(201,),
                                         json={"name": name, "unit": unit, "metric_type": "custom"})
                 if not isinstance(body, dict):
                     raise WgerError("POST measurement-category/: unexpected body (not an object)")
                 cid, created = str(_field(body, "id", "POST measurement-category/")), True
-            self._categories[name] = cid
-            return cid, created
+            self._categories[name] = (cid, unit)
+            return cid, unit, created
 
     async def _entries(self, category: str, lo: datetime, hi: datetime) -> list[dict[str, Any]]:
         return await self._list("measurement/", {"category": category, "date__gte": _iso(lo),
@@ -245,6 +301,8 @@ class WgerClient:
             return "created"
         if r.status_code == 400 and "unique" in r.text.lower():
             return "exists"
+        if r.status_code == 400:
+            raise WgerRejected("POST measurement/: HTTP 400")
         raise WgerError(f"POST measurement/: HTTP {r.status_code}")
 
     async def ensure_measurement(self, category: str, when: datetime, value: float, ext: uuid.UUID,
@@ -255,10 +313,15 @@ class WgerClient:
         return await self._post(category, when, value, ext, extra)
 
     async def write_reading(self, reading: Reading, ext: uuid.UUID,
-                            window: timedelta = REPLAY_WINDOW, heart_rate: bool = False) -> dict[str, int]:
-        """Write everything; safe to call again for the same reading, or for a replay of it."""
+                            window: timedelta = REPLAY_WINDOW, heart_rate: bool = False,
+                            engine: Callable[[], Awaitable[EngineRows]] | None = None) -> dict[str, Any]:
+        """Write everything; safe to call again for the same reading, or for a replay of it.
+
+        `engine` (SCALE_BRIDGE_WRITE_ENGINE) is awaited only after the weight and the
+        custom rows are written, so a slow or failed engine never holds them back.
+        """
         async with self._write_lock:
-            counts = {"created": 0, "exists": 0, "categories_created": 0}
+            counts: dict[str, Any] = {"created": 0, "exists": 0, "categories_created": 0}
             extra: dict[str, Any] = {"unit": "kg", "device": "Body Pod 2"}
             if reading.df_raw:
                 extra["df_raw"] = list(reading.df_raw)
@@ -283,8 +346,41 @@ class WgerClient:
                 else:
                     counts[await self._post(cat, when, reading.weight_kg, ext, extra)] += 1
             for name, value, unit in custom_rows(reading, heart_rate):
-                cid, created = await self.custom_category(name, unit)
+                cid, _, created = await self.custom_category(name, unit)
                 counts["categories_created"] += int(created)
                 counts[await self.ensure_measurement(cid, when, value, ext,
                                                      {"unit": unit, "device": "Body Pod 2"})] += 1
+            if engine is not None:
+                await self._write_engine(await engine(), when, ext, counts)
             return counts
+
+    async def _write_engine(self, er: EngineRows, when: datetime, ext: uuid.UUID,
+                            counts: dict[str, Any]) -> None:
+        """Engine rows at the weight's time, same idempotence as the impedance rows.
+
+        A mass category is created in the profile's weight unit; an existing one keeps its
+        own unit (kg or lb) and the value is converted to it, so a later profile change never
+        mixes units in one category. A 400 for one row (wger refused that value: permanent)
+        is counted as rejected and the others go on; any other failure raises (the retry).
+        """
+        counts.update(engine_result=er.result, engine_created=0, engine_exists=0,
+                      engine_skipped=er.skipped, engine_rejected=0, engine_categories_created=0)
+        profile_unit: str | None = None
+        for name, getter, value, unit in er.rows:
+            if unit == MASS:
+                if name not in self._categories and profile_unit is None:
+                    profile_unit = "lb" if (await self.profile()).get("weight_unit") == "lb" else "kg"
+                cid, have, created = await self.custom_category(name, profile_unit or "kg")
+                counts["engine_categories_created"] += int(created)
+                if have not in ("kg", "lb"):
+                    counts["engine_skipped"] += 1            # a mass category in some other unit
+                    continue
+                unit, value = have, (value * LB_PER_KG if have == "lb" else value)
+            else:
+                cid, _, created = await self.custom_category(name, unit)
+                counts["engine_categories_created"] += int(created)
+            try:
+                counts["engine_" + await self.ensure_measurement(
+                    cid, when, value, ext, {"unit": unit, "device": "Body Pod 2", "engine_field": getter})] += 1
+            except WgerRejected:
+                counts["engine_rejected"] += 1

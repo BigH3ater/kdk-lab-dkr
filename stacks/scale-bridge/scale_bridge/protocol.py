@@ -9,9 +9,9 @@ Blue2Scale BLE_SCALE_PROTOCOL.md reference:
   settled frame, 00 on the zero-weight "stable" frame as the load comes off);
 * that zero-weight stable frame with state 00 is the scale's END-OF-MEASUREMENT
   marker (``EndMarkerFrame``), about 5 s after the lock, only when the handle was
-  held. Byte 1 is the heart rate in BPM (0 = none): confirmed on ONE capture
-  against the vendor app (2026-11-14, vault hume-app-results note). Byte 2 was
-  the stable bit plus another flag (0x40) there; only the stable bit is used;
+  held. Byte 1 is the heart rate in BPM (0 = none): matched the vendor app on
+  6 of 6 paired weigh-ins (first 2026-11-14, vault hume-app-results note). Byte 2
+  was the stable bit plus another flag (0x40) on the first; only the stable bit is used;
 * ``BE`` (13 bytes): byte 1 = index (0 ~50 kHz, 1 ~250 kHz), then five LE uint16
   / 10 ohm, in the reference's order right arm, left arm, trunk, right leg, left leg;
 * ``DF`` (17 bytes): four sub-packets indexed by bytes 2-3, payload undecoded.
