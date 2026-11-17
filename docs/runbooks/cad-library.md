@@ -277,8 +277,8 @@ On the laptop (`op` signed in; pick a night whose `offsite rclone exit=0`, see t
 Grafana **Backups / Nightly backups** dashboard, "On Proton"):
 
 ```sh
-offsite-mount.sh                                   # 1Password prompt, then: mounted ~/mnt/offsite (read-only)
-offsite-mount.sh status                            # mounted: ~/mnt/offsite
+offsite-mount.sh                                   # 1Password prompt, then: mounted ~/mnt/offsite (read-only, auto-unmount after 2h)
+offsite-mount.sh status                            # mounted: ~/mnt/offsite (since ..., auto-unmount after 2h)
 ls ~/mnt/offsite/offsite/                          # decrypted names: <host>-DATE.tar.zst, 3d-prints-DATE.tar.zst
 D=YYYY-MM-DD
 
@@ -296,6 +296,16 @@ gzip -t ~/mnt/offsite/kdk-dkr-dmz-01/pgdump/authelia-$D.sql.gz && echo gzip-ok
 # 3. done
 offsite-mount.sh -u                                # unmounted ~/mnt/offsite
 ```
+
+**Unmount when done; it unmounts itself after 2 h anyway.** A mount left up is a
+trap: on 2026-11-16 an unrelated whole-disk search (`bfs / -name ...`) walked into
+`~/mnt/offsite` and through ~10k Proton files, and every directory it opened was a Proton
+API call plus two layers of decryption: rclone sat at 260% CPU until the mount was
+stopped. The script therefore runs rclone under `timeout` (`OFFSITE_MAXRUN`, default
+`2h`; e.g. `OFFSITE_MAXRUN=30m offsite-mount.sh`). `-u` unmounts, falls back to a lazy
+unmount when something holds the mount busy, then stops rclone itself (TERM, KILL after
+10 s): a lazily detached rclone otherwise keeps serving whatever still has a directory
+open. If the CPU spikes with the mount up, `offsite-mount.sh -u` is the fix.
 
 `--vfs-cache-mode off`: every read streams from Proton, so hashing the ~5 GB
 kdk-dkr-01 archive takes a while; the small files above are the routine check. The
