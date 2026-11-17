@@ -6,7 +6,7 @@ tier: infra
 status: new
 storage: yes
 secrets: [cloudflare-monitor-ro]
-updated: 2026-10-29
+updated: 2026-11-16
 tags: [homelab/stack, tier/infra, status/new, security]
 ---
 
@@ -25,7 +25,7 @@ Two one-shots on [[kdk-log-01]] that read the `kmkdp.com` Cloudflare zone with a
 | Output | stdout + a direct Loki push (`LOKI_URL`, default `http://10.1.20.21:3100`) with labels `{job="cloudflare-watch", container="cloudflare-watch"` (hourly) `/ "cloudflare-watch-weekly"` (weekly)`, host="kdk-log-01"}`; one JSON line per check (`check`, `status`, `ts`, `mode`, `zone`, fields). A push failure is logged to stderr and never changes the exit code |
 | State | `/opt/kdk-lab/cloudflare-watch/state.json` (weekly rule + DNS shas) |
 | Checks | hourly: `tunnel`, `edge_cert`, `zone_settings`, `firewall_events`; weekly: `rule_drift` |
-| Alerts | `CloudflareTunnelUnhealthy`, `CloudflareEdgeCertExpiring`, `CloudflareZoneSettingDrift`, `CloudflareRuleDrift`, `CloudflareWatchMissing` (all warning) |
+| Alerts | `CloudflareTunnelUnhealthy`, `CloudflareEdgeCertExpiring`, `CloudflareZoneSettingDrift`, `CloudflareRuleDrift`, `CloudflareWatchMissing` (all warning). `CloudflareRuleDrift` is a one-time notice per change: it pages once on the Monday run that sees it and resolves ~2h later (the change is already the new baseline) |
 | Blast radius | none: a read-only token (no write scope), writes only its state dir and Loki |
 
 ## Verify
@@ -86,4 +86,4 @@ Lines are pushed straight to Loki (job `cloudflare-watch`) and land under `{cont
 
 ## User Guide
 
-There is no UI. Read the lines in Grafana → Explore → Loki (`{container="cloudflare-watch"}`). An alert tells you what changed; the matching row in the [runbook](../runbooks/security-alerts.md#cloudflare-watch) says where to look. An intended edge change (a new WAF rule, a DNS record, a deliberate setting change) resolves itself: the next run records the new baseline, except a `zone_settings` change you meant to keep, which needs the expected value updated in `watch.py`.
+There is no UI. Read the lines in Grafana → Explore → Loki (`{container="cloudflare-watch"}`). An alert tells you what changed; the matching row in the [runbook](../runbooks/security-alerts.md#cloudflare-watch) says where to look. An intended WAF rule or DNS record change resolves itself: `CloudflareRuleDrift` pages once and resolves ~2h after the weekly run, which already recorded the new baseline. A `zone_settings` change you meant to keep is different: it fails every hourly run until the expected value is updated in `watch.py`.
