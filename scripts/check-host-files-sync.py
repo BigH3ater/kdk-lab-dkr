@@ -59,9 +59,17 @@ MOUNTS_DKR04 = [
 ]
 
 
+# kdk-dkr-dmz-01: only the Insta360 export mount is tracked here (read-only, the
+# Immich external library). Its media/appdata/backup units stay hand-written in the
+# cloud-init file as before; runcmd there enables this one too.
+MOUNTS_DMZ01 = [
+    ("/etc/systemd/system/mnt-insta360\\x2dflat.mount", "hosts/kdk-dkr-dmz-01/systemd/mnt-insta360\\x2dflat.mount", None),
+]
+
+
 TARGETS = {
     "cloud-init/kdk-dkr-01-vendor-data.yaml": per_host("kdk-dkr-01") + COMMON_VM,
-    "cloud-init/kdk-dkr-dmz-01-user-data.yaml": per_host("kdk-dkr-dmz-01") + COMMON_VM,
+    "cloud-init/kdk-dkr-dmz-01-user-data.yaml": per_host("kdk-dkr-dmz-01") + MOUNTS_DMZ01 + COMMON_VM,
     "cloud-init/kdk-dkr-04-user-data.yaml": per_host("kdk-dkr-04") + MOUNTS_DKR04 + COMMON_VM,
 }
 

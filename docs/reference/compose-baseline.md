@@ -190,7 +190,7 @@ Each hardening PR covers one stack or a few small related stacks. It applies the
 redeploys, verifies the service, and regenerates the known-gaps file.
 
 1. **DMZ (kdk-dkr-dmz-01)**: dmz-proxy, identity, wizarr, tandoor, audiobookshelf,
-   jellyfin, immich, dmz-apps, then the one-shots (wizarr-sync, backup-dmz).
+   jellyfin, immich, dmz-apps, then the one-shots (wizarr-sync, backup-dmz, immich-albums: hardened at build).
 2. **kdk-dkr-01**: proxy, op-connect, komodo, docs, the long-running apps (media,
    apps, dashboard, actual, trailarr, jellystat, net-exporters,
    obsidian/remarkable pipelines), then the one-shots (arr-*, tdarr-*,

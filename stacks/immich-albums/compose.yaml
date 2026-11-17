@@ -1,0 +1,79 @@
+# immich-albums: nightly one-shot on kdk-dkr-dmz-01 that makes one Immich album per
+# Insta360 trip folder (/mnt/insta360-flat/<trip>/ -> album "<trip>", owned by the
+# local `Household` account, shared with jmack + rach as editors).
+#
+# deploy=false; run by the immich-albums Procedure at 02:10 (komodo/resources.toml);
+# destroy_before_deploy recreates it fresh each run. albums.py (mounted, stdlib only)
+# triggers the library scan itself and waits for the library queue to drain, then
+# runs the community tool salvoxia/immich-folder-album-creator once. On any failure
+# it sends one Pushover and exits 1. Full write-up: docs/services/immich.md
+# "Insta360 library".
+#
+# Reaches Immich over the external network `immich_internal` (container
+# `immich-server`, port 2283), never through Traefik. Secrets: .env (op inject in the
+# pre_deploy) holds the Household API key (albums) and the kdkadmin library-scan key.
+name: immich-albums
+
+services:
+  albums:
+    image: salvoxia/immich-folder-album-creator:2.0.3@sha256:0bcb08e37a5de9bf2a2d7c1b1b6898351cd4a244306983e1d8126777dc34e789
+    container_name: immich-albums
+    # The image's own user (Dockerfile USER 1000:1000), stated explicitly.
+    user: "1000:1000"
+    restart: "no"
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: [ALL]
+    read_only: true
+    # The tool writes nothing outside /tmp (the crontab only exists in cron mode,
+    # which is not used: CRON_EXPRESSION unset). albums.py puts the key file here.
+    tmpfs: ["/tmp:size=16m,mode=1777"]
+    pids_limit: 64
+    mem_limit: 256m
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+    # Keep the image's tini (signal handling) but replace its cron launcher with
+    # the wrapper. -I: isolated mode, no cwd/env imports.
+    entrypoint: ["tini", "-s", "-g", "--"]
+    command: ["python3", "-I", "/kdk/albums.py"]
+    env_file: [.env]   # IMMICH_ALBUMS_API_KEY, IMMICH_SCAN_API_KEY (op-injected)
+    environment:
+      TZ: America/Chicago
+      IMMICH_URL: "http://immich-server:2283"
+      # Same path as the immich-server bind (= the library's import path).
+      ROOT_PATH: /mnt/insta360-flat
+      # 1 = the first folder below ROOT_PATH names the album; subfolders of a trip
+      # land in the trip's album. Album name = folder name, unchanged.
+      ALBUM_LEVELS: "1"
+      # Matched against the Immich user NAME or e-mail (colon-separated). A user
+      # that does not exist yet is skipped with a warning and added on a later run.
+      SHARE_WITH: "jmack=editor:rach=editor"
+      SHARE_ROLE: editor
+      # 1 = real run. Dry run for a check: docker compose run --rm -e UNATTENDED=0 albums
+      UNATTENDED: "1"
+      # Reconcile every album every night, not only on creation: assets already in
+      # an album are considered (otherwise a fully-filed trip is never revisited) and
+      # sharing is re-applied (picks up rach once she exists; removes users not in
+      # SHARE_WITH).
+      FIND_ASSETS_IN_ALBUMS: "true"
+      UPDATE_ALBUM_PROPS_MODE: "2"
+      # Never delete albums or assets (2 would delete offline assets on an NFS blip).
+      SYNC_MODE: "0"
+      MODE: CREATE
+      # INFO only: at DEBUG the tool logs the full API key.
+      LOG_LEVEL: INFO
+    volumes:
+      - ./albums.py:/kdk/albums.py:ro
+      # The wrapper's on-disk check (trip folders and file count); read-only.
+      - /mnt/insta360-flat:/mnt/insta360-flat:ro
+      # 0400 1000:1000 copy made by the Komodo pre_deploy (host file is root 0600).
+      - ./pushover.env:/pushover.env:ro
+    networks: [immich_internal]
+    labels:
+      kdk.baseline.skip: "healthcheck"   # one-shot
+
+networks:
+  # immich's internal network (stacks/immich, `internal`); has egress, used for
+  # the Pushover call.
+  immich_internal:
+    external: true

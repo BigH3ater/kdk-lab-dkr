@@ -5,7 +5,7 @@ stack: immich
 tier: dmz
 status: live
 storage: yes
-secrets: [immich-postgres, authelia-app-secrets]
+secrets: [immich-postgres, authelia-app-secrets, immich-household, immich-household-api-key, immich-library-scan-api-key]
 updated: 2026-11-16
 tags: [homelab/stack, tier/dmz, status/live]
 ---
@@ -24,13 +24,14 @@ Photo and video backup, LAN/tailnet only (router on the DMZ Traefik's `websecure
 | Status | 🟢 Live — web loads; mobile app reaches it off-LAN |
 | Host | [[kdk-dkr-dmz-01]] |
 | Endpoint | `https://immich.kmkdp.com` |
-| Images | server + ML `v3.4.1`, valkey `9`, postgres `14-vectorchord` (digest-pinned) |
+| Images | server + ML `v3.4.1`, valkey `9`, postgres `14-vectorchord` (digest-pinned); album job `salvoxia/immich-folder-album-creator:2.0.3` |
 | Sign-in | Authelia OIDC (client `immich`, LLDAP group `immich-users`, 2FA) + local password login (break-glass) |
 | Settings | repo-managed config file `stacks/immich/immich-config.json.tpl`; Administration → Settings is **read-only** |
 | Runtime users | server + ML `1000:1000`, postgres + valkey `999:999` (all non-root, see [Hardening](#hardening)) |
 | Video transcoding | Intel QSV on the Arc A380 (shared with [[jellyfin]]), hardware decode on; ML stays on CPU (see [Video transcoding](#video-transcoding)) |
-| Deploy | Komodo stack `immich` (git-linked; pre_deploy chowns the library + model cache to 1000:1000, `op inject`s `.env`, then `render-config.sh` renders the config file) |
-| Storage | library `/mnt/appdata/immich` (NFS); postgres `/opt/kdk-lab/immich/postgres` (VM disk, nightly dump) |
+| Deploy | Komodo stack `immich` (git-linked; pre_deploy refuses to run unless `/mnt/insta360-flat` is mounted read-only, chowns the library + model cache to 1000:1000, `op inject`s `.env`, then `render-config.sh` renders the config file) |
+| Storage | library `/mnt/appdata/immich` (NFS); Insta360 external library `/mnt/insta360-flat` (NFS, read-only, indexed in place); postgres `/opt/kdk-lab/immich/postgres` (VM disk, nightly dump) |
+| Insta360 albums | nightly one-shot `immich-albums` (02:10): library scan, then one album per trip folder, shared with jmack + rach (see [Insta360 library](#insta360-library)) |
 | Blast radius | No photo access/upload; nothing else affected (segmented) |
 
 ## Verify
@@ -67,6 +68,11 @@ ssh kdkadmin@192.168.191.20 'sudo docker exec immich-server ls -ln /config'
 | Every video job fails at once with `No /dev/dri devices found` or `Device ... does not exist` | the device mapping is missing (no retry: Immich builds the command before the fallback) | `docker inspect immich-server --format '{{.HostConfig.Devices}}'`; redeploy |
 | HDR (iPhone HLG / Dolby Vision) clips fail on the QSV path | OpenCL tonemap (`tonemap_opencl`) failed on the GPU; Immich retries with software decode + software tonemap | log lines around `tonemap_opencl`; slower but the job completes |
 | Jellyfin transcodes stutter while Immich is converting | both share the A380's media engines | Administration → Jobs → pause *Transcode Videos* during movie night; the queue resumes later |
+| Deploy of `immich` or `immich-albums` fails with `/mnt/insta360-flat is not mounted read-only` | the NFS unit is down or was remounted rw | `systemctl status 'mnt-insta360\x2dflat.mount'`; `findmnt /mnt/insta360-flat` shows `ro`; start the unit, redeploy |
+| Pushover `immich-albums failed: N Insta360 assets offline vs M files on disk` | immich-server sees an empty directory (it started before the mount, or the host remounted after it started; a bind keeps what was there at container start) | `sudo docker exec immich-server ls /mnt/insta360-flat \| wc -l` (0 = blind); redeploy `immich`; the next scan brings the assets back from the trash |
+| Pushover `no external library with import path /mnt/insta360-flat` | the library was not created yet, or its import path differs | Administration → External Libraries; import path exactly `/mnt/insta360-flat` |
+| Pushover `album tool exit=...` / `level=critical` | the album tool hit an API error (wrong key permissions, API change after an Immich upgrade) | `sudo docker logs immich-albums`; dry run below; check the tool's releases for the Immich version |
+| Album not shared with rach | she had not logged in yet (the tool skips unknown users with a warning), or her Immich **name** is not `rach` | `sudo docker logs immich-albums \| grep 'does not exist'`; fix `SHARE_WITH` (name or e-mail) in `stacks/immich-albums/compose.yaml` |
 | `Read-only file system` in a log | the image started writing a new path outside the tmpfs list | add that path as a `tmpfs` (or a skip label with the reason) in `compose.yaml` |
 
 ## Dependencies
@@ -75,8 +81,9 @@ ssh kdkadmin@192.168.191.20 'sudo docker exec immich-server ls -ln /config'
 |---|---|---|
 | Needs | [[dmz-proxy]] | ingress (LAN/tailnet) |
 | Needs | `/mnt/appdata/immich` (NFS) | no library storage |
+| Needs | `/mnt/insta360-flat` (NFS ro, `mnt-insta360\x2dflat.mount`) | the immich deploy refuses to run; if it drops while the server runs, scans stall (hard mount) |
 | Needs | [[identity]] (`sso.kmkdp.com`, reached over the internet like Tandoor/ABS) | no SSO login; password login still works |
-| Needed by | — | none |
+| Needed by | `immich-albums` (one-shot, `immich_internal`) | no new trip albums |
 
 ## Observability
 
@@ -110,6 +117,7 @@ No dashboard. `immich.kmkdp.com` probed by [[kdk-mon-01]]; alerts → Pushover.
 | `storageTemplate` | on, default pattern (`library/<label>/<year>/<year-month-day>/<file>`) |
 | `map`, `newVersionCheck`, SMTP | off |
 | `trash` | on, 30 days |
+| `library` | nightly scan of external libraries at 00:00 on (safety net behind `immich-albums`' own scan); `watch` off (inotify never sees changes made on the NAS side of NFS) |
 | `ffmpeg.accel` / `accelDecode` | `qsv` / `true`; codec, policy, resolution, preset at Immich defaults (`h264`, `required`, `720`, `ultrafast`) |
 
 ### Changing a setting
@@ -167,6 +175,111 @@ fallback has no such fd. The per-asset log line names the path taken:
 `Transcoding video <id> with QSV-accelerated encoding and decoding` (good) vs
 `... without hardware acceleration` or a `Retrying with ...` line (fallback).
 
+## Insta360 library
+
+Finished Insta360 stills live on the NAS dataset `tankz3/insta360-flat`, one folder per
+trip (`2025-08-maine/*.jpg`). Immich indexes them **in place** as a read-only external
+library; it never copies, moves or deletes a source file.
+
+| Piece | Value |
+|---|---|
+| Host mount | `172.16.30.2:/mnt/tankz3/insta360-flat` → `/mnt/insta360-flat`, NFS 4.1 `ro`, systemd unit `mnt-insta360\x2dflat.mount` ([`hosts/kdk-dkr-dmz-01/systemd/`](../../hosts/README.md)); dataset owner 3003:3001, 770 + ACL that lets uid 1000 read |
+| In the containers | `/mnt/insta360-flat:/mnt/insta360-flat:ro` in `immich-server` and `immich-albums` (same path, so import path = `ROOT_PATH`) |
+| Deploy guard | the `immich` and `immich-albums` pre_deploys run `findmnt -rn -M /mnt/insta360-flat -O ro` and stop the deploy when it is not a read-only mountpoint |
+| Library | External library "Insta360", owner **`Household`**, import path `/mnt/insta360-flat`, created by hand (libraries are database objects an admin creates in the UI/API; the config file only holds the scan schedule) |
+| Owner account | `Household` (`household@kmkdp.com`), a **local** account (password in 1P `immich-household`), not admin, no OIDC: auto-register would need an LLDAP user, and no person should sign in as it |
+| Albums | one per top-level trip folder, named exactly like the folder, owned by Household, shared with `jmack` and `rach` as **editors** (add photos, remove them from the album; they cannot delete Household's assets) |
+| Timelines | Household partner-shares with jmack and rach; each of them turns on "Show in timeline" for Household |
+| Job | Komodo stack + Procedure `immich-albums` (`stacks/immich-albums`), daily 02:10, `deploy = false`, one-shot |
+
+### immich-albums (nightly job)
+
+`albums.py` runs inside the pinned community image
+[`salvoxia/immich-folder-album-creator`](https://github.com/Salvoxia/immich-folder-album-creator)
+(`2.0.3`; Renovate tracks it in the `dmz patch` group, majors need the dashboard tick).
+It talks to `http://immich-server:2283` over `immich_internal`, never through Traefik. Order:
+
+1. its own `:ro` view of `/mnt/insta360-flat` must contain at least one trip folder;
+2. waits for `/api/server/ping` (up to 10 min, so a deploy of both stacks in one gitops tick is fine);
+3. finds the library whose import paths contain `/mnt/insta360-flat` and checks that Household owns it;
+4. `POST /api/libraries/<id>/scan`, then polls `GET /api/queues/library` until active, waiting and
+   delayed are 0 on three polls in a row (timeout 30 min). Scan and album creation are therefore
+   ordered by the job itself, not by two clocks;
+5. counts Household's offline assets: as many offline as files on disk means immich-server lost the mount;
+6. runs the tool once: `ALBUM_LEVELS=1`, `SHARE_WITH=jmack=editor:rach=editor`,
+   `FIND_ASSETS_IN_ALBUMS=true` + `UPDATE_ALBUM_PROPS_MODE=2` (every album is re-checked nightly and
+   its sharing re-applied), `SYNC_MODE=0` (never deletes albums or assets), `LOG_LEVEL=INFO` (DEBUG logs the key).
+
+Failures: the Procedure has `failure_alert` (pre_deploy/deploy errors page), and `albums.py` sends one
+Pushover (`immich-albums failed: <reason>`) and exits 1 for anything after the container starts,
+including tool lines at `error`/`critical` level (the tool itself exits 0 after a fatal API error).
+
+Two API keys, both from 1Password `kdk-cluster` (API Credential items, field `credential`, rendered
+into `.env` by `op inject`):
+
+| Item | Created by | Permissions |
+|---|---|---|
+| `immich-household-api-key` | Household | `asset.read`, `album.create`, `album.read`, `album.update`, `albumAsset.create`, `albumUser.create`, `albumUser.update`, `albumUser.delete`, `user.read` |
+| `immich-library-scan-api-key` | kdkadmin | `library.read`, `library.update`, `queue.read` (the scan and queue endpoints are admin-only) |
+
+`library.update` also lets the holder edit the library's import paths; the key lives only in 1P and
+the stack's `.env` on dmz-01 (root 0600, like every op-injected `.env`).
+
+**Sharing with a user who does not exist yet.** The tool matches `SHARE_WITH` against the Immich user
+*name* or e-mail. An unknown user is skipped with a warning (`User rach to share album ... does not
+exist!`; `albums.py` repeats it as one `level=warning` line, no page). Because of
+`UPDATE_ALBUM_PROPS_MODE=2` the next nightly run after rach's first sign-in shares every album with
+her. Check her Immich name then (Administration → Users); if it is not `rach`, change `SHARE_WITH`.
+Mode 2 also **removes** any user that is not in `SHARE_WITH` from these albums: share a trip with
+someone else through a shared link, or add them to `SHARE_WITH`.
+
+Dry run (lists the albums it would create, changes nothing; still triggers a scan):
+
+```bash
+ssh kdkadmin@192.168.191.20 'cd /opt/kdk-lab/stacks/immich-albums/stacks/immich-albums && sudo docker compose run --rm -e UNATTENDED=0 albums'
+```
+
+### Adding a trip
+
+Export into a new top-level folder on the dataset (the folder name becomes the album name, e.g.
+`2026-06-norway`). Nothing else: the next 02:10 run scans, imports, makes the album and shares it.
+To see it sooner, run the `immich-albums` Procedure in Komodo. Files placed directly in
+`/mnt/insta360-flat` (no folder) are imported but get no album.
+
+### Renames and deletes on the NAS
+
+| Change | What Immich does |
+|---|---|
+| New file in a trip folder | imported on the next scan, added to that trip's album |
+| File deleted | marked offline on the next scan (moved to Household's trash); purged from Immich after 30 days (`trash.days`); the album loses it |
+| File renamed / moved to another trip | old asset goes offline (trash), the new path is imported as a new asset and filed into the album of its folder |
+| Trip folder renamed | a new album with the new name is created and filled; the old album stays (job never deletes albums) and empties as its assets go offline; delete it by hand |
+| Trip folder deleted | its assets go offline → trash → purged; the empty album stays until deleted by hand |
+| Comes back within 30 days | the next scan finds the file at the same path and brings the asset back online (out of the trash) |
+
+### Mount failures
+
+- **Not mounted at deploy:** both pre_deploys stop the deploy (no container is recreated).
+- **Not mounted when the server starts outside a deploy** (host reboot: dockerd is not ordered after
+  the NFS units, and `restart: unless-stopped` starts the server on its own): Docker binds the empty
+  directory. The 00:00 scan then marks every Insta360 asset offline (trash), and the 02:10 job pages
+  (`... assets offline vs ... files on disk`). Fix: check the mount, redeploy `immich`; the next scan
+  brings them back. Nothing is lost unless this goes unfixed for 30 days.
+- **NFS server drops during a scan:** the mount is `hard`, so file calls block until the NAS is back
+  instead of failing; the scan stalls rather than marking files offline, and `immich-albums` times
+  out after 30 min and pages. A host **remount** while the server runs leaves the server on the old
+  (stale) view until it is recreated: redeploy `immich` after any remount.
+- `SYNC_MODE` stays `0`: the tool's mode 2 would delete offline assets, so an NFS blip could wipe
+  the library from Immich.
+
+Verify:
+
+```bash
+ssh kdkadmin@192.168.191.20 'findmnt /mnt/insta360-flat'                                   # nfs4 ro
+ssh kdkadmin@192.168.191.20 'sudo docker exec immich-server sh -c "touch /mnt/insta360-flat/x"'   # Read-only file system
+ssh kdkadmin@192.168.191.20 'sudo docker logs immich-albums 2>&1 | tail -20'               # ... level=info ... msg="done"
+```
+
 ## Hardening
 
 Meets the [compose baseline](../reference/compose-baseline.md) with no skip labels and one
@@ -189,6 +302,9 @@ instance was empty (1 admin, 0 assets).
   into its workdir; it only holds job queues, so a restart drops queued jobs (re-run them
   from Administration -> Jobs). A recreate already did that before hardening.
 - The server waits for postgres and valkey to be healthy (`depends_on: service_healthy`).
+- `immich-albums` (separate stack): `1000:1000`, `read_only` (`/tmp` tmpfs 16m holds the key file),
+  `cap_drop: [ALL]`, `no-new-privileges`, 256m / 64 pids, `restart: "no"`, healthcheck skipped
+  (one-shot); its Insta360 bind is `:ro`.
 - The appdata NFS export (`172.16.30.2:/mnt/tankz3/appdata`) does not squash root, so the
   pre_deploy chown works. If it ever squashes root, the chown fails and the deploy stops.
 - Service/container `immich-postgres` and the `immich_internal` network names are fixed:
@@ -202,6 +318,9 @@ for a root-run container.
 | Secret (1P item) | Used for | Class | Rotate live? |
 |---|---|---|---|
 | `immich-postgres` | DB auth (server + ML + dump) | 🟢 self-service | rotate DB + item together, redeploy |
+| `immich-household` (Login, `password`) | local password of the `Household` account (shared Insta360 owner) | 🟢 self-service | Account Settings → Password as Household, then `op item edit` |
+| `immich-household-api-key` (API Credential, `credential`) | `immich-albums`: Household's key (albums, sharing) | 🟢 self-service | new key as Household → `op item edit ... credential=` → next run picks it up (pre_deploy injects); delete the old key |
+| `immich-library-scan-api-key` (API Credential, `credential`) | `immich-albums`: kdkadmin's key scoped to `library.read`, `library.update`, `queue.read` (trigger the scan, wait for it) | 🟢 self-service | same as above, as kdkadmin |
 | `authelia-app-secrets` (`immich_oidc_plaintext`) | OIDC client secret (rendered into the config file; Authelia holds the pbkdf2 digest `immich_client_secret`) | 🟢 self-service | new plaintext → `op item edit` → hash it into the Authelia digest file (see [[identity]]) → redeploy identity, then immich (the sha label recreates the server); SSO is down between the two deploys, password login works |
 
 ## User Guide

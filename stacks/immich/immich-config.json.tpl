@@ -4,6 +4,7 @@
   "newVersionCheck": { "enabled": false },
   "storageTemplate": { "enabled": true, "hashVerificationEnabled": true },
   "trash": { "enabled": true, "days": 30 },
+  "library": { "scan": { "enabled": true, "cronExpression": "0 0 * * *" }, "watch": { "enabled": false } },
   "notifications": { "smtp": { "enabled": false } },
   "passwordLogin": { "enabled": true },
   "oauth": {

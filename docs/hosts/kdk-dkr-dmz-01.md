@@ -102,6 +102,7 @@ VLAN 191 (DMZ). Traefik `80/443`, periphery `8120`. Outbound: cloudflared to Clo
 | `/mnt/media` (RO) | `172.16.30.2:/mnt/tankz3/media` | NFS | Jellyfin | tankz3 snapshots |
 | `/mnt/appdata` | `…/appdata` | NFS | Seerr, Wizarr, Libreseerr, Immich library, Jellyfin metadata (`jellyfin/metadata`), ABS podcasts (`audiobookshelf/podcasts`) | snapshots |
 | `/mnt/backup` | `…/backup` | NFS | backup-dmz | snapshots |
+| `/mnt/insta360-flat` (RO) | `…/insta360-flat` | NFS (systemd unit `mnt-insta360\x2dflat.mount`, in `hosts/kdk-dkr-dmz-01/systemd/`, not fstab) | Immich external library (`immich-server` + `immich-albums`, both `:ro`; [[immich]]) | the NAS dataset is the only copy; Immich indexes it in place |
 | `/opt/kdk-lab` | vmpool zvol | zfs | identity, immich, jellyfin config + DB, audiobookshelf config + metadata | nightly rsync + pg dumps → NAS; zvol replication |
 
 **Root disk.** `/dev/vda1` is only 59 GB and holds the OS, Docker images and `/opt/kdk-lab`. It hit 75 % (alert) on 2026-10-28; the fixes were moving the two growing write paths to `/mnt/appdata` (Jellyfin metadata 8.3 GB, ABS podcasts 7.5 GB) and the weekly `prune-images` Procedure (old image tags; see [Komodo GitOps](../komodo-gitops.md)). Keep only small state and SQLite DBs here; anything that grows with the library goes on the appdata NFS. Check: `ssh kdkadmin@192.168.191.20 'df -h /; sudo du -xsh /opt/kdk-lab/* | sort -h | tail'`.

@@ -48,6 +48,11 @@ checks = {
     # Only renderD128 is mapped into the container; any other device fails every job.
     "ffmpeg.preferredHwDevice auto|renderD128":
         f.get("preferredHwDevice", "auto") in ("auto", "renderD128", "/dev/dri/renderD128"),
+    # Insta360 external library (NFS, read-only). The nightly built-in scan is the
+    # safety net behind the immich-albums job's own scan; watch uses inotify, which
+    # never fires for changes made on the NAS side of an NFS mount.
+    "library.scan.enabled": c.get("library", {}).get("scan", {}).get("enabled") is True,
+    "library.watch off": c.get("library", {}).get("watch", {}).get("enabled") is False,
 }
 bad = [k for k, ok in checks.items() if not ok]
 if bad:

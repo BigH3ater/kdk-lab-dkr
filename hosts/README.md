@@ -21,6 +21,7 @@ onto the host. The two VM cloud-init files carry the same files so a rebuild get
 | `<host>/kdk-docker-user.conf` | `/etc/default/kdk-docker-user` | dkr-01, dmz-01 |
 | `_common/systemd/kdk-docker-user.{service,timer}` | `/etc/systemd/system/` | dkr-01, dmz-01 |
 | `kdk-dkr-04/systemd/mnt-{media,backup}.mount`, `mnt-linux\x2dtools.mount`, `mnt-3d\x2dprints.mount` (ro) | `/etc/systemd/system/` | dkr-04 (NFS mounts; `systemctl enable --now` after install) |
+| `kdk-dkr-dmz-01/systemd/mnt-insta360\x2dflat.mount` (ro) | `/etc/systemd/system/` | dmz-01 (Insta360 export for the Immich external library; `systemctl enable --now 'mnt-insta360\x2dflat.mount'`; see `docs/services/immich.md`) |
 | `debian-mbp/` (CAD library mount + `cad-sync` timer) | see `debian-mbp/README.md` | the owner's laptop, not a lab host (`docs/runbooks/cad-library.md`) |
 | `kdk-dkr-03/kdk-ups-l2.nmconnection` | NetworkManager (see `docs/hosts/kdk-dkr-03.md`) | dkr-03 |
 | `kdk-hyp-01/kdk-template-backup.sh` | `/usr/local/sbin/kdk-template-backup.sh` (0755) | hyp-01 (PVE host, not a Docker host) |
