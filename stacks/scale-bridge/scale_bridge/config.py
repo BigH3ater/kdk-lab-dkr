@@ -47,6 +47,7 @@ class Settings:
     tokens: dict[str, str] = field(default_factory=dict, repr=False)   # token_env -> token
     proxies: tuple[Proxy, ...] = ()
     heartbeat_path: str = "/tmp/scale-bridge.alive"
+    write_impedance: bool = True                # ten "Impedance ..." categories (compose: off since 0.3.1)
     write_heart_rate: bool = False              # "Heart rate (scale)" (compose: on since 0.3.0)
     write_engine: bool = False                  # engine metrics -> "... (scale)" categories (wger.py)
     write_derived: bool = False                 # + DERIVED_METRICS "... (scale est.)"; needs write_engine
@@ -113,6 +114,7 @@ def from_env(env: dict[str, str] | None = None) -> Settings:
         tokens={x.token_env: e.get(x.token_env, "") for x in people},
         proxies=parse_proxies(e.get("SCALE_BRIDGE_ESPHOME_PROXIES", ""), e),
         log_level=e.get("SCALE_BRIDGE_LOG_LEVEL", "INFO"),
+        write_impedance=_bool(e.get("SCALE_BRIDGE_WRITE_IMPEDANCE"), True),
         write_heart_rate=_bool(e.get("SCALE_BRIDGE_WRITE_HEART_RATE"), False),
         write_engine=_bool(e.get("SCALE_BRIDGE_WRITE_ENGINE"), False),
         write_derived=_bool(e.get("SCALE_BRIDGE_WRITE_DERIVED"), False),

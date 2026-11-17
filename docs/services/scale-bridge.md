@@ -15,8 +15,9 @@ tags: [homelab/stack, tier/internal, status/live, exercise]
 A small Python service on kdk-dkr-02 that listens for the household scale (Hume
 **Body Pod 2**, a Lefu OEM unit) over Bluetooth LE, decodes a weigh-in, works out whose
 it is from a weight band, and writes it to that person's [wger](wger.md): body weight,
-the ten raw impedance values, the heart rate and (since 0.3.0) the body-composition
-engine's results. It also keeps a
+the heart rate and (since 0.3.0) the body-composition engine's results. The ten raw
+impedance values are no longer written to wger since 0.3.1 (`SCALE_BRIDGE_WRITE_IMPEDANCE:
+"false"`, [below](#raw-impedance-not-in-wger-since-031)). It also keeps a
 **raw capture file per weigh-in** for paired tests against the vendor app. **Live writes** since
 2026-11-16 (`SCALE_BRIDGE_DRY_RUN: "false"`); dry-run, which only logs what it would write, is
 the rollback ([runbook step 6](../runbooks/scale-bridge.md#6-live-writes-dry-run-off)).
@@ -44,11 +45,11 @@ flowchart LR
 
 | Field | Value |
 |---|---|
-| Purpose | Body Pod 2 weigh-ins → wger body weight, raw impedance, heart rate and engine body composition, per person |
+| Purpose | Body Pod 2 weigh-ins → wger body weight, heart rate and engine body composition, per person (raw impedance only in the capture files since 0.3.1) |
 | Host | kdk-dkr-02 (10.1.30.21), Komodo stack `scale-bridge` |
 | Image | `kdk/scale-bridge:0.3.1`, built on the host from `stacks/scale-bridge` (python 3.12-slim, bleak, bleak-retry-connector, bleak-esphome, httpx from `uv.lock`; plus the engine: jlink'd Temurin 21 JRE, unidbg, Lefu SDK, all sha256-pinned) |
 | Engine | `SCALE_BRIDGE_ENGINE: "on"` in compose; self-disables without `LEFU_SECRET_8`. Results to `/captures/*.engine.json`, and with `SCALE_BRIDGE_WRITE_ENGINE: "true"` (since 0.3.0) to wger ([mapping](#engine-results-in-wger)) |
-| Mode | **live**: `SCALE_BRIDGE_DRY_RUN: "false"` in compose since 2026-11-16 (`"true"` = log only, the rollback). Since 0.3.0 also `SCALE_BRIDGE_WRITE_HEART_RATE: "true"` and `SCALE_BRIDGE_WRITE_ENGINE: "true"`, since 0.3.1 `SCALE_BRIDGE_WRITE_DERIVED: "true"` (each `"false"` = off on its own; code defaults are off) |
+| Mode | **live**: `SCALE_BRIDGE_DRY_RUN: "false"` in compose since 2026-11-16 (`"true"` = log only, the rollback). Since 0.3.0 also `SCALE_BRIDGE_WRITE_HEART_RATE: "true"` and `SCALE_BRIDGE_WRITE_ENGINE: "true"`, since 0.3.1 `SCALE_BRIDGE_WRITE_DERIVED: "true"` and `SCALE_BRIDGE_WRITE_IMPEDANCE: "false"`. Each switch works on its own; code defaults are off, except impedance (on) |
 | Bluetooth | `/run/dbus:/run/dbus:ro` → host bluetoothd, as uid `65534:65534` (host `nobody:nogroup`). No privileged, no capabilities, no `/dev`, bridge network |
 | Relay | the scale is heard **only** through the ESPHome Bluetooth proxy `scale-relay` (10.1.30.240), since 2026-11-15; [below](#relay-scale-relay) |
 | Host files | `/opt/kdk-lab/scale-bridge/scale-bridge.env` (people bands, `SCALE_ADDRESS`, `SCALE_BRIDGE_ESPHOME_PROXIES`), `/opt/kdk-lab/scale-bridge/secrets.env` (wger keys, `SCALE_RELAY_NOISE_KEY`). Both root 600, host-managed |
@@ -101,7 +102,7 @@ flowchart LR
 | wger | Value |
 |---|---|
 | Official **Body weight** category (`metric_type=body_weight`) | weight in kg, `extra_data.unit=kg` (correct even if the profile is in lb), `extra_data.df_raw` = the four `DF` frames as hex |
-| 10 custom categories `Impedance 50 kHz right arm` … `Impedance 250 kHz left leg`, unit `ohm` | raw ohms, created by name on first use |
+| 10 custom categories `Impedance 50 kHz right arm` … `Impedance 250 kHz left leg`, unit `ohm` — **off since 0.3.1**: `SCALE_BRIDGE_WRITE_IMPEDANCE: "false"` in compose (code default on) | raw ohms, created by name on first use; with the switch off no category is created and no row is written |
 | custom category `Heart rate (scale)`, unit `bpm` — `SCALE_BRIDGE_WRITE_HEART_RATE: "true"` in compose since 0.3.0 (code default off) | the end marker's heart rate, same idempotence path as the impedance categories; nothing when the scale sent none. Never wger's own `Heart rate` category (Apple Health feeds that one) |
 | 16 custom categories `Body fat (scale)` … `Lean left leg (scale)` — `SCALE_BRIDGE_WRITE_ENGINE: "true"` in compose since 0.3.0 (code default off) | the engine's results for that weigh-in, at the weight's time; [table](#engine-results-in-wger) |
 | 5 custom categories `Mineral (scale est.)` … `Torso fat (scale est.)` — `SCALE_BRIDGE_WRITE_DERIVED: "true"` in compose since 0.3.1 (code default off) | values worked out from the same engine result, same time; the four with a fitted constant only for a male profile; [table](#derived-values-in-wger) |
@@ -123,7 +124,21 @@ restart within 10 min (weight-only or with impedance, whether or not the `DF` by
 repeat). Covered only if the scale re-sends identical `DF` bytes (not verified): a replay
 more than 10 min later. Cost: a genuine second weigh-in by the same person within 10 min
 at exactly the same weight is not written (after a weight-only lock it still gets the
-missing impedance). `SCALE_BRIDGE_REPLAY_WINDOW_S` (600) sets the window.
+missing impedance). `SCALE_BRIDGE_REPLAY_WINDOW_S` (600) sets the window. The rule rests on
+the body-weight entry only, so it works the same with the impedance switch off; heart-rate,
+engine and derived rows follow the same "entry at that time" check.
+
+### Raw impedance not in wger (since 0.3.1)
+
+Owner decision 2026-11-16: the ten raw ohm values cluttered wger's Measurements, so compose
+sets `SCALE_BRIDGE_WRITE_IMPEDANCE: "false"` (code default `true`). A full weigh-in with heart
+rate now writes `created: 2` (weight + heart rate) plus the engine and derived rows. The engine
+is unaffected: its input is the reading's `DF` frames, never wger. The body-weight entry keeps
+`extra_data.df_raw` (the four `DF` frames as hex) as before; nothing was added to it.
+**The ten raw impedance values are now kept only in the capture files on the host, and those
+are pruned after 60 days (`SCALE_BRIDGE_CAPTURE_KEEP_DAYS`): they are no longer kept anywhere
+long-term.** The categories written before 0.3.1 stay in wger until deleted
+([runbook 6d](../runbooks/scale-bridge.md#6d-raw-impedance-out-of-wger-031)).
 
 If a person has never logged a weight (no official category yet), the first weight goes
 through the legacy `weightentry/` endpoint (in the profile's unit). In wger 2.7 that
@@ -245,7 +260,7 @@ weight, visceral fat, bone mineral, ECW, ICW, body cell mass and body water % ma
 or within rounding; BMR is close; body fat reads 1.4 to 4.7 points **below** the app (the app
 smooths toward its own history). The owner accepted the engine's own figures.
 
-**Order and failures.** The weight and impedance (and heart rate) are posted first; only then
+**Order and failures.** The weight (and the impedance when on, and the heart rate) are posted first; only then
 does the write task wait for this weigh-in's engine result (the engine takes about 1.2 s on the
 Pi and runs in parallel), bounded by `SCALE_BRIDGE_ENGINE_TIMEOUT_S` + 30 s. An engine that is
 off, has no profile, fails or times out gives no engine rows and changes nothing else
@@ -447,7 +462,7 @@ sudo docker logs scale-bridge 2>&1 | grep -E '"event":"(relay_start|scanning)"' 
 | `engine_skipped` `no_profile` | that person has no `height_cm`/`sex`/`birth_date` in `SCALE_BRIDGE_PEOPLE` | [runbook step 3](../runbooks/scale-bridge.md#3-scale-bridgeenv-people-bands) |
 | `engine` `result: engine_error`, `error_type: PP_ERROR_TYPE_SECRET` | wrong or truncated secret | redo step 2b from 1Password; check the length |
 | `engine` `result: timeout` / `nonzero_exit` / `calc_exception` | engine slow, crashed or threw (Unicorn on the Pi) | weigh-ins unaffected; `SCALE_BRIDGE_ENGINE: "off"` if it repeats, then open an issue with the reason code |
-| `wrote` with `engine_result` not `ok` | engine off, no profile, `DF` frames missing (`not_run`), engine failed (its reason code) or slower than its timeout + 30 s (`no_result`) | weight and impedance are in wger; see the `engine` / `engine_skipped` line of that session |
+| `wrote` with `engine_result` not `ok` | engine off, no profile, `DF` frames missing (`not_run`), engine failed (its reason code) or slower than its timeout + 30 s (`no_result`) | the weight (and heart rate) are in wger; see the `engine` / `engine_skipped` line of that session |
 | `wrote` with `engine_rejected` > 0 | wger refused one value with a 400 | the other rows are in; open an issue with the count (the value is in that capture's `.engine.json`) |
 | `config_invalid` naming a profile field | partial profile, both `birth_date` and `age`, bad date, sex not `male`/`female` | fix that person in `scale-bridge.env` |
 
