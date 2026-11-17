@@ -34,7 +34,7 @@ kdk-dkr-04 /mnt/3d-prints --pack (nightly)--> /mnt/backup/dkr/offsite/3d-prints-
 | Laptop mount | `/mnt/3d-prints`, `mnt-3d\x2dprints.automount` + `.mount` (cifs `vers=3.1.1,seal`), creds `/etc/cifs/3d-prints.cred` root 0600 (`hosts/debian-mbp/systemd/`) |
 | Laptop sync | `~/.local/bin/cad-sync.sh` + user `cad-sync.service`/`.timer` (`hosts/debian-mbp/`) |
 | Offsite | `backup-offsite` `pack` → `offsite/3d-prints-YYYY-MM-DD.tar.zst`, newest 3 kept, excludes `*.log`, `__pycache__`, `.~lock*`, `.~*.lock` |
-| Checks | `storage-health-dkr04` `NFS_MOUNTS=media backup linux-tools 3d-prints`; `backup-verify` (see Verify) |
+| Checks | `storage-health-dkr04` `NFS_MOUNTS` includes `3d-prints` (full list in `komodo/resources.toml`); `backup-verify` (see Verify) |
 
 ### Why mapall to `cad-sync` on the NFS export
 
@@ -248,7 +248,7 @@ warnings, none about 3d-prints).
 | `systemctl --user list-timers cad-sync.timer` | laptop | next run < 15 min |
 | `journalctl --user -u cad-sync -n 5` | laptop | no `rsync failed` lines |
 | `cat /mnt/3d-prints/.last-sync` | laptop | today, `debian-mbp` |
-| storage-health log | Komodo | `mounts: media backup linux-tools 3d-prints` |
+| storage-health log | Komodo | `mounts:` list includes `3d-prints` |
 | `backup-verify` | Pushover / Komodo log | no `3d-prints` FAIL or WARN |
 
 `backup-verify` (runs on kdk-dkr-01, sees `/mnt/backup/dkr` only) **fails** the night if
@@ -358,8 +358,8 @@ and `ssh kdkadmin@10.1.20.22 'sudo rm -r /tmp/cad-restore'`.
 
 ## Rollback
 
-1. Revert the lab PR, ResourceSync, Deploy `storage-health-dkr04` (back to
-   `media backup linux-tools`) **before** unmounting dkr-04, or storage-health pages
+1. Revert the lab PR, ResourceSync, Deploy `storage-health-dkr04` (`3d-prints`
+   dropped from `NFS_MOUNTS`) **before** unmounting dkr-04, or storage-health pages
    MISSING and the next `backup-verify` fails on the missing archive.
 2. Laptop: `systemctl --user disable --now cad-sync.timer`, then
    `sudo systemctl disable --now 'mnt-3d\x2dprints.automount' 'mnt-3d\x2dprints.mount'`,

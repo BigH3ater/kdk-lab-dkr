@@ -6,7 +6,7 @@ tier: internal
 status: building
 storage: yes
 secrets: [kdk-nas-01-insta360-upload-smb]
-updated: 2026-11-16
+updated: 2026-11-17
 tags: [homelab/stack, tier/internal, status/building]
 ---
 
@@ -33,7 +33,7 @@ external library and files into one album per trip. How to add a trip: [[imaging
 | Input | `/mnt/insta360-upload` → `/upload:ro` (NFS ro, export 237, mapall `insta360-upload` 3012) |
 | Output | `/mnt/insta360-flat` → `/flat` (NFS rw, export 238, mapall `jmack` 3003:3001) |
 | Runtime user | `3003:3001`, read-only rootfs, `cap_drop: ALL`, tmpfs `/tmp` 2 GB, 6 GB / 512 pids / 10 CPUs |
-| Alerts | Pushover `insta360-flat failed` (any failed capture or a crash); Komodo failure alert for pre_deploy/deploy errors |
+| Alerts | Pushover `insta360-flat failed` (any failed capture or a crash); Komodo failure alert for pre_deploy/deploy errors; hourly `storage-health-dkr04` pages `kdk-lab storage FAILED` if either mount is missing or hung |
 | Blast radius | No new stills; Immich keeps showing what is already there |
 
 ## Verify
