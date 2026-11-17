@@ -25,7 +25,8 @@ No port, no UI, no Traefik router. Since 0.2.0 it also runs **Lefu's own 8-elect
 body-composition engine** once per weigh-in (the scale vendor's published calculation
 library, see [below](#body-composition-engine)); since 0.3.0 its results go to the captures
 directory **and** to 16 custom `… (scale)` categories in wger
-(`SCALE_BRIDGE_WRITE_ENGINE: "true"`).
+(`SCALE_BRIDGE_WRITE_ENGINE: "true"`), since 0.3.1 plus five derived `… (scale est.)` values
+(`SCALE_BRIDGE_WRITE_DERIVED: "true"`, [below](#derived-values-in-wger)).
 
 ```mermaid
 flowchart LR
@@ -45,9 +46,9 @@ flowchart LR
 |---|---|
 | Purpose | Body Pod 2 weigh-ins → wger body weight, raw impedance, heart rate and engine body composition, per person |
 | Host | kdk-dkr-02 (10.1.30.21), Komodo stack `scale-bridge` |
-| Image | `kdk/scale-bridge:0.3.0`, built on the host from `stacks/scale-bridge` (python 3.12-slim, bleak, bleak-retry-connector, bleak-esphome, httpx from `uv.lock`; plus the engine: jlink'd Temurin 21 JRE, unidbg, Lefu SDK, all sha256-pinned) |
+| Image | `kdk/scale-bridge:0.3.1`, built on the host from `stacks/scale-bridge` (python 3.12-slim, bleak, bleak-retry-connector, bleak-esphome, httpx from `uv.lock`; plus the engine: jlink'd Temurin 21 JRE, unidbg, Lefu SDK, all sha256-pinned) |
 | Engine | `SCALE_BRIDGE_ENGINE: "on"` in compose; self-disables without `LEFU_SECRET_8`. Results to `/captures/*.engine.json`, and with `SCALE_BRIDGE_WRITE_ENGINE: "true"` (since 0.3.0) to wger ([mapping](#engine-results-in-wger)) |
-| Mode | **live**: `SCALE_BRIDGE_DRY_RUN: "false"` in compose since 2026-11-16 (`"true"` = log only, the rollback). Since 0.3.0 also `SCALE_BRIDGE_WRITE_HEART_RATE: "true"` and `SCALE_BRIDGE_WRITE_ENGINE: "true"` (each `"false"` = off on its own; code defaults are off) |
+| Mode | **live**: `SCALE_BRIDGE_DRY_RUN: "false"` in compose since 2026-11-16 (`"true"` = log only, the rollback). Since 0.3.0 also `SCALE_BRIDGE_WRITE_HEART_RATE: "true"` and `SCALE_BRIDGE_WRITE_ENGINE: "true"`, since 0.3.1 `SCALE_BRIDGE_WRITE_DERIVED: "true"` (each `"false"` = off on its own; code defaults are off) |
 | Bluetooth | `/run/dbus:/run/dbus:ro` → host bluetoothd, as uid `65534:65534` (host `nobody:nogroup`). No privileged, no capabilities, no `/dev`, bridge network |
 | Relay | the scale is heard **only** through the ESPHome Bluetooth proxy `scale-relay` (10.1.30.240), since 2026-11-15; [below](#relay-scale-relay) |
 | Host files | `/opt/kdk-lab/scale-bridge/scale-bridge.env` (people bands, `SCALE_ADDRESS`, `SCALE_BRIDGE_ESPHOME_PROXIES`), `/opt/kdk-lab/scale-bridge/secrets.env` (wger keys, `SCALE_RELAY_NOISE_KEY`). Both root 600, host-managed |
@@ -103,6 +104,7 @@ flowchart LR
 | 10 custom categories `Impedance 50 kHz right arm` … `Impedance 250 kHz left leg`, unit `ohm` | raw ohms, created by name on first use |
 | custom category `Heart rate (scale)`, unit `bpm` — `SCALE_BRIDGE_WRITE_HEART_RATE: "true"` in compose since 0.3.0 (code default off) | the end marker's heart rate, same idempotence path as the impedance categories; nothing when the scale sent none. Never wger's own `Heart rate` category (Apple Health feeds that one) |
 | 16 custom categories `Body fat (scale)` … `Lean left leg (scale)` — `SCALE_BRIDGE_WRITE_ENGINE: "true"` in compose since 0.3.0 (code default off) | the engine's results for that weigh-in, at the weight's time; [table](#engine-results-in-wger) |
+| 5 custom categories `Mineral (scale est.)` … `Torso fat (scale est.)` — `SCALE_BRIDGE_WRITE_DERIVED: "true"` in compose since 0.3.1 (code default off) | values worked out from the same engine result, same time; the four with a fitted constant only for a male profile; [table](#derived-values-in-wger) |
 
 Custom categories are looked up by exact name **and** `metric_type: custom`, so an official or
 Apple Health category (`Body fat`, `Heart rate`, …) is never reused or written into.
@@ -225,7 +227,7 @@ use; each value gets its own row at the **same time as the weight entry** with t
 | `Lean trunk (scale)` | `getPpMuscleKgTrunk` | mass |
 | `Lean right leg (scale)` | `getPpMuscleKgRightLeg` | mass |
 | `Lean left leg (scale)` | `getPpMuscleKgLeftLeg` | mass |
-| not written | `getPpBodyAge` (metabolic age: not comparable to the app), `getPpBalanceFatArmLegLevel` and the other balance levels (not deterministic in the vendor library), subcutaneous fat, per-limb fat, `getPpMineralKg`, skeletal % | — |
+| not written | `getPpBodyAge` (metabolic age: not comparable to the app), `getPpBalanceFatArmLegLevel` and the other balance levels (not deterministic in the vendor library), subcutaneous fat, per-limb fat, `getPpMineralKg` (only through [`Mineral (scale est.)`](#derived-values-in-wger)), skeletal % | — |
 
 The getters are the vendor result model's (`com.lefu.ppcalculate.PPBodyFatModel` in the pinned
 `ppcalculatekit` 4.6.28), exported by name by `engine/src/kdk/lefu/Main.java` (`scalars`); the
@@ -252,6 +254,40 @@ wger error or timeout retries the whole write, and the replay rule turns what is
 into `exists`, so a retry or a replay adds only the missing rows. A row wger refuses with a
 plain 400 (a value it will not store) is counted as `engine_rejected` and the others go on: the
 weight is not retried or lost for it.
+
+### Derived values in wger
+
+**Switch:** `SCALE_BRIDGE_WRITE_DERIVED` (compose `"true"` since 0.3.1, code default off). It
+only has effect with `SCALE_BRIDGE_WRITE_ENGINE` on and an `ok` engine result. Five values the
+vendor app shows but the engine does not output, worked out by the bridge from the same
+`output.out`, written in the same pass as the engine rows: same time, `external_id`,
+idempotence, replay rule, mass-unit rule and per-row 400 handling. `extra_data` is
+`{unit, device, derived: true, formula}` (a short formula id) instead of `engine_field`.
+
+| wger category (custom) | Formula (engine getters, kg) | Unit | Fit over 4 paired weigh-ins |
+|---|---|---|---|
+| `Mineral (scale est.)` | `getPpMineralKg - getPpBoneKg` | mass | within the app's one-decimal rounding (0.8 % spread) |
+| `Android fat (scale est.)` | `0.780 * getPpBodyFatKgTrunk` | mass | 0.25 % spread while the app value moved 12 % |
+| `Gynoid fat (scale est.)` | `1.422 * (getPpBodyFatKgLeftLeg + getPpBodyFatKgRightLeg)` | mass | 0.34 % spread while the app value moved 12.6 % |
+| `A/G ratio (scale est.)` | `100 * android / gynoid` (the two values above) | `%` | 0.19 % spread |
+| `Torso fat (scale est.)` | `100 * getPpBodyFatKgTrunk / (0.529 * getPpWeightKg)` | `%` | 0.26 % spread while the app value moved 11.5 % |
+
+**Constants:** `0.780` (`ANDROID_PER_TRUNK_FAT`), `1.422` (`GYNOID_PER_LEG_FAT`), `0.529`
+(`TORSO_SHARE_OF_WEIGHT`), with the table as `DERIVED_METRICS` in `scale_bridge/wger.py`.
+Evidence: fitted on four paired weigh-ins of one male subject, 2026-11-15/16; provisional until
+more paired weigh-ins. The six getters are public `float` getters of `PPBodyFatModel` in the
+pinned `ppcalculatekit` 4.6.28 (`engine/sdk.lock`).
+
+**Sex guard:** the four rows with a fitted constant (android, gynoid, A/G, torso) are written
+only when the person's engine profile (`sex` in `SCALE_BRIDGE_PEOPLE`) is `male`; for any other
+profile they are skipped and counted as `derived_skipped_sex`. `Mineral (scale est.)` has no
+fitted constant and is written for everyone.
+
+**Values:** a missing, non-finite, zero or negative input, or a result that is not a positive
+finite number, skips that row (`derived_skipped`); A/G is skipped when android or gynoid is.
+
+**Not reproduced** (app fields the bridge does not write): skeletal mass, metabolic age, the
+vendor health score, per-limb fat %.
 
 **Build:** Dockerfile stage `engine` downloads three `.aar` files from
 `raw.githubusercontent.com/LefuHengqi/PPBaseKit-Android` at the commit in `engine/sdk.lock`
@@ -327,7 +363,9 @@ weight**; impedances as a count), `wrote` (counts: `created`, `exists`, `categor
 with `SCALE_BRIDGE_WRITE_ENGINE` also `engine_result` (`ok`, or why there are no rows:
 `no_profile`, `engine_off`, `not_run`, `no_result`, or the engine reason code),
 `engine_created`, `engine_exists`, `engine_skipped`, `engine_rejected`,
-`engine_categories_created`; never a value) / `write_failed` (warning) / `write_crashed`
+`engine_categories_created`; with `SCALE_BRIDGE_WRITE_DERIVED` and an `ok` result also
+`derived_created`, `derived_exists`, `derived_skipped`, `derived_skipped_sex`,
+`derived_rejected`, `derived_categories_created`; never a value, never the profile sex) / `write_failed` (warning) / `write_crashed`
 (error: an unexpected exception, type only; retried like a failure) / `write_gave_up`
 (error). Startup warnings: `config_bands_overlap` (names the overlapping people, never the
 bands; not fatal, an ambiguous weight is still written nowhere), `config_address_filter_off`.
