@@ -3,12 +3,17 @@
 
 One-shot. For every trip folder directly under UPLOAD that holds at least one .insp/.jpg:
   out dir  = /flat/<YYYY-MM of the earliest capture>-<trip name lowercased, non-alphanumerics -> '-'>
-  bursts   = captures sharing IMG_<date>_<time> keep only the lowest sequence number
+  bursts   = 3 or more captures sharing IMG_<date>_<time> keep only the lowest sequence
+             number; a pair in the same second is two shots and both are kept
+  fresh    = a raw whose ctime is under 15 min old (copy may still be running; SMB keeps
+             mtime) is deferred to the next run: logged, counted, not a failure
   stills   = front `a` (heading 0, elevation -5) and back `b` (heading 180, elevation -15),
              leveled from the .insp accelerometer record, stereographic 95 deg, 3200x2400
-             (1600x1200 below 8000 px source width), lossless PNG, PhotoCraft touch-up, JPEG q92
+             (1600x1200 below 8000 px source width), lossless PNG, PhotoCraft touch-up, JPEG q92.
+             An .insp without the Insta360 trailer or its 0x300 motion record (truncated)
+             FAILS instead of rendering unleveled; camera-stitched .jpg render unleveled.
   names    = YYYY-MM-DD_HHMM_<place>_<seq><a|b>.jpg; <place> from the trip's optional
-             places.tsv (date YYYYMMDD, start HHMM, end HHMM, slug), else the trip slug
+             places.tsv (date YYYYMMDD, start HHMM, end HHMM, slug; slugified), else the trip slug
 A still that already exists non-empty is skipped. Outputs are written to a dot-name in
 the destination folder and renamed into place; nothing in /upload is written and nothing
 in /flat is deleted. Ports ~/cad/tools/imaging (process-one.sh, level.py, insp_trailer.py,
@@ -37,6 +42,8 @@ PLACES_DIR = os.environ.get("PLACES_DIR", "")
 WORKERS = int(os.environ.get("WORKERS", "3"))
 FISHEYE_FOV = os.environ.get("FISHEYE_FOV", "200")
 PUSHOVER_FILE = os.environ.get("PUSHOVER_FILE", "/pushover.env")
+SETTLE_S = int(os.environ.get("SETTLE_S", "900"))   # defer raws whose ctime is younger
+BURST_MIN = 3   # captures in one second that count as a burst
 TITLE = "insta360-flat failed"
 
 NAME = re.compile(r"^IMG_(\d{8})_(\d{6})_(\d{2})_(\d{3})\.(insp|jpg)$", re.I)
@@ -167,12 +174,13 @@ def load_places(trip):
 
 
 def place(rows, d, t, fallback):
-    return next((s for dd, a, b, s in rows if dd == d and a <= t <= b), fallback)
+    # slugify: a places.tsv slug can never add '/' or '..' to the output path
+    return slugify(next((s for dd, a, b, s in rows if dd == d and a <= t <= b), fallback))
 
 
 def captures(trip_dir):
-    """{burst key: (seq, filename)} with the lowest sequence per IMG_<date>_<time>."""
-    keep, odd = {}, []
+    """[(date, time, seq, file)]; a burst (BURST_MIN+ in one second) keeps its lowest seq."""
+    groups, odd = {}, []
     for f in sorted(os.listdir(trip_dir)):
         if not f.lower().endswith((".insp", ".jpg")) or not os.path.isfile(os.path.join(trip_dir, f)):
             continue
@@ -180,12 +188,16 @@ def captures(trip_dir):
         if not m:
             odd.append(f)
             continue
-        key = (m.group(1), m.group(2))
+        seqs = groups.setdefault((m.group(1), m.group(2)), {})
+        cand = (m.group(5).lower() != "insp", f)   # same seq twice: .insp before .jpg
         seq = m.group(4)
-        cand = (seq, m.group(5).lower() != "insp", f)   # same seq: .insp before .jpg
-        if key not in keep or cand < keep[key]:
-            keep[key] = cand
-    return [(d, tm, seq, f) for (d, tm), (seq, _j, f) in sorted(keep.items())], odd
+        if seq not in seqs or cand < seqs[seq]:
+            seqs[seq] = cand
+    out = []
+    for (d, tm), seqs in sorted(groups.items()):
+        keep = [min(seqs)] if len(seqs) >= BURST_MIN else sorted(seqs)
+        out += [(d, tm, s, seqs[s][1]) for s in keep]
+    return out, odd
 
 
 def run(cmd):
@@ -204,6 +216,9 @@ def render(src, out_dir, base, missing):
     vfov = round(HFOV * (h / w), 2)   # flat-360.sh, sg projection
     proj = f"dfisheye:sg:ih_fov={FISHEYE_FOV}:iv_fov={FISHEYE_FOV}" if src.lower().endswith(".insp") else "e:sg"
     acc = gravity(src)   # like level.py: any file with the Insta360 trailer, .jpg included
+    if acc is None and src.lower().endswith(".insp"):
+        # A truncated copy loses the trailer; an unleveled still would then be kept forever.
+        raise RuntimeError("no Insta360 trailer / 0x300 motion record (truncated .insp?); not rendered")
     with tempfile.TemporaryDirectory(prefix="i360.", dir="/tmp") as tmp:
         for sfx, heading, elev in VIEWS:
             if sfx not in missing:
@@ -236,7 +251,7 @@ def done(path):
 
 def main():
     t0 = time.time()
-    stats = {"trips": 0, "captures": 0, "made": 0, "skipped": 0, "failed": 0}
+    stats = {"trips": 0, "captures": 0, "made": 0, "skipped": 0, "deferred": 0, "failed": 0}
     failures = []
     jobs = []
     for trip in sorted(os.listdir(UPLOAD)):
@@ -264,6 +279,10 @@ def main():
         missing = [s for s, _h, _e in VIEWS if not done(os.path.join(out_dir, f"{base}{s}.jpg"))]
         if not missing:
             return "skipped", None
+        age = time.time() - os.stat(src).st_ctime   # ctime: SMB copies keep the camera mtime
+        if age < SETTLE_S:
+            log(f"deferred {os.path.basename(src)}: ctime {age:.0f}s ago (< {SETTLE_S}s, copy may still run)")
+            return "deferred", None
         t = time.time()
         try:
             os.makedirs(out_dir, exist_ok=True)
@@ -280,7 +299,7 @@ def main():
             if err:
                 failures.append(err)
 
-    log("insta360-flat: trips={trips} captures={captures} made={made} skipped={skipped} failed={failed}".format(**stats)
+    log("insta360-flat: trips={trips} captures={captures} made={made} skipped={skipped} deferred={deferred} failed={failed}".format(**stats)
         + f" elapsed={time.time() - t0:.0f}s")
     if failures:
         pushover(f"{len(failures)} of {stats['captures']} captures failed; first: " + "; ".join(failures[:3]))

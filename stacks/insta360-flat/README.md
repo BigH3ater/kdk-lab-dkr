@@ -7,7 +7,9 @@ indexes as a read-only external library.
 
 - `flatten.py` (stdlib, bind-mounted): the laptop pipeline in `~/cad/tools/imaging`
   (`process-one.sh`, `level.py`, `insp_trailer.py`, `flat-360.sh`, `touch.sh`, `slug.py`)
-  in one file, same maths and same ffmpeg/PhotoCraft arguments.
+  in one file, same maths and same ffmpeg/PhotoCraft arguments. Additions: bursts collapse
+  only at 3+ captures per second, raws with ctime under 15 min are deferred, a truncated
+  `.insp` (no trailer) fails instead of rendering unleveled, place slugs are slugified.
 - `Dockerfile`: python 3.12 slim (digest-pinned, Renovate) + BtbN static FFmpeg n9.0.2 and
   PhotoCraft CLI 0.23.1, both by exact release + sha256 (bumped by hand). The image tag in
   `compose.yaml` names both versions; bump it together with the ARGs.
