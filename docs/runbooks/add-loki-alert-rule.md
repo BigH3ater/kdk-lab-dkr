@@ -31,6 +31,7 @@ a new family gets a new file **and** a new section in
 | `advisories.yml` | advisory-watch, trivy-scan |
 | `shipping.yml` | `LokiShippingStalled` per host |
 | `media.yml` | media stack on kdk-dkr-01 (LazyLibrarian); operational, runbook [Add a book](add-a-book.md) |
+| `backups.yml` | `backup-offsite` pack.sh `backup-manifest` lines; operational, runbook [Backups → Observability](../services/backups.md#observability) |
 
 Only `*.yml` files belong there. The ruler parses **every** non-hidden file in
 the directory (tenant `fake`), and the `pre_deploy` hash covers only

@@ -1,0 +1,32 @@
+# Nightly backups (stacks/backup-offsite): operational log rules, not security.
+# pack.sh (kdk-dkr-04, service `pack`) writes one line per file the night
+# produced, after packing:
+#   backup-manifest date=D kind=archive|pgdump host=H series=S name=F bytes=N prev_bytes=N|none pct=P|none
+# prev = the same series' previous file (yesterday's archive, the previous dump
+# of that DB); pct = bytes*100/prev_bytes, computed by pack.sh because LogQL
+# cannot compare one label with another. A first file has prev_bytes=none.
+# The lines land once a night (~09:23 UTC), so a 2h window fires once per run and
+# resolves two hours later (same pattern as advisories.yml). A pack.sh
+# --report-only test run re-emits the same lines and fires the same way.
+# Test: Grafana Explore over 7 d, the selector + `| logfmt | pct!="none" | pct < 50`.
+# Runbook: docs/services/backups.md#observability
+groups:
+  - name: backups
+    interval: 1m
+    rules:
+      # A backup file is under half the size of its previous one: an archive that
+      # lost a host dir (unmounted volume, an exclude that ate real state), a
+      # truncated or empty pg dump. Real nights move by a few percent.
+      - alert: BackupFileShrank
+        expr: |
+          sum by (host, name) (count_over_time({stack="backup-offsite", service="pack"} |= "backup-manifest "
+            | logfmt | prev_bytes!="none" | pct!="none" | pct < 50 [2h])) > 0
+        for: 0m
+        labels:
+          severity: warning
+          source: loki
+          scope: backups
+        annotations:
+          summary: "Backup {{ $labels.name }} ({{ $labels.host }}) is under 50% of the previous file's size"
+          description: "pack.sh's backup-manifest line for {{ $labels.name }} has bytes below half of prev_bytes. Open Grafana Backups / Nightly backups (Files produced tonight), compare with the previous file on kdk-dkr-04 (sudo ls -l /mnt/backup/dkr/offsite/ or /mnt/backup/dkr/<host>/pgdump/) and check that night's source (mounts, pg_dump output) before the old files rotate out (archives keep 3, dumps keep 15)."
+          runbook: docs/services/backups.md#observability

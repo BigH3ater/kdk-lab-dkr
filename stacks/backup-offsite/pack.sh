@@ -17,10 +17,159 @@
 # image. Best-effort: always exits 0 (offsite.sh + backup-verify are the source
 # of truth). Keeps the newest KEEP archives per host locally. Also packs the
 # CAD library (/src/3d-prints, read-only) as offsite/3d-prints-YYYY-MM-DD.tar.zst.
+#
+# After packing it REPORTS what the night produced, as logfmt lines on stdout
+# (Alloy ships them to Loki as {stack="backup-offsite", service="pack"}; the
+# Grafana "Nightly backups" dashboard and the BackupFileShrank rule read them):
+#   backup-manifest date=D kind=archive|pgdump host=H series=S name=F bytes=N prev_bytes=N|none pct=P|none
+#     one per archive in /data/offsite/ and per /data/<host>/pgdump/ dump dated D;
+#     prev = the same series' previous file (yesterday's archive, the previous
+#     dump of that DB); pct = bytes*100/prev_bytes.
+#   backup-change date=D op=added|changed|removed path="..."      (at most 300)
+#   backup-change-summary date=D added=N changed=N removed=N truncated=true|false baseline=false files=N
+#     the file list (path, size, mtime) of the newest 3d-prints archive against the
+#     previous one. With no previous archive: ONE summary line with baseline=true.
+# Reporting is best-effort (a subshell, errors ignored) and never fails pack.
+#
+# Usage: pack.sh                          pack, rotate, copy the marker, report (nightly)
+#        pack.sh --report-only [DATE]     ONLY report, from the files already on disk:
+#            no pack, no rotation, no marker copy, nothing in /data is written.
+#            DATE defaults to the newest archive date in /data/offsite. Then sleeps
+#            REPORT_HOLD seconds (default 90): Alloy's discovery.docker refreshes
+#            every 60 s and only sees RUNNING containers, so a container that exits
+#            sooner is never shipped (the dkr-01 one-shot gap).
 set -u
 KEEP=3
 DATE=$(date +%F)
 OUT=/data/offsite
+CHANGE_MAX=300
+MODE=pack
+# --report-only is looked for in EVERY argument (and a YYYY-MM-DD anywhere is the
+# date), so `compose run pack /pack.sh --report-only` without --entrypoint (which
+# runs `/bin/sh /pack.sh /pack.sh --report-only`) still only reports, never packs.
+RDATE=""
+for a in "$@"; do
+  case "$a" in
+    --report-only) MODE=report ;;
+    [0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]) RDATE=$a ;;
+  esac
+done
+if [ "$MODE" = report ]; then
+  DATE=$RDATE
+  if [ -z "$DATE" ]; then
+    for f in "$OUT"/*-[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9].tar.zst; do
+      [ -f "$f" ] || continue
+      b=${f%.tar.zst}; d=${b#"${b%??????????}"}   # the last 10 chars: YYYY-MM-DD
+      awk -v a="$d" -v c="$DATE" 'BEGIN { exit !(a > c) }' && DATE=$d
+    done
+  fi
+fi
+
+# prev_of DIR SERIES DATE EXT: basename of SERIES' newest file in DIR dated
+# before DATE (SERIES-YYYY-MM-DD.EXT), or empty. The glob sorts by name, and
+# ISO dates sort by name, so the last match before DATE wins.
+prev_of() {
+  cur="$2-$3$4"; best=""
+  for p in "$1/$2"-[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]"$4"; do
+    [ -f "$p" ] || continue
+    b=${p##*/}
+    awk -v a="$b" -v c="$cur" 'BEGIN { exit !(a < c) }' && best=$b
+  done
+  printf '%s' "$best"
+}
+
+# manifest KIND HOST SERIES DIR FILE PREV: one backup-manifest line.
+manifest() {
+  bytes=$(stat -c %s "$4/$5" 2>/dev/null) || return 0
+  pb=none; pct=none
+  if [ -n "$6" ] && pb=$(stat -c %s "$4/$6" 2>/dev/null); then
+    pct=$(awk -v b="$bytes" -v p="$pb" 'BEGIN { if (p > 0) printf "%.1f", b * 100 / p; else print "none" }')
+  else
+    pb=none
+  fi
+  echo "backup-manifest date=$DATE kind=$1 host=$2 series=$3 name=$5 bytes=$bytes prev_bytes=$pb pct=$pct"
+}
+
+# cad_list ARCHIVE: "path<TAB>size<TAB>mtime" for every regular file in a
+# 3d-prints archive, path without the leading 3d-prints/. GNU tar's default
+# quoting (escape) turns tabs/newlines in names into \t / \n, so one line per file.
+cad_list() {
+  tar -I zstd --full-time -tvf "$1" 2>/dev/null | awk '
+    /^-/ {
+      if (!match($0, /^[^ ]+ +[^ ]+ +[0-9]+ +[0-9-]+ +[0-9:]+ /)) next
+      split(substr($0, 1, RLENGTH), f, / +/)
+      p = substr($0, RLENGTH + 1); sub(/^3d-prints\//, "", p)
+      printf "%s\t%s\t%s %s\n", p, f[3], f[4], f[5]
+    }'
+}
+
+# cad_changes: added/changed/removed between the newest two 3d-prints archives.
+cad_changes() {
+  new="3d-prints-$DATE.tar.zst"
+  [ -f "$OUT/$new" ] || return 0
+  if ! tar --version 2>/dev/null | grep -q 'GNU tar' || ! command -v zstd >/dev/null 2>&1; then
+    echo "pack: report: GNU tar/zstd missing, CAD change list skipped"; return 0
+  fi
+  tmpd=$(mktemp -d) || return 0
+  cad_list "$OUT/$new" > "$tmpd/new"
+  prev=$(prev_of "$OUT" 3d-prints "$DATE" .tar.zst)
+  if [ -z "$prev" ]; then
+    echo "backup-change-summary date=$DATE added=0 changed=0 removed=0 truncated=false baseline=true files=$(wc -l < "$tmpd/new" | tr -d ' ')"
+    rm -rf "$tmpd"; return 0
+  fi
+  cad_list "$OUT/$prev" > "$tmpd/old"
+  # Paths are always quoted, with \ and " escaped, so the line stays logfmt.
+  awk -F '\t' -v date="$DATE" -v max="$CHANGE_MAX" '
+    function q(s) { gsub(/\\/, "\\\\", s); gsub(/"/, "\\\"", s); return "\"" s "\"" }
+    function out(op, p) {
+      cnt[op]++
+      if (shown < max) { printf "backup-change date=%s op=%s path=%s\n", date, op, q(p); shown++ }
+      else trunc = "true"
+    }
+    FILENAME == ARGV[1] { n++; np[n] = $1; nv[$1] = $2 FS $3; next }
+    { m++; op_[m] = $1; ov[$1] = $2 FS $3 }
+    END {
+      trunc = "false"
+      for (i = 1; i <= n; i++) { p = np[i]; if (!(p in ov)) out("added", p); else if (ov[p] != nv[p]) out("changed", p) }
+      for (i = 1; i <= m; i++) { p = op_[i]; if (!(p in nv)) out("removed", p) }
+      printf "backup-change-summary date=%s added=%d changed=%d removed=%d truncated=%s baseline=false files=%d\n",
+        date, cnt["added"], cnt["changed"], cnt["removed"], trunc, n
+    }' "$tmpd/new" "$tmpd/old"
+  rm -rf "$tmpd"
+}
+
+# report: the manifest for DATE (archives, then every host's pg dumps), then the
+# CAD change list. Reads only.
+report() {
+  for f in "$OUT"/*-"$DATE".tar.zst; do
+    [ -f "$f" ] || continue
+    b=${f##*/}; s=${b%-"$DATE".tar.zst}
+    manifest archive "$s" "$s" "$OUT" "$b" "$(prev_of "$OUT" "$s" "$DATE" .tar.zst)"
+  done
+  for d in /data/*/pgdump; do
+    [ -d "$d" ] || continue
+    h=${d%/pgdump}; h=${h##*/}
+    for f in "$d"/*-"$DATE".sql.gz; do
+      [ -f "$f" ] || continue
+      b=${f##*/}; s=${b%-"$DATE".sql.gz}
+      manifest pgdump "$h" "$s" "$d" "$b" "$(prev_of "$d" "$s" "$DATE" .sql.gz)"
+    done
+  done
+  cad_changes
+}
+
+if [ "$MODE" = report ]; then
+  # tar + zstd are only needed for the CAD change list; the manifest works without.
+  apk add --no-cache tar zstd >/dev/null 2>&1 || echo "pack: apk add tar zstd failed"
+  if [ -z "$DATE" ]; then
+    echo "pack: report-only: no dated archives in $OUT, nothing to report"
+  else
+    echo "pack: report-only for $DATE (no pack, no rotation, nothing written)"
+    ( report ) || echo "pack: report failed (ignored)"
+  fi
+  sleep "${REPORT_HOLD:-90}"
+  exit 0
+fi
 
 apk add --no-cache tar zstd >/dev/null 2>&1 || { echo "pack: apk add tar zstd failed"; exit 0; }
 mkdir -p "$OUT"
@@ -105,7 +254,9 @@ done
 # kdk-nas-01 tankz3/3d-prints, mounted read-only on dkr-04 at /mnt/3d-prints
 # (docs/runbooks/cad-library.md). Its OWN exclude list: the host list above
 # drops dirs named backup/stacks/cache/logs/Definitions..., which could be real
-# CAD project folders. Only regenerable noise is dropped here.
+# CAD project folders. Only regenerable noise is dropped here. Lock files come in
+# two shapes: LibreOffice's `.~lock.<name>#` (.~lock*) and SolidCraft's
+# `.~<name>.sc.lock` (.~*.lock); keep both in step with hosts/debian-mbp/cad-sync.sh.
 # An empty /src/3d-prints means the NFS mount is down (Docker bind-mounts the
 # bare mountpoint dir): skip, so a dead mount never rotates good archives out;
 # backup-verify then fails on the missing archive.
@@ -114,6 +265,7 @@ cat > "$CADEX" <<'EOF'
 *.log
 __pycache__
 .~lock*
+.~*.lock
 EOF
 if [ -n "$(ls -A /src/3d-prints 2>/dev/null)" ]; then
   pack_one 3d-prints /src 3d-prints "$CADEX"
@@ -132,4 +284,5 @@ else
 fi
 
 echo "pack: done ($(ls -1 "$OUT"/*.tar.zst 2>/dev/null | wc -l) archives in $OUT)"
+( report ) || echo "pack: report failed (ignored)"
 exit 0
