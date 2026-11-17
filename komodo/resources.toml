@@ -388,7 +388,15 @@ compose_cmd_wrapper_include = ["config"]
 server = "kdk-dkr-dmz-01"
 repo = "BigH3ater/kdk-lab-dkr"
 run_directory = "stacks/immich"
-pre_deploy.command = "sh -c '. /etc/komodo/op.env && op inject -f -i .env.tpl -o .env'"
+# The compose runs immich-server and immich-machine-learning as 1000:1000 (== kdkadmin)
+# on a read_only rootfs; the library NFS dir and the model cache were created root:root.
+# Periphery runs pre_deploy as root on the host, so fix ownership here before the
+# containers start. Idempotent: find only touches entries not already 1000:1000, so
+# a re-deploy of a large library does no writes. The appdata NFS export does not
+# squash root (existing files show uid 0). If /mnt/appdata is not mounted,
+# /mnt/appdata/immich is missing, find fails and the deploy stops before anything
+# writes to the bare mountpoint. Then render .env from 1Password.
+pre_deploy.command = "sh -c 'for d in /mnt/appdata/immich /opt/kdk-lab/immich/model-cache; do find \"$d\" ! -user 1000 -exec chown -h 1000:1000 {} + && find \"$d\" ! -group 1000 -exec chown -h 1000:1000 {} + || exit 1; done && . /etc/komodo/op.env && op inject -f -i .env.tpl -o .env'"
 webhook_enabled = true
 
 # Audiobookshelf (audiobooks + podcasts) on the DMZ, internet-facing via the
