@@ -1,0 +1,10 @@
+[Unit]
+Description=tankz3/insta360-flat (read-only) over storage net, finished Insta360 stills for Immich
+After=network-online.target
+[Mount]
+What=172.16.30.2:/mnt/tankz3/insta360-flat
+Where=/mnt/insta360-flat
+Type=nfs
+Options=nfsvers=4.1,ro,noatime,_netdev
+[Install]
+WantedBy=multi-user.target

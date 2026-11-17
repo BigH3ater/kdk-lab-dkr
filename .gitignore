@@ -22,5 +22,7 @@ stacks/home-assistant/tools/workout.html
 stacks/home-assistant/tools/exercise/
 # trivy-scan: 1000:1000 copy of /etc/kdk/pushover.env (pre_deploy; host clone only)
 stacks/trivy-scan/pushover.env
+# immich-albums: the same 1000:1000 pushover.env copy (pre_deploy; host clone only)
+stacks/immich-albums/pushover.env
 # Immich config rendered by stacks/immich/render-config.sh (holds the OIDC client secret; host clone only)
 stacks/immich/config/

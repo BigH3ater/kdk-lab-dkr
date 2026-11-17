@@ -392,6 +392,10 @@
     "redis": {
       "github": "redis/redis"
     },
+    "salvoxia/immich-folder-album-creator": {
+      "github": "Salvoxia/immich-folder-album-creator",
+      "note": "stacks/immich-albums; Python script (not on PyPI) on python:alpine, bundles the immichpy client, so GHSA only"
+    },
     "searxng/searxng": {
       "github": "searxng/searxng",
       "note": "metasearch (Python/Granian), stacks/searxng. Rolling release: tag = build date + commit (YYYY.M.D-<sha>), not a semver, so verdicts stay Unknown; read the advisory by hand. Sidecar valkey/valkey has its own entry",

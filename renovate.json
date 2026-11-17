@@ -57,7 +57,7 @@
     {
       "description": "Patch + digest updates for stacks on kdk-dkr-dmz-01: separate group, merged first (dmz-proxy -> identity -> rest).",
       "matchFileNames": [
-        "stacks/{dmz-proxy,identity,jellyfin,wizarr,dmz-apps,immich,tandoor,audiobookshelf,reading-sync}/**"
+        "stacks/{dmz-proxy,identity,jellyfin,wizarr,dmz-apps,immich,immich-albums,tandoor,audiobookshelf,reading-sync}/**"
       ],
       "matchUpdateTypes": [
         "patch",

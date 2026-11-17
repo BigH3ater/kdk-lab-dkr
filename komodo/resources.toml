@@ -400,8 +400,54 @@ run_directory = "stacks/immich"
 # the Immich config file (OIDC secret) into config/ (0700/0400, 1000:1000),
 # validates it before swapping it in (a bad render aborts the deploy and leaves the
 # running server alone) and APPENDS IMMICH_CONFIG_SHA for the kdk.config-sha label.
-pre_deploy.command = "sh -c 'for d in /mnt/appdata/immich /opt/kdk-lab/immich/model-cache; do find \"$d\" ! -user 1000 -exec chown -h 1000:1000 {} + && find \"$d\" ! -group 1000 -exec chown -h 1000:1000 {} + || exit 1; done && . /etc/komodo/op.env && op inject -f -i .env.tpl -o .env && sh render-config.sh'"
+# FIRST, the Insta360 guard: /mnt/insta360-flat (the read-only external library) must
+# be a mountpoint mounted ro (findmnt -M = exact mountpoint, -O ro = has option ro;
+# exit 1 otherwise). Without it Docker binds the bare directory, the next library
+# scan sees zero files and marks every Insta360 asset offline (= trash, purged after
+# 30 days). The guard fails the deploy before anything is recreated.
+pre_deploy.command = "sh -c 'findmnt -rn -M /mnt/insta360-flat -O ro >/dev/null || { echo \"pre_deploy: /mnt/insta360-flat is not mounted read-only; see docs/services/immich.md\" >&2; exit 1; }; for d in /mnt/appdata/immich /opt/kdk-lab/immich/model-cache; do find \"$d\" ! -user 1000 -exec chown -h 1000:1000 {} + && find \"$d\" ! -group 1000 -exec chown -h 1000:1000 {} + || exit 1; done && . /etc/komodo/op.env && op inject -f -i .env.tpl -o .env && sh render-config.sh'"
 webhook_enabled = true
+
+# immich-albums: nightly one-shot next to immich on kdk-dkr-dmz-01. Scans the Insta360
+# external library (and waits for the scan), then makes one album per trip folder,
+# owned by `Household`, shared with jmack + rach as editors (stacks/immich-albums,
+# docs/services/immich.md "Insta360 library"). deploy=false: run by the
+# immich-albums Procedure; destroy_before_deploy re-runs the one-shot fresh.
+# pre_deploy: the same read-only mount guard as immich (a failed pre_deploy fails the
+# Procedure, which pages via failure_alert), the 1000:1000 pushover.env copy (the
+# trivy-scan pattern; the host file is root 0600), then op inject the two API keys.
+[[stack]]
+tags = ["kdk-lab"]
+name = "immich-albums"
+deploy = false   # run nightly by the immich-albums Procedure
+[stack.config]
+compose_cmd_wrapper = "/usr/local/sbin/kdk-compose-config-redact [[COMPOSE_COMMAND]]"   # redact env values from the stored Compose Config log (komodo#1636)
+compose_cmd_wrapper_include = ["config"]
+server = "kdk-dkr-dmz-01"
+repo = "BigH3ater/kdk-lab-dkr"
+run_directory = "stacks/immich-albums"
+destroy_before_deploy = true   # one locked down+up so the one-shot re-runs
+pre_deploy.command = "sh -c 'findmnt -rn -M /mnt/insta360-flat -O ro >/dev/null || { echo \"pre_deploy: /mnt/insta360-flat is not mounted read-only; see docs/services/immich.md\" >&2; exit 1; }; if [ -d pushover.env ]; then rmdir pushover.env; fi; install -m 0400 -o 1000 -g 1000 /etc/kdk/pushover.env pushover.env && . /etc/komodo/op.env && op inject -f -i .env.tpl -o .env'"
+
+[[procedure]]
+tags = ["kdk-lab"]
+name = "immich-albums"
+[procedure.config]
+schedule_format = "Cron"
+# 02:10 -- off the gitops-sync :00/:15/:30/:45 slots, two hours after Immich's own
+# 00:00 library scan (the safety net) and well clear of nightly-backups at 03:20
+# (backup-dmz dumps the immich DB). The job orders scan -> albums itself, so this
+# clock only has to avoid lock races, not the scan.
+schedule = "0 10 2 * * *"
+schedule_enabled = true
+schedule_timezone = "America/Chicago"
+failure_alert = true
+[[procedure.config.stage]]
+name = "albums"
+enabled = true
+executions = [
+  { execution.type = "DeployStack", execution.params.stack = "immich-albums", enabled = true },
+]
 
 # Audiobookshelf (audiobooks + podcasts) on the DMZ, internet-facing via the
 # Cloudflare tunnel + Authelia OIDC. Audiobook library read-only from the media

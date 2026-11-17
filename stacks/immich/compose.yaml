@@ -93,6 +93,15 @@ services:
       # A DIRECTORY, not the single file: a single-file bind keeps the old inode after
       # the pre_deploy's atomic mv replaces it.
       - ./config:/config:ro
+      # Insta360 stills: read-only external library owned by the local `Household`
+      # account (import path = this container path; docs/services/immich.md
+      # "Insta360 library"). Host side is the NFS mount unit
+      # hosts/kdk-dkr-dmz-01/systemd/mnt-insta360\x2dflat.mount (ro); :ro here too,
+      # so Immich can never write or delete a source file. The pre_deploy refuses
+      # to deploy when it is not a read-only mountpoint: an unmounted path would bind
+      # the empty directory and every asset would go offline (= trash) on the
+      # next scan. Same path inside and out, so the tool's ROOT_PATH matches.
+      - /mnt/insta360-flat:/mnt/insta360-flat:ro
     healthcheck:
       # Same probe as the image's own HEALTHCHECK (curl /api/server/ping == pong),
       # declared here so the baseline check sees it.
