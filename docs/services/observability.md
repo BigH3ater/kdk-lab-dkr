@@ -139,7 +139,7 @@ Loki ruler rules live in `stacks/loki/rules/*.yml` (only `.yml` files there: the
 | `CloudflareEdgeCertExpiring` | `cloudflare.yml` | warning | Cloudflare edge cert for kmkdp.com expiring (… days left) | [cloudflare-watch](../runbooks/security-alerts.md#cloudflare-watch) |
 | `CloudflareZoneSettingDrift` | `cloudflare.yml` | warning | A Cloudflare zone setting for kmkdp.com drifted from policy | [cloudflare-watch](../runbooks/security-alerts.md#cloudflare-watch) |
 | `BackupFileShrank` | `backups.yml` | warning | A nightly backup file (archive or pg dump) is under 50% of the previous file's size (pack.sh `backup-manifest` pct < 50) | [backups](backups.md#observability) |
-| `CloudflareRuleDrift` | `cloudflare.yml` | warning | Cloudflare custom/rate-limit rules or DNS records for kmkdp.com changed since last week | [cloudflare-watch](../runbooks/security-alerts.md#cloudflare-watch) |
+| `CloudflareRuleDrift` | `cloudflare.yml` | warning | Cloudflare custom/rate-limit rules or DNS records for kmkdp.com changed since last week; one-time notice, resolves ~2h after the weekly run | [cloudflare-watch](../runbooks/security-alerts.md#cloudflare-watch) |
 | `CloudflareWatchMissing` | `cloudflare.yml` | warning | No cloudflare-watch output in Loki for 3h (hourly check silent) | [cloudflare-watch](../runbooks/security-alerts.md#cloudflare-watch) |
 | `KomodoManualDeploy` | `komodo.yml` | info | A person ran `DeployStack`/`RestartStack` by hand (Komodo Core log line not authenticated as the gitops `Action`) | [komodo-manual-deploy](../runbooks/pushover-alerts.md#komodo-manual-deploy) |
 

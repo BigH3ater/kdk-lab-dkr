@@ -44,7 +44,9 @@ Weekly (`--weekly`):
   set (`rulesets/phases/http_request_firewall_custom|http_ratelimit/entrypoint`)
   and of the DNS record set (name/type/proxied). Compared against the last run
   in `/state/state.json`; `fail` when a sha changed, `ok` on first run or no
-  change, `warn` if the state file could not be written.
+  change, `warn` if the state file could not be written. Every run saves the
+  new shas, so a change is reported once: `CloudflareRuleDrift` pages on that
+  run and resolves ~2h later (`[2h]` window), with no follow-up page.
 
 ## Run it by hand
 
