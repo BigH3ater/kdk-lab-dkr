@@ -20,6 +20,9 @@ bridge works exactly as 0.1.3.
 **Upgrading to 0.3.0 (engine results + heart rate to wger):** no host step; merge = deploy,
 then [6b](#6b-engine-results-and-heart-rate-to-wger-030).
 
+**Upgrading to 0.3.1 (five derived values to wger):** no host step; merge = deploy, then
+[6c](#6c-derived-values-to-wger-031).
+
 ## 1. Host directories
 
 **Laptop (SSH agent)**
@@ -189,7 +192,7 @@ changes. Note the Pi's build time from the Komodo deploy log for the vault.
 ssh kdkadmin@10.1.30.21 'sudo docker ps --filter name=scale-bridge --format "{{.Names}} {{.Status}}"'
 #   scale-bridge Up ... (healthy)          (health starts after ~1 min)
 ssh kdkadmin@10.1.30.21 'sudo docker logs scale-bridge 2>&1 | head -5'
-#   {"event":"config","version":"0.3.0","dry_run":false,"write_heart_rate":true,"write_engine":true,"people":["jmack","rach"],...}
+#   {"event":"config","version":"0.3.1","dry_run":false,"write_heart_rate":true,"write_engine":true,"write_derived":true,"people":["jmack","rach"],...}
 #   {"event":"token_check","person":"jmack","result":"ok","status":200}   (and rach)
 #   {"event":"engine_config","enabled":true,"reason":"on","variant":"PPDeviceCalcuteTypeAlternate8_4","limb_order":"10432","df_x0":"20k","profiles":["jmack","rach"],"sdk_commit":"c1eb5ab4..."}
 #   {"event":"capture","enabled":true,"dir":"/captures","keep_days":60}
@@ -410,6 +413,37 @@ deploy. The engine keeps running and writing `.engine.json`; nothing else change
 deletes their entries). Never delete `Body weight` or the categories without `(scale)` that
 Apple Health feeds.
 
+## 6c. Derived values to wger (0.3.1)
+
+**Status:** compose `SCALE_BRIDGE_WRITE_DERIVED: "true"` since the 0.3.1 PR. No host step.
+Formulas, constants and evidence: [service page](../services/scale-bridge.md#derived-values-in-wger).
+Only has effect with `SCALE_BRIDGE_WRITE_ENGINE: "true"` and an `ok` engine result.
+
+**After the merge (merge = deploy):** startup `config` shows `"version":"0.3.1"`,
+`"write_derived":true`. Then one weigh-in, and the same log command as 6b:
+
+| Line | Expected on that person's first 0.3.1 weigh-in |
+|---|---|
+| `wrote` | as 6b (`engine_created: 16` on a new weigh-in), plus `derived_created: 5`, `derived_categories_created: 5` (0 later), `derived_skipped: 0`, `derived_skipped_sex: 0`, `derived_rejected: 0` for a male profile; for any other profile `derived_created: 1`, `derived_categories_created: 1`, `derived_skipped_sex: 4` |
+
+In wger (as that person → Measurements), the first write creates the custom categories
+`Mineral (scale est.)`, `Android fat (scale est.)`, `Gynoid fat (scale est.)` (these three in
+the profile's weight unit, kg or lb), `A/G ratio (scale est.)` and `Torso fat (scale est.)` (`%`),
+each with one entry at the weigh-in's time; for a profile that is not male only `Mineral (scale
+est.)`. A retry or replay of a weigh-in written by 0.3.0 adds only these rows.
+
+**Switch off:** a one-line PR, `SCALE_BRIDGE_WRITE_DERIVED: "false"` in
+`stacks/scale-bridge/compose.yaml`; merge = deploy. The 16 engine rows are unchanged.
+
+**Undo:** in that person's wger web → Measurements, delete the five `… (scale est.)`
+categories (that deletes their entries).
+
+**Change a constant** (after more paired weigh-ins): a one-line PR to `ANDROID_PER_TRUNK_FAT`,
+`GYNOID_PER_LEG_FAT` or `TORSO_SHARE_OF_WEIGHT` in `stacks/scale-bridge/scale_bridge/wger.py`
+plus the version bump (`pyproject.toml`, `__init__.py`, compose image tag, `uv lock`) and the
+service-page table. Entries already written keep the old constant (their `extra_data.formula`
+names it); only weigh-ins after the deploy use the new one.
+
 ## 7. Raw capture files
 
 One file per weigh-in session in `/opt/kdk-lab/scale-bridge/captures` (what is in them and
@@ -529,6 +563,11 @@ temporary spot).
   `SCALE_BRIDGE_WRITE_ENGINE: "false"`, merge = deploy; delete the `… (scale)` categories if
   wanted ([6b](#6b-engine-results-and-heart-rate-to-wger-030)). Heart rate the same way with
   `SCALE_BRIDGE_WRITE_HEART_RATE: "false"`.
+- **Derived values out of wger (0.3.1), keep everything else:** a one-line PR,
+  `SCALE_BRIDGE_WRITE_DERIVED: "false"`, merge = deploy; delete the five `… (scale est.)`
+  categories if wanted ([6c](#6c-derived-values-to-wger-031)).
+- **Back to 0.3.0:** revert the 0.3.1 PR, merge = deploy. Rows already written stay in wger
+  (6c "Undo").
 - **Back to 0.2.0:** revert the 0.3.0 PR, merge = deploy. Rows already written stay in wger
   (6b "Undo").
 - **Engine off (0.2.0), keep everything else:** a one-line PR,
@@ -542,6 +581,6 @@ temporary spot).
   captures directory and its files stay; delete them as in step 7 if not wanted.
 - **Left behind:** `/opt/kdk-lab/scale-bridge/` including `captures/` (health data; remove with
   `ssh kdkadmin@10.1.30.21 'sudo rm -r /opt/kdk-lab/scale-bridge'`), the image
-  (`sudo docker image rm kdk/scale-bridge:0.3.0`, plus `:0.2.0` / `:0.1.3` / `:0.1.2` / `:0.1.1` / `:0.1.0` if still there), and in wger the written entries and the
-  ten impedance categories, `Heart rate (scale)` and the 16 engine `… (scale)` categories (delete per person in the web UI; deleting a category deletes
+  (`sudo docker image rm kdk/scale-bridge:0.3.1`, plus `:0.3.0` / `:0.2.0` / `:0.1.3` / `:0.1.2` / `:0.1.1` / `:0.1.0` if still there), and in wger the written entries and the
+  ten impedance categories, `Heart rate (scale)`, the 16 engine `… (scale)` and the five `… (scale est.)` categories (delete per person in the web UI; deleting a category deletes
   its entries). The wger keys stay: other tools use them.
