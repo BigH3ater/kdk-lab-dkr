@@ -12,7 +12,7 @@ vmid: kdkdkr04
 console: TrueNAS UI → Virtualization → kdkdkr04 → Console
 standards: baseline-at-build
 secrets: []
-updated: 2026-11-08
+updated: 2026-11-16
 tags: [homelab/host, role/docker-host, status/building, tier/internal]
 ---
 
@@ -39,7 +39,7 @@ Phase B moves workloads in later PRs.
 | Hardware | 12 vCPU / 32 GiB / 120 GB vmpool zvol · no PCI passthrough |
 | Docker pool | `10.214.0.0/16` size 24 ([[docker-ipam]]) |
 | Managed by | cloud-init (NoCloud seed ISO) at build; Komodo periphery thereafter |
-| Runs | agents (node-exporter, observability-agent) + the `offsite` stage of `nightly-backups` and the hourly `storage-health-dkr04` (migration B1, 2026-10-30) |
+| Runs | agents (node-exporter, observability-agent) + the `offsite` stage of `nightly-backups` the hourly `storage-health-dkr04` (migration B1, 2026-10-30), and the nightly `insta360-flat` one-shot ([[insta360-flat]], 2026-11) |
 | Blast radius | Its own agents + the nightly offsite backup (best-effort; `backup-verify` on dkr-01 still pages). Further workloads in later phases |
 
 ## Access
@@ -110,6 +110,8 @@ on kdk-dkr-01 connects). No PCI passthrough.
 | `/mnt/backup` | `172.16.30.2:/mnt/tankz3/backup` | NFSv4.1 | `nfsvers=4.1,noatime,_netdev` | `backup-offsite` | tankz3 snapshots |
 | `/mnt/linux-tools` | `172.16.30.2:/mnt/vmpool/linux-tools` | NFSv4.1 | `nfsvers=4.1,noatime,_netdev` | thud build kit ([[linux-tools-share]]) | none (re-seedable; secrets in 1Password) |
 | `/mnt/3d-prints` | `172.16.30.2:/mnt/tankz3/3d-prints` | NFSv4.1 | `nfsvers=4.1,ro,noatime,_netdev` | `backup-offsite` pack, CAD library ([[cad-library]]) | tankz3 snapshots + nightly `3d-prints-*.tar.zst` offsite |
+| `/mnt/insta360-upload` | `172.16.30.2:/mnt/tankz3/insta360-upload` | NFSv4.1 | `nfsvers=4.1,ro,noatime,_netdev` | `insta360-flat` (raw captures, [[imaging]]) | tankz3 daily snapshots (2 weeks) |
+| `/mnt/insta360-flat` | `172.16.30.2:/mnt/tankz3/insta360-flat` | NFSv4.1 | `nfsvers=4.1,noatime,_netdev` | `insta360-flat` (finished stills, [[insta360-flat]]) | tankz3 daily snapshots (2 weeks) |
 | `/opt/kdk-lab` | root zvol | zfs | — | all stack config | SSH-pulled nightly by `backup-collect` on dkr-01 |
 
 The NAS exports `tankz3/media` and `tankz3/backup` to `172.16.30.52` (RW,

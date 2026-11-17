@@ -221,6 +221,30 @@ write_files:
       Options=nfsvers=4.1,ro,noatime,_netdev
       [Install]
       WantedBy=multi-user.target
+  - path: /etc/systemd/system/mnt-insta360\x2dupload.mount
+    content: |
+      [Unit]
+      Description=tankz3/insta360-upload over storage net (read-only, raw Insta360 captures for insta360-flat)
+      After=network-online.target
+      [Mount]
+      What=172.16.30.2:/mnt/tankz3/insta360-upload
+      Where=/mnt/insta360-upload
+      Type=nfs
+      Options=nfsvers=4.1,ro,noatime,_netdev
+      [Install]
+      WantedBy=multi-user.target
+  - path: /etc/systemd/system/mnt-insta360\x2dflat.mount
+    content: |
+      [Unit]
+      Description=tankz3/insta360-flat over storage net (read-write, finished Insta360 stills from insta360-flat)
+      After=network-online.target
+      [Mount]
+      What=172.16.30.2:/mnt/tankz3/insta360-flat
+      Where=/mnt/insta360-flat
+      Type=nfs
+      Options=nfsvers=4.1,noatime,_netdev
+      [Install]
+      WantedBy=multi-user.target
   - path: /etc/ssh/sshd_config.d/98-kdk-admin.conf
     content: |
       # kdk-lab SSH baseline, every host. Install: /etc/ssh/sshd_config.d/98-kdk-admin.conf
@@ -692,6 +716,9 @@ runcmd:
   # CAD library, read-only for backup-offsite (docs/runbooks/cad-library.md): own
   # line for the same reason (a missing tankz3/3d-prints export must not fail boot).
   - systemctl enable --now 'mnt-3d\x2dprints.mount' || true
+  # Insta360 raws (ro) + finished stills (rw) for the insta360-flat job
+  # (docs/runbooks/imaging.md): own line, same reason.
+  - systemctl enable --now 'mnt-insta360\x2dupload.mount' 'mnt-insta360\x2dflat.mount' || true
   # rpcbind not needed (NFS is v4.1 only); mask it (hosts report M-07).
   - systemctl mask --now rpcbind.socket rpcbind.service || true
   # Periphery pinned to Core's release line (docs/services/komodo.md: 2.3.4).

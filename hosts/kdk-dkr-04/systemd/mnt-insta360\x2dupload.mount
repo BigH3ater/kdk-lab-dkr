@@ -1,0 +1,10 @@
+[Unit]
+Description=tankz3/insta360-upload over storage net (read-only, raw Insta360 captures for insta360-flat)
+After=network-online.target
+[Mount]
+What=172.16.30.2:/mnt/tankz3/insta360-upload
+Where=/mnt/insta360-upload
+Type=nfs
+Options=nfsvers=4.1,ro,noatime,_netdev
+[Install]
+WantedBy=multi-user.target

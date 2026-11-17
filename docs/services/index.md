@@ -21,6 +21,7 @@ Stack definitions live in `stacks/` in the repo; Komodo deploys them from git. O
 | [SearXNG](searxng.md) | kdk-dkr-01 | https://search.kmkdp.com (LAN + tailnet) | searxng |
 | [Jellystat](jellystat.md) | kdk-dkr-01 | https://jellystat.kmkdp.com | jellystat |
 | [net-exporters](net-exporters.md) | kdk-dkr-01 | — (scraped by kdk-mon-01) | net-exporters |
+| [insta360-flat](insta360-flat.md) | kdk-dkr-04 | — (nightly one-shot; Insta360 raws → flat stills for Immich) | insta360-flat |
 | [grocery-planner](grocery-planner.md) | kdk-dkr-01 | home.kmkdp.com/meal/groceries (one-shots: weekly/poll) | grocery-planner |
 | [Traefik DMZ + tunnel](dmz-proxy.md) | kdk-dkr-dmz-01 | — | dmz-proxy |
 | [Identity](identity.md) | kdk-dkr-dmz-01 | https://sso.kmkdp.com | identity |
