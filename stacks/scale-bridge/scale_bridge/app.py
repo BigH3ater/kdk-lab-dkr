@@ -34,17 +34,13 @@ class Decision(NamedTuple):
     person: str | None = None   # the matched person, else None
 
 
-def rows_for(run: EngineRun | None, derived_male: bool | None = None) -> EngineRows:
-    """The engine run -> what the write gets: rows only for `ok` with errorType PP_ERROR_TYPE_NONE.
-
-    `derived_male`: None = no derived values (SCALE_BRIDGE_WRITE_DERIVED off), else whether
-    the person's profile sex is male (the fitted-constant rows need it).
-    """
+def rows_for(run: EngineRun | None) -> EngineRows:
+    """The engine run -> what the write gets: rows only for `ok` with errorType PP_ERROR_TYPE_NONE."""
     if run is None:
         return EngineRows("not_run")
     if run.result != "ok" or run.error_type != OK or not isinstance(run.output, dict):
         return EngineRows(run.result)
-    return engine_rows(run.output.get("out"), derived_male)
+    return engine_rows(run.output.get("out"))
 
 
 def retry_delays(tries: int, first: float = FIRST_RETRY_S) -> list[float]:
@@ -67,7 +63,6 @@ class Bridge:
         """Config summary + one authenticated GET per person (status only)."""
         emit(log, logging.INFO, "config", version=__version__, dry_run=self.s.dry_run,
              write_heart_rate=self.s.write_heart_rate, write_engine=self.s.write_engine,
-             write_derived=self.s.write_derived,
              people=[x.name for x in self.s.people],
              wger_url=self.s.wger_url, address_filter=bool(self.s.scale_address))
         if not self.s.people:
@@ -149,14 +144,7 @@ class Bridge:
         finally:
             wait = self.engine_waits.pop(session_id, None)
             if wait is not None and not wait.done():
-                wait.set_result(rows_for(run, self._derived_male(decision)))
-
-    def _derived_male(self, decision: Decision | None) -> bool | None:
-        """None unless SCALE_BRIDGE_WRITE_DERIVED; else whether the matched person's profile is male."""
-        if not self.s.write_derived or decision is None:
-            return None
-        person = next((x for x in self.s.people if x.name == decision.person), None)
-        return person is not None and person.profile is not None and person.profile.sex == "male"
+                wait.set_result(rows_for(run))
 
     async def _compute(self, reading: Reading, decision: Decision | None, session_id: str) -> EngineRun | None:
         try:

@@ -1,6 +1,6 @@
 [project]
 name = "scale-bridge"
-version = "0.3.1"
+version = "0.3.0"
 description = "kdk-lab scale-bridge: Body Pod 2 BLE scale -> wger body weight + raw impedance"
 requires-python = "==3.12.*"
 dependencies = [
