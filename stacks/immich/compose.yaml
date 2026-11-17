@@ -58,8 +58,17 @@ services:
       # this REPLACES Immich's default [linklocal, uniquelocal] (= all of 10/8, i.e.
       # every proxy-dmz container); loopback stays trusted (server/src/app.common.ts).
       IMMICH_TRUSTED_PROXIES: "10.211.2.3/32"
+      # All admin settings come from this file (rendered from immich-config.json.tpl by
+      # render-config.sh in the Komodo pre_deploy; holds the OIDC client secret, so it is
+      # gitignored and 0400 1000:1000). Setting it makes Administration -> Settings
+      # read-only. Immich reads it at start; the kdk.config-sha label recreates the
+      # container when it changes.
+      IMMICH_CONFIG_FILE: /config/immich-config.json
     volumes:
       - /mnt/appdata/immich:/data   # rw NFS (no root squash); chowned 1000:1000 by pre_deploy
+      # A DIRECTORY, not the single file: a single-file bind keeps the old inode after
+      # the pre_deploy's atomic mv replaces it.
+      - ./config:/config:ro
     healthcheck:
       # Same probe as the image's own HEALTHCHECK (curl /api/server/ping == pong),
       # declared here so the baseline check sees it.
@@ -78,6 +87,9 @@ services:
       # LAN only: never on the Cloudflare tunnel entrypoint (docs/services/dmz-proxy.md).
       traefik.http.routers.immich.entrypoints: "websecure"
       traefik.http.services.immich.loadbalancer.server.port: "2283"
+      # sha256 of the rendered config (render-config.sh appends IMMICH_CONFIG_SHA to
+      # .env), so a config or secret change recreates immich-server on deploy.
+      kdk.config-sha: "${IMMICH_CONFIG_SHA:-unset}"
 
   immich-machine-learning:
     <<: *hardened
