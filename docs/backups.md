@@ -1,7 +1,7 @@
 ---
 title: Backups
 tags: [homelab/process, backups, komodo, proton]
-updated: 2026-11-15
+updated: 2026-11-16
 ---
 
 # Backups
@@ -31,7 +31,7 @@ offsite stage runs in two steps (`stacks/backup-offsite/`):
    The same step packs the owner's **CAD library** (laptop `~/cad` → SMB
    `tankz3/3d-prints` → read-only NFS `/mnt/3d-prints` on kdk-dkr-04, bound into
    `pack` at `/src/3d-prints`) as `offsite/3d-prints-YYYY-MM-DD.tar.zst`, newest 3
-   kept, with its **own** exclude list (`*.log`, `__pycache__`, `.~lock*`): the host
+   kept, with its **own** exclude list (`*.log`, `__pycache__`, `.~lock*`, `.~*.lock`): the host
    list below would drop CAD folders that happen to be named `backup`, `cache` or
    `logs`. An empty source (mount down) is skipped so it never rotates good archives
    out. See [CAD library](runbooks/cad-library.md).
@@ -119,6 +119,12 @@ any failure:
 
 Priority 1 (retries) on failure, priority 0 on warning, quiet (-1) when clean.
 Creds from `/etc/kdk/pushover.env` (already on every host).
+
+What each night produced (files, sizes against the previous night, CAD changes,
+upload passes) is on the Grafana **Backups → Nightly backups** dashboard, fed by
+`pack.sh`'s `backup-manifest` / `backup-change` lines; a file under half its
+previous size pages `BackupFileShrank`. See
+[Backups → Observability](services/backups.md#observability).
 
 ## Proxmox cloud-init template → offsite
 

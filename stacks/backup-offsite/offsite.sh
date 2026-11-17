@@ -40,8 +40,13 @@
 # always exits 0 so the verify stage runs and is the single Pushover source. A
 # pass that hits --max-duration exits 10 and the next pass resumes (reusing the
 # persisted session); rc=0 = fully in sync.
+#
+# secs= on the pass and final lines (wall time of the pass / of all passes) feed
+# the "Nightly backups" dashboard; anything matching `rclone exit=N` keeps working.
 pass=1
+t0=$(date +%s)
 while :; do
+  tp=$(date +%s)
   rclone sync /data proton-crypt: \
     --config /config/rclone.conf \
     --transfers 2 --checkers 4 --retries 3 --low-level-retries 10 \
@@ -52,10 +57,10 @@ while :; do
     --filter "+ /*/pgdump/**" \
     --filter "- **"
   rc=$?
-  echo "offsite pass $pass: rclone exit=$rc"
+  echo "offsite pass $pass: rclone exit=$rc secs=$(( $(date +%s) - tp ))"
   [ "$rc" -eq 0 ] || [ "$pass" -ge 6 ] && break
   pass=$((pass + 1))
 done
 echo "rc=$rc ts=$(date +%s) date=$(date -Iseconds)" > /data/.offsite-status
-echo "offsite rclone exit=$rc"
+echo "offsite rclone exit=$rc passes=$pass secs=$(( $(date +%s) - t0 ))"
 exit 0

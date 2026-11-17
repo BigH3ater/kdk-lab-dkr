@@ -6,7 +6,7 @@ tier: infra
 status: live
 storage: yes
 secrets: [pushover-kdk-lab, kdk-lab-idrac-fanctl-admin]
-updated: 2026-11-11
+updated: 2026-11-16
 tags: [homelab/stack, tier/infra, status/live]
 ---
 
@@ -23,11 +23,12 @@ Metrics + alerting live on the independent monitor [[kdk-mon-01]]; logs live on 
 | Field | Value |
 |---|---|
 | Metrics/alerts | Prometheus + Alertmanager (→ Pushover for all; **critical also → email** via the Proton bridge) + Grafana on [[kdk-mon-01]]. Standard: [alerting](../runbooks/pushover-alerts.md#the-standard) |
-| Logs | Loki 3.7.9 on [[kdk-log-01]] (`10.1.20.21`), storage on the VM disk (`/opt/kdk-lab/loki/data`, PBS vzdump of VM 320), 30-day retention; ruler: 12 rule files / 80 alerts (`stacks/loki/rules/`, see Alert rules) → Alertmanager |
+| Logs | Loki 3.7.9 on [[kdk-log-01]] (`10.1.20.21`), storage on the VM disk (`/opt/kdk-lab/loki/data`, PBS vzdump of VM 320), 30-day retention; ruler: 14 rule files / 92 alerts (`stacks/loki/rules/`, see Alert rules) → Alertmanager |
 | Collection | per-host `observability-agent` (cAdvisor + Alloy + **docker-event-watch**); `node-exporter` on the two VMs |
 | Weekly security jobs | [[advisory-watch]] (upstream advisories vs pinned tags, kdk-log-01) and [[trivy-scan]] (Trivy on every host), both into Loki; Grafana → Security → Security Advisories |
 | Fan control | two `tigerblue77` containers on [[kdk-mon-01]]; `fanctl-hyp` **active** (R720 ~3000 RPM, 20%), `fanctl-nas` **active** (R730xd ~4800 RPM, 20%) |
 | Web UI | Grafana `https://grafana.kmkdp.com` (via Traefik on kdk-dkr-01; direct fallback `http://10.1.20.30:3000` when dkr-01 is down) — Prometheus + Loki datasources; Explore for logs |
+| Dashboards | file-provisioned from `stacks/monitoring/grafana/dashboards/<Folder>/` (one Grafana folder per directory; list in `stacks/monitoring/README.md`). Backups → **Nightly backups** (uid `backups-nightly`) is the nightly-backups view ([[backups]] → Observability) |
 | Blast radius | Loss of dashboards/log search; the mon-01 alerting path is independent of the rest |
 
 ## Verify
@@ -37,7 +38,7 @@ Metrics + alerting live on the independent monitor [[kdk-mon-01]]; logs live on 
 ssh kdkadmin@10.1.20.30 'curl -s http://10.1.20.21:3100/ready'        # ready (Loki; from an allowlisted source)
 curl -s http://10.1.20.30:9090/api/v1/targets | grep -c '"up"'        # cadvisor/node/blackbox targets up
 ssh kdkadmin@10.1.20.30 'curl -sG http://10.1.20.21:3100/loki/api/v1/label/host/values'   # every host present (6)
-ssh kdkadmin@10.1.20.30 'curl -s http://10.1.20.21:3100/loki/api/v1/rules' | grep -c 'alert:'    # 80 (12 groups, see Alert rules)
+ssh kdkadmin@10.1.20.30 'curl -s http://10.1.20.21:3100/loki/api/v1/rules' | grep -c 'alert:'    # 92 (14 groups, see Alert rules)
 ssh kdkadmin@10.1.20.30 'sudo docker logs --tail 3 fanctl-hyp'        # temps logged, profile applied
 ```
 
@@ -52,7 +53,7 @@ ssh kdkadmin@10.1.20.30 'sudo docker logs --tail 3 fanctl-hyp'        # temps lo
 | Per-container panels empty | cAdvisor older than v0.55 can't read containers under the containerd-snapshotter image store (`failed to identify the read-write layer ID`) | runs `ghcr.io/google/cadvisor:v0.60.6` (gcr.io stops at v0.55.1) with `/var/lib/containerd` mounted; `count by (host) (container_memory_usage_bytes{name!=""})` should be > 0 on every host. Crash/unhealthy alerting is still `docker-event-watch`, not cAdvisor |
 | Loki's own `level=info` ruler-evaluation or `get or create table` lines are missing from `{container="loki"}` | intended since 2026-11-11: the observability-agent Alloy drops them before shipping (`loki.process "drop_noise"` in `stacks/observability-agent/alloy/config.alloy`, ~876k of ~1.0M Loki lines/day). They quote rule LogQL that contains "error", so word-regex panels counted them as errors. Warn/error lines, startup, compaction, flushes and real query stats are kept; `docker logs loki` on kdk-log-01 still has everything | Grafana Explore, Loki, last 1 h: `sum(count_over_time({container="loki"} \|~ "^level=info ts=\\S+ caller=(table_manager\\.go:195\|compat\\.go\|evaluator_local\\.go) " [1h]))` is 0 after the deploy (was 21k-32k/h on 2026-11-11) |
 | A security rule never fires | log text drifted, or `entryPointName="tunnel"` missing (dmz-proxy before the two-entrypoint split) | run the rule's expr in Grafana Explore over 7 d; see [security alerts runbook](../runbooks/security-alerts.md) |
-| One-shot job output missing in Loki | Alloy's `discovery.docker` lists running containers, and the backup jobs exit within seconds | the Backups dashboard counts runs from `docker-event-watch` die events instead; capturing their output needs a follow-up (exited-container discovery or pushing logs from the job) |
+| One-shot job output missing in Loki | Alloy's `discovery.docker` lists running containers only and refreshes every 60 s (default `refresh_interval`), so a container that exits sooner is never tailed; the dkr-01 backup jobs exit within seconds | the Backups → Nightly backups dashboard takes every step's result from `docker-event-watch` die events; only the long-running dkr-04 `pack`/`offsite` containers ship their own lines. A one-off container you need in Loki must live > 60 s (`pack.sh --report-only` holds 90 s). Capturing the dkr-01 output is a follow-up (vault TODO) |
 | Pushover "container down (137)" for every service on a Komodo deploy, or "kdk container watch online" ×N per wave | old behaviour: 137 paged immediately and the startup ping always paged | fixed: 137/143 dies are deferred `EVENT_WATCH_DIE_GRACE`s (90) and cancelled if the container restarts (recreate); the online ping is log-only unless `EVENT_WATCH_ONLINE_PAGE=1`. Grep the agent log for `die grace: <name> restarted` to confirm a recreate was suppressed (`docker logs docker-event-watch` on the host) |
 
 ## Alert rules
@@ -137,6 +138,7 @@ Loki ruler rules live in `stacks/loki/rules/*.yml` (only `.yml` files there: the
 | `CloudflareTunnelUnhealthy` | `cloudflare.yml` | warning | Cloudflare tunnel for kmkdp.com reported unhealthy on 2+ hourly checks, held 5m | [cloudflare-watch](../runbooks/security-alerts.md#cloudflare-watch) |
 | `CloudflareEdgeCertExpiring` | `cloudflare.yml` | warning | Cloudflare edge cert for kmkdp.com expiring (… days left) | [cloudflare-watch](../runbooks/security-alerts.md#cloudflare-watch) |
 | `CloudflareZoneSettingDrift` | `cloudflare.yml` | warning | A Cloudflare zone setting for kmkdp.com drifted from policy | [cloudflare-watch](../runbooks/security-alerts.md#cloudflare-watch) |
+| `BackupFileShrank` | `backups.yml` | warning | A nightly backup file (archive or pg dump) is under 50% of the previous file's size (pack.sh `backup-manifest` pct < 50) | [backups](backups.md#observability) |
 | `CloudflareRuleDrift` | `cloudflare.yml` | warning | Cloudflare custom/rate-limit rules or DNS records for kmkdp.com changed since last week | [cloudflare-watch](../runbooks/security-alerts.md#cloudflare-watch) |
 | `CloudflareWatchMissing` | `cloudflare.yml` | warning | No cloudflare-watch output in Loki for 3h (hourly check silent) | [cloudflare-watch](../runbooks/security-alerts.md#cloudflare-watch) |
 | `KomodoManualDeploy` | `komodo.yml` | info | A person ran `DeployStack`/`RestartStack` by hand (Komodo Core log line not authenticated as the gitops `Action`) | [komodo-manual-deploy](../runbooks/pushover-alerts.md#komodo-manual-deploy) |

@@ -1,6 +1,6 @@
 ---
 title: CAD library (laptop → NAS → offsite)
-updated: 2026-11-15
+updated: 2026-11-16
 ---
 
 # CAD library
@@ -33,7 +33,7 @@ kdk-dkr-04 /mnt/3d-prints --pack (nightly)--> /mnt/backup/dkr/offsite/3d-prints-
 | dkr-04 mount | `/mnt/3d-prints`, unit `mnt-3d\x2dprints.mount`, `nfsvers=4.1,ro,noatime,_netdev` (`hosts/kdk-dkr-04/systemd/`) |
 | Laptop mount | `/mnt/3d-prints`, `mnt-3d\x2dprints.automount` + `.mount` (cifs `vers=3.1.1,seal`), creds `/etc/cifs/3d-prints.cred` root 0600 (`hosts/debian-mbp/systemd/`) |
 | Laptop sync | `~/.local/bin/cad-sync.sh` + user `cad-sync.service`/`.timer` (`hosts/debian-mbp/`) |
-| Offsite | `backup-offsite` `pack` → `offsite/3d-prints-YYYY-MM-DD.tar.zst`, newest 3 kept, excludes `*.log`, `__pycache__`, `.~lock*` |
+| Offsite | `backup-offsite` `pack` → `offsite/3d-prints-YYYY-MM-DD.tar.zst`, newest 3 kept, excludes `*.log`, `__pycache__`, `.~lock*`, `.~*.lock` |
 | Checks | `storage-health-dkr04` `NFS_MOUNTS=media backup linux-tools 3d-prints`; `backup-verify` (see Verify) |
 
 ### Why mapall to `cad-sync` on the NFS export
@@ -58,7 +58,10 @@ kdkadmin (uid 1000 = the NAS's `tdarr-smb`) with a meaningless identity; mapall 
   renamed on the laptop stays on the NAS. Clean up on the share by hand (SMB) if it
   matters. CIFS has no unix owners/modes, so no `-a`/`-o`/`-g`/`-p`.
 - **New project folders just work** (`-r`); nothing lists projects anywhere.
-- **Excluded:** `*.log`, `__pycache__/`, `.~lock*` (and the share's own `.last-sync`).
+- **Excluded:** `*.log`, `__pycache__/`, lock files (LibreOffice `.~lock*`, SolidCraft
+  `.~<name>.sc.lock` = `.~*.lock`) and the share's own `.last-sync`. A lock file pushed
+  before the `.~*.lock` exclude stays on the share (no `--delete`); `pack` skips it, delete
+  it over SMB if it bothers you (e.g. `relay-bracket/.~test-cube20.sc.lock`, seen 2026-11-16).
   `.sc.bak`, gcode, renders and jpg references all go.
 - **Away from home** it exits 0 silently: a 3 s TCP probe to `10.1.3.5:445`, then a
   30 s-guarded `stat -f` that must say cifs/smb2 (so it never writes into the bare local
@@ -252,6 +255,54 @@ warnings, none about 3d-prints).
 `offsite/3d-prints-<today>.tar.zst` is missing, empty or fails `zstd -t`, and **warns**
 if the laptop marker `.3d-prints-last-sync` (copied with its mtime by `pack`) is missing
 or older than 14 days. A stale marker usually just means the laptop was away or asleep.
+
+## Validate offsite from the laptop
+
+Proves the Proton copy is real: the names decrypt, the bytes match the NAS, the archives
+open. `hosts/debian-mbp/offsite-mount.sh` (installed at `~/.local/bin/offsite-mount.sh`)
+mounts the crypt remote **read-only** at `~/mnt/offsite`; first validated 2026-11-16
+(3d-prints archive, kdk-mon-01 archive and the authelia dump matched the NAS sha256).
+
+**Why it has its own Proton session.** Proton refresh tokens are single-use: every
+rclone client that refreshes writes the new token back to its own `rclone.conf` and the
+old one dies. kdk-dkr-04's `/opt/kdk-lab/backup/rclone/rclone.conf` is the nightly
+upload's session; a copy of it on the laptop would race it (`Code=10013`) and break the
+next `backup-offsite` run, or force a reseed. So the laptop has its **own** `[proton]`
+remote in `~/.config/rclone/rclone.conf` (its own login, `rclone config`), and **never**
+a copy of dkr-04's file. The crypt remote is not in any config: the script builds it in
+its own environment from 1Password `kdk-ops` / `proton-mirror-crypt` (field `password`),
+so the key that decrypts every backup never touches the laptop disk.
+
+On the laptop (`op` signed in; pick a night whose `offsite rclone exit=0`, see the
+Grafana **Backups / Nightly backups** dashboard, "On Proton"):
+
+```sh
+offsite-mount.sh                                   # 1Password prompt, then: mounted ~/mnt/offsite (read-only)
+offsite-mount.sh status                            # mounted: ~/mnt/offsite
+ls ~/mnt/offsite/offsite/                          # decrypted names: <host>-DATE.tar.zst, 3d-prints-DATE.tar.zst
+D=YYYY-MM-DD
+
+# 1. bytes match the NAS (Proton side streams through the mount; start with the small files)
+sha256sum ~/mnt/offsite/offsite/3d-prints-$D.tar.zst ~/mnt/offsite/offsite/kdk-mon-01-$D.tar.zst \
+          ~/mnt/offsite/kdk-dkr-dmz-01/pgdump/authelia-$D.sql.gz
+ssh kdkadmin@10.1.20.22 "sudo sha256sum /mnt/backup/dkr/offsite/3d-prints-$D.tar.zst \
+          /mnt/backup/dkr/offsite/kdk-mon-01-$D.tar.zst /mnt/backup/dkr/kdk-dkr-dmz-01/pgdump/authelia-$D.sql.gz"
+                                                   # same three hashes
+
+# 2. the archives open
+zstd -t -q ~/mnt/offsite/offsite/3d-prints-$D.tar.zst && echo zstd-ok
+gzip -t ~/mnt/offsite/kdk-dkr-dmz-01/pgdump/authelia-$D.sql.gz && echo gzip-ok
+
+# 3. done
+offsite-mount.sh -u                                # unmounted ~/mnt/offsite
+```
+
+`--vfs-cache-mode off`: every read streams from Proton, so hashing the ~5 GB
+kdk-dkr-01 archive takes a while; the small files above are the routine check. The
+mount log is `~/.cache/offsite-mount.log`. Besides `offsite/`, `pve-templates/` and
+`*/pgdump/`, the mount also shows the host folders frozen before 2026-10-31 and the
+`_archive/` days of the old whole-tree sync: leave them (see
+[Backups → Observability](../services/backups.md#observability)).
 
 ## Restore
 

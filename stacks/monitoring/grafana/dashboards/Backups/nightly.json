@@ -1,0 +1,1508 @@
+{
+  "uid": "backups-nightly",
+  "title": "Nightly backups",
+  "description": "nightly-backups procedure: step exit codes (docker-event-watch), pack.sh's backup-manifest / backup-change lines and the offsite rclone passes. docs/services/backups.md#observability",
+  "tags": [
+    "backups",
+    "loki"
+  ],
+  "timezone": "browser",
+  "editable": false,
+  "graphTooltip": 1,
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "",
+  "time": {
+    "from": "now-7d",
+    "to": "now"
+  },
+  "timepicker": {},
+  "templating": {
+    "list": []
+  },
+  "annotations": {
+    "list": []
+  },
+  "links": [],
+  "panels": [
+    {
+      "type": "row",
+      "id": 1,
+      "title": "Tonight at a glance (last 23-26 h)",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "type": "stat",
+      "id": 2,
+      "title": "Overall (backup-verify)",
+      "description": "Exit code of backup-verify, the last step of nightly-backups and the single source of truth (it pages Pushover on any failure). From docker-event-watch die events on kdk-dkr-01, last 26 h.",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki-dkr01"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 1,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki-dkr01"
+          },
+          "refId": "A",
+          "expr": "max(last_over_time({container=\"docker-event-watch\", host=\"kdk-dkr-01\"} |= \"name=backup-verify-verify-1 \" |= \"action=die\" | logfmt | unwrap code | __error__=\"\" [26h]))",
+          "queryType": "instant"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "OK",
+                  "color": "green",
+                  "index": 0
+                }
+              }
+            },
+            {
+              "type": "range",
+              "options": {
+                "from": 1,
+                "to": 1000000000.0,
+                "result": {
+                  "text": "FAILED",
+                  "color": "red",
+                  "index": 1
+                }
+              }
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          },
+          "noValue": "no run in 26 h"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "wideLayout": true,
+        "showPercentChange": false
+      }
+    },
+    {
+      "type": "stat",
+      "id": 3,
+      "title": "Steps failed",
+      "description": "How many of the nightly one-shot steps (pgdump, rsync, gate, collect, pack, offsite, verify) last exited non-zero, last 26 h. 0 = every step exited 0. compose `run` containers (test runs) are ignored.",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki-dkr01"
+      },
+      "gridPos": {
+        "x": 4,
+        "y": 1,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki-dkr01"
+          },
+          "refId": "A",
+          "expr": "count(max by (host, name) (last_over_time({container=\"docker-event-watch\"} |= \"action=die\" |= \"name=backup-\" | logfmt | name=~\"backup-.+\" | name!~\".+-run-.+\" | unwrap code | __error__=\"\" [26h])) > 0) or vector(0)",
+          "queryType": "instant"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "wideLayout": true,
+        "showPercentChange": false
+      }
+    },
+    {
+      "type": "stat",
+      "id": 4,
+      "title": "Bytes produced",
+      "description": "Sum of every file in tonight's manifest (per-host archives, the 3d-prints archive and the pg dumps), from pack's backup-manifest lines, last 23 h. Each file counted once even if pack reported twice.",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki-dkr01"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 1,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki-dkr01"
+          },
+          "refId": "A",
+          "expr": "sum(max by (name) (last_over_time({stack=\"backup-offsite\", service=\"pack\"} |= \"backup-manifest \" | logfmt | unwrap bytes | __error__=\"\" [23h])))",
+          "queryType": "instant"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          },
+          "noValue": "no manifest (pack.sh before PR A?)",
+          "decimals": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "wideLayout": true,
+        "showPercentChange": false
+      }
+    },
+    {
+      "type": "stat",
+      "id": 5,
+      "title": "Upload passes",
+      "description": "rclone passes the offsite step needed, last 23 h (each pass is capped at 25 min; a pass that hits the cap exits 10 and the next one resumes, at most 6).",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki-dkr01"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 1,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki-dkr01"
+          },
+          "refId": "A",
+          "expr": "sum(count_over_time({stack=\"backup-offsite\", service=\"offsite\"} |= \"offsite pass \" [23h]))",
+          "queryType": "instant"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 3
+              },
+              {
+                "color": "red",
+                "value": 6
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          },
+          "noValue": "no upload in 23 h"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "wideLayout": true,
+        "showPercentChange": false
+      }
+    },
+    {
+      "type": "stat",
+      "id": 6,
+      "title": "Upload time",
+      "description": "Wall time of all rclone passes, last 23 h, from the secs= field offsite.sh adds to each `offsite pass N` line (from PR A on; older lines have no secs= and show nothing).",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki-dkr01"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 1,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki-dkr01"
+          },
+          "refId": "A",
+          "expr": "sum(sum_over_time({stack=\"backup-offsite\", service=\"offsite\"} |= \"offsite pass \" | regexp `secs=(?P<secs>[0-9]+)` | unwrap secs | __error__=\"\" [23h]))",
+          "queryType": "instant"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          },
+          "noValue": "no secs= yet"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "wideLayout": true,
+        "showPercentChange": false
+      }
+    },
+    {
+      "type": "stat",
+      "id": 7,
+      "title": "On Proton",
+      "description": "The final `offsite rclone exit=` of the last 23 h. 0 = rclone reached a full sync, so every file in the table below is on Proton; anything else = the last pass did not finish (10 = time cap).",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki-dkr01"
+      },
+      "gridPos": {
+        "x": 20,
+        "y": 1,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki-dkr01"
+          },
+          "refId": "A",
+          "expr": "max(last_over_time({stack=\"backup-offsite\", service=\"offsite\"} |= \"offsite rclone exit=\" | regexp `offsite rclone exit=(?P<rc>[0-9]+)` | unwrap rc | __error__=\"\" [23h]))",
+          "queryType": "instant"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "in sync",
+                  "color": "green",
+                  "index": 0
+                }
+              }
+            },
+            {
+              "type": "range",
+              "options": {
+                "from": 1,
+                "to": 1000000000.0,
+                "result": {
+                  "text": "NOT in sync",
+                  "color": "red",
+                  "index": 1
+                }
+              }
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          },
+          "noValue": "no upload in 23 h"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "wideLayout": true,
+        "showPercentChange": false
+      }
+    },
+    {
+      "type": "table",
+      "id": 8,
+      "title": "Steps: latest exit code",
+      "description": "Latest exit code of every nightly step container (docker-event-watch `action=die code=N`), last 26 h. 15 steps: dkr-01 pgdump-jellystat, pgdump-wger, rsync, gate, collect, collect gate, verify; dmz-01 pgdump-authelia, -immich, -tandoor, rsync, gate; dkr-04 pack, offsite, gate.",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki-dkr01"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 5,
+        "w": 9,
+        "h": 11
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki-dkr01"
+          },
+          "refId": "A",
+          "expr": "max by (host, name) (last_over_time({container=\"docker-event-watch\"} |= \"action=die\" |= \"name=backup-\" | logfmt | name=~\"backup-.+\" | name!~\".+-run-.+\" | unwrap code | __error__=\"\" [26h]))",
+          "queryType": "instant"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "labelsToFields",
+          "options": {
+            "mode": "columns"
+          }
+        },
+        {
+          "id": "merge",
+          "options": {}
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true
+            },
+            "indexByName": {
+              "host": 0,
+              "name": 1,
+              "Value": 2
+            },
+            "renameByName": {
+              "name": "step",
+              "Value": "exit"
+            }
+          }
+        },
+        {
+          "id": "sortBy",
+          "options": {
+            "sort": [
+              {
+                "field": "step"
+              }
+            ]
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            }
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "exit"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background",
+                  "mode": "basic"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "red",
+                      "value": 1
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "0": {
+                        "text": "0 OK",
+                        "index": 0
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "custom.width",
+                "value": 80
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        }
+      }
+    },
+    {
+      "type": "status-history",
+      "id": 9,
+      "title": "Steps per night",
+      "description": "Worst exit code of each step per UTC day (the run at 09:20 UTC = 03:20 CST lands in its own day). Green 0, red anything else, empty = the step did not run that day.",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki-dkr01"
+      },
+      "gridPos": {
+        "x": 9,
+        "y": 5,
+        "w": 15,
+        "h": 11
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki-dkr01"
+          },
+          "refId": "A",
+          "expr": "max by (name) (max_over_time({container=\"docker-event-watch\"} |= \"action=die\" |= \"name=backup-\" | logfmt | name=~\"backup-.+\" | name!~\".+-run-.+\" | unwrap code | __error__=\"\" [$__interval]))",
+          "queryType": "range",
+          "legendFormat": "{{name}}"
+        }
+      ],
+      "interval": "1d",
+      "maxDataPoints": 400,
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "0",
+                  "index": 0
+                }
+              }
+            }
+          ],
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 80
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "showValue": "auto",
+        "rowHeight": 0.9,
+        "colWidth": 0.9,
+        "legend": {
+          "showLegend": false
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      }
+    },
+    {
+      "type": "row",
+      "id": 10,
+      "title": "Files produced tonight",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 16,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "type": "table",
+      "id": 11,
+      "title": "Files produced tonight",
+      "description": "One row per file in tonight's backup-manifest (pack.sh, last 23 h). prev = the same series' previous file (yesterday's archive, the previous dump of that DB). % of prev is red below 50 (the BackupFileShrank alert). Proton = the last `offsite rclone exit=` (0 = the whole set synced). Empty before PR A's pack.sh has run.",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki-dkr01"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 17,
+        "w": 24,
+        "h": 12
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki-dkr01"
+          },
+          "refId": "A",
+          "expr": "max by (kind, host, series, name, col) (last_over_time({stack=\"backup-offsite\", service=\"pack\"} |= \"backup-manifest \" | logfmt | label_format col=\"size\" | unwrap bytes | __error__=\"\" [23h]))",
+          "queryType": "instant"
+        },
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki-dkr01"
+          },
+          "refId": "B",
+          "expr": "max by (kind, host, series, name, col) (last_over_time({stack=\"backup-offsite\", service=\"pack\"} |= \"backup-manifest \" | logfmt | label_format col=\"prev size\" | prev_bytes!=\"none\" | unwrap prev_bytes | __error__=\"\" [23h]))",
+          "queryType": "instant"
+        },
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki-dkr01"
+          },
+          "refId": "C",
+          "expr": "max by (kind, host, series, name, col) (last_over_time({stack=\"backup-offsite\", service=\"pack\"} |= \"backup-manifest \" | logfmt | label_format col=\"change\" | unwrap bytes | __error__=\"\" [23h])) - max by (kind, host, series, name, col) (last_over_time({stack=\"backup-offsite\", service=\"pack\"} |= \"backup-manifest \" | logfmt | label_format col=\"change\" | prev_bytes!=\"none\" | unwrap prev_bytes | __error__=\"\" [23h]))",
+          "queryType": "instant"
+        },
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki-dkr01"
+          },
+          "refId": "D",
+          "expr": "max by (kind, host, series, name, col) (last_over_time({stack=\"backup-offsite\", service=\"pack\"} |= \"backup-manifest \" | logfmt | label_format col=\"% of prev\" | pct!=\"none\" | unwrap pct | __error__=\"\" [23h]))",
+          "queryType": "instant"
+        },
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki-dkr01"
+          },
+          "refId": "E",
+          "expr": "max by (kind, host, series, name, col) (last_over_time({stack=\"backup-offsite\", service=\"pack\"} |= \"backup-manifest \" | logfmt | label_format col=\"Proton\" | unwrap bytes | __error__=\"\" [23h])) * 0 + on() group_left() max(last_over_time({stack=\"backup-offsite\", service=\"offsite\"} |= \"offsite rclone exit=\" | regexp `offsite rclone exit=(?P<rc>[0-9]+)` | unwrap rc | __error__=\"\" [23h]))",
+          "queryType": "instant"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "joinByLabels",
+          "options": {
+            "value": "col",
+            "join": [
+              "kind",
+              "host",
+              "series",
+              "name"
+            ]
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true
+            },
+            "indexByName": {
+              "name": 0,
+              "host": 1,
+              "kind": 2,
+              "series": 3,
+              "size": 4,
+              "prev size": 5,
+              "change": 6,
+              "% of prev": 7,
+              "Proton": 8
+            }
+          }
+        },
+        {
+          "id": "sortBy",
+          "options": {
+            "sort": [
+              {
+                "field": "name"
+              }
+            ]
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            }
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "size|prev size|change"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "bytes"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "% of prev"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "red",
+                      "value": null
+                    },
+                    {
+                      "color": "text",
+                      "value": 50
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Proton"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background",
+                  "mode": "basic"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "red",
+                      "value": 1
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "0": {
+                        "text": "on Proton",
+                        "index": 0
+                      }
+                    }
+                  },
+                  {
+                    "type": "range",
+                    "options": {
+                      "from": 1,
+                      "to": 1000000000.0,
+                      "result": {
+                        "text": "not synced",
+                        "index": 1
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        },
+        "sortBy": [
+          {
+            "displayName": "name",
+            "desc": false
+          }
+        ]
+      }
+    },
+    {
+      "type": "row",
+      "id": 12,
+      "title": "Sizes over time (30 d)",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 29,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "type": "timeseries",
+      "id": 13,
+      "title": "Host archives",
+      "description": "Size of each <host>-DATE.tar.zst and 3d-prints-DATE.tar.zst per night (backup-manifest kind=archive), log scale: kdk-dkr-04's archive is ~118 B, kdk-dkr-01's ~5 GB. Panel range 30 d (Loki retention).",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki-dkr01"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 30,
+        "w": 12,
+        "h": 9
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki-dkr01"
+          },
+          "refId": "A",
+          "expr": "max by (series) (max_over_time({stack=\"backup-offsite\", service=\"pack\"} |= \"backup-manifest \" | logfmt | kind=\"archive\" | unwrap bytes | __error__=\"\" [$__interval]))",
+          "queryType": "range",
+          "legendFormat": "{{series}}"
+        }
+      ],
+      "interval": "1d",
+      "maxDataPoints": 400,
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 0,
+            "showPoints": "always",
+            "pointSize": 5,
+            "spanNulls": true,
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "scaleDistribution": {
+              "type": "log",
+              "log": 10
+            }
+          },
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "showLegend": true,
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "timeFrom": "30d"
+    },
+    {
+      "type": "timeseries",
+      "id": 14,
+      "title": "Database dumps",
+      "description": "Size of each pg dump per night (backup-manifest kind=pgdump), series = the database. Panel range 30 d.",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki-dkr01"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 30,
+        "w": 12,
+        "h": 9
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki-dkr01"
+          },
+          "refId": "A",
+          "expr": "max by (host, series) (max_over_time({stack=\"backup-offsite\", service=\"pack\"} |= \"backup-manifest \" | logfmt | kind=\"pgdump\" | unwrap bytes | __error__=\"\" [$__interval]))",
+          "queryType": "range",
+          "legendFormat": "{{series}} ({{host}})"
+        }
+      ],
+      "interval": "1d",
+      "maxDataPoints": 400,
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 0,
+            "showPoints": "always",
+            "pointSize": 5,
+            "spanNulls": true,
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "scaleDistribution": {
+              "type": "log",
+              "log": 10
+            }
+          },
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "showLegend": true,
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "timeFrom": "30d"
+    },
+    {
+      "type": "row",
+      "id": 15,
+      "title": "CAD library changes (3d-prints)",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 39,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "type": "timeseries",
+      "id": 16,
+      "title": "Files changed per night",
+      "description": "From backup-change-summary: files added / changed (size or mtime) / removed between the newest 3d-prints archive and the previous one. A baseline night (no previous archive) reports 0.",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki-dkr01"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 40,
+        "w": 10,
+        "h": 10
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki-dkr01"
+          },
+          "refId": "A",
+          "expr": "max(max_over_time({stack=\"backup-offsite\", service=\"pack\"} |= \"backup-change-summary \" | logfmt | unwrap added | __error__=\"\" [$__interval]))",
+          "queryType": "range",
+          "legendFormat": "added"
+        },
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki-dkr01"
+          },
+          "refId": "B",
+          "expr": "max(max_over_time({stack=\"backup-offsite\", service=\"pack\"} |= \"backup-change-summary \" | logfmt | unwrap changed | __error__=\"\" [$__interval]))",
+          "queryType": "range",
+          "legendFormat": "changed"
+        },
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki-dkr01"
+          },
+          "refId": "C",
+          "expr": "max(max_over_time({stack=\"backup-offsite\", service=\"pack\"} |= \"backup-change-summary \" | logfmt | unwrap removed | __error__=\"\" [$__interval]))",
+          "queryType": "range",
+          "legendFormat": "removed"
+        }
+      ],
+      "interval": "1d",
+      "maxDataPoints": 400,
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "custom": {
+            "drawStyle": "bars",
+            "lineWidth": 2,
+            "fillOpacity": 60,
+            "showPoints": "always",
+            "pointSize": 5,
+            "spanNulls": true,
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            }
+          },
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "added"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "green"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "changed"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "blue"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "removed"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "red"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "showLegend": true,
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "type": "logs",
+      "id": 17,
+      "title": "Changed paths",
+      "description": "backup-change lines (at most 300 per night) and the night's summary line (truncated=true when more than 300 changed; baseline=true on the first archive). Paths are relative to ~/cad.",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki-dkr01"
+      },
+      "gridPos": {
+        "x": 10,
+        "y": 40,
+        "w": 14,
+        "h": 10
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki-dkr01"
+          },
+          "refId": "A",
+          "expr": "{stack=\"backup-offsite\", service=\"pack\"} |~ \"^backup-change(-summary)? \" | logfmt | line_format `{{.date}} {{if .op}}{{.op}} {{.path}}{{else}}summary added={{.added}} changed={{.changed}} removed={{.removed}} truncated={{.truncated}}{{if eq .baseline \"true\"}} baseline (first archive){{end}}{{end}}`",
+          "queryType": "range"
+        }
+      ],
+      "options": {
+        "showTime": false,
+        "wrapLogMessage": true,
+        "sortOrder": "Descending",
+        "enableLogDetails": true,
+        "dedupStrategy": "none",
+        "prettifyLogMessage": false,
+        "showCommonLabels": false,
+        "showLabels": false
+      }
+    },
+    {
+      "type": "row",
+      "id": 18,
+      "title": "Upload passes (offsite to Proton)",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 50,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "type": "status-history",
+      "id": 19,
+      "title": "Exit code per pass per night",
+      "description": "rclone exit of each `offsite pass N` per UTC day. 0 = in sync (the loop stops), 10 = hit the 25-min cap (the next pass resumes), anything else = errors. Several runs in one day show the worst.",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki-dkr01"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 51,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki-dkr01"
+          },
+          "refId": "A",
+          "expr": "max by (pass) (max_over_time({stack=\"backup-offsite\", service=\"offsite\"} |= \"offsite pass \" | regexp `offsite pass (?P<pass>[0-9]+): rclone exit=(?P<rc>[0-9]+)` | unwrap rc | __error__=\"\" [$__interval]))",
+          "queryType": "range",
+          "legendFormat": "pass {{pass}}"
+        }
+      ],
+      "interval": "1d",
+      "maxDataPoints": 400,
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "10": {
+                  "text": "10 cap",
+                  "color": "orange",
+                  "index": 0
+                }
+              }
+            }
+          ],
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 80
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "showValue": "auto",
+        "rowHeight": 0.9,
+        "colWidth": 0.9,
+        "legend": {
+          "showLegend": false
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      }
+    },
+    {
+      "type": "timeseries",
+      "id": 20,
+      "title": "Passes per night",
+      "description": "Number of `offsite pass N` lines per UTC day (two runs in one day add up).",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki-dkr01"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 51,
+        "w": 6,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki-dkr01"
+          },
+          "refId": "A",
+          "expr": "sum(count_over_time({stack=\"backup-offsite\", service=\"offsite\"} |= \"offsite pass \" [$__interval]))",
+          "queryType": "range",
+          "legendFormat": "passes"
+        }
+      ],
+      "interval": "1d",
+      "maxDataPoints": 400,
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "custom": {
+            "drawStyle": "bars",
+            "lineWidth": 2,
+            "fillOpacity": 60,
+            "showPoints": "always",
+            "pointSize": 5,
+            "spanNulls": true,
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            }
+          },
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "showLegend": true,
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "type": "timeseries",
+      "id": 21,
+      "title": "Upload time per night",
+      "description": "Sum of the per-pass secs= per UTC day (offsite.sh from PR A on).",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki-dkr01"
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 51,
+        "w": 6,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki-dkr01"
+          },
+          "refId": "A",
+          "expr": "sum(sum_over_time({stack=\"backup-offsite\", service=\"offsite\"} |= \"offsite pass \" | regexp `secs=(?P<secs>[0-9]+)` | unwrap secs | __error__=\"\" [$__interval]))",
+          "queryType": "range",
+          "legendFormat": "upload time"
+        }
+      ],
+      "interval": "1d",
+      "maxDataPoints": 400,
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": {
+            "drawStyle": "bars",
+            "lineWidth": 2,
+            "fillOpacity": 60,
+            "showPoints": "always",
+            "pointSize": 5,
+            "spanNulls": true,
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            }
+          },
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "showLegend": true,
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    }
+  ]
+}

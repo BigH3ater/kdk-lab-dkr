@@ -11,6 +11,9 @@
 # and `systemctl --user --failed` stay clean. Every network touch is under a
 # timeout, so a dead automount can never hang the timer.
 #
+# Lock files: LibreOffice `.~lock.<name>#` (.~lock*) and SolidCraft
+# `.~<name>.sc.lock` (.~*.lock); keep in step with stacks/backup-offsite/pack.sh.
+#
 # CIFS has no unix owners/modes: -rt only (no -a, -o, -g, -p).
 # --modify-window=2 absorbs the SMB timestamp rounding so unchanged files are
 # not re-sent every run.
@@ -44,7 +47,7 @@ esac
 # 3. Push. rc 24 = a source file vanished mid-run (a model being saved):
 #    everything else was sent, counts as success.
 timeout 900 rsync -rt --modify-window=2 "${DRY[@]}" \
-  --exclude='*.log' --exclude='__pycache__/' --exclude='.~lock*' \
+  --exclude='*.log' --exclude='__pycache__/' --exclude='.~lock*' --exclude='.~*.lock' \
   --exclude='/.last-sync' \
   "$SRC" "$DST/"
 rc=$?
