@@ -49,6 +49,7 @@ class Settings:
     heartbeat_path: str = "/tmp/scale-bridge.alive"
     write_heart_rate: bool = False              # "Heart rate (scale)" (compose: on since 0.3.0)
     write_engine: bool = False                  # engine metrics -> "... (scale)" categories (wger.py)
+    write_derived: bool = False                 # + DERIVED_METRICS "... (scale est.)"; needs write_engine
     capture_dir: str = ""                       # raw capture JSONL per session; "" = off (compose: /captures)
     capture_keep_days: int = 60                 # 0 = keep forever
     log_level: str = "INFO"
@@ -114,6 +115,7 @@ def from_env(env: dict[str, str] | None = None) -> Settings:
         log_level=e.get("SCALE_BRIDGE_LOG_LEVEL", "INFO"),
         write_heart_rate=_bool(e.get("SCALE_BRIDGE_WRITE_HEART_RATE"), False),
         write_engine=_bool(e.get("SCALE_BRIDGE_WRITE_ENGINE"), False),
+        write_derived=_bool(e.get("SCALE_BRIDGE_WRITE_DERIVED"), False),
         capture_dir=(e.get("SCALE_BRIDGE_CAPTURE_DIR") or "").strip(),
         capture_keep_days=int(e.get("SCALE_BRIDGE_CAPTURE_KEEP_DAYS", "60")),
         engine=engine_from_env(e),
