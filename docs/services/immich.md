@@ -187,7 +187,7 @@ library; it never copies, moves or deletes a source file.
 | In the containers | `/mnt/insta360-flat:/mnt/insta360-flat:ro` in `immich-server` and `immich-albums` (same path, so import path = `ROOT_PATH`) |
 | Deploy guard | the `immich` and `immich-albums` pre_deploys run `findmnt -rn -M /mnt/insta360-flat -O ro` and stop the deploy when it is not a read-only mountpoint |
 | Library | External library "Insta360", owner **`Household`**, import path `/mnt/insta360-flat`, created by hand (libraries are database objects an admin creates in the UI/API; the config file only holds the scan schedule) |
-| Owner account | `Household` (`household@kmkdp.com`), a **local** account (password in 1P `immich-household`), not admin, no OIDC: auto-register would need an LLDAP user, and no person should sign in as it |
+| Owner account | `Household` (`household@kmkdp.com`), a **local** account (password in 1P `kdk-ops/immich-household`), not admin, no OIDC: auto-register would need an LLDAP user, and no person should sign in as it |
 | Albums | one per top-level trip folder, named exactly like the folder, owned by Household, shared with `jmack` and `rach` as **editors** (add photos, remove them from the album; they cannot delete Household's assets) |
 | Timelines | Household partner-shares with jmack and rach; each of them turns on "Show in timeline" for Household |
 | Job | Komodo stack + Procedure `immich-albums` (`stacks/immich-albums`), daily 02:10, `deploy = false`, one-shot |
@@ -214,7 +214,7 @@ Failures: the Procedure has `failure_alert` (pre_deploy/deploy errors page), and
 Pushover (`immich-albums failed: <reason>`) and exits 1 for anything after the container starts,
 including tool lines at `error`/`critical` level (the tool itself exits 0 after a fatal API error).
 
-Two API keys, both from 1Password `kdk-cluster` (API Credential items, field `credential`, rendered
+Two API keys, both from 1Password `kdk-ops` (API Credential items, field `credential`, rendered
 into `.env` by `op inject`):
 
 | Item | Created by | Permissions |
@@ -318,9 +318,9 @@ for a root-run container.
 | Secret (1P item) | Used for | Class | Rotate live? |
 |---|---|---|---|
 | `immich-postgres` | DB auth (server + ML + dump) | 🟢 self-service | rotate DB + item together, redeploy |
-| `immich-household` (Login, `password`) | local password of the `Household` account (shared Insta360 owner) | 🟢 self-service | Account Settings → Password as Household, then `op item edit` |
-| `immich-household-api-key` (API Credential, `credential`) | `immich-albums`: Household's key (albums, sharing) | 🟢 self-service | new key as Household → `op item edit ... credential=` → next run picks it up (pre_deploy injects); delete the old key |
-| `immich-library-scan-api-key` (API Credential, `credential`) | `immich-albums`: kdkadmin's key scoped to `library.read`, `library.update`, `queue.read` (trigger the scan, wait for it) | 🟢 self-service | same as above, as kdkadmin |
+| `immich-household` (vault `kdk-ops`, Login, `password`) | local password of the `Household` account (shared Insta360 owner) | 🟢 self-service | Account Settings → Password as Household, then `op item edit` |
+| `immich-household-api-key` (vault `kdk-ops`, API Credential, `credential`) | `immich-albums`: Household's key (albums, sharing) | 🟢 self-service | new key as Household → `op item edit ... credential=` → next run picks it up (pre_deploy injects); delete the old key |
+| `immich-library-scan-api-key` (vault `kdk-ops`, API Credential, `credential`) | `immich-albums`: kdkadmin's key scoped to `library.read`, `library.update`, `queue.read` (trigger the scan, wait for it) | 🟢 self-service | same as above, as kdkadmin |
 | `authelia-app-secrets` (`immich_oidc_plaintext`) | OIDC client secret (rendered into the config file; Authelia holds the pbkdf2 digest `immich_client_secret`) | 🟢 self-service | new plaintext → `op item edit` → hash it into the Authelia digest file (see [[identity]]) → redeploy identity, then immich (the sha label recreates the server); SSO is down between the two deploys, password login works |
 
 ## User Guide
