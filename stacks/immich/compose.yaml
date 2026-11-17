@@ -68,6 +68,18 @@ services:
     # /tmp tmpfs is charged to this cgroup too.
     mem_limit: 6g
     pids_limit: 1024
+    # CPU cap (CFS quota; it throttles, never kills). 2026-11-17 the first phone
+    # backup (4,419 assets) + first Insta360 scan (652) ran this container at
+    # ~310% and ML at ~400%, host load ~20 on 8 cores, Komodo ServerCpu CRITICAL
+    # 99.1%. Budget on the 8-core host (Komodo warning = 90% = 7.2 cores): server
+    # 3 + ML 2 = 5, + immich-postgres (uncapped, ~0.55 during the import) + every
+    # other stack at rest (~0.15) = ~5.7 cores (~71%), leaving ~1.5 cores for
+    # Jellyfin/Traefik/Authelia bursts before the warning. Job concurrency stays at
+    # Immich's defaults: the cap sets the rate, and lower concurrency would only
+    # idle the quota while jobs wait on NFS. QSV transcodes run on the Arc A380
+    # (ffmpeg uses little CPU there) and are barely affected; only a software
+    # fallback (e.g. 5.7K H.264, see mem_limit) gets slower.
+    cpus: 3
     environment:
       TZ: America/Chicago
       # No passwd entry for uid 1000 in the image; give node/ffmpeg a writable
@@ -138,11 +150,20 @@ services:
     # a thread per core.
     mem_limit: 4g
     pids_limit: 512
+    # CPU cap: see immich-server's `cpus:` for the host budget (server 3 + ML 2).
+    cpus: 2
     environment:
       TZ: America/Chicago
       # No passwd entry for uid 1000; python/huggingface/onnx caches that
       # follow $HOME land on the /tmp tmpfs, not the read_only rootfs.
       HOME: /tmp
+      # Size of the inference thread pool = how many ML requests run at once.
+      # Default is "number of CPU cores", and a `cpus:` quota does not change that
+      # count (os.cpu_count() in this container = 8, the host). Each request runs
+      # MACHINE_LEARNING_MODEL_INTRA_OP_THREADS (default 2) threads, so 2 requests
+      # = 4 threads on the 2-core cap; the server's other in-flight requests
+      # (smart search 2 + faces 2 + OCR 1 by default) wait in ML's own queue.
+      MACHINE_LEARNING_REQUEST_THREADS: "2"
     volumes:
       - /opt/kdk-lab/immich/model-cache:/cache   # chowned 1000:1000 by pre_deploy
     healthcheck:

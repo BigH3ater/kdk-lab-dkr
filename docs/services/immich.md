@@ -73,6 +73,7 @@ ssh kdkadmin@192.168.191.20 'sudo docker exec immich-server ls -ln /config'
 | Pushover `no external library with import path /mnt/insta360-flat` | the library was not created yet, or its import path differs | Administration → External Libraries; import path exactly `/mnt/insta360-flat` |
 | Pushover `album tool exit=...` / `level=critical` | the album tool hit an API error (wrong key permissions, API change after an Immich upgrade) | `sudo docker logs immich-albums`; dry run below; check the tool's releases for the Immich version |
 | Album not shared with rach | she had not logged in yet (the tool skips unknown users with a warning), or her Immich **name** is not `rach` | `sudo docker logs immich-albums \| grep 'does not exist'`; fix `SHARE_WITH` (name or e-mail) in `stacks/immich-albums/compose.yaml` |
+| Komodo `ServerCpu` warning/critical on kdk-dkr-dmz-01 during a bulk import (phone backup, new Insta360 trip) | caps missing (`cpus:` not applied, e.g. a rollback) or something outside Immich is busy; with the caps Immich tops out near 5 cores + postgres | `sudo docker inspect immich-server immich-ml --format '{{.Name}} {{.HostConfig.NanoCpus}}'` (3000000000 / 2000000000); `sudo docker stats --no-stream`; if Immich is at its cap and the host still alerts, pause queues in Administration → Jobs |
 | `Read-only file system` in a log | the image started writing a new path outside the tmpfs list | add that path as a `tmpfs` (or a skip label with the reason) in `compose.yaml` |
 
 ## Dependencies
@@ -287,13 +288,21 @@ exception (`devices: /dev/dri/renderD128` on `immich-server`, for QSV) (`x-harde
 `mem_limit`, json-file 10m x 3, explicit healthcheck). Applied 2026-11-16, while the
 instance was empty (1 admin, 0 assets).
 
-| Service | User | Writable paths | Limits (mem / pids) | Healthcheck |
+| Service | User | Writable paths | Limits (mem / pids / cpus) | Healthcheck |
 |---|---|---|---|---|
-| `immich-server` | `1000:1000` + group `991` (render) | `/data` (library NFS), `/tmp` tmpfs (`HOME=/tmp`) | 6g / 1024 | `immich-healthcheck` (`/api/server/ping`) |
-| `immich-machine-learning` | `1000:1000` | `/cache` (model cache), `/tmp` tmpfs (`HOME=/tmp`) | 4g / 512 | `python3 healthcheck.py` (`:3003/ping`) |
-| `immich-valkey` | `999:999` | `/data` tmpfs (64m), `/tmp` | 256m / 128 | `valkey-cli ping` |
-| `immich-postgres` | `999:999` | PGDATA bind; tmpfs `/etc/postgresql`, `/run/postgresql`, `/tmp` | 2g / 256 | image `healthcheck.sh` (pg_isready + checksum failures), every 30s |
+| `immich-server` | `1000:1000` + group `991` (render) | `/data` (library NFS), `/tmp` tmpfs (`HOME=/tmp`) | 6g / 1024 / 3 | `immich-healthcheck` (`/api/server/ping`) |
+| `immich-machine-learning` | `1000:1000` | `/cache` (model cache), `/tmp` tmpfs (`HOME=/tmp`) | 4g / 512 / 2 (`MACHINE_LEARNING_REQUEST_THREADS=2`) | `python3 healthcheck.py` (`:3003/ping`) |
+| `immich-valkey` | `999:999` | `/data` tmpfs (64m), `/tmp` | 256m / 128 / - | `valkey-cli ping` |
+| `immich-postgres` | `999:999` | PGDATA bind; tmpfs `/etc/postgresql`, `/run/postgresql`, `/tmp` | 2g / 256 / - | image `healthcheck.sh` (pg_isready + checksum failures), every 30s |
 
+- **CPU cap** (2026-11-17): server 3 + ML 2 = 5 of the host's 8 cores. The first phone backup
+  plus the first Insta360 scan ran them at ~3.1 + ~4.0 cores (load ~20) and Komodo paged
+  `ServerCpu CRITICAL 99.1%`. With the cap, Immich + postgres (~0.55, uncapped) + the other
+  stacks at rest stay near 5.7 cores (~71%), under the 90% warning (7.2 cores). A `cpus:` quota
+  throttles, it does not kill; job concurrency stays at Immich's defaults. ML's request thread
+  pool is pinned to 2 because its default is the core count, which a quota does not change
+  (the container still sees 8). Effect: ML queues (smart search, faces, OCR) drain at about
+  half the uncapped rate, thumbnails at about the same rate; QSV video work is on the GPU.
 - No capabilities are added for server, ML or valkey (unprivileged ports, no setuid).
   Postgres keeps `cap_add: [CHOWN, SETUID, SETGID, DAC_OVERRIDE, FOWNER]`, a no-op while it
   runs as 999; it is there so a rollback that deletes only `user:` still starts.
