@@ -28,6 +28,7 @@ Photo and video backup, LAN/tailnet only (router on the DMZ Traefik's `websecure
 | Sign-in | Authelia OIDC (client `immich`, LLDAP group `immich-users`, 2FA) + local password login (break-glass) |
 | Settings | repo-managed config file `stacks/immich/immich-config.json.tpl`; Administration → Settings is **read-only** |
 | Runtime users | server + ML `1000:1000`, postgres + valkey `999:999` (all non-root, see [Hardening](#hardening)) |
+| Video transcoding | Intel QSV on the Arc A380 (shared with [[jellyfin]]), hardware decode on; ML stays on CPU (see [Video transcoding](#video-transcoding)) |
 | Deploy | Komodo stack `immich` (git-linked; pre_deploy chowns the library + model cache to 1000:1000, `op inject`s `.env`, then `render-config.sh` renders the config file) |
 | Storage | library `/mnt/appdata/immich` (NFS); postgres `/opt/kdk-lab/immich/postgres` (VM disk, nightly dump) |
 | Blast radius | No photo access/upload; nothing else affected (segmented) |
@@ -59,6 +60,13 @@ ssh kdkadmin@192.168.191.20 'sudo docker exec immich-server ls -ln /config'
 | `access_denied` from Authelia | the user is not in LLDAP group `immich-users` | add the group in `users.kmkdp.com` |
 | OIDC `invalid_client` / login fails after the Authelia step | plaintext in 1P and the digest in Authelia's secrets file differ | re-hash the 1P plaintext into the digest file (see [[identity]]), redeploy identity |
 | SSO user lands in the wrong account | Immich links an OIDC login to an existing user with the same e-mail | give the local account a different e-mail, or unlink in Administration → Users |
+| Video plays but no `encoded-video/<owner>/.../<id>.mp4` appears | the policy (`required`) did not ask for one: H.264 yuv420p SDR video is played as-is | `docker logs immich-server 2>&1 \| grep <asset id>`; expected for iPhone H.264 SDR clips |
+| `Retrying with QSV-accelerated encoding and software decoding` in the log | hardware decode failed (e.g. H.264 above 4096x2304, which Arc cannot decode; some 5.7K Insta360 exports); encoding is still QSV | the lines before it (`Error occurred during transcoding`); nothing to fix for over-size H.264 |
+| `Retrying with QSV acceleration disabled` / transcodes slow, CPU at 100% | silent software fallback: QSV encode failed too | `docker exec immich-server ls -ln /dev/dri` (renderD128 present?), `docker exec immich-server id` (991 in groups?), then the ffmpeg probe in [Video transcoding](#video-transcoding) |
+| ffmpeg `Permission denied` / `Failed to initialise VAAPI connection` on `/dev/dri/renderD128` | uid 1000 lacks the render group: `group_add` missing, or the host's render gid is no longer 991 | `getent group render` on the host vs `docker exec immich-server id`; fix the gid in `compose.yaml` |
+| Every video job fails at once with `No /dev/dri devices found` or `Device ... does not exist` | the device mapping is missing (no retry: Immich builds the command before the fallback) | `docker inspect immich-server --format '{{.HostConfig.Devices}}'`; redeploy |
+| HDR (iPhone HLG / Dolby Vision) clips fail on the QSV path | OpenCL tonemap (`tonemap_opencl`) failed on the GPU; Immich retries with software decode + software tonemap | log lines around `tonemap_opencl`; slower but the job completes |
+| Jellyfin transcodes stutter while Immich is converting | both share the A380's media engines | Administration → Jobs → pause *Transcode Videos* during movie night; the queue resumes later |
 | `Read-only file system` in a log | the image started writing a new path outside the tmpfs list | add that path as a `tmpfs` (or a skip label with the reason) in `compose.yaml` |
 
 ## Dependencies
@@ -102,6 +110,7 @@ No dashboard. `immich.kmkdp.com` probed by [[kdk-mon-01]]; alerts → Pushover.
 | `storageTemplate` | on, default pattern (`library/<label>/<year>/<year-month-day>/<file>`) |
 | `map`, `newVersionCheck`, SMTP | off |
 | `trash` | on, 30 days |
+| `ffmpeg.accel` / `accelDecode` | `qsv` / `true`; codec, policy, resolution, preset at Immich defaults (`h264`, `required`, `720`, `ultrafast`) |
 
 ### Changing a setting
 
@@ -119,16 +128,55 @@ in Immich's [config file reference](https://docs.immich.app/install/config-file/
 - Immich links an OIDC login to an existing user with the same e-mail. Keep the local
   `kdkadmin` e-mail different from every `immich-users` member's LLDAP e-mail.
 
+## Video transcoding
+
+Immich keeps the original and, when its policy asks, writes a browser-friendly copy to
+`/data/encoded-video/<owner>/<xx>/<yy>/<asset id>.mp4`. That copy is
+made on the Intel Arc A380 with Quick Sync (QSV, since 2026-11-16): `ffmpeg.accel = qsv`, `accelDecode = true`
+(Immich's own default for `accelDecode`; Immich docs: hardware decode gives end-to-end
+acceleration). Thumbnails and ML are unaffected; ML stays on CPU (owner decision, option A).
+
+| Piece | Value |
+|---|---|
+| Device | `/dev/dri/renderD128` only (no `card*` nodes); `preferredHwDevice` stays `auto`, which picks it |
+| Access | `group_add: ["991"]` = host `render` group (`root:render 0660`); no capability, still `read_only` + `cap_drop: [ALL]` |
+| Encoder | `h264_qsv` (default target `h264`), scaled to 720p with `scale_qsv`, preset `ultrafast` → QSV `-preset 7` |
+| Policy | `required`: transcode when the video codec is not H.264, the video is HDR, or not `yuv420p`; audio when not aac/mp3/opus |
+| Fallback | on an ffmpeg error Immich retries with QSV encode + software decode, then fully in software. It logs each retry at `error` level |
+| Memory | server `mem_limit: 6g` (reasoning in the compose comment: ~1.1 GiB for a 5.7K software decode) |
+
+What gets transcoded with the defaults: iPhone HEVC clips (camera format High Efficiency), every HDR clip;
+Insta360 exports that are HEVC or 10-bit. H.264 8-bit SDR clips are only remuxed or played as-is.
+
+**Shared GPU.** Jellyfin uses the same A380 (`stacks/jellyfin/compose.yaml`, whole `/dev/dri`).
+Both can open the render node at once; they share the media engines, and Immich runs one video
+job at a time (`job.videoConversion.concurrency` default 1), so a bulk import can slow a
+concurrent Jellyfin transcode. Nothing in this stack changes Jellyfin.
+
+Check QSV inside the container:
+
+```bash
+ssh kdkadmin@192.168.191.20 'sudo docker exec immich-server id'      # groups=...,991
+ssh kdkadmin@192.168.191.20 'sudo docker exec immich-server /usr/lib/jellyfin-ffmpeg/vainfo --display drm --device /dev/dri/renderD128 | head -5'   # iHD driver, no error
+ssh kdkadmin@192.168.191.20 'sudo docker exec immich-server ffmpeg -hide_banner -v error -init_hw_device qsv=hw,child_device=/dev/dri/renderD128 -filter_hw_device hw -f lavfi -i testsrc2=size=1280x720:rate=30 -t 2 -vf hwupload=extra_hw_frames=64,format=qsv -c:v h264_qsv -f null - && echo QSV-OK'
+```
+
+While a video job runs, the ffmpeg process holds `renderD128` and the kernel counts its
+video-engine time (`drm-engine-video` in `/proc/<pid>/fdinfo`, i915 driver); a software
+fallback has no such fd. The per-asset log line names the path taken:
+`Transcoding video <id> with QSV-accelerated encoding and decoding` (good) vs
+`... without hardware acceleration` or a `Retrying with ...` line (fallback).
+
 ## Hardening
 
-Meets the [compose baseline](../reference/compose-baseline.md) with no skip or exception
-labels (`x-hardened` anchor: `no-new-privileges`, `cap_drop: [ALL]`, `read_only`, `pids_limit`,
+Meets the [compose baseline](../reference/compose-baseline.md) with no skip labels and one
+exception (`devices: /dev/dri/renderD128` on `immich-server`, for QSV) (`x-hardened` anchor: `no-new-privileges`, `cap_drop: [ALL]`, `read_only`, `pids_limit`,
 `mem_limit`, json-file 10m x 3, explicit healthcheck). Applied 2026-11-16, while the
 instance was empty (1 admin, 0 assets).
 
 | Service | User | Writable paths | Limits (mem / pids) | Healthcheck |
 |---|---|---|---|---|
-| `immich-server` | `1000:1000` | `/data` (library NFS), `/tmp` tmpfs (`HOME=/tmp`) | 4g / 1024 | `immich-healthcheck` (`/api/server/ping`) |
+| `immich-server` | `1000:1000` + group `991` (render) | `/data` (library NFS), `/tmp` tmpfs (`HOME=/tmp`) | 6g / 1024 | `immich-healthcheck` (`/api/server/ping`) |
 | `immich-machine-learning` | `1000:1000` | `/cache` (model cache), `/tmp` tmpfs (`HOME=/tmp`) | 4g / 512 | `python3 healthcheck.py` (`:3003/ping`) |
 | `immich-valkey` | `999:999` | `/data` tmpfs (64m), `/tmp` | 256m / 128 | `valkey-cli ping` |
 | `immich-postgres` | `999:999` | PGDATA bind; tmpfs `/etc/postgresql`, `/run/postgresql`, `/tmp` | 2g / 256 | image `healthcheck.sh` (pg_isready + checksum failures), every 30s |

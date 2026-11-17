@@ -39,10 +39,34 @@ services:
     # user": the user needs rw on the upload location and nothing else). Port
     # 2283 is unprivileged, so no capability is needed.
     user: "1000:1000"
-    # Idle on an empty instance 2026-11-16: 695 MiB / 33 pids. Thumbnailing,
-    # ffmpeg transcodes and the sharp/libvips thread pool (UV_THREADPOOL_SIZE =
-    # 8 cores) need headroom; /tmp tmpfs is charged to this cgroup too.
-    mem_limit: 4g
+    # Intel QSV video transcoding on the Arc A380 shared with Jellyfin
+    # (immich-config.json.tpl: ffmpeg.accel=qsv, accelDecode=true; ML stays on CPU).
+    # Only the render node is mapped: QSV/VA-API and the OpenCL tonemap open
+    # renderD128 alone; the card* (KMS/display, gid 44 video) nodes are not needed.
+    # With one node under /dev/dri, preferredHwDevice=auto picks it.
+    # On kdk-dkr-dmz-01 renderD128 is root:render 0660 and render = gid 991, so
+    # uid 1000 gets access through the supplementary group (numeric: the image has
+    # no `render` group). No capability is involved: the device cgroup allows the
+    # node and the 991 group grants the open (same as Jellyfin's abc user, which
+    # shows groups ...,991 in `id`). If the host ever renumbers render, update 991.
+    devices:
+      - /dev/dri/renderD128:/dev/dri/renderD128
+    group_add: ["991"]
+    # Idle on an empty instance 2026-11-16: 695 MiB / 33 pids.
+    # 6g (was 4g) for large video work. Evidence, 2026-11-16: a synthetic 5.7K
+    # (5760x2880) 10-bit HEVC clip -- Insta360 export size -- peaked at 964 MiB RSS
+    # to software-decode and 1095 MiB for Immich's full software fallback
+    # (decode + scale to 720p + libx264 ultrafast), threads auto on 8 cores like
+    # this host. QSV hardware decode keeps frames in the Arc's own VRAM, but Arc
+    # cannot hardware-decode H.264 above 4096x2304 and Immich then retries with
+    # software decode (and, failing that, fully in software), so plan for the
+    # software number. Worst concurrent case: idle 0.7 + transcode 1.1 + a video
+    # thumbnail ffmpeg on another 5.7K file ~1.0 + sharp/libvips previews of large
+    # panorama stills (3 concurrent) ~1.0 = ~3.8 GiB, too close to 4g for an OOM
+    # kill mid-job. 6g leaves ~2 GiB headroom; the host has 23 GiB with ~5 GiB in
+    # use (Jellyfin 10g cap, ML 4g, postgres 2g are caps, not reservations).
+    # /tmp tmpfs is charged to this cgroup too.
+    mem_limit: 6g
     pids_limit: 1024
     environment:
       TZ: America/Chicago
@@ -90,6 +114,7 @@ services:
       # sha256 of the rendered config (render-config.sh appends IMMICH_CONFIG_SHA to
       # .env), so a config or secret change recreates immich-server on deploy.
       kdk.config-sha: "${IMMICH_CONFIG_SHA:-unset}"
+      kdk.baseline.exception: "devices: /dev/dri/renderD128 for Arc A380 QSV video transcode"
 
   immich-machine-learning:
     <<: *hardened

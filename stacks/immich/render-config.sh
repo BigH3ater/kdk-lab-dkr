@@ -5,7 +5,7 @@
 #
 # Guards against a bad config stopping immich-server (Immich refuses to start on an
 # unparseable or invalid IMMICH_CONFIG_FILE):
-#   - renders into a temp file and validates it (JSON parses, OIDC invariants hold)
+#   - renders into a temp file and validates it (JSON parses, OIDC and QSV invariants hold)
 #     BEFORE it replaces the live file; any failure exits non-zero, Komodo aborts the
 #     deploy, and the running container and the previous file stay untouched;
 #   - the swap is an atomic mv inside the same directory.
@@ -27,6 +27,7 @@ validate() {
 import json, sys
 c = json.load(open(sys.argv[1]))
 o = c["oauth"]
+f = c.get("ffmpeg", {})
 checks = {
     "oauth.enabled": o["enabled"] is True,
     "oauth.clientSecret set": isinstance(o["clientSecret"], str) and len(o["clientSecret"]) >= 20
@@ -40,6 +41,13 @@ checks = {
     "storageTemplate.enabled": c["storageTemplate"]["enabled"] is True,
     "map off": c["map"]["enabled"] is False,
     "newVersionCheck off": c["newVersionCheck"]["enabled"] is False,
+    # QSV on the Arc A380 (compose maps /dev/dri/renderD128 + group 991). "qsv" is
+    # lower-case in Immich's enum; any other value would silently mean software only.
+    "ffmpeg.accel qsv": f.get("accel") == "qsv",
+    "ffmpeg.accelDecode": f.get("accelDecode") is True,
+    # Only renderD128 is mapped into the container; any other device fails every job.
+    "ffmpeg.preferredHwDevice auto|renderD128":
+        f.get("preferredHwDevice", "auto") in ("auto", "renderD128", "/dev/dri/renderD128"),
 }
 bad = [k for k, ok in checks.items() if not ok]
 if bad:

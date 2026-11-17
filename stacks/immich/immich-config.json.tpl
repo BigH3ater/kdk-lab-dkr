@@ -1,4 +1,5 @@
 {
+  "ffmpeg": { "accel": "qsv", "accelDecode": true },
   "map": { "enabled": false },
   "newVersionCheck": { "enabled": false },
   "storageTemplate": { "enabled": true, "hashVerificationEnabled": true },
