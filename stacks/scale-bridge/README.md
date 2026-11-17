@@ -1,6 +1,6 @@
 # scale-bridge
 
-Body Pod 2 (Lefu FFF0) BLE scale → wger body weight + ten raw impedance values, per
+Body Pod 2 (Lefu FFF0) BLE scale → wger body weight (+ ten raw impedance values until 0.3.1), per
 person by weight band, plus Lefu's own 8-electrode body-composition engine run once per
 weigh-in (results to the captures directory and, since 0.3.0, to 16 custom
 `… (scale)` categories in wger, and since 0.3.1 five derived `… (scale est.)` values).
@@ -39,7 +39,7 @@ not anyone's data), `SCALE_SESSION_TIMEOUT_S` (90), `SCALE_IMPEDANCE_WAIT_S` (5)
 `SCALE_DF_GRACE_S` (1), `SCALE_END_MARKER_WAIT_S` (20), `SCALE_CONNECT_ATTEMPTS` (3), `SCALE_CONNECT_TIMEOUT_S` (30),
 `SCALE_COOLDOWN_S` (60), `SCALE_BRIDGE_WRITE_RETRIES` (6: waits 30 s doubling, 15.5 min),
 `SCALE_BRIDGE_REPLAY_WINDOW_S` (600: same weight within this = the same weigh-in), `SCALE_BRIDGE_LOG_LEVEL` (INFO),
-`SCALE_BRIDGE_WRITE_HEART_RATE` (false; compose `true`), `SCALE_BRIDGE_WRITE_ENGINE` (false; compose `true`:
+`SCALE_BRIDGE_WRITE_IMPEDANCE` (true; compose `false` since 0.3.1: no `Impedance …` categories or rows, the values stay in the captures only), `SCALE_BRIDGE_WRITE_HEART_RATE` (false; compose `true`), `SCALE_BRIDGE_WRITE_ENGINE` (false; compose `true`:
 engine results to wger), `SCALE_BRIDGE_WRITE_DERIVED` (false; compose `true` since 0.3.1: the five
 derived `… (scale est.)` values, only with `SCALE_BRIDGE_WRITE_ENGINE`), `SCALE_BRIDGE_CAPTURE_DIR` (empty = off; compose `/captures`),
 `SCALE_BRIDGE_CAPTURE_KEEP_DAYS` (60; 0 = forever), `SCALE_BRIDGE_ENGINE` (on; off = engine

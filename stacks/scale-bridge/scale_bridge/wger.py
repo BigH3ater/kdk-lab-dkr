@@ -183,18 +183,20 @@ def external_id(scale_id: str, reading: Reading, person: str) -> uuid.UUID:
     return uuid.uuid5(NAMESPACE, f"{scale_id.upper()}|{person}|{reading.weight_cg}|{key}")
 
 
-def custom_rows(reading: Reading, heart_rate: bool = False) -> list[tuple[str, float, str]]:
-    """(category, value, unit) for the custom categories: impedances, then the heart rate if enabled."""
-    rows = [(name, v, IMPEDANCE_UNIT) for name, v in reading.impedances()]
+def custom_rows(reading: Reading, heart_rate: bool = False,
+                impedance: bool = True) -> list[tuple[str, float, str]]:
+    """(category, value, unit) for the custom categories: impedances (SCALE_BRIDGE_WRITE_IMPEDANCE,
+    default on), then the heart rate if enabled."""
+    rows = [(name, v, IMPEDANCE_UNIT) for name, v in reading.impedances()] if impedance else []
     if heart_rate and reading.heart_rate_bpm:
         rows.append((HEART_RATE_CATEGORY, float(reading.heart_rate_bpm), HEART_RATE_UNIT))
     return rows
 
 
-def plan(reading: Reading, heart_rate: bool = False) -> list[dict[str, Any]]:
+def plan(reading: Reading, heart_rate: bool = False, impedance: bool = True) -> list[dict[str, Any]]:
     """What a write would post, in order: body weight, the impedances, the heart rate (if enabled)."""
     rows: list[dict[str, Any]] = [{"category": "Body weight", "value": reading.weight_kg, "unit": "kg"}]
-    rows += [{"category": n, "value": v, "unit": u} for n, v, u in custom_rows(reading, heart_rate)]
+    rows += [{"category": n, "value": v, "unit": u} for n, v, u in custom_rows(reading, heart_rate, impedance)]
     return rows
 
 
@@ -378,8 +380,12 @@ class WgerClient:
 
     async def write_reading(self, reading: Reading, ext: uuid.UUID,
                             window: timedelta = REPLAY_WINDOW, heart_rate: bool = False,
-                            engine: Callable[[], Awaitable[EngineRows]] | None = None) -> dict[str, Any]:
+                            engine: Callable[[], Awaitable[EngineRows]] | None = None,
+                            impedance: bool = True) -> dict[str, Any]:
         """Write everything; safe to call again for the same reading, or for a replay of it.
+
+        `impedance` False (SCALE_BRIDGE_WRITE_IMPEDANCE off) = no impedance categories or rows;
+        a replay is still found by the body-weight entry (find_weight), never by them.
 
         `engine` (SCALE_BRIDGE_WRITE_ENGINE) is awaited only after the weight and the
         custom rows are written, so a slow or failed engine never holds them back.
@@ -409,7 +415,7 @@ class WgerClient:
                     counts["exists"] += 1
                 else:
                     counts[await self._post(cat, when, reading.weight_kg, ext, extra)] += 1
-            for name, value, unit in custom_rows(reading, heart_rate):
+            for name, value, unit in custom_rows(reading, heart_rate, impedance):
                 cid, _, created = await self.custom_category(name, unit)
                 counts["categories_created"] += int(created)
                 counts[await self.ensure_measurement(cid, when, value, ext,

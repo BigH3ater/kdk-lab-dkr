@@ -2,7 +2,7 @@
 
 Engine to wger (SCALE_BRIDGE_WRITE_ENGINE, live only): `handle` queues the write at once
 with a future for this session's engine result; `compute` (run by ble.py right after
-`handle`) resolves it. The write task posts the weight and the impedances first and only
+`handle`) resolves it. The write task posts the weight and the impedances (if on) first and only
 then waits for that future (bounded: engine timeout + ENGINE_WAIT_MARGIN_S), so the engine
 never delays the weight; the engine rows go into the same attempt, retry and `wrote` line.
 """
@@ -67,7 +67,7 @@ class Bridge:
         """Config summary + one authenticated GET per person (status only)."""
         emit(log, logging.INFO, "config", version=__version__, dry_run=self.s.dry_run,
              write_heart_rate=self.s.write_heart_rate, write_engine=self.s.write_engine,
-             write_derived=self.s.write_derived,
+             write_derived=self.s.write_derived, write_impedance=self.s.write_impedance,
              people=[x.name for x in self.s.people],
              wger_url=self.s.wger_url, address_filter=bool(self.s.scale_address))
         if not self.s.people:
@@ -116,7 +116,8 @@ class Bridge:
                  measured_at=reading.measured_at.isoformat(timespec="seconds"),
                  impedance_values=len(reading.impedances()), extended_frames=len(reading.df_raw),
                  heart_rate=reading.heart_rate_bpm is not None,      # captured or not; never the value
-                 categories=[r["category"] for r in plan(reading, self.s.write_heart_rate)], external_id=ext)
+                 categories=[r["category"] for r in plan(reading, self.s.write_heart_rate, self.s.write_impedance)],
+                 external_id=ext)
             return Decision("dry_run", person.name)
         if not self.s.token_for(person):
             emit(log, logging.ERROR, "write_skipped", session=session_id, person=person.name,
@@ -207,7 +208,8 @@ class Bridge:
         for attempt in range(1, self.s.write_retries + 1):
             try:
                 counts = await client.write_reading(reading, uuid.UUID(ext), window,
-                                                    heart_rate=self.s.write_heart_rate, engine=engine)
+                                                    heart_rate=self.s.write_heart_rate, engine=engine,
+                                                    impedance=self.s.write_impedance)
             except WgerError as e:
                 emit(log, logging.WARNING, "write_failed", session=session_id, person=person,
                      attempt=attempt, error=str(e))
