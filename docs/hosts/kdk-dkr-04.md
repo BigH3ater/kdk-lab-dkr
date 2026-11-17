@@ -12,7 +12,7 @@ vmid: kdkdkr04
 console: TrueNAS UI → Virtualization → kdkdkr04 → Console
 standards: baseline-at-build
 secrets: []
-updated: 2026-11-16
+updated: 2026-11-17
 tags: [homelab/host, role/docker-host, status/building, tier/internal]
 ---
 
@@ -113,6 +113,9 @@ on kdk-dkr-01 connects). No PCI passthrough.
 | `/mnt/insta360-upload` | `172.16.30.2:/mnt/tankz3/insta360-upload` | NFSv4.1 | `nfsvers=4.1,ro,noatime,_netdev` | `insta360-flat` (raw captures, [[imaging]]) | tankz3 daily snapshots (2 weeks) |
 | `/mnt/insta360-flat` | `172.16.30.2:/mnt/tankz3/insta360-flat` | NFSv4.1 | `nfsvers=4.1,noatime,_netdev` | `insta360-flat` (finished stills, [[insta360-flat]]) | tankz3 daily snapshots (2 weeks) |
 | `/opt/kdk-lab` | root zvol | zfs | — | all stack config | SSH-pulled nightly by `backup-collect` on dkr-01 |
+
+All six NFS mounts are in `storage-health-dkr04` `NFS_MOUNTS` (hourly; a missing or hung
+mount pages `kdk-lab storage FAILED`).
 
 The NAS exports `tankz3/media` and `tankz3/backup` to `172.16.30.52` (RW,
 `maproot=root`) since 2026-10-30. The mount units are `/etc/systemd/system/mnt-{media,backup}.mount`,

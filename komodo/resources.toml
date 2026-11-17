@@ -1287,8 +1287,9 @@ destroy_before_deploy = true   # one locked down+up so the one-shot re-runs
 # No `environment`: the compose default NFS_MOUNTS is dkr-01's set
 # (media backup dee-exchange), so dkr-01's behaviour is unchanged.
 
-# Same compose on kdk-dkr-04, which has /mnt/media, /mnt/backup, /mnt/linux-tools and
-# /mnt/3d-prints (read-only CAD library for backup-offsite).
+# Same compose on kdk-dkr-04, which has /mnt/media, /mnt/backup, /mnt/linux-tools,
+# /mnt/3d-prints (read-only CAD library for backup-offsite) and the two insta360-flat
+# mounts /mnt/insta360-upload (ro raws) + /mnt/insta360-flat (rw stills).
 [[stack]]
 tags = ["kdk-lab"]
 name = "storage-health-dkr04"
@@ -1301,7 +1302,8 @@ repo = "BigH3ater/kdk-lab-dkr"
 run_directory = "stacks/storage-health"
 # linux-tools: NAS export + dkr-04 unit live since 2026-11-05 (docs/runbooks/linux-tools-share.md)
 # 3d-prints: merge only after the dkr-04 unit verifies (docs/runbooks/cad-library.md)
-environment = "NFS_MOUNTS=media backup linux-tools 3d-prints"
+# insta360-upload/-flat: dkr-04 units active since 2026-11-16 (docs/runbooks/imaging.md)
+environment = "NFS_MOUNTS=media backup linux-tools 3d-prints insta360-upload insta360-flat"
 destroy_before_deploy = true   # one locked down+up so the one-shot re-runs
 
 [[procedure]]

@@ -1,6 +1,6 @@
 ---
 title: Imaging (Insta360 trips → Immich)
-updated: 2026-11-16
+updated: 2026-11-17
 ---
 
 # Imaging
@@ -156,6 +156,12 @@ ssh kdkadmin@10.1.20.22 'findmnt -rn -o TARGET,OPTIONS /mnt/insta360-upload /mnt
 Installed on kdk-dkr-04 2026-11-16 (both `active`; a test file on flat landed as
 `3003:3001` on the NAS and was removed).
 
+Both are watched hourly by `storage-health-dkr04` (`NFS_MOUNTS=... insta360-upload
+insta360-flat` in `komodo/resources.toml`): a missing or hung mount pages
+`kdk-lab storage FAILED` ([storage network](storage-network.md)). Taking a unit down on
+purpose (Rollback below) means removing it from `NFS_MOUNTS` in the same PR, or the
+check pages every hour.
+
 ## Validate a change (image or `flatten.py`)
 
 Build on dkr-04 from a temp dir (never `/etc/komodo`, never the Komodo clone), then run the
@@ -179,5 +185,7 @@ the temp dir, the `:test` image and the `i360test_default` network afterwards.
   the PR and ResourceSync).
 - Stills already written stay (the job never deletes). Remove a bad batch on the NAS:
   `sudo rm /mnt/tankz3/insta360-flat/<trip>/<pattern>` (snapshots keep 2 weeks).
-- Units: `sudo systemctl disable --now 'mnt-insta360\x2dupload.mount' 'mnt-insta360\x2dflat.mount'`
+- Units: first drop `insta360-upload insta360-flat` from `storage-health-dkr04`
+  `NFS_MOUNTS` (PR, ResourceSync, Deploy `storage-health-dkr04`), or the hourly check pages
+  MISSING; then `sudo systemctl disable --now 'mnt-insta360\x2dupload.mount' 'mnt-insta360\x2dflat.mount'`
   and delete them from `/etc/systemd/system/` on dkr-04.
