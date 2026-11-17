@@ -68,6 +68,11 @@ jobs:
           if grep -nE '^[[:space:]]*#.*op://' $(git ls-files 'stacks/**/*.tpl' 'stacks/*/*.tpl'); then
             echo "::error::op:// URI inside a comment in a template (see lines above)"; exit 1
           fi
+      # Immich refuses to start on a bad IMMICH_CONFIG_FILE. Same validation the
+      # pre_deploy runs, here with a dummy secret (JSON parses + OIDC invariants).
+      - name: Immich config template validates
+        working-directory: stacks/immich
+        run: sh render-config.sh --check
 
   host-files:
     runs-on: ubuntu-latest

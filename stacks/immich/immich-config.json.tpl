@@ -1,0 +1,28 @@
+{
+  "map": { "enabled": false },
+  "newVersionCheck": { "enabled": false },
+  "storageTemplate": { "enabled": true, "hashVerificationEnabled": true },
+  "trash": { "enabled": true, "days": 30 },
+  "notifications": { "smtp": { "enabled": false } },
+  "passwordLogin": { "enabled": true },
+  "oauth": {
+    "enabled": true,
+    "issuerUrl": "https://sso.kmkdp.com/.well-known/openid-configuration",
+    "clientId": "immich",
+    "clientSecret": "{{ op://kdk-cluster/authelia-app-secrets/immich_oidc_plaintext }}",
+    "scope": "openid email profile",
+    "tokenEndpointAuthMethod": "client_secret_post",
+    "signingAlgorithm": "RS256",
+    "profileSigningAlgorithm": "none",
+    "buttonText": "Sign in with Authelia",
+    "autoRegister": true,
+    "autoLaunch": false,
+    "mobileOverrideEnabled": false,
+    "mobileRedirectUri": "",
+    "storageLabelClaim": "preferred_username",
+    "roleClaim": "kdk_immich_role_never_issued",
+    "storageQuotaClaim": "kdk_immich_quota_never_issued",
+    "defaultStorageQuota": null,
+    "timeout": 30000
+  }
+}
