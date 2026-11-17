@@ -20,6 +20,10 @@ bridge works exactly as 0.1.3.
 **Upgrading to 0.3.0 (engine results + heart rate to wger):** no host step; merge = deploy,
 then [6b](#6b-engine-results-and-heart-rate-to-wger-030).
 
+**Upgrading to 0.3.1 (five derived values to wger, raw impedance out of wger):** no host
+step; merge = deploy, then [6c](#6c-derived-values-to-wger-031) and
+[6d](#6d-raw-impedance-out-of-wger-031).
+
 ## 1. Host directories
 
 **Laptop (SSH agent)**
@@ -189,7 +193,7 @@ changes. Note the Pi's build time from the Komodo deploy log for the vault.
 ssh kdkadmin@10.1.30.21 'sudo docker ps --filter name=scale-bridge --format "{{.Names}} {{.Status}}"'
 #   scale-bridge Up ... (healthy)          (health starts after ~1 min)
 ssh kdkadmin@10.1.30.21 'sudo docker logs scale-bridge 2>&1 | head -5'
-#   {"event":"config","version":"0.3.0","dry_run":false,"write_heart_rate":true,"write_engine":true,"people":["jmack","rach"],...}
+#   {"event":"config","version":"0.3.1","dry_run":false,"write_heart_rate":true,"write_engine":true,"write_derived":true,"write_impedance":false,"people":["jmack","rach"],...}
 #   {"event":"token_check","person":"jmack","result":"ok","status":200}   (and rach)
 #   {"event":"engine_config","enabled":true,"reason":"on","variant":"PPDeviceCalcuteTypeAlternate8_4","limb_order":"10432","df_x0":"20k","profiles":["jmack","rach"],"sdk_commit":"c1eb5ab4..."}
 #   {"event":"capture","enabled":true,"dir":"/captures","keep_days":60}
@@ -230,7 +234,7 @@ Expected, in order:
 |---|---|
 | `session` | `result: reading`, `ended_by: end_marker`, `settled: true`, `settled_state: "05"`, `impedance_frames: 2`, `extended_frames: 4`, `bad_frames: 0`, `end_marker: true`, `heart_rate: true` |
 | `attribution` | `result: matched`, `person: <you>`, `impedance: true` |
-| `would_write` | `weight_lb` = the display (lb, 0.1; `weight_kg` alongside), `impedance_values: 10`, `heart_rate: true`, 11 `categories` |
+| `would_write` | `weight_lb` = the display (lb, 0.1; `weight_kg` alongside), `impedance_values: 10` (what the reading has), `heart_rate: true`, `categories`: since 0.3.1 (impedance off, heart rate on) 2, `Body weight` and `Heart rate (scale)`; with `SCALE_BRIDGE_WRITE_IMPEDANCE: "true"` 12 (11 without heart rate) |
 | `capture_written` | `file: <yyyymmddThhmmssZ>-<session>.jsonl`, `frames` = the `session` line's `frames` |
 
 Then the other person. `ended_by: impedance_timeout` with `impedance_frames: 0` = handle
@@ -331,17 +335,18 @@ ssh kdkadmin@10.1.30.21 'sudo docker logs --since 10m scale-bridge 2>&1 | grep -
 | `session` | `result: reading`, as in step 5 |
 | `attribution` | `result: matched`, `person: <you>` |
 | `would_write` | **absent** (present = still dry-run: the deploy did not pick up the change) |
-| `wrote` | `person`, `external_id`, `created: 11`, `exists: 0`, `categories_created: 10` on that person's first live write; later `categories_created: 0`. A weight-only reading (handle let go early) = `created: 1` and no impedance categories |
+| `wrote` | `person`, `external_id`, `exists: 0`. **Since 0.3.1 (impedance off, current):** `created: 2` (weight + heart rate; 1 without a heart rate), `categories_created: 1` only on the first write that creates `Heart rate (scale)`, else 0; the engine and derived counts as in 6b/6c. **With `SCALE_BRIDGE_WRITE_IMPEDANCE: "true"` (0.2.x go-live, no heart rate):** `created: 11`, `categories_created: 10` on that person's first live write; later `categories_created: 0`. A weight-only reading (handle let go early) = `created: 1` and no impedance categories either way |
 
    The write runs in the background after the `session` line, normally within seconds.
 3. **wger web (`https://wger.kmkdp.com`, as that person) → Measurements:**
    - **Body weight**: one new entry at the weigh-in time (kg). If that person had never
      logged a weight, this first one also creates the official Body weight category, in the
      profile's unit.
-   - **Ten new custom categories**, unit `ohm`, one entry each at the same time:
+   - **Since 0.3.1 (current): no impedance categories.** With `SCALE_BRIDGE_WRITE_IMPEDANCE:
+     "true"` (0.2.x / 0.3.0): ten custom categories, unit `ohm`, one entry each at the same time:
      `Impedance 50 kHz right arm`, `Impedance 50 kHz left arm`, `Impedance 50 kHz trunk`,
      `Impedance 50 kHz right leg`, `Impedance 50 kHz left leg`, and the same five with
-     `250 kHz`.
+     `250 kHz` ([6d](#6d-raw-impedance-out-of-wger-031)).
    - **Nothing else** (in 0.2.x): no `Heart rate (scale)` category, no engine categories.
      From 0.3.0: [6b](#6b-engine-results-and-heart-rate-to-wger-030).
 4. **The other person**, the same way.
@@ -350,8 +355,11 @@ ssh kdkadmin@10.1.30.21 'sudo docker logs --since 10m scale-bridge 2>&1 | grep -
 60 s cooldown after a reading ignores it while the container runs. After a restart, or on a
 retry, a reading whose weight (to 5 g) already has a Body weight entry within
 `SCALE_BRIDGE_REPLAY_WINDOW_S` (600 s) is the same weigh-in: `wrote` with `created: 0` and
-`exists` counting the rows already there (11 for a full reading; after a weight-only one,
-the replay adds the missing impedance: `exists: 1`, `created: 10`). Each entry also carries
+`exists` counting the rows already there (with impedance on: 11 for a full reading, and after
+a weight-only one the replay adds the missing impedance: `exists: 1`, `created: 10`; since
+0.3.1 with impedance off: weight + heart rate, and a replay adds only a missing heart-rate,
+engine or derived row). The replay is found by the Body weight entry, so it works the same
+with the impedance switch off. Each entry also carries
 an `external_id`; wger rejects a repeat of it, counted as `exists`. Cost: a genuine second
 weigh-in by the same person at exactly the same weight within 10 min is not written.
 
@@ -362,9 +370,10 @@ enter it in the wger app. Retries are in memory only: a redeploy or restart duri
 drops them without a `write_gave_up` line.
 
 **Undo a wrong write** (wrong person, or a test): in that person's wger web →
-Measurements, delete the Body weight entry at that time and the ten impedance entries at the
-same time. To remove everything the bridge made for a person, delete the ten
-`Impedance …` categories (that deletes their entries) and the bridge's Body weight entries;
+Measurements, delete the Body weight entry at that time and the bridge's other entries at the
+same time (heart rate, `… (scale)`, `… (scale est.)`; the ten impedance entries for a write
+before 0.3.1). To remove everything the bridge made for a person, delete its custom
+categories (that deletes their entries) and the bridge's Body weight entries;
 **never delete the Body weight category itself** (it holds the weights logged by hand).
 
 **Back to dry-run:** revert the go-live PR and merge the revert (merge = deploy); startup
@@ -388,7 +397,7 @@ ssh kdkadmin@10.1.30.21 'sudo docker logs --since 10m scale-bridge 2>&1 | grep -
 | Line | Expected on that person's first 0.3.0 weigh-in |
 |---|---|
 | `engine` | `result: ok`, `error_type: PP_ERROR_TYPE_NONE`, `duration_s` about 1.2 |
-| `wrote` | `created: 12` (11 + heart rate; 11 if the scale sent no heart rate), `categories_created: 1` (the heart-rate category; 0 later), `engine_result: ok`, `engine_created: 16`, `engine_categories_created: 16` (0 later), `engine_skipped: 0`, `engine_rejected: 0` |
+| `wrote` | `created: 12` (11 + heart rate; 11 if the scale sent no heart rate; since 0.3.1 with impedance off `created: 2`, or 1), `categories_created: 1` (the heart-rate category; 0 later), `engine_result: ok`, `engine_created: 16`, `engine_categories_created: 16` (0 later), `engine_skipped: 0`, `engine_rejected: 0` |
 
 In wger (as that person → Measurements): one new custom category `Heart rate (scale)` (bpm)
 and 16 new custom categories `Body fat (scale)`, `Skeletal muscle (scale)`, `Body water
@@ -400,7 +409,7 @@ person's wger profile (kg or lb). wger's own `Body fat` / `Heart rate` categorie
 get nothing.
 
 `engine_result` other than `ok` (`no_profile`, `engine_off`, `not_run`, `no_result`, or the
-engine's reason code) = no engine rows for that weigh-in; the weight and impedance are in.
+engine's reason code) = no engine rows for that weigh-in; the weight (and heart rate) are in.
 
 **Switch off:** a one-line PR, `SCALE_BRIDGE_WRITE_ENGINE: "false"` (or
 `SCALE_BRIDGE_WRITE_HEART_RATE: "false"`) in `stacks/scale-bridge/compose.yaml`; merge =
@@ -409,6 +418,57 @@ deploy. The engine keeps running and writing `.engine.json`; nothing else change
 **Undo:** in that person's wger web → Measurements, delete the `… (scale)` categories (that
 deletes their entries). Never delete `Body weight` or the categories without `(scale)` that
 Apple Health feeds.
+
+## 6c. Derived values to wger (0.3.1)
+
+**Status:** compose `SCALE_BRIDGE_WRITE_DERIVED: "true"` since the 0.3.1 PR. No host step.
+Formulas, constants and evidence: [service page](../services/scale-bridge.md#derived-values-in-wger).
+Only has effect with `SCALE_BRIDGE_WRITE_ENGINE: "true"` and an `ok` engine result.
+
+**After the merge (merge = deploy):** startup `config` shows `"version":"0.3.1"`,
+`"write_derived":true`. Then one weigh-in, and the same log command as 6b:
+
+| Line | Expected on that person's first 0.3.1 weigh-in |
+|---|---|
+| `wrote` | as 6b (`engine_created: 16` on a new weigh-in), plus `derived_created: 5`, `derived_categories_created: 5` (0 later), `derived_skipped: 0`, `derived_skipped_sex: 0`, `derived_rejected: 0` for a male profile; for any other profile `derived_created: 1`, `derived_categories_created: 1`, `derived_skipped_sex: 4` |
+
+In wger (as that person → Measurements), the first write creates the custom categories
+`Mineral (scale est.)`, `Android fat (scale est.)`, `Gynoid fat (scale est.)` (these three in
+the profile's weight unit, kg or lb), `A/G ratio (scale est.)` and `Torso fat (scale est.)` (`%`),
+each with one entry at the weigh-in's time; for a profile that is not male only `Mineral (scale
+est.)`. A retry or replay of a weigh-in written by 0.3.0 adds only these rows.
+
+**Switch off:** a one-line PR, `SCALE_BRIDGE_WRITE_DERIVED: "false"` in
+`stacks/scale-bridge/compose.yaml`; merge = deploy. The 16 engine rows are unchanged.
+
+**Undo:** in that person's wger web → Measurements, delete the five `… (scale est.)`
+categories (that deletes their entries).
+
+**Change a constant** (after more paired weigh-ins): a one-line PR to `ANDROID_PER_TRUNK_FAT`,
+`GYNOID_PER_LEG_FAT` or `TORSO_SHARE_OF_WEIGHT` in `stacks/scale-bridge/scale_bridge/wger.py`
+plus the version bump (`pyproject.toml`, `__init__.py`, compose image tag, `uv lock`) and the
+service-page table. Entries already written keep the old constant (their `extra_data.formula`
+names it); only weigh-ins after the deploy use the new one.
+
+## 6d. Raw impedance out of wger (0.3.1)
+
+**Status:** compose `SCALE_BRIDGE_WRITE_IMPEDANCE: "false"` since the 0.3.1 PR (owner
+2026-11-16: the raw ohm values cluttered wger's Measurements). No host step. The ten values
+stay in the capture files only ([step 7](#7-raw-capture-files)), which are pruned after 60 days
+(`SCALE_BRIDGE_CAPTURE_KEEP_DAYS`): nothing keeps them long-term. The engine is unaffected (it
+reads the `DF` frames of the reading, not wger).
+
+**What a full weigh-in writes now:** Body weight + `Heart rate (scale)` (`created: 2`), the 16
+engine rows and the derived rows (6c). Startup `config` shows `"write_impedance":false`.
+
+**Old categories:** the ten `Impedance … kHz …` categories written before 0.3.1 stay until
+deleted. The main session deletes them for each person through the wger API after this
+deploys. By hand: that person's wger web → Measurements → open each `Impedance 50 kHz …` /
+`Impedance 250 kHz …` category → delete the category (that deletes its entries). Never delete
+`Body weight` or the categories Apple Health feeds.
+
+**Switch back on:** a one-line PR, `SCALE_BRIDGE_WRITE_IMPEDANCE: "true"`; merge = deploy. New
+weigh-ins get the ten categories again (recreated by name); deleted history does not come back.
 
 ## 7. Raw capture files
 
@@ -529,6 +589,13 @@ temporary spot).
   `SCALE_BRIDGE_WRITE_ENGINE: "false"`, merge = deploy; delete the `… (scale)` categories if
   wanted ([6b](#6b-engine-results-and-heart-rate-to-wger-030)). Heart rate the same way with
   `SCALE_BRIDGE_WRITE_HEART_RATE: "false"`.
+- **Derived values out of wger (0.3.1), keep everything else:** a one-line PR,
+  `SCALE_BRIDGE_WRITE_DERIVED: "false"`, merge = deploy; delete the five `… (scale est.)`
+  categories if wanted ([6c](#6c-derived-values-to-wger-031)).
+- **Impedance back in wger:** a one-line PR, `SCALE_BRIDGE_WRITE_IMPEDANCE: "true"`, merge =
+  deploy ([6d](#6d-raw-impedance-out-of-wger-031)).
+- **Back to 0.3.0:** revert the 0.3.1 PR, merge = deploy (impedance rows are written again). Rows already written stay in wger
+  (6c "Undo").
 - **Back to 0.2.0:** revert the 0.3.0 PR, merge = deploy. Rows already written stay in wger
   (6b "Undo").
 - **Engine off (0.2.0), keep everything else:** a one-line PR,
@@ -542,6 +609,6 @@ temporary spot).
   captures directory and its files stay; delete them as in step 7 if not wanted.
 - **Left behind:** `/opt/kdk-lab/scale-bridge/` including `captures/` (health data; remove with
   `ssh kdkadmin@10.1.30.21 'sudo rm -r /opt/kdk-lab/scale-bridge'`), the image
-  (`sudo docker image rm kdk/scale-bridge:0.3.0`, plus `:0.2.0` / `:0.1.3` / `:0.1.2` / `:0.1.1` / `:0.1.0` if still there), and in wger the written entries and the
-  ten impedance categories, `Heart rate (scale)` and the 16 engine `… (scale)` categories (delete per person in the web UI; deleting a category deletes
+  (`sudo docker image rm kdk/scale-bridge:0.3.1`, plus `:0.3.0` / `:0.2.0` / `:0.1.3` / `:0.1.2` / `:0.1.1` / `:0.1.0` if still there), and in wger the written entries and the
+  ten impedance categories, `Heart rate (scale)`, the 16 engine `… (scale)` and the five `… (scale est.)` categories (delete per person in the web UI; deleting a category deletes
   its entries). The wger keys stay: other tools use them.

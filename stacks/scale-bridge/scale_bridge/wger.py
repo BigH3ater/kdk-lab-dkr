@@ -54,7 +54,7 @@ MASS = "mass"                   # an engine metric in kg or lb: see _write_engin
 # the vendor result model's (com.lefu.ppcalculate.PPBodyFatModel, ppcalculatekit 4.6.28),
 # which engine/src/kdk/lefu/Main.java scalars() exports by name into the result's `out`.
 # Not written (yet): getPpBodyAge (metabolic age, not comparable to the app), the balance
-# levels, subcutaneous and per-limb fat, mineral, skeletal %.
+# levels, subcutaneous and per-limb fat, skeletal %, getPpMineralKg (only in DERIVED_METRICS below).
 ENGINE_METRICS: tuple[tuple[str, str, str], ...] = (
     ("Body fat (scale)", "getPpFat", "%"),
     ("Skeletal muscle (scale)", "getPpBodySkeletalKg", MASS),
@@ -72,6 +72,44 @@ ENGINE_METRICS: tuple[tuple[str, str, str], ...] = (
     ("Lean trunk (scale)", "getPpMuscleKgTrunk", MASS),
     ("Lean right leg (scale)", "getPpMuscleKgRightLeg", MASS),
     ("Lean left leg (scale)", "getPpMuscleKgLeftLeg", MASS),
+)
+# Derived values (SCALE_BRIDGE_WRITE_DERIVED, 0.3.1): values the vendor app shows that the
+# engine does not output, worked out here from the same `out`. Not engine getters: their
+# measurements carry extra_data `derived: true` + `formula` (the id below), never `engine_field`.
+# The three constants were FITTED ON FOUR PAIRED WEIGH-INS, 2026-11-15/16, ONE MALE SUBJECT;
+# PROVISIONAL. Changing one = a one-line PR + version bump; entries already written keep the old one.
+ANDROID_PER_TRUNK_FAT = 0.780    # android fat kg / trunk fat kg
+GYNOID_PER_LEG_FAT = 1.422       # gynoid fat kg / (left + right leg fat kg)
+TORSO_SHARE_OF_WEIGHT = 0.529    # torso fat % = trunk fat kg / (this * weight kg)
+
+
+def _num(out: Any, getter: str) -> float:
+    """out[getter] as a finite positive float, else nan (missing, not a number, zero, negative)."""
+    v = out.get(getter) if isinstance(out, dict) else None
+    try:
+        f = float(v) if v is not None and not isinstance(v, bool) else math.nan
+    except (TypeError, ValueError):
+        f = math.nan
+    return f if math.isfinite(f) and f > 0 else math.nan
+
+
+def _android(o: Any) -> float:
+    return ANDROID_PER_TRUNK_FAT * _num(o, "getPpBodyFatKgTrunk")
+
+
+def _gynoid(o: Any) -> float:
+    return GYNOID_PER_LEG_FAT * (_num(o, "getPpBodyFatKgLeftLeg") + _num(o, "getPpBodyFatKgRightLeg"))
+
+
+# (category, unit or MASS, formula id, male only (fitted constant), f(out) -> kg or value; nan = skip)
+DERIVED_METRICS: tuple[tuple[str, str, str, bool, Callable[[Any], float]], ...] = (
+    ("Mineral (scale est.)", MASS, "mineral-minus-bone", False,
+     lambda o: _num(o, "getPpMineralKg") - _num(o, "getPpBoneKg")),
+    ("Android fat (scale est.)", MASS, f"android-{ANDROID_PER_TRUNK_FAT:.3f}-trunk", True, _android),
+    ("Gynoid fat (scale est.)", MASS, f"gynoid-{GYNOID_PER_LEG_FAT:.3f}-legs", True, _gynoid),
+    ("A/G ratio (scale est.)", "%", "android-over-gynoid", True, lambda o: 100 * _android(o) / _gynoid(o)),
+    ("Torso fat (scale est.)", "%", f"trunk-over-{TORSO_SHARE_OF_WEIGHT:.3f}-weight", True,
+     lambda o: 100 * _num(o, "getPpBodyFatKgTrunk") / (TORSO_SHARE_OF_WEIGHT * _num(o, "getPpWeightKg"))),
 )
 SAME_WEIGHT_KG = 0.005          # below the scale's 10 g step; covers the lb round trip
 SAME_TIME = timedelta(seconds=1)
@@ -92,11 +130,37 @@ class EngineRows(NamedTuple):
     result: str                                          # ok, or why there are no rows
     rows: tuple[tuple[str, str, float, str], ...] = ()   # (category, getter, kg or value, unit or MASS)
     skipped: int = 0                                     # metrics missing, non-finite, zero or negative
+    derived: DerivedRows | None = None                   # SCALE_BRIDGE_WRITE_DERIVED on, else None
 
 
-def engine_rows(out: Any) -> EngineRows:
-    """The engine's `out` object (output.out) -> one row per ENGINE_METRICS entry with a usable value."""
+class DerivedRows(NamedTuple):
+    rows: tuple[tuple[str, str, float, str], ...] = ()   # (category, formula id, kg or value, unit or MASS)
+    skipped: int = 0                                     # an input or the result unusable
+    skipped_sex: int = 0                                 # male-only rows, profile not male
+
+
+def derived_rows(out: Any, male: bool) -> DerivedRows:
+    """DERIVED_METRICS over the engine's `out`; the fitted-constant rows only for a male profile."""
+    rows, skipped, skipped_sex = [], 0, 0
+    for name, unit, formula, male_only, f in DERIVED_METRICS:
+        if male_only and not male:
+            skipped_sex += 1
+            continue
+        v = f(out)
+        if math.isfinite(v) and v > 0:
+            rows.append((name, formula, v, unit))
+        else:
+            skipped += 1
+    return DerivedRows(tuple(rows), skipped, skipped_sex)
+
+
+def engine_rows(out: Any, derived_male: bool | None = None) -> EngineRows:
+    """The engine's `out` object (output.out) -> one row per ENGINE_METRICS entry with a usable value.
+
+    `derived_male` None = no derived values; else whether the person's profile sex is male.
+    """
     rows, skipped = [], 0
+    derived = None if derived_male is None else derived_rows(out, derived_male)
     for name, getter, unit in ENGINE_METRICS:
         v = out.get(getter) if isinstance(out, dict) else None
         try:
@@ -107,7 +171,7 @@ def engine_rows(out: Any) -> EngineRows:
             rows.append((name, getter, f, unit))
         else:
             skipped += 1
-    return EngineRows("ok", tuple(rows), skipped)
+    return EngineRows("ok", tuple(rows), skipped, derived)
 
 
 def external_id(scale_id: str, reading: Reading, person: str) -> uuid.UUID:
@@ -119,18 +183,20 @@ def external_id(scale_id: str, reading: Reading, person: str) -> uuid.UUID:
     return uuid.uuid5(NAMESPACE, f"{scale_id.upper()}|{person}|{reading.weight_cg}|{key}")
 
 
-def custom_rows(reading: Reading, heart_rate: bool = False) -> list[tuple[str, float, str]]:
-    """(category, value, unit) for the custom categories: impedances, then the heart rate if enabled."""
-    rows = [(name, v, IMPEDANCE_UNIT) for name, v in reading.impedances()]
+def custom_rows(reading: Reading, heart_rate: bool = False,
+                impedance: bool = True) -> list[tuple[str, float, str]]:
+    """(category, value, unit) for the custom categories: impedances (SCALE_BRIDGE_WRITE_IMPEDANCE,
+    default on), then the heart rate if enabled."""
+    rows = [(name, v, IMPEDANCE_UNIT) for name, v in reading.impedances()] if impedance else []
     if heart_rate and reading.heart_rate_bpm:
         rows.append((HEART_RATE_CATEGORY, float(reading.heart_rate_bpm), HEART_RATE_UNIT))
     return rows
 
 
-def plan(reading: Reading, heart_rate: bool = False) -> list[dict[str, Any]]:
+def plan(reading: Reading, heart_rate: bool = False, impedance: bool = True) -> list[dict[str, Any]]:
     """What a write would post, in order: body weight, the impedances, the heart rate (if enabled)."""
     rows: list[dict[str, Any]] = [{"category": "Body weight", "value": reading.weight_kg, "unit": "kg"}]
-    rows += [{"category": n, "value": v, "unit": u} for n, v, u in custom_rows(reading, heart_rate)]
+    rows += [{"category": n, "value": v, "unit": u} for n, v, u in custom_rows(reading, heart_rate, impedance)]
     return rows
 
 
@@ -314,8 +380,12 @@ class WgerClient:
 
     async def write_reading(self, reading: Reading, ext: uuid.UUID,
                             window: timedelta = REPLAY_WINDOW, heart_rate: bool = False,
-                            engine: Callable[[], Awaitable[EngineRows]] | None = None) -> dict[str, Any]:
+                            engine: Callable[[], Awaitable[EngineRows]] | None = None,
+                            impedance: bool = True) -> dict[str, Any]:
         """Write everything; safe to call again for the same reading, or for a replay of it.
+
+        `impedance` False (SCALE_BRIDGE_WRITE_IMPEDANCE off) = no impedance categories or rows;
+        a replay is still found by the body-weight entry (find_weight), never by them.
 
         `engine` (SCALE_BRIDGE_WRITE_ENGINE) is awaited only after the weight and the
         custom rows are written, so a slow or failed engine never holds them back.
@@ -345,7 +415,7 @@ class WgerClient:
                     counts["exists"] += 1
                 else:
                     counts[await self._post(cat, when, reading.weight_kg, ext, extra)] += 1
-            for name, value, unit in custom_rows(reading, heart_rate):
+            for name, value, unit in custom_rows(reading, heart_rate, impedance):
                 cid, _, created = await self.custom_category(name, unit)
                 counts["categories_created"] += int(created)
                 counts[await self.ensure_measurement(cid, when, value, ext,
@@ -362,25 +432,35 @@ class WgerClient:
         own unit (kg or lb) and the value is converted to it, so a later profile change never
         mixes units in one category. A 400 for one row (wger refused that value: permanent)
         is counted as rejected and the others go on; any other failure raises (the retry).
+        Derived rows (er.derived, SCALE_BRIDGE_WRITE_DERIVED) follow the same rules with
+        `derived_` counts and extra_data `derived: true` + `formula` instead of `engine_field`.
         """
         counts.update(engine_result=er.result, engine_created=0, engine_exists=0,
                       engine_skipped=er.skipped, engine_rejected=0, engine_categories_created=0)
+        passes: list[tuple[str, tuple[tuple[str, str, float, str], ...]]] = [("engine_", er.rows)]
+        if er.derived is not None:
+            counts.update(derived_created=0, derived_exists=0, derived_skipped=er.derived.skipped,
+                          derived_skipped_sex=er.derived.skipped_sex, derived_rejected=0,
+                          derived_categories_created=0)
+            passes.append(("derived_", er.derived.rows))
         profile_unit: str | None = None
-        for name, getter, value, unit in er.rows:
-            if unit == MASS:
-                if name not in self._categories and profile_unit is None:
-                    profile_unit = "lb" if (await self.profile()).get("weight_unit") == "lb" else "kg"
-                cid, have, created = await self.custom_category(name, profile_unit or "kg")
-                counts["engine_categories_created"] += int(created)
-                if have not in ("kg", "lb"):
-                    counts["engine_skipped"] += 1            # a mass category in some other unit
-                    continue
-                unit, value = have, (value * LB_PER_KG if have == "lb" else value)
-            else:
-                cid, _, created = await self.custom_category(name, unit)
-                counts["engine_categories_created"] += int(created)
-            try:
-                counts["engine_" + await self.ensure_measurement(
-                    cid, when, value, ext, {"unit": unit, "device": "Body Pod 2", "engine_field": getter})] += 1
-            except WgerRejected:
-                counts["engine_rejected"] += 1
+        for pre, rows in passes:
+            for name, tag, value, unit in rows:
+                if unit == MASS:
+                    if name not in self._categories and profile_unit is None:
+                        profile_unit = "lb" if (await self.profile()).get("weight_unit") == "lb" else "kg"
+                    cid, have, created = await self.custom_category(name, profile_unit or "kg")
+                    counts[pre + "categories_created"] += int(created)
+                    if have not in ("kg", "lb"):
+                        counts[pre + "skipped"] += 1             # a mass category in some other unit
+                        continue
+                    unit, value = have, (value * LB_PER_KG if have == "lb" else value)
+                else:
+                    cid, _, created = await self.custom_category(name, unit)
+                    counts[pre + "categories_created"] += int(created)
+                marks = {"engine_field": tag} if pre == "engine_" else {"derived": True, "formula": tag}
+                try:
+                    counts[pre + await self.ensure_measurement(
+                        cid, when, value, ext, {"unit": unit, "device": "Body Pod 2", **marks})] += 1
+                except WgerRejected:
+                    counts[pre + "rejected"] += 1

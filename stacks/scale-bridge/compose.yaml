@@ -1,5 +1,6 @@
 # scale-bridge on kdk-dkr-02 (10.1.30.21): listens for the household Body Pod 2
-# scale over Bluetooth LE, decodes a weigh-in (weight + ten raw impedance values),
+# scale over Bluetooth LE, decodes a weigh-in (weight + ten raw impedance values;
+# since 0.3.1 the impedance values are not written to wger, captures only),
 # works out whose it is from a weight band, and writes it to that person's wger
 # (https://wger.kmkdp.com, /api/ is not behind Authelia; token auth per person).
 # No inbound port, no Traefik router, no UI. docs/services/scale-bridge.md.
@@ -47,7 +48,8 @@
 # (one `engine_config` warning) and everything else works as before. Results go
 # to /captures/<capture>.engine.json and, since 0.3.0 (SCALE_BRIDGE_WRITE_ENGINE
 # "true" below), to 16 custom "... (scale)" categories in that person's wger,
-# after the weight + impedance are written (engine trouble never holds those back).
+# after the weight + impedance are written (engine trouble never holds those back);
+# since 0.3.1 (SCALE_BRIDGE_WRITE_DERIVED) also five derived "... (scale est.)" values.
 # No extra mount, capability or network: the engine needs none at run time.
 #
 # Image is built locally (kdk/scale-bridge) -> the stack sets auto_pull=false +
@@ -75,7 +77,7 @@ services:
     build:
       context: .
       provenance: false
-    image: kdk/scale-bridge:0.3.0
+    image: kdk/scale-bridge:0.3.1
     container_name: scale-bridge
     user: "65534:65534"        # host nobody:nogroup; dbus-daemon resets unknown uids
     init: true                 # python is PID 1 otherwise: SIGTERM, zombie reaping
@@ -105,12 +107,23 @@ services:
       # Apple Health "Heart rate" one): on since 0.3.0, byte 1 of the end marker
       # matched the vendor app on 6 of 6 paired weigh-ins. "false" = off.
       SCALE_BRIDGE_WRITE_HEART_RATE: "true"
+      # The ten raw "Impedance ... kHz ..." categories in wger: off since 0.3.1 (owner
+      # 2026-11-16: raw ohms clutter Measurements). The values stay in the capture
+      # files only (pruned after CAPTURE_KEEP_DAYS); the engine reads the DF frames,
+      # not wger, so it is unaffected. "true" = write them again (code default).
+      SCALE_BRIDGE_WRITE_IMPEDANCE: "false"
       # Body-composition engine: "on" | "off" (off = the rollback switch).
       # Self-disables when LEFU_SECRET_8 is missing. Results to /captures always.
       SCALE_BRIDGE_ENGINE: "on"
       # Engine results to wger ("Body fat (scale)" ... 16 custom categories), only
       # for an `ok` run. "false" = /captures only again (weight writes unchanged).
       SCALE_BRIDGE_WRITE_ENGINE: "true"
+      # Since 0.3.1: five values worked out from the same engine result, the
+      # "... (scale est.)" categories (Mineral, Android fat, Gynoid fat, A/G ratio,
+      # Torso fat). Provisional constants, fitted on four paired weigh-ins of one
+      # male subject: the last four only for a male profile. Needs WRITE_ENGINE.
+      # "false" = off (the 16 engine rows unchanged). docs/services/scale-bridge.md.
+      SCALE_BRIDGE_WRITE_DERIVED: "true"
       SCALE_BRIDGE_ENGINE_TIMEOUT_S: "60"
       # Engine inputs, the prototype's known-good configuration. DO NOT CHANGE
       # unless testing: variant 8_4; frame position per library slot LeftArm,
