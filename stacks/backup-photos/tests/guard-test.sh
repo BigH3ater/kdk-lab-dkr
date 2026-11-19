@@ -94,10 +94,10 @@ mv "$T/lib-away/"* "$SRC/immich/library/"; run env   # back to 13
 
 # 7. --max-delete: 4 deletes with a cap of 2 -> rclone exit 7, at most 2 deleted.
 for i in 1 2 3 4; do rm "$SRC/insta360-flat/2025-08-maine/I360_$i.jpg"; done
-run env PHOTOS_MAX_DELETE=2
-[ "$(st rc)" = 7 ] || fail "max-delete: rc=$(st rc)"
+run env PHOTOS_MAX_DELETE=2 PHOTOS_MAX_PASSES=3
+[ "$(st rc)" = 7 ] && [ "$(st passes)" = 1 ] || fail "max-delete: rc=$(st rc) passes=$(st passes)"
 [ "$(cnt insta360-flat)" -ge 7 ] || fail "max-delete: deleted more than 2 ($(cnt insta360-flat) left)"
-ok "max-delete 2 with 4 deletes: rclone exit 7, $(( 9 - $(cnt insta360-flat) )) deleted"
+ok "max-delete 2 with 4 deletes: rclone exit 7, no retry, $(( 9 - $(cnt insta360-flat) )) deleted"
 
 # 8. dry run: no status, no state written.
 cp "$DATA/.photos-status-proton" "$T/st.before"; cp "$DATA/.photos-state" "$T/state.before"
@@ -116,4 +116,50 @@ ok "PHOTOS_MODE=copy: rc=0, nothing deleted offsite ($before files kept)"
 mi ext4 ext4; run env
 [ "$(st rc)" = 90 ] && [ "$(st passes)" = 0 ] || fail "all refused: rc=$(st rc) passes=$(st passes)"
 ok "all sources refused: no rclone run, rc=90"
+
+# 10-12. rclone crashes vs usage errors. A fake rclone first on PATH plays one
+# scripted outcome per sync/copy call (FAKE_PLAN, comma-separated: panic = Go
+# panic on stderr + exit 2, as seen 2026-11-19; usage = plain exit 2; real = the
+# real rclone); every other rclone call (the guard's `rclone size`) is real.
+REAL_RCLONE=$(command -v rclone); mkdir -p "$T/bin"
+cat > "$T/bin/rclone" <<EOF
+#!/bin/sh
+case \$1 in sync|copy) ;; *) exec "$REAL_RCLONE" "\$@" ;; esac
+n=\$(( \$(cat "$T/calls" 2>/dev/null || echo 0) + 1 )); echo \$n > "$T/calls"
+case \$(echo "\$FAKE_PLAN" | cut -d, -f\$n) in
+  panic) echo "2026/11/19 03:59:58 NOTICE: stats line"
+         echo "panic: runtime error: invalid memory address or nil pointer dereference" >&2
+         echo "goroutine 47 [running]:" >&2; exit 2 ;;
+  usage) echo "Error: unknown flag: --bogus" >&2; exit 2 ;;
+  *) exec "$REAL_RCLONE" "\$@" ;;
+esac
+EOF
+chmod +x "$T/bin/rclone"
+fake() { rm -f "$T/calls"; plan=$1; shift; run env PATH="$T/bin:$PATH" FAKE_PLAN="$plan" "$@"; }
+mi nfs4 nfs4; run env; lo=$(st last_ok)   # back in sync
+rm "$SRC/insta360-flat/2025-08-maine/I360_9.jpg"   # one pending delete
+
+# 10. a pass crashes -> the next pass runs and finishes the sync; rc=0.
+sleep 1; fake panic,real PHOTOS_MAX_PASSES=3
+[ "$(st rc)" = 0 ] && [ "$(st passes)" = 2 ] && [ "$(st crashes)" = 1 ] || fail "panic then ok: rc=$(st rc) passes=$(st passes) crashes=$(st crashes)"
+grep -q '^photos pass 1: remote=proton rclone exit=91 secs=[0-9]* raw_exit=2 crash=panic$' "$T/out" || fail "panic: pass line"
+grep -q '^panic: runtime error' "$T/out" || fail "panic: rclone output not streamed to the log"
+[ ! -e "$DEST/insta360-flat/2025-08-maine/I360_9.jpg" ] && [ "$(st last_ok)" -gt "$lo" ] || fail "panic then ok: pass 2 did not sync"
+ok "pass 1 crashed (panic, exit 2): logged as exit=91 crash=panic, pass 2 resumed and synced, rc=0"
+lo=$(st last_ok); echo "trip 9" > "$SRC/insta360-flat/2025-08-maine/I360_9.jpg"
+
+# 11. every pass crashes -> rc=91 (verify: seeding / not-synced path), last_ok kept,
+#     nothing shipped.
+fake panic,panic PHOTOS_MAX_PASSES=2
+[ "$(st rc)" = 91 ] && [ "$(st passes)" = 2 ] && [ "$(st crashes)" = 2 ] || fail "all panic: rc=$(st rc) passes=$(st passes) crashes=$(st crashes)"
+[ "$(st last_ok)" = "$lo" ] || fail "all panic: last_ok moved"
+[ ! -e "$DEST/insta360-flat/2025-08-maine/I360_9.jpg" ] || fail "all panic: fake rclone shipped a file"
+grep -q '^photos rclone exit=91 remote=proton passes=2 .* crashes=2$' "$T/out" || fail "all panic: final line"
+ok "every pass crashed: rc=91 passes=2 crashes=2, last_ok unchanged"
+
+# 12. a real usage error (exit 2, no panic) stops at once and stays rc=2.
+fake usage,real PHOTOS_MAX_PASSES=3
+[ "$(st rc)" = 2 ] && [ "$(st passes)" = 1 ] && [ "$(st crashes)" = 0 ] || fail "usage: rc=$(st rc) passes=$(st passes) crashes=$(st crashes)"
+[ "$(st last_ok)" = "$lo" ] || fail "usage: last_ok moved"
+ok "usage error (exit 2, no panic): no retry, rc=2, last_ok unchanged"
 echo "all guard tests passed"

@@ -1,6 +1,6 @@
 ---
 title: Photo originals offsite (Immich + Insta360 → Proton)
-updated: 2026-11-16
+updated: 2026-11-19
 ---
 
 # Photo originals offsite
@@ -32,7 +32,7 @@ kdk-dkr-04  backup-photos (after backup-offsite, before backup-verify)
 | Sources | `/mnt/immich/{library,upload,profile}` (new ro NFS mount of `tankz3/appdata/immich`, unit `hosts/kdk-dkr-04/systemd/mnt-immich.mount`) and `/mnt/insta360-flat` (dkr-04's rw mount for the [[insta360-flat]] worker, unit `hosts/kdk-dkr-04/systemd/mnt-insta360\x2dflat.mount`, bound read-only here) |
 | NAS export | `/mnt/tankz3/appdata/immich`, hosts `172.16.30.52` only, read-only, `mapall` = `nobody`/`nogroup` |
 | Destination | `proton-crypt:photos/immich/{library,upload,profile}/...`, `proton-crypt:photos/insta360-flat/<trip>/...` (same crypt key as every other backup: 1Password `kdk-ops` / `proton-mirror-crypt`) |
-| Status | `/mnt/backup/dkr/.photos-status-proton` (`rc= ts= date= passes= guard= last_ok= seed_start=`), guard counts `/mnt/backup/dkr/.photos-state` |
+| Status | `/mnt/backup/dkr/.photos-status-proton` (`rc= ts= date= passes= guard= last_ok= seed_start= crashes=`), guard counts `/mnt/backup/dkr/.photos-state` |
 | Checks | `backup-verify` section 6; `storage-health-dkr04` `NFS_MOUNTS=... immich`; Loki `BackupFileShrank` |
 
 ## Design
@@ -116,8 +116,9 @@ night is the day's new photos.
 | no full sync after 14 days | **FAIL** `first upload not complete after Nd` |
 | after the seed: not in sync tonight (cap or Proton blip), full sync < 3 days ago | **WARN** `not fully synced tonight ... last full sync Nh ago` |
 | after the seed: not in sync and no full sync for 3 days | **FAIL** |
+| `rc=91` (the last pass crashed: rclone Go panic) or `crashes=N` > 0 | same rows as a cap (WARN while seeding / full sync < 3 days, then FAIL); the message adds `N crashed: rclone Go panic, retried`. See [Troubleshooting](#troubleshooting) |
 | `guard=refused:...` | **FAIL** (the refused source was left out, its offsite copy is kept) |
-| `rc=7` (`--max-delete` hit) or `rc=2` | **FAIL** |
+| `rc=7` (`--max-delete` hit) or `rc=2` (usage error, no panic) | **FAIL** |
 | file missing or older than 6 h | **FAIL** |
 
 A big batch later (the second phone's first backup) behaves like the seed: one or two nights
@@ -229,8 +230,10 @@ ssh kdkadmin@10.1.20.22 'sudo cat /mnt/backup/dkr/.photos-status-proton /mnt/bac
 
 - `photos pass N: remote=proton rclone exit=10 secs=15xx` per pass while seeding, `exit=0`
   on the pass that finishes.
-- `.photos-status-proton`: `rc=10 ... guard=ok last_ok=0 seed_start=<now>` while seeding;
-  `rc=0 ... last_ok=<time>` once complete.
+- `.photos-status-proton`: `rc=10 ... guard=ok last_ok=0 seed_start=<now> crashes=0` while
+  seeding; `rc=0 ... last_ok=<time>` once complete. A pass logged
+  `exit=91 ... raw_exit=2 crash=panic` crashed and the next pass resumed (see
+  [Troubleshooting](#troubleshooting)).
 - `.photos-state`: `immich_files=...`, `immich_bytes=...`, `insta360_files=652`, `insta360_bytes=...`.
 
 ## 6. The next mornings
@@ -308,6 +311,29 @@ Then `sudo rm -r /tmp/photo-restore`.
 | verify FAILs `guard refused:immich:shrank:N/M` after a real mass delete (someone emptied a big trash) | check in Immich that it was deliberate, then one run with `-e PHOTOS_ALLOW_SHRINK=1 -e PHOTOS_MAX_DELETE=<enough>` via `sudo docker compose run --rm --no-deps ... photos` (checkout as in 5a) |
 | verify FAILs `rclone exit=7` (more than 100 deletes) after a legitimate rename (date edits, storage template change) | same, with `-e PHOTOS_MAX_DELETE=<enough>` |
 | verify FAILs `guard refused:...:not-nfs` | the mount: `findmnt /mnt/immich /mnt/insta360-flat` on dkr-04; start the unit; the next night syncs normally |
+
+## Troubleshooting
+
+**`photos pass N: ... rclone exit=91 ... raw_exit=2 crash=panic`** (status `rc=91` or
+`crashes=N`). rclone crashed with a Go panic. Seen 2026-11-19 (rclone 1.76.0): the 25-min
+`--max-duration` deadline cancelled a Proton folder create in flight, and the Proton
+library dereferenced the missing response. Signature in `docker logs backup-photos-photos-1`:
+
+```
+panic: runtime error: invalid memory address or nil pointer dereference
+[signal SIGSEGV: segmentation violation ...]
+github.com/rclone/go-proton-api.(*Client).CreateFolder(...)  go-proton-api@v1.0.4/link.go:91
+github.com/rclone/Proton-API-Bridge.(*ProtonDrive).CreateNewFolder(...)
+github.com/rclone/rclone/backend/protondrive.(*Fs).CreateDir ...
+```
+
+A Go panic exits 2, rclone's usage-error code, so photos.sh tells them apart by the
+`panic:` / `fatal error:` line in that pass's output and records the pass as 91. Harmless
+like a duration cut: deletes only run after a clean transfer phase, uploaded files stay,
+`last_ok` does not move, the next pass (and night) resumes. Nothing to do unless it happens
+every pass, night after night (verify then FAILs through the 3-day / 14-day rules): check
+for a newer rclone with a Proton backend fix. A plain `exit=2` without `crash=panic` is a
+real usage error (bad flag or config) and stops the night with a FAIL.
 
 ## Verify
 
