@@ -27,6 +27,7 @@ illustrative.
 - [linux-tools share](linux-tools-share.md) — `vmpool/linux-tools` NFS share on kdk-dkr-04 for portable build kits (thud): NAS create steps, mount, seed, verify, rollback.
 - [CAD library (laptop → NAS → offsite)](cad-library.md) — laptop `~/cad` → SMB `3d-prints` every 15 min, NAS snapshots, read-only NFS to kdk-dkr-04, nightly `3d-prints-*.tar.zst` offsite: hand steps, verify, restore, rollback.
 - [Imaging (Insta360 trips → Immich)](imaging.md) — add a trip (SMB upload, optional `places.tsv`), the nightly `insta360-flat` job, the NAS objects behind it, the laptop tools, known limits.
+- [Photo originals offsite (Immich + Insta360 → Proton)](photo-offsite.md) — nightly file-by-file rclone sync of the Immich originals and the Insta360 export through the crypt remote: deletion guard, seeding, hand steps, restore test (gates the second phone), rollback.
 - [Storage network & NFS](storage-network.md) — the `172.16.30.0/24` storage plane, the Tailscale-CGNAT collision that broke NFS, renumber + hung-mount procedures.
 - [Host kernel crash, watchdog reset and pending kernels](host-kernel-crash.md) — the ICH9 TCO watchdog as the recovery path, crash signatures, triage after an unexpected reboot, the `panic_on_oops` baseline, the weekly pending-kernel check, crash-evidence options.
 - [Host firewall (storage fence + DOCKER-USER)](host-firewall.md) — the nft storage-net fence and the DOCKER-USER egress policy on the two VMs: install, verify, log -> enforce, rollback.

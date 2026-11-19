@@ -38,6 +38,17 @@ offsite stage runs in two steps (`stacks/backup-offsite/`):
 2. **offsite** (`offsite.sh`) — `rclone sync` ships **only** `offsite/**`,
    `pve-templates/**` and each host's `*/pgdump/**` to the crypt remote.
 
+**Photo originals are the exception to packing.** The Immich originals
+(`library/`, `upload/`, `profile/` of `tankz3/appdata/immich`) and the Insta360
+export (`tankz3/insta360-flat`) go to `proton-crypt:photos/` **file by file**, in
+their own stage (`photos`, stack `stacks/backup-photos/`, kdk-dkr-04) right after
+`offsite`. They are large, immutable and only ever added, so a pack would re-upload
+the whole library every night while a sync sends each photo once. A deletion guard
+(source must be NFS, carry its marker, be non-empty and hold >= 50 % of last night's
+files) plus `--max-delete 100` keeps a dead mount from wiping the offsite copy. The
+host offsite sync never touches `photos/` (outside its `--filter` set, and rclone
+does not delete excluded files). See [Photo originals offsite](runbooks/photo-offsite.md).
+
 **Why pack first:** the old offsite pushed the raw tree — thousands of churny
 small files (prowlarr `Definitions/*.yml`, bazarr logs, caches) — and no pass
 ever finished: Proton's API chokes on small-file **volume**, not bytes (`502` on
@@ -89,7 +100,7 @@ then change the stage's server, and never let both hosts run the offsite stage.
 
 ## The nightly pipeline
 
-`nightly-backups` Procedure (03:20 America/Chicago — `:20` avoids the `gitops-sync` `:00/:15/:30/:45` slots), five sequential stages:
+`nightly-backups` Procedure (03:20 America/Chicago — `:20` avoids the `gitops-sync` `:00/:15/:30/:45` slots), six sequential stages:
 
 | Stage | Stack | Host | Does |
 |---|---|---|---|
@@ -97,6 +108,7 @@ then change the stage's server, and never let both hosts run the offsite stage.
 | stage-dmz | `backup-dmz` | dmz-01 | `pg_dump` authelia + immich + tandoor, rsync app state |
 | stage-collect | `backup-collect` | dkr-01 | SSH-pull `/opt/kdk-lab` from dkr-02, dkr-03, mon-01 (not on the storage net) and dkr-04 (pulled the same way since 2026-10-30; packed offsite and marker-checked by `backup-verify`) |
 | offsite | `backup-offsite` | **dkr-04** | `pack` one `tar.zst` per host, then `rclone sync` `offsite/` + `pve-templates/` + `*/pgdump/` → Proton (encrypted). Reads/writes the shared `/mnt/backup`, so it runs on the NAS VM (migration B1, 2026-10-30) where that storage is local |
+| photos | `backup-photos` | **dkr-04** | guard, then `rclone sync` the photo originals (Immich + Insta360) file by file → `proton-crypt:photos/`, ≤ 4 × 25-min passes, writes `.photos-status-proton`. After offsite, never with it: both use the one Proton session |
 | verify | `backup-verify` | dkr-01 | validate everything, alert Pushover on failure |
 
 The staging + offsite stages are **best-effort** (their containers exit 0 even on
@@ -116,6 +128,9 @@ any failure:
 - DMZ `pg_dump`s for today exist, are non-empty, and pass `gzip -t`
 - `backup-offsite` reported `rclone exit=0` and its status is < 6 h old
 - the Proxmox template vzdump is present (< 40 d) — **warning only**
+- the photo originals are in sync on Proton (`.photos-status-proton`): FAIL on a guard
+  refusal, `--max-delete`, a stale status or no full sync for 3 days; WARN while the first
+  upload seeds (< 14 days) or after a single short night
 
 Priority 1 (retries) on failure, priority 0 on warning, quiet (-1) when clean.
 Creds from `/etc/kdk/pushover.env` (already on every host).

@@ -8,6 +8,10 @@
 # The lines land once a night (~09:23 UTC), so a 2h window fires once per run and
 # resolves two hours later (same pattern as advisories.yml). A pack.sh
 # --report-only test run re-emits the same lines and fires the same way.
+# backup-photos (photos.sh, service `photos`) writes the same line with kind=photos,
+# one per photo source (series immich / insta360-flat): bytes = the whole source
+# tree, prev = the last night the deletion guard accepted. A photo library at half
+# its size is a mount problem or a mass delete; the guard has already refused it.
 # Test: Grafana Explore over 7 d, the selector + `| logfmt | pct!="none" | pct < 50`.
 # Runbook: docs/services/backups.md#observability
 groups:
@@ -16,10 +20,11 @@ groups:
     rules:
       # A backup file is under half the size of its previous one: an archive that
       # lost a host dir (unmounted volume, an exclude that ate real state), a
-      # truncated or empty pg dump. Real nights move by a few percent.
+      # truncated or empty pg dump, a photo source that lost half its files.
+      # Real nights move by a few percent.
       - alert: BackupFileShrank
         expr: |
-          sum by (host, name) (count_over_time({stack="backup-offsite", service="pack"} |= "backup-manifest "
+          sum by (host, name) (count_over_time({stack=~"backup-offsite|backup-photos", service=~"pack|photos"} |= "backup-manifest "
             | logfmt | prev_bytes!="none" | pct!="none" | pct < 50 [2h])) > 0
         for: 0m
         labels:
@@ -28,5 +33,5 @@ groups:
           scope: backups
         annotations:
           summary: "Backup {{ $labels.name }} ({{ $labels.host }}) is under 50% of the previous file's size"
-          description: "pack.sh's backup-manifest line for {{ $labels.name }} has bytes below half of prev_bytes. Open Grafana Backups / Nightly backups (Files produced tonight), compare with the previous file on kdk-dkr-04 (sudo ls -l /mnt/backup/dkr/offsite/ or /mnt/backup/dkr/<host>/pgdump/) and check that night's source (mounts, pg_dump output) before the old files rotate out (archives keep 3, dumps keep 15)."
+          description: "pack.sh's backup-manifest line for {{ $labels.name }} has bytes below half of prev_bytes. Open Grafana Backups / Nightly backups (Files produced tonight), compare with the previous file on kdk-dkr-04 (sudo ls -l /mnt/backup/dkr/offsite/ or /mnt/backup/dkr/<host>/pgdump/) and check that night's source (mounts, pg_dump output; for name=photos/* the backup-photos log and docs/runbooks/photo-offsite.md) before the old files rotate out (archives keep 3, dumps keep 15)."
           runbook: docs/services/backups.md#observability

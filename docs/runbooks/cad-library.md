@@ -343,7 +343,7 @@ ls ~/cad-restore/3d-prints/
 ```
 
 **From Proton** (NAS or backup share lost). On kdk-dkr-04, outside the nightly window
-(03:20 until `.offsite-status` is written): `rclone.conf` holds the live Proton session
+(03:20 until the `photos` stage has written `.photos-status-proton`, [[photo-offsite]]): `rclone.conf` holds the live Proton session
 and two rclone runs at once race its single-use refresh token:
 
 ```sh

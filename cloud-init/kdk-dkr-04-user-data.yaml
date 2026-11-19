@@ -245,6 +245,18 @@ write_files:
       Options=nfsvers=4.1,noatime,_netdev
       [Install]
       WantedBy=multi-user.target
+  - path: /etc/systemd/system/mnt-immich.mount
+    content: |
+      [Unit]
+      Description=tankz3/appdata/immich over storage net (read-only, backup-photos)
+      After=network-online.target
+      [Mount]
+      What=172.16.30.2:/mnt/tankz3/appdata/immich
+      Where=/mnt/immich
+      Type=nfs
+      Options=nfsvers=4.1,ro,noatime,_netdev
+      [Install]
+      WantedBy=multi-user.target
   - path: /etc/ssh/sshd_config.d/98-kdk-admin.conf
     content: |
       # kdk-lab SSH baseline, every host. Install: /etc/ssh/sshd_config.d/98-kdk-admin.conf
@@ -719,6 +731,9 @@ runcmd:
   # Insta360 raws (ro) + finished stills (rw) for the insta360-flat job
   # (docs/runbooks/imaging.md): own line, same reason.
   - systemctl enable --now 'mnt-insta360\x2dupload.mount' 'mnt-insta360\x2dflat.mount' || true
+  # Immich originals, read-only for backup-photos (docs/runbooks/photo-offsite.md):
+  # own line for the same reason.
+  - systemctl enable --now mnt-immich.mount || true
   # rpcbind not needed (NFS is v4.1 only); mask it (hosts report M-07).
   - systemctl mask --now rpcbind.socket rpcbind.service || true
   # Periphery pinned to Core's release line (docs/services/komodo.md: 2.3.4).

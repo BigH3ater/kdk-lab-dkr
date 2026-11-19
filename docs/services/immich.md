@@ -31,6 +31,7 @@ Photo and video backup, LAN/tailnet only (router on the DMZ Traefik's `websecure
 | Video transcoding | Intel QSV on the Arc A380 (shared with [[jellyfin]]), hardware decode on; ML stays on CPU (see [Video transcoding](#video-transcoding)) |
 | Deploy | Komodo stack `immich` (git-linked; pre_deploy refuses to run unless `/mnt/insta360-flat` is mounted read-only, chowns the library + model cache to 1000:1000, `op inject`s `.env`, then `render-config.sh` renders the config file) |
 | Storage | library `/mnt/appdata/immich` (NFS); Insta360 external library `/mnt/insta360-flat` (NFS, read-only, indexed in place); postgres `/opt/kdk-lab/immich/postgres` (VM disk, nightly dump) |
+| Backup | DB: nightly `pg_dump` (`immich-DATE.sql.gz`, [[backups]]); originals (`library/`, `upload/`, `profile/`) + the Insta360 export: nightly file-by-file sync to Proton (`backup-photos`, [[photo-offsite]]); `thumbs/` + `encoded-video/` regenerate; all of `tankz3/appdata` has NAS snapshots (hourly 2 d, daily 2 w) |
 | Insta360 albums | nightly one-shot `immich-albums` (02:10): library scan, then one album per trip folder, shared with jmack + rach (see [Insta360 library](#insta360-library)) |
 | Blast radius | No photo access/upload; nothing else affected (segmented) |
 
@@ -85,6 +86,7 @@ ssh kdkadmin@192.168.191.20 'sudo docker exec immich-server ls -ln /config'
 | Needs | `/mnt/insta360-flat` (NFS ro, `mnt-insta360\x2dflat.mount`) | the immich deploy refuses to run; if it drops while the server runs, scans stall (hard mount) |
 | Needs | [[identity]] (`sso.kmkdp.com`, reached over the internet like Tandoor/ABS) | no SSO login; password login still works |
 | Needed by | `immich-albums` (one-shot, `immich_internal`) | no new trip albums |
+| Needed by | `backup-photos` on kdk-dkr-04 (ro NFS `/mnt/immich` of `tankz3/appdata/immich`) | reads only; nothing in Immich breaks if it stops, the photos just stop going offsite ([[photo-offsite]]) |
 
 ## Observability
 
@@ -315,7 +317,10 @@ instance was empty (1 admin, 0 assets).
   `cap_drop: [ALL]`, `no-new-privileges`, 256m / 64 pids, `restart: "no"`, healthcheck skipped
   (one-shot); its Insta360 bind is `:ro`.
 - The appdata NFS export (`172.16.30.2:/mnt/tankz3/appdata`) does not squash root, so the
-  pre_deploy chown works. If it ever squashes root, the chown fails and the deploy stops.
+  pre_deploy chown works. kdk-dkr-04 gets a separate, read-only export of only
+  `/mnt/tankz3/appdata/immich` (`mapall` nobody) for the photo offsite; it depends on the
+  originals staying world-readable (Immich writes 644), which `backup-photos`' guard and
+  `backup-verify` would report as unreadable files if it ever changed ([[photo-offsite]]). If it ever squashes root, the chown fails and the deploy stops.
 - Service/container `immich-postgres` and the `immich_internal` network names are fixed:
   the `backup-dmz` stack's `pgdump-immich` ([[backups]]) joins that network to dump the DB.
 

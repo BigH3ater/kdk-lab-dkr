@@ -112,9 +112,10 @@ on kdk-dkr-01 connects). No PCI passthrough.
 | `/mnt/3d-prints` | `172.16.30.2:/mnt/tankz3/3d-prints` | NFSv4.1 | `nfsvers=4.1,ro,noatime,_netdev` | `backup-offsite` pack, CAD library ([[cad-library]]) | tankz3 snapshots + nightly `3d-prints-*.tar.zst` offsite |
 | `/mnt/insta360-upload` | `172.16.30.2:/mnt/tankz3/insta360-upload` | NFSv4.1 | `nfsvers=4.1,ro,noatime,_netdev` | `insta360-flat` (raw captures, [[imaging]]) | tankz3 daily snapshots (2 weeks) |
 | `/mnt/insta360-flat` | `172.16.30.2:/mnt/tankz3/insta360-flat` | NFSv4.1 | `nfsvers=4.1,noatime,_netdev` | `insta360-flat` (finished stills, [[insta360-flat]]) | tankz3 daily snapshots (2 weeks) |
+| `/mnt/immich` | `172.16.30.2:/mnt/tankz3/appdata/immich` | NFSv4.1 | `nfsvers=4.1,ro,noatime,_netdev` | `backup-photos` (Immich originals, [[photo-offsite]]) | tankz3 snapshots + nightly file-by-file sync to Proton |
 | `/opt/kdk-lab` | root zvol | zfs | — | all stack config | SSH-pulled nightly by `backup-collect` on dkr-01 |
 
-All six NFS mounts are in `storage-health-dkr04` `NFS_MOUNTS` (hourly; a missing or hung
+All seven NFS mounts are in `storage-health-dkr04` `NFS_MOUNTS` (hourly; a missing or hung
 mount pages `kdk-lab storage FAILED`).
 
 The NAS exports `tankz3/media` and `tankz3/backup` to `172.16.30.52` (RW,

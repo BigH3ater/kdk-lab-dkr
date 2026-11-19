@@ -9,6 +9,7 @@
 #   * Proxmox cloud-init template (VM 9000) vzdump present < 40d  [WARN only]
 #   * CAD library archive offsite/3d-prints-<today>.tar.zst present + zstd -t
 #   * CAD laptop sync marker (.3d-prints-last-sync, copied by pack) < 14d  [WARN only]
+#   * photo originals synced to Proton (.photos-status-proton, see section 6)
 # FAIL -> Pushover priority 1. WARN -> priority 0. All-clear -> quiet (-1).
 apk add --no-cache curl zstd >/dev/null 2>&1 || true
 . /pushover.env
@@ -70,6 +71,39 @@ else
   [ "$sage" -gt 1209600 ] && add_warn "3d-prints: laptop cad-sync last ran $(( sage / 86400 ))d ago ($(cat "$m" 2>/dev/null))"
 fi
 
+# 6. Photo originals (backup-photos on kdk-dkr-04, docs/runbooks/photo-offsite.md):
+#    one status line per remote, written by photos.sh after its passes:
+#      rc= ts= date= passes= guard=ok|refused:... last_ok=EPOCH|0 seed_start=EPOCH
+#    FAIL: no/stale status; any guard refusal (a mount down, an empty or shrunken
+#      source: that source was left out, its offsite copy is kept); rclone exit 2/7
+#      (usage, or --max-delete exceeded); not in sync and no full sync in 3 days;
+#      the first upload still not complete after 14 days.
+#    WARN: the first upload is still seeding (< 14 days since the first run), or
+#      tonight hit the pass cap (exit 10) / a Proton blip with a full sync < 3 days ago.
+for r in proton; do
+  f=/dest/.photos-status-$r
+  if [ ! -f "$f" ]; then add_prob "photos/$r: no status file (backup-photos never ran?)"; continue; fi
+  rc=""; ts=0; passes=""; guard=""; last_ok=0; seed_start=0
+  . "$f" 2>/dev/null || true
+  page=$(( now - ${ts:-0} ))
+  if [ "$page" -gt 21600 ]; then add_prob "photos/$r: status stale (${page}s)"; continue; fi
+  case "${guard:-?}" in ok) ;; *) add_prob "photos/$r: guard ${guard:-?} (left out tonight, offsite copy kept)" ;; esac
+  rc=${rc:-1}; last_ok=${last_ok:-0}; seed_start=${seed_start:-$now}
+  if [ "$rc" = 0 ] || [ "$rc" = 90 ]; then
+    :   # in sync, or every source refused (already a FAIL above)
+  elif [ "$rc" = 2 ] || [ "$rc" = 7 ]; then
+    add_prob "photos/$r: rclone exit=$rc (2 = usage, 7 = fatal, e.g. more than PHOTOS_MAX_DELETE deletes)"
+  elif [ "$last_ok" -eq 0 ]; then
+    sd=$(( (now - seed_start) / 86400 ))
+    if [ "$sd" -lt 14 ]; then add_warn "photos/$r: first upload still seeding (day $((sd + 1)), rclone exit=$rc after ${passes:-?} passes)"
+    else add_prob "photos/$r: first upload not complete after ${sd}d (rclone exit=$rc)"; fi
+  elif [ $(( now - last_ok )) -lt 259200 ]; then
+    add_warn "photos/$r: not fully synced tonight (rclone exit=$rc), last full sync $(( (now - last_ok) / 3600 ))h ago"
+  else
+    add_prob "photos/$r: rclone exit=$rc, last full sync $(( (now - last_ok) / 86400 ))d ago"
+  fi
+done
+
 push() {
   curl -s --max-time 25 \
     --form-string "token=$PUSHOVER_TOKEN" --form-string "user=$PUSHOVER_USER" \
@@ -86,6 +120,6 @@ elif [ -n "$WARN" ]; then
   printf 'BACKUP OK with warnings:%b\n' "$WARN"
   push 0 "kdk-lab backup: warnings" "Warnings:$WARN"
 else
-  echo "BACKUP OK -- all hosts fresh, pg dumps valid, 3d-prints archive valid, offsite clean"
-  push -1 "kdk-lab backup OK" "All 6 hosts staged, pg dumps valid, 3d-prints archive valid, offsite rclone exit=0, template present."
+  echo "BACKUP OK -- all hosts fresh, pg dumps valid, 3d-prints archive valid, offsite clean, photos in sync"
+  push -1 "kdk-lab backup OK" "All 6 hosts staged, pg dumps valid, 3d-prints archive valid, offsite rclone exit=0, photo originals in sync, template present."
 fi

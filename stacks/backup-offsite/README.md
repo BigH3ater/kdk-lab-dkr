@@ -18,6 +18,14 @@ template vzdump) + every host's `*/pgdump/**`. The scope is set by `--filter`
 rules in `offsite.sh` (all `--filter`, never mixed `--include`/`--exclude`, so
 their order is deterministic).
 
+The photo originals (Immich + Insta360) are **not** shipped here: they go file by
+file in the separate `backup-photos` stack, the next stage of the procedure, which
+uses the same `rclone.conf` under `proton-crypt:photos/`. This stack's `- **` filter
+keeps that tree outside its sync, and rclone never deletes excluded files, so the two
+never touch each other's objects. They must also never run at the same time (one
+Proton session): keep `photos` a later stage, never a parallel execution. See
+[docs/runbooks/photo-offsite.md](../../docs/runbooks/photo-offsite.md).
+
 ## Design decisions (don't undo these)
 
 - **Writable, persisted `rclone.conf`.** `offsite.sh` runs rclone against
