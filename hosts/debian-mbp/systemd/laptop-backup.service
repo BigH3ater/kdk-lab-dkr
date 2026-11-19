@@ -1,0 +1,15 @@
+# Laptop debian-mbp, system unit: one restic backup of /home/jmack, /bench and
+# /etc to the NAS share laptop-backup, as root. Install: /etc/systemd/system/
+# (root 0644); script at /usr/local/sbin/laptop-backup.sh.
+# docs/runbooks/laptop-backup.md
+[Unit]
+Description=restic backup of the laptop to kdk-nas-01 laptop-backup
+Wants=network-online.target
+After=network-online.target
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/laptop-backup.sh
+Nice=10
+IOSchedulingClass=idle
+# A Sunday prune or a 1st-of-month check on top of a big day can take a while.
+TimeoutStartSec=4h

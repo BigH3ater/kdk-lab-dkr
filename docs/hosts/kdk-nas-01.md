@@ -54,6 +54,14 @@ hourly 2 DAY + daily 03:00 2 WEEK. NFS export to `172.16.30.52` (kdk-dkr-04) onl
 read-only, `mapall` = `cad-sync`, for the nightly offsite pack. Setup, verify and
 restore: [[cad-library]].
 
+## Laptop backup (`tankz3/laptop-backup`)
+
+The owner's laptop restic repository (`/restic`) over SMB share `laptop-backup` (id 9,
+not browsable) as the SMB-only user `laptop-backup` (uid/gid 3014, password in 1Password
+`kdk-ops/kdk-nas-01-laptop-backup-smb`). Quota 300 GiB, lz4, atime off. ACL owner root,
+group 3014: `owner@` FULL_CONTROL, `group@` MODIFY, inherit. Snapshot task 20: daily
+04:00 kept 2 weeks. Setup, verify and restore: [[laptop-backup]].
+
 ## Insta360 (`tankz3/insta360-upload`, `tankz3/insta360-flat`)
 
 Raw Insta360 trips arrive over SMB share `insta360-upload` (id 8) as the SMB-only user

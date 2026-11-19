@@ -1,0 +1,12 @@
+# Laptop debian-mbp: mount the laptop-backup share on first access, unmount
+# after 10 idle minutes. Away from home nothing touches it, so nothing waits.
+# Install: /etc/systemd/system/ (root 0644), then
+# `systemctl enable --now 'mnt-laptop\x2dbackup.automount'`.
+# docs/runbooks/laptop-backup.md
+[Unit]
+Description=Automount kdk-nas-01 laptop-backup (restic repository)
+[Automount]
+Where=/mnt/laptop-backup
+TimeoutIdleSec=10min
+[Install]
+WantedBy=multi-user.target
