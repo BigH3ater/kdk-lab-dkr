@@ -248,7 +248,7 @@ reports a failed mop:
   state-change triggers (`t_idle`, `t_86`, `t_dock`, `t_croom` ignore
   unavailable/unknown previous states), so a reconnect can't cancel a run or
   falsely complete the "Fill water" chore. The dock-waits
-  (`wait dock (A)/(B)/(rest)/(mop)`) only see a state *change*, so a dock that
+  (`wait dock (A)/(B)/(rest)/(office)`) only see a state *change*, so a dock that
   happens during a reconnect would otherwise hang them to timeout; a
   `home_assistant_client` **ready/states-loaded** handler (`ev_hareconn` →
   `f_hareconn`) checks, if a run is active and the robot is already
@@ -267,34 +267,83 @@ reports a failed mop:
   restart — tap Daily clean to resume"* alert. **The file store only exists
   once `settings.js` is deployed, so deploy the stack before importing a
   `flows.json` that uses it (see below).**
-- **Mop day and catch-up (2026-11-04).** One rule, `rrMopDue`, sits byte-identical
-  in `f_35`, `f_pre`, `f_58` (the mop gate) and `f_nx` (`rr_next_mop`); the tests
-  fail if the copies drift. One clean tank lasts one mop pass, so at most one a week:
+- **Mop day, Wednesday only (2026-11-18; catch-up removed).** One rule,
+  `rrMopDue`, sits byte-identical in `f_35`, `f_pre`, `f_58` (the mop gate) and
+  `f_nx` (`rr_next_mop`); the tests fail if the copies drift. One clean tank
+  lasts one mop pass, so at most one a week:
 
   | Day | Mop? |
   |---|---|
   | Wednesday | yes, unless `input_datetime.rr_last_mop_run` is within the last 48 h |
-  | Thursday, Friday | catch-up only if no mop since this week's Monday 00:00 (Wednesday was missed) and none in 48 h |
-  | Saturday to Tuesday | never (11-03: a Tuesday catch-up emptied the tank the day before the Wednesday mop) |
+  | any other day | never. No Thursday/Friday catch-up: a missed or failed Wednesday waits for next Wednesday (or tap **Mop all floors**) |
 
-  A mop-due day (Wednesday or a catch-up) is **mop only** since 2026-11-12: the
-  run skips stages 1–4 and goes straight to the mop pass (stage 5), starting
-  at 08:30 on a full battery instead of after a ~2 h recharge. The start-of-run
+  Wednesday is **mop only** since 2026-11-12: the run skips stages 1–4 (so the
+  carpet rooms are skipped that day) and goes straight to the mop pass (stage 5),
+  vacuum and mop together in one pass, starting at 08:30 on a full battery. The start-of-run
   water/dock gate (`f_pre` → `rr_mop_skip`) still applies: if it finds a
   problem, the day falls back to the normal vacuum run (stages 1–4) and the mop
   gate sends `rr_mop_failed`. The Daily clean button enters the same way
   (`f_34` → `f_35` → `f_pre`), so on a mop-due day it also mops only; once
   `rr_last_mop_run` is within 48 h it vacuums. The 07:45 "needs clean water"
-  nag fires when `rr_next_mop` is today, so it follows a catch-up day too.
-- **Mop-pass end and failures.** HA exposes no routine-step entity, so `f_mopchk`
-  calls the 7-job "Mopping" routine done only after cleaning has been off for
-  **20 min** with the robot home (docked/charging) and not washing; gaps between
-  routine steps (8.5 min on 11-03) no longer count as the end. A mid-pass water
-  watch (`t_mopwater` → `f_mopwater`) fires when
-  `binary_sensor.mr_slave_water_shortage_2` turns on during a pass. Any mop that
-  does not complete (water ran out, dock/battery/routine timeout, give-up, or a
-  start-time skip) sends **one** urgent `rr_mop_failed` alert (`f_mopfail`) and
-  does **not** stamp `rr_last_mop_run`, so the next eligible day re-runs it.
+  nag fires when `rr_next_mop` is today.
+- **Mop steps (2026-11-18): Node-RED owns the mop pass.** Nothing presses
+  `button.mr_slave_mopping` any more: that ran a 7-step routine inside the local
+  Roborock server, which sent the next room 1–5 min after every hand stop
+  (11-18 18:09, 18:25, 18:47, 19:03). `f_59` starts the pass, `f_mstep` sends one
+  step at a time, LVP first, then tile:
+
+  | Step | Rooms (segments) |
+  |---|---|
+  | 1 | Front door entry [11] |
+  | 2 | Hallway [10] |
+  | 3 | Living room [12] |
+  | 4 | Kitchen [13] |
+  | 5 | Bathroom 1 [5] |
+  | 6 | Master bathroom [4] |
+  | 7 | Half bath + Garage entrance + Laundry [7, 6, 8] |
+
+  Each step: cancel guard → `set_custom_mode [102]`, `set_water_box_custom_mode
+  [201]`, `set_mop_mode [300]` (vacuum and mop together; replaces the old
+  "mode: mop" select; `set_mop_template_id` is not supported by this robot) →
+  `app_segment_clean` → `f_mstepchk` polls every 30 s. The phase reads
+  "Mop pass 3/7 — Living room". A step is **finished** when its job closed
+  (`cleaning_2` off) and the robot has been home and quiet for 90 s (status
+  `charging`/`charging_complete` or docked, not `washing_the_mop` /
+  `emptying_the_bin`). A mid-job mop wash (`cleaning_2` stays on), a recharge
+  pause and the wash/empty after the job are neither finished nor a failure. A
+  step whose commands fail (e.g. a transient "Connection lost") or whose job does
+  not start within 5 min is sent again after 60 s (`cat_mstep` / `f_mretry`, up
+  to 4 times). `rr_last_mop_run` is stamped only when all 7 steps finished
+  (`f_64`, the only writer).
+- **Mop failures.** A mid-pass water watch (`t_mopwater` → `f_mopwater`) fires when
+  `binary_sensor.mr_slave_water_shortage_2` turns on during a pass (and `f_59` /
+  `f_mstepchk` check it too). Any mop that does not complete (water ran out,
+  battery timeout, a step that did not finish within 240 min or could not be
+  started after 4 retries, or a start-time skip) sends **one** urgent
+  `rr_mop_failed` alert (`f_mopfail`), does **not** stamp `rr_last_mop_run`, and
+  says the next mop is next Wednesday.
+- **Mop all floors** (`input_button.rr_mop_all_floors` → `f_mopman`) runs the same
+  7 steps on any day, straight away (no battery wait; the robot recharges
+  mid-step by itself), with the same cancel and hand-stop handling. It stamps no
+  room; it does stamp `rr_last_mop_run` after 7/7, so the 48 h rule keeps a
+  Wednesday mop from following it on the same tank. Ignored while a run is live.
+- **Hand stop (2026-11-18).** While a daily run or a mop pass is live, `f_ev_idle`
+  (every `vacuum.mr_slave_2` change, with the change's `context.user_id`) treats
+  these as stopped by hand: a change to paused / idle / returning by a person
+  (HA card, HomeKit, dashboard: a user id that is not Node-RED's own; Node-RED's
+  id is learned at startup by `a_uid`, websocket `auth/current_user`); paused →
+  returning / docked with no user and no Node-RED dock command behind it (the
+  robot's own button); and → idle from anything but returning / error. The
+  dashboard cancel button (`input_button.rr_return_dock`) is a hand stop too.
+  Never: the robot's error recovery (error → paused → cleaning), a natural job
+  end or recharge (cleaning → returning, no user), Node-RED's own return_to_base
+  (cancel, group 8, group 9). `f_hstop` then cancels the rest of the run (drops
+  every pending stage wait and the mop-step poll), sends `vacuum.stop` while a
+  job is open (a paused + docked job otherwise resumes by itself after the
+  recharge, 11-14 15:43, 11-16 16:23), 30 s later `return_to_base` unless it is
+  already home or heading home, restores the vacuum mode once home, and sends
+  **one** quiet note (`rr_hand_stop`, not urgent): *"Stopped by hand — the rest
+  of today's run is cancelled. Tap Daily clean to restart."*
 - **Daily run stages** (since 2026-11-05). Each stage is its own robot job; the
   flow waits for the dock (`sensor.mr_slave_status_2` = `charging`) before the
   next, and a wait that runs out is a stall (alert, rest of run cancelled).
@@ -308,21 +357,18 @@ reports a failed mop:
   | 2 | Master bedroom — zone B | `app_zoned_clean` | 40 min | master bedroom |
   | 3 | Main floor sweep (11 rooms) | `app_segment_clean` [1,4,5,3,13,12,11,6,7,8,10] | 150 min (+ recharge watcher) | the 11 rooms |
   | 4 | Rachel's office (last) | battery gate (≥30 %, 90 min), mode re-set to vacuum (set, 5 s settle, check, one retry), then `app_segment_clean` [9] | 40 min | Rachel's office |
-  | 5 | Mop pass (all floors), mop days only | battery ≥ 80 % (180 min), then `button.mr_slave_mopping` routine | 120 min to the first `charging`, then `f_mopchk` | `rr_last_mop_run` |
+  | 5 | Mop pass N/7 — <room>, Wednesday only | battery ≥ 80 % (180 min), then the 7 Node-RED mop steps (above) | per step: job closed + 90 s home (`f_mstepchk`), 240 min cap | `rr_last_mop_run` after 7/7 |
 
   Branch at `f_pre` (2026-11-12):
 
   | Day | `f_pre` output | Stages run |
   |---|---|---|
   | Not mop-due | out 0 (`lo_runA`) | 1 → 2 → 3 → 4 → mop gate `f_58` says no mop → done |
-  | Mop-due, dock/water OK | out 2 (`f_ev_start` + `f_58`) | 5 only; phase "Mop day — mop pass only, starting", then "Mop pass (all floors)"; no room stamps |
+  | Mop-due, dock/water OK | out 2 (`f_ev_start` + `f_58`) | 5 only; phase "Mop day — mop pass only, starting", then "Mop pass 1/7 — Front door entry" … "7/7"; no room stamps |
   | Mop-due, dock/water problem | out 0 + preflight notice | 1 → 4, then `f_58` → `rr_mop_failed`, no `rr_last_mop_run` stamp |
 
-  The 120-min mop dock wait (`w_62`) only covers the time to the robot's first
-  `charging` after the routine starts. After that `f_mopchk` polls every 3 min
-  (each wait for cleaning-off capped at 300 min, give up after 40 dock cycles or
-  120 checks), so a long pass (11-12: 10:35 to past 16:30) is bounded by
-  `f_mopchk`, not by `w_62`.
+  The mop pass has no dock wait: `f_mstepchk` reads HA state every 30 s, so an
+  HA reconnect cannot strand it and `f_hareconn` only recovers stages 1–4.
 
   Between stages the dock empties the bin (8 s settle, best-effort
   `app_start_collect_dust`, 50 s) and the run checks `rr_cancel`. The robot
@@ -391,8 +437,11 @@ Then watch the next scheduled run's `input_text.rr_run_phase` (dashboard
 Current status, or the HA logbook for that entity): zone A, zone B, emptying
 before main sweep, main floor sweep (11 rooms), emptying before Rachel's
 office, Rachel's office (last), then main sweep complete and complete. On a
-mop-due day: "Mop day — mop pass only, starting", "Mop pass (all floors)",
-then complete, with no `rr_last_clean_*` stamps that day.
+Wednesday: "Mop day — mop pass only, starting", "Mop pass 1/7 — Front door
+entry" through "Mop pass 7/7 — Half bath + Garage entrance + Laundry", then
+complete, with no `rr_last_clean_*` stamps that day and `rr_last_mop_run`
+stamped once. A hand stop shows "Stopped by hand — rest of run cancelled", one
+quiet `rr_hand_stop` note, and the robot ends its job and docks.
 
 ## Verify
 
