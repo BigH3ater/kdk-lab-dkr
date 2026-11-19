@@ -64,16 +64,18 @@ esac
 
 export RESTIC_REPOSITORY="$REPO" RESTIC_PASSWORD_FILE="$PASS"
 
-# 3. Backup. rc 3 = some files could not be read; the snapshot is still made.
-out=$(restic backup /home/jmack /bench /etc --host "$HOST" "${TAGS[@]}" \
-        --exclude-file "$EXCLUDES" --exclude-caches --one-file-system 2>&1)
-rc=$?
-printf '%s\n' "$out"
+# 3. Backup, streamed live (journal / terminal) and kept in a temp file for the
+#    snapshot id. rc 3 = some files could not be read; the snapshot is still made.
+log=$(mktemp) || { echo "laptop-backup: mktemp failed"; exit 1; }
+trap 'rm -f "$log"' EXIT
+restic backup /home/jmack /bench /etc --host "$HOST" "${TAGS[@]}" \
+  --exclude-file "$EXCLUDES" --exclude-caches --one-file-system 2>&1 | tee "$log"
+rc=${PIPESTATUS[0]}
 if [ "$rc" -ne 0 ] && [ "$rc" -ne 3 ]; then
   echo "laptop-backup: restic backup failed rc=$rc"
   exit "$rc"
 fi
-snap=$(printf '%s\n' "$out" | sed -n 's/^snapshot \([0-9a-f]*\) saved$/\1/p' | tail -1)
+snap=$(sed -n 's/^snapshot \([0-9a-f]*\) saved$/\1/p' "$log" | tail -1)
 echo "laptop-backup: backup OK snapshot=${snap:-unknown} rc=$rc"
 
 # 4. Retention (prune only when asked or on Sundays: it rewrites packs).

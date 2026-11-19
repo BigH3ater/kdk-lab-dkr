@@ -4,7 +4,8 @@
 #
 # restic patterns: a leading / anchors at the root, * stays inside one path
 # component, ** crosses directories. Deliberately NOT excluded: node_modules,
-# .git, ~/.claude, ~/.ssh, ~/.config in general, ~/Pictures.
+# .git, ~/.claude, ~/.ssh, ~/.config in general, ~/Pictures. Not decided yet,
+# so still backed up: /bench/.worktrees, ~/.docker.
 
 # Downloads, caches, trash: re-fetchable or disposable
 /home/jmack/Downloads
@@ -28,3 +29,13 @@
 
 # Podman/rootless container images and layers (re-pullable), if present
 /home/jmack/.local/share/containers
+
+# Package-manager download caches and re-installable tool payloads
+/home/jmack/.npm/_cacache
+/home/jmack/.npm/_npx
+/home/jmack/.bun/install/cache
+/home/jmack/.platformio/packages
+/home/jmack/.platformio/tools
+/home/jmack/.platformio/dist
+/home/jmack/.local/share/flatpak
+/home/jmack/.local/share/claude/versions

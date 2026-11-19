@@ -46,8 +46,14 @@ laptop /home/jmack /bench /etc --laptop-backup.sh (root, daily 12:30, restic)-->
   repository is their only copy. No offsite yet (see Follow-up).
 - **Excluded** (`laptop-backup.excludes`): `~/Downloads`, `~/.cache`, the trash, `~/mnt`
   (rclone/FUSE mounts), browser and VS Code caches under `~/.config`, flatpak/snap app
-  caches, `~/.local/share/containers`. `--exclude-caches` also skips any folder with a
-  `CACHEDIR.TAG`; `--one-file-system` never crosses into another mount.
+  caches, `~/.local/share/containers`, and re-downloadable package/tool payloads
+  (`~/.npm/_cacache`, `~/.npm/_npx`, `~/.bun/install/cache`, `~/.platformio/{packages,tools,dist}`,
+  `~/.local/share/flatpak`, `~/.local/share/claude/versions`). `--exclude-caches` also
+  skips any folder with a `CACHEDIR.TAG`; `--one-file-system` never crosses into another
+  mount. Not decided yet, so still included: `/bench/.worktrees` and `~/.docker`.
+- **Size:** about 65 GB for the first backup (home is 104 GB on 2026-11-19, of which the
+  trash 17 GB, `~/.cache` 12 GB, Downloads and the payloads above are excluded; `/bench`
+  is 6.5 GB). Later runs send only changes.
 - **Away from home** it exits 0 with one line (`NAS 10.1.3.5 not reachable, skipping`):
   a 3 s TCP probe to `10.1.3.5:445`, then a 30 s-guarded `stat -f` that must say
   cifs/smb2, so it never writes into the bare local `/mnt/laptop-backup` directory.
@@ -179,9 +185,9 @@ sudo restic -r /mnt/laptop-backup/restic --password-file /etc/restic/laptop-back
 
 ## 3. First full backup, tagged `pre-wipe`
 
-About 40 GB. Plug into the wired Ethernet first (Thunderbolt adapter): over the old
-2.4 GHz wifi this takes hours. Stop the laptop sleeping while it runs. The script prints
-nothing until restic finishes:
+About 65 GB. Plug into the wired Ethernet first (Thunderbolt adapter): roughly 15–20
+minutes on wired Gigabit, 2+ hours over the old 2.4 GHz wifi link. Stop the laptop
+sleeping while it runs. restic's output streams to the terminal as it goes:
 
 ```sh
 sudo systemd-inhibit --what=sleep:idle --why='restic pre-wipe' /usr/local/sbin/laptop-backup.sh --tag pre-wipe

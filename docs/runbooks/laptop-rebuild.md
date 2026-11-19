@@ -59,6 +59,11 @@ op read 'op://kdk-ops/mbp-dev-luks/password' | wc -c     # 33 (32 + newline)
 
 ## 3. Install media
 
+**Already done 2026-11-19:** the 13.7.0 netinst image is downloaded and verified
+(signature + checksum) at `/home/jmack/Downloads/debian-13.7.0/`. Downloads is
+**excluded** from the backup, so write the USB stick from it **before the wipe** (the
+`dd` step below); the download and verify steps are only for a fresh copy.
+
 From https://cdimage.debian.org/debian-cd/current/amd64/iso-cd/ download
 `debian-13.*-amd64-netinst.iso`, `SHA256SUMS` and `SHA256SUMS.sign`. Verify the
 signature, then the checksum:
