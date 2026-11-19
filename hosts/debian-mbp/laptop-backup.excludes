@@ -1,0 +1,41 @@
+# laptop-backup.excludes -- restic --exclude-file for laptop-backup.sh.
+# Installs to /etc/restic/laptop-backup.excludes (root 0644).
+# docs/runbooks/laptop-backup.md
+#
+# restic patterns: a leading / anchors at the root, * stays inside one path
+# component, ** crosses directories. Deliberately NOT excluded: node_modules,
+# .git, ~/.claude, ~/.ssh, ~/.config in general, ~/Pictures. Not decided yet,
+# so still backed up: /bench/.worktrees, ~/.docker.
+
+# Downloads, caches, trash: re-fetchable or disposable
+/home/jmack/Downloads
+/home/jmack/.cache
+/home/jmack/.local/share/Trash
+
+# rclone / FUSE mounts (offsite-mount.sh mounts Proton at ~/mnt/offsite)
+/home/jmack/mnt
+
+# Browser and VS Code caches under ~/.config (Chrome/Chromium/Electron layout)
+/home/jmack/.config/**/Cache
+/home/jmack/.config/**/Code Cache
+/home/jmack/.config/**/GPUCache
+/home/jmack/.config/**/CachedData
+/home/jmack/.config/**/CachedExtensionVSIXs
+/home/jmack/.config/**/Service Worker/CacheStorage
+
+# Flatpak and snap app caches
+/home/jmack/.var/app/*/cache
+/home/jmack/snap/*/*/.cache
+
+# Podman/rootless container images and layers (re-pullable), if present
+/home/jmack/.local/share/containers
+
+# Package-manager download caches and re-installable tool payloads
+/home/jmack/.npm/_cacache
+/home/jmack/.npm/_npx
+/home/jmack/.bun/install/cache
+/home/jmack/.platformio/packages
+/home/jmack/.platformio/tools
+/home/jmack/.platformio/dist
+/home/jmack/.local/share/flatpak
+/home/jmack/.local/share/claude/versions

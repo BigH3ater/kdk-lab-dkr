@@ -1,0 +1,19 @@
+# Laptop debian-mbp: kdk-nas-01 SMB share laptop-backup (the restic repository)
+# as the laptop-backup user. Started only by mnt-laptop\x2dbackup.automount (no
+# [Install] here), so boot never waits for the NAS. Install: /etc/systemd/system/
+# (root 0644). Credentials: /etc/cifs/laptop-backup.cred (root 0600, from
+# 1Password kdk-ops/kdk-nas-01-laptop-backup-smb). docs/runbooks/laptop-backup.md
+[Unit]
+Description=kdk-nas-01 laptop-backup SMB share (restic repository)
+Wants=network-online.target
+After=network-online.target
+[Mount]
+What=//10.1.3.5/laptop-backup
+Where=/mnt/laptop-backup
+Type=cifs
+# uid/gid 0: laptop-backup.service runs as root and nothing else needs the
+# repository. seal = SMB3 encryption on the wire (wifi). soft is the cifs
+# default: a dead server returns EIO, never hangs.
+Options=vers=3.1.1,seal,credentials=/etc/cifs/laptop-backup.cred,uid=0,gid=0,file_mode=0600,dir_mode=0700,soft,_netdev,nofail
+# Give up on an unreachable NAS after 20 s instead of the 90 s default.
+TimeoutSec=20
