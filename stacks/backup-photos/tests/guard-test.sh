@@ -3,6 +3,11 @@
 # and a LOCAL directory as the "remote" (nothing touches Proton or any config:
 # PHOTOS_RCLONE_CONFIG points at a missing file, the destination is a temp dir).
 # Fake /proc/self/mountinfo lines say which binds are "NFS".
+# B2 (13-21): a test-only b2.env and a real crypt remote over a LOCAL directory
+# (PHOTOS_B2_UNDERLAY), so no Backblaze account is touched either; covers both
+# remotes in one night, the Immich DB dumps, the restore helper b2-rclone.sh,
+# "Proton fails, B2 still runs" and the reverse, B2 not configured, the guard
+# applying to both remotes, and that Proton's rclone flags/env are unchanged.
 #
 #   sh stacks/backup-photos/tests/guard-test.sh            (needs rclone on PATH)
 #   SH="busybox sh" sh stacks/backup-photos/tests/guard-test.sh   (busybox ash, as in the alpine-based image)
@@ -126,6 +131,10 @@ cat > "$T/bin/rclone" <<EOF
 #!/bin/sh
 case \$1 in sync|copy) ;; *) exec "$REAL_RCLONE" "\$@" ;; esac
 n=\$(( \$(cat "$T/calls" 2>/dev/null || echo 0) + 1 )); echo \$n > "$T/calls"
+# calls.log: which --config and how many b2 remote variables each call saw.
+cfg=none; prev=""; for a in "\$@"; do [ "\$prev" = --config ] && cfg="[\$a]"; prev=\$a; done
+echo "call=\$n dest=\$3 cfg=\$cfg b2env=\$(env | grep -c '^RCLONE_CONFIG_B2PHOTOS')" >> "$T/calls.log"
+echo "\$*" >> "$T/args.\$n"
 case \$(echo "\$FAKE_PLAN" | cut -d, -f\$n) in
   panic) echo "2026/11/19 03:59:58 NOTICE: stats line"
          echo "panic: runtime error: invalid memory address or nil pointer dereference" >&2
@@ -162,4 +171,139 @@ fake usage,real PHOTOS_MAX_PASSES=3
 [ "$(st rc)" = 2 ] && [ "$(st passes)" = 1 ] && [ "$(st crashes)" = 0 ] || fail "usage: rc=$(st rc) passes=$(st passes) crashes=$(st crashes)"
 [ "$(st last_ok)" = "$lo" ] || fail "usage: last_ok moved"
 ok "usage error (exit 2, no panic): no retry, rc=2, last_ok unchanged"
+
+# 13-21. B2, the second remote. b2.env holds test-only values; the crypt wraps a
+# LOCAL directory (PHOTOS_B2_UNDERLAY) instead of the bucket, so the real crypt
+# layer, the environment-defined remotes and --config "" are all exercised.
+B2U=$T/b2bucket; DB=$T/pgdump; mkdir -p "$B2U" "$DB"
+for d in 2026-11-17 2026-11-18; do
+  echo "immich dump $d" | gzip > "$DB/immich-$d.sql.gz"; echo "authelia $d" | gzip > "$DB/authelia-$d.sql.gz"
+done
+TPW=test-crypt-password-$$; TSALT=test-crypt-salt-$$; TKEY=test-app-key-$$
+printf 'PHOTOS_B2_ACCOUNT=test-key-id\nPHOTOS_B2_KEY=%s\nPHOTOS_B2_BUCKET=test-bucket\nPHOTOS_B2_CRYPT_PASSWORD=%s\nPHOTOS_B2_CRYPT_SALT=%s\n' \
+  "$TKEY" "$TPW" "$TSALT" > "$T/b2.env"
+run2() { run env PHOTOS_REMOTES="proton b2" PHOTOS_B2_ENV="$T/b2.env" PHOTOS_B2_UNDERLAY="$B2U" \
+  PHOTOS_DB_SRC="$DB" PHOTOS_B2_MAX_PASSES=1 "$@"; }
+fake2() { rm -f "$T/calls" "$T/calls.log" "$T"/args.*; plan=$1; shift; run2 env PATH="$T/bin:$PATH" FAKE_PLAN="$plan" "$@"; }
+st2() { tr ' ' '\n' < "$DATA/.photos-status-b2" | sed -n "s/^$1=//p"; }
+# dec: read the B2 copy the way the laptop restore does: a fresh crypt remote
+# built from nothing but the password and salt (docs/runbooks/photo-offsite.md#b2).
+dec() {
+  RCLONE_CONFIG_R_TYPE=crypt RCLONE_CONFIG_R_REMOTE="$B2U" RCLONE_CONFIG_R_FILENAME_ENCRYPTION=standard \
+  RCLONE_CONFIG_R_DIRECTORY_NAME_ENCRYPTION=true \
+  RCLONE_CONFIG_R_PASSWORD=$(printf %s "$TPW" | rclone obscure -) \
+  RCLONE_CONFIG_R_PASSWORD2=$(printf %s "$TSALT" | rclone obscure -) rclone --config "" "$@"
+}
+dcnt() { dec lsf -R --files-only "r:photos/$1" 2>/dev/null | wc -l | tr -d ' '; }
+INSTA=$SRC/insta360-flat/2025-08-maine
+
+# 13. both remotes: Proton as before, B2 gets the photos + the Immich dumps only,
+#     encrypted names, and a restore from password + salt matches byte for byte.
+mi nfs4 nfs4; run2 env
+[ "$(st rc)" = 0 ] && [ "$(st2 rc)" = 0 ] && [ "$(st2 guard)" = ok ] || fail "b2 normal: proton rc=$(st rc) b2 rc=$(st2 rc) guard=$(st2 guard)"
+[ "$(st2 db_rc)" = 0 ] && [ "$(st2 db_guard)" = ok ] && [ "$(st2 db_last_ok)" -gt 0 ] && [ "$(st2 last_ok)" -gt 0 ] || fail "b2 normal: db_rc=$(st2 db_rc) db_guard=$(st2 db_guard)"
+[ "$(dcnt immich)" = "$(find "$SRC/immich" -type f | wc -l | tr -d ' ')" ] && [ "$(dcnt insta360-flat)" = "$(find "$SRC/insta360-flat" -type f | wc -l | tr -d ' ')" ] \
+  || fail "b2 normal: b2 immich=$(dcnt immich) insta=$(dcnt insta360-flat)"
+[ "$(dec lsf r:immich-db | tr '\n' ' ')" = "immich-2026-11-17.sql.gz immich-2026-11-18.sql.gz " ] || fail "b2 db: $(dec lsf r:immich-db | tr '\n' ' ')"
+[ -z "$(find "$B2U" \( -name '*.jpg' -o -name '*.gz' -o -name 'photos' -o -name 'immich*' -o -name 'insta360*' \) -print)" ] || fail "b2: plaintext names in the bucket"
+f=$(find "$INSTA" -type f -name '*.jpg' | head -1); g=$SRC/immich/library/jmack/2026/2026-11-16/IMG_3.jpg
+[ "$(dec cat "r:photos/insta360-flat/2025-08-maine/${f##*/}" | sha256sum)" = "$(sha256sum < "$f")" ] \
+  && [ "$(dec cat r:photos/immich/library/jmack/2026/2026-11-16/IMG_3.jpg | sha256sum)" = "$(sha256sum < "$g")" ] \
+  && [ "$(dec cat r:immich-db/immich-2026-11-18.sql.gz | sha256sum)" = "$(sha256sum < "$DB/immich-2026-11-18.sql.gz")" ] || fail "b2 restore: sha256 differs"
+grep -q '^photos db: remote=b2 rclone exit=0 files=2 secs=[0-9]* guard=ok$' "$T/out" || fail "b2: db log line"
+grep -q '^photos rclone exit=0 remote=b2 passes=1 ' "$T/out" || fail "b2: final line"
+! grep -qF -e "$TPW" -e "$TSALT" -e "$TKEY" "$T/out" || fail "b2: a secret reached the log"
+[ "$(st2 seed_start)" != "$seed" ] || fail "b2: seed_start copied from proton"
+ok "proton + b2: both rc=0, B2 has photos + the 2 Immich dumps (not authelia), names encrypted, restore sha256 matches, no secret in the log"
+
+# 13b. b2-rclone.sh (the restore helper) reads the same copy, from b2.env and from
+#      "1Password" (a fake op that answers the five op:// references).
+cat > "$T/fakeop" <<EOF
+#!/bin/sh
+[ "\$1" = read ] || exit 1
+case \$2 in
+  op://kdk-ops/b2-photos-app-key/username) echo test-key-id ;;
+  op://kdk-ops/b2-photos-app-key/credential) echo "$TKEY" ;;
+  op://kdk-ops/b2-photos-app-key/bucket) echo test-bucket ;;
+  op://kdk-ops/b2-photos-crypt/password) echo "$TPW" ;;
+  op://kdk-ops/b2-photos-crypt/salt) echo "$TSALT" ;;
+  *) exit 1 ;;
+esac
+EOF
+h1=$(B2_ENV=$T/b2.env PHOTOS_B2_UNDERLAY=$B2U ${SH:-sh} "$HERE/b2-rclone.sh" cat b2photoscrypt:photos/immich/library/jmack/2026/2026-11-16/IMG_3.jpg | sha256sum)
+h2=$(OP="sh $T/fakeop" PHOTOS_B2_UNDERLAY=$B2U ${SH:-sh} "$HERE/b2-rclone.sh" --op cat b2photoscrypt:photos/immich/library/jmack/2026/2026-11-16/IMG_3.jpg | sha256sum)
+[ "$h1" = "$(sha256sum < "$g")" ] && [ "$h2" = "$h1" ] || fail "b2-rclone.sh: hashes differ ($h1 / $h2)"
+B2_ENV=$T/no-such-b2.env ${SH:-sh} "$HERE/b2-rclone.sh" lsf b2photoscrypt: 2>/dev/null && fail "b2-rclone.sh: ran without b2.env"
+ok "b2-rclone.sh restores the same bytes from b2.env and from 1Password (--op); refuses without credentials"
+
+# 14. Proton fails (usage error), B2 still runs and syncs. Proton's rclone saw its
+#     config file and no b2 variable; B2's calls ran with --config "" and the b2 remotes.
+echo "trip 12" > "$INSTA/I360_12.jpg"
+fake2 usage,real,real
+[ "$(st rc)" = 2 ] && [ "$(st2 rc)" = 0 ] && [ "$(st2 db_rc)" = 0 ] || fail "proton fails: proton rc=$(st rc) b2 rc=$(st2 rc) db_rc=$(st2 db_rc)"
+dec lsf r:photos/insta360-flat/2025-08-maine/I360_12.jpg | grep -q . || fail "proton fails: b2 did not get the new still"
+[ ! -e "$DEST/insta360-flat/2025-08-maine/I360_12.jpg" ] || fail "proton fails: proton got it anyway?"
+grep -q "^call=1 dest=$DEST cfg=\[$T/no-such-rclone.conf\] b2env=0$" "$T/calls.log" || fail "proton call env: $(cat "$T/calls.log")"
+grep -q '^call=2 dest=b2photoscrypt:immich-db cfg=\[\] b2env=1[0-9]$' "$T/calls.log" && grep -q '^call=3 dest=b2photoscrypt:photos cfg=\[\] b2env=1[0-9]$' "$T/calls.log" \
+  || fail "b2 call env: $(cat "$T/calls.log")"
+# Proton's flags are exactly the Proton-only version's (same set, order aside); none of B2's.
+pa=" $(cat "$T/args.1") "
+for fl in "--size-only" "--transfers 2" "--checkers 4" "--retries 3" "--low-level-retries 10" "--max-delete 100" \
+  "--max-duration 25m" "--log-level NOTICE" "--stats 5m" "--stats-one-line" "--stats-log-level NOTICE" \
+  "--protondrive-replace-existing-draft=true" "--tpslimit 10"; do
+  case $pa in *" $fl "*) ;; *) fail "proton args: missing $fl in$pa" ;; esac
+done
+case $pa in *--fast-list*|*--cutoff-mode*|*--b2-*) fail "proton args: B2 flag in$pa" ;; esac
+[ "$(printf "%s" "$pa" | tr -s " " "\n" | grep -c .)" = 40 ] || fail "proton args: word count:$pa"
+ok "Proton usage error (rc=2): B2 still synced (DB + photos, rc=0); Proton's rclone never saw a b2 variable, B2 ran without rclone.conf; Proton flags unchanged"
+
+# 15. B2 fails (every call crashes), Proton is unaffected and in sync.
+lo2=$(st2 last_ok); fake2 real,panic,panic
+[ "$(st rc)" = 0 ] && [ -e "$DEST/insta360-flat/2025-08-maine/I360_12.jpg" ] || fail "b2 fails: proton rc=$(st rc)"
+[ "$(st2 rc)" = 91 ] && [ "$(st2 crashes)" = 1 ] && [ "$(st2 db_rc)" = 91 ] && [ "$(st2 last_ok)" = "$lo2" ] || fail "b2 fails: rc=$(st2 rc) crashes=$(st2 crashes) db_rc=$(st2 db_rc)"
+ok "B2 crashes (DB + photos rc=91): Proton synced (rc=0), B2 last_ok unchanged"
+
+# 16. Order does not matter: B2 first and broken, Proton after it still syncs.
+echo "trip 13" > "$INSTA/I360_13.jpg"
+fake2 usage,usage,real PHOTOS_REMOTES="b2 proton"
+[ "$(st2 rc)" = 2 ] && [ "$(st2 db_rc)" = 2 ] && [ "$(st rc)" = 0 ] && [ -e "$DEST/insta360-flat/2025-08-maine/I360_13.jpg" ] \
+  || fail "b2 first: b2 rc=$(st2 rc) db_rc=$(st2 db_rc) proton rc=$(st rc)"
+ok "B2 first with usage errors (rc=2): Proton after it still synced"
+run2 env; [ "$(st2 rc)" = 0 ] || fail "b2 recover: rc=$(st2 rc)"
+
+# 17. not configured: no b2.env, then an empty field -> rc=92, Proton untouched.
+rm "$INSTA/I360_13.jpg"; run2 env PHOTOS_B2_ENV="$T/no-such-b2.env"
+[ "$(st2 rc)" = 92 ] && [ "$(st2 db_guard)" = not-configured ] && [ "$(st2 passes)" = 0 ] || fail "no env: b2 rc=$(st2 rc) db_guard=$(st2 db_guard)"
+[ "$(st rc)" = 0 ] && [ ! -e "$DEST/insta360-flat/2025-08-maine/I360_13.jpg" ] || fail "no env: proton rc=$(st rc)"
+grep -q '^photos: b2 not configured (no-env-file), skipped' "$T/out" || fail "no env: log line"
+dec lsf r:photos/insta360-flat/2025-08-maine/I360_13.jpg | grep -q . || fail "no env: b2 copy changed"
+grep -v '^PHOTOS_B2_CRYPT_SALT=' "$T/b2.env" > "$T/b2-nosalt.env"; run2 env PHOTOS_B2_ENV="$T/b2-nosalt.env"
+[ "$(st2 rc)" = 92 ] && grep -q 'b2 not configured (empty-PHOTOS_B2_CRYPT_SALT)' "$T/out" || fail "no salt: b2 rc=$(st2 rc)"
+ok "b2.env missing or a field empty: b2 rc=92 (not configured), nothing touched on B2, Proton rc=0"
+
+# 18. the guard applies to both remotes: a dead Insta360 mount is left out of each.
+bc=$(dcnt insta360-flat); mv "$SRC/insta360-flat" "$T/insta-away"; mkdir "$SRC/insta360-flat"; mi nfs4 ext4; run2 env
+case "$(st guard)|$(st2 guard)" in "refused:insta360-flat:not-nfs:insta360-flat:ext4|refused:insta360-flat:not-nfs:insta360-flat:ext4") ;; *) fail "guard both: $(st guard) | $(st2 guard)" ;; esac
+[ "$(dcnt insta360-flat)" = "$bc" ] && [ "$(st2 rc)" = 0 ] || fail "guard both: b2 insta copy changed ($(dcnt insta360-flat), was $bc)"
+ok "dead Insta360 mount: refused for Proton AND B2, the B2 copy untouched"
+rmdir "$SRC/insta360-flat"; mv "$T/insta-away" "$SRC/insta360-flat"; mi nfs4 nfs4
+
+# 19. DB guard: no immich dump in the folder -> no DB sync (B2 dumps kept), photos still sync.
+mkdir "$T/db-away"; mv "$DB"/immich-* "$T/db-away/"; run2 env
+[ "$(st2 db_guard)" = no-dumps ] && [ "$(st2 db_rc)" = 90 ] && [ "$(st2 rc)" = 0 ] || fail "db guard: db_guard=$(st2 db_guard) db_rc=$(st2 db_rc) rc=$(st2 rc)"
+[ "$(dec lsf r:immich-db | wc -l | tr -d ' ')" = 2 ] || fail "db guard: B2 dumps deleted"
+mv "$T/db-away"/* "$DB/"
+ok "no Immich dump: DB sync refused (db_rc=90), B2 dumps kept, photos rc=0"
+
+# 20. dump rotation propagates on B2 (sync), other DB dumps never ship.
+rm "$DB/immich-2026-11-17.sql.gz"; echo "immich dump 2026-11-19" | gzip > "$DB/immich-2026-11-19.sql.gz"; run2 env
+[ "$(dec lsf r:immich-db | tr '\n' ' ')" = "immich-2026-11-18.sql.gz immich-2026-11-19.sql.gz " ] && [ "$(st2 db_rc)" = 0 ] || fail "db rotate: $(dec lsf r:immich-db | tr '\n' ' ')"
+ok "dump rotation: B2 immich-db follows the 15-kept folder (old dump hidden on real B2)"
+
+# 21. dry run: neither status file written.
+cp "$DATA/.photos-status-b2" "$T/st2.before"; cp "$DATA/.photos-status-proton" "$T/st.before"
+echo "trip 14" > "$INSTA/I360_14.jpg"; run2 env PHOTOS_DRY_RUN=1
+cmp -s "$DATA/.photos-status-b2" "$T/st2.before" && cmp -s "$DATA/.photos-status-proton" "$T/st.before" || fail "b2 dry run wrote a status"
+! dec lsf r:photos/insta360-flat/2025-08-maine/I360_14.jpg 2>/dev/null | grep -q . || fail "b2 dry run uploaded"
+ok "dry run with both remotes: no status written, nothing uploaded to B2"
 echo "all guard tests passed"

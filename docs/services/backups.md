@@ -6,7 +6,7 @@ tier: infra
 status: live
 storage: yes
 secrets: [proton-mirror-crypt, authelia-postgres, immich-postgres, jellystat, wger-postgres, authelia-app-secrets]
-updated: 2026-11-16
+updated: 2026-11-19
 tags: [homelab/stack, tier/infra, status/live]
 ---
 
@@ -21,7 +21,7 @@ Nightly app-state backups run as one-shot stacks that a Komodo Procedure redeplo
 | Field | Value |
 |---|---|
 | Purpose | pg dumps + `/opt/kdk-lab` rsync to the NAS, then selected sets offsite |
-| Status | 🟢 Local NAS live (nightly 03:20) · 🟢 offsite packs per-host `tar.zst` (+ the CAD library `3d-prints-*.tar.zst`) then syncs `offsite/` + `pve-templates/` + `*/pgdump/` to Proton · 🟡 photo originals (Immich + Insta360) synced file by file to `proton-crypt:photos/` (`backup-photos`, [[photo-offsite]]) |
+| Status | 🟢 Local NAS live (nightly 03:20) · 🟢 offsite packs per-host `tar.zst` (+ the CAD library `3d-prints-*.tar.zst`) then syncs `offsite/` + `pve-templates/` + `*/pgdump/` to Proton · 🟡 photo originals (Immich + Insta360) synced file by file to `proton-crypt:photos/` and to Backblaze B2 `b2photoscrypt:photos/` + the Immich DB dumps to `b2photoscrypt:immich-db/` (`backup-photos`, [[photo-offsite]]) |
 | Hosts | [[kdk-dkr-01]] (`backup-dkr-01`), [[kdk-dkr-dmz-01]] (`backup-dmz`) |
 | Deploy | Komodo Procedure `nightly-backups` redeploys both stacks (`deploy = false` otherwise) |
 | Destinations | `/mnt/backup/dkr/<host>` (NFS tankz3) → Proton Drive (crypt) |
@@ -52,6 +52,9 @@ In Komodo, Procedure `nightly-backups` shows a recent successful run.
 | WARN `photos/proton: first upload still seeding` | normal for the first nights after the photos stage went live (4 × 25-min passes a night) | [[photo-offsite]] § Proton seeding; FAIL after 14 days |
 | FAIL `photos/proton: guard refused:...` | a photo source looked wrong (not NFS, no marker, empty, < 50 % of the last night): it was left out, its Proton copy is untouched | `ssh kdkadmin@10.1.20.22 'findmnt /mnt/immich /mnt/insta360-flat'`; [[photo-offsite]] § Overrides |
 | FAIL `photos/proton: rclone exit=7` | more than 100 deletes in one run (`--max-delete`) | check it was deliberate in Immich, then [[photo-offsite]] § Overrides |
+| `photos/b2: ...` (any of the above) | same rules, B2 copy | same fixes; B2 seeds separately (2 × 60-min passes) |
+| FAIL `photos/b2: not configured` | no `/etc/kdk/backup-photos-b2/b2.env` on kdk-dkr-04, or a line empty (Proton unaffected) | [[photo-offsite]] § B2, steps B4 |
+| FAIL/WARN `photos/b2: Immich DB dump ...` | the B2 copy of `immich-*.sql.gz` failed or found no dump | check tonight's `pgdump immich` line above; [[photo-offsite]] § B2 |
 | rclone can't read cached tokens | image newer than the login version | pin `rclone/rclone:1.75.2` (the version that did the interactive login) |
 
 ## Dependencies
@@ -71,11 +74,11 @@ Grafana → **Backups → Nightly backups** (`stacks/monitoring/grafana/dashboar
 | Row | Shows | Source |
 |---|---|---|
 | Tonight at a glance | backup-verify result, steps failed, bytes produced, upload passes + time, On Proton (last `offsite rclone exit=`), latest exit per step, steps per night | docker-event-watch `event name=<container> action=die code=N` (every host, last 26 h) + the offsite lines |
-| Files produced tonight | name, host, kind, series, size, prev size, change, % of prev (red < 50), Proton status | `backup-manifest` lines (last 23 h) |
+| Files produced tonight | name, host, kind, series, size, prev size, change, % of prev (red < 50), Proton status, B2 status (photo rows) | `backup-manifest` lines (last 23 h) |
 | Sizes over time (30 d) | per-host archives, pg dumps per database (log scale) | `backup-manifest` |
 | CAD library changes | added/changed/removed per night, the changed paths | `backup-change` / `backup-change-summary` |
 | Upload passes | exit per pass per night (10 = 25-min cap), passes per night, upload time | `offsite pass N: rclone exit=N secs=S` |
-| Photo originals | Photos on Proton (last `photos rclone exit=`), exit per pass per night, files per source, upload time | `backup-photos` (`photos.sh`): `photos pass N: remote=proton rclone exit=N secs=S`, `photos rclone exit=N remote=proton ...`, `backup-manifest kind=photos` |
+| Photo originals | Photos on Proton / on B2 (last `photos rclone exit=` per remote), exit per pass per night per remote, files per source, upload time per remote, Immich DB on B2 (last + per night) | `backup-photos` (`photos.sh`): `photos pass N: remote=proton\|b2 rclone exit=N secs=S`, `photos rclone exit=N remote=... `, `photos db: remote=b2 rclone exit=N ...`, `backup-manifest kind=photos` |
 
 The lines `pack.sh` writes after packing (stdout → Alloy on kdk-dkr-04 → Loki `{stack="backup-offsite", service="pack"}`), all logfmt:
 
@@ -124,7 +127,8 @@ Other DMZ data that lives on `/mnt/appdata` instead of `/opt/kdk-lab` (Seerr, Wi
 | `stacks/backup-offsite/compose.yaml` | separate stage: `pack` service builds per-host `tar.zst`, then `offsite` service `rclone sync`s `offsite/` + `pve-templates/` + `*/pgdump/` to Proton (crypt), `--max-duration 25m` per pass, writes `.offsite-status` |
 | `stacks/backup-offsite/pack.sh` | builds `/mnt/backup/dkr/offsite/<host>-YYYY-MM-DD.tar.zst` per host (excludes caches/logs/clones/creds/pgdump), plus `3d-prints-YYYY-MM-DD.tar.zst` from `/src/3d-prints` (ro bind of dkr-04 `/mnt/3d-prints`), keeps newest 3 of each |
 | `stacks/backup-dmz/compose.yaml` | Authelia + Immich + Tandoor pg dumps + rsync of `/opt/kdk-lab` (excludes live Postgres dirs, certs, clones, Jellyfin metadata/cache/transcodes, `audiobookshelf/podcasts`) |
-| `stacks/backup-photos/compose.yaml`, `photos.sh` | separate stage after offsite: guard, then `rclone sync --size-only --max-delete 100` of the photo originals to `proton-crypt:photos/`, up to 4 × 25-min passes, writes `.photos-status-proton` ([[photo-offsite]]) |
+| `stacks/backup-photos/compose.yaml`, `photos.sh` | separate stage after offsite: guard, then `rclone sync --size-only --max-delete 100` of the photo originals to `proton-crypt:photos/`, up to 4 × 25-min passes, writes `.photos-status-proton`; then B2 (DB dumps + photos, up to 2 × 60-min passes, `.photos-status-b2`) ([[photo-offsite]]) |
+| `/etc/kdk/backup-photos-b2/b2.env` (kdk-dkr-04, root 600) | B2 key, bucket, crypt password + salt for `backup-photos` (from 1Password `kdk-ops/b2-photos-app-key` + `b2-photos-crypt`; never in `rclone.conf`) |
 | `/opt/kdk-lab/backup/rclone/rclone.conf` | `proton` + `proton-crypt` remotes (shared by `backup-offsite` and `backup-photos`, which never run at once) |
 | Procedure `nightly-backups` | schedule `0 20 3 * * *` (03:20 daily, `Cron` format) |
 

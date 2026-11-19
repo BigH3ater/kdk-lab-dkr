@@ -1,6 +1,8 @@
 # Nightly one-shot on kdk-dkr-04: file-by-file rclone sync of the photo
 # ORIGINALS (Immich library/upload/profile + the Insta360 export) to the Proton
-# crypt remote, under proton-crypt:photos/. Own stage of the nightly-backups
+# crypt remote (proton-crypt:photos/), then to Backblaze B2 through its own crypt
+# (b2photoscrypt:photos/, plus the Immich DB dumps to b2photoscrypt:immich-db/).
+# One remote after the other, each with its own status file. Own stage of the nightly-backups
 # procedure, AFTER backup-offsite (one Proton session, single-use refresh token:
 # never two rclone runs at once) and BEFORE backup-verify. Logic, deletion guard
 # and the status file verify reads: photos.sh (mounted, so Compose interpolation
@@ -30,6 +32,8 @@ services:
     environment:
       PHOTOS_MODE: "${PHOTOS_MODE:-sync}"             # sync | copy (copy never deletes offsite)
       PHOTOS_MAX_DELETE: "${PHOTOS_MAX_DELETE:-100}"  # more deletes in one run = rclone exit 7, verify FAILs
+      PHOTOS_REMOTES: "${PHOTOS_REMOTES:-proton b2}"  # in this order; "proton" alone = B2 off (rollback)
+      PHOTOS_B2_MAX_PASSES: "${PHOTOS_B2_MAX_PASSES:-2}"  # 60-min B2 passes a night
     volumes:
       # Status files + guard state (.photos-status-<remote>, .photos-state) at the
       # backup root, where backup-verify (dkr-01) reads them. Outside every
@@ -37,6 +41,12 @@ services:
       - /mnt/backup/dkr:/data
       # Proton session: rw, rclone rotates the cached tokens in place (offsite.sh).
       - /opt/kdk-lab/backup/rclone:/config
+      # B2 credentials + its crypt password/salt: host-managed b2.env (root 600,
+      # written from 1Password, docs/runbooks/photo-offsite.md#b2). A DIRECTORY
+      # bind on purpose: before the hand steps the directory is missing, Docker
+      # creates it empty and photos.sh skips B2 (rc=92) while Proton runs as usual.
+      # (A missing single-file bind would become a directory or stop the container.)
+      - /etc/kdk/backup-photos-b2:/b2:ro
       - ./photos.sh:/photos.sh:ro
       # Immich originals: NAS tankz3/appdata/immich, read-only NFS on dkr-04 at
       # /mnt/immich (unit hosts/kdk-dkr-04/systemd/mnt-immich.mount). Only these

@@ -12,7 +12,7 @@ vmid: kdkdkr04
 console: TrueNAS UI → Virtualization → kdkdkr04 → Console
 standards: baseline-at-build
 secrets: []
-updated: 2026-11-17
+updated: 2026-11-19
 tags: [homelab/host, role/docker-host, status/building, tier/internal]
 ---
 
@@ -112,7 +112,7 @@ on kdk-dkr-01 connects). No PCI passthrough.
 | `/mnt/3d-prints` | `172.16.30.2:/mnt/tankz3/3d-prints` | NFSv4.1 | `nfsvers=4.1,ro,noatime,_netdev` | `backup-offsite` pack, CAD library ([[cad-library]]) | tankz3 snapshots + nightly `3d-prints-*.tar.zst` offsite |
 | `/mnt/insta360-upload` | `172.16.30.2:/mnt/tankz3/insta360-upload` | NFSv4.1 | `nfsvers=4.1,ro,noatime,_netdev` | `insta360-flat` (raw captures, [[imaging]]) | tankz3 daily snapshots (2 weeks) |
 | `/mnt/insta360-flat` | `172.16.30.2:/mnt/tankz3/insta360-flat` | NFSv4.1 | `nfsvers=4.1,noatime,_netdev` | `insta360-flat` (finished stills, [[insta360-flat]]) | tankz3 daily snapshots (2 weeks) |
-| `/mnt/immich` | `172.16.30.2:/mnt/tankz3/appdata/immich` | NFSv4.1 | `nfsvers=4.1,ro,noatime,_netdev` | `backup-photos` (Immich originals, [[photo-offsite]]) | tankz3 snapshots + nightly file-by-file sync to Proton |
+| `/mnt/immich` | `172.16.30.2:/mnt/tankz3/appdata/immich` | NFSv4.1 | `nfsvers=4.1,ro,noatime,_netdev` | `backup-photos` (Immich originals, [[photo-offsite]]) | tankz3 snapshots + nightly file-by-file sync to Proton and B2 |
 | `/opt/kdk-lab` | root zvol | zfs | — | all stack config | SSH-pulled nightly by `backup-collect` on dkr-01 |
 
 All seven NFS mounts are in `storage-health-dkr04` `NFS_MOUNTS` (hourly; a missing or hung
@@ -131,7 +131,11 @@ dkr-01 (dkr-04 is not yet packed into the offsite set — see `docs/backups.md`)
 Host holds no credential of its own beyond the periphery auth line (passkeys,
 rendered from `op://kdk-cluster/komodo-passkey`) and, once the agents deploy,
 `/etc/kdk/pushover.env` (copied 0600 from kdk-dkr-01). Both follow the lab-wide
-rotation in [[komodo]] and [[observability]].
+rotation in [[komodo]] and [[observability]]. Since the B2 photo copy also
+`/etc/kdk/backup-photos-b2/b2.env` (root 600 in a root 700 dir: the B2 key and the B2
+crypt password + salt for `backup-photos`, written from 1Password `kdk-ops/b2-photos-app-key`
++ `b2-photos-crypt` over ssh stdin; no `op` CLI on this host). Rotation and the full hand
+steps: [[photo-offsite]] § B2. A rebuild needs step B4 again.
 
 ## Provisioning
 

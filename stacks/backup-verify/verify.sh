@@ -9,7 +9,8 @@
 #   * Proxmox cloud-init template (VM 9000) vzdump present < 40d  [WARN only]
 #   * CAD library archive offsite/3d-prints-<today>.tar.zst present + zstd -t
 #   * CAD laptop sync marker (.3d-prints-last-sync, copied by pack) < 14d  [WARN only]
-#   * photo originals synced to Proton (.photos-status-proton, see section 6)
+#   * photo originals synced to Proton and to B2, the Immich DB dumps to B2
+#     (.photos-status-proton, .photos-status-b2, see section 6)
 # FAIL -> Pushover priority 1. WARN -> priority 0. All-clear -> quiet (-1).
 apk add --no-cache curl zstd >/dev/null 2>&1 || true
 . /pushover.env
@@ -72,22 +73,31 @@ else
 fi
 
 # 6. Photo originals (backup-photos on kdk-dkr-04, docs/runbooks/photo-offsite.md):
-#    one status line per remote, written by photos.sh after its passes:
+#    one status line per remote (proton, b2: same rules, each its own seeding
+#    window), written by photos.sh after its passes:
 #      rc= ts= date= passes= guard=ok|refused:... last_ok=EPOCH|0 seed_start=EPOCH crashes=N
-#    FAIL: no/stale status; any guard refusal (a mount down, an empty or shrunken
+#      b2 also: db_rc= db_guard= db_last_ok=   (the Immich DB dumps on B2)
+#    FAIL: no/stale status; rc=92 (remote not configured: B2 hand steps not done);
+#      any guard refusal (a mount down, an empty or shrunken
 #      source: that source was left out, its offsite copy is kept); rclone exit 2/7
 #      (usage error, or fatal e.g. --max-delete exceeded); not in sync and no full
-#      sync in 3 days; the first upload still not complete after 14 days.
+#      sync in 3 days; the first upload still not complete after 14 days;
+#      b2 DB: guard refused (no immich dump to send), exit 2/7, or no good DB sync
+#      in 3 days.
 #    WARN: the first upload is still seeding (< 14 days since the first run), or
-#      tonight hit the pass cap (exit 10) / a Proton blip / an rclone crash (rc=91:
-#      Go panic, raw exit 2, retried like a cap) with a full sync < 3 days ago.
-for r in proton; do
+#      tonight hit the pass cap (exit 10) / a Proton or B2 blip / an rclone crash
+#      (rc=91: Go panic, raw exit 2, retried like a cap) with a full sync < 3 days
+#      ago; b2 DB sync failed tonight with a good one < 3 days ago.
+for r in proton b2; do
   f=/dest/.photos-status-$r
   if [ ! -f "$f" ]; then add_prob "photos/$r: no status file (backup-photos never ran?)"; continue; fi
-  rc=""; ts=0; passes=""; guard=""; last_ok=0; seed_start=0; crashes=0
+  rc=""; ts=0; passes=""; guard=""; last_ok=0; seed_start=0; crashes=0; db_rc=""; db_guard=""; db_last_ok=0
   . "$f" 2>/dev/null || true
   page=$(( now - ${ts:-0} ))
   if [ "$page" -gt 21600 ]; then add_prob "photos/$r: status stale (${page}s)"; continue; fi
+  if [ "${rc:-1}" = 92 ]; then
+    add_prob "photos/$r: not configured (/etc/kdk/backup-photos-b2/b2.env on kdk-dkr-04 missing or incomplete; owner hand steps in docs/runbooks/photo-offsite.md#b2)"; continue
+  fi
   case "${guard:-?}" in ok) ;; *) add_prob "photos/$r: guard ${guard:-?} (left out tonight, offsite copy kept)" ;; esac
   rc=${rc:-1}; last_ok=${last_ok:-0}; seed_start=${seed_start:-$now}
   # 91 = the last pass crashed (rclone Go panic): an interrupted pass, like exit 10.
@@ -105,6 +115,22 @@ for r in proton; do
     add_warn "photos/$r: not fully synced tonight ($ex), last full sync $(( (now - last_ok) / 3600 ))h ago"
   else
     add_prob "photos/$r: $ex, last full sync $(( (now - last_ok) / 86400 ))d ago"
+  fi
+  # The Immich DB dumps (b2 only; Proton gets them through the host offsite, section 3).
+  [ "$r" = b2 ] || continue
+  db_rc=${db_rc:-1}; db_last_ok=${db_last_ok:-0}
+  if [ "${db_guard:-?}" != ok ]; then
+    add_prob "photos/$r: Immich DB dumps not sent (guard ${db_guard:-?}: no immich-*.sql.gz in kdk-dkr-dmz-01/pgdump; B2 copy kept)"
+  elif [ "$db_rc" = 0 ]; then
+    :
+  elif [ "$db_rc" = 2 ] || [ "$db_rc" = 7 ]; then
+    add_prob "photos/$r: Immich DB dump sync rclone exit=$db_rc (2 = usage error, 7 = more than 5 deletes)"
+  elif [ "$db_last_ok" -gt 0 ] && [ $(( now - db_last_ok )) -lt 259200 ]; then
+    add_warn "photos/$r: Immich DB dump sync rclone exit=$db_rc tonight, last good $(( (now - db_last_ok) / 3600 ))h ago"
+  elif [ "$db_last_ok" -eq 0 ] && [ $(( now - seed_start )) -lt 259200 ]; then
+    add_warn "photos/$r: Immich DB dump sync rclone exit=$db_rc, none good yet (first nights of B2)"
+  else
+    add_prob "photos/$r: Immich DB dump sync rclone exit=$db_rc, no good sync in 3 days"
   fi
 done
 
@@ -124,6 +150,6 @@ elif [ -n "$WARN" ]; then
   printf 'BACKUP OK with warnings:%b\n' "$WARN"
   push 0 "kdk-lab backup: warnings" "Warnings:$WARN"
 else
-  echo "BACKUP OK -- all hosts fresh, pg dumps valid, 3d-prints archive valid, offsite clean, photos in sync"
-  push -1 "kdk-lab backup OK" "All 6 hosts staged, pg dumps valid, 3d-prints archive valid, offsite rclone exit=0, photo originals in sync, template present."
+  echo "BACKUP OK -- all hosts fresh, pg dumps valid, 3d-prints archive valid, offsite clean, photos in sync (Proton + B2)"
+  push -1 "kdk-lab backup OK" "All 6 hosts staged, pg dumps valid, 3d-prints archive valid, offsite rclone exit=0, photo originals in sync on Proton and B2, Immich DB on B2, template present."
 fi

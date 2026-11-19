@@ -1,7 +1,7 @@
 {
   "uid": "backups-nightly",
   "title": "Nightly backups",
-  "description": "nightly-backups procedure: step exit codes (docker-event-watch), pack.sh's backup-manifest / backup-change lines the offsite rclone passes, and backup-photos' photo-originals sync. docs/services/backups.md#observability",
+  "description": "nightly-backups procedure: step exit codes (docker-event-watch), pack.sh's backup-manifest / backup-change lines the offsite rclone passes, and backup-photos' photo-originals sync (Proton and B2). docs/services/backups.md#observability",
   "tags": [
     "backups",
     "loki"
@@ -711,7 +711,7 @@
       "type": "table",
       "id": 11,
       "title": "Files produced tonight",
-      "description": "One row per file in tonight's backup-manifest (pack.sh, plus one `kind=photos` row per photo source from backup-photos' photos.sh, last 23 h). prev = the same series' previous file (yesterday's archive, the previous dump of that DB). % of prev is red below 50 (the BackupFileShrank alert). Proton = the last `offsite rclone exit=` (0 = the whole set synced). Empty before PR A's pack.sh has run. Photo rows: size = the whole source tree; prev = the last accepted night; Proton = the final `photos rclone exit=` (10 while the first upload seeds), `left out` = the deletion guard refused that source tonight.",
+      "description": "One row per file in tonight's backup-manifest (pack.sh, plus one `kind=photos` row per photo source from backup-photos' photos.sh, last 23 h). prev = the same series' previous file (yesterday's archive, the previous dump of that DB). % of prev is red below 50 (the BackupFileShrank alert). Proton = the last `offsite rclone exit=` (0 = the whole set synced). Empty before PR A's pack.sh has run. Photo rows: size = the whole source tree; prev = the last accepted night; Proton = the final `photos rclone exit=` (10 while the first upload seeds), `left out` = the deletion guard refused that source tonight. B2 = the same for remote=b2 (`not configured` = no b2.env on kdk-dkr-04 yet). Host-archive rows have no B2 cell (only the photo originals and the Immich DB dumps go to B2; the DB has its own stat in the Photo originals row).",
       "datasource": {
         "type": "loki",
         "uid": "loki-dkr01"
@@ -785,6 +785,24 @@
           "refId": "G",
           "queryType": "instant",
           "expr": "max by (kind, host, series, name, col) (last_over_time({stack=\"backup-photos\", service=\"photos\"} |= \"backup-manifest \" | logfmt | kind=\"photos\" | guard!=\"ok\" | label_format col=\"Proton\" | unwrap bytes | __error__=\"\" [23h])) * 0 + 900"
+        },
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki-dkr01"
+          },
+          "refId": "H",
+          "queryType": "instant",
+          "expr": "max by (kind, host, series, name, col) (last_over_time({stack=\"backup-photos\", service=\"photos\"} |= \"backup-manifest \" | logfmt | kind=\"photos\" | guard=\"ok\" | label_format col=\"B2\" | unwrap bytes | __error__=\"\" [23h])) * 0 + on() group_left() max(last_over_time({stack=\"backup-photos\", service=\"photos\"} |= \"photos rclone exit=\" |= \"remote=b2\" | regexp `photos rclone exit=(?P<rc>[0-9]+)` | unwrap rc | __error__=\"\" [23h]))"
+        },
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki-dkr01"
+          },
+          "refId": "I",
+          "queryType": "instant",
+          "expr": "max by (kind, host, series, name, col) (last_over_time({stack=\"backup-photos\", service=\"photos\"} |= \"backup-manifest \" | logfmt | kind=\"photos\" | guard!=\"ok\" | label_format col=\"B2\" | unwrap bytes | __error__=\"\" [23h])) * 0 + 900"
         }
       ],
       "transformations": [
@@ -815,7 +833,8 @@
               "prev size": 5,
               "change": 6,
               "% of prev": 7,
-              "Proton": 8
+              "Proton": 8,
+              "B2": 9
             }
           }
         },
@@ -941,6 +960,80 @@
                       "900": {
                         "text": "left out (guard)",
                         "index": 1
+                      }
+                    }
+                  },
+                  {
+                    "type": "range",
+                    "options": {
+                      "from": 1,
+                      "to": 1000000000.0,
+                      "result": {
+                        "text": "not synced",
+                        "index": 2
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "B2"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background",
+                  "mode": "basic"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "red",
+                      "value": 1
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "0": {
+                        "text": "on B2",
+                        "index": 0
+                      }
+                    }
+                  },
+                  {
+                    "type": "value",
+                    "options": {
+                      "900": {
+                        "text": "left out (guard)",
+                        "index": 1
+                      }
+                    }
+                  },
+                  {
+                    "type": "value",
+                    "options": {
+                      "92": {
+                        "text": "not configured",
+                        "index": 3
                       }
                     }
                   },
@@ -1534,7 +1627,7 @@
     {
       "type": "row",
       "id": 22,
-      "title": "Photo originals (backup-photos to Proton, file by file)",
+      "title": "Photo originals (backup-photos to Proton and B2, file by file)",
       "collapsed": false,
       "gridPos": {
         "x": 0,
@@ -1548,7 +1641,7 @@
       "type": "stat",
       "id": 23,
       "title": "Photos on Proton",
-      "description": "The final `photos rclone exit=` (remote=proton) of the last 23 h. 0 = every accepted source is in sync; 10 = the 4 x 25-min passes ran out (normal while the first upload seeds over several nights); 7 = --max-delete hit; 90 = every source refused by the deletion guard; 91 = the last pass crashed (rclone Go panic, retried like 10). backup-verify decides FAIL/WARN.",
+      "description": "The final `photos rclone exit=` (remote=proton) of the last 23 h. 0 = every accepted source is in sync; 10 = the 4 x 25-min passes ran out (normal while the first upload seeds over several nights); 7 = --max-delete hit; 90 = every source refused by the deletion guard; 91 = the last pass crashed (rclone Go panic, retried like 10). backup-verify decides FAIL/WARN. The B2 stats are in the line below.",
       "datasource": {
         "type": "loki",
         "uid": "loki-dkr01"
@@ -1657,7 +1750,7 @@
     {
       "type": "status-history",
       "id": 24,
-      "title": "Photos: exit per pass per night",
+      "title": "Photos on Proton: exit per pass per night",
       "description": "rclone exit of each `photos pass N` per UTC day. 0 = in sync, 10 = the 25-min cap (next pass / next night resumes), 91 = rclone crashed (Go panic, raw exit 2; the next pass resumes), 7 = --max-delete exceeded.",
       "datasource": {
         "type": "loki",
@@ -1816,8 +1909,8 @@
     {
       "type": "timeseries",
       "id": 26,
-      "title": "Photos: upload time per night",
-      "description": "Sum of the per-pass secs= of `photos pass N` per UTC day. ~100 min (4 x 25) every night = still seeding.",
+      "title": "Photos: upload time per night, per remote",
+      "description": "Sum of the per-pass secs= of `photos pass N` per UTC day, per remote. Proton: ~100 min (4 x 25) every night = still seeding. B2: ~120 min (2 x 60) = still seeding.",
       "datasource": {
         "type": "loki",
         "uid": "loki-dkr01"
@@ -1835,9 +1928,9 @@
             "uid": "loki-dkr01"
           },
           "refId": "A",
-          "expr": "sum(sum_over_time({stack=\"backup-photos\", service=\"photos\"} |= \"photos pass \" | regexp `secs=(?P<secs>[0-9]+)` | unwrap secs | __error__=\"\" [$__interval]))",
+          "expr": "sum by (remote) (sum_over_time({stack=\"backup-photos\", service=\"photos\"} |= \"photos pass \" | regexp `photos pass [0-9]+: remote=(?P<remote>[a-z0-9]+) .*secs=(?P<secs>[0-9]+)` | unwrap secs | __error__=\"\" [$__interval]))",
           "queryType": "range",
-          "legendFormat": "upload time"
+          "legendFormat": "{{remote}}"
         }
       ],
       "interval": "1d",
@@ -1875,6 +1968,424 @@
         "tooltip": {
           "mode": "multi",
           "sort": "desc"
+        }
+      }
+    },
+    {
+      "type": "stat",
+      "id": 27,
+      "title": "Photos on B2",
+      "description": "The final `photos rclone exit=` (remote=b2) of the last 23 h. 0 = every accepted source is in sync on B2; 10 = the 2 x 60-min passes ran out (normal while the first B2 upload seeds); 7 = --max-delete hit; 90 = every source refused by the deletion guard; 92 = not configured (no /etc/kdk/backup-photos-b2/b2.env on kdk-dkr-04: owner hand steps). backup-verify decides FAIL/WARN.",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki-dkr01"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 68,
+        "w": 4,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki-dkr01"
+          },
+          "refId": "A",
+          "expr": "max(last_over_time({stack=\"backup-photos\", service=\"photos\"} |= \"photos rclone exit=\" |= \"remote=b2\" | regexp `photos rclone exit=(?P<rc>[0-9]+)` | unwrap rc | __error__=\"\" [23h]))",
+          "queryType": "instant"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "in sync",
+                  "color": "green",
+                  "index": 0
+                }
+              }
+            },
+            {
+              "type": "value",
+              "options": {
+                "10": {
+                  "text": "seeding / cap",
+                  "color": "orange",
+                  "index": 1
+                }
+              }
+            },
+            {
+              "type": "value",
+              "options": {
+                "91": {
+                  "text": "crashed, resumes",
+                  "color": "orange",
+                  "index": 3
+                }
+              }
+            },
+            {
+              "type": "value",
+              "options": {
+                "92": {
+                  "text": "not configured",
+                  "color": "red",
+                  "index": 4
+                }
+              }
+            },
+            {
+              "type": "range",
+              "options": {
+                "from": 1,
+                "to": 1000000000.0,
+                "result": {
+                  "text": "NOT in sync",
+                  "color": "red",
+                  "index": 2
+                }
+              }
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          },
+          "noValue": "no photos run in 23 h"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "wideLayout": true,
+        "showPercentChange": false
+      }
+    },
+    {
+      "type": "status-history",
+      "id": 28,
+      "title": "Photos on B2: exit per pass per night",
+      "description": "rclone exit of each `photos pass N` (remote=b2) per UTC day. 0 = in sync, 10 = the 60-min cap (next pass / next night resumes), 7 = --max-delete exceeded.",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki-dkr01"
+      },
+      "gridPos": {
+        "x": 4,
+        "y": 68,
+        "w": 8,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki-dkr01"
+          },
+          "refId": "A",
+          "expr": "max by (pass) (max_over_time({stack=\"backup-photos\", service=\"photos\"} |= \"photos pass \" |= \"remote=b2\" | regexp `photos pass (?P<pass>[0-9]+): remote=b2 rclone exit=(?P<rc>[0-9]+)` | unwrap rc | __error__=\"\" [$__interval]))",
+          "queryType": "range",
+          "legendFormat": "pass {{pass}}"
+        }
+      ],
+      "interval": "1d",
+      "maxDataPoints": 400,
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "10": {
+                  "text": "10 cap",
+                  "color": "orange",
+                  "index": 0
+                }
+              }
+            },
+            {
+              "type": "value",
+              "options": {
+                "91": {
+                  "text": "91 crash",
+                  "color": "orange",
+                  "index": 1
+                }
+              }
+            }
+          ],
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 80
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "showValue": "auto",
+        "rowHeight": 0.9,
+        "colWidth": 0.9,
+        "legend": {
+          "showLegend": false
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      }
+    },
+    {
+      "type": "stat",
+      "id": 29,
+      "title": "Immich DB on B2",
+      "description": "The last `photos db: remote=b2 rclone exit=` of the last 23 h: the Immich DB dumps (immich-DATE.sql.gz, 15 kept) synced to B2 before the photos. 0 = in sync; 90 = refused (no immich dump in kdk-dkr-dmz-01/pgdump: the B2 copy is kept). Proton gets the same dumps with the host pgdumps (offsite). No value with b2 not configured.",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki-dkr01"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 68,
+        "w": 4,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki-dkr01"
+          },
+          "refId": "A",
+          "expr": "max(last_over_time({stack=\"backup-photos\", service=\"photos\"} |= \"photos db: remote=b2 \" | regexp `rclone exit=(?P<rc>[0-9]+)` | unwrap rc | __error__=\"\" [23h]))",
+          "queryType": "instant"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "in sync",
+                  "color": "green",
+                  "index": 0
+                }
+              }
+            },
+            {
+              "type": "value",
+              "options": {
+                "10": {
+                  "text": "seeding / cap",
+                  "color": "orange",
+                  "index": 1
+                }
+              }
+            },
+            {
+              "type": "value",
+              "options": {
+                "91": {
+                  "text": "crashed, resumes",
+                  "color": "orange",
+                  "index": 3
+                }
+              }
+            },
+            {
+              "type": "value",
+              "options": {
+                "92": {
+                  "text": "not configured",
+                  "color": "red",
+                  "index": 4
+                }
+              }
+            },
+            {
+              "type": "range",
+              "options": {
+                "from": 1,
+                "to": 1000000000.0,
+                "result": {
+                  "text": "NOT in sync",
+                  "color": "red",
+                  "index": 2
+                }
+              }
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          },
+          "noValue": "no B2 DB sync in 23 h"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "wideLayout": true,
+        "showPercentChange": false
+      }
+    },
+    {
+      "type": "status-history",
+      "id": 30,
+      "title": "Immich DB on B2 per night",
+      "description": "rclone exit of the nightly `photos db: remote=b2` sync per UTC day (0 = in sync, 90 = refused, no dump).",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki-dkr01"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 68,
+        "w": 8,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki-dkr01"
+          },
+          "refId": "A",
+          "expr": "max(max_over_time({stack=\"backup-photos\", service=\"photos\"} |= \"photos db: remote=b2 \" | regexp `rclone exit=(?P<rc>[0-9]+)` | unwrap rc | __error__=\"\" [$__interval]))",
+          "queryType": "range",
+          "legendFormat": "immich-db"
+        }
+      ],
+      "interval": "1d",
+      "maxDataPoints": 400,
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "10": {
+                  "text": "10 cap",
+                  "color": "orange",
+                  "index": 0
+                }
+              }
+            },
+            {
+              "type": "value",
+              "options": {
+                "91": {
+                  "text": "91 crash",
+                  "color": "orange",
+                  "index": 1
+                }
+              }
+            }
+          ],
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 80
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "showValue": "auto",
+        "rowHeight": 0.9,
+        "colWidth": 0.9,
+        "legend": {
+          "showLegend": false
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
         }
       }
     }

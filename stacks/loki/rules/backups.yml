@@ -12,6 +12,10 @@
 # one per photo source (series immich / insta360-flat): bytes = the whole source
 # tree, prev = the last night the deletion guard accepted. A photo library at half
 # its size is a mount problem or a mass delete; the guard has already refused it.
+# The guard (and so this line) runs once a night before any remote, so the rule
+# covers the Proton and the B2 copy alike; per-remote sync results (rclone exit,
+# B2 not configured, the B2 Immich DB sync) are paged by backup-verify section 6,
+# not here, so one problem pages once.
 # Test: Grafana Explore over 7 d, the selector + `| logfmt | pct!="none" | pct < 50`.
 # Runbook: docs/services/backups.md#observability
 groups:
