@@ -29,6 +29,13 @@
  * 2026-11-12 (feat/roborock-mop-day-mop-only, owner: "Wednesday just mops"):
  *   - f_pre out 2: a mop-due day with a clean dock skips stages 1-4, mop pass only
  *   - dock/water problem on a mop day -> normal vacuum run; non-mop days unchanged
+ *
+ * 2026-11-18 (fix/roborock-hand-stop-and-mop-steps, owner design interview):
+ *   - hand stop (person / robot button / stop / dashboard cancel) cancels the
+ *     rest of the run, ends the robot's job, docks it, one quiet note
+ *   - Node-RED runs the 7 mop steps itself; nothing presses button.mr_slave_mopping
+ *   - rrMopDue = Wednesday only (no Thu/Fri catch-up); rr_last_mop_run only after 7/7
+ *   - "Mop all floors" runs the same 7 steps on any day
  */
 const fs = require("fs");
 const path = require("path");
@@ -107,9 +114,7 @@ for (const k of ["ignorePrevStateUnavailable", "ignorePrevStateUnknown",
                  "ignoreCurrentStateUnavailable", "ignoreCurrentStateUnknown"]) {
   ok(byId["t_86"][k] === true, `t_86 ${k}`);
 }
-// f_ev_idle: returning -> idle must NOT cancel (returns null); any other prev -> idle event
-eq(run("f_ev_idle", { data: { old_state: { state: "returning" } } }), null, "f_ev_idle returning->idle suppressed");
-ok(run("f_ev_idle", { data: { old_state: { state: "cleaning" } } }).rr_evt === "idle", "f_ev_idle cleaning->idle fires");
+// f_ev_idle (now the hand-stop classifier) is covered in section H below.
 
 console.log("Item 1/3 -- context routed to the file store");
 ok(/flow\.get\('rr_run', 'file'\)/.test(byId["f_track"].func), "f_track reads rr_run from file store");
@@ -127,24 +132,20 @@ console.log("Item 2 -- HA reconnect recovery routing");
   ok(f.get("rr_waitgen") === 2 && f.get("rr_pending") === "" && r[0].rr_wgen === 2, "recovery bumps gen + clears pending + stamps msg");
   // second burst event is throttled (reconnAt set) -> no output
   let r2 = run("f_hareconn", { payload: { event: "running" } }, f, g);
-  eq(r2, [null, null, null, null, null], "reconnect burst throttled");
-  // mop phase (w_62 armed) -> out3 (g_w62 path)
-  f = mkFlow({ rr_run: { active: true, phase: "Mop pass (all floors)" }, rr_pending: "w_62", rr_waitgen: 7 });
-  r = run("f_hareconn", { payload: { event: "running" } }, f, g);
-  ok(!r[0] && !r[1] && !r[2] && r[3], "reconnect mop -> out3 only");
-  // mop phase but w_62 already fired (mid w_mopoff loop, pending cleared) -> no inject
-  f = mkFlow({ rr_run: { active: true, phase: "Mop pass (all floors)" }, rr_pending: "", rr_waitgen: 7 });
-  eq(run("f_hareconn", { payload: { event: "running" } }, f, g), [null, null, null, null, null], "reconnect mop, wait not pending -> nothing");
+  eq(r2, [null, null, null, null], "reconnect burst throttled");
+  // mop step phase: the steps poll HA state (f_mstepchk), nothing to recover
+  f = mkFlow({ rr_run: { active: true, phase: "Mop pass 3/7 — Living room" }, rr_pending: "", rr_waitgen: 7 });
+  eq(run("f_hareconn", { payload: { event: "running" } }, f, g), [null, null, null, null], "reconnect during a mop step -> nothing");
   // robot NOT docked -> no recovery (wait still valid)
   const g2 = mkGlobal(state({ "sensor.mr_slave_status_2": "segment_cleaning" }));
   f = mkFlow({ rr_run: { active: true, phase: "Master bedroom — zone A" }, rr_pending: "w_42" });
-  eq(run("f_hareconn", { payload: { event: "running" } }, f, g2), [null, null, null, null, null], "reconnect not-docked -> nothing");
+  eq(run("f_hareconn", { payload: { event: "running" } }, f, g2), [null, null, null, null], "reconnect not-docked -> nothing");
   // no active run -> nothing
   f = mkFlow({ rr_run: { active: false }, rr_pending: "w_42" });
-  eq(run("f_hareconn", { payload: { event: "running" } }, f, g), [null, null, null, null, null], "reconnect inactive -> nothing");
+  eq(run("f_hareconn", { payload: { event: "running" } }, f, g), [null, null, null, null], "reconnect inactive -> nothing");
   // non-ready client event -> nothing
   f = mkFlow({ rr_run: { active: true, phase: "Master bedroom — zone A" }, rr_pending: "w_42" });
-  eq(run("f_hareconn", { payload: { event: "disconnected" } }, f, g), [null, null, null, null, null], "reconnect disconnected -> nothing");
+  eq(run("f_hareconn", { payload: { event: "disconnected" } }, f, g), [null, null, null, null], "reconnect disconnected -> nothing");
 }
 
 console.log("Item 2 -- stale-wait guard (generation token) after a reconnect recovery");
@@ -175,11 +176,6 @@ console.log("Item 2 -- stale-wait guard (generation token) after a reconnect rec
   run("arm_48", toMsg, f3);
   const to = run("f_to_w_48", toMsg, f3);
   ok(to && to.rr_stage === "Master bedroom zone B" && to.rr_mins === 40, "normal w_48 timeout passes -> stall msg");
-  // g_w62 guard: stale mop-dock dropped, fresh passes
-  const f4 = mkFlow({}); const mm = {};
-  run("arm_62", mm, f4);
-  ok(run("g_w62", { rr_wgen: mm.rr_wgen }, f4) !== null, "g_w62 passes current mop-dock");
-  eq(run("g_w62", { rr_wgen: 0 }, f4), null, "g_w62 drops stale mop-dock");
 }
 
 console.log("Item 3 -- startup check (f_boot) + f_track interrupted (no stamps)");
@@ -210,15 +206,15 @@ console.log("Item 3 -- startup check (f_boot) + f_track interrupted (no stamps)"
   ok(tr2[1].length === 1 && Array.isArray(tr2[1][0].payload.stamp) && tr2[1][0].payload.stamp.length === 11 && !tr2[1][0].payload.stamp.some((s) => /rachels_office/.test(s)), "f_track restdone -> 11 room stamps, office not among them");
 }
 
-console.log("Item 4a -- f_58 mop due / catch-up / no double mop");
+console.log("Item 4a -- f_58 mop due / no catch-up / no double mop");
 {
   const g = (lastMopMs) => mkGlobal(state({ "input_datetime.rr_last_mop_run": lastMop(lastMopMs) }));
   // Wednesday, last mop a week ago -> due, proceed (out0)
   let r = withDate(WED, () => run("f_58", {}, mkFlow({}), g(WED - 7 * 864e5)));
   ok(r[0] && !r[1] && !r[2], "Wednesday -> mop proceeds (out0)");
-  // Thursday, last mop was PREVIOUS week (failed Wednesday) -> catch-up due (out0)
+  // Thursday, last mop was PREVIOUS week (failed Wednesday) -> no catch-up since 2026-11-18
   r = withDate(THU, () => run("f_58", {}, mkFlow({}), g(WED - 7 * 864e5)));
-  ok(r[0] && !r[1] && !r[2], "Thursday catch-up after missed Wednesday -> proceeds");
+  ok(!r[0] && r[1] && !r[2], "Thursday after a missed Wednesday -> no catch-up (out1, vacuum only)");
   // Thursday, last mop was THIS Wednesday -> NOT due, no double mop (out1 = vacuum only)
   r = withDate(THU, () => run("f_58", {}, mkFlow({}), g(WED)));
   ok(!r[0] && r[1] && !r[2], "Thursday after a good Wednesday -> no double mop (out1)");
@@ -261,21 +257,27 @@ console.log("Item 5 -- every mop-failure path emits exactly one rr_mop_failed");
     const out = run("f_mopfail", m, f);
     return { notify: out[0], passOn: out[1], flow: f };
   }
+  const viaFail = (m) => { const f = mkFlow({ rr_mop_pending: true }); return { notify: run("f_mopfail", m, f)[0], flow: f }; };
   const cases = {
-    "w_62 timeout (f_to_w_62)": () => chain("f_to_w_62", {}),
     "battery timeout (f_mopbat_to)": () => chain("f_mopbat_to", {}),
-    "routine timeout (f_mopoff_to)": () => chain("f_mopoff_to", {}),
     "mop-day skip (f_58)": () => {
       const r = withDate(WED, () => run("f_58", {}, mkFlow({ rr_mop_skip: true }),
         mkGlobal(state({ "input_datetime.rr_last_mop_run": lastMop(WED - 7 * 864e5) }))));
-      const f = mkFlow({ rr_mop_pending: true });
-      return { notify: run("f_mopfail", r[2], f)[0], flow: f };
+      return viaFail(r[2]);
     },
-    "mop give-up (f_mopchk n>=40)": () => {
-      const r = run("f_mopchk", { rr_mop_docks: 40 }, mkFlow({}),
-        mkGlobal(state({ "binary_sensor.mr_slave_cleaning_2": { state: "on", last_changed: new Date().toISOString() } })));
-      const f = mkFlow({ rr_mop_pending: true });
-      return { notify: run("f_mopfail", r[2], f)[0], flow: f };
+    "tank empty at pass start (f_59)": () => {
+      const r = run("f_59", {}, mkFlow({}), mkGlobal(state({ "binary_sensor.mr_slave_water_shortage_2": "on" })));
+      return viaFail(r[1]);
+    },
+    "step cap 240 min (f_mstepchk)": () => {
+      const T = Date.now();
+      const r = withDate(T, () => run("f_mstepchk", { rr_mopgen: 1, rr_mop_idx: 2, rr_step_t0: T - 241 * 60e3, rr_step_started: T - 230 * 60e3 },
+        mkFlow({ rr_mopgen: 1 }), mkGlobal(state({ "binary_sensor.mr_slave_cleaning_2": "on", "sensor.mr_slave_status_2": "segment_cleaning", "vacuum.mr_slave_2": "cleaning" }))));
+      return viaFail(r[2]);
+    },
+    "step retries used up (f_mretry)": () => {
+      const r = run("f_mretry", { rr_mopgen: 1, rr_step_retry: 4, error: { message: "Connection lost" } }, mkFlow({ rr_mopgen: 1 }));
+      return viaFail(r[1]);
     },
   };
   for (const [name, fn] of Object.entries(cases)) {
@@ -295,23 +297,22 @@ console.log("Wiring -- structural rewires and deletions");
   eq(byId["f_rc"].wires, [[OFFICE.settle, "f_ev_restdone"], ["d_rcpoll", "lo_tr_rch"], ["d_55"], ["lo_n_short"]],
      "f_rc done -> office stage (+restdone), recharge -> d_rcpoll, short sweep -> d_55 (no restdone, no office) + notify");
   eq(byId["f_58"].wires, [["w_mopbat"], ["s_67"], ["f_mopfail"]], "f_58 out2 -> f_mopfail");
-  eq(byId["f_mopchk"].wires, [["s_63"], ["w_mopoff"], ["f_mopfail"]], "f_mopchk out2 -> f_mopfail");
   eq(byId["w_mopbat"].wires, [["lo_mop"], ["f_mopbat_to"]], "w_mopbat timeout -> f_mopbat_to");
-  eq(byId["w_mopoff"].wires, [["d_mopchk"], ["f_mopoff_to"]], "w_mopoff timeout -> f_mopoff_to");
-  eq(byId["f_to_w_62"].wires, [["f_mopfail"]], "f_to_w_62 -> f_mopfail");
-  // arm nodes spliced before each dock-wait; w_62 success guarded by g_w62
+  // the routine-based mop pass is gone (2026-11-18)
+  for (const id of ["s_60", "s_61", "arm_62", "w_62", "g_w62", "d_mopchk", "f_mopchk", "w_mopoff", "f_mopoff_to", "f_to_w_62", "s_69", "f_ev_mop"]) {
+    ok(!byId[id], `${id} removed (routine mop pass)`);
+  }
+  ok(!byId["s_29"] && !byId["s_30"] && !byId["f_ev_cxl"] && !byId["lo_tr_cxl"], "old cancel chain removed (f_28 -> f_hstop)");
+  // arm nodes spliced before each dock-wait
   eq(byId["s_37"].wires, [["arm_42"]], "s_37 -> arm_42");
   eq(byId["s_43"].wires, [["arm_48", "f_ev_zb"]], "s_43 -> arm_48 (+f_ev_zb)");
   eq(byId["s_49"].wires, [["arm_54", "f_ev_rest"]], "s_49 -> arm_54 (+f_ev_rest)");
-  eq(byId["s_61"].wires, [["arm_62", "f_ev_mop"]], "s_61 -> arm_62 (+f_ev_mop)");
   eq(byId["arm_42"].wires, [["w_42"]], "arm_42 -> w_42");
   eq(byId["arm_48"].wires, [["w_48"]], "arm_48 -> w_48");
   eq(byId["arm_54"].wires, [["w_54"]], "arm_54 -> w_54");
-  eq(byId["arm_62"].wires, [["w_62"]], "arm_62 -> w_62");
-  eq(byId["w_62"].wires, [["g_w62"], ["f_to_w_62"]], "w_62 success -> g_w62");
-  eq(byId["g_w62"].wires, [["d_mopchk"]], "g_w62 -> d_mopchk");
   eq(byId["f_rcpoll"].wires, [["arm_54", "f_ev_rest"], ["d_55"], ["lo_n_rc"], ["d_rcpoll"]], "f_rcpoll resume re-arms via arm_54");
-  eq(byId["f_hareconn"].wires, [["f_short_A"], ["f_short_B"], ["d_rc"], ["g_w62"], [OFFICE.done]], "f_hareconn out3 -> g_w62, out4 -> office done?");
+  eq(byId["f_hareconn"].wires, [["f_short_A"], ["f_short_B"], ["d_rc"], [OFFICE.done]], "f_hareconn out3 -> office done? (no mop wait)");
+  ok(byId["f_hareconn"].outputs === 4, "f_hareconn has 4 outputs");
 }
 
 
@@ -337,28 +338,29 @@ console.log("A -- rrMopDue helper is one rule in every node");
   ok(!flows.some((n) => n.func && /wedMid/.test(n.func)), "old wedMid rule gone from every node");
 }
 
-console.log("A -- f_58 mop gate: no Mon/Tue catch-up, Thu/Fri catch-up, 48 h rule");
+console.log("A -- f_58 mop gate: Wednesday only (no catch-up since 2026-11-18), 48 h rule");
 {
-  ok(isVacOnly(mopGate(MON, OLD_MOP)), "Mon with a stale stamp -> no catch-up (vacuum only)");
-  ok(isVacOnly(mopGate(TUE, OLD_MOP)), "Tue with a stale stamp -> no catch-up (the 11-03 double mop)");
-  ok(isVacOnly(mopGate(SAT, OLD_MOP)), "Sat with a stale stamp -> no catch-up");
+  ok(isVacOnly(mopGate(MON, OLD_MOP)), "Mon with a stale stamp -> no mop (vacuum only)");
+  ok(isVacOnly(mopGate(TUE, OLD_MOP)), "Tue with a stale stamp -> no mop (the 11-03 double mop)");
+  ok(isVacOnly(mopGate(SAT, OLD_MOP)), "Sat with a stale stamp -> no mop");
+  ok(isVacOnly(mopGate(at(8, 12), OLD_MOP)), "Sun with a stale stamp -> no mop");
   ok(isMop(mopGate(WED2, PREV_WED_MOP)), "Wed, last mop a week ago -> mop");
   ok(isMop(mopGate(WED2, OLD_MOP)), "Wed, last mop 12 days ago -> mop");
+  ok(isMop(mopGate(WED2, 0)), "Wed, never mopped -> mop");
   ok(isVacOnly(mopGate(WED2, TUE_MOP)), "Wed within 48 h of a Tue mop -> scheduled mop skipped");
-  ok(isMop(mopGate(THU2, PREV_WED_MOP)), "Thu after a missed Wed -> catch-up mop");
-  ok(isMop(mopGate(FRI, PREV_WED_MOP)), "Fri after a missed Wed (and Thu) -> catch-up mop");
+  ok(isVacOnly(mopGate(THU2, PREV_WED_MOP)), "Thu after a missed Wed -> NO catch-up");
+  ok(isVacOnly(mopGate(FRI, PREV_WED_MOP)), "Fri after a missed Wed (and Thu) -> NO catch-up");
   ok(isVacOnly(mopGate(THU2, at(4, 10))), "Thu after a good Wed -> no double mop");
   ok(isVacOnly(mopGate(FRI, at(4, 10))), "Fri after a good Wed -> no double mop");
-  ok(isVacOnly(mopGate(THU2, TUE_MOP)), "Thu after a Tue mop (Wed skipped) -> week already mopped");
-  ok(isVacOnly(mopGate(FRI, TUE_MOP)), "Fri after a Tue mop (Wed skipped) -> week already mopped");
-  ok(isVacOnly(mopGate(THU2, at(3, 20))), "Thu 09:00 after a Tue 20:00 mop -> within 48 h, no mop");
-  // catch-up day still honours the start-of-run water gate
-  const r = mopGate(THU2, PREV_WED_MOP, { rr_mop_skip: true });
-  ok(!r[0] && !r[1] && r[2] && /skipped/.test(r[2].rr_mop_reason), "Thu catch-up with an empty tank at start -> skip -> mop-failed");
   // f_35 / f_pre use the same answer
   const msg35 = withDate(TUE, () => run("f_35", {}, mkFlow({}), gMop(OLD_MOP)));
   ok(msg35.mopDay === false, "f_35 Tue stale stamp -> mopDay false");
-  ok(withDate(THU2, () => run("f_35", {}, mkFlow({}), gMop(PREV_WED_MOP))).mopDay === true, "f_35 Thu catch-up -> mopDay true");
+  ok(withDate(THU2, () => run("f_35", {}, mkFlow({}), gMop(PREV_WED_MOP))).mopDay === false, "f_35 Thu after a missed Wed -> mopDay false");
+  ok(withDate(WED2, () => run("f_35", {}, mkFlow({}), gMop(PREV_WED_MOP))).mopDay === true, "f_35 Wed -> mopDay true");
+  const f35m = mkFlow({ rr_mop_manual: true });
+  withDate(TUE, () => run("f_35", {}, f35m, gMop(OLD_MOP)));
+  ok(f35m.get("rr_mop_manual") === false, "f_35 clears rr_mop_manual (daily run)");
+  ok(!/Thu\/Fri|catchDay|weekStart/.test(byId["f_58"].func), "Thu/Fri catch-up branch gone from rrMopDue");
   const fp = mkFlow({});
   withDate(TUE, () => run("f_pre", {}, fp, gMop(OLD_MOP)));
   ok(fp.get("rr_mop_pending") === false, "f_pre Tue stale stamp -> rr_mop_pending false");
@@ -379,50 +381,13 @@ console.log("A -- f_nx next-mop display follows the same rule");
     return m && m.payload.ts * 1000;
   };
   eq(nextMop(TUE, gMop(OLD_MOP)), at(4, 8, 30), "Tue, stale stamp -> next mop Wed 08:30 (not today)");
-  eq(nextMop(WED2, gMop(PREV_WED_MOP)), at(5, 8, 30), "Wed after the 08:30 slot, not mopped -> Thu 08:30 catch-up");
+  eq(nextMop(WED2, gMop(PREV_WED_MOP)), at(11, 8, 30), "Wed after the 08:30 slot, not mopped -> next Wed (no Thu catch-up)");
+  eq(nextMop(at(4, 7), gMop(PREV_WED_MOP)), at(4, 8, 30), "Wed 07:00, not mopped -> today 08:30");
   eq(nextMop(THU2, gMop(at(4, 10))), at(11, 8, 30), "Thu after a good Wed -> next Wed");
   eq(nextMop(MON, gMop(at(1, 12) - DAY)), at(4, 8, 30), "Mon after a Sat mop -> Wed (outside 48 h)");
   eq(nextMop(TUE, mkGlobal({})), at(4, 8, 30), "states not loaded -> plain next Wednesday");
 }
 
-console.log("B -- f_mopchk: routine end needs a 20-min quiet window + robot home");
-{
-  const T = at(3, 10, 5);
-  const iso = (ms) => new Date(ms).toISOString();
-  const g = (offMs, extra) => mkGlobal(Object.assign(state({
-    "binary_sensor.mr_slave_cleaning_2": { state: "off", last_changed: iso(offMs) },
-    "sensor.mr_slave_status_2": "charging", "vacuum.mr_slave_2": "docked",
-    "binary_sensor.mr_slave_water_shortage_2": "off" }), extra || {}));
-  const chk = (msg, flow, gl) => withDate(T, () => run("f_mopchk", msg, flow || mkFlow({}), gl));
-  // the 11-03 case: 3-5 min into an 8-min gap between routine steps -> NOT done
-  let r = chk({}, null, g(T - 4 * 60e3));
-  ok(!r[0] && r[1] && !r[2], "4-min gap between routine steps (docked) -> keep waiting, no stamp");
-  r = chk({}, null, g(T - 19 * 60e3));
-  ok(!r[0] && r[1], "19 min quiet -> still waiting");
-  const fdone = mkFlow({ rr_mop_inpass: T - 3 * 3600e3 });
-  r = chk({}, fdone, g(T - 21 * 60e3));
-  ok(r[0] && !r[1] && !r[2], "21 min quiet + docked/charging -> pass done (out0 -> stamp)");
-  ok(fdone.get("rr_mop_inpass") === 0, "pass done closes the water watch");
-  r = chk({}, null, g(T - 30 * 60e3, state({ "vacuum.mr_slave_2": "idle", "sensor.mr_slave_status_2": "idle" })));
-  ok(!r[0] && r[1], "30 min quiet but robot not home -> not done");
-  r = chk({}, null, g(T - 30 * 60e3, state({ "sensor.mr_slave_status_2": "washing_the_mop" })));
-  ok(!r[0] && r[1], "30 min quiet but dock washing -> not done");
-  // polling through the quiet window doesn't burn the dock-cycle budget
-  const gq = g(T - 5 * 60e3);
-  const m1 = chk({}, null, gq)[1];
-  const m2 = chk(m1, null, gq)[1];
-  ok(m1.rr_mop_docks === 1 && m2.rr_mop_docks === 1 && m2.rr_mop_polls === 2, "same off-transition polled twice -> 1 dock, 2 polls");
-  // poll cap: off the dock forever -> give up via f_mopfail
-  r = chk({ rr_mop_polls: 119, rr_mop_docks: 3 }, null, g(T - 30 * 60e3, state({ "vacuum.mr_slave_2": "idle", "sensor.mr_slave_status_2": "idle" })));
-  ok(!r[0] && !r[1] && r[2] && /6 h/.test(r[2].rr_mop_reason), "120 checks without settling -> give up (out2)");
-  // tank ran dry -> failed, never done
-  const fw = mkFlow({ rr_mop_inpass: T - 3600e3 });
-  r = chk({}, fw, g(T - 25 * 60e3, state({ "binary_sensor.mr_slave_water_shortage_2": "on" })));
-  ok(!r[0] && !r[1] && r[2] && /ran out/.test(r[2].rr_mop_reason), "water_shortage on at the check -> mop failed, not done");
-  ok(fw.get("rr_mop_water") === true, "water failure flagged for the rest of the pass");
-  // after the water watch fired, the loop stops silently
-  eq(chk({}, mkFlow({ rr_mop_water: true }), g(T - 25 * 60e3)), [null, null, null], "rr_mop_water set -> loop ends, no second outcome");
-}
 
 console.log("B -- mid-pass water watch: t_mopwater -> f_mopwater -> f_mopfail");
 {
@@ -433,19 +398,23 @@ console.log("B -- mid-pass water watch: t_mopwater -> f_mopwater -> f_mopfail");
   eq(t.wires, [["f_mopwater"], []], "t_mopwater -> f_mopwater");
   eq(byId["f_mopwater"].wires, [["f_mopfail"]], "f_mopwater -> f_mopfail");
   ok(byId["g_sweep"].nodes.includes("t_mopwater") && byId["g_sweep"].nodes.includes("f_mopwater"), "new nodes are in g_sweep");
-  // f_ev_mop arms the watch
+  // f_59 (mop pass start) arms the watch
   const fe = mkFlow({ rr_mop_water: true });
-  withDate(TUE, () => run("f_ev_mop", {}, fe));
-  ok(fe.get("rr_mop_inpass") === TUE && fe.get("rr_mop_water") === false, "f_ev_mop arms the water watch");
+  withDate(TUE, () => run("f_59", {}, fe, mkGlobal(state({ "binary_sensor.mr_slave_water_shortage_2": "off" }))));
+  ok(fe.get("rr_mop_inpass") === TUE && fe.get("rr_mop_water") === false, "f_59 arms the water watch");
   // water runs out 2 h 18 min into the pass (11-03 12:06)
-  const f = mkFlow({ rr_mop_inpass: at(3, 9, 48), rr_run: { active: true }, rr_mop_pending: true });
+  const f = mkFlow({ rr_mop_inpass: at(3, 9, 48), rr_run: { active: true }, rr_mop_pending: true, rr_mopgen: 3 });
   const m = withDate(at(3, 12, 6), () => run("f_mopwater", { payload: "on" }, f));
   ok(m && m.rr_mop_water === true && /138 min into the mop pass/.test(m.rr_mop_reason), "f_mopwater mid-pass -> mop-failed msg with minutes");
   const out = run("f_mopfail", m, f);
   ok(out[0] && out[0].notify.tag === "rr_mop_failed" && out[0].notify.urgent === true && out[1], "-> one urgent rr_mop_failed + restore");
-  ok(/Thursday or Friday/.test(out[0].notify.message), "mop-failed wording names the Thu/Fri catch-up");
+  ok(/next Wednesday/.test(out[0].notify.message) && !/Thursday|Friday|catch-up mop runs/.test(out[0].notify.message),
+     "mop-failed wording: no catch-up, next Wednesday");
+  ok(f.get("rr_mopgen") === 4, "f_mopfail bumps rr_mopgen (the step poll of this pass stops)");
+  // the step poll of the same pass now stops silently
+  eq(run("f_mstepchk", { rr_mopgen: 3 }, f), [null, null, null, null], "step poll after the water alert -> dropped");
   // later failure paths of the same pass are dropped (no second alert)
-  eq(run("f_mopfail", run("f_mopoff_to", {}, f), f), [null, null], "later routine timeout after the water alert -> dropped");
+  eq(run("f_mopfail", run("f_mopbat_to", {}, f), f), [null, null], "later failure after the water alert -> dropped");
   // outside a pass / no active run / already flagged -> nothing
   eq(run("f_mopwater", {}, mkFlow({ rr_mop_inpass: 0, rr_run: { active: true } })), null, "water shortage outside a mop pass -> ignored");
   eq(run("f_mopwater", {}, mkFlow({ rr_mop_inpass: 5, rr_run: { active: false } })), null, "no active run -> ignored");
@@ -481,10 +450,8 @@ console.log("C -- f_rc: a short sweep does not stamp the 11 rooms");
 }
 
 // ===========================================================================
-console.log("D -- error -> idle is not a manual stop; robot-started jobs replace a stale phase");
+console.log("D -- robot-started jobs replace a stale phase (error -> idle: see section H)");
 {
-  eq(run("f_ev_idle", { data: { old_state: { state: "error" } } }), null, "f_ev_idle error->idle suppressed");
-  ok(run("f_ev_idle", { data: { old_state: { state: "docked" } } }).rr_evt === "idle", "f_ev_idle docked->idle still fires");
   // cleaning_2 -> on trigger wiring
   const t = byId["t_jobon"];
   ok(t && t.type === "server-state-changed" && t.entities.entity[0] === "binary_sensor.mr_slave_cleaning_2" && t.ifState === "on",
@@ -603,7 +570,7 @@ console.log("E -- Rachel's office runs as its own last job (2026-11-05)");
   const gh = mkGlobal(state({ "sensor.mr_slave_status_2": "charging", "vacuum.mr_slave_2": "docked" }));
   eq(run("f_hareconn", { payload: { event: "states_loaded" } },
      mkFlow({ rr_run: { active: true, phase: "Dock — emptying before Rachel's office" }, rr_pending: OFFICE.waitBat, rr_waitgen: 8 }), gh),
-     [null, null, null, null, null], "reconnect during the battery wait -> nothing (wait re-checks on change)");
+     [null, null, null, null], "reconnect during the battery wait -> nothing (wait re-checks on change)");
 
   // tracker: phases + the office stamp
   const ft = mkFlow({ rr_run: { active: true, phase: "Main floor sweep (11 rooms)", cancelled: false, near: "" } });
@@ -622,10 +589,10 @@ console.log("E -- Rachel's office runs as its own last job (2026-11-05)");
   const g = mkGlobal(state({ "sensor.mr_slave_status_2": "charging", "vacuum.mr_slave_2": "docked" }));
   const fr = mkFlow({ rr_run: { active: true, phase: "Rachel's office (last)" }, rr_pending: OFFICE.wait, rr_waitgen: 5 });
   r = run("f_hareconn", { payload: { event: "states_loaded" } }, fr, g);
-  ok(!r[0] && !r[1] && !r[2] && !r[3] && r[4] && r[4].rr_wgen === 6, "reconnect office -> out4 with bumped gen");
-  ok(Array.isArray(run(OFFICE.done, r[4], fr)), "recovery msg passes office done?");
+  ok(!r[0] && !r[1] && !r[2] && r[3] && r[3].rr_wgen === 6, "reconnect office -> out3 with bumped gen");
+  ok(Array.isArray(run(OFFICE.done, r[3], fr)), "recovery msg passes office done?");
   const fr2 = mkFlow({ rr_run: { active: true, phase: "Dock — emptying before Rachel's office" }, rr_pending: "", rr_waitgen: 5 });
-  eq(run("f_hareconn", { payload: { event: "states_loaded" } }, fr2, g), [null, null, null, null, null], "reconnect during the empty -> nothing");
+  eq(run("f_hareconn", { payload: { event: "states_loaded" } }, fr2, g), [null, null, null, null], "reconnect during the empty -> nothing");
 }
 
 // ===========================================================================
@@ -795,7 +762,7 @@ console.log("F -- mop day: mop pass only, no vacuum stages");
   eq(byId["f_35"].wires, [["f_pre"]], "f_35 -> f_pre");
   const mopPath = reach(byId["f_pre"].wires[2]);
   ok(STAGE_JOBS.every((id) => !mopPath.has(id)), "mop-only path reaches no zone A/B, sweep or office job");
-  ok(mopPath.has("s_61") && mopPath.has("w_mopbat"), "mop-only path reaches the battery wait and the Mopping routine");
+  ok(mopPath.has("w_mopbat") && mopPath.has("f_mstep") && mopPath.has("s_mseg"), "mop-only path reaches the battery wait and the Node-RED mop steps");
   const vacPath = reach(byId["f_pre"].wires[0]);
   ok(STAGE_JOBS.every((id) => vacPath.has(id)) && vacPath.has("f_58"), "vacuum path still runs stages 1-4 then the mop gate");
 
@@ -806,9 +773,9 @@ console.log("F -- mop day: mop pass only, no vacuum stages");
   ok(fp.get("rr_mop_skip") === false && fp.get("rr_mop_pending") === true, "Wed + clean dock -> mop pending, not skipped");
   ok(isMop(withDate(WED2, () => run("f_58", r[2], fp, gMop(PREV_WED_MOP)))), "f_58 on the mop-only msg -> battery wait -> mop pass");
 
-  // Thursday catch-up is a mop day too
+  // no Thursday catch-up (2026-11-18): Thursday after a missed Wednesday is a normal vacuum run
   r = withDate(THU2, () => run("f_pre", {}, mkFlow({}), gMop(PREV_WED_MOP)));
-  ok(!r[0] && r[2] && r[2].rr_mop_only, "Thu catch-up + clean dock -> mop only");
+  ok(r[0] && !r[2], "Thu after a missed Wed + clean dock -> vacuum run, no mop");
 
   // Wednesday after the mop already ran (Daily clean pressed again) -> normal vacuum run
   r = withDate(at(4, 18), () => run("f_pre", {}, mkFlow({}), gMop(at(4, 16))));
@@ -836,13 +803,474 @@ console.log("F -- mop day: mop pass only, no vacuum stages");
   let t = run("f_track", { rr_evt: "start", rr_mop_only: true }, ft);
   ok(/^Mop day/.test(ft.get("rr_run").phase) && t[1].length === 0, "f_track mop-only start -> 'Mop day' phase, no stamp");
   ok(!/zone A/.test(ft.get("rr_run").phase), "mop-only start phase does not name zone A");
-  t = run("f_track", { rr_evt: "mop" }, ft);
-  eq(ft.get("rr_run").phase, "Mop pass (all floors)", "mop event -> Mop pass phase");
+  t = run("f_track", { rr_evt: "mopstep", rr_phase: "Mop pass 1/7 — Front door entry" }, ft);
+  eq(ft.get("rr_run").phase, "Mop pass 1/7 — Front door entry", "mopstep event -> per-step phase");
   t = run("f_track", { rr_evt: "done" }, ft);
   ok(t[1].length === 0 && ft.get("rr_run").phase === "Complete", "mop-only done -> Complete, no room stamps");
   const fv = mkFlow({});
   run("f_track", { rr_evt: "start" }, fv);
   eq(fv.get("rr_run").phase, "Master bedroom — zone A", "normal start phase unchanged");
+}
+
+// ===========================================================================
+// 2026-11-18 (owner design interview): hand stop, Node-RED mop steps, manual mop
+const NR = "1da6c199cd2a41b799695107b1bf6de3";      // Node-RED's own HA user (learned by a_uid at runtime)
+const PERSON = "603f5da2aaaaaaaaaaaaaaaaaaaaaaaa";   // a household member (shape only)
+const LIVE = () => ({ rr_run: { active: true, phase: "Main floor sweep (11 rooms)", cancelled: false, near: "" } });
+const chg = (old, nu, uid) => ({ payload: nu, data: { old_state: { state: old }, new_state: { state: nu, context: { id: "c", user_id: uid || null } } } });
+const classify = (old, nu, uid, flowExtra, now) => withDate(now || Date.now(),
+  () => run("f_ev_idle", chg(old, nu, uid), mkFlow(Object.assign(LIVE(), { rr_nr_uid: NR }, flowExtra || {}))));
+const fires = (r) => !!(r && r.rr_src === "hand");
+
+console.log("H1 -- hand-stop classifier (f_ev_idle) fires");
+{
+  const t = byId["t_idle"];
+  ok(t.entities.entity[0] === "vacuum.mr_slave_2" && t.ifState === "", "t_idle watches every vacuum.mr_slave_2 state change");
+  ok(t.outputProperties.some((p) => p.property === "data" && p.valueType === "eventData"), "t_idle outputs msg.data (old/new state + context)");
+  eq(t.wires, [["f_ev_idle"]], "t_idle -> f_ev_idle");
+  eq(byId["f_ev_idle"].wires, [["f_hstop"]], "f_ev_idle -> f_hstop");
+  // (i) a person on the change (HA card, HomeKit, dashboard)
+  ok(fires(classify("cleaning", "paused", PERSON)), "(i) cleaning -> paused by a person (HA card pause, 11-14 13:20)");
+  ok(fires(classify("paused", "returning", PERSON)), "(i) paused -> returning by a person");
+  ok(fires(classify("cleaning", "returning", PERSON)), "(i) cleaning -> returning by a person (11-18 18:09)");
+  ok(fires(classify("cleaning", "idle", PERSON)), "(i) cleaning -> idle by a person (11-15 12:11)");
+  ok(fires(classify("returning", "idle", PERSON)), "(i) returning -> idle by a person (11-18 18:25 stop)");
+  ok(fires(classify("docked", "paused", PERSON)), "(i) pause while docked mid-step");
+  // (ii) the robot's own button: paused -> returning / docked with no user
+  ok(fires(classify("paused", "returning", null)), "(ii) paused -> returning, no user (robot button, 11-18 17:54)");
+  ok(fires(classify("paused", "docked", null)), "(ii) paused -> docked, no user");
+  // (iii) a stop -> idle
+  ok(fires(classify("cleaning", "idle", null)), "(iii) cleaning -> idle, no user");
+  ok(fires(classify("docked", "idle", null)), "(iii) docked -> idle still fires");
+  // the own-user id is not learned yet: a user id counts as a person outside the own-command window
+  const r = withDate(Date.now(), () => run("f_ev_idle", chg("cleaning", "paused", PERSON), mkFlow(LIVE())));
+  ok(fires(r), "rr_nr_uid unknown + no own command -> a user id is a person");
+  // mop passes are live runs too
+  ok(fires(withDate(Date.now(), () => run("f_ev_idle", chg("cleaning", "paused", PERSON),
+    mkFlow({ rr_run: { active: true, phase: "Mop pass 3/7 — Living room" }, rr_nr_uid: NR })))), "fires during a mop step");
+}
+
+console.log("H2 -- hand-stop classifier must not fire");
+{
+  ok(!fires(classify("cleaning", "error", null)), "cleaning -> error");
+  ok(!fires(classify("error", "paused", null)), "error -> paused (robot's own recovery, 11-18 09:52)");
+  ok(!fires(classify("paused", "cleaning", null)), "paused -> cleaning (recovery resumes)");
+  ok(!fires(classify("error", "idle", null)), "error -> idle (error cleared)");
+  ok(!fires(classify("cleaning", "returning", null)), "cleaning -> returning, no user (natural end / recharge / mid-job wash)");
+  ok(!fires(classify("returning", "docked", null)), "returning -> docked, no user");
+  ok(!fires(classify("returning", "idle", null)), "returning -> idle, no user (gave up docking: group 8 / 9)");
+  ok(!fires(classify("docked", "cleaning", NR)), "docked -> cleaning by Node-RED (next stage)");
+  ok(!fires(classify("cleaning", "returning", NR)), "Node-RED return_to_base (cancel path)");
+  ok(!fires(classify("idle", "returning", NR)), "Node-RED return_to_base from idle (group 8, 11-18 18:47:41)");
+  ok(!fires(classify("cleaning", "idle", NR)), "Node-RED's own stop");
+  ok(!fires(classify("paused", "returning", null, { rr_dw: { state: "retry" } })), "group 9 dock-watcher retry from paused, no user on the change");
+  ok(!fires(classify("paused", "returning", null, { rr_dock: { busy: true } })), "group 8 retry loop busy, no user on the change");
+  const T = Date.now();
+  ok(!fires(classify("paused", "returning", null, { rr_own_cmd_at: T - 60e3 }, T)), "within 2 min of Node-RED's own command, no user");
+  ok(fires(classify("paused", "returning", null, { rr_own_cmd_at: T - 3 * 60e3 }, T)), "own command 3 min ago -> the button counts again");
+  ok(!fires(withDate(T, () => run("f_ev_idle", chg("cleaning", "returning", NR), mkFlow(Object.assign(LIVE(), { rr_dock: { busy: true } }))))),
+     "rr_nr_uid unknown + group 8 busy -> its user id is Node-RED");
+  // no live run: nothing (outside a run, a cancelled run, a second press of the same stop)
+  eq(run("f_ev_idle", chg("cleaning", "paused", PERSON), mkFlow({ rr_run: { active: false }, rr_nr_uid: NR })), null, "no run -> nothing");
+  eq(run("f_ev_idle", chg("paused", "returning", PERSON), mkFlow(Object.assign(LIVE(), { rr_cancel: true, rr_nr_uid: NR }))), null,
+     "already cancelled (second press of the same stop) -> nothing");
+  eq(run("f_ev_idle", chg("cleaning", "cleaning", PERSON), mkFlow(Object.assign(LIVE(), { rr_nr_uid: NR }))), null, "attribute-only change -> nothing");
+}
+
+console.log("H3 -- f_hstop: cancel, end the job, dock, one quiet note");
+{
+  const S = (status, vac, cleaning) => mkGlobal(state({ "sensor.mr_slave_status_2": status, "vacuum.mr_slave_2": vac,
+    "binary_sensor.mr_slave_cleaning_2": cleaning }));
+  ok(byId["f_hstop"].outputs === 5, "f_hstop has 5 outputs");
+  eq(byId["f_hstop"].wires, [["s_hs_stop"], ["d_hs"], ["lo_n_hs"], ["w_restore"], ["lo_tr_hs"]], "f_hstop wiring");
+  ok(byId["s_hs_stop"].action === "vacuum.stop" && byId["s_hs_ret"].action === "vacuum.return_to_base", "stop + return_to_base calls");
+  eq(byId["s_hs_stop"].wires, [["d_hs"]], "stop -> settle 30 s");
+  ok(byId["d_hs"].timeout === "30", "d_hs = 30 s");
+  eq(byId["d_hs"].wires, [["f_hs_home"]], "d_hs -> f_hs_home");
+  eq(byId["f_hs_home"].wires, [["s_hs_stop"], ["s_hs_ret"]], "f_hs_home -> stop again / return_to_base");
+  eq(byId["cat_hs"].scope, ["s_hs_stop", "s_hs_ret"], "cat_hs catches the stop and the return");
+  eq(byId["cat_hs"].wires, [["d_hs"]], "a failed stop / return loops back via d_hs");
+  ok(byId["li_notify"].links.includes("lo_n_hs") && byId["li_tr"].links.includes("lo_tr_hs"), "link-ins list the hand-stop link-outs");
+  eq(byId["f_28"].wires, [["f_hstop"]], "dashboard cancel -> f_hstop");
+  ok(run("f_28", {}).rr_src === "button", "f_28 marks the dashboard button");
+
+  // mid-step hand stop (robot cleaning): everything cancelled, stop sent, note once
+  const f = mkFlow(Object.assign(LIVE(), { rr_waitgen: 5, rr_pending: "w_54", rr_mopgen: 2, rr_mop_inpass: 9 }));
+  let o = run("f_hstop", { rr_src: "hand", rr_hand: "person" }, f, S("segment_cleaning", "cleaning", "on"));
+  ok(f.get("rr_cancel") === true && f.get("rr_waitgen") === 6 && f.get("rr_pending") === "" && f.get("rr_mopgen") === 3 && f.get("rr_mop_inpass") === 0,
+     "cancel flag, wait gen + mop gen bumped, pending cleared, water watch off");
+  ok(o[0] && !o[1], "job open -> vacuum.stop first");
+  ok(o[2] && o[2].notify.urgent === false && o[2].notify.tag === "rr_hand_stop" && o[2].notify.title === "Vacuum: stopped by hand",
+     "one quiet rr_hand_stop note");
+  ok(/rest of today's run is cancelled/.test(o[2].notify.message) && /Tap Daily clean to restart/.test(o[2].notify.message), "note text");
+  ok(o[3] && o[3].payload === "restore", "restore mode once home (w_restore)");
+  eq(o[4], { rr_evt: "idle" }, "tracker: Stopped by hand");
+  // the run's stale waits are dropped by their existing guards
+  eq(run("f_rc", { rr_wgen: 5 }, f), [null, null, null, null], "stale w_54 success dropped after a hand stop");
+  eq(run("f_short_A", { rr_wgen: 6 }, f), null, "even a current-gen dock-wait is dropped (rr_cancel)");
+  // second event of the same stop sequence: no run is live any more -> no second note
+  const fr = mkFlow({ rr_run: { active: false, cancelled: true }, rr_cancel: true });
+  o = run("f_hstop", { rr_src: "hand" }, fr, S("returning_home", "returning", "on"));
+  ok(!o[2], "second stop of the same sequence -> no second note");
+  // already docked with no job open: no stop, straight to the home check
+  o = run("f_hstop", { rr_src: "hand" }, mkFlow(LIVE()), S("charging", "docked", "off"));
+  ok(!o[0] && o[1], "docked, no job -> no stop, home check only");
+  // docked with the job still open (pause + dock, the self-resume case): stop it
+  o = run("f_hstop", { rr_src: "hand" }, mkFlow(LIVE()), S("charging", "docked", "on"));
+  ok(o[0], "docked with the job open -> stop (it cannot resume by itself)");
+  // already returning after the robot button: stop, then return
+  o = run("f_hstop", { rr_src: "hand" }, mkFlow(LIVE()), S("returning_home", "returning", "on"));
+  ok(o[0], "returning with the job paused -> stop first");
+  // dashboard cancel outside a run: dock it, no note
+  const fb = mkFlow({ rr_run: { active: false } });
+  o = run("f_hstop", { rr_src: "button" }, fb, S("segment_cleaning", "cleaning", "on"));
+  ok(o[0] && !o[2] && o[4].rr_evt === "cancel", "cancel button outside a run -> stop + dock, no note, tracker cancel");
+  // dashboard cancel during a run: note once
+  o = run("f_hstop", { rr_src: "button" }, mkFlow(LIVE()), S("segment_cleaning", "cleaning", "on"));
+  ok(o[2] && o[2].notify.urgent === false && o[4].rr_evt === "cancel", "cancel button during a run -> one quiet note");
+  // manual mop wording
+  o = run("f_hstop", { rr_src: "hand" }, mkFlow(Object.assign(LIVE(), { rr_mop_manual: true })), S("segment_cleaning", "cleaning", "on"));
+  ok(/Tap Mop all floors to restart/.test(o[2].notify.message), "manual mop note says Mop all floors");
+  // tracker phases
+  const ft = mkFlow(LIVE());
+  run("f_track", { rr_evt: "idle" }, ft);
+  ok(ft.get("rr_run").phase === "Stopped by hand — rest of run cancelled" && ft.get("rr_run").active === false, "tracker: stopped by hand");
+
+  // f_hs_home: get it home, safely
+  const home = (status, vac, cleaning, msg, fl) => run("f_hs_home", msg || {}, fl || mkFlow({ rr_cancel: true }), S(status, vac, cleaning));
+  eq(home("charging", "docked", "off"), [null, null], "docked -> nothing");
+  eq(home("washing_the_mop", "docked", "off"), [null, null], "washing on the dock -> nothing");
+  eq(home("returning_home", "returning", "off"), [null, null], "heading home with the job ended -> nothing");
+  let h = home("idle", "idle", "off");
+  ok(!h[0] && h[1], "idle on the floor after the stop -> return_to_base");
+  h = home("paused", "paused", "on");
+  ok(h[0] && !h[1], "job still open -> stop again");
+  eq(home("idle", "idle", "off", { rr_hs_try: 4 }), [null, null], "gives up after 4 tries");
+  eq(home("idle", "idle", "off", {}, mkFlow({ rr_cancel: false })), [null, null], "a new run started meanwhile -> nothing");
+}
+
+console.log("H4 -- no stage or mop step after a cancel");
+{
+  const cx = () => mkFlow({ rr_cancel: true, rr_mopgen: 1 });
+  for (const id of ["f_mv_A", "f_mv_B", "f_mv_R", OFFICE.modeCheck]) {
+    eq(run(id, {}, cx(), mkGlobal(state({ "select.mr_slave_cleaning_mode": "vacuum" }))), [null, null], `${id} drops when cancelled (no next stage)`);
+  }
+  eq(run("f_59", {}, cx()), [null, null], "f_59: no mop pass after a cancel");
+  eq(run("f_mstep", { rr_mopgen: 1, rr_mop_idx: 3 }, cx()), [null, null, null], "f_mstep: no next step after a cancel");
+  eq(run("f_mstepchk", { rr_mopgen: 1 }, cx()), [null, null, null, null], "f_mstepchk: poll stops after a cancel");
+  eq(run("f_mretry", { rr_mopgen: 1 }, cx()), [null, null], "f_mretry: no retry after a cancel");
+  eq(run("f_64", { rr_mopgen: 1 }, cx()), null, "f_64: no stamp after a cancel");
+  // a stale pass (gen bumped by f_hstop / f_mopfail, then a new pass started) is dropped too
+  eq(run("f_mstep", { rr_mopgen: 1 }, mkFlow({ rr_mopgen: 2 })), [null, null, null], "stale pass msg dropped by f_mstep");
+  eq(run("f_mstepchk", { rr_mopgen: 1 }, mkFlow({ rr_mopgen: 2 })), [null, null, null, null], "stale pass poll dropped");
+}
+
+console.log("H5 -- mop steps: order, params, wiring");
+{
+  const EXPECT = [["Front door entry", [11]], ["Hallway", [10]], ["Living room", [12]], ["Kitchen", [13]],
+    ["Bathroom 1", [5]], ["Master bathroom", [4]], ["Half bath + Garage entrance + Laundry", [7, 6, 8]]];
+  const f = mkFlow({ rr_mopgen: 1 });
+  for (let i = 0; i < 7; i++) {
+    const o = run("f_mstep", { rr_mopgen: 1, rr_mop_idx: i }, f);
+    ok(o[0] && !o[2] && o[0].rr_step.name === EXPECT[i][0] && JSON.stringify(o[0].rr_step.segments) === JSON.stringify(EXPECT[i][1]),
+       `step ${i + 1}: ${EXPECT[i][0]} ${JSON.stringify(EXPECT[i][1])}`);
+    eq(o[1], { rr_evt: "mopstep", rr_phase: `Mop pass ${i + 1}/7 — ${EXPECT[i][0]}` }, `step ${i + 1} phase`);
+  }
+  const done = run("f_mstep", { rr_mopgen: 1, rr_mop_idx: 7 }, f);
+  ok(!done[0] && !done[1] && done[2], "after 7/7 -> out2 (f_64) only");
+  eq(byId["f_mstep"].wires, [["s_mc1"], ["lo_tr_mop"], ["f_64"]], "f_mstep -> modes chain / tracker / f_64");
+  const data = (id) => JSON.parse(byId[id].data);
+  eq([byId["s_mc1"], byId["s_mc2"], byId["s_mc3"]].map((n) => [n.action, data(n.id).command, data(n.id).params]),
+     [["vacuum.send_command", "set_custom_mode", [102]], ["vacuum.send_command", "set_water_box_custom_mode", [201]],
+      ["vacuum.send_command", "set_mop_mode", [300]]], "per-step modes 102 / 201 / 300 (vacuum + mop)");
+  eq([byId["s_mc1"].wires, byId["s_mc2"].wires, byId["s_mc3"].wires], [[["s_mc2"]], [["s_mc3"]], [["s_mseg"]]], "modes in order, then the segment clean");
+  const seg = byId["s_mseg"];
+  ok(seg.action === "vacuum.send_command" && seg.dataType === "jsonata"
+     && /"command": "app_segment_clean"/.test(seg.data) && /"segments": \$\$\.rr_step\.segments/.test(seg.data) && /"repeat": 1/.test(seg.data),
+     "s_mseg: app_segment_clean with the step's segments, repeat 1");
+  ok(!flows.some((n) => n.data && /set_mop_template_id/.test(n.data)), "set_mop_template_id is never sent (unsupported)");
+  eq(seg.wires, [["d_mstep"]], "segment clean -> poll");
+  ok(byId["d_mstep"].timeout === "30" && byId["d_mstep"].wires[0][0] === "f_mstepchk", "poll every 30 s");
+  eq(byId["f_mstepchk"].wires, [["f_mstep"], ["d_mstep"], ["f_mopfail"], ["f_mretry"]], "f_mstepchk outputs");
+  eq(byId["cat_mstep"].scope, ["s_mc1", "s_mc2", "s_mc3", "s_mseg"], "step commands caught by cat_mstep");
+  eq(byId["cat_mstep"].wires, [["f_mretry"]], "cat_mstep -> f_mretry");
+  eq(byId["f_mretry"].wires, [["d_mretry"], ["f_mopfail"]], "f_mretry -> 60 s wait / mop failed");
+  ok(byId["d_mretry"].timeout === "60" && byId["d_mretry"].wires[0][0] === "f_mstep", "retry waits 60 s, then the same step again");
+  for (const id of ["s_mc1", "s_mc2", "s_mc3", "s_mseg", "s_63"]) ok(!byId["cat_mid"].scope.includes(id), `${id} not in cat_mid (a step error retries, never cancels)`);
+  eq(byId["f_59"].wires, [["f_mstep"], ["f_mopfail"]], "f_59 -> step 1 / tank empty");
+  // nothing presses the Roborock server's Mopping routine any more
+  ok(!flows.some((n) => n.type === "api-call-service" && /mr_slave_mopping/.test(n.data || "")), "no node presses button.mr_slave_mopping");
+  ok(!flows.some((n) => n.type === "api-call-service" && n.action === "select.select_option" && /"option": "mop"/.test(n.data || "")),
+     "no 'mode: mop' select any more (the step modes replace it)");
+  const sweep = byId["g_sweep"].nodes;
+  ok(["f_mstep", "s_mc1", "s_mc2", "s_mc3", "s_mseg", "d_mstep", "f_mstepchk", "cat_mstep", "f_mretry", "d_mretry"].every((id) => sweep.includes(id)),
+     "step nodes are in group 3");
+
+  // f_mretry: transient "Connection lost" -> retry (up to 4), then mop failed
+  const fr = mkFlow({ rr_mopgen: 1 });
+  let r = run("f_mretry", { rr_mopgen: 1, rr_mop_idx: 2, rr_step: { n: 3, of: 7, name: "Living room" }, error: { message: "Connection lost" } }, fr);
+  ok(r[0] && !r[1] && r[0].rr_step_retry === 1 && r[0].rr_mop_idx === 2 && !r[0].error, "Connection lost -> retry 1, same step");
+  r = run("f_mretry", { rr_mopgen: 1, rr_step_retry: 4, rr_step: { n: 3, of: 7, name: "Living room" }, error: { message: "Connection lost" } }, fr);
+  ok(!r[0] && r[1] && /3\/7 \(Living room\).*4 retries.*Connection lost/.test(r[1].rr_mop_reason), "5th failure -> mop failed with the reason");
+}
+
+console.log("H6 -- mop step end detection (f_mstepchk)");
+{
+  const T0 = new Date(2026, 10, 18, 18, 0, 0).getTime();
+  const M = 60e3;
+  const iso = (ms) => new Date(ms).toISOString();
+  const G = (status, vac, cleaning, changedAt, extra) => mkGlobal(Object.assign(state({
+    "sensor.mr_slave_status_2": status, "vacuum.mr_slave_2": vac,
+    "binary_sensor.mr_slave_cleaning_2": { state: cleaning, last_changed: iso(changedAt || T0 - 30 * M) },
+    "binary_sensor.mr_slave_water_shortage_2": "off" }), extra || {}));
+  const fl = mkFlow({ rr_mopgen: 1 });
+  const base = () => ({ rr_mopgen: 1, rr_mop_idx: 2, rr_step: { n: 3, of: 7, name: "Living room" }, rr_step_t0: T0 });
+  const chk = (m, g, t) => withDate(t, () => run("f_mstepchk", m, fl, g));
+  const only = (r, i) => r.every((x, j) => (j === i ? !!x : x === null));
+  // not started yet (robot still on the dock) -> poll; after 5 min -> retry
+  let m = base();
+  let r = chk(m, G("charging", "docked", "off"), T0 + 30e3);
+  ok(only(r, 1) && !r[1].rr_step_started, "still docked 30 s after the send -> poll");
+  r = chk(base(), G("charging", "docked", "off"), T0 + 5 * M);
+  ok(only(r, 3) && /did not start/.test(r[3].rr_mop_reason), "not started after 5 min -> retry the step");
+  // started: cleaning
+  r = chk(base(), G("segment_cleaning", "cleaning", "off"), T0 + 30e3);
+  ok(only(r, 1) && r[1].rr_step_started, "vacuum cleaning -> started, poll");
+  m = r[1];
+  // mid-job mop wash: cleaning_2 stays on -> not finished (11-18 17:40, 18:55)
+  r = chk(m, G("washing_the_mop", "docked", "on", T0 + 40e3), T0 + 12 * M); ok(only(r, 1), "mid-job mop wash -> not finished");
+  // recharge pause: charging with cleaning_2 on -> not finished
+  r = chk(m, G("charging", "docked", "on", T0 + 40e3), T0 + 20 * M); ok(only(r, 1), "recharge pause (charging, job open) -> not finished");
+  r = chk(r[1], G("charging", "docked", "on", T0 + 40e3), T0 + 50 * M); ok(only(r, 1) && !r[1].rr_step_home, "still recharging -> not finished");
+  // job closed, dock empties the bin / washes the mop after the job -> not finished yet
+  const off = T0 + 60 * M;
+  r = chk(r[1], G("returning_home", "returning", "off", off), off + 20e3); ok(only(r, 1), "job closed, returning -> not finished");
+  r = chk(r[1], G("washing_the_mop", "docked", "off", off), off + 3 * M); ok(only(r, 1) && !r[1].rr_step_home, "post-job wash -> not finished");
+  r = chk(r[1], G("emptying_the_bin", "docked", "off", off), off + 4 * M); ok(only(r, 1), "emptying the bin -> not finished");
+  // charging and quiet: 90 s settle
+  r = chk(r[1], G("charging", "docked", "off", off), off + 5 * M); ok(only(r, 1) && r[1].rr_step_home === off + 5 * M, "charging, settle starts");
+  const s1 = Object.assign({}, r[1]);
+  r = chk(Object.assign({}, s1), G("washing_the_mop", "docked", "off", off), off + 5.5 * M); ok(only(r, 1) && r[1].rr_step_home === 0, "wash starts after charging -> settle resets");
+  r = chk(Object.assign({}, s1), G("charging", "docked", "off", off), off + 6 * M); ok(only(r, 1), "charging 60 s -> not yet");
+  r = chk(r[1], G("charging", "docked", "off", off), off + 6.5 * M);
+  ok(only(r, 0) && r[0].rr_mop_idx === 3 && r[0].rr_step_retry === 0, "charging 90 s with the job closed -> step finished, next step");
+  // idle beside the dock after the job (dock failed): not finished, not failed
+  r = chk(Object.assign(base(), { rr_step_started: T0 }), G("idle", "idle", "off", off), off + 10 * M); ok(only(r, 1), "idle off the dock -> keep polling (group 8 retries)");
+  // a very short job that opened and closed between two polls still counts as started
+  r = chk(base(), G("charging", "docked", "off", T0 + 20e3), T0 + 60e3); ok(only(r, 1) && r[1].rr_step_started, "cleaning_2 changed since the send -> started");
+  // water ran out -> failed, never finished
+  const fw = mkFlow({ rr_mopgen: 1 });
+  r = withDate(off + 7 * M, () => run("f_mstepchk", Object.assign(base(), { rr_step_started: T0 }), fw,
+    G("charging", "docked", "off", off, state({ "binary_sensor.mr_slave_water_shortage_2": "on" }))));
+  ok(only(r, 2) && /ran out during mop step 3\/7 \(Living room\)/.test(r[2].rr_mop_reason) && fw.get("rr_mop_water") === true, "water shortage -> mop failed");
+  // step cap
+  r = chk(Object.assign(base(), { rr_step_started: T0 }), G("segment_cleaning", "cleaning", "on"), T0 + 241 * M);
+  ok(only(r, 2) && /within 240 min/.test(r[2].rr_mop_reason), "240 min without finishing -> mop failed");
+}
+
+console.log("H7 -- rr_last_mop_run only after 7/7");
+{
+  // the only writers of rr_last_mop_run: s_65, fed only by f_64, fed only by f_mstep out2
+  const writers = flows.filter((n) => n.type === "api-call-service" && /rr_last_mop_run/.test(n.data || ""));
+  eq(writers.map((n) => n.id), ["s_65"], "s_65 is the only node that sets rr_last_mop_run");
+  const feeders = (id) => flows.filter((n) => (n.wires || []).some((w) => w.includes(id))).map((n) => n.id);
+  eq(feeders("s_65"), ["f_64"], "only f_64 feeds s_65");
+  eq(feeders("f_64"), ["f_mstep"], "only f_mstep feeds f_64");
+  ok(byId["f_mstep"].wires[2][0] === "f_64" && byId["f_mstep"].wires[0][0] !== "f_64", "f_64 is f_mstep's 'all 7 finished' output");
+  eq(byId["f_64"].wires, [["s_65", "s_66", "s_63"]], "f_64 -> stamp, restore + done, last wash (leaves)");
+  eq(byId["s_65"].wires, [[]], "stamp is a leaf (not a gate for done)");
+
+  // full simulated pass: 7 steps, each with a mid-job wash, then the job closes and the robot settles
+  const fl = mkFlow({ rr_cancel: false, rr_mop_water: false });
+  let t = new Date(2026, 10, 18, 8, 31, 0).getTime();
+  const M = 60e3;
+  let cleanOff = t - 60 * M;
+  const G = (status, vac, cleaning) => mkGlobal(state({ "sensor.mr_slave_status_2": status, "vacuum.mr_slave_2": vac,
+    "binary_sensor.mr_slave_cleaning_2": { state: cleaning, last_changed: new Date(cleanOff).toISOString() },
+    "binary_sensor.mr_slave_water_shortage_2": "off" }));
+  let msg = withDate(t, () => run("f_59", {}, fl, G("charging", "docked", "off")))[0];
+  const phases = [];
+  let stamps = 0, sends = 0;
+  for (let guard = 0; guard < 200 && msg; guard++) {
+    const o = withDate(t, () => run("f_mstep", msg, fl));
+    if (o[2]) { const s = withDate(t, () => run("f_64", o[2], fl)); if (s && s.payload.timestamp) stamps++; break; }
+    phases.push(o[1].rr_phase); sends++;
+    let m = o[0];
+    // the robot runs the job: cleaning -> mid-job wash -> cleaning -> job closes -> post-job wash -> charging
+    const seq = [["segment_cleaning", "cleaning", "on", 1], ["washing_the_mop", "docked", "on", 6], ["segment_cleaning", "cleaning", "on", 10],
+      ["returning_home", "returning", "off", 15], ["washing_the_mop", "docked", "off", 17], ["charging", "docked", "off", 21],
+      ["charging", "docked", "off", 21.5], ["charging", "docked", "off", 22], ["charging", "docked", "off", 22.6]];
+    const s0 = t;
+    let next = null;
+    for (const [st, vac, cl, min] of seq) {
+      t = s0 + min * M;
+      if (cl === "off" && cleanOff < s0) cleanOff = t;
+      const r = withDate(t, () => run("f_mstepchk", m, fl, G(st, vac, cl)));
+      if (r[0]) { next = r[0]; break; }
+      ok(!r[2] && !r[3], `pass: no failure/retry at ${st}`);
+      m = r[1];
+    }
+    msg = next;
+    ok(stamps === 0, "pass: no stamp before 7/7");
+  }
+  eq(sends, 7, "simulated pass: 7 steps sent");
+  eq(phases.map((p) => p.replace(/^Mop pass (\d)\/7 — .*/, "$1")), ["1", "2", "3", "4", "5", "6", "7"], "simulated pass: phases 1/7 .. 7/7 in order");
+  eq(stamps, 1, "simulated pass: rr_last_mop_run stamped once, after 7/7");
+  ok(fl.get("rr_mop_pending") === false && fl.get("rr_mop_inpass") === 0, "pass done closes the mop flags");
+  // a pass cancelled at step 4 never stamps
+  const fc = mkFlow({});
+  const m1 = run("f_59", {}, fc, mkGlobal(state({ "binary_sensor.mr_slave_water_shortage_2": "off" })))[0];
+  m1.rr_mop_idx = 3;
+  run("f_hstop", { rr_src: "hand" }, fc, mkGlobal(state({ "sensor.mr_slave_status_2": "segment_cleaning", "vacuum.mr_slave_2": "cleaning" })));
+  eq(run("f_mstep", m1, fc), [null, null, null], "cancelled at step 4 -> no further step, no stamp");
+  eq(run("f_mstep", Object.assign({}, m1, { rr_mop_idx: 7 }), fc), [null, null, null], "even a 7/7 msg after a cancel does not reach f_64");
+}
+
+console.log("H8 -- Mop all floors button (any day, same steps, no room stamps)");
+{
+  eq(byId["t_68"].entities.entity, ["input_button.rr_mop_all_floors"], "t_68 = Mop all floors button");
+  eq(byId["t_68"].wires, [["f_mopman"], []], "t_68 -> f_mopman");
+  eq(byId["f_mopman"].wires, [["lo_mop_man"], ["lo_tr_man"]], "f_mopman -> mop pass link / tracker link");
+  ok(byId["li_mop"].links.includes("lo_mop_man") && byId["lo_mop_man"].links[0] === "li_mop", "lo_mop_man <-> li_mop");
+  ok(byId["li_tr"].links.includes("lo_tr_man") && byId["lo_tr_man"].links[0] === "li_tr", "lo_tr_man <-> li_tr");
+  const reach = (start) => {
+    const seen = new Set(), todo = [...start];
+    while (todo.length) {
+      const id = todo.pop();
+      if (seen.has(id) || !byId[id]) continue;
+      seen.add(id);
+      for (const out of byId[id].wires || []) todo.push(...out);
+      if (byId[id].type === "link out") todo.push(...(byId[id].links || []));
+    }
+    return seen;
+  };
+  const p = reach(["t_68"]);
+  ok(["f_59", "f_mstep", "s_mc1", "s_mseg", "f_mstepchk", "f_64"].every((id) => p.has(id)), "button reaches the 7 Node-RED mop steps");
+  ok(!p.has("f_58") && !p.has("w_mopbat"), "button skips the Wednesday gate and the battery wait");
+  ok(!["s_37", "s_43", "s_49", OFFICE.clean].some((id) => p.has(id)), "button reaches no vacuum stage (room stamps only come from those stages' tracker events)");
+  // any day
+  const f = mkFlow({ rr_cancel: true, rr_mop_skip: true });
+  const o = withDate(TUE, () => run("f_mopman", {}, f));
+  ok(o[0] && o[0].rr_mop_manual && o[1].rr_evt === "start" && o[1].rr_mop_manual, "Tuesday press -> starts (no day check)");
+  ok(f.get("rr_cancel") === false && f.get("rr_mop_manual") === true && f.get("rr_mop_skip") === false, "clears the old cancel, flags a manual mop");
+  const ft = mkFlow({});
+  const tr = run("f_track", o[1], ft);
+  ok(ft.get("rr_run").active === true && /^Mop all floors/.test(ft.get("rr_run").phase) && tr[1].length === 0, "tracker: manual mop phase, no stamps");
+  const r2 = withDate(TUE, () => run("f_59", o[0], f, mkGlobal(state({ "binary_sensor.mr_slave_water_shortage_2": "off" }))));
+  ok(r2[0] && r2[0].rr_mop_idx === 0, "f_59 starts step 1 for the button");
+  // ignored while a run is live
+  eq(run("f_mopman", {}, mkFlow(LIVE())), [null, null], "ignored during a live daily run");
+  // hand stop during a manual mop cancels it like a daily run (classifier sees the live run)
+  ok(fires(withDate(Date.now(), () => run("f_ev_idle", chg("cleaning", "paused", PERSON), mkFlow({ rr_run: { active: true, phase: "Mop pass 2/7 — Hallway" }, rr_mop_manual: true, rr_nr_uid: NR })))),
+     "hand stop during a manual mop -> cancels it");
+  // manual failure wording
+  const mf = run("f_mopfail", { rr_mop_reason: "x" }, mkFlow({ rr_mop_manual: true }));
+  ok(/Tap Mop all floors to try again/.test(mf[0].notify.message) && !/Wednesday/.test(mf[0].notify.message), "manual mop failure wording");
+}
+
+console.log("H9 -- own HA user is learned, not hard-coded; no catch-up promises left");
+{
+  ok(byId["a_uid"].type === "ha-api" && byId["a_uid"].protocol === "websocket" && JSON.parse(byId["a_uid"].data).type === "auth/current_user",
+     "a_uid asks HA who the Node-RED user is (websocket auth/current_user)");
+  ok(byId["i_uid"].once === true && byId["i_uid"].repeat === "3600" && byId["i_uid"].wires[0][0] === "a_uid", "at startup and hourly");
+  eq(byId["a_uid"].wires, [["f_uid"]], "a_uid -> f_uid");
+  const fu = mkFlow({});
+  run("f_uid", { payload: { id: NR, name: "node-red" } }, fu);
+  ok(fu.get("rr_nr_uid") === NR, "f_uid stores rr_nr_uid");
+  ok(!flows.some((n) => JSON.stringify(n).includes(NR)), "Node-RED's user id is not hard-coded anywhere in flows.json");
+  // user-facing wording: no catch-up promises
+  const msgs = flows.filter((n) => n.func).map((n) => [n.id, (n.func.match(/(['"])(?:(?!\1)[^\\]|\\.)*\1/g) || []).join(" ")]);
+  const promises = msgs.filter(([, s]) => /catch-up mop runs|Thursday|Friday/.test(s)).map(([id]) => id);
+  eq(promises, [], "no user-facing message promises a Thu/Fri catch-up");
+  ok(/next Wednesday/.test(byId["f_stall"].func) && /next Wednesday/.test(byId["f_fail"].func), "stall / fail mop note says next Wednesday");
+  const s = run("f_stall", { rr_stage: "Main floor sweep", rr_mins: 150 }, mkFlow({ rr_mop_pending: true }), mkGlobal(state({ "sensor.mr_slave_status_2": "charging" })));
+  ok(/there is no catch-up, the next mop is next Wednesday/.test(s[0].notify.message), "f_stall on a mop day -> next Wednesday");
+  // flows.json stays secret-free
+  ok(!/Bearer\s+[A-Za-z0-9._-]{20,}|eyJ[A-Za-z0-9_-]{20,}\./.test(fs.readFileSync(FLOWS, "utf8")), "no bearer token / JWT in flows.json");
+  eq([...new Set(flows.filter((n) => n.z).map((n) => n.z))], ["rr_tab_1"], "single tab");
+}
+
+console.log("H10 -- hand stop from a vacuum service call (f_hcall: HomeKit has no user id)");
+{
+  const ev = byId["ev_vaccall"];
+  ok(ev.type === "server-events" && ev.eventType === "call_service" && JSON.parse(ev.eventData).domain === "vacuum",
+     "ev_vaccall listens to call_service, domain vacuum");
+  ok(ev.outputProperties.some((p) => p.property === "payload" && p.valueType === "eventData"), "ev_vaccall payload = whole event (incl. context)");
+  eq(ev.wires, [["f_hcall"]], "ev_vaccall -> f_hcall");
+  eq(byId["f_hcall"].wires, [["f_hstop"]], "f_hcall -> f_hstop (same handler)");
+  ok(byId["g_track"].nodes.includes("ev_vaccall") && byId["g_track"].nodes.includes("f_hcall"), "new nodes in the tracker group");
+  // HA call_service event as server-events delivers it (eventData)
+  const call = (service, sd, uid, target) => ({ payload: { event_type: "call_service",
+    event: Object.assign({ domain: "vacuum", service, service_data: sd || {} }, target ? { target } : {}),
+    context: { id: "c", parent_id: null, user_id: uid === undefined ? null : uid } } });
+  const E = { entity_id: "vacuum.mr_slave_2" };
+  const hc = (m, extra, now) => withDate(now || Date.now(), () => run("f_hcall", m, mkFlow(Object.assign(LIVE(), { rr_nr_uid: NR }, extra || {}))));
+  ok(fires(hc(call("return_to_base", E, null))), "return_to_base with no user (HomeKit 'off') -> hand stop");
+  ok(fires(hc(call("turn_off", E, null))), "turn_off with no user -> hand stop");
+  ok(fires(hc(call("stop", E, PERSON))), "stop by a person -> hand stop");
+  ok(fires(hc(call("pause", E, PERSON))), "pause by a person -> hand stop");
+  for (const c of ["app_stop", "app_pause", "app_charge"]) {
+    ok(fires(hc(call("send_command", Object.assign({ command: c }, E), null))), `send_command ${c} with no user -> hand stop`);
+  }
+  ok(fires(hc(call("return_to_base", { entity_id: ["vacuum.other", "vacuum.mr_slave_2"] }, null))), "list-form entity_id -> hand stop");
+  ok(fires(hc(call("return_to_base", {}, null, { entity_id: ["vacuum.mr_slave_2"] }))), "entity in target (list) -> hand stop");
+  ok(fires(hc(call("return_to_base", {}, null, { entity_id: "vacuum.mr_slave_2" }))), "entity in target (string) -> hand stop");
+  ok(fires(hc(call("return_to_base", { entity_id: "all" }, null))), "entity_id all -> hand stop");
+  // ignored
+  eq(hc(call("return_to_base", E, NR)), null, "Node-RED's own call (rr_nr_uid) -> ignored");
+  eq(hc(call("stop", E, NR), { rr_own_cmd_at: 0 }), null, "Node-RED's own stop, no window -> still ignored (uid)");
+  const T = Date.now();
+  eq(withDate(T, () => run("f_hcall", call("return_to_base", E, NR), mkFlow(Object.assign(LIVE(), { rr_own_cmd_at: T - 30e3 })))), null,
+     "rr_nr_uid unknown + inside the own-command window -> ignored");
+  eq(withDate(T, () => run("f_hcall", call("return_to_base", E, NR), mkFlow(Object.assign(LIVE(), { rr_dw: { state: "retry" } })))), null,
+     "rr_nr_uid unknown + group 9 retry -> ignored");
+  ok(fires(withDate(T, () => run("f_hcall", call("return_to_base", E, null), mkFlow(Object.assign(LIVE(), { rr_own_cmd_at: T - 3 * 60e3 }))))),
+     "rr_nr_uid unknown + outside the window -> hand stop");
+  eq(hc(call("return_to_base", { entity_id: "vacuum.other" }, null)), null, "other entity -> ignored");
+  eq(hc(call("start", E, null)), null, "start -> ignored");
+  eq(hc(call("send_command", Object.assign({ command: "app_segment_clean" }, E), null)), null, "send_command app_segment_clean -> ignored");
+  eq(hc(Object.assign(call("return_to_base", E, null), {})).rr_src, "hand", "sanity");
+  const other = call("return_to_base", E, null); other.payload.event.domain = "light";
+  eq(hc(other), null, "other domain -> ignored");
+  eq(run("f_hcall", call("return_to_base", E, null), mkFlow({ rr_run: { active: false }, rr_nr_uid: NR })), null, "no live run -> ignored");
+  eq(run("f_hcall", call("return_to_base", E, null), mkFlow(Object.assign(LIVE(), { rr_cancel: true, rr_nr_uid: NR }))), null,
+     "run already cancelled (first hit wins) -> ignored, one note per stop");
+  // HomeKit return during a stage: the cancel reaches the stage wait before the dock does
+  const f = mkFlow(Object.assign(LIVE(), { rr_nr_uid: NR, rr_waitgen: 3, rr_pending: "w_42" }));
+  const m = run("f_hcall", call("return_to_base", E, null), f);
+  const o = run("f_hstop", m, f, mkGlobal(state({ "sensor.mr_slave_status_2": "returning_home", "vacuum.mr_slave_2": "returning",
+    "binary_sensor.mr_slave_cleaning_2": "on" })));
+  ok(o[0] && o[2] && o[2].notify.urgent === false, "HomeKit return mid-stage -> stop + one quiet note");
+  eq(run("f_short_A", { rr_wgen: 3 }, f), null, "zone A dock-wait then dropped (no next stage)");
+  // the later state change of the same stop finds the run cancelled -> no second note
+  ok(!fires(run("f_ev_idle", chg("cleaning", "returning", null), f)), "state change of the same stop -> nothing more");
+
+  // every Node-RED stop / return stamps rr_own_cmd_at before the call
+  eq(byId["d_dock"].wires, [["f_own_dock"]], "group 8: d_dock -> f_own_dock");
+  eq(byId["f_own_dock"].wires, [["s_dock"]], "f_own_dock -> s_dock");
+  const fo = mkFlow({});
+  withDate(T, () => run("f_own_dock", {}, fo));
+  ok(fo.get("rr_own_cmd_at") === T, "group 8 stamps rr_own_cmd_at");
+  ok(/flow\.set\('rr_own_cmd_at', now\);[^\n]*\no\[4\] = \{payload: 'return_to_base'\};/.test(byId["f_dw"].func), "group 9 stamps rr_own_cmd_at before return_to_base");
+  const fh = mkFlow(LIVE());
+  withDate(T, () => run("f_hstop", { rr_src: "hand" }, fh, mkGlobal(state({ "vacuum.mr_slave_2": "cleaning" }))));
+  ok(fh.get("rr_own_cmd_at") === T, "f_hstop stamps rr_own_cmd_at");
+  const fh2 = mkFlow({ rr_cancel: true });
+  withDate(T, () => run("f_hs_home", {}, fh2, mkGlobal(state({ "vacuum.mr_slave_2": "idle", "sensor.mr_slave_status_2": "idle" }))));
+  ok(fh2.get("rr_own_cmd_at") === T, "f_hs_home stamps rr_own_cmd_at");
+  // every Node-RED stop / pause / return / turn_off call is fed by a stamping node
+  const stampers = new Set(["f_hstop", "f_hs_home", "f_own_dock", "f_dw", "d_hs", "s_hs_stop"]);
+  const calls = flows.filter((n) => n.type === "api-call-service" && /^vacuum\.(stop|pause|return_to_base|turn_off)$/.test(n.action));
+  for (const c of calls) {
+    const feeders = flows.filter((n) => (n.wires || []).some((w) => w.includes(c.id))).map((n) => n.id);
+    ok(feeders.length && feeders.every((id) => stampers.has(id)), `${c.id} (${c.action}) is fed only by own-command stampers (${feeders})`);
+  }
+  // no HA automation / script in this repo calls these vacuum services
+  const cfg = path.join(__dirname, "..", "..", "config");
+  const walk = (d) => fs.readdirSync(d, { withFileTypes: true }).flatMap((e) => e.isDirectory() ? walk(path.join(d, e.name)) : [path.join(d, e.name)]);
+  const offenders = walk(cfg).filter((p) => /\.ya?ml$/.test(p))
+    .filter((p) => /vacuum\.(stop|pause|return_to_base|turn_off)\b|app_(stop|pause|charge)/.test(fs.readFileSync(p, "utf8")));
+  eq(offenders, [], "no HA automation/script calls vacuum stop/pause/return/turn_off (none to exclude)");
 }
 
 // ===========================================================================
