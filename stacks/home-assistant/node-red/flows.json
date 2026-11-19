@@ -2766,7 +2766,7 @@
         "type": "function",
         "z": "rr_tab_1",
         "name": "hand stop? (person / robot button / stop)",
-        "func": "// Hand-stop classifier (owner, 2026-11-18). Runs on every vacuum.mr_slave_2\n// state change (t_idle; msg.data = the state_changed event, so the new state's\n// context.user_id is known). While a daily run or a mop pass (Wednesday or\n// \"Mop all floors\") is live, these are \"stopped by hand\" and cancel the rest\n// of the run (f_hstop):\n//   (i)   -> paused / idle / returning with a person's HA user on the change\n//         (HA vacuum card, HomeKit, dashboard: context.user_id set and not\n//         Node-RED's own user rr_nr_uid, learned at startup by a_uid)\n//   (ii)  paused -> returning / docked with no user and no Node-RED dock\n//         command behind it: the robot's own button (cleaning -> paused ->\n//         returning, no user id; 2026-11-18 17:54)\n//   (iii) -> idle from anything but returning / error, not by Node-RED (a stop;\n//         returning -> idle = gave up docking, error -> idle = error cleared)\n// Never: error -> paused -> cleaning (the robot's own error recovery, no user),\n// cleaning -> returning with no user (job end, recharge, mid-job mop wash), a\n// recharge pause, Node-RED's own return_to_base (cancel path, group 8 retries,\n// group 9 dock watcher): its own user id, or no user while rr_dock.busy /\n// rr_dw.state 'retry' / within 2 min of rr_own_cmd_at (f_hstop, f_hs_home, f_64).\n// If rr_nr_uid is not known yet, a user on the change counts as Node-RED only\n// inside that own-command window.\n// The first hit cancels the run, so later presses of the same stop sequence\n// find no live run and are dropped: one note per stop.\nconst OWN_MS = 2 * 60 * 1000;\nconst d = msg.data || {};\nconst nu = String((d.new_state && d.new_state.state) || msg.payload || '');\nconst old = String((d.old_state && d.old_state.state) || '');\nconst ctx = (d.new_state && d.new_state.context) || {};\nconst uid = ctx.user_id || '';\nconst run = flow.get('rr_run', 'file') || {};\nif (!run.active || run.cancelled || flow.get('rr_cancel')) return null;\nif (!nu || nu === old) return null;\nconst ownUid = flow.get('rr_nr_uid') || '';\nconst dk = flow.get('rr_dock') || {};\nconst dw = flow.get('rr_dw') || {};\nconst ownCmd = (Date.now() - (flow.get('rr_own_cmd_at') || 0)) < OWN_MS || !!dk.busy || dw.state === 'retry';\nconst ownUser = !!uid && (ownUid ? uid === ownUid : ownCmd);\nlet why = '';\nif (uid && !ownUser && ['paused', 'idle', 'returning'].includes(nu)) why = 'person (' + old + ' -> ' + nu + ')';\nelse if (!uid && old === 'paused' && ['returning', 'docked'].includes(nu) && !ownCmd) why = 'robot button (paused -> ' + nu + ')';\nelse if (nu === 'idle' && !['returning', 'error'].includes(old) && !ownUser) why = 'stopped (' + (old || '?') + ' -> idle)';\nif (!why) return null;\nmsg.rr_src = 'hand';\nmsg.rr_hand = why;\nnode.status({fill:'red', text:'hand stop: ' + why});\nreturn msg;",
+        "func": "// Hand-stop classifier (owner, 2026-11-18). Runs on every vacuum.mr_slave_2\n// state change (t_idle; msg.data = the state_changed event, so the new state's\n// context.user_id is known). While a daily run or a mop pass (Wednesday or\n// \"Mop all floors\") is live, these are \"stopped by hand\" and cancel the rest\n// of the run (f_hstop):\n//   (i)   -> paused / idle / returning with a person's HA user on the change\n//         (HA vacuum card, HomeKit, dashboard: context.user_id set and not\n//         Node-RED's own user rr_nr_uid, learned at startup by a_uid)\n//   (ii)  paused -> returning / docked with no user and no Node-RED dock\n//         command behind it: the robot's own button (cleaning -> paused ->\n//         returning, no user id; 2026-11-18 17:54)\n//   (iii) -> idle from anything but returning / error, not by Node-RED (a stop;\n//         returning -> idle = gave up docking, error -> idle = error cleared)\n// Never: error -> paused -> cleaning (the robot's own error recovery, no user),\n// cleaning -> returning with no user (job end, recharge, mid-job mop wash), a\n// recharge pause, Node-RED's own return_to_base (cancel path, group 8 retries,\n// group 9 dock watcher): its own user id, or no user while rr_dock.busy /\n// rr_dw.state 'retry' / within 2 min of rr_own_cmd_at (f_hstop, f_hs_home, f_64).\n// If rr_nr_uid is not known yet, a user on the change counts as Node-RED only\n// inside that own-command window.\n// A stop / dock service call with no user (HomeKit) is caught by f_hcall instead.\n// The first hit cancels the run, so later presses of the same stop sequence\n// find no live run and are dropped: one note per stop.\nconst OWN_MS = 2 * 60 * 1000;\nconst d = msg.data || {};\nconst nu = String((d.new_state && d.new_state.state) || msg.payload || '');\nconst old = String((d.old_state && d.old_state.state) || '');\nconst ctx = (d.new_state && d.new_state.context) || {};\nconst uid = ctx.user_id || '';\nconst run = flow.get('rr_run', 'file') || {};\nif (!run.active || run.cancelled || flow.get('rr_cancel')) return null;\nif (!nu || nu === old) return null;\nconst ownUid = flow.get('rr_nr_uid') || '';\nconst dk = flow.get('rr_dock') || {};\nconst dw = flow.get('rr_dw') || {};\nconst ownCmd = (Date.now() - (flow.get('rr_own_cmd_at') || 0)) < OWN_MS || !!dk.busy || dw.state === 'retry';\nconst ownUser = !!uid && (ownUid ? uid === ownUid : ownCmd);\nlet why = '';\nif (uid && !ownUser && ['paused', 'idle', 'returning'].includes(nu)) why = 'person (' + old + ' -> ' + nu + ')';\nelse if (!uid && old === 'paused' && ['returning', 'docked'].includes(nu) && !ownCmd) why = 'robot button (paused -> ' + nu + ')';\nelse if (nu === 'idle' && !['returning', 'error'].includes(old) && !ownUser) why = 'stopped (' + (old || '?') + ' -> idle)';\nif (!why) return null;\nmsg.rr_src = 'hand';\nmsg.rr_hand = why;\nnode.status({fill:'red', text:'hand stop: ' + why});\nreturn msg;",
         "outputs": 1,
         "timeout": 0,
         "noerr": 0,
@@ -4324,12 +4324,14 @@
             "f_ev_job",
             "i_uid",
             "a_uid",
-            "f_uid"
+            "f_uid",
+            "ev_vaccall",
+            "f_hcall"
         ],
         "x": 1350,
         "y": 1160,
         "w": 1100,
-        "h": 280
+        "h": 330
     },
     {
         "id": "g_manual",
@@ -4542,7 +4544,8 @@
             "w_dock",
             "cat_dock",
             "lo_n_dock",
-            "lo_tr_dock"
+            "lo_tr_dock",
+            "f_own_dock"
         ],
         "x": 20,
         "y": 2470,
@@ -4672,7 +4675,7 @@
         "y": 2510,
         "wires": [
             [
-                "s_dock"
+                "f_own_dock"
             ]
         ]
     },
@@ -4888,7 +4891,7 @@
         "type": "function",
         "z": "rr_tab_1",
         "name": "stage dock watcher (3 min / 6 min \u2192 1 retry \u2192 5 min \u2192 alert \u2192 30 min hold)",
-        "func": "// Stage dock watcher (2026-11-07: zone A finished, the robot went home at\n// 18:26, shuffled beside the dock for 20 min and gave up idle off the charger;\n// the 40-min stage wait only alerted at 18:40 and cancelled the run).\n// Runs on every sensor.mr_slave_status_2 change (t_dw) and a 30 s tick (i_dw).\n// While a stage dock-wait is pending (zone A, zone B, main sweep, office) it\n// spots \"came home but is not charging\":\n//   - after returning_home the robot is idle/paused off the dock for 3 min, or\n//   - it has been returning_home for 6 min (a normal return takes ~2 min;\n//     every 571 before 11-07 was charging within 90 s).\n// Then it takes the stage over from its wait (bumps rr_waitgen and clears\n// rr_pending, so the wait's own success/timeout is dropped by its guard and\n// f_hareconn leaves it alone):\n//   1. one vacuum.return_to_base (out4), phase \"Docking retry \u2014 <stage>\";\n//   2. up to 5 min for charging; still not charging -> ONE urgent\n//      rr_dock_failed alert (out5), phase \"Could not dock \u2014 <stage>\";\n//   3. holds the run 30 min: charging -> the run continues to the next stage\n//      (out0-3, the same targets as the HA-reconnect recovery) with a non-urgent\n//      \"back on the dock\" note; past the window -> f_stall (out7) cancels the\n//      rest of the run as a stall does.\n// The recharge pause never trips it: status charging / rr_recharge_pause is\n// home. The mop pass is not watched (wash visits; f_mopfail covers it).\n// out0 -> f_short_A, out1 -> f_short_B, out2 -> d_rc, out3 -> office done?,\n// out4 -> return_to_base, out5 -> notify, out6 -> tracker, out7 -> stall\nconst C = { LEFT_MIN: 3, RETURN_MAX_MIN: 6, RETRY_MIN: 5, HOLD_MIN: 30 };\nconst STAGES = {\n    w_42: [0, 'Master bedroom zone A'],\n    w_48: [1, 'Master bedroom zone B'],\n    w_54: [2, 'Main floor sweep'],\n    '207dee7e272ef8ca': [3, \"Rachel's office (last)\"],\n};\nconst out = () => [null, null, null, null, null, null, null, null];\n\nconst _ha = global.get('homeassistant') || {};\nconst _st = (Object.values(_ha).find(v => v && v.states) || {}).states || {};\nconst st = id => (_st[id] && _st[id].state);\nif (!Object.keys(_st).length) return out();   // HA states not loaded yet\n\nconst now = Date.now();\nconst mins = t => (now - t) / 60000;\nconst status = st('sensor.mr_slave_status_2') || '';\nconst vac = st('vacuum.mr_slave_2') || '';\nconst home = ['charging', 'charging_complete'].includes(status) || vac === 'docked'\n    || st('binary_sensor.rr_recharge_pause') === 'on';\nconst returning = status === 'returning_home' || vac === 'returning';\nconst offDock = ['idle', 'paused', 'charger_disconnected'].includes(status)\n    || ['idle', 'paused'].includes(vac);\nconst run = flow.get('rr_run', 'file') || {};\nconst live = !!run.active && !run.cancelled && !flow.get('rr_cancel');\nconst pend = flow.get('rr_pending') || '';\nconst gen = flow.get('rr_waitgen') || 0;\nlet dw = flow.get('rr_dw') || {state: 'idle'};\nconst save = () => flow.set('rr_dw', dw);\nconst reset = () => { dw = {state: 'idle'}; save(); };\n\n// ---- retry / hold: this watcher owns the stage ----------------------------\nif (dw.state === 'retry' || dw.state === 'hold') {\n    if (!live || !STAGES[dw.wid]) { reset(); node.status({fill: 'grey', shape: 'ring', text: 'run ended'}); return out(); }\n    const [i, stage] = STAGES[dw.wid];\n    if (home) {\n        const g = gen + 1;\n        flow.set('rr_waitgen', g);\n        const o = out();\n        o[i] = {payload: 'docked', rr_wgen: g, rr_dockwatch: true};\n        if (dw.state === 'hold') {\n            o[5] = {notify: {title: 'Vacuum: back on the dock',\n                message: 'Docked after ' + stage + '; the daily run carries on.',\n                tag: 'rr_dock_failed', urgent: false}};\n        }\n        node.status({fill: 'green', text: 'docked after ' + dw.state + ' \u2014 run continues'});\n        reset();\n        return o;\n    }\n    if (dw.state === 'retry' && mins(dw.t) >= C.RETRY_MIN) {\n        const batt = st('sensor.mr_slave_battery_2') || '?';\n        dw.state = 'hold'; dw.t = now; save();\n        node.status({fill: 'red', text: 'could not dock \u2014 holding ' + C.HOLD_MIN + ' min'});\n        const o = out();\n        o[5] = {notify: {title: \"Vacuum: couldn't dock\",\n            message: 'Roborock could not dock after ' + stage + ' \u2014 needs a hand (battery ' + batt + ' %). ' +\n                'One automatic return to the dock did not work. Put it on the dock within ' + C.HOLD_MIN +\n                \" min and the run carries on; after that the rest of today's run is cancelled.\",\n            tag: 'rr_dock_failed', urgent: true}};\n        o[6] = {rr_evt: 'dock', rr_phase: 'Could not dock \u2014 ' + stage};\n        return o;\n    }\n    if (dw.state === 'hold' && mins(dw.t) >= C.HOLD_MIN) {\n        reset();\n        node.status({fill: 'red', text: 'not docked after ' + C.HOLD_MIN + ' min \u2014 run cancelled'});\n        const o = out();\n        o[7] = {rr_stage: stage, rr_mins: C.HOLD_MIN, rr_nodock: true};\n        return o;\n    }\n    return out();\n}\n\n// ---- watch: a stage dock-wait is pending -----------------------------------\nif (!live || !STAGES[pend]) { if (dw.state !== 'idle') reset(); return out(); }\nif (dw.wid !== pend || dw.gen !== gen) dw = {state: 'watch', wid: pend, gen: gen};\nlet why = dw.force ? 'stage wait ran out near the dock' : '';\nif (home) { dw.retAt = 0; dw.leftAt = 0; }\nelse if (returning) {\n    dw.retAt = dw.retAt || now; dw.leftAt = 0;\n    if (!why && mins(dw.retAt) >= C.RETURN_MAX_MIN) why = 'returning for ' + C.RETURN_MAX_MIN + ' min';\n} else if (dw.retAt && offDock) {\n    dw.leftAt = dw.leftAt || now;\n    if (!why && mins(dw.leftAt) >= C.LEFT_MIN) why = (status || vac).replace(/_/g, ' ') + ' off the dock for ' + C.LEFT_MIN + ' min';\n} else if (!why) { dw.retAt = 0; dw.leftAt = 0; }   // cleaning (again): nothing to watch yet\nif (!why) {\n    save();\n    node.status(dw.retAt ? {fill: 'yellow', text: 'heading home: ' + mins(dw.retAt).toFixed(1) + ' min'}\n                         : {fill: 'grey', shape: 'dot', text: 'watching ' + STAGES[pend][1]});\n    return out();\n}\n\n// take the stage over from its wait\nconst stage = STAGES[pend][1];\nflow.set('rr_waitgen', gen + 1);\nflow.set('rr_pending', '');\ndw = {state: 'retry', wid: pend, t: now, why: why}; save();\nnode.warn('dock watcher: ' + stage + ': ' + why + '; sending one return_to_base');\nnode.status({fill: 'yellow', text: 'did not dock (' + why + ') \u2014 one retry'});\nconst o = out();\no[4] = {payload: 'return_to_base'};\no[6] = {rr_evt: 'dock', rr_phase: 'Docking retry \u2014 ' + stage};\nreturn o;\n",
+        "func": "// Stage dock watcher (2026-11-07: zone A finished, the robot went home at\n// 18:26, shuffled beside the dock for 20 min and gave up idle off the charger;\n// the 40-min stage wait only alerted at 18:40 and cancelled the run).\n// Runs on every sensor.mr_slave_status_2 change (t_dw) and a 30 s tick (i_dw).\n// While a stage dock-wait is pending (zone A, zone B, main sweep, office) it\n// spots \"came home but is not charging\":\n//   - after returning_home the robot is idle/paused off the dock for 3 min, or\n//   - it has been returning_home for 6 min (a normal return takes ~2 min;\n//     every 571 before 11-07 was charging within 90 s).\n// Then it takes the stage over from its wait (bumps rr_waitgen and clears\n// rr_pending, so the wait's own success/timeout is dropped by its guard and\n// f_hareconn leaves it alone):\n//   1. one vacuum.return_to_base (out4), phase \"Docking retry \u2014 <stage>\";\n//   2. up to 5 min for charging; still not charging -> ONE urgent\n//      rr_dock_failed alert (out5), phase \"Could not dock \u2014 <stage>\";\n//   3. holds the run 30 min: charging -> the run continues to the next stage\n//      (out0-3, the same targets as the HA-reconnect recovery) with a non-urgent\n//      \"back on the dock\" note; past the window -> f_stall (out7) cancels the\n//      rest of the run as a stall does.\n// The recharge pause never trips it: status charging / rr_recharge_pause is\n// home. The mop pass is not watched (wash visits; f_mopfail covers it).\n// out0 -> f_short_A, out1 -> f_short_B, out2 -> d_rc, out3 -> office done?,\n// out4 -> return_to_base, out5 -> notify, out6 -> tracker, out7 -> stall\nconst C = { LEFT_MIN: 3, RETURN_MAX_MIN: 6, RETRY_MIN: 5, HOLD_MIN: 30 };\nconst STAGES = {\n    w_42: [0, 'Master bedroom zone A'],\n    w_48: [1, 'Master bedroom zone B'],\n    w_54: [2, 'Main floor sweep'],\n    '207dee7e272ef8ca': [3, \"Rachel's office (last)\"],\n};\nconst out = () => [null, null, null, null, null, null, null, null];\n\nconst _ha = global.get('homeassistant') || {};\nconst _st = (Object.values(_ha).find(v => v && v.states) || {}).states || {};\nconst st = id => (_st[id] && _st[id].state);\nif (!Object.keys(_st).length) return out();   // HA states not loaded yet\n\nconst now = Date.now();\nconst mins = t => (now - t) / 60000;\nconst status = st('sensor.mr_slave_status_2') || '';\nconst vac = st('vacuum.mr_slave_2') || '';\nconst home = ['charging', 'charging_complete'].includes(status) || vac === 'docked'\n    || st('binary_sensor.rr_recharge_pause') === 'on';\nconst returning = status === 'returning_home' || vac === 'returning';\nconst offDock = ['idle', 'paused', 'charger_disconnected'].includes(status)\n    || ['idle', 'paused'].includes(vac);\nconst run = flow.get('rr_run', 'file') || {};\nconst live = !!run.active && !run.cancelled && !flow.get('rr_cancel');\nconst pend = flow.get('rr_pending') || '';\nconst gen = flow.get('rr_waitgen') || 0;\nlet dw = flow.get('rr_dw') || {state: 'idle'};\nconst save = () => flow.set('rr_dw', dw);\nconst reset = () => { dw = {state: 'idle'}; save(); };\n\n// ---- retry / hold: this watcher owns the stage ----------------------------\nif (dw.state === 'retry' || dw.state === 'hold') {\n    if (!live || !STAGES[dw.wid]) { reset(); node.status({fill: 'grey', shape: 'ring', text: 'run ended'}); return out(); }\n    const [i, stage] = STAGES[dw.wid];\n    if (home) {\n        const g = gen + 1;\n        flow.set('rr_waitgen', g);\n        const o = out();\n        o[i] = {payload: 'docked', rr_wgen: g, rr_dockwatch: true};\n        if (dw.state === 'hold') {\n            o[5] = {notify: {title: 'Vacuum: back on the dock',\n                message: 'Docked after ' + stage + '; the daily run carries on.',\n                tag: 'rr_dock_failed', urgent: false}};\n        }\n        node.status({fill: 'green', text: 'docked after ' + dw.state + ' \u2014 run continues'});\n        reset();\n        return o;\n    }\n    if (dw.state === 'retry' && mins(dw.t) >= C.RETRY_MIN) {\n        const batt = st('sensor.mr_slave_battery_2') || '?';\n        dw.state = 'hold'; dw.t = now; save();\n        node.status({fill: 'red', text: 'could not dock \u2014 holding ' + C.HOLD_MIN + ' min'});\n        const o = out();\n        o[5] = {notify: {title: \"Vacuum: couldn't dock\",\n            message: 'Roborock could not dock after ' + stage + ' \u2014 needs a hand (battery ' + batt + ' %). ' +\n                'One automatic return to the dock did not work. Put it on the dock within ' + C.HOLD_MIN +\n                \" min and the run carries on; after that the rest of today's run is cancelled.\",\n            tag: 'rr_dock_failed', urgent: true}};\n        o[6] = {rr_evt: 'dock', rr_phase: 'Could not dock \u2014 ' + stage};\n        return o;\n    }\n    if (dw.state === 'hold' && mins(dw.t) >= C.HOLD_MIN) {\n        reset();\n        node.status({fill: 'red', text: 'not docked after ' + C.HOLD_MIN + ' min \u2014 run cancelled'});\n        const o = out();\n        o[7] = {rr_stage: stage, rr_mins: C.HOLD_MIN, rr_nodock: true};\n        return o;\n    }\n    return out();\n}\n\n// ---- watch: a stage dock-wait is pending -----------------------------------\nif (!live || !STAGES[pend]) { if (dw.state !== 'idle') reset(); return out(); }\nif (dw.wid !== pend || dw.gen !== gen) dw = {state: 'watch', wid: pend, gen: gen};\nlet why = dw.force ? 'stage wait ran out near the dock' : '';\nif (home) { dw.retAt = 0; dw.leftAt = 0; }\nelse if (returning) {\n    dw.retAt = dw.retAt || now; dw.leftAt = 0;\n    if (!why && mins(dw.retAt) >= C.RETURN_MAX_MIN) why = 'returning for ' + C.RETURN_MAX_MIN + ' min';\n} else if (dw.retAt && offDock) {\n    dw.leftAt = dw.leftAt || now;\n    if (!why && mins(dw.leftAt) >= C.LEFT_MIN) why = (status || vac).replace(/_/g, ' ') + ' off the dock for ' + C.LEFT_MIN + ' min';\n} else if (!why) { dw.retAt = 0; dw.leftAt = 0; }   // cleaning (again): nothing to watch yet\nif (!why) {\n    save();\n    node.status(dw.retAt ? {fill: 'yellow', text: 'heading home: ' + mins(dw.retAt).toFixed(1) + ' min'}\n                         : {fill: 'grey', shape: 'dot', text: 'watching ' + STAGES[pend][1]});\n    return out();\n}\n\n// take the stage over from its wait\nconst stage = STAGES[pend][1];\nflow.set('rr_waitgen', gen + 1);\nflow.set('rr_pending', '');\ndw = {state: 'retry', wid: pend, t: now, why: why}; save();\nnode.warn('dock watcher: ' + stage + ': ' + why + '; sending one return_to_base');\nnode.status({fill: 'yellow', text: 'did not dock (' + why + ') \u2014 one retry'});\nconst o = out();\nflow.set('rr_own_cmd_at', now);   // own command: the hand-stop classifiers ignore it\no[4] = {payload: 'return_to_base'};\no[6] = {rr_evt: 'dock', rr_phase: 'Docking retry \u2014 ' + stage};\nreturn o;\n",
         "outputs": 8,
         "timeout": 0,
         "noerr": 0,
@@ -6511,5 +6514,81 @@
             []
         ],
         "g": "g_track"
+    },
+    {
+        "id": "ev_vaccall",
+        "type": "server-events",
+        "z": "rr_tab_1",
+        "name": "vacuum service calls (hand stop?)",
+        "server": "38978576.ca0eea",
+        "version": 3,
+        "exposeAsEntityConfig": "",
+        "eventType": "call_service",
+        "eventData": "{\"domain\": \"vacuum\"}",
+        "waitForRunning": true,
+        "outputProperties": [
+            {
+                "property": "payload",
+                "propertyType": "msg",
+                "value": "",
+                "valueType": "eventData"
+            },
+            {
+                "property": "topic",
+                "propertyType": "msg",
+                "value": "",
+                "valueType": "triggerId"
+            }
+        ],
+        "x": 1500,
+        "y": 1435,
+        "wires": [
+            [
+                "f_hcall"
+            ]
+        ],
+        "g": "g_track"
+    },
+    {
+        "id": "f_hcall",
+        "type": "function",
+        "z": "rr_tab_1",
+        "name": "hand stop? (stop / pause / dock service call)",
+        "func": "// Hand stop from a service call (review fix, 2026-11-18). f_ev_idle needs a\n// user id on the state change (rule i) or a paused step (rule ii). A dock or\n// stop call that carries no user goes cleaning -> returning with no user, the\n// same as a natural job end, so the stage wait saw \"charging\" and the next\n// stage started. The HA HomeKit bridge calls services with Context() and no\n// user id (homekit/accessories.py async_call_service_and_wait); HomeKit \"off\"\n// on a vacuum = vacuum.return_to_base (type_switches.py Vacuum).\n// So: a call_service event (ev_vaccall, domain vacuum) for stop / pause /\n// return_to_base / turn_off, or send_command app_stop / app_pause / app_charge,\n// targeting vacuum.mr_slave_2 (entity_id string or list, in service_data or\n// target, or \"all\"), whose context user is NOT Node-RED's own (rr_nr_uid; no\n// user id = not own), while a run or mop pass is live -> f_hstop.\n// rr_nr_uid not known yet -> a call counts as Node-RED's own only inside the\n// own-command signals (rr_own_cmd_at, stamped before every Node-RED stop /\n// return: f_hstop, f_hs_home, f_own_dock (group 8), f_dw (group 9); or\n// rr_dock.busy / rr_dw.state 'retry').\n// The robot's physical button never makes a call_service event: f_ev_idle rule (ii).\nconst OWN_MS = 2 * 60 * 1000;\nconst ENT = 'vacuum.mr_slave_2';\nconst SERVICES = ['stop', 'pause', 'return_to_base', 'turn_off'];\nconst COMMANDS = ['app_stop', 'app_pause', 'app_charge'];\nconst e = msg.payload || {};\nconst d = e.event || {};\nif (d.domain !== 'vacuum') return null;\nconst sd = d.service_data || {};\nconst hit = SERVICES.includes(d.service)\n    || (d.service === 'send_command' && COMMANDS.includes(String(sd.command || '')));\nif (!hit) return null;\nconst ids = [].concat(sd.entity_id || [], (d.target && d.target.entity_id) || [])\n    .reduce((a, x) => a.concat(Array.isArray(x) ? x : String(x).split(',')), [])\n    .map(x => String(x).trim());\nif (!ids.includes(ENT) && !ids.includes('all')) return null;\nconst run = flow.get('rr_run', 'file') || {};\nif (!run.active || run.cancelled || flow.get('rr_cancel')) return null;\nconst uid = (e.context && e.context.user_id) || '';\nconst ownUid = flow.get('rr_nr_uid') || '';\nconst dk = flow.get('rr_dock') || {};\nconst dw = flow.get('rr_dw') || {};\nconst ownCmd = (Date.now() - (flow.get('rr_own_cmd_at') || 0)) < OWN_MS || !!dk.busy || dw.state === 'retry';\nconst own = ownUid ? uid === ownUid : ownCmd;\nif (own) { node.status({fill:'grey', shape:'ring', text:'own call ' + d.service}); return null; }\nconst what = d.service === 'send_command' ? 'send_command ' + sd.command : d.service;\nmsg.rr_src = 'hand';\nmsg.rr_hand = 'service call ' + what + (uid ? ' by a person' : ' with no user (HomeKit?)');\nnode.status({fill:'red', text:'hand stop: ' + msg.rr_hand});\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1780,
+        "y": 1435,
+        "wires": [
+            [
+                "f_hstop"
+            ]
+        ],
+        "g": "g_track"
+    },
+    {
+        "id": "f_own_dock",
+        "type": "function",
+        "z": "rr_tab_1",
+        "name": "mark own command (group 8)",
+        "func": "// Group 8's return_to_base is Node-RED's own: stamp rr_own_cmd_at first, so the\n// hand-stop classifiers (f_ev_idle, f_hcall) never take it for a person.\nflow.set('rr_own_cmd_at', Date.now());\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 800,
+        "y": 2570,
+        "wires": [
+            [
+                "s_dock"
+            ]
+        ],
+        "g": "g_dock"
     }
 ]

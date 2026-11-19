@@ -335,6 +335,15 @@ reports a failed mop:
   returning / docked with no user and no Node-RED dock command behind it (the
   robot's own button); and → idle from anything but returning / error. The
   dashboard cancel button (`input_button.rr_return_dock`) is a hand stop too.
+  A second path (`ev_vaccall` → `f_hcall`) watches HA `call_service` events:
+  `vacuum.stop` / `pause` / `return_to_base` / `turn_off` or `send_command`
+  `app_stop` / `app_pause` / `app_charge` for `vacuum.mr_slave_2` whose user is
+  not Node-RED's is a hand stop too. This catches calls with no user id, such as
+  HomeKit (its bridge calls services with an empty context; "off" =
+  `return_to_base`), whose state change looks like a normal job end. Every
+  Node-RED stop/return (`f_hstop`, `f_hs_home`, group 8 `f_own_dock`, group 9
+  `f_dw`) stamps `rr_own_cmd_at` first, the fallback while Node-RED's user id is
+  not known yet.
   Never: the robot's error recovery (error → paused → cleaning), a natural job
   end or recharge (cleaning → returning, no user), Node-RED's own return_to_base
   (cancel, group 8, group 9). `f_hstop` then cancels the rest of the run (drops

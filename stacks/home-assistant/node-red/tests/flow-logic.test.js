@@ -1190,6 +1190,89 @@ console.log("H9 -- own HA user is learned, not hard-coded; no catch-up promises 
   eq([...new Set(flows.filter((n) => n.z).map((n) => n.z))], ["rr_tab_1"], "single tab");
 }
 
+console.log("H10 -- hand stop from a vacuum service call (f_hcall: HomeKit has no user id)");
+{
+  const ev = byId["ev_vaccall"];
+  ok(ev.type === "server-events" && ev.eventType === "call_service" && JSON.parse(ev.eventData).domain === "vacuum",
+     "ev_vaccall listens to call_service, domain vacuum");
+  ok(ev.outputProperties.some((p) => p.property === "payload" && p.valueType === "eventData"), "ev_vaccall payload = whole event (incl. context)");
+  eq(ev.wires, [["f_hcall"]], "ev_vaccall -> f_hcall");
+  eq(byId["f_hcall"].wires, [["f_hstop"]], "f_hcall -> f_hstop (same handler)");
+  ok(byId["g_track"].nodes.includes("ev_vaccall") && byId["g_track"].nodes.includes("f_hcall"), "new nodes in the tracker group");
+  // HA call_service event as server-events delivers it (eventData)
+  const call = (service, sd, uid, target) => ({ payload: { event_type: "call_service",
+    event: Object.assign({ domain: "vacuum", service, service_data: sd || {} }, target ? { target } : {}),
+    context: { id: "c", parent_id: null, user_id: uid === undefined ? null : uid } } });
+  const E = { entity_id: "vacuum.mr_slave_2" };
+  const hc = (m, extra, now) => withDate(now || Date.now(), () => run("f_hcall", m, mkFlow(Object.assign(LIVE(), { rr_nr_uid: NR }, extra || {}))));
+  ok(fires(hc(call("return_to_base", E, null))), "return_to_base with no user (HomeKit 'off') -> hand stop");
+  ok(fires(hc(call("turn_off", E, null))), "turn_off with no user -> hand stop");
+  ok(fires(hc(call("stop", E, PERSON))), "stop by a person -> hand stop");
+  ok(fires(hc(call("pause", E, PERSON))), "pause by a person -> hand stop");
+  for (const c of ["app_stop", "app_pause", "app_charge"]) {
+    ok(fires(hc(call("send_command", Object.assign({ command: c }, E), null))), `send_command ${c} with no user -> hand stop`);
+  }
+  ok(fires(hc(call("return_to_base", { entity_id: ["vacuum.other", "vacuum.mr_slave_2"] }, null))), "list-form entity_id -> hand stop");
+  ok(fires(hc(call("return_to_base", {}, null, { entity_id: ["vacuum.mr_slave_2"] }))), "entity in target (list) -> hand stop");
+  ok(fires(hc(call("return_to_base", {}, null, { entity_id: "vacuum.mr_slave_2" }))), "entity in target (string) -> hand stop");
+  ok(fires(hc(call("return_to_base", { entity_id: "all" }, null))), "entity_id all -> hand stop");
+  // ignored
+  eq(hc(call("return_to_base", E, NR)), null, "Node-RED's own call (rr_nr_uid) -> ignored");
+  eq(hc(call("stop", E, NR), { rr_own_cmd_at: 0 }), null, "Node-RED's own stop, no window -> still ignored (uid)");
+  const T = Date.now();
+  eq(withDate(T, () => run("f_hcall", call("return_to_base", E, NR), mkFlow(Object.assign(LIVE(), { rr_own_cmd_at: T - 30e3 })))), null,
+     "rr_nr_uid unknown + inside the own-command window -> ignored");
+  eq(withDate(T, () => run("f_hcall", call("return_to_base", E, NR), mkFlow(Object.assign(LIVE(), { rr_dw: { state: "retry" } })))), null,
+     "rr_nr_uid unknown + group 9 retry -> ignored");
+  ok(fires(withDate(T, () => run("f_hcall", call("return_to_base", E, null), mkFlow(Object.assign(LIVE(), { rr_own_cmd_at: T - 3 * 60e3 }))))),
+     "rr_nr_uid unknown + outside the window -> hand stop");
+  eq(hc(call("return_to_base", { entity_id: "vacuum.other" }, null)), null, "other entity -> ignored");
+  eq(hc(call("start", E, null)), null, "start -> ignored");
+  eq(hc(call("send_command", Object.assign({ command: "app_segment_clean" }, E), null)), null, "send_command app_segment_clean -> ignored");
+  eq(hc(Object.assign(call("return_to_base", E, null), {})).rr_src, "hand", "sanity");
+  const other = call("return_to_base", E, null); other.payload.event.domain = "light";
+  eq(hc(other), null, "other domain -> ignored");
+  eq(run("f_hcall", call("return_to_base", E, null), mkFlow({ rr_run: { active: false }, rr_nr_uid: NR })), null, "no live run -> ignored");
+  eq(run("f_hcall", call("return_to_base", E, null), mkFlow(Object.assign(LIVE(), { rr_cancel: true, rr_nr_uid: NR }))), null,
+     "run already cancelled (first hit wins) -> ignored, one note per stop");
+  // HomeKit return during a stage: the cancel reaches the stage wait before the dock does
+  const f = mkFlow(Object.assign(LIVE(), { rr_nr_uid: NR, rr_waitgen: 3, rr_pending: "w_42" }));
+  const m = run("f_hcall", call("return_to_base", E, null), f);
+  const o = run("f_hstop", m, f, mkGlobal(state({ "sensor.mr_slave_status_2": "returning_home", "vacuum.mr_slave_2": "returning",
+    "binary_sensor.mr_slave_cleaning_2": "on" })));
+  ok(o[0] && o[2] && o[2].notify.urgent === false, "HomeKit return mid-stage -> stop + one quiet note");
+  eq(run("f_short_A", { rr_wgen: 3 }, f), null, "zone A dock-wait then dropped (no next stage)");
+  // the later state change of the same stop finds the run cancelled -> no second note
+  ok(!fires(run("f_ev_idle", chg("cleaning", "returning", null), f)), "state change of the same stop -> nothing more");
+
+  // every Node-RED stop / return stamps rr_own_cmd_at before the call
+  eq(byId["d_dock"].wires, [["f_own_dock"]], "group 8: d_dock -> f_own_dock");
+  eq(byId["f_own_dock"].wires, [["s_dock"]], "f_own_dock -> s_dock");
+  const fo = mkFlow({});
+  withDate(T, () => run("f_own_dock", {}, fo));
+  ok(fo.get("rr_own_cmd_at") === T, "group 8 stamps rr_own_cmd_at");
+  ok(/flow\.set\('rr_own_cmd_at', now\);[^\n]*\no\[4\] = \{payload: 'return_to_base'\};/.test(byId["f_dw"].func), "group 9 stamps rr_own_cmd_at before return_to_base");
+  const fh = mkFlow(LIVE());
+  withDate(T, () => run("f_hstop", { rr_src: "hand" }, fh, mkGlobal(state({ "vacuum.mr_slave_2": "cleaning" }))));
+  ok(fh.get("rr_own_cmd_at") === T, "f_hstop stamps rr_own_cmd_at");
+  const fh2 = mkFlow({ rr_cancel: true });
+  withDate(T, () => run("f_hs_home", {}, fh2, mkGlobal(state({ "vacuum.mr_slave_2": "idle", "sensor.mr_slave_status_2": "idle" }))));
+  ok(fh2.get("rr_own_cmd_at") === T, "f_hs_home stamps rr_own_cmd_at");
+  // every Node-RED stop / pause / return / turn_off call is fed by a stamping node
+  const stampers = new Set(["f_hstop", "f_hs_home", "f_own_dock", "f_dw", "d_hs", "s_hs_stop"]);
+  const calls = flows.filter((n) => n.type === "api-call-service" && /^vacuum\.(stop|pause|return_to_base|turn_off)$/.test(n.action));
+  for (const c of calls) {
+    const feeders = flows.filter((n) => (n.wires || []).some((w) => w.includes(c.id))).map((n) => n.id);
+    ok(feeders.length && feeders.every((id) => stampers.has(id)), `${c.id} (${c.action}) is fed only by own-command stampers (${feeders})`);
+  }
+  // no HA automation / script in this repo calls these vacuum services
+  const cfg = path.join(__dirname, "..", "..", "config");
+  const walk = (d) => fs.readdirSync(d, { withFileTypes: true }).flatMap((e) => e.isDirectory() ? walk(path.join(d, e.name)) : [path.join(d, e.name)]);
+  const offenders = walk(cfg).filter((p) => /\.ya?ml$/.test(p))
+    .filter((p) => /vacuum\.(stop|pause|return_to_base|turn_off)\b|app_(stop|pause|charge)/.test(fs.readFileSync(p, "utf8")));
+  eq(offenders, [], "no HA automation/script calls vacuum stop/pause/return/turn_off (none to exclude)");
+}
+
 // ===========================================================================
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);
