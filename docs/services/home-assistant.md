@@ -460,6 +460,10 @@ reports a failed mop:
   The mop pass is not watched (wash visits; `f_mopfail` covers it). While a
   daily-run stage is watched, the any-time dock retry loop (group 8,
   `f_dockevt`, up to 3 retries) stands aside; outside a run it works as before.
+  Group 8 never ran before the 2026-11-19 fix (`t_dock` passed no `msg.data`, so
+  the old state was unknown). It skips a returning → idle made by a person (a user on the
+  change that is not `rr_nr_uid`) and one during a hand stop (`rr_cancel` and a
+  Node-RED stop / return within 2 min), which `f_hstop` / `f_hs_home` handle.
   Timings are the `C` constants at the top of `f_dw`.
 
 Function-node logic has unit tests: `node stacks/home-assistant/node-red/tests/flow-logic.test.js`.
