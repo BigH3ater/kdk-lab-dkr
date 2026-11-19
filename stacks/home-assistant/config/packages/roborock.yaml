@@ -1,6 +1,6 @@
 # Roborock (Mr. Slave) — helper entities for per-room cleaning, routines, and
-# run tracking. Logic lives in Node-RED; these are the HomeKit-visible controls
-# and the state it drives. Shipped from git (stacks/home-assistant/config/packages/).
+# run tracking. Logic lives in Node-RED; these are the dashboard controls and
+# the state it drives. Shipped from git (stacks/home-assistant/config/packages/).
 #
 # Maintenance chores moved to Vikunja (tasks.kmkdp.com project 6 "Robot Vacuum",
 # 2026-09-21): the old rr_maint_* input_booleans + their Node-RED timers are gone.
@@ -33,9 +33,15 @@ input_datetime:
   rr_last_mop_run: { name: "Roborock Last Mop Run", has_date: true, has_time: true }
   rr_next_run:     { name: "Roborock Next Scheduled Run", has_date: true, has_time: true }
   rr_next_mop:     { name: "Roborock Next Mop Run", has_date: true, has_time: true }
-  # weekly clean/dirty tank swap (spare pair rotates in; anti-mold) — set by
-  # input_button.rr_tanks_swapped or the "Swapped" action on the reminder
+  # weekly clean/dirty tank swap (spare pair rotates in; anti-mold). Written only
+  # by script.rr_tank_swap_log: rr_tank_swap_detect (both tanks back in the dock)
+  # or a tap (input_button.rr_tanks_swapped, the reminder's "Swapped" action).
   rr_last_tank_swap: { name: "Roborock Last Water Tank Swap", has_date: true, has_time: true }
+  # the value rr_last_tank_swap had before the last logged swap (for Undo)
+  rr_tank_swap_previous: { name: "Roborock Previous Water Tank Swap", has_date: true, has_time: true }
+  # when each dock tank last went back in (problem sensor on -> off, held 2 min)
+  rr_clean_tank_back: { name: "Roborock Clean Tank Back In Dock", has_date: true, has_time: true }
+  rr_dirty_tank_back: { name: "Roborock Dirty Tank Back In Dock", has_date: true, has_time: true }
   # per-room last-cleaned stamps — set by Node-RED when it dispatches/completes a
   # room (it is the sole dispatcher; the vacuum's own current-room sensor uses the
   # stale internal room names and is not trustworthy)
@@ -76,6 +82,7 @@ script:
       message: { description: "Alert body, or clear_notification" }
       tag: { description: Alert kind (replace/clear key) }
       urgent: { description: true = time-sensitive (breaks Focus) }
+      passive: { description: "true = passive (no sound, no wake; Notification Center only)" }
       actions: { description: "Optional iOS action buttons: [{action: ID, title: Text}]" }
     sequence:
       - variables:
@@ -88,7 +95,9 @@ script:
               url: /roborock-vac/0
               actions: "{{ actions | default([]) }}"
               push:
-                interruption-level: "{{ 'time-sensitive' if urgent | default(false) | bool else 'active' }}"
+                interruption-level: >-
+                  {{ 'time-sensitive' if urgent | default(false) | bool
+                     else 'passive' if passive | default(false) | bool else 'active' }}
       # One branch per phone. continue_on_error does not cover a notifier that
       # doesn't exist (notify.mobile_app_rachels_phone failed 115x in a week, 2026-11),
       # so the phones run in parallel: one bad notifier can't block the other.
@@ -100,6 +109,44 @@ script:
           - action: notify.mobile_app_rachels_master_iphone
             continue_on_error: true
             data: "{{ payload }}"
+
+  # The one writer of rr_last_tank_swap. Keeps the old value in
+  # rr_tank_swap_previous so the Undo action can put it back. A new swap stamp
+  # also resets the reminder cadence (it counts from the stamp).
+  # announce true (auto-detected swap): a passive "swap logged" note with Undo.
+  # announce false (someone tapped Swapped): just clear the reminder.
+  rr_tank_swap_log:
+    alias: Roborock log water-tank swap
+    mode: queued
+    fields:
+      announce: { description: "true = send the passive 'swap logged' note with Undo" }
+    sequence:
+      - action: input_datetime.set_datetime
+        target: { entity_id: input_datetime.rr_tank_swap_previous }
+        data:
+          timestamp: "{{ state_attr('input_datetime.rr_last_tank_swap', 'timestamp') | float(0) }}"
+      - action: input_datetime.set_datetime
+        target: { entity_id: input_datetime.rr_last_tank_swap }
+        data:
+          timestamp: "{{ now().timestamp() }}"
+      - if: "{{ announce | default(false) | bool }}"
+        then:
+          - action: script.rr_notify
+            data:
+              title: "Water-tank swap logged"
+              message: >-
+                Both tanks went back in the dock, so the weekly swap is logged
+                ({{ now().strftime('%a %H:%M') }}). Not a swap? Tap Undo.
+              tag: rr_tank_swap
+              passive: true
+              actions:
+                - action: RR_TANK_SWAP_UNDO
+                  title: "Undo"
+        else:
+          - action: script.rr_notify
+            data:
+              message: clear_notification
+              tag: rr_tank_swap
 
 # Open maintenance chores from Vikunja (project 6 "Robot Vacuum"). Token is
 # host-managed at /config/.vikunja_token (0600, not in git; holds the HA stack's
@@ -390,8 +437,8 @@ template:
 
   # Mop washes in the current job: +1 each time the status turns
   # washing_the_mop; back to 0 when cleaning starts after >= 20 min off (a new
-  # job; the wash/empty visits are ~1 min, gaps between routine steps up to
-  # ~8 min, f_mopchk uses the same 20-min quiet window). Not reset on
+  # job; the wash/empty visits are ~1 min, and the gaps between the steps of
+  # one run were up to ~8 min with the old robot routine). Not reset on
   # sensor.mr_slave_last_clean_begin_2: that updates when a job ENDS.
   - triggers:
       - trigger: state
@@ -509,9 +556,13 @@ automation:
                 target: { entity_id: input_boolean.rr_off_charger_alerted }
 
   # Weekly water-tank swap (2026-10-18): a spare clean + dirty tank pair rotates
-  # in every week so the used pair can be rinsed and dried (mold). 18:00 daily
-  # nag once 7 days have passed since the last recorded swap; the iOS "Swapped"
-  # button (or input_button.rr_tanks_swapped) records it and clears the alert.
+  # in every week so the used pair can be rinsed and dried (mold).
+  # Reminder (2026-11-19): at 18:00 once 6.5 days have passed since the last
+  # logged swap, then again every third day while still overdue (day 0, 3, 6 ...
+  # counted from the first 18:00 it was due), not daily. Stateless: the cadence
+  # counts from rr_last_tank_swap, so any logged swap resets it. The swap logs
+  # itself (rr_tank_swap_detect); "Swapped" / input_button.rr_tanks_swapped
+  # stay as the manual fallback.
   - id: rr_tank_swap_reminder
     alias: "Roborock: weekly water-tank swap reminder"
     mode: single
@@ -521,8 +572,13 @@ automation:
     conditions:
       - condition: template
         value_template: >-
-          {{ now().timestamp() - (state_attr('input_datetime.rr_last_tank_swap', 'timestamp') | float(0))
-             > 6.5 * 86400 }}
+          {% set due = (state_attr('input_datetime.rr_last_tank_swap', 'timestamp') | float(0)) + 6.5 * 86400 %}
+          {% if now().timestamp() <= due %}false{% else %}
+          {% set d = as_datetime(due) | as_local %}
+          {% set first = d.replace(hour=18, minute=0, second=0, microsecond=0) %}
+          {% set first = first if first > d else first + timedelta(days=1) %}
+          {{ (now().date() - first.date()).days % 3 == 0 }}
+          {% endif %}
     actions:
       - action: script.rr_notify
         data:
@@ -532,75 +588,103 @@ automation:
             {{ 'No swap recorded yet.' if ts < 946684800 else
                'Last swap ' ~ ((now().timestamp() - ts) / 86400) | round(0) | int ~ ' days ago.' }}
             Put the spare clean (filled) and dirty tanks in the dock, then rinse the
-            used pair and let them air-dry with the lids off. Tap Swapped when done.
+            used pair and let them air-dry with the lids off. The swap logs itself
+            once both tanks are back in the dock.
           tag: rr_tank_swap
           actions:
             - action: RR_TANKS_SWAPPED
               title: "Swapped ✓"
 
+  # Manual path (dashboard button, reminder's "Swapped") and the Undo on the
+  # "swap logged" note. Both log paths go through script.rr_tank_swap_log.
   - id: rr_tank_swap_done
     alias: "Roborock: record water-tank swap"
-    mode: single
+    mode: queued
     triggers:
       - trigger: state
+        id: swapped
         entity_id: input_button.rr_tanks_swapped
         # Not "unknown": a never-pressed button is unknown, so excluding it
         # swallowed the first press (2026-10-18). Reload/restart is covered by
         # "unavailable" and the from_state check below.
         not_from: unavailable
       - trigger: event
+        id: swapped
         event_type: mobile_app_notification_action
         event_data:
           action: RR_TANKS_SWAPPED
+      - trigger: event
+        id: undo
+        event_type: mobile_app_notification_action
+        event_data:
+          action: RR_TANK_SWAP_UNDO
     conditions:
       - "{{ trigger.platform != 'state' or trigger.from_state is not none }}"
     actions:
-      - action: input_datetime.set_datetime
-        target:
-          entity_id: input_datetime.rr_last_tank_swap
-        data:
-          timestamp: "{{ now().timestamp() }}"
-      - action: script.rr_notify
-        data:
-          message: clear_notification
-          tag: rr_tank_swap
+      - choose:
+          - conditions: "{{ trigger.id == 'swapped' }}"
+            sequence:
+              - action: script.rr_tank_swap_log
+                data:
+                  announce: false
+          - conditions: "{{ trigger.id == 'undo' }}"
+            sequence:
+              - action: input_datetime.set_datetime
+                target: { entity_id: input_datetime.rr_last_tank_swap }
+                data:
+                  timestamp: "{{ state_attr('input_datetime.rr_tank_swap_previous', 'timestamp') | float(0) }}"
+              - action: script.rr_notify
+                data:
+                  message: clear_notification
+                  tag: rr_tank_swap
 
-  # Both dock tanks report a problem while they're out; both clearing within
-  # ~30 min of each other looks like a swap (or an empty + refill). Ask rather
-  # than assume, unless a swap was already logged in the last day.
+  # Auto-log the swap (2026-11-19). The dock tank sensors are problem class:
+  # ON = out OR empty/full, so a tank can read "out" for days before the swap
+  # (2026-11-15: clean on since 11-12 16:12, dirty since 11-14 20:08; both back
+  # in at 16:48:29 and 16:51:59). The return is the signal: each tank's
+  # on -> off (held 2 min, never from unavailable) stamps
+  # rr_<clean|dirty>_tank_back; when both stamps are within 35 min of each
+  # other, both newer than the last logged swap, and both tanks are in, the
+  # swap is logged with a passive note + Undo. One tank alone never logs. An
+  # empty + refill of both tanks in one go looks the same: that is what Undo is
+  # for. "Both newer than the last swap" stops a reseat right after a swap from
+  # logging it twice.
   - id: rr_tank_swap_detect
-    alias: "Roborock: tanks back in the dock — confirm swap"
-    mode: single
+    alias: "Roborock: tanks back in the dock — log swap"
+    mode: queued
     triggers:
       - trigger: state
-        entity_id:
-          - binary_sensor.mr_slave_dock_clean_water_box
-          - binary_sensor.mr_slave_dock_dirty_water_box
+        id: clean
+        entity_id: binary_sensor.mr_slave_dock_clean_water_box
         from: "on"
         to: "off"
         for: "00:02:00"
-    conditions:
-      - condition: state
-        entity_id:
-          - binary_sensor.mr_slave_dock_clean_water_box
-          - binary_sensor.mr_slave_dock_dirty_water_box
-        state: "off"
-      - condition: template
-        value_template: >-
-          {{ now() - states.binary_sensor.mr_slave_dock_clean_water_box.last_changed < timedelta(minutes=35)
-             and now() - states.binary_sensor.mr_slave_dock_dirty_water_box.last_changed < timedelta(minutes=35) }}
-      - condition: template
-        value_template: >-
-          {{ now().timestamp() - (state_attr('input_datetime.rr_last_tank_swap', 'timestamp') | float(0)) > 86400 }}
+      - trigger: state
+        id: dirty
+        entity_id: binary_sensor.mr_slave_dock_dirty_water_box
+        from: "on"
+        to: "off"
+        for: "00:02:00"
     actions:
-      - action: script.rr_notify
+      - variables:
+          back: "{{ as_timestamp(trigger.to_state.last_changed) }}"
+          other: >-
+            {{ state_attr('input_datetime.rr_' ~ ('dirty' if trigger.id == 'clean' else 'clean') ~ '_tank_back',
+                          'timestamp') | float(0) }}
+          last: "{{ state_attr('input_datetime.rr_last_tank_swap', 'timestamp') | float(0) }}"
+      - action: input_datetime.set_datetime
+        target:
+          entity_id: "input_datetime.rr_{{ trigger.id }}_tank_back"
         data:
-          title: "Water tanks back in the dock"
-          message: Was this the weekly swap? Tap Swapped to log it and reset the 7-day reminder.
-          tag: rr_tank_swap
-          actions:
-            - action: RR_TANKS_SWAPPED
-              title: "Swapped ✓"
+          timestamp: "{{ back }}"
+      - condition: template
+        value_template: >-
+          {{ (back - other) | abs <= 35 * 60 and back > last and other > last
+             and is_state('binary_sensor.mr_slave_dock_clean_water_box', 'off')
+             and is_state('binary_sensor.mr_slave_dock_dirty_water_box', 'off') }}
+      - action: script.rr_tank_swap_log
+        data:
+          announce: true
 
   # Clean-water tank empty. Sources, in order of trust:
   #   - dock_dock_error = water_empty (seen 2026-10-09 and 10-18);
@@ -612,9 +696,9 @@ automation:
   #     refilled 2026-11-04 08:16). It counts only while the clean tank has not
   #     been reseated since the flag rose.
   # 10 min debounce so a quick tank swap doesn't page. A time-sensitive repeat
-  # at 07:45 on a mop day (input_datetime.rr_next_mop is today: Wednesday, or a
-  # Thursday/Friday catch-up; Node-RED f_nx uses the rrMopDue rule) if it's
-  # still empty before 08:30. Vacuum-only days don't need water, so no morning
+  # at 07:45 on a mop day (input_datetime.rr_next_mop is today, i.e. Wednesday:
+  # Node-RED f_nx uses the rrMopDue rule, no catch-up days since 2026-11-18) if
+  # it's still empty before the 08:30 run. Vacuum-only days don't need water, so no morning
   # nag on those. Clears from both phones once the tank is back.
   - id: rr_water_empty_alert
     alias: "Roborock: clean water tank empty"
@@ -822,5 +906,6 @@ automation:
                   message: clear_notification
                   tag: rr_dock_error
 
-# HomeKit bridge exposes the vacuum, per-room clean buttons, and routines to
-# Apple Home (include list lives in .storage/core.config_entries on the host).
+# Not on the HA HomeKit bridge: none of these helpers nor the vacuum are in its
+# include list (33 entities, no Roborock, checked 2026-11-19; the list lives in
+# .storage/core.config_entries on the host).
