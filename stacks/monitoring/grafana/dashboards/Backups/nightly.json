@@ -1548,7 +1548,7 @@
       "type": "stat",
       "id": 23,
       "title": "Photos on Proton",
-      "description": "The final `photos rclone exit=` (remote=proton) of the last 23 h. 0 = every accepted source is in sync; 10 = the 4 x 25-min passes ran out (normal while the first upload seeds over several nights); 7 = --max-delete hit; 90 = every source refused by the deletion guard. backup-verify decides FAIL/WARN.",
+      "description": "The final `photos rclone exit=` (remote=proton) of the last 23 h. 0 = every accepted source is in sync; 10 = the 4 x 25-min passes ran out (normal while the first upload seeds over several nights); 7 = --max-delete hit; 90 = every source refused by the deletion guard; 91 = the last pass crashed (rclone Go panic, retried like 10). backup-verify decides FAIL/WARN.",
       "datasource": {
         "type": "loki",
         "uid": "loki-dkr01"
@@ -1591,6 +1591,16 @@
                   "text": "seeding / cap",
                   "color": "orange",
                   "index": 1
+                }
+              }
+            },
+            {
+              "type": "value",
+              "options": {
+                "91": {
+                  "text": "crashed, resumes",
+                  "color": "orange",
+                  "index": 3
                 }
               }
             },
@@ -1648,7 +1658,7 @@
       "type": "status-history",
       "id": 24,
       "title": "Photos: exit per pass per night",
-      "description": "rclone exit of each `photos pass N` per UTC day. 0 = in sync, 10 = the 25-min cap (next pass / next night resumes), 7 = --max-delete exceeded.",
+      "description": "rclone exit of each `photos pass N` per UTC day. 0 = in sync, 10 = the 25-min cap (next pass / next night resumes), 91 = rclone crashed (Go panic, raw exit 2; the next pass resumes), 7 = --max-delete exceeded.",
       "datasource": {
         "type": "loki",
         "uid": "loki-dkr01"
@@ -1699,6 +1709,16 @@
                   "text": "10 cap",
                   "color": "orange",
                   "index": 0
+                }
+              }
+            },
+            {
+              "type": "value",
+              "options": {
+                "91": {
+                  "text": "91 crash",
+                  "color": "orange",
+                  "index": 1
                 }
               }
             }

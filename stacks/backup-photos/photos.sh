@@ -44,17 +44,20 @@
 # file name), so size is the safe and cheap comparison.
 #
 # Writes, per remote, /data/.photos-status-<remote> (read by backup-verify):
-#   rc=N ts=EPOCH date=ISO passes=N guard=ok|refused:<why>,... last_ok=EPOCH|0 seed_start=EPOCH
+#   rc=N ts=EPOCH date=ISO passes=N guard=ok|refused:<why>,... last_ok=EPOCH|0 seed_start=EPOCH crashes=N
+# rc = the last pass's rclone exit, except 90 = no rclone run (every source
+# refused) and 91 = the last pass crashed (Go panic, raw exit 2; see the loop).
 # last_ok = time of the last run that synced every source with rc=0 (carried
-# forward); seed_start = time of the first ever run (carried forward).
+# forward); seed_start = time of the first ever run (carried forward);
+# crashes = passes tonight that crashed (each one was retried like an exit 10).
 # Guard state (last accepted file/byte counts): /data/.photos-state.
 # Always exits 0 so verify runs and stays the single Pushover source.
 #
 # Log lines for the "Nightly backups" dashboard (Alloy -> Loki
 # {stack="backup-photos", service="photos"}), logfmt like pack.sh's:
 #   backup-manifest date=D kind=photos host=kdk-nas-01 series=immich|insta360-flat name=photos/<series> bytes=N prev_bytes=N|none pct=P|none files=N prev_files=N|none guard=ok|<why>
-#   photos pass N: remote=R rclone exit=N secs=S
-#   photos rclone exit=N remote=R passes=N secs=S guard=... mode=sync|copy
+#   photos pass N: remote=R rclone exit=N secs=S[ raw_exit=2 crash=panic]
+#   photos rclone exit=N remote=R passes=N secs=S guard=... mode=sync|copy crashes=N
 #
 # B2 (PR 4b) = one more name in PHOTOS_REMOTES plus its case in dest_of/flags_of.
 #
@@ -80,6 +83,8 @@ DRY=${PHOTOS_DRY_RUN:-0}
 DATE=$(date +%F)
 STATE=$DATA/.photos-state
 export RCLONE_CACHE_DIR=/tmp/rclone-cache
+TMPD=$(mktemp -d 2>/dev/null) || { TMPD=$DATA/.photos-tmp; mkdir -p "$TMPD"; }
+trap 'rm -rf "$TMPD"' EXIT
 
 # dest_of REMOTE: the rclone destination root for that remote.
 dest_of() {
@@ -201,32 +206,46 @@ for remote in $REMOTES; do
   # The status line is plain shell assignments; read the carried fields in a subshell.
   [ -f "$sf" ] && eval "$( . "$sf" 2>/dev/null; echo "last_ok=${last_ok:-0} seed_start=${seed_start:-0}")"
   now=$(date +%s); [ "${seed_start:-0}" -gt 0 ] || seed_start=$now
-  pass=0; rc=90; t0=$now
+  pass=0; rc=90; t0=$now; crashes=0
   if [ "$ACCEPTED" -eq 0 ]; then
     echo "photos: every source refused, no rclone run for $remote"
   else
     # shellcheck disable=SC2046  # flags_of is a word list on purpose
     while :; do
       pass=$((pass + 1)); tp=$(date +%s)
-      rclone "$MODE" "$SRC" "$dest" --config "$CONF" "$@" \
-        --size-only --transfers 2 --checkers 4 --retries 3 --low-level-retries 10 \
-        --max-delete "$MAX_DELETE" --max-duration 25m \
-        --log-level NOTICE --stats 5m --stats-one-line --stats-log-level NOTICE \
-        $(flags_of "$remote") $([ "$DRY" = 1 ] && echo --dry-run)
-      rc=$?
-      echo "photos pass $pass: remote=$remote rclone exit=$rc secs=$(( $(date +%s) - tp ))"
+      # rclone's output streams straight through awk to the container log
+      # (line by line, nothing held back); awk only notes a Go crash in $TMPD/panic.
+      rm -f "$TMPD/panic" "$TMPD/rc"
+      { rclone "$MODE" "$SRC" "$dest" --config "$CONF" "$@" \
+          --size-only --transfers 2 --checkers 4 --retries 3 --low-level-retries 10 \
+          --max-delete "$MAX_DELETE" --max-duration 25m \
+          --log-level NOTICE --stats 5m --stats-one-line --stats-log-level NOTICE \
+          $(flags_of "$remote") $([ "$DRY" = 1 ] && echo --dry-run) 2>&1
+        echo $? > "$TMPD/rc"; } |
+        awk -v f="$TMPD/panic" '{ print; fflush() } /^(panic|fatal error): / { print "1" > f; close(f) }'
+      rc=$(cat "$TMPD/rc" 2>/dev/null); rc=${rc:-1}; extra=""
+      # A Go crash (panic / runtime fatal error) also exits 2, rclone's usage-error
+      # code. Seen 2026-11-19: go-proton-api panicked when --max-duration cancelled
+      # a folder create. It is an interrupted pass (nothing deleted: deletes run
+      # after the transfers and only after a clean pass), so record it as 91 and
+      # let the next pass resume, like exit 10.
+      if [ "$rc" = 2 ] && [ -f "$TMPD/panic" ]; then
+        rc=91; crashes=$((crashes + 1)); extra=" raw_exit=2 crash=panic"
+      fi
+      echo "photos pass $pass: remote=$remote rclone exit=$rc secs=$(( $(date +%s) - tp ))$extra"
       # 0 = in sync; 2 = usage; 7 = fatal (incl. --max-delete exceeded): no retry.
+      # 91 (crash) and everything else: the next pass resumes.
       case $rc in 0|2|7) break ;; esac
       [ "$pass" -ge "$MAX_PASSES" ] && break
     done
   fi
   end=$(date +%s)
   [ "$rc" = 0 ] && [ "$GUARD" = ok ] && last_ok=$end
-  echo "photos rclone exit=$rc remote=$remote passes=$pass secs=$(( end - t0 )) guard=$GUARD mode=$MODE"
+  echo "photos rclone exit=$rc remote=$remote passes=$pass secs=$(( end - t0 )) guard=$GUARD mode=$MODE crashes=$crashes"
   if [ "$DRY" = 1 ]; then
     echo "photos: dry run, $sf not written"
   else
-    echo "rc=$rc ts=$end date=$(date -Iseconds) passes=$pass guard=$GUARD last_ok=$last_ok seed_start=$seed_start" > "$sf.tmp" \
+    echo "rc=$rc ts=$end date=$(date -Iseconds) passes=$pass guard=$GUARD last_ok=$last_ok seed_start=$seed_start crashes=$crashes" > "$sf.tmp" \
       && mv "$sf.tmp" "$sf"
   fi
 done

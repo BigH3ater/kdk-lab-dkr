@@ -73,34 +73,38 @@ fi
 
 # 6. Photo originals (backup-photos on kdk-dkr-04, docs/runbooks/photo-offsite.md):
 #    one status line per remote, written by photos.sh after its passes:
-#      rc= ts= date= passes= guard=ok|refused:... last_ok=EPOCH|0 seed_start=EPOCH
+#      rc= ts= date= passes= guard=ok|refused:... last_ok=EPOCH|0 seed_start=EPOCH crashes=N
 #    FAIL: no/stale status; any guard refusal (a mount down, an empty or shrunken
 #      source: that source was left out, its offsite copy is kept); rclone exit 2/7
-#      (usage, or --max-delete exceeded); not in sync and no full sync in 3 days;
-#      the first upload still not complete after 14 days.
+#      (usage error, or fatal e.g. --max-delete exceeded); not in sync and no full
+#      sync in 3 days; the first upload still not complete after 14 days.
 #    WARN: the first upload is still seeding (< 14 days since the first run), or
-#      tonight hit the pass cap (exit 10) / a Proton blip with a full sync < 3 days ago.
+#      tonight hit the pass cap (exit 10) / a Proton blip / an rclone crash (rc=91:
+#      Go panic, raw exit 2, retried like a cap) with a full sync < 3 days ago.
 for r in proton; do
   f=/dest/.photos-status-$r
   if [ ! -f "$f" ]; then add_prob "photos/$r: no status file (backup-photos never ran?)"; continue; fi
-  rc=""; ts=0; passes=""; guard=""; last_ok=0; seed_start=0
+  rc=""; ts=0; passes=""; guard=""; last_ok=0; seed_start=0; crashes=0
   . "$f" 2>/dev/null || true
   page=$(( now - ${ts:-0} ))
   if [ "$page" -gt 21600 ]; then add_prob "photos/$r: status stale (${page}s)"; continue; fi
   case "${guard:-?}" in ok) ;; *) add_prob "photos/$r: guard ${guard:-?} (left out tonight, offsite copy kept)" ;; esac
   rc=${rc:-1}; last_ok=${last_ok:-0}; seed_start=${seed_start:-$now}
+  # 91 = the last pass crashed (rclone Go panic): an interrupted pass, like exit 10.
+  ex="rclone exit=$rc after ${passes:-?} passes"
+  [ "${crashes:-0}" -gt 0 ] 2>/dev/null && ex="$ex, $crashes crashed: rclone Go panic, retried"
   if [ "$rc" = 0 ] || [ "$rc" = 90 ]; then
     :   # in sync, or every source refused (already a FAIL above)
   elif [ "$rc" = 2 ] || [ "$rc" = 7 ]; then
-    add_prob "photos/$r: rclone exit=$rc (2 = usage, 7 = fatal, e.g. more than PHOTOS_MAX_DELETE deletes)"
+    add_prob "photos/$r: rclone exit=$rc (2 = usage error, 7 = fatal, e.g. more than PHOTOS_MAX_DELETE deletes)"
   elif [ "$last_ok" -eq 0 ]; then
     sd=$(( (now - seed_start) / 86400 ))
-    if [ "$sd" -lt 14 ]; then add_warn "photos/$r: first upload still seeding (day $((sd + 1)), rclone exit=$rc after ${passes:-?} passes)"
-    else add_prob "photos/$r: first upload not complete after ${sd}d (rclone exit=$rc)"; fi
+    if [ "$sd" -lt 14 ]; then add_warn "photos/$r: first upload still seeding (day $((sd + 1)), $ex)"
+    else add_prob "photos/$r: first upload not complete after ${sd}d ($ex)"; fi
   elif [ $(( now - last_ok )) -lt 259200 ]; then
-    add_warn "photos/$r: not fully synced tonight (rclone exit=$rc), last full sync $(( (now - last_ok) / 3600 ))h ago"
+    add_warn "photos/$r: not fully synced tonight ($ex), last full sync $(( (now - last_ok) / 3600 ))h ago"
   else
-    add_prob "photos/$r: rclone exit=$rc, last full sync $(( (now - last_ok) / 86400 ))d ago"
+    add_prob "photos/$r: $ex, last full sync $(( (now - last_ok) / 86400 ))d ago"
   fi
 done
 

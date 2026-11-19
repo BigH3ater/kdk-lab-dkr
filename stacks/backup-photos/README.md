@@ -25,10 +25,15 @@ Full design, hand steps, restore test and rollback:
 - **`--size-only`**: Proton cannot update modification times; originals never change in place.
 - **Always exits 0.** `backup-verify` reads `/mnt/backup/dkr/.photos-status-proton` and is the
   only thing that pages.
+- **A crash is not a usage error.** A Go panic exits 2 like a usage error; photos.sh spots the
+  `panic:` line in the pass output and records `rc=91` (retried like exit 10, verify WARNs).
+  Exit 2 without a panic and exit 7 stop the night (verify FAILs).
 
 ## Test
 
-`sh tests/guard-test.sh` (and `SH="busybox sh" sh tests/guard-test.sh`): runs `photos.sh`
+`sh tests/guard-test.sh` (and `SH="busybox sh" sh tests/guard-test.sh`; CI runs it in the
+stack's rclone image, `.github/workflows/backup-photos.yml`): runs `photos.sh`
 against local directories with the real rclone and a fake mountinfo: normal run, a delete,
 missing mount, empty library, shrink, `PHOTOS_ALLOW_SHRINK`, `--max-delete`, dry run,
-copy mode, all sources refused. Touches no remote and no rclone config.
+copy mode, all sources refused, and (with a fake rclone) a crashed pass that the next pass
+resumes, every pass crashing, a real usage error. Touches no remote and no rclone config.
