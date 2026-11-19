@@ -1,4 +1,4 @@
-# backup-photos: run stacks/backup-photos/tests/guard-test.sh (deletion guard,
+# backup-photos: run stacks/backup-photos/tests/guard-test.sh (deletion guard, B2 second remote,
 # --max-delete, dry run, copy mode, crash-vs-usage-error pass handling) inside
 # the image the stack runs (same digest as stacks/backup-photos/compose.yaml):
 # busybox ash + the real rclone, local directories only, no remote, no config.

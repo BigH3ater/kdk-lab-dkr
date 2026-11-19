@@ -288,9 +288,11 @@ run_directory = "stacks/backup-offsite"
 destroy_before_deploy = true   # one locked down+up (stage execs run in parallel)
 
 # Photo originals (Immich library/upload/profile + the Insta360 export) to Proton,
-# file by file (rclone sync, never packed). Own stage AFTER offsite: same host and
-# same Proton session (rclone.conf), so the two must never run at once. Reads the
-# ro NFS mounts /mnt/immich + /mnt/insta360-flat. docs/runbooks/photo-offsite.md.
+# then to Backblaze B2 (+ the Immich DB dumps), file by file (rclone sync, never
+# packed). Own stage AFTER offsite: same host and same Proton session (rclone.conf),
+# so the two must never run at once. Reads the ro NFS mounts /mnt/immich +
+# /mnt/insta360-flat; B2 reads host-managed /etc/kdk/backup-photos-b2/b2.env (no
+# op inject on dkr-04). docs/runbooks/photo-offsite.md#b2.
 [[stack]]
 tags = ["kdk-lab"]
 name = "backup-photos"
@@ -665,7 +667,8 @@ executions = [
   { execution.type = "DeployStack", execution.params.stack = "backup-offsite", enabled = true },
 ]
 # Photo originals, file by file. Strictly after offsite (one Proton session), before
-# verify (it reads .photos-status-proton). Up to 4 x 25-min passes a night.
+# verify (it reads .photos-status-proton/-b2). Up to 4 x 25-min Proton passes, then
+# the B2 DB pass + up to 2 x 60-min B2 passes a night.
 [[procedure.config.stage]]
 name = "photos"
 enabled = true
