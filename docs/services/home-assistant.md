@@ -6,7 +6,7 @@ tier: apps
 status: live
 storage: yes
 secrets: [home-assistant-nodered-token, home-assistant-roborock-map-token, node-red-admin, node-red-credential-secret, zigbee2mqtt-frontend-token, kdk-ups-01-nut-upsd, scrypted-admin, homeassistant-oidc-client, vikunja-api-ro, vikunja-api-approvals]
-updated: 2026-11-11
+updated: 2026-11-19
 tags: [homelab/stack, tier/apps, status/live]
 ---
 
@@ -224,6 +224,41 @@ from the robot through four package helpers:
 - `rr_off_charger_alert` only runs on docking when an off-charger alert is out
   (`input_boolean.rr_off_charger_alerted`), so wash visits and the recharge
   pause no longer show as triggers in the logbook.
+
+### Weekly water-tank swap (2026-11-19)
+
+A spare clean + dirty tank pair goes in every week so the used pair can dry.
+Before 11-19 the swap was logged only by a tap; nobody tapped, so the 18:00
+reminder said "Last swap 25 days ago" after the 11-15 swap.
+
+- **Logs itself.** `rr_tank_swap_detect` stamps `input_datetime.rr_clean_tank_back`
+  / `rr_dirty_tank_back` each time a dock tank sensor goes on → off and stays off
+  2 min. When both stamps are within **35 min** of each other, both are newer
+  than the last swap and both tanks are in, it logs the swap. The sensors read
+  ON for "out" *and* "empty/full", so a tank can read out for days before the
+  swap (11-15: clean on since 11-12); only the return counts. One tank alone
+  never logs. Emptying and refilling both tanks in one go looks the same.
+- **Swap logged note.** Passive (no sound) to both phones, tag `rr_tank_swap`,
+  with an **Undo** action (`RR_TANK_SWAP_UNDO`): it puts back the old date from
+  `input_datetime.rr_tank_swap_previous`.
+- **One writer.** `script.rr_tank_swap_log` is the only writer of
+  `rr_last_tank_swap`. The dashboard **Tanks swapped** button and the
+  reminder's **Swapped** action still work and go through it (no note, they
+  clear the reminder).
+- **Reminder.** 18:00 once 6.5 days have passed, then every third day while
+  still overdue (day 0, 3, 6 …), not daily. It counts from `rr_last_tank_swap`,
+  so any logged swap (or Undo) resets it.
+- **Test without waiting a week.** Easiest is the real dock: pull both tanks,
+  put them back. About 2 min after the second one the note arrives and
+  `rr_last_tank_swap` is now; Undo puts the old date back. Pull and reseat one
+  tank alone: no note. Without touching the dock: Developer Tools → States, set
+  `binary_sensor.mr_slave_dock_dirty_water_box` to `on`, then `off`, then the
+  same for the clean one (the integration's next poll may also write `off`;
+  either way counts). Faking the clean tank's return also lets Node-RED
+  complete the Vikunja "Fill water" chore. Reminder: the condition checks the
+  date, not the hour, so set `rr_last_tank_swap` to 08:00 N days ago and
+  trigger `automation.roborock_weekly_water_tank_swap_reminder` with
+  `skip_condition: false`: N = 7 or 10 sends, 6, 8 or 9 does not.
 
 ## Roborock ↔ Vikunja bridge (Node-RED)
 
