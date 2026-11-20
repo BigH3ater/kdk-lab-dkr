@@ -14,6 +14,11 @@
 # Lock files: LibreOffice `.~lock.<name>#` (.~lock*) and SolidCraft
 # `.~<name>.sc.lock` (.~*.lock); keep in step with stacks/backup-offsite/pack.sh.
 #
+# Names with a backslash (e.g. a systemd unit copy `mnt-foo\x2dbar.mount`) cannot
+# exist on an SMB share: the server takes `\` as a path separator, rsync gets
+# "Invalid argument" and the whole run fails with rc 23, so .last-sync goes
+# stale. They are excluded and named in one log line per run.
+#
 # CIFS has no unix owners/modes: -rt only (no -a, -o, -g, -p).
 # --modify-window=2 absorbs the SMB timestamp rounding so unchanged files are
 # not re-sent every run.
@@ -44,11 +49,15 @@ case "$fstype" in
   *) echo "cad-sync: $DST is not the SMB share (got '${fstype:-no answer}'), skipping"; exit 0 ;;
 esac
 
-# 3. Push. rc 24 = a source file vanished mid-run (a model being saved):
+# 3. Names the share cannot hold: say which, once per run, then leave them out.
+bs=$(find "$SRC" -name '*\\*' -printf '%P\n' 2>/dev/null | head -5 | paste -sd, -)
+[ -n "$bs" ] && echo "cad-sync: not pushed, backslash in the name (SMB cannot store it): $bs"
+
+# 4. Push. rc 24 = a source file vanished mid-run (a model being saved):
 #    everything else was sent, counts as success.
 timeout 900 rsync -rt --modify-window=2 "${DRY[@]}" \
   --exclude='*.log' --exclude='__pycache__/' --exclude='.~lock*' --exclude='.~*.lock' \
-  --exclude='/.last-sync' \
+  --exclude='/.last-sync' --exclude='*\\*' \
   "$SRC" "$DST/"
 rc=$?
 if [ "$rc" -ne 0 ] && [ "$rc" -ne 24 ]; then
