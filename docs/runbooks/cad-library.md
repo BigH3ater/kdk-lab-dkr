@@ -1,18 +1,18 @@
 ---
 title: CAD library (laptop → NAS → offsite)
-updated: 2026-11-16
+updated: 2026-11-20
 ---
 
 # CAD library
 
-The owner's CAD work lives in `~/cad` on the laptop **debian-mbp** (SolidCraft `.sc`
+The owner's CAD work lives in `~/cad` on the laptop **mbp-dev** (SolidCraft `.sc`
 sources and `.sc.bak`, STEP/STL/3MF exports, sliced gcode, reference photos, slicer
 presets, small tools). Every 15 minutes a user timer pushes it to the existing SMB share
 `3d-prints` on kdk-nas-01; the NAS snapshots it, kdk-dkr-04 mounts it read-only, and the
 nightly `backup-offsite` stage packs it into `offsite/3d-prints-YYYY-MM-DD.tar.zst`,
 which goes to Proton with the per-host archives.
 
-**Related:** [[kdk-nas-01]] · [[kdk-dkr-04]] · [[backups]] · [linux-tools share](linux-tools-share.md) (same NAS/dkr-04 pattern) · `hosts/debian-mbp/README.md`
+**Related:** [[kdk-nas-01]] · [[kdk-dkr-04]] · [[backups]] · [linux-tools share](linux-tools-share.md) (same NAS/dkr-04 pattern) · `hosts/mbp-dev/README.md`
 
 ```text
 laptop ~/cad --cad-sync (rsync -rt, 15 min, no --delete)--> SMB //10.1.3.5/3d-prints  (user cad-sync)
@@ -31,8 +31,8 @@ kdk-dkr-04 /mnt/3d-prints --pack (nightly)--> /mnt/backup/dkr/offsite/3d-prints-
 | Snapshots | hourly kept 2 DAY + daily 03:00 kept 2 WEEK, `auto-%Y-%m-%d_%H-%M` (same as `tankz3/appdata`) |
 | NFS export | `/mnt/tankz3/3d-prints`, `hosts = ["172.16.30.52"]` only, **read-only**, `mapall_user/group = cad-sync` |
 | dkr-04 mount | `/mnt/3d-prints`, unit `mnt-3d\x2dprints.mount`, `nfsvers=4.1,ro,noatime,_netdev` (`hosts/kdk-dkr-04/systemd/`) |
-| Laptop mount | `/mnt/3d-prints`, `mnt-3d\x2dprints.automount` + `.mount` (cifs `vers=3.1.1,seal`), creds `/etc/cifs/3d-prints.cred` root 0600 (`hosts/debian-mbp/systemd/`) |
-| Laptop sync | `~/.local/bin/cad-sync.sh` + user `cad-sync.service`/`.timer` (`hosts/debian-mbp/`) |
+| Laptop mount | `/mnt/3d-prints`, `mnt-3d\x2dprints.automount` + `.mount` (cifs `vers=3.1.1,seal`), creds `/etc/cifs/3d-prints.cred` root 0600 (`hosts/mbp-dev/systemd/`) |
+| Laptop sync | `~/.local/bin/cad-sync.sh` + user `cad-sync.service`/`.timer` (`hosts/mbp-dev/`) |
 | Offsite | `backup-offsite` `pack` → `offsite/3d-prints-YYYY-MM-DD.tar.zst`, newest 3 kept, excludes `*.log`, `__pycache__`, `.~lock*`, `.~*.lock` |
 | Checks | `storage-health-dkr04` `NFS_MOUNTS` includes `3d-prints` (full list in `komodo/resources.toml`); `backup-verify` (see Verify) |
 
@@ -164,7 +164,10 @@ The unit has no `nofail` (same as the other dkr-04 mounts): enable it only after
 1's export exists. A rebuild enables it from cloud-init on its own `runcmd` line
 (`|| true`).
 
-## 3. Laptop (owner, on debian-mbp)
+## 3. Laptop (owner, on mbp-dev)
+
+On a rebuilt laptop `hosts/mbp-dev/install.sh` (sections `a` and `e`) does 3a–3d and
+enables the timer; only 3e/3f stay by hand.
 
 **3a. Packages.** Both are missing on the laptop today (`rsync` too):
 
@@ -185,7 +188,7 @@ sudo stat -c '%a %U %s' /etc/cifs/3d-prints.cred       # 600 root 60 (18 + 42 by
 **3c. Mount + automount** (from the repo checkout):
 
 ```sh
-sudo install -m 644 'hosts/debian-mbp/systemd/mnt-3d\x2dprints.mount' 'hosts/debian-mbp/systemd/mnt-3d\x2dprints.automount' /etc/systemd/system/
+sudo install -m 644 'hosts/mbp-dev/systemd/mnt-3d\x2dprints.mount' 'hosts/mbp-dev/systemd/mnt-3d\x2dprints.automount' /etc/systemd/system/
 sudo systemctl daemon-reload && sudo systemctl enable --now 'mnt-3d\x2dprints.automount'
 ls /mnt/3d-prints && findmnt /mnt/3d-prints     # desk-cable-management; cifs //10.1.3.5/3d-prints ... vers=3.1.1,seal
 touch /mnt/3d-prints/.rw-test && rm /mnt/3d-prints/.rw-test && echo writable
@@ -194,8 +197,8 @@ touch /mnt/3d-prints/.rw-test && rm /mnt/3d-prints/.rw-test && echo writable
 **3d. Install the script and user units, do NOT enable the timer yet:**
 
 ```sh
-install -D -m 755 hosts/debian-mbp/cad-sync.sh ~/.local/bin/cad-sync.sh
-install -D -m 644 hosts/debian-mbp/systemd-user/cad-sync.service hosts/debian-mbp/systemd-user/cad-sync.timer -t ~/.config/systemd/user/
+install -D -m 755 hosts/mbp-dev/cad-sync.sh ~/.local/bin/cad-sync.sh
+install -D -m 644 hosts/mbp-dev/systemd-user/cad-sync.service hosts/mbp-dev/systemd-user/cad-sync.timer -t ~/.config/systemd/user/
 systemctl --user daemon-reload
 ```
 
@@ -213,7 +216,7 @@ rsync -rt --ignore-existing /mnt/3d-prints/ ~/cad/
 ```sh
 ~/.local/bin/cad-sync.sh --dry-run | tail -20     # what would go up
 systemctl --user start cad-sync.service && journalctl --user -u cad-sync -n 20 --no-pager
-cat /mnt/3d-prints/.last-sync                       # <ISO time> debian-mbp
+cat /mnt/3d-prints/.last-sync                       # <ISO time> mbp-dev
 systemctl --user enable --now cad-sync.timer && systemctl --user list-timers cad-sync.timer
 ```
 
@@ -247,7 +250,7 @@ warnings, none about 3d-prints).
 | `findmnt /mnt/3d-prints` (after `ls` triggers it) | laptop | `cifs //10.1.3.5/3d-prints` |
 | `systemctl --user list-timers cad-sync.timer` | laptop | next run < 15 min |
 | `journalctl --user -u cad-sync -n 5` | laptop | no `rsync failed` lines |
-| `cat /mnt/3d-prints/.last-sync` | laptop | today, `debian-mbp` |
+| `cat /mnt/3d-prints/.last-sync` | laptop | today, `mbp-dev` |
 | storage-health log | Komodo | `mounts:` list includes `3d-prints` |
 | `backup-verify` | Pushover / Komodo log | no `3d-prints` FAIL or WARN |
 
@@ -259,7 +262,7 @@ or older than 14 days. A stale marker usually just means the laptop was away or 
 ## Validate offsite from the laptop
 
 Proves the Proton copy is real: the names decrypt, the bytes match the NAS, the archives
-open. `hosts/debian-mbp/offsite-mount.sh` (installed at `~/.local/bin/offsite-mount.sh`)
+open. `hosts/mbp-dev/offsite-mount.sh` (installed at `~/.local/bin/offsite-mount.sh`)
 mounts the crypt remote **read-only** at `~/mnt/offsite`; first validated 2026-11-16
 (3d-prints archive, kdk-mon-01 archive and the authelia dump matched the NAS sha256).
 

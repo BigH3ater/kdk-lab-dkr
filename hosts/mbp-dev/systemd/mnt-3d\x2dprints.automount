@@ -1,4 +1,4 @@
-# Laptop debian-mbp: mount the 3d-prints share on first access, unmount after
+# Laptop mbp-dev: mount the 3d-prints share on first access, unmount after
 # 10 idle minutes (the unit-file form of x-systemd.idle-timeout). Away from
 # home nothing touches it, so nothing waits. Install: /etc/systemd/system/
 # (root 0644), then `systemctl enable --now 'mnt-3d\x2dprints.automount'`.

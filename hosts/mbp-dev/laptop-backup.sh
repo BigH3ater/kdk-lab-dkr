@@ -7,8 +7,8 @@
 # Repository: /mnt/laptop-backup/restic (restic init once, by hand: runbook 2e).
 # Password:   /etc/restic/laptop-backup.pass (root 0600, from 1Password
 #             kdk-ops/mbp-dev-restic-repo).
-# Host name in the repo is always mbp-dev (also before the reinstall renames
-# debian-mbp), so the snapshot history is one line across the rebuild.
+# Host name in the repo is always mbp-dev (also before the 2026-11-19 reinstall,
+# when the laptop was still debian-mbp), so the snapshot history is one line.
 #
 # Away from home (NAS unreachable) it exits 0 with one log line, so
 # `systemctl --failed` stays clean. Every network touch is under a timeout.

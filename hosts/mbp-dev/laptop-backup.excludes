@@ -4,8 +4,8 @@
 #
 # restic patterns: a leading / anchors at the root, * stays inside one path
 # component, ** crosses directories. Deliberately NOT excluded: node_modules,
-# .git, ~/.claude, ~/.ssh, ~/.config in general, ~/Pictures. Not decided yet,
-# so still backed up: /bench/.worktrees, ~/.docker.
+# .git, ~/.claude, ~/.ssh, ~/.config in general, ~/Pictures, /bench/.worktrees
+# (git worktrees with uncommitted work: backed up on purpose).
 
 # Downloads, caches, trash: re-fetchable or disposable
 /home/jmack/Downloads
@@ -26,6 +26,12 @@
 # Flatpak and snap app caches
 /home/jmack/.var/app/*/cache
 /home/jmack/snap/*/*/.cache
+
+# Docker Desktop VM disk (vms/0/data/Docker.raw): a sparse file, 12 GB on disk
+# but 455 GiB apparent. restic read all of it (the first backup took about an
+# hour, CPU-bound) and it cannot be restored whole. Images are re-pullable;
+# the rest of ~/.docker (config, contexts) stays in.
+/home/jmack/.docker/desktop
 
 # Podman/rootless container images and layers (re-pullable), if present
 /home/jmack/.local/share/containers

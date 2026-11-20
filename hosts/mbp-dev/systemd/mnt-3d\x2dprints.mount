@@ -1,4 +1,4 @@
-# Laptop debian-mbp: kdk-nas-01 SMB share 3d-prints (the CAD library) as the
+# Laptop mbp-dev: kdk-nas-01 SMB share 3d-prints (the CAD library) as the
 # cad-sync user. Started only by mnt-3d\x2dprints.automount (no [Install] here),
 # so boot never waits for the NAS. Install: /etc/systemd/system/ (root 0644).
 # Credentials: /etc/cifs/3d-prints.cred (root 0600, from 1Password

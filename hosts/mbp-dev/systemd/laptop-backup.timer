@@ -1,4 +1,4 @@
-# Laptop debian-mbp, system timer: laptop-backup daily at 12:30 local (the
+# Laptop mbp-dev, system timer: laptop-backup daily at 12:30 local (the
 # laptop sleeps at night); Persistent catches up a slot missed while asleep or
 # off. Install: /etc/systemd/system/ (root 0644), then
 # `systemctl enable --now laptop-backup.timer`. docs/runbooks/laptop-backup.md
