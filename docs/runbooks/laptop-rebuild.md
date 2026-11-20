@@ -1,6 +1,6 @@
 ---
 title: Laptop rebuild (debian-mbp → mbp-dev, Debian 13)
-updated: 2026-11-19
+updated: 2026-11-20
 ---
 
 # Laptop rebuild
@@ -126,7 +126,7 @@ selective restore straight into place. Log out and back in after it.
 wifi profile, host units and their credential files):
 
 ```sh
-bash /bench/kdk-lab-dkr/hosts/mbp-dev/install.sh          # all sections a-f; or e.g. `... install.sh e`
+bash /bench/kdk-lab-dkr/hosts/mbp-dev/install.sh          # all sections a-g; or e.g. `... install.sh e`
 lspci -nnk -d 14e4:43ba          # Kernel driver in use: brcmfmac
 dpkg -l | grep -E 'broadcom-sta|wl-' || echo "no wl"   # no wl
 systemctl list-timers laptop-backup.timer; systemctl --user list-timers cad-sync.timer
@@ -138,8 +138,8 @@ to host `mbp-dev`. Skip the CAD pull-back (cad-library 3e): `~/cad` came back fr
 
 **5d. Not restored, by hand:** the list in
 [Laptop backup → Does NOT come back](laptop-backup.md#restore-on-a-fresh-machine)
-(Node.js, GNOME keyring / `gh auth login`, 1Password SSH agent, `.venv` folders, Claude
-Code). Node 24 LTS goes per-user under `~/.local/opt/node`, see "Found on trixie".
+(GNOME keyring / `gh auth login`, 1Password SSH agent, `.venv` folders, uv tools,
+SolidCraft file types, Claude Code). Node.js is `install.sh` section `g`, see "Found on trixie".
 
 ## 6. Network
 
@@ -187,8 +187,14 @@ selection. If wifi misbehaves: `journalctl -k | grep brcmfmac`,
 - **WezTerm** stable 20240203 dies on native Wayland under GNOME 48 with a `wl_surface`
   protocol error. Fix: `config.enable_wayland = false` in `~/.config/wezterm/wezterm.lua`,
   or the `wezterm-nightly` package.
-- **Node.js:** Node 24 LTS installed per-user under `~/.local/opt/node` (on `PATH`).
-  Not Node 26: it has no prebuilt `better-sqlite3` for the pro-workflow plugin.
+- **Node.js:** Node 24 LTS per-user under `~/.local/opt/node`, linked into
+  `~/.local/bin` (`install.sh` section `g`). Not Node 26: the pro-workflow plugin's
+  `better-sqlite3` has no prebuilt binary for it. After any Node change run
+  `npm rebuild better-sqlite3` in `~/.claude/plugins/cache/pro-workflow/pro-workflow/<version>/`.
+- **Bambu Studio** is the system Flatpak `com.bambulab.BambuStudio` (`install.sh`
+  section `b`, settings in `~/.var/app/com.bambulab.BambuStudio`), started by the
+  `~/.local/bin/bambu-studio` wrapper. The restored `~/.local/opt/bambu-studio-*` copy
+  and its `BambuStudio.desktop` are leftovers and were removed from the launcher.
 - **Battery:** the kernel `capacity` value is charge ÷ **design** capacity (78 % when
   full, at 81 % health); UPower/GNOME show charge ÷ current full capacity. Not a fault.
   This model has no charge-threshold control.

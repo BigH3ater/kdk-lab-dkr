@@ -1,6 +1,6 @@
 ---
 title: CAD library (laptop → NAS → offsite)
-updated: 2026-11-19
+updated: 2026-11-20
 ---
 
 # CAD library

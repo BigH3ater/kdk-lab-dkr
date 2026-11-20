@@ -9,15 +9,15 @@ backup), `docs/runbooks/laptop-rebuild.md` (the reinstall).
 
 `install.sh` is the post-install setup in one script (run as jmack from a checkout of
 this repo, it calls sudo, safe to re-run): base packages, the Docker / Tailscale /
-VS Code / Signal / WezTerm / 1Password apt repositories, tlp + thermald + mbpfan, wifi
-profile settings, and every unit below with its credential files from 1Password. Sign
+VS Code / Signal / WezTerm / 1Password apt repositories, Bambu Studio (Flatpak), tlp + thermald + mbpfan, wifi
+profile settings, every unit below with its credential files from 1Password, and Node.js 24 per-user. Sign
 in to 1Password (desktop app + CLI integration) first: the units section stops with a
 message when `op read` cannot read `kdk-ops`. It never runs `tailscale up` and never
 touches LUKS.
 
 | Path | Installs to | What |
 |---|---|---|
-| `install.sh` | run in place (0755) | post-install setup, sections a–f (see above); `bash hosts/mbp-dev/install.sh` |
+| `install.sh` | run in place (0755) | post-install setup, sections a–g (see above); `bash hosts/mbp-dev/install.sh` |
 | `systemd/mnt-3d\x2dprints.mount` | `/etc/systemd/system/` (root 0644) | cifs mount of `//10.1.3.5/3d-prints` at `/mnt/3d-prints` as NAS user `cad-sync` (`vers=3.1.1,seal`, uid/gid 1000 = jmack), no `[Install]` |
 | `systemd/mnt-3d\x2dprints.automount` | `/etc/systemd/system/` (root 0644) | mounts on first access, unmounts after 10 idle min; the only unit enabled, so boot never waits for the NAS |
 | `cad-sync.sh` | `~/.local/bin/cad-sync.sh` (0755) | `rsync -rt --modify-window=2` `~/cad/` → `/mnt/3d-prints/`, no `--delete`; exits 0 silently when the NAS is unreachable; writes `.last-sync` on success; `--dry-run` previews |

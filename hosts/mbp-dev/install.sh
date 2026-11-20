@@ -8,13 +8,14 @@
 # Sections (default: all, in order; or name some, e.g. `install.sh e`):
 #   a  base packages
 #   b  apt repositories + packages: Docker Engine, Tailscale, VS Code, Signal,
-#      WezTerm, 1Password (desktop + CLI)
+#      WezTerm, 1Password (desktop + CLI); Bambu Studio from Flathub
 #   c  tlp (+ wifi power save off), thermald, mbpfan
 #   d  wifi profile settings on the ACTIVE wifi connection (5 GHz, power save off)
 #   e  host units: 3d-prints + laptop-backup mounts/automounts, laptop-backup
 #      script/excludes/service/timer, cad-sync script + user timer, and the
 #      credential files from 1Password
 #   f  GNOME: battery percentage in the top bar
+#   g  Node.js 24 LTS per-user in ~/.local/opt/node (no sudo)
 #
 # Before section e: sign in to the 1Password desktop app and turn on
 # Settings -> Developer -> Integrate with 1Password CLI; e stops with a message
@@ -115,6 +116,17 @@ sec_b() {
     echo "  $ME added to group docker (log out and back in)"
   fi
   echo "  tailscale installed, not joined: run 'sudo tailscale up' yourself"
+
+  # Bambu Studio is the system Flatpak, not the old unpacked AppImage in
+  # ~/.local/opt/bambu-studio-*; the wrapper replaces the restored one.
+  apt_install flatpak
+  sudo flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+  sudo flatpak install -y --noninteractive flathub com.bambulab.BambuStudio
+  mkdir -p "$HOME/.local/bin"
+  rm -f "$HOME/.local/bin/bambu-studio"   # the restored one may be a symlink into ~/.local/opt
+  printf '#!/bin/sh\n# Bambu Studio = system Flatpak (hosts/mbp-dev/install.sh section b)\nexec flatpak run com.bambulab.BambuStudio "$@"\n' \
+    >"$HOME/.local/bin/bambu-studio"
+  chmod 755 "$HOME/.local/bin/bambu-studio"
 }
 
 # ---------------------------------------------------------------------------
@@ -207,13 +219,44 @@ sec_f() {
 }
 
 # ---------------------------------------------------------------------------
+# Node 24 LTS, not 26: the pro-workflow Claude Code plugin's better-sqlite3 has
+# no prebuilt binary for Node 26. After a Node change run `npm rebuild
+# better-sqlite3` in ~/.claude/plugins/cache/pro-workflow/pro-workflow/<version>/
+# (by hand, see laptop-rebuild.md "Found on trixie").
+sec_g() {
+  say "g. Node.js 24 LTS per-user"
+  local opt=$HOME/.local/opt bin=$HOME/.local/bin v f b
+  if [ -x "$opt/node/bin/node" ] && "$opt/node/bin/node" --version | grep -q '^v24\.'; then
+    echo "  node $("$opt/node/bin/node" --version) already in $opt/node, kept"
+    return 0
+  fi
+  command -v python3 >/dev/null || die "python3 missing"
+  # index.json is newest first; lts is false or the codename.
+  v=$(curl -fsSL https://nodejs.org/dist/index.json | python3 -c '
+import json, sys
+for r in json.load(sys.stdin):
+    if r["version"].startswith("v24.") and r["lts"]:
+        print(r["version"]); break')
+  [ -n "$v" ] || die "no v24 LTS release found in nodejs.org/dist/index.json"
+  f=node-$v-linux-x64.tar.xz
+  curl -fsSL -o "$TMPD/$f" "https://nodejs.org/dist/$v/$f"
+  curl -fsSL -o "$TMPD/SHASUMS256.txt" "https://nodejs.org/dist/$v/SHASUMS256.txt"
+  (cd "$TMPD" && grep " $f\$" SHASUMS256.txt | sha256sum -c --status) || die "sha256 mismatch for $f"
+  mkdir -p "$opt" "$bin"
+  tar -xJf "$TMPD/$f" -C "$opt"
+  ln -sfn "$opt/node-$v-linux-x64" "$opt/node"
+  for b in node npm npx; do ln -sfn "$opt/node/bin/$b" "$bin/$b"; done
+  echo "  node $v in $opt/node, linked into $bin"
+}
+
+# ---------------------------------------------------------------------------
 [ "$(id -u)" -ne 0 ] || die "run as $ME, not root (it calls sudo itself)"
 [ "$(id -un)" = "$ME" ] || die "run as $ME"
 
 SECTIONS=("$@")
-[ ${#SECTIONS[@]} -gt 0 ] || SECTIONS=(a b c d e f)
+[ ${#SECTIONS[@]} -gt 0 ] || SECTIONS=(a b c d e f g)
 for s in "${SECTIONS[@]}"; do
-  case "$s" in a|b|c|d|e|f) ;; *) die "unknown section '$s' (a-f)";; esac
+  case "$s" in a|b|c|d|e|f|g) ;; *) die "unknown section '$s' (a-g)";; esac
 done
 
 sudo -v

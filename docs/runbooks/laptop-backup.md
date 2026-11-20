@@ -1,6 +1,6 @@
 ---
 title: Laptop backup (restic → NAS)
-updated: 2026-11-19
+updated: 2026-11-20
 ---
 
 # Laptop backup
@@ -276,7 +276,8 @@ INC=(
   "$H/*.pdf" "$H/*.png" "$H/*.jpg" "$H/*.yaml"
   $H/.claude $H/.claude.json $H/.ssh $H/.gnupg $H/.gitconfig $H/.bashrc $H/.profile
   $H/.kube $H/.password-store $H/.op-agent-token $H/.gstack $H/.pro-workflow
-  $H/.local/bin
+  $H/.local/bin $H/.local/opt $H/.local/share/applications $H/.local/share/icons
+  $H/.local/share/uv
   $H/.config/op $H/.config/rclone $H/.config/gh $H/.config/git $H/.config/systemd
   $H/.config/obsidian $H/.config/Code/User $H/.config/wezterm $H/.config/BambuStudio
   $H/.config/Signal $H/.config/reManager $H/.var/app
@@ -289,7 +290,11 @@ r restore "$ID" --target / "${ARGS[@]}"
 sudo chown jmack:jmack /bench
 ```
 
-Owners come back (uid 1000 = jmack on both installs). Log out and back in afterwards.
+The per-user programs need all of `~/.local/bin`, `~/.local/opt`,
+`~/.local/share/applications` and `~/.local/share/icons`: the wrappers and links in
+`~/.local/bin` (`solidcraft`, `ffmpeg`, `openscad`, ...) point into `~/.local/opt`, and
+the launchers and icons live in the other two (missed on 2026-11-19, restored by hand
+on 2026-11-20 from `af34712f`, 1.8 GiB). Owners come back (uid 1000 = jmack on both installs). Log out and back in afterwards.
 
 **Does NOT come back, redo by hand** (learned 2026-11-19):
 
@@ -302,6 +307,13 @@ Owners come back (uid 1000 = jmack on both installs). Log out and back in afterw
 - Python `.venv` folders and test caches: `--exclude-caches` skipped them (uv virtual
   environments carry a `CACHEDIR.TAG`). Recreate with `uv sync` or `python3 -m venv`.
 - `~/.local/share/claude/versions` (excluded): reinstall Claude Code.
+- uv tool installs: the `ansible*`, `ansible-lint` and `pre-commit` links in
+  `~/.local/bin` dangle (uv tool environments carry a `CACHEDIR.TAG`). Reinstall:
+  `uv tool install ansible-core`, `uv tool install ansible-lint`, `uv tool install pre-commit`.
+- SolidCraft's file type registration:
+  `cp ~/.local/opt/solidcraft-*/usr/share/mime/packages/io.tangencylabs.solidcraft.xml ~/.local/share/mime/packages/ && update-mime-database ~/.local/share/mime`,
+  then `update-desktop-database ~/.local/share/applications` and
+  `gtk-update-icon-cache -f -t ~/.local/share/icons/hicolor`.
 
 **Other folders later.** `/bench` came back as the four folders above. The others
 (`deploy-staging`, `gns3-build`, `habit-tracker`, `kdk-irtracker`, `kdk-vault-settings`,
