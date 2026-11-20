@@ -59,7 +59,10 @@ kdkadmin (uid 1000 = the NAS's `tdarr-smb`) with a meaningless identity; mapall 
   matters. CIFS has no unix owners/modes, so no `-a`/`-o`/`-g`/`-p`.
 - **New project folders just work** (`-r`); nothing lists projects anywhere.
 - **Excluded:** `*.log`, `__pycache__/`, lock files (LibreOffice `.~lock*`, SolidCraft
-  `.~<name>.sc.lock` = `.~*.lock`) and the share's own `.last-sync`. A lock file pushed
+  `.~<name>.sc.lock` = `.~*.lock`), the share's own `.last-sync`, and any name with a
+  backslash (SMB cannot store it; one such file failed every run from 2026-11-16 to
+  2026-11-20 with `rsync failed rc=23` and froze `.last-sync`; cad-sync now names them in
+  its log and skips them). A lock file pushed
   before the `.~*.lock` exclude stays on the share (no `--delete`); `pack` skips it, delete
   it over SMB if it bothers you (e.g. `relay-bracket/.~test-cube20.sc.lock`, seen 2026-11-16).
   `.sc.bak`, gcode, renders and jpg references all go.
