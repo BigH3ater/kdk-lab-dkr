@@ -256,7 +256,7 @@ done
 # drops dirs named backup/stacks/cache/logs/Definitions..., which could be real
 # CAD project folders. Only regenerable noise is dropped here. Lock files come in
 # two shapes: LibreOffice's `.~lock.<name>#` (.~lock*) and SolidCraft's
-# `.~<name>.sc.lock` (.~*.lock); keep both in step with hosts/debian-mbp/cad-sync.sh.
+# `.~<name>.sc.lock` (.~*.lock); keep both in step with hosts/mbp-dev/cad-sync.sh.
 # An empty /src/3d-prints means the NFS mount is down (Docker bind-mounts the
 # bare mountpoint dir): skip, so a dead mount never rotates good archives out;
 # backup-verify then fails on the missing archive.

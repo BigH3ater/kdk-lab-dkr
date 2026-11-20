@@ -1,4 +1,4 @@
-# Laptop debian-mbp, user timer: cad-sync every 15 min while jmack is logged
+# Laptop mbp-dev, user timer: cad-sync every 15 min while jmack is logged
 # in; Persistent catches up a slot missed while asleep. Install:
 # ~/.config/systemd/user/ (0644), then `systemctl --user enable --now cad-sync.timer`.
 # docs/runbooks/cad-library.md

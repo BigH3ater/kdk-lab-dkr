@@ -1,4 +1,4 @@
-# Laptop debian-mbp, user unit: one push of ~/cad to the NAS 3d-prints share.
+# Laptop mbp-dev, user unit: one push of ~/cad to the NAS 3d-prints share.
 # Install: ~/.config/systemd/user/ (0644); script at ~/.local/bin/cad-sync.sh.
 # docs/runbooks/cad-library.md
 [Unit]

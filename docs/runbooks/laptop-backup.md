@@ -5,13 +5,13 @@ updated: 2026-11-19
 
 # Laptop backup
 
-A daily `restic` backup of the owner's laptop (`debian-mbp` today, `mbp-dev` after the
-[rebuild](laptop-rebuild.md)) to a dedicated SMB share on kdk-nas-01. It covers
+A daily `restic` backup of the owner's laptop `mbp-dev` (`debian-mbp` until the
+2026-11-19 [rebuild](laptop-rebuild.md)) to a dedicated SMB share on kdk-nas-01. It covers
 `/home/jmack`, `/bench` and `/etc`; the repository is encrypted by restic, and the NAS
 snapshots the dataset daily so a laptop that deletes or corrupts the repository cannot
 take the history with it.
 
-**Related:** [[kdk-nas-01]] · [CAD library](cad-library.md) (same laptop/SMB pattern) · [Laptop rebuild](laptop-rebuild.md) · `hosts/debian-mbp/README.md`
+**Related:** [[kdk-nas-01]] · [CAD library](cad-library.md) (same laptop/SMB pattern) · [Laptop rebuild](laptop-rebuild.md) · `hosts/mbp-dev/README.md`
 
 ```text
 laptop /home/jmack /bench /etc --laptop-backup.sh (root, daily 12:30, restic)--> SMB //10.1.3.5/laptop-backup (user laptop-backup)
@@ -29,7 +29,8 @@ laptop /home/jmack /bench /etc --laptop-backup.sh (root, daily 12:30, restic)-->
 | Repository | `/mnt/laptop-backup/restic`, password in 1Password `kdk-ops/mbp-dev-restic-repo` (Password), on the laptop at `/etc/restic/laptop-backup.pass` root 0600 |
 | restic host | always `mbp-dev` (`--host`), also before the rename, so the history is one line |
 | Laptop mount | `/mnt/laptop-backup`, `mnt-laptop\x2dbackup.automount` + `.mount` (cifs `vers=3.1.1,seal`, uid/gid 0, 0600/0700), creds `/etc/cifs/laptop-backup.cred` root 0600 |
-| Laptop job | `/usr/local/sbin/laptop-backup.sh` + system `laptop-backup.service`/`.timer` (daily 12:30, `Persistent=true`, up to 10 min random delay), excludes `/etc/restic/laptop-backup.excludes` (`hosts/debian-mbp/`) |
+| Laptop job | `/usr/local/sbin/laptop-backup.sh` + system `laptop-backup.service`/`.timer` (daily 12:30, `Persistent=true`, up to 10 min random delay), excludes `/etc/restic/laptop-backup.excludes` (`hosts/mbp-dev/`) |
+| Pre-wipe snapshots | `9fa6a6ed` 19:08, `5dbeba46` 21:37, `af34712f` 21:48, all 2026-11-19 (Debian 12 install); repository about 36.5 GB after them |
 | Retention | every run `forget --keep-daily 7 --keep-weekly 4 --keep-monthly 12 --keep-tag pre-wipe`; `--prune` on Sundays; `restic check` on the 1st |
 
 ### What the backup does and does not do
@@ -48,9 +49,12 @@ laptop /home/jmack /bench /etc --laptop-backup.sh (root, daily 12:30, restic)-->
   (rclone/FUSE mounts), browser and VS Code caches under `~/.config`, flatpak/snap app
   caches, `~/.local/share/containers`, and re-downloadable package/tool payloads
   (`~/.npm/_cacache`, `~/.npm/_npx`, `~/.bun/install/cache`, `~/.platformio/{packages,tools,dist}`,
-  `~/.local/share/flatpak`, `~/.local/share/claude/versions`). `--exclude-caches` also
-  skips any folder with a `CACHEDIR.TAG`; `--one-file-system` never crosses into another
-  mount. Not decided yet, so still included: `/bench/.worktrees` and `~/.docker`.
+  `~/.local/share/flatpak`, `~/.local/share/claude/versions`), and `~/.docker/desktop`:
+  the Docker Desktop VM disk `vms/0/data/Docker.raw` is a sparse file (12 GB on disk,
+  455 GiB apparent) that restic read in full (the first backup took about an hour,
+  CPU-bound) and that cannot be restored whole. `--exclude-caches` also skips any
+  folder with a `CACHEDIR.TAG` (uv `.venv` folders have one); `--one-file-system` never
+  crosses into another mount. `/bench/.worktrees` is backed up.
 - **Size:** about 65 GB for the first backup (home is 104 GB on 2026-11-19, of which the
   trash 17 GB, `~/.cache` 12 GB, Downloads and the payloads above are excluded; `/bench`
   is 6.5 GB). Later runs send only changes.
@@ -60,7 +64,7 @@ laptop /home/jmack /bench /etc --laptop-backup.sh (root, daily 12:30, restic)-->
   restic exit 3 (some files unreadable) still counts as a snapshot.
 - **Log:** success is one fixed line in the journal:
   `laptop-backup: backup OK snapshot=<id> rc=0`.
-- **Options** are restic 0.14 (Debian 12 apt) only; 0.18 (Debian 13 apt) runs the same.
+- **Options** are restic 0.14 (Debian 12 apt) only; 0.18 (Debian 13 apt, on `mbp-dev`) runs the same.
 
 ## Order
 
@@ -160,7 +164,7 @@ sudo stat -c '%a %U %s %n' /etc/cifs/laptop-backup.cred /etc/restic/laptop-backu
 **2c. Mount + automount** (from the repo checkout):
 
 ```sh
-sudo install -m 644 'hosts/debian-mbp/systemd/mnt-laptop\x2dbackup.mount' 'hosts/debian-mbp/systemd/mnt-laptop\x2dbackup.automount' /etc/systemd/system/
+sudo install -m 644 'hosts/mbp-dev/systemd/mnt-laptop\x2dbackup.mount' 'hosts/mbp-dev/systemd/mnt-laptop\x2dbackup.automount' /etc/systemd/system/
 sudo systemctl daemon-reload && sudo systemctl enable --now 'mnt-laptop\x2dbackup.automount'
 sudo ls -la /mnt/laptop-backup && findmnt /mnt/laptop-backup   # empty; cifs //10.1.3.5/laptop-backup ... vers=3.1.1,seal
 sudo touch /mnt/laptop-backup/.rw-test && sudo rm /mnt/laptop-backup/.rw-test && echo writable
@@ -169,9 +173,9 @@ sudo touch /mnt/laptop-backup/.rw-test && sudo rm /mnt/laptop-backup/.rw-test &&
 **2d. Script, excludes and units, do NOT enable the timer yet:**
 
 ```sh
-sudo install -m 755 -o root -g root hosts/debian-mbp/laptop-backup.sh /usr/local/sbin/laptop-backup.sh
-sudo install -m 644 -o root -g root hosts/debian-mbp/laptop-backup.excludes /etc/restic/laptop-backup.excludes
-sudo install -m 644 hosts/debian-mbp/systemd/laptop-backup.service hosts/debian-mbp/systemd/laptop-backup.timer /etc/systemd/system/
+sudo install -m 755 -o root -g root hosts/mbp-dev/laptop-backup.sh /usr/local/sbin/laptop-backup.sh
+sudo install -m 644 -o root -g root hosts/mbp-dev/laptop-backup.excludes /etc/restic/laptop-backup.excludes
+sudo install -m 644 hosts/mbp-dev/systemd/laptop-backup.service hosts/mbp-dev/systemd/laptop-backup.timer /etc/systemd/system/
 sudo systemctl daemon-reload
 ```
 
@@ -185,8 +189,9 @@ sudo restic -r /mnt/laptop-backup/restic --password-file /etc/restic/laptop-back
 
 ## 3. First full backup, tagged `pre-wipe`
 
-About 65 GB. Plug into the wired Ethernet first (Thunderbolt adapter): roughly 15–20
-minutes on wired Gigabit, 2+ hours over the old 2.4 GHz wifi link. Stop the laptop
+About 65 GB. Wired Gigabit if there is a working adapter, else wifi. As run on
+2026-11-19: over wifi (the Thunderbolt adapter was not detected), the first run took
+about an hour, CPU-bound on reading `Docker.raw` (excluded since). Stop the laptop
 sleeping while it runs. restic's output streams to the terminal as it goes:
 
 ```sh
@@ -246,37 +251,80 @@ sudo systemctl start laptop-backup.service && journalctl -u laptop-backup -n 20 
 
 ## Restore on a fresh machine
 
-Needs only: `restic`, `cifs-utils`, and the two 1Password items
-(`kdk-ops/kdk-nas-01-laptop-backup-smb`, `kdk-ops/mbp-dev-restic-repo`). Do steps 2a, 2b
-and 2c (packages, the two files from 1Password, the automount) from a clone of this repo
-(or copy the unit text from GitHub), then:
+Used for the 2026-11-19 rebuild, restic 0.18. Needs `restic`, `cifs-utils` and the two
+1Password items (`kdk-ops/kdk-nas-01-laptop-backup-smb`, `kdk-ops/mbp-dev-restic-repo`):
+step 2b (the two files from 1Password), then either step 2c, or, before the units
+exist, mount the share by hand:
+
+```sh
+sudo mkdir -p /mnt/laptop-backup
+sudo mount -t cifs //10.1.3.5/laptop-backup /mnt/laptop-backup -o vers=3.1.1,seal,credentials=/etc/cifs/laptop-backup.cred,uid=0,gid=0,file_mode=0600,dir_mode=0700
+```
+
+**Selective restore, straight into place.** Never restore `/home/jmack` whole: older
+snapshots hold `~/.docker/desktop/vms/0/data/Docker.raw`, a sparse file of 455 GiB
+apparent size that restores as a full-size file.
 
 ```sh
 r() { sudo restic -r /mnt/laptop-backup/restic --password-file /etc/restic/laptop-backup.pass "$@"; }   # shorthand for this shell
-r snapshots                                       # pick the snapshot: newest, or the pre-wipe one
-ID=<snapshot id>
-T=/var/tmp/laptop-restore
-r restore "$ID" --target "$T" \
-  --include /home/jmack \
-  --include /bench/kdk-lab-dkr --include /bench/thud \
-  --include /bench/local_roborock_server --include /bench/network-sre-learning
-sudo rsync -aHAX "$T/home/jmack/" /home/jmack/                  # home (uid 1000 = jmack on both installs)
-sudo mkdir -p /bench && sudo chown jmack:jmack /bench
-sudo rsync -aHAX "$T/bench/" /bench/
-sudo rm -rf "$T"
+r snapshots                                       # pick the newest pre-wipe snapshot
+ID=<newest pre-wipe id>
+H=/home/jmack
+INC=(
+  $H/Documents $H/Pictures $H/cad $H/Zotero $H/.zotero $H/esphome $H/scripts
+  $H/interview-drills $H/repo-bundles $H/Desktop $H/Music $H/Videos
+  "$H/*.pdf" "$H/*.png" "$H/*.jpg" "$H/*.yaml"
+  $H/.claude $H/.claude.json $H/.ssh $H/.gnupg $H/.gitconfig $H/.bashrc $H/.profile
+  $H/.kube $H/.password-store $H/.op-agent-token $H/.gstack $H/.pro-workflow
+  $H/.local/bin
+  $H/.config/op $H/.config/rclone $H/.config/gh $H/.config/git $H/.config/systemd
+  $H/.config/obsidian $H/.config/Code/User $H/.config/wezterm $H/.config/BambuStudio
+  $H/.config/Signal $H/.config/reManager $H/.var/app
+  $H/.local/share/solidcraft $H/.local/share/reManager $H/.local/share/bambu-studio
+  $H/.local/share/OpenSCAD $H/.local/share/fonts
+  /bench/kdk-lab-dkr /bench/thud /bench/local_roborock_server /bench/network-sre-learning
+)
+ARGS=(); for i in "${INC[@]}"; do ARGS+=(--include "$i"); done
+r restore "$ID" --target / "${ARGS[@]}"
+sudo chown jmack:jmack /bench
 ```
 
-- **`/bench` comes back as four folders only:** `kdk-lab-dkr`, `thud`,
-  `local_roborock_server`, `network-sre-learning`. The other ten (`deploy-staging`,
-  `gns3-build`, `habit-tracker`, `kdk-irtracker`, `kdk-vault-settings`,
-  `netops-automation`, `pi2-dns-build`, `remarkable-ebooks`, `remarkable-highlights`,
-  `VOSS`, plus the loose `pieeprom.upd`/`recovery.bin`) stay in the `pre-wipe` snapshot
-  as an archive; restore one later with `--include /bench/<name>`.
-- **`/etc` is not restored wholesale** onto a new OS: pull single files from the
-  snapshot as needed, e.g. the wifi profile
-  `r dump "$ID" /etc/NetworkManager/system-connections/<ssid>.nmconnection`.
-- A single file at any time: `r dump <id> <path> > /tmp/file`, or browse with
-  `r ls <id> <dir>`.
+Owners come back (uid 1000 = jmack on both installs). Log out and back in afterwards.
+
+**Does NOT come back, redo by hand** (learned 2026-11-19):
+
+- The system units and files under `/etc`: re-run steps 2c, 2d and 5 here and the
+  [CAD library](cad-library.md) steps 3a–3d, or `hosts/mbp-dev/install.sh` section `e`.
+- Node.js (Claude Code plugin hooks call `node`): see the rebuild page.
+- The GNOME keyring: `gh auth login` again, and sign in again to apps that kept
+  secrets there.
+- The 1Password SSH agent setup (desktop app, Settings → Developer).
+- Python `.venv` folders and test caches: `--exclude-caches` skipped them (uv virtual
+  environments carry a `CACHEDIR.TAG`). Recreate with `uv sync` or `python3 -m venv`.
+- `~/.local/share/claude/versions` (excluded): reinstall Claude Code.
+
+**Other folders later.** `/bench` came back as the four folders above. The others
+(`deploy-staging`, `gns3-build`, `habit-tracker`, `kdk-irtracker`, `kdk-vault-settings`,
+`netops-automation`, `pi2-dns-build`, `remarkable-ebooks`, `remarkable-highlights`,
+`VOSS`, the loose `pieeprom.upd`/`recovery.bin`) and the rest of home stay in the
+pre-wipe snapshots; restore one with `r restore "$ID" --target / --include <path>`.
+`/etc` is not restored onto a new OS: pull single files, e.g. the wifi profile
+`r dump "$ID" /etc/NetworkManager/system-connections/<ssid>.nmconnection`. A single file
+at any time: `r dump <id> <path> > /tmp/file`, or browse with `r ls <id> <dir>`.
+
+**Read-only check without sudo.** restic's rclone backend over rclone's smb backend
+reads the repository with no mount and no root; both secrets come from `op read` and
+live only in the environment. Always `--no-lock`, so a check never blocks the timer:
+
+```sh
+export RCLONE_CONFIG_NAS_TYPE=smb RCLONE_CONFIG_NAS_HOST=10.1.3.5 RCLONE_CONFIG_NAS_USER=laptop-backup
+RCLONE_CONFIG_NAS_PASS=$(op read -n 'op://kdk-ops/kdk-nas-01-laptop-backup-smb/password' | rclone obscure -)
+export RCLONE_CONFIG_NAS_PASS
+export RESTIC_REPOSITORY=rclone:NAS:laptop-backup/restic
+export RESTIC_PASSWORD_COMMAND="op read -n op://kdk-ops/mbp-dev-restic-repo/password"
+restic snapshots --no-lock
+restic ls --no-lock latest /bench/kdk-lab-dkr | head
+```
 
 **From a NAS snapshot** (repository itself damaged or deleted, last 2 weeks): on the NAS,
 `sudo zfs list -t snapshot tankz3/laptop-backup`, then
