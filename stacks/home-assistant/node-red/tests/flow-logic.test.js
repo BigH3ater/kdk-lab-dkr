@@ -1274,5 +1274,54 @@ console.log("H10 -- hand stop from a vacuum service call (f_hcall: HomeKit has n
 }
 
 // ===========================================================================
+// 2026-11-19: group 8 never ran (t_dock passed no msg.data, so old_state was
+// always undefined). t_dock now passes the event like t_idle; f_dockevt stands
+// aside for a person's stop and while a hand stop is being handled.
+console.log("I -- group 8 dock retry (f_dockevt)");
+{
+  eq(byId["t_dock"].outputProperties, byId["t_idle"].outputProperties, "t_dock passes payload + msg.data like t_idle");
+  const T = at(18, 15);
+  const de = (old, nu, uid, init, now) => {
+    const f = mkFlow(Object.assign({ rr_pending: "", rr_nr_uid: NR }, init || {}));
+    return { f, r: withDate(now || T, () => run("f_dockevt", chg(old, nu, uid), f)) };
+  };
+  let { f, r } = de("returning", "idle", null);
+  ok(r && r[0] && f.get("rr_dock").busy === true, "returning -> idle, no user -> retry loop starts");
+  ({ f, r } = de("returning", "idle", NR));
+  ok(r && r[0] && f.get("rr_dock").busy === true, "returning -> idle with Node-RED's user -> retry loop starts");
+  ({ f, r } = de("returning", "idle", PERSON));
+  ok(r === null && !f.get("rr_dock"), "returning -> idle by a person -> no retry");
+  ({ f, r } = de("returning", "idle", PERSON, { rr_nr_uid: "" }));
+  ok(r === null && !f.get("rr_dock"), "rr_nr_uid unknown, user on the change, no own command -> person, no retry");
+  ({ f, r } = de("returning", "idle", PERSON, { rr_nr_uid: "", rr_own_cmd_at: T - 30e3 }));
+  ok(r && r[0], "rr_nr_uid unknown, user within the own-command window, no hand stop -> own, retry");
+  ({ f, r } = de("returning", "idle", null, { rr_cancel: true, rr_own_cmd_at: T - 30e3 }));
+  ok(r === null && !f.get("rr_dock"), "during a hand stop (rr_cancel + own command < 2 min) -> no competing retry");
+  ({ f, r } = de("returning", "idle", null, { rr_cancel: true, rr_own_cmd_at: T - 10 * 60e3 }));
+  ok(r && r[0], "rr_cancel left over from an old hand stop (own command 10 min ago) -> retry");
+  ({ f, r } = de("cleaning", "idle", null));
+  ok(r === null && !f.get("rr_dock"), "cleaning -> idle (a stop, e.g. f_hstop's own) -> not a failed dock");
+  ({ f, r } = de("returning", "idle", null, { rr_dock: { busy: true, n: 1, alerted: false } }));
+  ok(r === null && f.get("rr_dock").n === 1, "loop already running -> not restarted");
+  ({ f, r } = de("returning", "idle", null, { rr_pending: "w_54" }));
+  ok(r === null && !f.get("rr_dock"), "watched stage -> left to the stage dock watcher (f_dw)");
+  ({ f, r } = de("returning", "docked", null, { rr_dock: { busy: true, n: 2, alerted: false } }));
+  ok(r && !r[0] && !r[1] && r[2] && f.get("rr_dock").busy === false && f.get("rr_dock").n === 0, "docked mid-loop -> reset, no note");
+  ({ f, r } = de("returning", "docked", null, { rr_dock: { busy: false, n: 4, alerted: true } }));
+  ok(r && r[1] && r[1].notify.urgent === false && f.get("rr_dock").alerted === false, "docked after the alert -> reset + back-on-dock note");
+  ({ f, r } = de("returning", "docked", null));
+  eq(r, null, "docked with no loop -> nothing");
+
+  // end to end: f_hstop stops a robot that is heading home (jobOpen includes
+  // returning) -> returning -> idle with Node-RED's user right after -> no retry
+  const fh = mkFlow(Object.assign(LIVE(), { rr_nr_uid: NR, rr_pending: "" }));
+  const o = withDate(T, () => run("f_hstop", { rr_src: "hand" }, fh, mkGlobal(state({ "vacuum.mr_slave_2": "returning",
+    "sensor.mr_slave_status_2": "returning_home" }))));
+  ok(o[0], "f_hstop on a returning robot sends vacuum.stop");
+  eq(withDate(T + 5e3, () => run("f_dockevt", chg("returning", "idle", NR), fh)), null, "its returning -> idle -> group 8 stands aside");
+  ok(!fh.get("rr_dock"), "no group 8 loop state");
+}
+
+// ===========================================================================
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);
