@@ -175,7 +175,9 @@ sec_e() {
     die "op read cannot read the kdk-ops vault: sign in to the 1Password app, turn on
   Settings -> Developer -> Integrate with 1Password CLI, then re-run: install.sh e"
   fi
-  command -v mount.cifs >/dev/null || die "cifs-utils missing: run section a first"
+  # mount.cifs lives in /usr/sbin, which is not on a normal user's PATH on Debian.
+  command -v mount.cifs >/dev/null || [ -x /usr/sbin/mount.cifs ] || [ -x /sbin/mount.cifs ] \
+    || die "cifs-utils missing: run section a first"
 
   sudo install -d -m 700 /etc/cifs /etc/restic
   cred /etc/cifs/3d-prints.cred 'op://kdk-ops/kdk-nas-01-cad-sync-smb/password' cad-sync
