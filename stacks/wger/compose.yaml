@@ -165,7 +165,7 @@ services:
 
   nginx:
     <<: *hardened
-    image: nginx:1.31.8-alpine@sha256:fed7e14be83cbd2661a75cdc5b872d936cf155d46c327084d30b8df19ae88d72
+    image: nginx:1.31.9-alpine@sha256:fb4658584bd9a916ffb6f6e365f97c25cfdb2923801f551ea08356e695f14ff7
     container_name: wger-nginx
     # master runs as root and drops workers to `nginx`; creates its temp dirs under
     # /var/cache/nginx owned by the worker user.
@@ -218,7 +218,7 @@ services:
 
   db:
     <<: *hardened
-    image: postgres:18.7-alpine@sha256:b6972e1115a4ff8eba5d7f7d19184926d1e16d7d1136ae1e1a7ebf286da0f015
+    image: postgres:18.7-alpine@sha256:ff64c9e3bdf8e2120107d3559de8db314e8305f7e38c5105903c6295876738ff
     container_name: wger-db
     # The entrypoint chowns the data dir and drops to the postgres user.
     cap_add:

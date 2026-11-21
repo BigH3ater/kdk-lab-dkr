@@ -21,7 +21,7 @@ services:
     # >= 0.147.0 for GHSA-fgj8-7r76-h852 (unauthenticated admin RPC, CVSS 10,
     # affects <= 0.146.1). Upstream stopped publishing -jammy-* tags after
     # v0.123.58; the -full variant is now built on Ubuntu noble only.
-    image: ghcr.io/koush/scrypted:v0.148.0-noble-full@sha256:24f34decf3a15a92e4b9d31e91c0bf220e2a81638ae3c5150cb7693de471ac8f
+    image: ghcr.io/koush/scrypted:v0.148.6-noble-full@sha256:e0d30a771aed73c3c530758046ef7669c26aaf03665f485f9ccb639a57669e1d
     container_name: scrypted
     # host: HomeKit accessory advertisement plus camera/RTSP discovery.
     network_mode: host
