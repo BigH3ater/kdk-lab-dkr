@@ -11,7 +11,7 @@ services:
     # snapshotter fix (google/cadvisor#3709). Docker on every host uses the
     # containerd image store, and v0.52.1 failed every container with "failed to
     # identify the read-write layer ID", so only the root cgroup was exported.
-    image: ghcr.io/google/cadvisor:v0.60.6@sha256:b8e7d1093144fd088f425ff003d75a4aa405de075db78dae3bc563730b1bd07a
+    image: ghcr.io/google/cadvisor:v0.61.1@sha256:4929b70e82079d001d0028b85d6a4dd25ad4666b719455c9542b983489963916
     container_name: cadvisor
     restart: unless-stopped
     command:
