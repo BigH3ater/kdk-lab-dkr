@@ -7,7 +7,8 @@
 # rewrite the vendor jars' native methods (ASM), compile the bridge classes, jlink a
 # small JRE. Nothing vendor-owned is in the repo. NO SECRET in any stage, ARG or layer:
 # the engine reads LEFU_SECRET_8 from its environment at run time only.
-FROM eclipse-temurin:21.0.13.1_2-jdk-noble@sha256:4dea56dcfa1a89832caf1ffe082c49b3878388df3ce97b7f0a49f9c4372b718c AS engine
+# 21.0.13.1_2 had no linux/arm64 image on 2026-11-23 and kdk-dkr-02 is aarch64: check arm64 in the tag's index before any Temurin bump.
+FROM eclipse-temurin:21.0.13_9-jdk-noble@sha256:06c1f157dacf6b68198bd9a4186dd4c34ef24e65d7bbbe2a0cf8e62571ad38c9 AS engine
 ARG TARGETARCH
 WORKDIR /src
 COPY engine/fetch.sh engine/deps.lock engine/sdk.lock ./
