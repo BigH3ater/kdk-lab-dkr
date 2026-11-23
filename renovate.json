@@ -338,6 +338,13 @@
       ],
       "groupName": "tdarr",
       "groupSlug": "tdarr"
+    },
+    {
+      "description": "eclipse-temurin 21.0.13.1_2 has no linux/arm64 image (2026-11-23) and kdk-dkr-02 builds scale-bridge on aarch64 (#569 broke the build, #573 reverted). Remove this rule once a later tag exists; check arm64 in the tag's index before any Temurin bump.",
+      "matchPackageNames": [
+        "eclipse-temurin"
+      ],
+      "allowedVersions": "!/^21\\.0\\.13\\.1_2/"
     }
   ]
 }
