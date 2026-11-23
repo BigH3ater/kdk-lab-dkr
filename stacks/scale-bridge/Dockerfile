@@ -7,7 +7,7 @@
 # rewrite the vendor jars' native methods (ASM), compile the bridge classes, jlink a
 # small JRE. Nothing vendor-owned is in the repo. NO SECRET in any stage, ARG or layer:
 # the engine reads LEFU_SECRET_8 from its environment at run time only.
-FROM eclipse-temurin:21.0.13_9-jdk-noble@sha256:06c1f157dacf6b68198bd9a4186dd4c34ef24e65d7bbbe2a0cf8e62571ad38c9 AS engine
+FROM eclipse-temurin:21.0.13.1_2-jdk-noble@sha256:4dea56dcfa1a89832caf1ffe082c49b3878388df3ce97b7f0a49f9c4372b718c AS engine
 ARG TARGETARCH
 WORKDIR /src
 COPY engine/fetch.sh engine/deps.lock engine/sdk.lock ./
@@ -47,7 +47,7 @@ FROM python:3.12.16-slim@sha256:5e2bdb1b0d542d5039cffb8181c65930093949194a65c365
 # needs no Bluetooth packages in the image. Dependencies via uv from the committed
 # uv.lock (owner 2026-11-01: use uv). Every dependency has an aarch64 wheel except
 # pyric (pure Python, built from its sdist).
-COPY --from=ghcr.io/astral-sh/uv:0.13.8@sha256:5cc1805e2426484abca4ad46ea783bab281fdb225fd82d8ce6d66a81254bac85 /uv /usr/local/bin/uv
+COPY --from=ghcr.io/astral-sh/uv:0.13.9@sha256:d3b601f0c7b118bc1753febf7c41cc80981df678445e0254284eecf84db79a7d /uv /usr/local/bin/uv
 WORKDIR /app
 COPY pyproject.toml uv.lock /app/
 ENV UV_LINK_MODE=copy UV_COMPILE_BYTECODE=1 UV_PYTHON_DOWNLOADS=never
