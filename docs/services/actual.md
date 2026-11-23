@@ -21,7 +21,7 @@ DNS resolves `budget.kmkdp.com`). Auth is **Authelia OIDC** (`client_id: actual`
 | Bank sync | **SimpleFIN** (native in Actual), linked at the server level. A person presses **Bank Sync**. By owner decision (2026-10-31) **no automated job writes to the budget**: the daily `actual-bank-sync` one-shot (#263) was retired before it ever ran. Manual CSV/QFX import still works as a fallback |
 
 Budget contents, figures and the budget agents' runs live only in the vault
-(`1. Projects/household-budget/`), never in this repo.
+(`5. Financial/`), never in this repo.
 
 ## Verify
 
