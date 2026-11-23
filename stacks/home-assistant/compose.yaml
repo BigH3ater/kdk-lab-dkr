@@ -54,7 +54,7 @@ services:
       - mosquitto
 
   mosquitto:
-    image: eclipse-mosquitto:2.0.22@sha256:81a6193ae693942a3231cd3ac52875b02b7e3a19da671b2fb4b55cc874c5b279
+    image: eclipse-mosquitto:2.0.23@sha256:6a332cc7a8dbe011cbc076180cbb76b37c6f0f55809682ea08e7980ef0112ad9
     container_name: mosquitto
     restart: unless-stopped
     # 127.0.0.1 ONLY, never 0.0.0.0. A host-networked HA reaches it on loopback
@@ -108,7 +108,7 @@ services:
       - mosquitto
 
   node-red:
-    image: nodered/node-red:5.0.9@sha256:2ccd38b4066648bd5e17430c50a2f8102c566a82fd4f2fc5c342e61664d6896f
+    image: nodered/node-red:5.0.10@sha256:3622786c15b6f57f61bf1d0ece59d06a18b742c5c8955f588d189b6bee8dc97d
     container_name: node-red
     restart: unless-stopped
     # Reached through Traefik, not published on the segment -- same reasoning
@@ -174,7 +174,7 @@ services:
       start_period: 20s
 
   traefik:
-    image: traefik:v3.7.19@sha256:aa942a00bce033c909bf1f7e861d93761be4b31a035f10d2410d33e38a8f41cf
+    image: traefik:v3.7.19@sha256:a6c0194dda77bcb804824580f36fa7edc56e315b1acfe933366c8b52844a78a4
     container_name: traefik
     restart: unless-stopped
     # Native ACME with a Cloudflare DNS-01 solver, no certbot and no renewal
