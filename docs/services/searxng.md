@@ -5,7 +5,7 @@ stack: searxng
 tier: internal
 status: new
 secrets: [searxng]
-updated: 2026-11-09
+updated: 2026-11-23
 tags: [homelab/stack, tier/internal, status/new]
 ---
 
@@ -31,7 +31,7 @@ settings a person changes on the Preferences page live in a cookie in their brow
 | URL | https://search.kmkdp.com (internal Traefik, `websecure` only, `forwardauth@file`). Off the LAN: Tailscale |
 | Auth | Authelia two_factor, group `dashboard-users`. Bypass for exactly `/healthz` and `/opensearch.xml` |
 | Host | [[kdk-dkr-01]] |
-| Stack | `stacks/searxng`: `searxng/searxng:2026.11.8-3a3dd15bf` (Docker Hub, rolling date tag) + `valkey/valkey:9.1.3-alpine`, both digest-pinned, Renovate-tracked |
+| Stack | `stacks/searxng`: `searxng/searxng:2026.11.23-a7163d091` (Docker Hub, rolling date tag) + `valkey/valkey:9.2.0-alpine`, both digest-pinned, Renovate-tracked |
 | Config | `stacks/searxng/config/settings.yml` + `limiter.toml`, read-only over `/etc/searxng` |
 | Secret | `kdk-cluster/searxng` field `secret` → `SEARXNG_SECRET` (signs the Flask session cookie and the image-proxy URLs) |
 | State | none: cache dir is tmpfs, valkey has no persistence. Nothing to back up |

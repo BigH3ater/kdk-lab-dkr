@@ -6,7 +6,7 @@ tier: internal
 status: live
 storage: yes
 secrets: [vikunja-app, vikunja-api-rw, dashboard-tandoor-rw, homepage-ha-token, proton-calendar-ics, dashboard-kitchen-device-key]
-updated: 2026-11-14
+updated: 2026-11-23
 tags: [homelab/stack, tier/internal, status/live]
 ---
 
@@ -34,7 +34,7 @@ paired-device cookie (see [Kitchen host and device pairing](#kitchen-host-and-de
 | Status | 🟢 Live; Homepage retired 2026-11-10 (the sidecar serves every page) |
 | Host | [[kdk-dkr-01]] |
 | Endpoints | `home.kmkdp.com` (`/` → 302 to `/meal/home`; + `/guides`, `/meal`, kitchen board `/meal/kitchen`, pantry check `/meal/kitchen/pantry`, household page `/meal/home`, device admin `/meal/kitchen/devices`), `kitchen.kmkdp.com` (paired kitchen screen, no Authelia), `admin.kmkdp.com` (lab admin page, jmack only), `tasks.kmkdp.com` |
-| Images | `nginx:1.31.8-alpine`, `vikunja/vikunja:2.8.0`, `kdk/dashboard-mealplan` (built; Python pins in `mealplan/requirements.txt`, Renovate group `dashboard-mealplan python deps`) |
+| Images | `nginx:1.31.10-alpine`, `vikunja/vikunja:2.8.0`, `kdk/dashboard-mealplan` (built; Python pins in `mealplan/requirements.txt`, Renovate group `dashboard-mealplan python deps`) |
 | Deploy | Komodo stack `dashboard` (git-linked, `op inject` pre_deploy) |
 | Storage | All uid 1000, chowned by the Komodo `pre_deploy` on every deploy: `/opt/kdk-lab/dashboard/vikunja` (`db/` SQLite + `files/`), `/opt/kdk-lab/dashboard/kitchen-state` (mode 700; kitchen device registry `devices.json`, add-box `manual-forced.json`), `/opt/kdk-lab/dashboard/pantry` (freezer inventory `freezer.json` + `.bak`, shared with grocery-planner; see the grocery-planner runbook), named volume `dashboard_mealplan-data` (`/data/thaw.json`, Thaw ticks) |
 | Hardening | Compose baseline on all three services (2026-11-11): `read_only` rootfs, `cap_drop: [ALL]`, `no-new-privileges`, mem/pids limits, healthchecks. mealplan and vikunja run as `1000:1000`; guides (nginx) keeps `CHOWN`/`SETUID`/`SETGID` for its master→worker drop, tmpfs `/var/cache/nginx` + `/run`. Healthchecks: mealplan `/healthz`, guides `/index.html`, vikunja `vikunja healthcheck` (DB ping; scratch image has no HTTP client). CSP on the household, groceries and kitchen pages (below) |

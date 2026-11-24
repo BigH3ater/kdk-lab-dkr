@@ -5,7 +5,7 @@ stack: trailarr
 tier: internal
 status: live
 secrets: [trailarr-admin]
-updated: 2026-11-04
+updated: 2026-11-23
 tags: [homelab/service, tier/internal, status/live, media]
 ---
 
@@ -26,7 +26,7 @@ ForwardAuth** — and Trailarr keeps its own web login as well.
 | Purpose | Download + file local trailers for Radarr/Sonarr titles |
 | URL | https://trailarr.kmkdp.com (internal Traefik + Authelia; own login too) |
 | Host | [[kdk-dkr-01]] |
-| Stack | `stacks/trailarr` — `nandyalu/trailarr` (pinned `0.14.0`) |
+| Stack | `stacks/trailarr` — `nandyalu/trailarr` (pinned `0.14.2`) |
 | Policy | **new titles only** — connections added `monitor=none`, synced, then switched to `new`, so only newly added movies/shows get trailers (Trailarr's large-library advice) |
 | Paths | the same single `/mnt/media:/data/media` mount as Radarr/Sonarr, so their paths resolve unchanged (no Trailarr path mappings); config at `/opt/kdk-lab/trailarr:/config` |
 | Deploy | Komodo stack `trailarr` (`deploy = true`), webhook + 15-min poll |
@@ -91,7 +91,7 @@ Loki (`{container="trailarr"}`) via the observability agent.
 
 ## Architecture
 
-Single container `trailarr` (`nandyalu/trailarr:0.14.0`) on `default` + the
+Single container `trailarr` (`nandyalu/trailarr:0.14.2`) on `default` + the
 external `proxy` network, port `7889`, `forwardauth@file` in front. It mounts the
 same `/mnt/media:/data/media` as the arr apps so paths resolve without mappings,
 and holds its own copies of the Radarr/Sonarr API keys in connections 1 and 2.

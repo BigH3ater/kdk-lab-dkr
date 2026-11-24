@@ -1,7 +1,7 @@
 ---
 title: Actual Budget
 tags: [homelab/service, finance, lan, oidc]
-updated: 2026-11-04
+updated: 2026-11-23
 ---
 
 # Actual Budget (budget.kmkdp.com)
@@ -14,7 +14,7 @@ DNS resolves `budget.kmkdp.com`). Auth is **Authelia OIDC** (`client_id: actual`
 
 | Field | Value |
 |---|---|
-| Image | `docker.io/actualbudget/actual-server:26.10.0` (digest-pinned; running 26.10.0 on 2026-11-04). Renovate PR #305 proposes 26.11.0 (see Upgrades) |
+| Image | `docker.io/actualbudget/actual-server:26.11.0` (digest-pinned; running 26.10.0 on 2026-11-04). Renovate PR #305 proposes 26.11.0 (see Upgrades) |
 | Stack | `stacks/actual/compose.yaml`, Komodo stack `actual` (`deploy = true`, `pre_deploy` `op inject` of `.env.tpl`) |
 | Data | `/opt/kdk-lab/actual/data` (SQLite `server-files/account.sqlite` + the encrypted sync file under `user-files/`) |
 | Backup | swept by the nightly `/opt/kdk-lab` rsync (`stacks/backup-dkr-01`) and shipped offsite (`stacks/backup-offsite`). The sync file is encrypted with the E2E key, so **a restore is only useful with that key** (1Password, `kdk-ops/actual-e2e`) |
@@ -28,7 +28,7 @@ Budget contents, figures and the budget agents' runs live only in the vault
 ```bash
 curl -s -o /dev/null -w '%{http_code}\n' https://budget.kmkdp.com/          # 200 (LAN or tailnet)
 ssh kdkadmin@10.1.20.20 'sudo docker ps --filter name=actual --format "{{.Image}} {{.Status}}"'
-#   actualbudget/actual-server:26.10.0 Up ...
+#   actualbudget/actual-server:26.11.0 Up ...
 # E2E still on (counts only; opens the server DB read-only):
 ssh kdkadmin@10.1.20.20 'sudo python3 -c "import sqlite3;c=sqlite3.connect(\"file:/opt/kdk-lab/actual/data/server-files/account.sqlite?mode=ro\",uri=True);print(c.execute(\"select count(*),sum(encrypt_keyid is not null) from files where deleted=0\").fetchone())"'
 #   (1, 1)  = one live budget file, encrypted

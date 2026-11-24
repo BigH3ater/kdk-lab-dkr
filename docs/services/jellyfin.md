@@ -6,7 +6,7 @@ tier: dmz
 status: live
 storage: yes
 secrets: [jellyfin-oidc]
-updated: 2026-11-15
+updated: 2026-11-23
 tags: [homelab/stack, tier/dmz, status/live]
 ---
 
@@ -25,7 +25,7 @@ Media server on the DMZ node with Intel Arc A380 QSV transcode; **public again s
 | Host | [[kdk-dkr-dmz-01]], `/dev/dri` mapped (i915) |
 | Endpoint | `https://jellyfin.kmkdp.com` (public via the Cloudflare tunnel since 2026-11-07; LAN and Tailscale resolve straight to the DMZ Traefik) |
 | Edge | Published 2026-11-07: tunnel public hostname `jellyfin.kmkdp.com` → `https://traefik:8443`, Origin Server Name `jellyfin.kmkdp.com`. The five-rule WAF (admin-API block, anonymous-stream block, OIDC skip, bots, non-US) plus the credential-path rate limit gate it; `scripts/edge-probe.sh` passed 63/0 after publishing (admin paths 403 at the edge, client paths 200). Readiness review: vault note `jellyfin-public-readiness-2026-11-07` (10.Homelab/Security). Rollback = delete the public hostname (edge answers 530 again) |
-| Image | `ghcr.io/linuxserver/jellyfin:12.3ubu2604-ls56` — 12.x line, pinned; server and plugins move together |
+| Image | `ghcr.io/linuxserver/jellyfin:12.4ubu2604-ls58` — 12.x line, pinned; server and plugins move together |
 | Hardening | compose baseline: `cap_drop: [ALL]` + `cap_add` CHOWN/SETUID/SETGID/DAC_OVERRIDE/FOWNER/KILL (s6 init), `no-new-privileges`, `mem_limit 10g` (includes the 6G transcode tmpfs), `pids_limit 2048`, `/health` healthcheck; exceptions `devices` (/dev/dri) and skip `read_only` (s6) |
 | Deploy | Komodo stack `jellyfin` (git-linked) |
 | Storage | `/opt/kdk-lab/jellyfin/config` on local disk (DB, cache, plugins; byte-for-byte from k3s); images/metadata on NFS `/mnt/appdata/jellyfin/metadata` → `/config/data/metadata`; library RO from `/mnt/media` (`tv`, `movies`, and since 2026-11-14 `exercise-days` → `/data/media/exercise-days`; the download folder `exercise` is not mounted) |

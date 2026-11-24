@@ -6,7 +6,7 @@ tier: infra
 status: live
 storage: yes
 secrets: [pushover-kdk-lab, kdk-lab-idrac-fanctl-admin]
-updated: 2026-11-16
+updated: 2026-11-23
 tags: [homelab/stack, tier/infra, status/live]
 ---
 
@@ -23,7 +23,7 @@ Metrics + alerting live on the independent monitor [[kdk-mon-01]]; logs live on 
 | Field | Value |
 |---|---|
 | Metrics/alerts | Prometheus + Alertmanager (→ Pushover for all; **critical also → email** via the Proton bridge) + Grafana on [[kdk-mon-01]]. Standard: [alerting](../runbooks/pushover-alerts.md#the-standard) |
-| Logs | Loki 3.7.9 on [[kdk-log-01]] (`10.1.20.21`), storage on the VM disk (`/opt/kdk-lab/loki/data`, PBS vzdump of VM 320), 30-day retention; ruler: 14 rule files / 92 alerts (`stacks/loki/rules/`, see Alert rules) → Alertmanager |
+| Logs | Loki 3.7.10 on [[kdk-log-01]] (`10.1.20.21`), storage on the VM disk (`/opt/kdk-lab/loki/data`, PBS vzdump of VM 320), 30-day retention; ruler: 14 rule files / 92 alerts (`stacks/loki/rules/`, see Alert rules) → Alertmanager |
 | Collection | per-host `observability-agent` (cAdvisor + Alloy + **docker-event-watch**); `node-exporter` on the two VMs |
 | Weekly security jobs | [[advisory-watch]] (upstream advisories vs pinned tags, kdk-log-01) and [[trivy-scan]] (Trivy on every host), both into Loki; Grafana → Security → Security Advisories |
 | Fan control | two `tigerblue77` containers on [[kdk-mon-01]]; `fanctl-hyp` **active** (R720 ~3000 RPM, 20%), `fanctl-nas` **active** (R730xd ~4800 RPM, 20%) |
@@ -50,7 +50,7 @@ ssh kdkadmin@10.1.20.30 'sudo docker logs --tail 3 fanctl-hyp'        # temps lo
 | "timestamp too old" / "entry too far behind" after an Alloy recreate | before 2026-10-29 Alloy kept positions in the container FS (`--storage.path` unset → cwd-relative `data-alloy/`), so a recreate replayed every container log | fixed: positions now persist on the `alloy-data` volume (see Architecture); a first-ever start still does one benign replay |
 | DMZ host metrics/logs absent | DMZ→internal path | node/cadvisor pulled over LAN→DMZ; Alloy pushes via the UniFi rule `192.168.191.20 → 10.1.20.21:3100` |
 | `FansPinnedHigh` firing | that BMC on auto (loud) | expected only if a controller is monitoring-only/stopped |
-| Per-container panels empty | cAdvisor older than v0.55 can't read containers under the containerd-snapshotter image store (`failed to identify the read-write layer ID`) | runs `ghcr.io/google/cadvisor:v0.60.6` (gcr.io stops at v0.55.1) with `/var/lib/containerd` mounted; `count by (host) (container_memory_usage_bytes{name!=""})` should be > 0 on every host. Crash/unhealthy alerting is still `docker-event-watch`, not cAdvisor |
+| Per-container panels empty | cAdvisor older than v0.55 can't read containers under the containerd-snapshotter image store (`failed to identify the read-write layer ID`) | runs `ghcr.io/google/cadvisor:v0.61.1` (gcr.io stops at v0.55.1) with `/var/lib/containerd` mounted; `count by (host) (container_memory_usage_bytes{name!=""})` should be > 0 on every host. Crash/unhealthy alerting is still `docker-event-watch`, not cAdvisor |
 | Loki's own `level=info` ruler-evaluation or `get or create table` lines are missing from `{container="loki"}` | intended since 2026-11-11: the observability-agent Alloy drops them before shipping (`loki.process "drop_noise"` in `stacks/observability-agent/alloy/config.alloy`, ~876k of ~1.0M Loki lines/day). They quote rule LogQL that contains "error", so word-regex panels counted them as errors. Warn/error lines, startup, compaction, flushes and real query stats are kept; `docker logs loki` on kdk-log-01 still has everything | Grafana Explore, Loki, last 1 h: `sum(count_over_time({container="loki"} \|~ "^level=info ts=\\S+ caller=(table_manager\\.go:195\|compat\\.go\|evaluator_local\\.go) " [1h]))` is 0 after the deploy (was 21k-32k/h on 2026-11-11) |
 | A security rule never fires | log text drifted, or `entryPointName="tunnel"` missing (dmz-proxy before the two-entrypoint split) | run the rule's expr in Grafana Explore over 7 d; see [security alerts runbook](../runbooks/security-alerts.md) |
 | One-shot job output missing in Loki | Alloy's `discovery.docker` lists running containers only and refreshes every 60 s (default `refresh_interval`), so a container that exits sooner is never tailed; the dkr-01 backup jobs exit within seconds | the Backups → Nightly backups dashboard takes every step's result from `docker-event-watch` die events; only the long-running dkr-04 `pack`/`offsite` containers ship their own lines. A one-off container you need in Loki must live > 60 s (`pack.sh --report-only` holds 90 s). Capturing the dkr-01 output is a follow-up (vault TODO) |

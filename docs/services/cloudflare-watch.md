@@ -6,7 +6,7 @@ tier: infra
 status: new
 storage: yes
 secrets: [cloudflare-monitor-ro]
-updated: 2026-11-16
+updated: 2026-11-23
 tags: [homelab/stack, tier/infra, status/new, security]
 ---
 
@@ -65,7 +65,7 @@ Lines are pushed straight to Loki (job `cloudflare-watch`) and land under `{cont
 
 ## Architecture
 
-`watch.py` is stdlib-only (`urllib` + `json` + `hashlib`), run by the pinned `python:3.12-slim` image with the script bind-mounted (no local build). Each run prints its lines to stdout and also pushes them to Loki directly, because a one-shot that exits in seconds is never scraped by Alloy's running-container discovery. The hourly stack runs the four edge checks; the weekly stack runs the same script with `CFWATCH_MODE=weekly` (equivalent to `--weekly`) for the rule/DNS sha drift check, keeping its own state in `/opt/kdk-lab/cloudflare-watch/state.json`. The two stacks share `stacks/cloudflare-watch/` and the image but use distinct container names (`CFWATCH_SUFFIX`), because two one-shots cannot share a `container_name` on one host.
+`watch.py` is stdlib-only (`urllib` + `json` + `hashlib`), run by the pinned `python:3.12.16-alpine` image with the script bind-mounted (no local build). Each run prints its lines to stdout and also pushes them to Loki directly, because a one-shot that exits in seconds is never scraped by Alloy's running-container discovery. The hourly stack runs the four edge checks; the weekly stack runs the same script with `CFWATCH_MODE=weekly` (equivalent to `--weekly`) for the rule/DNS sha drift check, keeping its own state in `/opt/kdk-lab/cloudflare-watch/state.json`. The two stacks share `stacks/cloudflare-watch/` and the image but use distinct container names (`CFWATCH_SUFFIX`), because two one-shots cannot share a `container_name` on one host.
 
 ## Configuration
 

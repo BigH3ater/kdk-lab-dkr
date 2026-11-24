@@ -6,7 +6,7 @@ tier: dmz
 status: live
 storage: yes
 secrets: []
-updated: 2026-11-10
+updated: 2026-11-23
 tags: [homelab/stack, tier/dmz, status/live]
 ---
 
@@ -23,7 +23,7 @@ Audiobook, ebook and podcast server on the DMZ node. Its router serves the DMZ T
 | Purpose | Audiobooks and ebooks (LazyLibrarian-managed, read-only) and podcasts (RSS auto-download) |
 | Host | [[kdk-dkr-dmz-01]] |
 | Endpoint | `https://audiobookshelf.kmkdp.com` (native `/audiobookshelf` base path) |
-| Image | `ghcr.io/advplyr/audiobookshelf:2.37.2` (digest-pinned in `stacks/audiobookshelf/compose.yaml`) |
+| Image | `ghcr.io/advplyr/audiobookshelf:2.38.0` (digest-pinned in `stacks/audiobookshelf/compose.yaml`) |
 | Deploy | Komodo stack `audiobookshelf` (git-linked) |
 | Storage | config + metadata (SQLite DB) local in `/opt/kdk-lab/audiobookshelf`; audiobooks RO from `/mnt/media/books/audiobook`; ebooks RO from `/mnt/media/books/ebook`; podcasts rw on NFS `/mnt/appdata/audiobookshelf/podcasts` |
 | Blast radius | No audiobook/podcast streaming or phone/browser ebook reading; progress sync pauses. The reMarkable can still open books already downloaded, but cannot fetch new ones (its OPDS catalogue, [Reading sync](reading-sync.md), reads from ABS) |

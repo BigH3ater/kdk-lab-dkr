@@ -6,7 +6,7 @@ tier: infra
 status: live
 storage: yes
 secrets: []
-updated: 2026-11-04
+updated: 2026-11-23
 tags: [homelab/stack, tier/infra, status/live, security]
 ---
 
@@ -21,7 +21,7 @@ Every Monday each compose host scans the images of its **running** containers wi
 | Field | Value |
 |---|---|
 | Runs | Monday 06:03 America/Chicago, procedure `trivy-scan` → stacks `trivy-scan-{dkr01,dmz01,mon01,dkr02,dkr03,log01}` (one stage, parallel; deploy=false, destroy_before_deploy) |
-| Services | `socket-proxy` (`tecnativa/docker-socket-proxy:v0.5.0`), `scan` (`aquasec/trivy:0.76.1`), `report` (`python:3.12.16-alpine`) |
+| Services | `socket-proxy` (`tecnativa/docker-socket-proxy:v0.5.0`), `scan` (`aquasec/trivy:0.76.2`), `report` (`python:3.12.16-alpine`) |
 | Host access | GET-only Docker API through the proxy (CONTAINERS, IMAGES, INFO, PING, VERSION; POST=0) on an `internal` network; the proxy exits when `report` has finished |
 | Output | Loki `{job="trivy", host="<host>"}`: `image image_id status critical high fixable_critical fixable_high top_cve top_pkg top_fixed`, plus a `summary=1` line |
 | Alert | `TrivyFixableCritical` (fixable_critical > 0), `TrivyScanSilent` |
@@ -42,7 +42,7 @@ sudo docker ps -a --filter name=trivy-scan --format '{{.Names}} {{.Status}}'   #
 |---|---|---|
 | `status=error` for an image | trivy failed for that image (timeout, export error) | `docker run --rm -v trivy-scan_trivy-out:/o alpine:3.20.10 cat /o/<n>.log` |
 | `scan_exit` non-zero / report exit 1 | the scan container failed (DB download, proxy unreachable) | `docker logs trivy-scan` |
-| Pull denied on kdk-mon-01 | Docker Hub rate limit on the Pi | `docker pull aquasec/trivy:0.76.1` by hand once |
+| Pull denied on kdk-mon-01 | Docker Hub rate limit on the Pi | `docker pull aquasec/trivy:0.76.2` by hand once |
 | Disk fills during the run | trivy exports each image under `/cache/tmp` (volume) | `docker system df -v \| grep trivy` |
 | dmz-01 `loki push failed ... timed out` | DOCKER-USER drops `trivy-scan-report` → `10.1.20.21:3100` (`kdk-du-drop` in `journalctl -k`); needs the `allow_ctr trivy-scan-report` line installed on dmz-01 | `sudo iptables-nft -S DOCKER-USER \| grep 3100` while the report runs |
 | `pushover failed [Errno 13] ... /pushover.env` | the mount is not the pre_deploy copy (`./pushover.env`, 0400 1000:1000) | `stat -c '%a %u' <run dir>/pushover.env` |
