@@ -92,6 +92,17 @@
       "dependencyDashboardApproval": false
     },
     {
+      "description": "backup-* pg_dump client: hold on Postgres 18 (owner decision 2026-11-24). The DB servers run 18 and a dump written by a v19 client may not restore cleanly into them, so the client moves to 19 together with the server migration (docs/runbooks/postgres-major-upgrade.md); remove this rule in that change. Own rule because allowedVersions cannot share a rule with matchUpdateTypes; same matchers as the backup-* rule above, so the DB-server stacks are not affected and 18.x patch/digest updates keep flowing.",
+      "matchFileNames": [
+        "stacks/backup-dkr-01/**",
+        "stacks/backup-dmz/**"
+      ],
+      "matchPackageNames": [
+        "postgres"
+      ],
+      "allowedVersions": "<19"
+    },
+    {
       "description": "Auth / edge components: extra label so they are reviewed with the identity stack in mind.",
       "matchDatasources": [
         "docker"
@@ -340,11 +351,24 @@
       "groupSlug": "tdarr"
     },
     {
-      "description": "eclipse-temurin 21.0.13.1_2 has no linux/arm64 image (2026-11-23) and kdk-dkr-02 builds scale-bridge on aarch64 (#569 broke the build, #573 reverted). Remove this rule once a later tag exists; check arm64 in the tag's index before any Temurin bump.",
+      "description": "python-dateutil (dashboard-mealplan requirements.txt): recurring-ical-events 3.8.2 requires python-dateutil>=2.8.1,<3.0.0, so 4.0.0 (#590) cannot resolve and the image build would fail. Hold below 3; remove this rule once a recurring-ical-events release allows dateutil 3+/4 (bump both together).",
+      "matchFileNames": [
+        "stacks/dashboard/mealplan/**"
+      ],
+      "matchManagers": [
+        "pip_requirements"
+      ],
+      "matchPackageNames": [
+        "python-dateutil"
+      ],
+      "allowedVersions": "<3"
+    },
+    {
+      "description": "eclipse-temurin (scale-bridge engine stage), two holds in one regex because a later rule's allowedVersions replaces an earlier one. (1) Stay on the 21 line: the engine stage rewrites vendor jars with ASM and jlinks a JRE built for JDK 21; 26 (#591) failed the image CI job. Lift by moving the engine stage to the new JDK by hand, then drop the first alternative. (2) Block 21.0.13.1_2: no linux/arm64 image (checked again 2026-11-23) and kdk-dkr-02 builds scale-bridge on aarch64 (#569 broke the build, #573 reverted, #574 held it). Lift once that tag's index lists linux/arm64 or a later 21 tag exists; check arm64 before any Temurin bump. Negated regex without lookahead because Renovate compiles allowedVersions with RE2.",
       "matchPackageNames": [
         "eclipse-temurin"
       ],
-      "allowedVersions": "!/^21\\.0\\.13\\.1_2/"
+      "allowedVersions": "!/^(?:\\d|1\\d|2[02-9]|[3-9]\\d|\\d{3,})(?:\\D|$)|^21\\.0\\.13\\.1_2(?:\\D|$)/"
     }
   ]
 }
