@@ -6,7 +6,7 @@ tier: dmz
 status: live
 storage: yes
 secrets: []
-updated: 2026-11-04
+updated: 2026-11-23
 tags: [homelab/stack, tier/dmz, status/live]
 ---
 
@@ -26,7 +26,7 @@ The same stack (`dmz-apps`) runs **Libreseerr**, the book request page: it hands
 | Status | 🟢 Live — Jellyfin link works; Sonarr/Radarr reachable from the container (DMZ → `10.1.20.20:443` open, `/ping` 200 on 2026-11-04) |
 | Host | [[kdk-dkr-dmz-01]] |
 | Endpoint | `https://seerr.kmkdp.com` |
-| Image | `ghcr.io/seerr-team/seerr:v3.5.1` (3.5.0 moved Jellyfin auth to the `Authorization: MediaBrowser` header Jellyfin 12 requires) |
+| Image | `ghcr.io/seerr-team/seerr:v3.5.2` (3.5.0 moved Jellyfin auth to the `Authorization: MediaBrowser` header Jellyfin 12 requires) |
 | Deploy | Komodo stack `dmz-apps` (git-linked) |
 | Storage | `/mnt/appdata/jellyseerr` (NFS, same data as the k3s deploy) |
 | Blast radius | No new requests; existing library unaffected |

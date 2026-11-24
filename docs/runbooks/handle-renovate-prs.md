@@ -1,6 +1,6 @@
 ---
 title: Handle Renovate PRs
-updated: 2026-11-04
+updated: 2026-11-23
 ---
 
 # Handle Renovate PRs
@@ -63,6 +63,11 @@ Merge on a quiet evening when the PR touches `home-assistant`,
   Backups); read the breaking-changes section for every minor skipped.
 - **Authelia**: take a `pg_dump` on kdk-dkr-dmz-01 before a release with
   storage migrations (see PR #61).
+- **aarch64 hosts and digests**: before merging a PR that changes an image for
+  kdk-dkr-02, kdk-dkr-03 or kdk-mon-01, or any digest, check the image index has
+  the platform: `docker buildx imagetools inspect <image>@<digest>`. On 2026-11-23
+  `eclipse-temurin:21.0.13.1_2` had no arm64 image (#569 → #573) and an
+  `nginx:1.31.10-alpine` digest was an empty index (#586).
 - Old image tags stay on disk until the Sunday `prune-images` Procedure
   (05:10 CT). Execute it by hand if a root disk fills after a big wave.
 

@@ -5,7 +5,7 @@ stack: net-exporters
 tier: infra
 status: live
 secrets: [unifi-api-token-ro, kdk-dns-adguard-home-admin, unifi-snmp-ro-v3-user]
-updated: 2026-10-30
+updated: 2026-11-23
 tags: [homelab/stack, tier/infra, status/live, observability]
 ---
 
@@ -69,8 +69,8 @@ port bound to `10.1.20.20` (VLAN 20) so only Prometheus on mon-01 reaches them:
 
 | Service | Image | Port | Source |
 |---|---|---|---|
-| unpoller | `ghcr.io/unpoller/unpoller:v5.8.3` | `9130` | UniFi controller `kdk-gw-01` (read-only API key) |
-| adguard-exporter | `ghcr.io/henrywhitaker3/adguard-exporter:v1.2.1` | `9618` | AdGuard Home on `10.1.1.120/.121/.122` |
+| unpoller | `ghcr.io/unpoller/unpoller:v5.10.1` | `9130` | UniFi controller `kdk-gw-01` (read-only API key) |
+| adguard-exporter | `ghcr.io/henrywhitaker3/adguard-exporter:v1.2.3` | `9618` | AdGuard Home on `10.1.1.120/.121/.122` |
 | snmp-exporter | `prom/snmp-exporter:v0.31.0` | `9116` | gateway IF-MIB counters (SNMPv3) |
 
 Secrets come from the `op`-injected `.env` (`.env.tpl`, `pre_deploy` in

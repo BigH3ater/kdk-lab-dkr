@@ -6,7 +6,7 @@ tier: internal
 status: live
 storage: yes
 secrets: [kdk-dns-adguard-home-admin]
-updated: 2026-10-30
+updated: 2026-11-23
 tags: [homelab/stack, tier/internal, status/live]
 ---
 
@@ -82,7 +82,7 @@ No dashboard. `ntp` (123/udp) and `proton-bridge` (25) are host-port; alerting â
 | Service | Image | Port |
 |---|---|---|
 | ntp | `cturra/ntp` | `123/udp` |
-| adguardhome-sync | `bakito/adguardhome-sync:v0.9.5` | none (cron `*/15`) |
+| adguardhome-sync | `bakito/adguardhome-sync:v0.10.1` | none (cron `*/15`) |
 | proton-bridge | `shenxn/protonmail-bridge:3.19.0-1` | `10.1.20.20:25` |
 | roborock | `python-roborock/local_roborock_server:1.2.1` | `555`, `8881` |
 

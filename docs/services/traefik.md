@@ -6,7 +6,7 @@ tier: infra
 status: live
 storage: yes
 secrets: [cloudflare-dns-acme-hosts]
-updated: 2026-11-11
+updated: 2026-11-23
 tags: [homelab/stack, tier/infra, status/live]
 ---
 
@@ -14,7 +14,7 @@ tags: [homelab/stack, tier/infra, status/live]
 
 Terminates TLS and host-routes every internal `*.kmkdp.com` service on kdk-dkr-01, gating most behind Authelia ForwardAuth.
 
-This is one of **three** Traefiks: this one (internal apps, `traefik:v3.7.17`), the DMZ one (`traefik:v3.7.18` since 2026-11-11) with the Cloudflare tunnel entrypoint and `strip-cf` ([[dmz-proxy]]), and the file-provider-only one on the Home Assistant Pi ([[kdk-dkr-02]], `stacks/home-assistant`, `traefik:v3.7.17`).
+This is one of **three** Traefiks: this one (internal apps, `traefik:v3.7.19`), the DMZ one (`traefik:v3.7.19` since 2026-11-14) with the Cloudflare tunnel entrypoint and `strip-cf` ([[dmz-proxy]]), and the file-provider-only one on the Home Assistant Pi ([[kdk-dkr-02]], `stacks/home-assistant`, `traefik:v3.7.19`).
 
 **Related:** [[kdk-dkr-01]] · [[identity]] · [[dmz-proxy]]
 
@@ -25,7 +25,7 @@ This is one of **three** Traefiks: this one (internal apps, `traefik:v3.7.17`), 
 | Purpose | Reverse proxy + ACME wildcard certs for internal services |
 | Status | 🟢 Live — serves 80/443, wildcard cert valid |
 | Host | [[kdk-dkr-01]], ports `80`/`443` bound to `10.1.20.20` only (VLAN 20; not the storage NIC, not docker0). LAN, tailnet (routed to 10.1.20.20) and DMZ→443 all arrive there |
-| Image | `traefik:v3.7.17` + `ghcr.io/tecnativa/docker-socket-proxy:v0.5.0` (both digest-pinned; Renovate proposes updates) |
+| Image | `traefik:v3.7.19` + `ghcr.io/tecnativa/docker-socket-proxy:v0.5.0` (both digest-pinned; Renovate proposes updates) |
 | Deploy | Komodo stack `proxy` (git-linked) |
 | Cert | `kmkdp.com` + `*.kmkdp.com`, ACME DNS-01 via Cloudflare, stored `/opt/kdk-lab/proxy/letsencrypt/acme.json` |
 | Blast radius | Every internal `*.kmkdp.com` service is unreachable |

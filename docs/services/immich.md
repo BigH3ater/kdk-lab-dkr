@@ -6,7 +6,7 @@ tier: dmz
 status: live
 storage: yes
 secrets: [immich-postgres, authelia-app-secrets, immich-household, immich-household-api-key, immich-library-scan-api-key]
-updated: 2026-11-19
+updated: 2026-11-23
 tags: [homelab/stack, tier/dmz, status/live]
 ---
 
@@ -24,7 +24,7 @@ Photo and video backup, LAN/tailnet only (router on the DMZ Traefik's `websecure
 | Status | 🟢 Live — web loads; mobile app reaches it off-LAN |
 | Host | [[kdk-dkr-dmz-01]] |
 | Endpoint | `https://immich.kmkdp.com` |
-| Images | server + ML `v3.4.1`, valkey `9`, postgres `14-vectorchord` (digest-pinned); album job `salvoxia/immich-folder-album-creator:2.0.3` |
+| Images | server + ML `v3.4.2`, valkey `9`, postgres `14-vectorchord` (digest-pinned); album job `salvoxia/immich-folder-album-creator:2.0.3` |
 | Sign-in | Authelia OIDC (client `immich`, LLDAP group `immich-users`, 2FA) + local password login (break-glass) |
 | Settings | repo-managed config file `stacks/immich/immich-config.json.tpl`; Administration → Settings is **read-only** |
 | Runtime users | server + ML `1000:1000`, postgres + valkey `999:999` (all non-root, see [Hardening](#hardening)) |

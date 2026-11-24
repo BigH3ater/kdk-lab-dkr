@@ -6,7 +6,7 @@ tier: internal
 status: live
 storage: yes
 secrets: [wger-secret-key, wger-postgres, wger-powersync-storage, wger-jwt-keys, wger-admin, wger-api-jmack, wger-api-rach]
-updated: 2026-11-15
+updated: 2026-11-23
 tags: [homelab/stack, tier/internal, status/live]
 ---
 
@@ -72,7 +72,7 @@ depth) are slot comments.
 | Purpose | Workout routines + per-set logs + history for jmack and rach, iOS app with offline sync. jmack's four and rach's seven weekday routines from `wger_plan.json` (see above) |
 | Host | [[kdk-dkr-01]] |
 | Endpoint | `https://wger.kmkdp.com` (internal Traefik). Off the LAN: Tailscale (subnet router advertises 10.1.20.0/24; tailnet DNS resolves `*.kmkdp.com` split-horizon) |
-| Images | `wger/server:2.7.0` (web, celery_worker, celery_beat), `nginx:1.31.8-alpine`, `postgres:18.6-alpine`, `redis:8.10.3-alpine`, `journeyapps/powersync-service:1.28.1`; all digest-pinned, Renovate-tracked |
+| Images | `wger/server:2.7.0` (web, celery_worker, celery_beat), `nginx:1.31.10-alpine`, `postgres:18.7-alpine`, `redis:8.12.0-alpine`, `journeyapps/powersync-service:1.28.3`; all digest-pinned, Renovate-tracked |
 | Upstream | `wger-project/docker` production compose at commit `bd7851e2` (2026-10-24), adapted to the [compose baseline](../reference/compose-baseline.md) |
 | Deploy | Komodo stack `wger` (`deploy = true`, webhook; `pre_deploy` creates the bind dirs, `op inject`s `.env`, appends the nginx/PowerSync config SHAs) |
 | Storage | `/opt/kdk-lab/wger/postgres` (Postgres 18), `/opt/kdk-lab/wger/media` (exercise images, uploads), `/opt/kdk-lab/wger/static` (collectstatic output, regenerable), `/opt/kdk-lab/wger/beat` (Celery beat schedule) |
