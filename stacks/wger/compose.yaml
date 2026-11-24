@@ -353,7 +353,7 @@ services:
 
   powersync:
     <<: *hardened
-    image: docker.io/journeyapps/powersync-service:1.28.3@sha256:effc8cfae91dcb2d4b5767b3b0a795d933701aa957a81af2bfce7fb15c2f47b4
+    image: docker.io/journeyapps/powersync-service:1.29.1@sha256:4c6c2c4312e7339206dfbc5cc385ae2a6e29e2908fa0b2a2d669f07f3c959635
     container_name: wger-powersync
     init: true                 # node service
     mem_limit: 512m
