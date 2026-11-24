@@ -8,7 +8,7 @@
 # small JRE. Nothing vendor-owned is in the repo. NO SECRET in any stage, ARG or layer:
 # the engine reads LEFU_SECRET_8 from its environment at run time only.
 # 21.0.13.1_2 had no linux/arm64 image on 2026-11-23 and kdk-dkr-02 is aarch64: check arm64 in the tag's index before any Temurin bump.
-FROM eclipse-temurin:21.0.13_9-jdk-noble@sha256:bc12ebd88ffa6dda0092940e179365b05aef8d813b867f9df5a1f168c9a44feb AS engine
+FROM eclipse-temurin:26.0.2.1_1-jdk-noble@sha256:9c0e8eddecccc0d5679b317b0c90fa7103ad25cae33df1c00280675eb681c7f8 AS engine
 ARG TARGETARCH
 WORKDIR /src
 COPY engine/fetch.sh engine/deps.lock engine/sdk.lock ./
