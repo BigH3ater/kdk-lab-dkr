@@ -10,7 +10,7 @@
 name: docs
 services:
   builder:
-    image: node:26.13.1-bookworm-slim@sha256:5df79989ed685e09f0a98019db4cebfb22fb9df1a53c0161664a011f7ff6b0f1
+    image: node:26.13.1-bookworm-slim@sha256:0042e17d232a87a2cd485be1da7900fca4d10a4ad11b29e9285da1d2e54798c9
     restart: unless-stopped
     entrypoint: ["/bin/sh", "-c"]
     command:
@@ -47,7 +47,7 @@ services:
       - ./theme:/theme:ro
       - site:/site
   nginx:
-    image: nginx:1.31.10-alpine@sha256:aceb952b920393b7d0bc7b978927fc283370bea89fb082c6fef0ce18c60f96a9
+    image: nginx:1.31.10-alpine@sha256:7fc0fb4af7bf006aeb31aea88069976060f8f0a0a86b667126742cc17f4e31ae
     restart: unless-stopped
     labels:
       traefik.enable: "true"

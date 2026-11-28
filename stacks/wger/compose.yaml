@@ -165,7 +165,7 @@ services:
 
   nginx:
     <<: *hardened
-    image: nginx:1.31.10-alpine@sha256:aceb952b920393b7d0bc7b978927fc283370bea89fb082c6fef0ce18c60f96a9
+    image: nginx:1.31.10-alpine@sha256:7fc0fb4af7bf006aeb31aea88069976060f8f0a0a86b667126742cc17f4e31ae
     container_name: wger-nginx
     # master runs as root and drops workers to `nginx`; creates its temp dirs under
     # /var/cache/nginx owned by the worker user.
@@ -266,7 +266,7 @@ services:
 
   cache:
     <<: *hardened
-    image: redis:8.12.0-alpine@sha256:ff55e25203f915f2fe9cc1428e6da969fec257dd6e6feb71a34fd0cf3a86b289
+    image: redis:8.12.0-alpine@sha256:5af80107c1eeecb484a2269b80a26d12bfa6521787da4663bd9f19f60a163483
     container_name: wger-cache
     # image's redis user: the entrypoint skips its chown/su-exec step when not root
     user: "999:1000"
