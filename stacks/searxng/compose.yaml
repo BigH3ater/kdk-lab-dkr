@@ -50,7 +50,7 @@ services:
     <<: *hardened
     # Rolling release: tags are YYYY.M.D-<commit> (no semver); Renovate tracks them with
     # the searxng regex rule in renovate.json.
-    image: docker.io/searxng/searxng:2026.11.23-a7163d091@sha256:a7fc607aa6723f5a8982105bcc5ffba4d1b9fc7c6922a31a88d6e4cba49ef12a
+    image: docker.io/searxng/searxng:2026.11.28-d96f0ec9b@sha256:cf1291dbfb8f21585ebbaeb2665d5ecd10431c62cbbcf6503301f362a9c3f6db
     container_name: searxng
     # The image's own searxng user (uid/gid 977, owns /etc/searxng and /var/cache/searxng
     # in the base image). The image defaults to root only so the entrypoint can chown
@@ -100,7 +100,7 @@ services:
 
   valkey:
     <<: *hardened
-    image: docker.io/valkey/valkey:9.2.0-alpine@sha256:c8e2d17498838af5d91e12eb7c11220b3434a7b7131a333e3af52ad5e0b80882
+    image: docker.io/valkey/valkey:9.2.1-alpine@sha256:3ad5a213cb1bc2fd4a113c89b6248a88655a6bf1dda69519d04e03cd3e3d2742
     container_name: searxng-valkey
     # image's valkey user: the entrypoint skips its chown/su-exec step when not root
     user: "999:1000"

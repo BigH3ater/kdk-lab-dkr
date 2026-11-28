@@ -4,7 +4,7 @@
 # re-run the validation in docs/runbooks/imaging.md. Renovate tracks only the base image.
 # compose.yaml names the image after both versions: bump that tag with the ARGs, so the
 # next Komodo deploy (no run_build) builds the new image instead of reusing the old one.
-FROM python:3.12.16-slim@sha256:5e2bdb1b0d542d5039cffb8181c65930093949194a65c365dfb1b0fe13a4fa5b AS fetch
+FROM python:3.12.16-slim@sha256:5b5fe805d367f8f5a359ded6ab2652b7f9a206453ee6ee789c0045ba6ec15016 AS fetch
 # BtbN static FFmpeg n9.0.2 (GPL). BtbN deletes its daily autobuilds after ~2 weeks but
 # keeps the last build of each month, so pin only a month-end release (here 2026-10-31;
 # the laptop ran the 2026-11-16 daily, n9.0.2-57, same release branch).
@@ -25,7 +25,7 @@ t=tarfile.open('photocraft.tar.gz'); [t.extract(m,'/x',filter='data') for m in t
     && mkdir /out && mv /x/*/bin/ffmpeg /x/*/bin/ffprobe /x/*/bin/photocraft-cli /out/ \
     && chmod 0755 /out/*
 
-FROM python:3.12.16-slim@sha256:5e2bdb1b0d542d5039cffb8181c65930093949194a65c365dfb1b0fe13a4fa5b
+FROM python:3.12.16-slim@sha256:5b5fe805d367f8f5a359ded6ab2652b7f9a206453ee6ee789c0045ba6ec15016
 COPY --from=fetch /out/ /usr/local/bin/
 # flatten.py is bind-mounted by compose.yaml (a code change needs no rebuild).
 ENV PYTHONUNBUFFERED=1 HOME=/tmp PHOTOCRAFT_NO_DESKTOP_INTEGRATION=1
